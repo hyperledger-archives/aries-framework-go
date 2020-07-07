@@ -22,6 +22,7 @@ type MockVDRIRegistry struct {
 	CreateValue  *did.Doc
 	CreateFunc   func(string, ...vdriapi.DocOpts) (*did.Doc, error)
 	MemStore     map[string]*did.Doc
+	StoreFunc    func(*did.Doc) error
 	PutErr       error
 	ResolveErr   error
 	ResolveValue *did.Doc
@@ -31,6 +32,10 @@ type MockVDRIRegistry struct {
 // Store stores the key and the record
 func (m *MockVDRIRegistry) Store(doc *did.Doc) error {
 	k := doc.ID
+
+	if m.StoreFunc != nil {
+		return m.StoreFunc(doc)
+	}
 
 	if len(m.MemStore) == 0 {
 		m.MemStore = make(map[string]*did.Doc)

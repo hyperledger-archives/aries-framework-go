@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -25,10 +28,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 const testMethod = "peer"
@@ -569,6 +575,100 @@ func TestService_Update(t *testing.T) {
 	err = json.Unmarshal(bytes, cr)
 	require.NoError(t, err)
 	require.Equal(t, cr, connRec)
+}
+
+func TestCreateConnection(t *testing.T) {
+	t.Run("create connection", func(t *testing.T) {
+		theirDID := newPeerDID(t)
+		record := &connection.Record{
+			ConnectionID:    uuid.New().String(),
+			State:           StateIDCompleted,
+			ThreadID:        uuid.New().String(),
+			ParentThreadID:  uuid.New().String(),
+			TheirLabel:      uuid.New().String(),
+			TheirDID:        theirDID.ID,
+			MyDID:           newPeerDID(t).ID,
+			ServiceEndPoint: "http://example.com",
+			RecipientKeys:   []string{"testkeys"},
+			InvitationID:    uuid.New().String(),
+			Namespace:       myNSPrefix,
+		}
+		storedInVDRI := false
+		storageProvider := &mockprovider.Provider{
+			StorageProviderValue:          mockstorage.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
+		}
+		provider := &mockprovider.Provider{
+			LegacyKMSValue:                &mocklegacykms.CloseableKMS{},
+			StorageProviderValue:          storageProvider.StorageProvider(),
+			TransientStorageProviderValue: storageProvider.TransientStorageProvider(),
+			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+				StoreFunc: func(result *did.Doc) error {
+					storedInVDRI = true
+					require.Equal(t, theirDID, result)
+
+					return nil
+				},
+			},
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		}
+		s, err := New(provider)
+		require.NoError(t, err)
+
+		err = s.CreateConnection(record, theirDID)
+		require.True(t, storedInVDRI)
+		require.NoError(t, err)
+
+		didConnStore, err := newConnectionStore(provider)
+		require.NoError(t, err)
+		result, err := didConnStore.GetConnectionRecord(record.ConnectionID)
+		require.NoError(t, err)
+		require.Equal(t, record, result)
+	})
+
+	t.Run("wraps vdri registry error", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			LegacyKMSValue:                &mocklegacykms.CloseableKMS{},
+			StorageProviderValue:          mockstorage.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+				PutErr: expected,
+			},
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		err = s.CreateConnection(&connection.Record{}, newPeerDID(t))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("wraps connection store error", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			LegacyKMSValue: &mocklegacykms.CloseableKMS{},
+			StorageProviderValue: &mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{ErrPut: expected},
+			},
+			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			VDRIRegistryValue:             &mockvdri.MockVDRIRegistry{},
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		err = s.CreateConnection(&connection.Record{
+			State: StateIDCompleted,
+		}, newPeerDID(t))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
 }
 
 type mockStore struct {
@@ -1802,4 +1902,35 @@ func testProvider() *protocol.MockProvider {
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	}
+}
+
+func newPeerDID(t *testing.T) *did.Doc {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	key := did.PublicKey{
+		ID:         uuid.New().String(),
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "did:example:123",
+		Value:      pubKey,
+	}
+	doc, err := peer.NewDoc(
+		[]did.PublicKey{key},
+		[]did.VerificationMethod{{
+			PublicKey:    key,
+			Relationship: 0,
+			Embedded:     true,
+			RelativeURL:  false,
+		}},
+		did.WithService([]did.Service{{
+			ID:              "didcomm",
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{base58.Encode(pubKey)},
+			ServiceEndpoint: "http://example.com",
+		}}),
+	)
+	require.NoError(t, err)
+
+	return doc
 }

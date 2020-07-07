@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -28,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -36,6 +36,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 const (
@@ -832,21 +833,27 @@ func TestCommand_SaveConnection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		connRec := &didexchange.ConnectionReq{
-			ThreadID:        uuid.New().String(),
-			ParentThreadID:  uuid.New().String(),
-			TheirLabel:      "alice",
-			TheirDID:        "did:example:123",
-			MyDID:           "did:example:789",
-			ServiceEndPoint: "http://example.com/didcomm",
-		}
-
-		connBytes, err := json.Marshal(connRec)
+		theirDID := newPeerDID(t)
+		theirDIDBytes, err := theirDID.JSONBytes()
 		require.NoError(t, err)
+
+		request := &CreateConnectionRequest{
+			MyDID: newPeerDID(t).ID,
+			TheirDID: DIDDocument{
+				ID:       theirDID.ID,
+				Contents: theirDIDBytes,
+			},
+			TheirLabel:     "alice",
+			InvitationID:   uuid.New().String(),
+			InvitationDID:  newPeerDID(t).ID,
+			ParentThreadID: uuid.New().String(),
+			ThreadID:       uuid.New().String(),
+			Implicit:       true,
+		}
 
 		var b bytes.Buffer
 
-		cmdErr := cmd.SaveConnection(&b, bytes.NewBuffer(connBytes))
+		cmdErr := cmd.CreateConnection(&b, bytes.NewBuffer(toBytes(t, request)))
 		require.NoError(t, cmdErr)
 
 		response := ConnectionIDArg{}
@@ -861,7 +868,7 @@ func TestCommand_SaveConnection(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SaveConnection(&b, bytes.NewBufferString(`--`))
+		cmdErr := cmd.CreateConnection(&b, bytes.NewBufferString(`--`))
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
 		require.Equal(t, command.ValidationError, cmdErr.Type())
@@ -941,4 +948,41 @@ func generateKeyPair() (string, []byte) {
 	}
 
 	return base58.Encode(pubKey[:]), privKey
+}
+
+func newPeerDID(t *testing.T) *did.Doc {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	key := did.PublicKey{
+		ID:         uuid.New().String(),
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "did:example:123",
+		Value:      pubKey,
+	}
+	doc, err := peer.NewDoc(
+		[]did.PublicKey{key},
+		[]did.VerificationMethod{{
+			PublicKey: key,
+			Embedded:  true,
+		}},
+		did.WithService([]did.Service{{
+			ID:              "didcomm",
+			Type:            "did-communication",
+			RecipientKeys:   []string{base58.Encode(pubKey)},
+			ServiceEndpoint: "http://example.com",
+		}}),
+	)
+	require.NoError(t, err)
+
+	return doc
+}
+
+func toBytes(t *testing.T, v interface{}) []byte {
+	t.Helper()
+
+	bits, err := json.Marshal(v)
+	require.NoError(t, err)
+
+	return bits
 }

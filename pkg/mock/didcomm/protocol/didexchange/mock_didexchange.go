@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -39,7 +40,7 @@ type MockDIDExchangeSvc struct {
 	ImplicitInvitationErr    error
 	RespondToFunc            func(*didexchange.OOBInvitation) (string, error)
 	SaveFunc                 func(invitation *didexchange.OOBInvitation) error
-	SaveConnRecordFunc       func(*connection.Record) error
+	CreateConnRecordFunc     func(*connection.Record, *did.Doc) error
 }
 
 // HandleInbound msg
@@ -159,10 +160,10 @@ func (m *MockDIDExchangeSvc) SaveInvitation(i *didexchange.OOBInvitation) error 
 	return nil
 }
 
-// SaveConnectionRecord saves the connection record.
-func (m *MockDIDExchangeSvc) SaveConnectionRecord(r *connection.Record) error {
-	if m.SaveConnRecordFunc != nil {
-		return m.SaveConnRecordFunc(r)
+// CreateConnection saves the connection record.
+func (m *MockDIDExchangeSvc) CreateConnection(r *connection.Record, theirDID *did.Doc) error {
+	if m.CreateConnRecordFunc != nil {
+		return m.CreateConnRecordFunc(r, theirDID)
 	}
 
 	return nil

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -67,8 +68,8 @@ type protocolService interface {
 	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
 	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
 
-	// SaveConnectionRecord saves the connection record.
-	SaveConnectionRecord(*connection.Record) error
+	// CreateConnection saves the connection record.
+	CreateConnection(*connection.Record, *did.Doc) error
 }
 
 // New return new instance of didexchange client
@@ -148,11 +149,11 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 
 // CreateInvitationWithDID creates an invitation with specified public DID. This invitation will be stored
 // so client can cross reference this invitation during did exchange protocol
-func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error) {
+func (c *Client) CreateInvitationWithDID(label, publicDID string) (*Invitation, error) {
 	invitation := &didexchange.Invitation{
 		ID:    uuid.New().String(),
 		Label: label,
-		DID:   did,
+		DID:   publicDID,
 		Type:  didexchange.InvitationMsgType,
 	}
 
@@ -284,31 +285,33 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 	}, nil
 }
 
-// SaveConnection saves a new connection record in completed state and returns the generated connectionID.
-func (c *Client) SaveConnection(req *ConnectionReq) (string, error) {
-	connectionID := uuid.New().String()
+// CreateConnection creates a new connection between myDID and theirDID and returns the connectionID.
+func (c *Client) CreateConnection(myDID string, theirDID *did.Doc, options ...ConnectionOption) (string, error) {
+	conn := &Connection{&connection.Record{
+		ConnectionID: uuid.New().String(),
+		State:        connection.StateNameCompleted,
+		TheirDID:     theirDID.ID,
+		MyDID:        myDID,
+		Namespace:    connection.MyNSPrefix,
+	}}
 
-	rec := &connection.Record{
-		ConnectionID:    connectionID,
-		State:           connection.StateNameCompleted,
-		ThreadID:        req.ThreadID,
-		ParentThreadID:  req.ParentThreadID,
-		TheirLabel:      req.TheirLabel,
-		TheirDID:        req.TheirDID,
-		MyDID:           req.MyDID,
-		ServiceEndPoint: req.ServiceEndPoint,
-		RecipientKeys:   req.RecipientKeys,
-		RoutingKeys:     req.RoutingKeys,
-		InvitationID:    req.InvitationID,
-		Namespace:       connection.MyNSPrefix,
+	for i := range options {
+		options[i](conn)
 	}
 
-	err := c.didexchangeSvc.SaveConnectionRecord(rec)
+	destination, err := service.CreateDestination(theirDID)
+	if err == nil {
+		conn.ServiceEndPoint = destination.ServiceEndpoint
+		conn.RecipientKeys = destination.RecipientKeys
+		conn.RoutingKeys = destination.RoutingKeys
+	}
+
+	err = c.didexchangeSvc.CreateConnection(conn.Record, theirDID)
 	if err != nil {
-		return "", fmt.Errorf("save connection: err: %w", err)
+		return "", fmt.Errorf("create connection: err: %w", err)
 	}
 
-	return connectionID, nil
+	return conn.ConnectionID, nil
 }
 
 // RemoveConnection removes connection record for given id
@@ -319,4 +322,49 @@ func (c *Client) RemoveConnection(connectionID string) error {
 	}
 
 	return nil
+}
+
+// ConnectionOption allows you to customize details of the connection record.
+type ConnectionOption func(*Connection)
+
+// WithTheirLabel sets TheirLabel on the connection record.
+func WithTheirLabel(l string) ConnectionOption {
+	return func(c *Connection) {
+		c.TheirLabel = l
+	}
+}
+
+// WithThreadID sets ThreadID on the connection record.
+func WithThreadID(thid string) ConnectionOption {
+	return func(c *Connection) {
+		c.ThreadID = thid
+	}
+}
+
+// WithParentThreadID sets ParentThreadID on the connection record.
+func WithParentThreadID(pthid string) ConnectionOption {
+	return func(c *Connection) {
+		c.ParentThreadID = pthid
+	}
+}
+
+// WithInvitationID sets InvitationID on the connection record.
+func WithInvitationID(id string) ConnectionOption {
+	return func(c *Connection) {
+		c.InvitationID = id
+	}
+}
+
+// WithInvitationDID sets InvitationDID on the connection record.
+func WithInvitationDID(didID string) ConnectionOption {
+	return func(c *Connection) {
+		c.InvitationDID = didID
+	}
+}
+
+// WithImplicit sets Implicit on the connection record.
+func WithImplicit(i bool) ConnectionOption {
+	return func(c *Connection) {
+		c.Implicit = i
+	}
 }
