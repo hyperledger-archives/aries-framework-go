@@ -468,7 +468,7 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 
 	// send message to the router
 	if err := s.outbound.SendToDID(req, conn.MyDID, conn.TheirDID); err != nil {
-		return -1, fmt.Errorf("send route request: %w", err)
+		return -1, fmt.Errorf("send batch pickup request: %w", err)
 	}
 
 	// callback processing (to make this function look like a sync function)
@@ -489,6 +489,22 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 	}
 
 	return processed, nil
+}
+
+// Noop a noop message
+func (s *Service) Noop(connectionID string) error {
+	// get the connection record for the ID to fetch DID information
+	conn, err := s.getConnection(connectionID)
+	if err != nil {
+		return err
+	}
+
+	noop := &Noop{}
+	if err := s.outbound.SendToDID(noop, conn.MyDID, conn.TheirDID); err != nil {
+		return fmt.Errorf("send noop request: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) getConnection(routerConnID string) (*connection.Record, error) {

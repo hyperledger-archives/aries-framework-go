@@ -773,7 +773,7 @@ func TestBatchPickup(t *testing.T) {
 
 		_, err = svc.BatchPickup("conn1", 4)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "send route request")
+		require.Contains(t, err.Error(), "send batch pickup request")
 	})
 }
 
@@ -814,8 +814,95 @@ func TestHandleOutbound(t *testing.T) {
 		require.Contains(t, err.Error(), "not implemented")
 	})
 }
-func TestPullMessages(t *testing.T) {
+func TestNoop(t *testing.T) {
+	t.Run("test MessagePickupService.Noop() - success", func(t *testing.T) {
+		s := make(map[string][]byte)
 
+		provider := &mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+
+					_, ok := msg.(*Noop)
+					require.True(t, ok)
+
+					return nil
+				}},
+		}
+
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+
+		s["conn_conn1"] = connBytes
+
+		r, err := connection.NewRecorder(provider)
+		require.NoError(t, err)
+		err = r.SaveConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		svc, err := New(provider, &mockTransportProvider{
+			packagerValue: &mockPackager{},
+		})
+		require.NoError(t, err)
+
+		err = svc.Noop("conn1")
+		require.NoError(t, err)
+	})
+
+	t.Run("test MessagePickupService.Noop() - send to DID error", func(t *testing.T) {
+		s := make(map[string][]byte)
+
+		provider := &mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					return errors.New("send error")
+				}},
+		}
+
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+
+		s["conn_conn1"] = connBytes
+
+		r, err := connection.NewRecorder(provider)
+		require.NoError(t, err)
+		err = r.SaveConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		svc, err := New(provider, &mockTransportProvider{
+			packagerValue: &mockPackager{},
+		})
+		require.NoError(t, err)
+
+		err = svc.Noop("conn1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "send noop request")
+	})
+
+	t.Run("test MessagePickupService.Noop() - connection error", func(t *testing.T) {
+		svc, err := getService()
+		require.NoError(t, err)
+
+		expected := errors.New("get error")
+		svc.connectionLookup = &connectionsStub{
+			getConnRecord: func(string) (*connection.Record, error) {
+				return nil, expected
+			},
+		}
+
+		err = svc.Noop("conn1")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
 }
 
 func TestGetConnection(t *testing.T) {

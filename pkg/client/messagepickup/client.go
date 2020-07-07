@@ -31,6 +31,8 @@ type protocolService interface {
 	StatusRequest(connectionID string) (*messagepickup.Status, error)
 
 	BatchPickup(connectionID string, size int) (int, error)
+
+	Noop(connectionID string) error
 }
 
 // New return new instance of messagepickup client
@@ -70,4 +72,9 @@ func (r *Client) BatchPickup(connectionID string, size int) (int, error) {
 	}
 
 	return count, nil
+}
+
+// Noop a message to reestablish a connection when there is no other reason to message the mediator
+func (r *Client) Noop(connectionID string) error {
+	return r.messagepickupSvc.Noop(connectionID)
 }

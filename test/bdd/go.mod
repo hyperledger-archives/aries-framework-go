@@ -24,8 +24,7 @@ require (
 	github.com/piprate/json-gold v0.3.0
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/trustbloc/sidetree-core-go v0.1.3
-	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
+	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	google.golang.org/genproto v0.0.0-20200211111953-2dc5924e3898 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
 	nhooyr.io/websocket v1.8.3
