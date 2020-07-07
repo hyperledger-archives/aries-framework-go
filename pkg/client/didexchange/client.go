@@ -66,6 +66,9 @@ type protocolService interface {
 	// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
 	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
+
+	// SaveConnectionRecord saves the connection record.
+	SaveConnectionRecord(*connection.Record) error
 }
 
 // New return new instance of didexchange client
@@ -300,7 +303,7 @@ func (c *Client) SaveConnection(req *ConnectionReq) (string, error) {
 		Namespace:       connection.MyNSPrefix,
 	}
 
-	err := c.connectionStore.SaveConnectionRecord(rec)
+	err := c.didexchangeSvc.SaveConnectionRecord(rec)
 	if err != nil {
 		return "", fmt.Errorf("save connection: err: %w", err)
 	}

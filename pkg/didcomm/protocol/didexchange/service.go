@@ -551,7 +551,13 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
 	}
 
-	return s.connectionStore.saveConnectionRecord(connectionRecord)
+	return s.SaveConnectionRecord(connectionRecord)
+}
+
+// SaveConnectionRecord saves the record to the connection store and maps TheirDID to their recipient keys in
+// the did connection store.
+func (s *Service) SaveConnectionRecord(record *connection.Record) error {
+	return s.connectionStore.saveConnectionRecord(record)
 }
 
 func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
@@ -607,7 +613,7 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		connRecord.InvitationDID = publicDID
 	}
 
-	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+	if err := s.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
@@ -644,7 +650,7 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 		Namespace:       findNamespace(msg.Type()),
 	}
 
-	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+	if err := s.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
@@ -673,7 +679,7 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		Namespace:    theirNSPrefix,
 	}
 
-	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+	if err := s.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
