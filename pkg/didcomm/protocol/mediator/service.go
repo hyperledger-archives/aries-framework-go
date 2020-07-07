@@ -261,21 +261,28 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 			err = s.handleForward(msg)
 		}
 
-		connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
-		if connErr != nil {
-			logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
+		connectionIDLog := ""
+
+		// mediator forward messages don't have connection established with the sender; hence skip the lookup
+		if msg.Type() != service.ForwardMsgType {
+			connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+			if connErr != nil {
+				logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
+			}
+
+			connectionIDLog = logutil.CreateKeyValueString("connectionID", connectionID)
 		}
 
 		if err != nil {
 			logutil.LogError(logger, Coordination, "processMessage", err.Error(),
 				logutil.CreateKeyValueString("msgType", msg.Type()),
 				logutil.CreateKeyValueString("msgID", msg.ID()),
-				logutil.CreateKeyValueString("connectionID", connectionID))
+				connectionIDLog)
 		} else {
 			logutil.LogDebug(logger, Coordination, "processMessage", "success",
 				logutil.CreateKeyValueString("msgType", msg.Type()),
 				logutil.CreateKeyValueString("msgID", msg.ID()),
-				logutil.CreateKeyValueString("connectionID", connectionID))
+				connectionIDLog)
 		}
 	}()
 
