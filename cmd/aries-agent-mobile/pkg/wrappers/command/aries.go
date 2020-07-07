@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -24,8 +24,7 @@ type Aries struct {
 }
 
 // NewAries returns a new Aries instance that contains handlers and an Aries framework instance.
-func NewAries() (*Aries, error) {
-	// TODO receive options
+func NewAries(opts *api.Options) (*Aries, error) {
 	storageProvider := mem.NewProvider()
 
 	framework, err := aries.New(aries.WithStoreProvider(storageProvider))
@@ -51,9 +50,9 @@ func NewAries() (*Aries, error) {
 
 // GetIntroduceController returns an Introduce instance
 func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
-	handlers, ok := a.handlers[wrappers.ProtocolIntroduce]
+	handlers, ok := a.handlers[cmdintroduce.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for protocol [%s]", wrappers.ProtocolIntroduce)
+		return nil, fmt.Errorf("no endpoints found for protocol [%s]", cmdintroduce.CommandName)
 	}
 
 	return &Introduce{handlers: handlers}, nil

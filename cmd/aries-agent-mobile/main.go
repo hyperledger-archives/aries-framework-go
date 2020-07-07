@@ -13,12 +13,10 @@ import (
 )
 
 // NewAriesAgent initializes and returns an implementation of the AriesController
-func NewAriesAgent(local bool) (api.AriesController, error) {
-	// TODO derive from some `options []Option` parameter instead of a boolean flag
-	if !local {
-		return rest.NewAries(), nil
+func NewAriesAgent(opts *api.Options) (api.AriesController, error) {
+	if !opts.UseLocalAgent {
+		return rest.NewAries(opts), nil
 	}
 
-	// TODO unpack options here and pass them down
-	return command.NewAries()
+	return command.NewAries(opts)
 }

@@ -11,28 +11,27 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/command"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/rest"
 )
 
 func TestNewAriesAgent(t *testing.T) {
 	t.Run("test it creates a local agent", func(t *testing.T) {
-		isLocal := true
-		localAries, err := NewAriesAgent(isLocal)
+		localAgent, err := NewAriesAgent(&api.Options{UseLocalAgent: true})
 		require.NoError(t, err)
-		require.NotNil(t, localAries)
+		require.NotNil(t, localAgent)
 
 		var a *command.Aries
-		require.IsType(t, a, localAries)
+		require.IsType(t, a, localAgent)
 	})
 
 	t.Run("test it creates a remote agent", func(t *testing.T) {
-		isLocal := false
-		remoteAries, err := NewAriesAgent(isLocal)
+		remoteAgent, err := NewAriesAgent(&api.Options{UseLocalAgent: false})
 		require.NoError(t, err)
-		require.NotNil(t, remoteAries)
+		require.NotNil(t, remoteAgent)
 
 		var a *rest.AriesREST
-		require.IsType(t, a, remoteAries)
+		require.IsType(t, a, remoteAgent)
 	})
 }

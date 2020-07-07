@@ -24,18 +24,19 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
+// constants for operation introduce
 const (
-	operationID                       = "/introduce"
-	actions                           = operationID + "/actions"
-	sendProposal                      = operationID + "/send-proposal"
-	sendProposalWithOOBRequest        = operationID + "/send-proposal-with-oob-request"
-	sendRequest                       = operationID + "/send-request"
-	acceptProposalWithOOBRequest      = operationID + "/{piid}/accept-proposal-with-oob-request"
-	acceptProposal                    = operationID + "/{piid}/accept-proposal"
-	acceptRequestWithPublicOOBRequest = operationID + "/{piid}/accept-request-with-public-oob-request"
-	acceptRequestWithRecipients       = operationID + "/{piid}/accept-request-with-recipients"
-	declineProposal                   = operationID + "/{piid}/decline-proposal"
-	declineRequest                    = operationID + "/{piid}/decline-request"
+	OperationID                       = "/introduce"
+	Actions                           = OperationID + "/actions"
+	SendProposal                      = OperationID + "/send-proposal"
+	SendProposalWithOOBRequest        = OperationID + "/send-proposal-with-oob-request"
+	SendRequest                       = OperationID + "/send-request"
+	AcceptProposalWithOOBRequest      = OperationID + "/{piid}/accept-proposal-with-oob-request"
+	AcceptProposal                    = OperationID + "/{piid}/accept-proposal"
+	AcceptRequestWithPublicOOBRequest = OperationID + "/{piid}/accept-request-with-public-oob-request"
+	AcceptRequestWithRecipients       = OperationID + "/{piid}/accept-request-with-recipients"
+	DeclineProposal                   = OperationID + "/{piid}/decline-proposal"
+	DeclineRequest                    = OperationID + "/{piid}/decline-request"
 )
 
 // Operation is controller REST service controller for the introduce
@@ -66,16 +67,16 @@ func (c *Operation) GetRESTHandlers() []rest.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(actions, http.MethodGet, c.Actions),
-		cmdutil.NewHTTPHandler(sendProposal, http.MethodPost, c.SendProposal),
-		cmdutil.NewHTTPHandler(sendProposalWithOOBRequest, http.MethodPost, c.SendProposalWithOOBRequest),
-		cmdutil.NewHTTPHandler(sendRequest, http.MethodPost, c.SendRequest),
-		cmdutil.NewHTTPHandler(acceptProposalWithOOBRequest, http.MethodPost, c.AcceptProposalWithOOBRequest),
-		cmdutil.NewHTTPHandler(acceptProposal, http.MethodPost, c.AcceptProposal),
-		cmdutil.NewHTTPHandler(acceptRequestWithPublicOOBRequest, http.MethodPost, c.AcceptRequestWithPublicOOBRequest),
-		cmdutil.NewHTTPHandler(acceptRequestWithRecipients, http.MethodPost, c.AcceptRequestWithRecipients),
-		cmdutil.NewHTTPHandler(declineProposal, http.MethodPost, c.DeclineProposal),
-		cmdutil.NewHTTPHandler(declineRequest, http.MethodPost, c.DeclineRequest),
+		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
+		cmdutil.NewHTTPHandler(SendProposal, http.MethodPost, c.SendProposal),
+		cmdutil.NewHTTPHandler(SendProposalWithOOBRequest, http.MethodPost, c.SendProposalWithOOBRequest),
+		cmdutil.NewHTTPHandler(SendRequest, http.MethodPost, c.SendRequest),
+		cmdutil.NewHTTPHandler(AcceptProposalWithOOBRequest, http.MethodPost, c.AcceptProposalWithOOBRequest),
+		cmdutil.NewHTTPHandler(AcceptProposal, http.MethodPost, c.AcceptProposal),
+		cmdutil.NewHTTPHandler(AcceptRequestWithPublicOOBRequest, http.MethodPost, c.AcceptRequestWithPublicOOBRequest),
+		cmdutil.NewHTTPHandler(AcceptRequestWithRecipients, http.MethodPost, c.AcceptRequestWithRecipients),
+		cmdutil.NewHTTPHandler(DeclineProposal, http.MethodPost, c.DeclineProposal),
+		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
 	}
 }
 

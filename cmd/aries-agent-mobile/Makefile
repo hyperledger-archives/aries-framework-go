@@ -7,11 +7,9 @@ GO_CMD ?= go
 GOMOBILE_CMD ?= gomobile
 
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
-MOBILE_BUILD_PACKAGES := $(PROJECT_ROOT)/cmd/aries-agent-mobile/ \
-								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/api \
-								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers \
-								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers/command \
-								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers/rest
+MOBILE_PROJECT_ROOT = $(PROJECT_ROOT)/cmd/aries-agent-mobile
+
+MOBILE_BUILD_PACKAGES := $(MOBILE_PROJECT_ROOT)/...
 
 MAKEFILE_DIR := ${CURDIR}
 BUILD_DIR = $(MAKEFILE_DIR)/build
@@ -92,7 +90,7 @@ ifeq ($(IS_MACOS),true)
 	@mkdir -p $(IOS_BUILD_DIR)
 	$(GOMOBILE_CMD) bind -v -target=$(IOS_TARGET) -o=$(IOS_BUILD_DIR)/$(IOS_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
 else
-	@echo 'Skipping iOS bindings. Only available for Darwin operating systems'
+	@echo 'Skipping iOS bindings. Only available for Darwin operating systems.'
 endif
 
 .PHONY: unit-test
@@ -100,4 +98,5 @@ unit-test:
 	@echo '----------------------------------------'
 	@echo '   Running unit tests                   '
 	@echo '----------------------------------------'
-	@go test $(MOBILE_BUILD_PACKAGES) -count=1 -race -timeout=10m
+	@go test $(MOBILE_BUILD_PACKAGES) -count=1 -race -timeout=10m -cover
+	

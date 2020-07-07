@@ -62,7 +62,7 @@ $ make bindings-ios
 - Click **OK** and select **Apply** if applicable and then **OK**.
 
 #### Code sample
-This is an example of how the imported library can be used:
+This is an example of how the imported module can be used:
 ```java
 import org.hyperledger.aries.api.AriesController;
 import org.hyperledger.aries.api.IntroduceController;
@@ -91,9 +91,9 @@ import org.hyperledger.aries.wrappers.*;
 - In the displayed modal, navigate to the path of your `AriesAgent.framework` file and click **Add**.
 
 #### Code sample
+This is an example of how the imported framework can be used:
 ```objc
 #import <AriesAgent/Ariesagent.h>
-This is an example of how the imported framework can be used:
 /*
 ...
 */
@@ -102,6 +102,12 @@ This is an example of how the imported framework can be used:
     WrappersIntroduceActionsResponse *resp = [ic actions:nil];
     NSString *actionsResp = resp.actionsResponse;
 ```
+
+
+### c. Demo apps
+
+For examples of mobile apps built with the aries-agent-mobile bindings, see [trustbloc/aries-examples](https://github.com/trustbloc/aries-examples).
+
 
 ## 4. Test
 
@@ -117,4 +123,4 @@ TODO
 
 ## 6. Contribute
 
-Follow the [guidelines](https://github.com/hyperledger/aries-framework-go/blob/master/.github/CONTRIBUTING.md) from the parent project.
+See the [guidelines](https://github.com/hyperledger/aries-framework-go/blob/master/.github/CONTRIBUTING.md) from the parent project.
