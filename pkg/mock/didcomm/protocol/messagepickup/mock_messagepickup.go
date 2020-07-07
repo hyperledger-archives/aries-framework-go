@@ -24,6 +24,8 @@ type MockMessagePickupSvc struct {
 	HandleOutboundFunc func(_ service.DIDCommMsg, _, _ string) (string, error)
 	AddMessageFunc     func(message *model.Envelope, theirDID string) error
 	AcceptFunc         func(msgType string) bool
+	NoopErr            error
+	NoopFunc           func(connectionID string) error
 }
 
 // Name return service name
@@ -83,6 +85,19 @@ func (m *MockMessagePickupSvc) Accept(msgType string) bool {
 func (m *MockMessagePickupSvc) AddMessage(message *model.Envelope, theirDID string) error {
 	if m.AddMessageFunc != nil {
 		return m.AddMessageFunc(message, theirDID)
+	}
+
+	return nil
+}
+
+// Noop perform Noop
+func (m *MockMessagePickupSvc) Noop(connectionID string) error {
+	if m.NoopErr != nil {
+		return m.NoopErr
+	}
+
+	if m.NoopFunc != nil {
+		return m.NoopFunc(connectionID)
 	}
 
 	return nil

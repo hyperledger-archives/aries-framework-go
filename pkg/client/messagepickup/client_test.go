@@ -88,3 +88,28 @@ func TestBatchPickup(t *testing.T) {
 		require.Contains(t, err.Error(), "service error")
 	})
 }
+
+func TestNoop(t *testing.T) {
+	t.Run("noop - success", func(t *testing.T) {
+		client, err := New(&mockprovider.Provider{
+			ServiceValue: &mockpickup.MockMessagePickupSvc{},
+		})
+		require.NoError(t, err)
+
+		err = client.Noop("connID")
+		require.NoError(t, err)
+	})
+
+	t.Run("noop - service error", func(t *testing.T) {
+		client, err := New(&mockprovider.Provider{
+			ServiceValue: &mockpickup.MockMessagePickupSvc{
+				NoopErr: errors.New("service error"),
+			},
+		})
+		require.NoError(t, err)
+
+		err = client.Noop("connID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service error")
+	})
+}
