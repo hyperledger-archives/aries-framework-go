@@ -20,6 +20,7 @@ const (
 	registerPath      = routeOperationID + "/register"
 	unregisterPath    = routeOperationID + "/unregister"
 	getConnectionPath = routeOperationID + "/connection"
+	reconnectPath     = routeOperationID + "/reconnect"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -59,6 +60,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
 		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
 		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.Connection),
+		cmdutil.NewHTTPHandler(reconnectPath, http.MethodPost, o.Reconnect),
 	}
 }
 
@@ -92,4 +94,14 @@ func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
 //    200: getConnectionResponse
 func (o *Operation) Connection(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Connection, rw, req.Body)
+}
+
+// Reconnect swagger:route POST /mediator/reconnect mediator reconnectRouteRequest
+//
+// Reconnect the agent with the router to re-establish lost connection.
+//
+// Responses:
+//    default: genericError
+func (o *Operation) Reconnect(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Reconnect, rw, req.Body)
 }

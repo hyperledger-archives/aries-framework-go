@@ -15,15 +15,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	messagepickupSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
+
+const sampleConnRequest = `{"connectionID":"123-abc"}`
 
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -31,7 +38,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 3, len(handlers))
+		require.Equal(t, 4, len(handlers))
 	})
 
 	t.Run("test new command - client creation fail", func(t *testing.T) {
@@ -49,23 +56,28 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		jsonReq := `{"connectionID":"123-abc"}`
 		var b bytes.Buffer
-		err = cmd.Register(&b, bytes.NewBufferString(jsonReq))
+		err = cmd.Register(&b, bytes.NewBufferString(sampleConnRequest))
 		require.NoError(t, err)
 	})
 
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -82,7 +94,10 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -98,9 +113,12 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error {
-						return errors.New("register error")
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination: &mockroute.MockMediatorSvc{
+						RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error {
+							return errors.New("register error")
+						},
 					},
 				},
 			},
@@ -109,9 +127,8 @@ func TestRegisterRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		jsonReq := `{"connectionID":"123-abc"}`
 		var b bytes.Buffer
-		err = cmd.Register(&b, bytes.NewBufferString(jsonReq))
+		err = cmd.Register(&b, bytes.NewBufferString(sampleConnRequest))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router registration")
 	})
@@ -121,7 +138,10 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -136,8 +156,11 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister - error", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					UnregisterErr: errors.New("unregister error"),
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination: &mockroute.MockMediatorSvc{
+						UnregisterErr: errors.New("unregister error"),
+					},
 				},
 			},
 			false,
@@ -158,8 +181,11 @@ func TestGetConnectionID(t *testing.T) {
 
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					ConnectionID: routerConnectionID,
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination: &mockroute.MockMediatorSvc{
+						ConnectionID: routerConnectionID,
+					},
 				},
 			},
 			false,
@@ -180,8 +206,11 @@ func TestGetConnectionID(t *testing.T) {
 	t.Run("test get connection - error", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					GetConnectionIDErr: errors.New("get connectionID error"),
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination: &mockroute.MockMediatorSvc{
+						GetConnectionIDErr: errors.New("get connectionID error"),
+					},
 				},
 			},
 			false,
@@ -193,5 +222,85 @@ func TestGetConnectionID(t *testing.T) {
 		err = cmd.Connection(&b, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get router connectionID")
+	})
+}
+
+func TestReconnect(t *testing.T) {
+	t.Run("test reconnect - success", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Reconnect(&b, bytes.NewBufferString(sampleConnRequest))
+		require.NoError(t, err)
+	})
+
+	t.Run("test reconnect - empty connectionID", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		jsonReq := `{"connectionID":""}`
+		var b bytes.Buffer
+		err = cmd.Reconnect(&b, bytes.NewBufferString(jsonReq))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "connectionID is mandatory")
+	})
+
+	t.Run("test reconnect - invalid request", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Reconnect(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test register - failure", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						NoopErr: errors.New("reconnect error"),
+					},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Reconnect(&b, bytes.NewBufferString(sampleConnRequest))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "reconnect error")
 	})
 }

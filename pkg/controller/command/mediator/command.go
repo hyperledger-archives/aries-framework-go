@@ -13,6 +13,7 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/client/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -27,7 +28,7 @@ const (
 	// InvalidRequestErrorCode for invalid requests
 	InvalidRequestErrorCode = command.Code(iota + command.ROUTE)
 
-	// ResponseWriteErrorCode for response write error
+	// ResponseWriteErrorCode for connection ID validation error
 	RegisterMissingConnIDCode
 
 	// RegisterRouterErrorCode for register router error
@@ -38,6 +39,12 @@ const (
 
 	// Connection for get connection id error
 	GetConnectionIDErrorCode
+
+	// ReconnectMissingConnIDCode for connection ID validation error
+	ReconnectMissingConnIDCode
+
+	// ReconnectRouterErrorCode for reconnecting router error
+	ReconnectRouterErrorCode
 )
 
 const (
@@ -48,6 +55,7 @@ const (
 	registerCommandMethod        = "Register"
 	unregisterCommandMethod      = "Unregister"
 	getConnectionIDCommandMethod = "Connection"
+	reconnectCommandMethod       = "Reconnect"
 
 	// log constants
 	connectionID  = "connectionID"
@@ -61,7 +69,8 @@ type provider interface {
 
 // Command contains command operations provided by route controller.
 type Command struct {
-	routeClient *mediator.Client
+	routeClient   *mediator.Client
+	messageClient *messagepickup.Client
 }
 
 // New returns new route controller command instance.
@@ -87,8 +96,14 @@ func New(ctx provider, autoAccept bool) (*Command, error) {
 		go service.AutoExecuteActionEvent(actions)
 	}
 
+	messageClient, err := messagepickup.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create message client : %w", err)
+	}
+
 	return &Command{
-		routeClient: routeClient,
+		routeClient:   routeClient,
+		messageClient: messageClient,
 	}, nil
 }
 
@@ -98,10 +113,12 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),
 		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
 		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.Connection),
+		cmdutil.NewCommandHandler(commandName, reconnectCommandMethod, o.Reconnect),
 	}
 }
 
 // Register registers the agent with the router.
+// nolint:dupl
 func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterRoute
 
@@ -160,6 +177,38 @@ func (o *Command) Connection(rw io.Writer, req io.Reader) command.Error {
 	}, logger)
 
 	logutil.LogDebug(logger, commandName, getConnectionIDCommandMethod, successString)
+
+	return nil
+}
+
+// Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator
+// nolint:dupl
+func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
+	var request RegisterRoute
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, reconnectCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ConnectionID == "" {
+		logutil.LogDebug(logger, commandName, reconnectCommandMethod, "missing connectionID",
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewValidationError(ReconnectMissingConnIDCode, errors.New("connectionID is mandatory"))
+	}
+
+	err = o.messageClient.Noop(request.ConnectionID)
+	if err != nil {
+		logutil.LogError(logger, commandName, reconnectCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewExecuteError(ReconnectRouterErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, commandName, reconnectCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil
 }

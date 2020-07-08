@@ -39,7 +39,7 @@ type protocolService interface {
 func New(ctx provider) (*Client, error) {
 	svc, err := ctx.Service(messagepickup.MessagePickup)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create msg pickup service: %w", err)
 	}
 
 	messagepickupSvc, ok := svc.(protocolService)

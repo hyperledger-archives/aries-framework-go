@@ -110,6 +110,10 @@ const pkgs = {
             path: "/mediator/connection",
             method: "GET"
         },
+        Reconnect: {
+            path: "/mediator/reconnect",
+            method: "POST"
+        },
     },
     verifiable: {
         ValidateCredential: {

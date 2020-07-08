@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	mdissuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
 	mdpresentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
@@ -68,7 +69,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	// - Introduce depends on OutOfBand
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
 		newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(), newIntroduceSvc(),
-		newIssueCredentialSvc(), newPresentProofSvc(),
+		newIssueCredentialSvc(), newPresentProofSvc(), messagepickup.ServiceCreator(),
 	)
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {

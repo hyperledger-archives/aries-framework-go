@@ -22,7 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	mediatorSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	messagepickupSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
@@ -30,7 +33,10 @@ func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -52,7 +58,10 @@ func TestNew(t *testing.T) {
 func TestGetAPIHandlers(t *testing.T) {
 	svc, err := New(
 		&mockprovider.Provider{
-			ServiceValue: &mockroute.MockMediatorSvc{},
+			ServiceMap: map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+				mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+			},
 		},
 		false,
 	)
@@ -60,14 +69,17 @@ func TestGetAPIHandlers(t *testing.T) {
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
-	require.Equal(t, len(handlers), 3)
+	require.Equal(t, len(handlers), 4)
 }
 
 func TestRegisterRoute(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -93,7 +105,10 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -117,7 +132,10 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
 			},
 			false,
 		)
@@ -132,8 +150,11 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					UnregisterErr: errors.New("unregister error"),
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+						UnregisterErr: errors.New("unregister error"),
+					},
 				},
 			},
 			false,
@@ -155,26 +176,42 @@ func TestUnregisterRoute(t *testing.T) {
 }
 
 func TestGetConnection(t *testing.T) {
-	t.Run("test unregister route - success", func(t *testing.T) {
+	t.Run("test get connection - success", func(t *testing.T) {
+		routerConnectionID := "conn-abc"
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{},
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+						ConnectionID: routerConnectionID,
+					},
+				},
 			},
 			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, unregisterPath)
-		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
+		handler := lookupHandler(t, svc, getConnectionPath)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
 		require.NoError(t, err)
+
+		response := ConnectionRes{}
+		err = json.Unmarshal(buf.Bytes(), &response.Params)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
 	})
 
-	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
+	t.Run("test get connection - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockMediatorSvc{
-					UnregisterErr: errors.New("unregister error"),
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+						GetConnectionIDErr: errors.New("get connection ID error"),
+					},
 				},
 			},
 			false,
@@ -185,13 +222,62 @@ func TestGetConnection(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, unregisterPath)
+		handler := lookupHandler(t, svc, getConnectionPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, mediator.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
+		verifyError(t, mediator.GetConnectionIDErrorCode, "get connection ID error", buf.Bytes())
+	})
+}
+
+func TestReconnect(t *testing.T) {
+	t.Run("test register route - success", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		var jsonStr = []byte(`{
+		"connectionID":"abc-123"
+		}`)
+
+		handler := lookupHandler(t, svc, reconnectPath)
+		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+	})
+
+	t.Run("test register route - missing connectionID", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		var jsonStr = []byte(`{
+		}`)
+
+		handler := lookupHandler(t, svc, reconnectPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, mediator.ReconnectMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
 	})
 }
 

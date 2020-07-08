@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package mediator
 
-// RegisterRoute contains parameters for registering router.
+// RegisterRoute contains parameters for registering/reconnecting router.
 type RegisterRoute struct {
 	ConnectionID string `json:"connectionID"`
 }
