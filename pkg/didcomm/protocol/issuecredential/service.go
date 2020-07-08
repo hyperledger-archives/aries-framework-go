@@ -68,6 +68,7 @@ type metaData struct {
 	state           state
 	msgClone        service.DIDCommMsg
 	inbound         bool
+	properties      map[string]interface{}
 	credentialNames []string
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function
@@ -102,6 +103,10 @@ func (md *metaData) CredentialNames() []string {
 
 func (md *metaData) StateName() string {
 	return md.state.Name()
+}
+
+func (md *metaData) Properties() map[string]interface{} {
+	return md.properties
 }
 
 // Action contains helpful information about action
@@ -296,8 +301,9 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 				PIID: piID,
 			},
 		},
-		state:    next,
-		msgClone: msg.Clone(),
+		properties: map[string]interface{}{},
+		state:      next,
+		msgClone:   msg.Clone(),
 	}, nil
 }
 
@@ -498,6 +504,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
+		properties:          map[string]interface{}{},
 	}
 
 	if opt != nil {
@@ -525,6 +532,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
+		properties:          map[string]interface{}{},
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {

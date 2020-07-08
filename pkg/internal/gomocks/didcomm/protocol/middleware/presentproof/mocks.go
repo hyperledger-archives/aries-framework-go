@@ -129,6 +129,20 @@ func (mr *MockMetadataMockRecorder) PresentationNames() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentationNames", reflect.TypeOf((*MockMetadata)(nil).PresentationNames))
 }
 
+// Properties mocks base method
+func (m *MockMetadata) Properties() map[string]interface{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Properties")
+	ret0, _ := ret[0].(map[string]interface{})
+	return ret0
+}
+
+// Properties indicates an expected call of Properties
+func (mr *MockMetadataMockRecorder) Properties() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Properties", reflect.TypeOf((*MockMetadata)(nil).Properties))
+}
+
 // ProposePresentation mocks base method
 func (m *MockMetadata) ProposePresentation() *presentproof.ProposePresentation {
 	m.ctrl.T.Helper()

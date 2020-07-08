@@ -147,9 +147,12 @@ func TestSaveCredentials(t *testing.T) {
 		const vcName = "vc-name"
 		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 
+		props := map[string]interface{}{}
+
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
@@ -185,6 +188,54 @@ func TestSaveCredentials(t *testing.T) {
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
+		require.Equal(t, props["names"], []string{vcName})
+	})
+
+	t.Run("Success (no ID)", func(t *testing.T) {
+		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+
+		props := map[string]interface{}{}
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
+		metadata.EXPECT().CredentialNames().Return([]string{})
+		metadata.EXPECT().Properties().Return(props)
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+			Type: issuecredential.IssueCredentialMsgType,
+			CredentialsAttach: []decorator.Attachment{
+				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
+					Context: []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://www.w3.org/2018/credentials/examples/v1"},
+					Types: []string{
+						"VerifiableCredential",
+						"UniversityDegreeCredential"},
+					Subject: struct {
+						ID string
+					}{ID: "SubjectID"},
+					Issuer: verifiable.Issuer{
+						ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						CustomFields: verifiable.CustomFields{"name": "Example University"},
+					},
+					Issued:  util.NewTime(issued),
+					Schemas: []verifiable.TypedID{},
+					CustomFields: map[string]interface{}{
+						"referenceNumber": 83294847,
+					},
+				}}},
+			},
+		}))
+
+		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+
+		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
+		require.Equal(t, len(props["names"].([]string)), 1)
+		require.NotEmpty(t, props["names"].([]string)[0])
 	})
 
 	t.Run("Success (credential with a proof)", func(t *testing.T) {
@@ -227,9 +278,12 @@ func TestSaveCredentials(t *testing.T) {
 				]
 			}`), &credential))
 
+		props := map[string]interface{}{}
+
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
@@ -256,5 +310,6 @@ func TestSaveCredentials(t *testing.T) {
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
+		require.Equal(t, props["names"], []string{vcName})
 	})
 }

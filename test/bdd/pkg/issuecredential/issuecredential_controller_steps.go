@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/cucumber/godog"
 
@@ -225,11 +226,17 @@ func (s *ControllerSteps) acceptCredential(holder, credential string) error {
 }
 
 func (s *ControllerSteps) validateCredential(holder, credential string) error {
-	_, err := util.PullEventsFromWebSocket(s.bddContext, holder,
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, holder,
 		util.FilterTopic("issue-credential_states"),
 		util.FilterStateID("done"),
 		util.FilterPIID(s.nameToPIID[credential]),
 	)
+
+	if !reflect.DeepEqual(msg.Message.Properties["names"], []interface{}{credential}) {
+		return fmt.Errorf("properties: expected names [%s], got %v", credential,
+			msg.Message.Properties["names"])
+	}
+
 	if err != nil {
 		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
