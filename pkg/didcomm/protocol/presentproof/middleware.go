@@ -38,4 +38,6 @@ type Metadata interface {
 	PresentationNames() []string
 	// StateName provides the state name
 	StateName() string
+	// Properties provides the possibility to set properties
+	Properties() map[string]interface{}
 }

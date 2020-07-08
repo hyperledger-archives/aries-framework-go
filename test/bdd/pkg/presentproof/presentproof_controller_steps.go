@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/cucumber/godog"
 
@@ -207,11 +208,17 @@ func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	_, err := util.PullEventsFromWebSocket(s.bddContext, verifier,
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, verifier,
 		util.FilterTopic("present-proof_states"),
 		util.FilterStateID("done"),
 		util.FilterPIID(s.nameToPIID[name]),
 	)
+
+	if !reflect.DeepEqual(msg.Message.Properties["names"], []interface{}{name}) {
+		return fmt.Errorf("properties: expected names [%s], got %v", name,
+			msg.Message.Properties["names"])
+	}
+
 	if err != nil {
 		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}

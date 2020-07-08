@@ -143,6 +143,20 @@ func (mr *MockMetadataMockRecorder) OfferCredential() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferCredential", reflect.TypeOf((*MockMetadata)(nil).OfferCredential))
 }
 
+// Properties mocks base method
+func (m *MockMetadata) Properties() map[string]interface{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Properties")
+	ret0, _ := ret[0].(map[string]interface{})
+	return ret0
+}
+
+// Properties indicates an expected call of Properties
+func (mr *MockMetadataMockRecorder) Properties() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Properties", reflect.TypeOf((*MockMetadata)(nil).Properties))
+}
+
 // ProposeCredential mocks base method
 func (m *MockMetadata) ProposeCredential() *issuecredential.ProposeCredential {
 	m.ctrl.T.Helper()

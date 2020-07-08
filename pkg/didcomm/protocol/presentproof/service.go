@@ -65,6 +65,7 @@ type metaData struct {
 	transitionalPayload
 	state               state
 	presentationNames   []string
+	properties          map[string]interface{}
 	msgClone            service.DIDCommMsg
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
@@ -97,6 +98,10 @@ func (md *metaData) PresentationNames() []string {
 
 func (md *metaData) StateName() string {
 	return md.state.Name()
+}
+
+func (md *metaData) Properties() map[string]interface{} {
+	return md.properties
 }
 
 // Action contains helpful information about action
@@ -281,8 +286,9 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 				PIID: piID,
 			},
 		},
-		state:    next,
-		msgClone: msg.Clone(),
+		properties: map[string]interface{}{},
+		state:      next,
+		msgClone:   msg.Clone(),
 	}, nil
 }
 
@@ -490,6 +496,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		properties:          map[string]interface{}{},
 	}
 
 	if opt != nil {
@@ -516,6 +523,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		properties:          map[string]interface{}{},
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {

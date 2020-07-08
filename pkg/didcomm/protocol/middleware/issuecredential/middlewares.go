@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -55,16 +57,25 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 				return errors.New("credentials were not provided")
 			}
 
+			var names []string
 			for i, credential := range credentials {
 				var name = credential.ID
 				if len(metadata.CredentialNames()) > i {
 					name = metadata.CredentialNames()[i]
 				}
 
+				if name == "" {
+					name = uuid.New().String()
+				}
+
+				names = append(names, name)
+
 				if err := store.SaveCredential(name, credential); err != nil {
 					return fmt.Errorf("save credential: %w", err)
 				}
 			}
+
+			metadata.Properties()["names"] = names
 
 			return next.Handle(metadata)
 		})

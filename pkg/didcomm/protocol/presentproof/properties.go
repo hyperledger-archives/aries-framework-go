@@ -16,18 +16,25 @@ const (
 )
 
 type eventProps struct {
-	myDID    string
-	theirDID string
-	piid     string
-	err      error
+	properties map[string]interface{}
+	myDID      string
+	theirDID   string
+	piid       string
+	err        error
 }
 
 func newEventProps(md *metaData) *eventProps {
+	properties := md.properties
+	if properties == nil {
+		properties = map[string]interface{}{}
+	}
+
 	return &eventProps{
-		myDID:    md.MyDID,
-		theirDID: md.TheirDID,
-		piid:     md.PIID,
-		err:      md.err,
+		properties: properties,
+		myDID:      md.MyDID,
+		theirDID:   md.TheirDID,
+		piid:       md.PIID,
+		err:        md.err,
 	}
 }
 
@@ -53,22 +60,21 @@ func (e eventProps) Err() error {
 
 // All implements EventProperties interface
 func (e eventProps) All() map[string]interface{} {
-	all := map[string]interface{}{}
 	if e.myDID != "" {
-		all[myDIDPropKey] = e.myDID
+		e.properties[myDIDPropKey] = e.myDID
 	}
 
 	if e.theirDID != "" {
-		all[theirDIDPropKey] = e.theirDID
+		e.properties[theirDIDPropKey] = e.theirDID
 	}
 
 	if e.piid != "" {
-		all[piidPropKey] = e.piid
+		e.properties[piidPropKey] = e.piid
 	}
 
 	if e.Err() != nil {
-		all[errorPropKey] = e.Err()
+		e.properties[errorPropKey] = e.Err()
 	}
 
-	return all
+	return e.properties
 }

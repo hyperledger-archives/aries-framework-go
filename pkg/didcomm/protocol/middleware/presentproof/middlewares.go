@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -53,16 +55,25 @@ func SavePresentation(p Provider) presentproof.Middleware {
 				return errors.New("presentations were not provided")
 			}
 
+			var names []string
 			for i, presentation := range presentations {
 				var name = presentation.ID
 				if len(metadata.PresentationNames()) > i {
 					name = metadata.PresentationNames()[i]
 				}
 
+				if name == "" {
+					name = uuid.New().String()
+				}
+
+				names = append(names, name)
+
 				if err := store.SavePresentation(name, presentation); err != nil {
 					return fmt.Errorf("save presentation: %w", err)
 				}
 			}
+
+			metadata.Properties()["names"] = names
 
 			return next.Handle(metadata)
 		})
