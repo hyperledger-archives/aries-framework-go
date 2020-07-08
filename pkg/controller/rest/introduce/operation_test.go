@@ -48,9 +48,9 @@ func TestOperation_Actions(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, actions),
+			handlerLookup(t, operation, Actions),
 			nil,
-			actions,
+			Actions,
 		)
 
 		require.NoError(t, err)
@@ -67,9 +67,9 @@ func TestOperation_SendProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, sendProposal),
+			handlerLookup(t, operation, SendProposal),
 			bytes.NewBufferString(`{"recipients":[{},{}]}`),
-			strings.Replace(sendProposal, `{piid}`, "1234", 1),
+			strings.Replace(SendProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -86,9 +86,9 @@ func TestOperation_SendProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, sendProposalWithOOBRequest),
+			handlerLookup(t, operation, SendProposalWithOOBRequest),
 			bytes.NewBufferString(`{"request":{}, "recipient":{}}`),
-			strings.Replace(sendProposalWithOOBRequest, `{piid}`, "1234", 1),
+			strings.Replace(SendProposalWithOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -105,9 +105,9 @@ func TestOperation_SendRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, sendRequest),
+			handlerLookup(t, operation, SendRequest),
 			bytes.NewBufferString(`{"my_did":"my_did", "their_did":"their_did","please_introduce_to":{}}`),
-			strings.Replace(sendRequest, `{piid}`, "1234", 1),
+			strings.Replace(SendRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -124,8 +124,8 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposalWithOOBRequest), nil,
-			strings.Replace(acceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptProposalWithOOBRequest), nil,
+			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -138,9 +138,9 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposalWithOOBRequest),
+			handlerLookup(t, operation, AcceptProposalWithOOBRequest),
 			bytes.NewBufferString(`{}`),
-			strings.Replace(acceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -153,9 +153,9 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposalWithOOBRequest),
+			handlerLookup(t, operation, AcceptProposalWithOOBRequest),
 			bytes.NewBufferString(`{"request":{}}`),
-			strings.Replace(acceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -172,9 +172,9 @@ func TestOperation_AcceptProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposal),
+			handlerLookup(t, operation, AcceptProposal),
 			nil,
-			strings.Replace(acceptProposal, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -191,8 +191,8 @@ func TestOperation_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestWithPublicOOBRequest), nil,
-			strings.Replace(acceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequestWithPublicOOBRequest), nil,
+			strings.Replace(AcceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -205,9 +205,9 @@ func TestOperation_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestWithPublicOOBRequest),
+			handlerLookup(t, operation, AcceptRequestWithPublicOOBRequest),
 			bytes.NewBufferString(`{"request":{},"to":{}}`),
-			strings.Replace(acceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
+			strings.Replace(AcceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -224,8 +224,8 @@ func TestOperation_AcceptRequestWithRecipients(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestWithRecipients), nil,
-			strings.Replace(acceptRequestWithRecipients, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequestWithRecipients), nil,
+			strings.Replace(AcceptRequestWithRecipients, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -238,9 +238,9 @@ func TestOperation_AcceptRequestWithRecipients(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestWithRecipients),
+			handlerLookup(t, operation, AcceptRequestWithRecipients),
 			bytes.NewBufferString(`{"recipient":{},"to":{}}`),
-			strings.Replace(acceptRequestWithRecipients, `{piid}`, "1234", 1),
+			strings.Replace(AcceptRequestWithRecipients, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -257,9 +257,9 @@ func TestOperation_DeclineRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineRequest),
+			handlerLookup(t, operation, DeclineRequest),
 			nil,
-			strings.Replace(declineRequest, `{piid}`, "1234", 1),
+			strings.Replace(DeclineRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -276,9 +276,9 @@ func TestOperation_DeclineProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineProposal),
+			handlerLookup(t, operation, DeclineProposal),
 			nil,
-			strings.Replace(declineProposal, `{piid}`, "1234", 1),
+			strings.Replace(DeclineProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)

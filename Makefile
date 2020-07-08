@@ -27,7 +27,7 @@ MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
 GOMOCKS=pkg/internal/gomocks
 
 .PHONY: all
-all: clean checks unit-test unit-test-wasm bdd-test
+all: clean checks unit-test unit-test-wasm unit-test-mobile bdd-test
 
 .PHONY: checks
 checks: license lint generate-openapi-spec
@@ -48,6 +48,11 @@ unit-test: mocks
 unit-test-wasm: export GOBIN=$(GOBIN_PATH)
 unit-test-wasm: depend
 	@scripts/check_unit_wasm.sh
+
+.PHONY: unit-test-mobile
+unit-test-mobile:
+	@echo "Running unit tests for mobile"
+	@cd ${ARIES_AGENT_MOBILE_PATH} && $(MAKE) unit-test
 
 .PHONY: bdd-test
 bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker sidetree-cli bdd-test-js bdd-test-go

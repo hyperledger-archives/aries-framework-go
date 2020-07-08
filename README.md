@@ -23,6 +23,8 @@ API bindings are supplied to enable these environments including:
 - Go
 - REST
 - JavaScript / WebAssembly
+- Android
+- iOS
 - C (future)
 
 We implement demonstrations and test cases, that require a ledger system, using [DIF Sidetree protocol](https://github.com/decentralized-identity/sidetree/blob/master/docs/protocol.md) as this protocol enables generic decentralized ledger systems to operate as a DID network.
@@ -41,6 +43,7 @@ The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediato
   - Get the Docker image from [GitHub Packages](https://github.com/hyperledger/aries-framework-go/packages/69982)
 - [JavaScript](cmd/aries-js-worker/README.md)
   - Get it from [GitHub Packages](https://github.com/hyperledger/aries-framework-go/packages/123279)
+- [Mobile](cmd/aries-agent-mobile/README.md)
 
 ## Testing
 - [Build](docs/test/build.md)
