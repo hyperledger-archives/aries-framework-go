@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
@@ -297,4 +298,24 @@ type RemoveConnectionRequest struct {
 type ConnectionIDArg struct {
 	// Connection ID
 	ID string `json:"id"`
+}
+
+// CreateConnectionRequest model
+//
+type CreateConnectionRequest struct {
+	MyDID          string      `json:"myDID"`
+	TheirDID       DIDDocument `json:"theirDID"`
+	TheirLabel     string      `json:"theirLabel,omitempty"`
+	InvitationID   string      `json:"invitationID,omitempty"`
+	InvitationDID  string      `json:"invitationDID,omitempty"`
+	ParentThreadID string      `json:"parentThreadID,omitempty"`
+	ThreadID       string      `json:"threadID,omitempty"`
+	Implicit       bool        `json:"implicit,omitempty"`
+}
+
+// DIDDocument model
+//
+type DIDDocument struct {
+	ID       string          `json:"id"`
+	Contents json.RawMessage `json:"contents"`
 }

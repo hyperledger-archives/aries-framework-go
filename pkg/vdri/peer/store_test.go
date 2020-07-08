@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
@@ -67,7 +69,16 @@ func TestPeerDIDStore(t *testing.T) {
 	v, err := store.Get("not-json")
 	require.NotNil(t, err)
 	require.Nil(t, v)
-	require.Contains(t, err.Error(), "delta data fetch from store failed")
+	require.Contains(t, err.Error(), "delta data fetch from store")
+
+	t.Run("returns vdri.ErrNotFound if did is not resolved", func(t *testing.T) {
+		store, err := New(storage.NewMockStoreProvider())
+		require.NoError(t, err)
+
+		_, err = store.Get("nonexistent")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, vdriapi.ErrNotFound))
+	})
 }
 
 func TestVDRI_Close(t *testing.T) {

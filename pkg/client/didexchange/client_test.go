@@ -16,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -33,6 +33,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 func TestNew(t *testing.T) {
@@ -522,8 +523,16 @@ func TestClientGetConnectionAtState(t *testing.T) {
 	require.Nil(t, result)
 }
 
-func TestClient_SaveConnection(t *testing.T) {
-	t.Run("test save connection - success", func(t *testing.T) {
+func TestClient_CreateConnection(t *testing.T) {
+	t.Run("test create connection - success", func(t *testing.T) {
+		theirDID := newPeerDID(t)
+		myDID := newPeerDID(t)
+		threadID := uuid.New().String()
+		parentThreadID := uuid.New().String()
+		label := uuid.New().String()
+		invitationID := uuid.New().String()
+		invitationDID := newPeerDID(t).ID
+		implicit := true
 		storageProvider := &mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
@@ -533,7 +542,7 @@ func TestClient_SaveConnection(t *testing.T) {
 			StorageProviderValue:          storageProvider.StorageProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
-					SaveConnRecordFunc: func(r *connection.Record) error {
+					CreateConnRecordFunc: func(r *connection.Record, td *did.Doc) error {
 						recorder, err := connection.NewRecorder(storageProvider)
 						require.NoError(t, err)
 						err = recorder.SaveConnectionRecord(r)
@@ -547,36 +556,32 @@ func TestClient_SaveConnection(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		connRec := &ConnectionReq{
-			ThreadID:        uuid.New().String(),
-			ParentThreadID:  uuid.New().String(),
-			TheirLabel:      "alice",
-			TheirDID:        "did:example:123",
-			MyDID:           "did:example:789",
-			ServiceEndPoint: "http://example.com/didcomm",
-		}
-
-		id, err := c.SaveConnection(connRec)
+		id, err := c.CreateConnection(myDID.ID, theirDID,
+			WithTheirLabel(label), WithThreadID(threadID), WithParentThreadID(parentThreadID),
+			WithInvitationID(invitationID), WithInvitationDID(invitationDID), WithImplicit(implicit))
 		require.NoError(t, err)
 
 		conn, err := c.GetConnection(id)
 		require.NoError(t, err)
 		require.Equal(t, connection.StateNameCompleted, conn.State)
-		require.Equal(t, connRec.ThreadID, conn.ThreadID)
-		require.Equal(t, connRec.ParentThreadID, conn.ParentThreadID)
-		require.Equal(t, connRec.TheirLabel, conn.TheirLabel)
-		require.Equal(t, connRec.TheirDID, conn.TheirDID)
-		require.Equal(t, connRec.MyDID, conn.MyDID)
-		require.Equal(t, connRec.ServiceEndPoint, conn.ServiceEndPoint)
+		require.Equal(t, threadID, conn.ThreadID)
+		require.Equal(t, parentThreadID, conn.ParentThreadID)
+		require.Equal(t, label, conn.TheirLabel)
+		require.Equal(t, theirDID.ID, conn.TheirDID)
+		require.Equal(t, myDID.ID, conn.MyDID)
+		require.Equal(t, invitationID, conn.InvitationID)
+		require.Equal(t, invitationDID, conn.InvitationDID)
+		require.Equal(t, theirDID.Service[0].ServiceEndpoint, conn.ServiceEndPoint)
+		require.Equal(t, implicit, conn.Implicit)
 	})
 
-	t.Run("test save connection - error", func(t *testing.T) {
+	t.Run("test create connection - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
-					SaveConnRecordFunc: func(*connection.Record) error {
+					CreateConnRecordFunc: func(*connection.Record, *did.Doc) error {
 						return errors.New("save connection")
 					},
 				},
@@ -585,11 +590,7 @@ func TestClient_SaveConnection(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		connRec := &ConnectionReq{
-			ThreadID: uuid.New().String(),
-		}
-
-		id, err := c.SaveConnection(connRec)
+		id, err := c.CreateConnection(newPeerDID(t).ID, newPeerDID(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection")
 		require.Empty(t, id)
@@ -1246,4 +1247,35 @@ func generateKeyPair() (string, []byte) {
 	}
 
 	return base58.Encode(pubKey[:]), privKey
+}
+
+func newPeerDID(t *testing.T) *did.Doc {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	key := did.PublicKey{
+		ID:         uuid.New().String(),
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "did:example:123",
+		Value:      pubKey,
+	}
+	doc, err := peer.NewDoc(
+		[]did.PublicKey{key},
+		[]did.VerificationMethod{{
+			PublicKey:    key,
+			Relationship: 0,
+			Embedded:     true,
+			RelativeURL:  false,
+		}},
+		did.WithService([]did.Service{{
+			ID:              "didcomm",
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{base58.Encode(pubKey)},
+			ServiceEndpoint: "http://example.com",
+		}}),
+	)
+	require.NoError(t, err)
+
+	return doc
 }

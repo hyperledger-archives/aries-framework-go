@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -41,7 +42,7 @@ const (
 	queryConnectionByIDCommandMethod      = "QueryConnectionByID"
 	queryConnectionsCommandMethod         = "QueryConnections"
 	receiveInvitationCommandMethod        = "ReceiveInvitation"
-	saveConnectionCommandMethod           = "SaveConnection"
+	createConnectionCommandMethod         = "CreateConnection"
 	removeConnectionCommandMethod         = "RemoveConnection"
 
 	// log constants
@@ -76,8 +77,8 @@ const (
 	// RemoveConnectionErrorCode is for failures in remove connection command
 	RemoveConnectionErrorCode
 
-	// SaveConnectionErrorCode is for failures in save connection command
-	SaveConnectionErrorCode
+	// CreateConnectionErrorCode is for failures in create connection command
+	CreateConnectionErrorCode
 
 	_actions = "_actions"
 	_states  = "_states"
@@ -160,7 +161,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, createInvitationCommandMethod, c.CreateInvitation),
 		cmdutil.NewCommandHandler(commandName, receiveInvitationCommandMethod, c.ReceiveInvitation),
 		cmdutil.NewCommandHandler(commandName, acceptInvitationCommandMethod, c.AcceptInvitation),
-		cmdutil.NewCommandHandler(commandName, saveConnectionCommandMethod, c.SaveConnection),
+		cmdutil.NewCommandHandler(commandName, createConnectionCommandMethod, c.CreateConnection),
 		cmdutil.NewCommandHandler(commandName, removeConnectionCommandMethod, c.RemoveConnection),
 		cmdutil.NewCommandHandler(commandName, queryConnectionByIDCommandMethod, c.QueryConnectionByID),
 		cmdutil.NewCommandHandler(commandName, queryConnectionsCommandMethod, c.QueryConnections),
@@ -398,27 +399,39 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 	return nil
 }
 
-// SaveConnection saves a new connection record in completed state and returns the generated connectionID.
-func (c *Command) SaveConnection(rw io.Writer, req io.Reader) command.Error {
-	request := &didexchange.ConnectionReq{}
+// CreateConnection creates a new connection record in completed state and returns the generated connectionID.
+func (c *Command) CreateConnection(rw io.Writer, req io.Reader) command.Error {
+	request := &CreateConnectionRequest{}
 
 	err := json.NewDecoder(req).Decode(request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, saveConnectionCommandMethod, err.Error())
+		logutil.LogInfo(logger, commandName, createConnectionCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	id, err := c.client.SaveConnection(request)
+	theirDID, err := did.ParseDocument(request.TheirDID.Contents)
 	if err != nil {
-		logutil.LogError(logger, commandName, saveConnectionCommandMethod, err.Error())
-		return command.NewExecuteError(SaveConnectionErrorCode, err)
+		logutil.LogInfo(logger, commandName, createConnectionCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	id, err := c.client.CreateConnection(request.MyDID, theirDID,
+		didexchange.WithImplicit(request.Implicit),
+		didexchange.WithTheirLabel(request.TheirLabel),
+		didexchange.WithInvitationDID(request.InvitationDID),
+		didexchange.WithInvitationID(request.InvitationID),
+		didexchange.WithParentThreadID(request.ParentThreadID),
+		didexchange.WithThreadID(request.ThreadID))
+	if err != nil {
+		logutil.LogError(logger, commandName, createConnectionCommandMethod, err.Error())
+		return command.NewExecuteError(CreateConnectionErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &ConnectionIDArg{
 		ID: id,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, saveConnectionCommandMethod, successString,
+	logutil.LogDebug(logger, commandName, createConnectionCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionIDString, id))
 
 	return nil

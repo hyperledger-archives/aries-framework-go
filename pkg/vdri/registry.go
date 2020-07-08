@@ -90,7 +90,7 @@ func (r *Registry) Resolve(did string, opts ...vdriapi.ResolveOpts) (*diddoc.Doc
 	return didDoc, nil
 }
 
-// Create returns new DID Document
+// Create a new DID Document and store it in this registry.
 func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Doc, error) {
 	docOpts := &vdriapi.CreateDIDOpts{KeyType: defaultKeyType}
 

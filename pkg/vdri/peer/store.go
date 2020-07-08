@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 type docDelta struct {
@@ -61,7 +62,7 @@ func (v *VDRI) Get(id string) (*did.Doc, error) {
 
 	deltas, err := v.getDeltas(id)
 	if err != nil {
-		return nil, fmt.Errorf("delta data fetch from store failed: %w", err)
+		return nil, fmt.Errorf("delta data fetch from store for did [%s] failed: %w", id, err)
 	}
 
 	// For now, assume storage contains only one delta(genesis document)
@@ -87,6 +88,10 @@ func (v *VDRI) Close() error {
 
 func (v *VDRI) getDeltas(id string) ([]docDelta, error) {
 	val, err := v.store.Get(id)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return nil, vdriapi.ErrNotFound
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("fetching data from store failed: %w", err)
 	}

@@ -103,7 +103,7 @@ func (c *ConnectionStore) SaveDIDByResolving(did string, keys ...string) error {
 	if errors.Is(err, vdri.ErrNotFound) {
 		return c.SaveDID(did, keys...)
 	} else if err != nil {
-		return err
+		return fmt.Errorf("failed to read from vdri store : %w", err)
 	}
 
 	return c.SaveDIDFromDoc(doc)

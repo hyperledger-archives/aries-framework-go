@@ -56,12 +56,13 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
 	dest, err := service.GetDestination(theirDID, o.vdRegistry)
 	if err != nil {
-		return err
+		return fmt.Errorf(
+			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
 	}
 
 	src, err := service.GetDestination(myDID, o.vdRegistry)
 	if err != nil {
-		return err
+		return fmt.Errorf("outboundDispatcher.SendToDID failed to get didcomm destination for myDID [%s]: %w", myDID, err)
 	}
 
 	// We get at least one recipient key, so we can use the first one

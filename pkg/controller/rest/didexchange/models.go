@@ -201,14 +201,29 @@ type RemoveConnectionRequest struct { // nolint: unused,deadcode
 type RemoveConnectionResponse struct { // nolint: unused,deadcode
 }
 
-// saveConnectionResp model
+// createConnectionResp model
 //
 // This is used as the response model for save connection api.
 //
-// swagger:response saveConnectionResp
-type saveConnectionResp struct { // nolint: unused,deadcode
-	// The ID of the connection to get
+// swagger:response createConnectionResp
+type createConnectionResp struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		// The ID of the connection to get
+		//
+		ID string `json:"id"`
+	}
+}
+
+// createConnectionRequest model
+//
+// Request to create a new connection between two DIDs.
+//
+// swagger:parameters createConnection
+type createConnectionRequest struct { // nolint: unused,deadcode
+	// Params for creating a connection.
 	//
 	// in: body
-	ID string `json:"id"`
+	// required: true
+	Request didexchange.CreateConnectionRequest
 }

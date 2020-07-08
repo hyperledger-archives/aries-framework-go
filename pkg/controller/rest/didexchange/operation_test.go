@@ -9,6 +9,8 @@ package didexchange
 import (
 	"bytes"
 	"crypto"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +19,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
@@ -28,12 +31,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
@@ -357,14 +362,24 @@ func TestOperation_AcceptExchangeRequest(t *testing.T) {
 	})
 }
 
-func TestOperation_SaveConnection(t *testing.T) {
-	t.Run("test save connection - success", func(t *testing.T) {
-		handler := getHandler(t, saveConnection)
-		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("{}")),
-			saveConnection)
+func TestOperation_CreateConnection(t *testing.T) {
+	t.Run("test create connection - success", func(t *testing.T) {
+		myDID := newPeerDID(t)
+		theirDID := newPeerDID(t)
+		request, err := json.Marshal(&didexchange.CreateConnectionRequest{
+			MyDID: myDID.ID,
+			TheirDID: didexchange.DIDDocument{
+				ID:       theirDID.ID,
+				Contents: marshalDoc(t, theirDID),
+			},
+		})
+		require.NoError(t, err)
+		handler := getHandler(t, createConnection)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(request),
+			createConnection)
 		require.NoError(t, err)
 
-		response := saveConnectionResp{}
+		response := &didexchange.ConnectionIDArg{}
 		err = json.Unmarshal(buf.Bytes(), &response)
 		require.NoError(t, err)
 
@@ -533,4 +548,46 @@ func verifyRESTError(t *testing.T, code command.Code, data []byte) {
 	// verify response
 	require.EqualValues(t, code, errResponse.Code)
 	require.NotEmpty(t, errResponse.Message)
+}
+
+func newPeerDID(t *testing.T) *did.Doc {
+	t.Helper()
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	key := did.PublicKey{
+		ID:         uuid.New().String(),
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "did:example:123",
+		Value:      pubKey,
+	}
+	doc, err := peer.NewDoc(
+		[]did.PublicKey{key},
+		[]did.VerificationMethod{{
+			PublicKey:    key,
+			Relationship: 0,
+			Embedded:     true,
+			RelativeURL:  false,
+		}},
+		did.WithService([]did.Service{{
+			ID:              "didcomm",
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{base58.Encode(pubKey)},
+			ServiceEndpoint: "http://example.com",
+		}}),
+	)
+	require.NoError(t, err)
+
+	return doc
+}
+
+func marshalDoc(t *testing.T, d *did.Doc) []byte {
+	t.Helper()
+
+	bits, err := d.JSONBytes()
+	require.NoError(t, err)
+
+	return bits
 }
