@@ -67,6 +67,8 @@ type connections interface {
 
 // Service for the messagepickup protocol
 type Service struct {
+	service.Action
+	service.Message
 	connectionLookup connections
 	outbound         dispatcher.Outbound
 	msgStore         storage.Store
@@ -499,7 +501,7 @@ func (s *Service) Noop(connectionID string) error {
 		return err
 	}
 
-	noop := &Noop{}
+	noop := &Noop{ID: uuid.New().String(), Type: NoopMsgType}
 	if err := s.outbound.SendToDID(noop, conn.MyDID, conn.TheirDID); err != nil {
 		return fmt.Errorf("send noop request: %w", err)
 	}

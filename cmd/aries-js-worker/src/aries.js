@@ -836,7 +836,7 @@ const Aries = function (opts) {
             /**
              * Registers an agent with the router.
              *
-             * @param req - json document
+             * @param req - json document containing connection ID
              * @returns {Promise<Object>}
              */
             register: async function (req) {
@@ -860,6 +860,16 @@ const Aries = function (opts) {
             getConnection: async function () {
                 // console.log("router get connection")
                 return invoke(aw, pending, this.pkgname, "Connection", "{}", "timeout while fetching router connection id")
+            },
+
+            /**
+             * Reconnects an agent with the router.
+             *
+             * @param req - json document containing connection ID
+             * @returns {Promise<Object>}
+             */
+            reconnect: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Reconnect", req, "timeout while reconnecting to router")
             }
         },
 
