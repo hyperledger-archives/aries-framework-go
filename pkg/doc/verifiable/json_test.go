@@ -98,3 +98,28 @@ func Test_unmarshalJSON(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func Test_toMaps(t *testing.T) {
+	v := []interface{}{
+		struct {
+			S string
+			I int
+		}{"12", 5},
+
+		map[string]interface{}{
+			"a": "b",
+		},
+	}
+
+	maps, err := toMaps(v)
+	require.NoError(t, err)
+	require.Len(t, maps, 2)
+	require.Equal(t, []map[string]interface{}{
+		{"S": "12", "I": 5.},
+		{"a": "b"},
+	}, maps)
+
+	maps, err = toMaps([]interface{}{make(chan int)})
+	require.Error(t, err)
+	require.Empty(t, maps)
+}

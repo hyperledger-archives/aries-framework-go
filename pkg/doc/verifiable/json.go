@@ -104,3 +104,18 @@ func toMap(v interface{}) (map[string]interface{}, error) {
 
 	return m, nil
 }
+
+func toMaps(v []interface{}) ([]map[string]interface{}, error) {
+	maps := make([]map[string]interface{}, len(v))
+
+	for i := range v {
+		m, err := toMap(v[i])
+		if err != nil {
+			return nil, err
+		}
+
+		maps[i] = m
+	}
+
+	return maps, nil
+}
