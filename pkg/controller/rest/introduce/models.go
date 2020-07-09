@@ -26,7 +26,7 @@ type introduceActionsRequest struct{} // nolint: unused,deadcode
 type introduceActionsResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Actions []protocol.Action `json:"actions"`
+		Actions []struct{ *protocol.Action } `json:"actions"`
 	}
 }
 
@@ -38,7 +38,7 @@ type introduceActionsResponse struct { // nolint: unused,deadcode
 type introduceSendProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Recipients []*protocol.Recipient `json:"recipients"`
+		Recipients []struct{ *protocol.Recipient } `json:"recipients"`
 	}
 }
 
@@ -65,10 +65,10 @@ type introduceSendProposalWithOOBRequest struct { // nolint: unused,deadcode
 	Body struct {
 		// Request is the out-of-band protocol's 'request' message.
 		// required: true
-		Request *outofband.Request `json:"request"`
+		Request struct{ *outofband.Request } `json:"request"`
 		// Recipient specifies to whom proposal will be sent
 		// required: true
-		Recipient *protocol.Recipient `json:"recipient"`
+		Recipient struct{ *protocol.Recipient } `json:"recipient"`
 	}
 }
 
@@ -99,7 +99,7 @@ type introduceAcceptProposalWithOOBRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// Request is the out-of-band protocol's 'request' message.
-		Request *outofband.Request `json:"request"`
+		Request struct{ *outofband.Request } `json:"request"`
 	}
 }
 
@@ -127,9 +127,9 @@ type introduceAcceptRequestWithPublicOOBRequest struct { // nolint: unused,deadc
 	// in: body
 	Body struct {
 		// Request is the out-of-band protocol's 'request' message.
-		Request *outofband.Request `json:"request"`
+		Request struct{ *outofband.Request } `json:"request"`
 		// To keeps information about the introduction
-		To *protocol.To `json:"to"`
+		To struct{ *protocol.To } `json:"to"`
 	}
 }
 
@@ -157,9 +157,9 @@ type introduceAcceptRequestWithRecipients struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// Recipient specifies to whom proposal will be sent
-		Recipient *protocol.Recipient `json:"recipient"`
+		Recipient struct{ *protocol.Recipient } `json:"recipient"`
 		// To keeps information about the introduction
-		To *protocol.To `json:"to"`
+		To struct{ *protocol.To } `json:"to"`
 	}
 }
 
@@ -189,7 +189,7 @@ type introduceSendRequest struct { // nolint: unused,deadcode
 		TheirDID string `json:"their_did"`
 		// PleaseIntroduceTo keeps information about the introduction
 		// required: true
-		PleaseIntroduceTo *protocol.PleaseIntroduceTo `json:"please_introduce_to"`
+		PleaseIntroduceTo struct{ *protocol.PleaseIntroduceTo } `json:"please_introduce_to"`
 	}
 }
 

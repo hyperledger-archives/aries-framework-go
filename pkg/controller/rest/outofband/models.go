@@ -37,7 +37,7 @@ type outofbandCreateRequest struct { // nolint: unused,deadcode
 type outofbandCreateRequestResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Request *protocol.Request `json:"request"`
+		Request struct{ *protocol.Request } `json:"request"`
 	}
 }
 
@@ -65,7 +65,7 @@ type outofbandCreateInvitationRequest struct { // nolint: unused,deadcode
 type outofbandCreateInvitationResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Invitation *protocol.Invitation `json:"invitation"`
+		Invitation struct{ *protocol.Invitation } `json:"invitation"`
 	}
 }
 
@@ -77,8 +77,8 @@ type outofbandCreateInvitationResponse struct { // nolint: unused,deadcode
 type outofbandAcceptRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Request *protocol.Request `json:"request"`
-		MyLabel string            `json:"my_label"`
+		Request struct{ *protocol.Request } `json:"request"`
+		MyLabel string                      `json:"my_label"`
 	}
 }
 
@@ -102,8 +102,8 @@ type outofbandAcceptRequestResponse struct { // nolint: unused,deadcode
 type outofbandAcceptInvitationRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Invitation *protocol.Invitation `json:"invitation"`
-		MyLabel    string               `json:"my_label"`
+		Invitation struct{ *protocol.Invitation } `json:"invitation"`
+		MyLabel    string                         `json:"my_label"`
 	}
 }
 
@@ -134,7 +134,7 @@ type outofbandActionsRequest struct{} // nolint: unused,deadcode
 type outofbandActionsResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Actions []protocol.Action `json:"actions"`
+		Actions []struct{ *protocol.Action } `json:"actions"`
 	}
 }
 

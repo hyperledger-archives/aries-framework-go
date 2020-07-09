@@ -30,13 +30,11 @@ type createInvitationRequest struct { // nolint: unused,deadcode
 // swagger:response createInvitationResponse
 type createInvitationResponse struct { // nolint: unused,deadcode
 	// in: body
-	Invitation *didexchangeSvc.Invitation `json:"invitation"`
-
-	// in: body
-	Alias string `json:"alias"`
-
-	// in: body
-	InvitationURL string `json:"invitation_url"`
+	Body struct {
+		Invitation    struct{ *didexchangeSvc.Invitation } `json:"invitation"`
+		Alias         string                               `json:"alias"`
+		InvitationURL string                               `json:"invitation_url"`
+	}
 }
 
 // receiveInvitationRequest model
@@ -49,7 +47,9 @@ type receiveInvitationRequest struct { // nolint: unused,deadcode
 	//
 	// required: true
 	// in: body
-	Invitation didexchangeSvc.Invitation `json:""`
+	Invitation struct {
+		*didexchangeSvc.Invitation
+	}
 }
 
 // receiveInvitationResponse model
@@ -58,7 +58,10 @@ type receiveInvitationRequest struct { // nolint: unused,deadcode
 //
 // swagger:response receiveInvitationResponse
 type receiveInvitationResponse struct { // nolint: unused,deadcode
-	didexchange.ReceiveInvitationResponse
+	// in: body
+	Body struct {
+		didexchange.ReceiveInvitationResponse
+	}
 }
 
 // acceptInvitationRequest model
@@ -83,7 +86,10 @@ type acceptInvitationRequest struct { // nolint: unused,deadcode
 //
 // swagger:response acceptInvitationResponse
 type acceptInvitationResponse struct { // nolint: unused,deadcode
-	didexchange.AcceptInvitationResponse
+	// in: body
+	Body struct {
+		didexchange.AcceptInvitationResponse
+	}
 }
 
 // implicitInvitationRequest model
@@ -101,7 +107,10 @@ type implicitInvitationRequest struct { // nolint: unused,deadcode
 //
 // swagger:response implicitInvitationResponse
 type implicitInvitationResponse struct { // nolint: unused,deadcode
-	didexchange.ImplicitInvitationResponse
+	// in: body
+	Body struct {
+		didexchange.ImplicitInvitationResponse
+	}
 }
 
 // getConnectionRequest model
@@ -136,9 +145,10 @@ type queryConnections struct { // nolint: unused,deadcode
 //
 // swagger:response queryConnectionResponse
 type queryConnectionResponse struct { // nolint: unused,deadcode
-
 	// in: body
-	Result *didexchangeSvc.Connection `json:"result,omitempty"`
+	Body struct {
+		Result *didexchangeSvc.Connection `json:"result,omitempty"`
+	}
 }
 
 // queryConnectionsResponse model
@@ -149,7 +159,9 @@ type queryConnectionResponse struct { // nolint: unused,deadcode
 type queryConnectionsResponse struct { // nolint: unused,deadcode
 
 	// in: body
-	Results []*didexchangeSvc.Connection `json:"results,omitempty"`
+	Body struct {
+		Results []*didexchangeSvc.Connection `json:"results,omitempty"`
+	}
 }
 
 // acceptExchangeRequestParams model
@@ -177,7 +189,7 @@ type acceptExchangeRequestParams struct { // nolint: unused,deadcode
 type acceptExchangeResult struct { // nolint: unused,deadcode
 
 	// in: body
-	Result didexchange.ExchangeResponse `json:""`
+	Result didexchange.ExchangeResponse
 }
 
 // RemoveConnectionRequest model
@@ -199,6 +211,8 @@ type RemoveConnectionRequest struct { // nolint: unused,deadcode
 //
 // swagger:response removeConnectionResponse
 type RemoveConnectionResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
 }
 
 // createConnectionResp model
