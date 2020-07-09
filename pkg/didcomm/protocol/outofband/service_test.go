@@ -148,11 +148,7 @@ func TestHandleInbound(t *testing.T) {
 		case e := <-events:
 			require.Equal(t, Name, e.ProtocolName)
 			require.Equal(t, expected, e.Message)
-			require.NotNil(t, e.Properties)
-			props, ok := e.Properties.(*eventProps)
-			require.True(t, ok)
-			require.Empty(t, props.ConnectionID())
-			require.NoError(t, props.Error())
+			require.Nil(t, e.Properties)
 		case <-time.After(1 * time.Second):
 			t.Error("timeout waiting for action event")
 		}

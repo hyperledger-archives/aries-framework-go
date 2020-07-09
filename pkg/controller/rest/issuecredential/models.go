@@ -23,7 +23,7 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		OfferCredential protocol.OfferCredential `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
 	}
 }
 
@@ -75,7 +75,7 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		IssueCredential protocol.IssueCredential `json:"issue_credential"`
+		IssueCredential struct{ *protocol.IssueCredential } `json:"issue_credential"`
 	}
 }
 
@@ -237,7 +237,7 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		ProposeCredential protocol.ProposeCredential `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
 	}
 }
 
@@ -266,7 +266,7 @@ type issueCredentialActionsRequest struct{} // nolint: unused,deadcode
 type issueCredentialActionsResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Actions []protocol.Action `json:"actions"`
+		Actions []struct{ *protocol.Action } `json:"actions"`
 	}
 }
 
@@ -287,7 +287,7 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 		// OfferCredential is a message describing the credential intend to offer and
 		// possibly the price they expect to be paid.
 		// required: true
-		OfferCredential *protocol.OfferCredential `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
 	}
 }
 
@@ -320,7 +320,7 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 		TheirDID string `json:"their_did"`
 		// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
 		// required: true
-		ProposeCredential *protocol.ProposeCredential `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
 	}
 }
 
@@ -354,7 +354,7 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 		// RequestCredential is a message sent by the potential Holder to the Issuer,
 		// to request the issuance of a credential.
 		// required: true
-		RequestCredential *protocol.RequestCredential `json:"request_credential"`
+		RequestCredential struct{ *protocol.RequestCredential } `json:"request_credential"`
 	}
 }
 

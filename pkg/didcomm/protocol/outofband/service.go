@@ -97,7 +97,6 @@ type Action struct {
 	ProtocolName string
 	MyDID        string
 	TheirDID     string
-	Properties   *eventProps
 }
 
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
@@ -200,7 +199,6 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 			MyDID:        myDID,
 			TheirDID:     theirDID,
 			ProtocolName: Name,
-			Properties:   &eventProps{},
 		},
 	})
 	if err != nil {
@@ -239,7 +237,6 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 					logger.Errorf("delete transitional payload: %s", err)
 				}
 			},
-			Properties: &eventProps{},
 		}
 
 		events <- event

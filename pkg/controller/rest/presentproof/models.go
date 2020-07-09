@@ -23,7 +23,7 @@ type presentProofActionsRequest struct{} // nolint: unused,deadcode
 type presentProofActionsResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Actions []protocol.Action `json:"actions"`
+		Actions []struct{ *protocol.Action } `json:"actions"`
 	}
 }
 
@@ -43,7 +43,7 @@ type presentProofSendRequestPresentationRequest struct { // nolint: unused,deadc
 		TheirDID string `json:"their_did"`
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		// required: true
-		RequestPresentation *protocol.RequestPresentation `json:"request_presentation"`
+		RequestPresentation struct{ *protocol.RequestPresentation } `json:"request_presentation"`
 	}
 }
 
@@ -76,7 +76,7 @@ type presentProofSendProposePresentationRequest struct { // nolint: unused,deadc
 		TheirDID string `json:"their_did"`
 		// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof presentation process.
 		// required: true
-		ProposePresentation *protocol.ProposePresentation `json:"propose_presentation"`
+		ProposePresentation struct{ *protocol.ProposePresentation } `json:"propose_presentation"`
 	}
 }
 
@@ -110,7 +110,7 @@ type presentProofAcceptRequestPresentationRequest struct { // nolint: unused,dea
 		// Presentation is a message that contains signed presentations.
 		//
 		// required: true
-		Presentation *protocol.Presentation `json:"presentation"`
+		Presentation struct{ *protocol.Presentation } `json:"presentation"`
 	}
 }
 
@@ -141,7 +141,7 @@ type presentProofAcceptProposePresentationRequest struct { // nolint: unused,dea
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		//
 		// required: true
-		RequestPresentation *protocol.RequestPresentation `json:"request_presentation"`
+		RequestPresentation struct{ *protocol.RequestPresentation } `json:"request_presentation"`
 	}
 }
 
@@ -202,7 +202,7 @@ type presentProofNegotiateRequestPresentationRequest struct { // nolint: unused,
 		// propose using a different presentation format.
 		//
 		// required: true
-		ProposePresentation *protocol.ProposePresentation `json:"propose_presentation"`
+		ProposePresentation struct{ *protocol.ProposePresentation } `json:"propose_presentation"`
 	}
 }
 
