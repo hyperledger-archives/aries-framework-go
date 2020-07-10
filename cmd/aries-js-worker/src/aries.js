@@ -425,7 +425,7 @@ const Aries = function (opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            sendRequest: function (req) {
+            sendRequest: async function (req) {
                 return invoke(aw, pending, this.pkgname, "SendRequest", req, "timeout while sending a request")
             },
             /**
