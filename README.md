@@ -36,6 +36,8 @@ The packages intended for end developer usage are within the [pkg/client](https:
 
 The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediator.md).
 
+Key concepts about the Hyperledger Aries Project can be found [here](/docs/concepts).
+
 ## Controller Bindings
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
