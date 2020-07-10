@@ -71,9 +71,9 @@ const (
 	// log level
 	agentLogLevelFlagName  = "log-level"
 	agentLogLevelEnvKey    = "ARIESD_LOG_LEVEL"
-	agentLogLevelFlagUsage = "Log Level." +
+	agentLogLevelFlagUsage = "Log level." +
 		" Possible values [INFO] [DEBUG] [ERROR] [WARNING] [CRITICAL] . Defaults to INFO if not set." +
-		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentLogLevelEnvKey
+		" Alternatively, this can be set with the following environment variable: " + agentLogLevelEnvKey
 
 	// http resolver url flag
 	agentHTTPResolverFlagName      = "http-resolver-url"
