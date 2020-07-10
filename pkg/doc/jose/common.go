@@ -31,6 +31,11 @@ const (
 	// For JWE: which references the public key to which the JWE was encrypted.
 	HeaderKeyID = "kid" // string
 
+	// HeaderSenderKeyID is a hint:
+	// For JWS: not used.
+	// For JWE: which references the (sender) public key used in the JWE key derivation/wrapping to encrypt the CEK.
+	HeaderSenderKeyID = "skid" // string
+
 	// HeaderX509URL is a URI that refers to a resource for the X.509 public key certificate or certificate chain:
 	// For JWS: corresponding to the key used to digitally sign the JWS.
 	// For JWE: corresponding to the public key to which the JWE was encrypted.
@@ -85,6 +90,11 @@ type Headers map[string]interface{}
 // KeyID gets Key ID from JOSE headers.
 func (h Headers) KeyID() (string, bool) {
 	return h.stringValue(HeaderKeyID)
+}
+
+// SenderKeyID gets the sender Key ID from Jose headers
+func (h Headers) SenderKeyID() (string, bool) {
+	return h.stringValue(HeaderSenderKeyID)
 }
 
 // Algorithm gets Algorithm from JOSE headers.

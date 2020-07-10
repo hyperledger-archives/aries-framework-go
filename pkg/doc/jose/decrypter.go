@@ -9,13 +9,16 @@ package jose
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // Decrypter interface to Decrypt JWE messages
@@ -30,38 +33,49 @@ type decPrimitiveFunc func(*keyset.Handle) (api.CompositeDecrypt, error)
 type JWEDecrypt struct {
 	recipientKH  *keyset.Handle
 	getPrimitive decPrimitiveFunc
+	// store is required for Authcrypt/ECDH1PU only (Anoncrypt doesn't as the sender is anonymous)
+	store storage.Store
 }
 
 // NewJWEDecrypt creates a new JWEDecrypt instance to parse and decrypt a JWE message for a given recipient
-func NewJWEDecrypt(recipientKH *keyset.Handle) *JWEDecrypt {
+// store is needed for Authcrypt only (to fetch sender's pre agreed upon public key), it is not needed for Anoncrypt.
+func NewJWEDecrypt(store storage.Store, recipientKH *keyset.Handle) *JWEDecrypt {
 	return &JWEDecrypt{
 		recipientKH:  recipientKH,
-		getPrimitive: getDecryptionPrimitive,
+		getPrimitive: getECDHESDecPrimitive,
+		store:        store,
 	}
 }
 
-func getDecryptionPrimitive(recipientKH *keyset.Handle) (api.CompositeDecrypt, error) {
+func getECDHESDecPrimitive(recipientKH *keyset.Handle) (api.CompositeDecrypt, error) {
 	return ecdhes.NewECDHESDecrypt(recipientKH)
+}
+
+func getECDH1PUDecPrimitive(recipientKH *keyset.Handle) (api.CompositeDecrypt, error) {
+	return ecdh1pu.NewECDH1PUDecrypt(recipientKH)
 }
 
 // Decrypt a deserialized JWE, decrypts its protected content and returns plaintext
 func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
-	if jwe == nil {
-		return nil, fmt.Errorf("jwedecrypt: jwe is nil")
+	var (
+		err              error
+		protectedHeaders Headers
+		encAlg           string
+	)
+
+	protectedHeaders, encAlg, err = jd.validateAndExtractProtectedHeaders(jwe)
+	if err != nil {
+		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
-	protectedHeaders := jwe.ProtectedHeaders
+	skid, ok := protectedHeaders.SenderKeyID()
+	if ok {
+		err = jd.addSenderKey(skid)
+		if err != nil {
+			return nil, fmt.Errorf("jwedecrypt: failed to add sender key: %w", err)
+		}
 
-	encAlg, ok := protectedHeaders.Encryption()
-	if !ok {
-		return nil, fmt.Errorf("jwedecrypt: jwe is missing encryption algorithm 'enc' header")
-	}
-
-	// TODO add support for Chacha content encryption, issue #1684
-	switch encAlg {
-	case string(A256GCM):
-	default:
-		return nil, fmt.Errorf("jwedecrypt: encryption algorithm '%s' not supported", encAlg)
+		jd.getPrimitive = getECDH1PUDecPrimitive
 	}
 
 	decPrimitive, err := jd.getPrimitive(jd.recipientKH)
@@ -84,6 +98,65 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	}
 
 	return decPrimitive.Decrypt(encryptedData, authData)
+}
+
+func (jd *JWEDecrypt) fetchSenderPubKey(skid string) (*composite.PublicKey, error) {
+	mKey, err := jd.store.Get(skid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sender key from DB: %w", err)
+	}
+
+	var senderKey *composite.PublicKey
+
+	err = json.Unmarshal(mKey, &senderKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal sender key from DB: %w", err)
+	}
+
+	return senderKey, nil
+}
+
+func (jd *JWEDecrypt) addSenderKey(skid string) error {
+	var senderPubKey *composite.PublicKey
+
+	// addSenderKey requires the store where to fetch the sender public key
+	if jd.store == nil {
+		return errors.New("unable to decrypt JWE with 'skid' header, third party key store is nil")
+	}
+
+	senderPubKey, err := jd.fetchSenderPubKey(skid)
+	if err != nil {
+		return err
+	}
+
+	jd.recipientKH, err = ecdh1pu.AddSenderKey(jd.recipientKH, senderPubKey)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) (Headers, string, error) {
+	if jwe == nil {
+		return nil, "", fmt.Errorf("jwe is nil")
+	}
+
+	protectedHeaders := jwe.ProtectedHeaders
+
+	encAlg, ok := protectedHeaders.Encryption()
+	if !ok {
+		return nil, "", fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
+	}
+
+	// TODO add support for Chacha content encryption, issue #1684
+	switch encAlg {
+	case string(A256GCM):
+	default:
+		return nil, "", fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
+	}
+
+	return protectedHeaders, encAlg, nil
 }
 
 func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {

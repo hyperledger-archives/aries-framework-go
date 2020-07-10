@@ -24,22 +24,24 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func TestJWEEncryptRoundTrip(t *testing.T) {
-	_, err := NewJWEEncrypt("", nil)
+	_, err := NewJWEEncrypt("", "", nil, nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
 	recECKeys, recKHs := createRecipients(t, 20)
 
-	_, err = NewJWEEncrypt("", recECKeys)
+	_, err = NewJWEEncrypt("", "", nil, recECKeys)
 	require.EqualError(t, err, "encryption algorithm '' not supported",
 		"NewJWEEncrypt should fail with empty encAlg")
 
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -61,7 +63,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Decrypting JWE tests failures", func(t *testing.T) {
-		jweDecrypter := NewJWEDecrypt(recKHs[0])
+		jweDecrypter := NewJWEDecrypt(nil, recKHs[0])
 
 		// decrypt empty JWE
 		_, err = jweDecrypter.Decrypt(nil)
@@ -154,7 +156,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 		aeadKH, err = keyset.NewHandle(aeadKT)
 		require.NoError(t, err)
-		jweDecrypter = NewJWEDecrypt(aeadKH)
+		jweDecrypter = NewJWEDecrypt(nil, aeadKH)
 
 		_, err = jweDecrypter.Decrypt(localJWE)
 		require.EqualError(t, err, "ecdhes_factory: decryption failed")
@@ -164,7 +166,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		recipientKH := recKH
 
 		t.Run("Decrypting JWE test success ", func(t *testing.T) {
-			jweDecrypter := NewJWEDecrypt(recipientKH)
+			jweDecrypter := NewJWEDecrypt(nil, recipientKH)
 
 			var msg []byte
 
@@ -178,7 +180,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
 	recECKeys, recKHs := createRecipients(t, 1)
 
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -194,7 +196,7 @@ func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
 	localJWE, err := Deserialize(serializedJWE)
 	require.NoError(t, err)
 
-	jweDecrypter := NewJWEDecrypt(recKHs[0])
+	jweDecrypter := NewJWEDecrypt(nil, recKHs[0])
 
 	var msg []byte
 
@@ -228,7 +230,7 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *tes
 		recipientKH := recKH
 
 		t.Run(fmt.Sprintf("%d: Decrypting JWE message encrypted by go-jose test success", i), func(t *testing.T) {
-			jweDecrypter := NewJWEDecrypt(recipientKH)
+			jweDecrypter := NewJWEDecrypt(nil, recipientKH)
 
 			var msg []byte
 
@@ -264,7 +266,7 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecrypt(t *testing.T) {
 		recipientKH := recKH
 
 		t.Run(fmt.Sprintf("%d: Decrypting JWE message encrypted by go-jose test success", i), func(t *testing.T) {
-			jweDecrypter := NewJWEDecrypt(recipientKH)
+			jweDecrypter := NewJWEDecrypt(nil, recipientKH)
 
 			var msg []byte
 
@@ -291,7 +293,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -330,7 +332,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -374,7 +376,11 @@ func convertToGoJoseRecipients(t *testing.T, keys []*composite.PublicKey) []jose
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]*composite.PublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfEntities int) ([]*composite.PublicKey, []*keyset.Handle) {
+	return createECDHEntities(t, numberOfEntities, true)
+}
+
+func createECDHEntities(t *testing.T, numberOfEntities int, isECDHES bool) ([]*composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
@@ -382,8 +388,8 @@ func createRecipients(t *testing.T, numberOfRecipients int) ([]*composite.Public
 		rKH []*keyset.Handle
 	)
 
-	for i := 0; i < numberOfRecipients; i++ {
-		mrKey, kh := createAndMarshalRecipient(t)
+	for i := 0; i < numberOfEntities; i++ {
+		mrKey, kh := createAndMarshalEntityKey(t, isECDHES)
 		ecPubKey := new(composite.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
@@ -395,12 +401,18 @@ func createRecipients(t *testing.T, numberOfRecipients int) ([]*composite.Public
 	return r, rKH
 }
 
-// createAndMarshalRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
+// createAndMarshalEntityKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle
-func createAndMarshalRecipient(t *testing.T) ([]byte, *keyset.Handle) {
+func createAndMarshalEntityKey(t *testing.T, isECDHES bool) ([]byte, *keyset.Handle) {
 	t.Helper()
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	tmpl := ecdhes.ECDHES256KWAES256GCMKeyTemplate()
+
+	if !isECDHES {
+		tmpl = ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate()
+	}
+
+	kh, err := keyset.NewHandle(tmpl)
 	require.NoError(t, err)
 
 	pubKH, err := kh.Public()
@@ -427,6 +439,110 @@ func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
 	require.EqualError(t, err, "unsupported curve")
 }
 
+func TestFailNewJWEEncrypt(t *testing.T) {
+	recipients := []*composite.PublicKey{
+		{
+			Curve: "badCurveName",
+		},
+	}
+
+	_, err := NewJWEEncrypt(A256GCM, "", nil, recipients)
+	require.EqualError(t, err, "curve badCurveName not supported")
+
+	recipients, recsKH := createRecipients(t, 2)
+
+	_, err = NewJWEEncrypt(A256GCM, "", recsKH[0], recipients)
+	require.EqualError(t, err, "senderKID is required with senderKH")
+
+	// sender key set handle is not ECDH1PU type - should fail
+	_, err = NewJWEEncrypt(A256GCM, "1234", recsKH[0], recipients)
+	require.EqualError(t, err, "AddRecipientsKeys: extract keyset failed: AddRecipientsKeys: primary "+
+		"key not found in keyset")
+}
+
+func TestECDH1PU(t *testing.T) {
+	recipients, recKHs := createECDHEntities(t, 2, false)
+	senders, senderKHs := createECDHEntities(t, 1, false)
+	kh := senderKHs[0]
+	mockSenderID := "1234"
+
+	senderPubKey, err := json.Marshal(senders[0])
+	require.NoError(t, err)
+
+	jweEnc, err := NewJWEEncrypt(A256GCM, mockSenderID, kh, recipients)
+	require.NoError(t, err)
+	require.NotEmpty(t, jweEnc)
+
+	mockStoreMap := make(map[string][]byte)
+	mockStore := &mockstorage.MockStore{
+		Store: mockStoreMap,
+	}
+
+	pt := []byte("plaintext payload")
+
+	// test JWEEncrypt for ECDH1PU
+	jwe, err := jweEnc.Encrypt(pt)
+	require.NoError(t, err)
+
+	serializedJWE, err := jwe.FullSerialize(json.Marshal)
+	require.NoError(t, err)
+	require.NotEmpty(t, serializedJWE)
+
+	localJWE, err := Deserialize(serializedJWE)
+	require.NoError(t, err)
+
+	t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
+		jd := NewJWEDecrypt(mockStore, recKHs[0])
+		require.NotEmpty(t, jd)
+
+		_, err = jd.Decrypt(localJWE)
+		require.EqualError(t, err, "jwedecrypt: failed to add sender key: failed to get sender key from DB:"+
+			" data not found")
+	})
+
+	// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
+	mockStoreMap[mockSenderID] = senderPubKey
+
+	for i, recKH := range recKHs {
+		recipientKH := recKH
+
+		t.Run(fmt.Sprintf("%d: Decrypting JWE message test success", i), func(t *testing.T) {
+			jd := NewJWEDecrypt(mockStore, recipientKH)
+			require.NotEmpty(t, jd)
+
+			var msg []byte
+
+			msg, err = jd.Decrypt(localJWE)
+			require.NoError(t, err)
+			require.EqualValues(t, pt, msg)
+		})
+	}
+
+	t.Run("addSender failure due to missing store test case", func(t *testing.T) {
+		jd := NewJWEDecrypt(nil, recKHs[0])
+		require.NotEmpty(t, jd)
+
+		err := jd.addSenderKey("abc")
+		require.EqualError(t, err, "unable to decrypt JWE with 'skid' header, third party key store is nil")
+	})
+
+	t.Run("addSender failure due to invalid sender key test case", func(t *testing.T) {
+		jd := NewJWEDecrypt(mockStore, recKHs[0])
+		require.NotEmpty(t, jd)
+
+		senderKey := senders[0]
+		senderKey.Curve = "invalidCurve"
+
+		mSenderKey, err := json.Marshal(senderKey)
+		require.NoError(t, err)
+
+		mockStoreMap["invalidKey"] = mSenderKey
+		err = jd.addSenderKey("invalidKey")
+		require.EqualError(t, err, fmt.Sprintf("AddSenderKey: failed to convert senderKey to proto: curve %s"+
+			" not supported", senderKey.Curve))
+	})
+}
+
 func TestEmptyComputeAuthData(t *testing.T) {
 	protecteHeaders := new(map[string]interface{})
 	aad := []byte("")
@@ -443,7 +559,7 @@ func TestBadSenderKH(t *testing.T) {
 	// create jweEncrypter manually with a bad sender type
 	jweEncrypter := JWEEncrypt{
 		senderKH:     aeadKH,
-		getPrimitive: getEncryptionPrimitive,
+		getPrimitive: getECDHESEncPrimitive,
 	}
 
 	_, err = jweEncrypter.Encrypt([]byte{})
