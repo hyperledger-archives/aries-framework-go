@@ -23,7 +23,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/piprate/json-gold v0.3.0
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/trustbloc/sidetree-core-go v0.1.3
+	github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	google.golang.org/genproto v0.0.0-20200211111953-2dc5924e3898 // indirect
 	google.golang.org/grpc v1.27.1 // indirect

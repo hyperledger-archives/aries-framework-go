@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/trustbloc/sidetree-core-go/pkg/commitment"
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
@@ -26,7 +27,7 @@ const docTemplate = `{
    {
      "id": "%s",
      "type": "%s",
-     "usage": ["auth", "general"],
+     "purpose": ["auth", "general"],
      "jwk": %s
    }
   ],
@@ -34,17 +35,15 @@ const docTemplate = `{
 	{
 	   "id": "hub",
 	   "type": "did-communication",
-	   "serviceEndpoint": "%s",
+	   "endpoint": "%s",
        "recipientKeys" : [ "%s" ]
 	}
   ]
 }`
 
 const (
-	sha2_256            = 18
-	recoveryRevealValue = "recoveryOTP"
-	updateRevealValue   = "updateOTP"
-	defaultKeyType      = "JwsVerificationKey2020"
+	sha2_256       = 18
+	defaultKeyType = "JwsVerificationKey2020"
 )
 
 type didResolution struct {
@@ -131,16 +130,21 @@ func getPubKey(jwk *jose.JWK) (string, error) {
 }
 
 func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
-	recoveryPublicKey, err := pubkey.GetPublicKeyJWK(jwk.Key)
+	pubKey, err := pubkey.GetPublicKeyJWK(jwk.Key)
 	if err != nil {
 		return nil, err
 	}
 
+	c, err := commitment.Calculate(pubKey, sha2_256)
+	if err != nil {
+		return nil, err
+	}
+
+	// for testing purposes we are going to use same commitment key for update and recovery
 	return helper.NewCreateRequest(&helper.CreateRequestInfo{
-		OpaqueDocument:          string(doc),
-		RecoveryKey:             recoveryPublicKey,
-		NextRecoveryRevealValue: []byte(recoveryRevealValue),
-		NextUpdateRevealValue:   []byte(updateRevealValue),
-		MultihashCode:           sha2_256,
+		OpaqueDocument:     string(doc),
+		UpdateCommitment:   c,
+		RecoveryCommitment: c,
+		MultihashCode:      sha2_256,
 	})
 }
