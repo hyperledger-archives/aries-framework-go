@@ -84,7 +84,7 @@ type SendReplyMessageArgs struct {
 	MessageBody json.RawMessage `json:"message_body"`
 }
 
-// RegisterHTTPMsgSvcArgs contains parameters for registering a HTTP over DIDComm message service to message handler.
+// RegisterHTTPMsgSvcArgs contains parameters for registering an HTTP over DIDComm message service to message handler.
 type RegisterHTTPMsgSvcArgs struct {
 	// Name of the HTTP over DIDComm message service
 	Name string `json:"name"`

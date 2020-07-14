@@ -739,7 +739,7 @@ const Aries = function (opts) {
             },
 
             /**
-             * Registers a http-over-didcomm service.
+             * Registers an http-over-didcomm service.
              *
              * @param req - json document
              * @returns {Promise<Object>}

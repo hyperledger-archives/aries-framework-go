@@ -70,7 +70,7 @@ func (sdk *SDKSteps) constructOOBRequestWithNoAttachments(agentID string) error 
 
 	req, err := sdk.newRequest(agentID)
 	if err != nil {
-		return fmt.Errorf("failed to create an out-of-bound request : %w", err)
+		return fmt.Errorf("failed to create an out-of-band request : %w", err)
 	}
 
 	sdk.pendingRequests[agentID] = req

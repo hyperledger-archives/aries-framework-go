@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
@@ -35,7 +35,7 @@ func (m *mockCommandRunner) exec(rw io.Writer, _ io.Reader) command.Error {
 
 func TestIntroduce_Actions(t *testing.T) {
 	t.Run("test it performs an actions request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -57,7 +57,7 @@ func TestIntroduce_Actions(t *testing.T) {
 
 func TestIntroduce_SendProposal(t *testing.T) {
 	t.Run("test it performs a send proposal request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -97,7 +97,7 @@ func TestIntroduce_SendProposal(t *testing.T) {
 
 func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -129,7 +129,7 @@ func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 
 func TestIntroduce_SendRequest(t *testing.T) {
 	t.Run("test it performs a send request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -158,8 +158,8 @@ func TestIntroduce_SendRequest(t *testing.T) {
 }
 
 func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
-	t.Run("test it performs an accept proposal with out-of-bound request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+	t.Run("test it performs an accept proposal with out-of-band request", func(t *testing.T) {
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -186,7 +186,7 @@ func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
 
 func TestIntroduce_AcceptProposal(t *testing.T) {
 	t.Run("test it accepts a proposal", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -211,8 +211,8 @@ func TestIntroduce_AcceptProposal(t *testing.T) {
 }
 
 func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
-	t.Run("test it performs an accept request with a public out-of-bound request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+	t.Run("test it performs an accept request with a public out-of-band request", func(t *testing.T) {
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -240,7 +240,7 @@ func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 
 func TestIntroduce_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("test it accepts a request with recipients", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -268,7 +268,7 @@ func TestIntroduce_AcceptRequestWithRecipients(t *testing.T) {
 
 func TestIntroduce_DeclineProposal(t *testing.T) {
 	t.Run("test it declines a proposal", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()
@@ -295,7 +295,7 @@ func TestIntroduce_DeclineProposal(t *testing.T) {
 
 func TestIntroduce_DeclineRequest(t *testing.T) {
 	t.Run("test it declines a request", func(t *testing.T) {
-		a, err := NewAries(&api.Options{})
+		a, err := NewAries(&config.Options{})
 		require.NoError(t, err)
 
 		ic, err := a.GetIntroduceController()

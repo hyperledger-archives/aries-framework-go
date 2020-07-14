@@ -23,26 +23,27 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// constants for the Verifiable protocol
 const (
 	// roots
-	verifiableOperationID      = "/verifiable"
-	verifiableCredentialPath   = verifiableOperationID + "/credential"
-	verifiablePresentationPath = verifiableOperationID + "/presentation"
+	VerifiableOperationID      = "/verifiable"
+	verifiableCredentialPath   = VerifiableOperationID + "/credential"
+	verifiablePresentationPath = VerifiableOperationID + "/presentation"
 
 	// credential paths
-	validateCredentialPath  = verifiableCredentialPath + "/validate"
-	saveCredentialPath      = verifiableCredentialPath
-	getCredentialPath       = verifiableCredentialPath + "/{id}"
-	getCredentialByNamePath = verifiableCredentialPath + "/name" + "/{name}"
-	getCredentialsPath      = verifiableOperationID + "/credentials"
-	signCredentialsPath     = verifiableOperationID + "/signcredential"
+	ValidateCredentialPath  = verifiableCredentialPath + "/validate"
+	SaveCredentialPath      = verifiableCredentialPath
+	GetCredentialPath       = verifiableCredentialPath + "/{id}"
+	GetCredentialByNamePath = verifiableCredentialPath + "/name" + "/{name}"
+	GetCredentialsPath      = VerifiableOperationID + "/credentials"
+	SignCredentialsPath     = VerifiableOperationID + "/signcredential"
 
 	// presentation paths
-	generatePresentationPath     = verifiablePresentationPath + "/generate"
-	generatePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
-	savePresentationPath         = verifiablePresentationPath
-	getPresentationPath          = verifiablePresentationPath + "/{id}"
-	getPresentationsPath         = verifiableOperationID + "/presentations"
+	GeneratePresentationPath     = verifiablePresentationPath + "/generate"
+	GeneratePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
+	SavePresentationPath         = verifiablePresentationPath
+	GetPresentationPath          = verifiablePresentationPath + "/{id}"
+	GetPresentationsPath         = VerifiableOperationID + "/presentations"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -80,17 +81,17 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 // registerHandler register handlers to be exposed from this protocol service as REST API endpoints
 func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(validateCredentialPath, http.MethodPost, o.ValidateCredential),
-		cmdutil.NewHTTPHandler(saveCredentialPath, http.MethodPost, o.SaveCredential),
-		cmdutil.NewHTTPHandler(getCredentialPath, http.MethodGet, o.GetCredential),
-		cmdutil.NewHTTPHandler(getCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
-		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
-		cmdutil.NewHTTPHandler(signCredentialsPath, http.MethodPost, o.SignCredential),
-		cmdutil.NewHTTPHandler(generatePresentationPath, http.MethodPost, o.GeneratePresentation),
-		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
-		cmdutil.NewHTTPHandler(savePresentationPath, http.MethodPost, o.SavePresentation),
-		cmdutil.NewHTTPHandler(getPresentationPath, http.MethodGet, o.GetPresentation),
-		cmdutil.NewHTTPHandler(getPresentationsPath, http.MethodGet, o.GetPresentations),
+		cmdutil.NewHTTPHandler(ValidateCredentialPath, http.MethodPost, o.ValidateCredential),
+		cmdutil.NewHTTPHandler(SaveCredentialPath, http.MethodPost, o.SaveCredential),
+		cmdutil.NewHTTPHandler(GetCredentialPath, http.MethodGet, o.GetCredential),
+		cmdutil.NewHTTPHandler(GetCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
+		cmdutil.NewHTTPHandler(GetCredentialsPath, http.MethodGet, o.GetCredentials),
+		cmdutil.NewHTTPHandler(SignCredentialsPath, http.MethodPost, o.SignCredential),
+		cmdutil.NewHTTPHandler(GeneratePresentationPath, http.MethodPost, o.GeneratePresentation),
+		cmdutil.NewHTTPHandler(GeneratePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
+		cmdutil.NewHTTPHandler(SavePresentationPath, http.MethodPost, o.SavePresentation),
+		cmdutil.NewHTTPHandler(GetPresentationPath, http.MethodGet, o.GetPresentation),
+		cmdutil.NewHTTPHandler(GetPresentationsPath, http.MethodGet, o.GetPresentations),
 	}
 }
 

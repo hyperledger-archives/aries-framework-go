@@ -233,7 +233,7 @@ func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) e
 func (s *ControllerSteps) constructOOBRequestWithNoAttachments(agentID string) error {
 	req, err := s.NewRequest(agentID)
 	if err != nil {
-		return fmt.Errorf("failed to create an out-of-bound request : %w", err)
+		return fmt.Errorf("failed to create an out-of-band request : %w", err)
 	}
 
 	s.pendingRequests[agentID] = req

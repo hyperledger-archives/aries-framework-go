@@ -67,20 +67,35 @@ This is an example of how the imported module can be used:
 import org.hyperledger.aries.api.AriesController;
 import org.hyperledger.aries.api.IntroduceController;
 import org.hyperledger.aries.ariesagent.Ariesagent;
-import org.hyperledger.aries.wrappers.*;
+import org.hyperledger.aries.models.RequestEnvelope;
+import org.hyperledger.aries.models.ResponseEnvelope;
+import org.hyperledger.aries.config.Options;
+
+import java.nio.charset.StandardCharsets;
 /*
 ...
 */
-        IntroduceActionsResponse res = new IntroduceActionsResponse();
+        // create options
+        Options opts = new Options();
+        opts.setURL("http://example.com");
+        opts.setUseLocalAgent(true);
+
+        ResponseEnvelope res = new ResponseEnvelope();
         try {
-            boolean useLocalAgent = false;
-            AriesController a = Ariesagent.newAriesAgent(useLocalAgent);
+            // create an aries agent instance
+            AriesController a = Ariesagent.newAriesAgent(opts);
+
+            // create a controller
             IntroduceController i = a.getIntroduceController();
-            res = i.actions(new IntroduceActionsRequest());
+
+            // perform an operation
+            res = i.actions(new RequestEnvelope());
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String actionsResponse = res.getActionsResponse();
+
+        String actionsResponse = new String(res.getPayload(), StandardCharsets.UTF_8);
+        System.out.println(actionsResponse);
 ```
 
 
@@ -97,10 +112,35 @@ This is an example of how the imported framework can be used:
 /*
 ...
 */
-    ApiAriesController *ac = (ApiAriesController*) AriesagentNewAriesAgent(false, nil);
-    ApiIntroduceController *ic = (ApiIntroduceController*) [ac getIntroduceController:nil];
-    WrappersIntroduceActionsResponse *resp = [ic actions:nil];
-    NSString *actionsResp = resp.actionsResponse;
+    NSError *error = nil;
+
+    // create options
+    ConfigOptions *opts = [[ConfigOptions alloc] init];
+    opts.url = @"http://example.com";
+    opts.useLocalAgent = true;
+    
+    // create an aries agent instance
+    RestAriesREST *ac = (RestAriesREST*) AriesagentNewAriesAgent(opts, &error);
+    if(error) {
+        NSLog(@"error creating a remote aries agent: %@", error);
+    }
+    
+    // create a controller
+    RestIntroduceREST *ic = (RestIntroduceREST*) [ac getIntroduceController:&error];
+    if(error) {
+        NSLog(@"error creating an introduce controller instance: %@", error);
+    }
+
+    // perform an operation
+    ModelsRequestEnvelope *req = [[ModelsRequestEnvelope alloc] init];
+    req.payload = [@"" dataUsingEncoding:NSUTF8StringEncoding];
+    ModelsResponseEnvelope *resp = [ic actions:req];
+    if(resp.error) {
+        NSLog(@"error getting actions: %@", resp.error.message);
+    }
+    
+    NSString *actionsResp = [[NSString alloc] initWithData:resp.payload encoding:NSUTF8StringEncoding];
+    NSLog(@"actions response: %@", actionsResp);
 ```
 
 

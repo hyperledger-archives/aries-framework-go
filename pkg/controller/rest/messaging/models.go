@@ -60,7 +60,7 @@ type SendReplyMessageRequest struct { // nolint: unused,deadcode
 
 // RegisterHTTPMessageServiceRequest model
 //
-// This is used for operation to register a HTTP over DIDComm message service to message handler
+// This is used for operation to register an HTTP over DIDComm message service to message handler
 //
 // swagger:parameters registerHttpMsgSvc
 type registerHTTPMessageServiceRequest struct { // nolint: unused,deadcode
