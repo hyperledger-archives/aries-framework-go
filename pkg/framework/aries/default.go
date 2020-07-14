@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -26,6 +27,7 @@ import (
 	mdpresentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -64,13 +66,13 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	}
 
 	// order is important:
+	// - Route depends on MessagePickup
 	// - DIDExchange depends on Route
 	// - OutOfBand depends on DIDExchange
 	// - Introduce depends on OutOfBand
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(), newIntroduceSvc(),
-		newIssueCredentialSvc(), newPresentProofSvc(), messagepickup.ServiceCreator(),
-	)
+		newMessagePickupSvc(), newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(),
+		newIntroduceSvc(), newIssueCredentialSvc(), newPresentProofSvc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
 		err := createDefSecretLock(frameworkOpts)
@@ -131,6 +133,17 @@ func newPresentProofSvc() api.ProtocolSvcCreator {
 func newRouteSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return mediator.New(prv)
+	}
+}
+
+func newMessagePickupSvc() api.ProtocolSvcCreator {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
+		tp, ok := prv.(didcommtransport.Provider)
+		if !ok {
+			return nil, errors.New("failed to cast transport provider")
+		}
+
+		return messagepickup.New(prv, tp)
 	}
 }
 
