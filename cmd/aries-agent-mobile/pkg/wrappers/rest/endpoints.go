@@ -10,7 +10,10 @@ import (
 	"net/http"
 
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
+	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
+	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
 // Endpoint describes the fields for making calls to external agents
@@ -23,6 +26,7 @@ func getProtocolEndpoints() map[string]map[string]*Endpoint {
 	allEndpoints := make(map[string]map[string]*Endpoint)
 
 	allEndpoints[opintroduce.OperationID] = getIntroduceEndpoints()
+	allEndpoints[opverifiable.VerifiableOperationID] = getVerifiableEndpoints()
 
 	return allEndpoints
 }
@@ -67,6 +71,55 @@ func getIntroduceEndpoints() map[string]*Endpoint {
 		},
 		cmdintroduce.DeclineRequest: {
 			Path:   opintroduce.DeclineRequest,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getVerifiableEndpoints() map[string]*Endpoint {
+	return map[string]*Endpoint{
+		cmdverifiable.ValidateCredentialCommandMethod: {
+			Path:   opverifiable.ValidateCredentialPath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.SaveCredentialCommandMethod: {
+			Path:   opverifiable.SaveCredentialPath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.SavePresentationCommandMethod: {
+			Path:   opverifiable.SavePresentationPath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.GetCredentialCommandMethod: {
+			Path:   opverifiable.GetCredentialPath,
+			Method: http.MethodGet,
+		},
+		cmdverifiable.SignCredentialCommandMethod: {
+			Path:   opverifiable.SignCredentialsPath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.GetPresentationCommandMethod: {
+			Path:   opverifiable.GetPresentationPath,
+			Method: http.MethodGet,
+		},
+		cmdverifiable.GetCredentialByNameCommandMethod: {
+			Path:   opverifiable.GetCredentialByNamePath,
+			Method: http.MethodGet,
+		},
+		cmdverifiable.GetCredentialsCommandMethod: {
+			Path:   opverifiable.GetCredentialsPath,
+			Method: http.MethodGet,
+		},
+		cmdverifiable.GetPresentationsCommandMethod: {
+			Path:   opverifiable.GetPresentationsPath,
+			Method: http.MethodGet,
+		},
+		cmdverifiable.GeneratePresentationCommandMethod: {
+			Path:   opverifiable.GeneratePresentationPath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.GeneratePresentationByIDCommandMethod: {
+			Path:   opverifiable.GeneratePresentationByIDPath,
 			Method: http.MethodPost,
 		},
 	}

@@ -9,7 +9,6 @@ package rest
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -32,7 +31,7 @@ type restOperation struct {
 	token string
 
 	httpClient httpClient
-	endpoint   Endpoint
+	endpoint   *Endpoint
 	request    *models.RequestEnvelope
 }
 
@@ -46,10 +45,10 @@ func execREST(operation *restOperation) *models.ResponseEnvelope {
 
 	parsedURL.Path = path.Join(parsedURL.Path, operation.endpoint.Path)
 
-	parsedURL.Path, err = embedPIID(parsedURL.Path, operation.request.Payload)
+	parsedURL.Path, err = embedParams(parsedURL.Path, operation.request.Payload)
 	if err != nil {
 		return &models.ResponseEnvelope{
-			Error: &models.CommandError{Message: fmt.Sprintf("failed to extract piid from request body: %v", err)},
+			Error: &models.CommandError{Message: fmt.Sprintf("failed to embed params in request path: %v", err)},
 		}
 	}
 
@@ -67,12 +66,7 @@ func execREST(operation *restOperation) *models.ResponseEnvelope {
 }
 
 func makeHTTPRequest(httpClient httpClient, method, agentURL, token string, body []byte) ([]byte, error) {
-	reqURL, err := embedPIID(agentURL, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract piid from request body: %w", err)
-	}
-
-	req, err := http.NewRequest(method, reqURL, bytes.NewReader(body))
+	req, err := http.NewRequest(method, agentURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new http request for [%s]: %w", agentURL, err)
 	}
@@ -98,8 +92,24 @@ func makeHTTPRequest(httpClient httpClient, method, agentURL, token string, body
 	return ioutil.ReadAll(response.Body)
 }
 
-func embedPIID(reqPath string, body []byte) (string, error) {
-	if body == nil || !strings.Contains(reqPath, "{piid}") {
+func embedParams(reqPath string, body []byte) (newURL string, err error) {
+	params := []string{"piid", "id", "name"}
+	newURL = reqPath
+
+	for _, param := range params {
+		newURL, err = embedParam(newURL, param, body)
+		if err != nil {
+			return
+		}
+	}
+
+	return newURL, nil
+}
+
+func embedParam(reqPath, paramKey string, body []byte) (string, error) {
+	toReplace := fmt.Sprintf("{%s}", paramKey)
+
+	if body == nil || !strings.Contains(reqPath, toReplace) {
 		return reqPath, nil
 	}
 
@@ -108,12 +118,12 @@ func embedPIID(reqPath string, body []byte) (string, error) {
 		return reqPath, fmt.Errorf("failed to unmarshal request body: %w", err)
 	}
 
-	piid, ok := model["piid"]
+	val, ok := model[paramKey]
 	if !ok {
-		return reqPath, errors.New("no piid found in request body")
+		return reqPath, fmt.Errorf("no %s found in request path", paramKey)
 	}
 
-	newURL := strings.ReplaceAll(reqPath, "{piid}", fmt.Sprintf("%s", piid))
+	newURL := strings.ReplaceAll(reqPath, toReplace, fmt.Sprintf("%s", val))
 
 	return newURL, nil
 }

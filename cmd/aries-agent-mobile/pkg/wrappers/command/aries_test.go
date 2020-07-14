@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 )
 
 func TestNewAries(t *testing.T) {
 	t.Run("test it creates an instance with a framework and handlers", func(t *testing.T) {
-		opts := &api.Options{}
+		opts := &config.Options{}
 		a, err := NewAries(opts)
 		require.NoError(t, err)
 		require.NotNil(t, a)
@@ -27,7 +27,7 @@ func TestNewAries(t *testing.T) {
 
 func TestAries_GetIntroduceController(t *testing.T) {
 	t.Run("test it creates an introduce controller instance", func(t *testing.T) {
-		opts := &api.Options{}
+		opts := &config.Options{}
 		a, err := NewAries(opts)
 		require.NoError(t, err)
 

@@ -73,22 +73,22 @@ const (
 	SignCredentialErrorCode
 )
 
+// constants for the Verifiable protocol
 const (
-	// command name
-	commandName = "verifiable"
+	CommandName = "verifiable"
 
 	// command methods
-	validateCredentialCommandMethod       = "ValidateCredential"
-	saveCredentialCommandMethod           = "SaveCredential"
-	getCredentialCommandMethod            = "GetCredential"
-	getCredentialByNameCommandMethod      = "GetCredentialByName"
-	getCredentialsCommandMethod           = "GetCredentials"
-	signCredentialCommandMethod           = "SignCredential"
-	savePresentationCommandMethod         = "SavePresentation"
-	getPresentationCommandMethod          = "GetPresentation"
-	getPresentationsCommandMethod         = "GetPresentations"
-	generatePresentationCommandMethod     = "GeneratePresentation"
-	generatePresentationByIDCommandMethod = "GeneratePresentationByID"
+	ValidateCredentialCommandMethod       = "ValidateCredential"
+	SaveCredentialCommandMethod           = "SaveCredential"
+	GetCredentialCommandMethod            = "GetCredential"
+	GetCredentialByNameCommandMethod      = "GetCredentialByName"
+	GetCredentialsCommandMethod           = "GetCredentials"
+	SignCredentialCommandMethod           = "SignCredential"
+	SavePresentationCommandMethod         = "SavePresentation"
+	GetPresentationCommandMethod          = "GetPresentation"
+	GetPresentationsCommandMethod         = "GetPresentations"
+	GeneratePresentationCommandMethod     = "GeneratePresentation"
+	GeneratePresentationByIDCommandMethod = "GeneratePresentationByID"
 
 	// error messages
 	errEmptyCredentialName   = "credential name is mandatory"
@@ -195,17 +195,17 @@ func New(p provider) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, validateCredentialCommandMethod, o.ValidateCredential),
-		cmdutil.NewCommandHandler(commandName, saveCredentialCommandMethod, o.SaveCredential),
-		cmdutil.NewCommandHandler(commandName, getCredentialCommandMethod, o.GetCredential),
-		cmdutil.NewCommandHandler(commandName, getCredentialByNameCommandMethod, o.GetCredentialByName),
-		cmdutil.NewCommandHandler(commandName, getCredentialsCommandMethod, o.GetCredentials),
-		cmdutil.NewCommandHandler(commandName, signCredentialCommandMethod, o.SignCredential),
-		cmdutil.NewCommandHandler(commandName, generatePresentationCommandMethod, o.GeneratePresentation),
-		cmdutil.NewCommandHandler(commandName, generatePresentationByIDCommandMethod, o.GeneratePresentationByID),
-		cmdutil.NewCommandHandler(commandName, savePresentationCommandMethod, o.SavePresentation),
-		cmdutil.NewCommandHandler(commandName, getPresentationCommandMethod, o.GetPresentation),
-		cmdutil.NewCommandHandler(commandName, getPresentationsCommandMethod, o.GetPresentations),
+		cmdutil.NewCommandHandler(CommandName, ValidateCredentialCommandMethod, o.ValidateCredential),
+		cmdutil.NewCommandHandler(CommandName, SaveCredentialCommandMethod, o.SaveCredential),
+		cmdutil.NewCommandHandler(CommandName, GetCredentialCommandMethod, o.GetCredential),
+		cmdutil.NewCommandHandler(CommandName, GetCredentialByNameCommandMethod, o.GetCredentialByName),
+		cmdutil.NewCommandHandler(CommandName, GetCredentialsCommandMethod, o.GetCredentials),
+		cmdutil.NewCommandHandler(CommandName, SignCredentialCommandMethod, o.SignCredential),
+		cmdutil.NewCommandHandler(CommandName, GeneratePresentationCommandMethod, o.GeneratePresentation),
+		cmdutil.NewCommandHandler(CommandName, GeneratePresentationByIDCommandMethod, o.GeneratePresentationByID),
+		cmdutil.NewCommandHandler(CommandName, SavePresentationCommandMethod, o.SavePresentation),
+		cmdutil.NewCommandHandler(CommandName, GetPresentationCommandMethod, o.GetPresentation),
+		cmdutil.NewCommandHandler(CommandName, GetPresentationsCommandMethod, o.GetPresentations),
 	}
 }
 
@@ -215,7 +215,7 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, ValidateCredentialCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
@@ -225,14 +225,14 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	//  verification as options to the function.
 	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential))
 	if err != nil {
-		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "validate vc : "+err.Error())
+		logutil.LogInfo(logger, CommandName, ValidateCredentialCommandMethod, "validate vc : "+err.Error())
 
 		return command.NewValidationError(ValidateCredentialErrorCode, fmt.Errorf("validate vc : %w", err))
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, validateCredentialCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, ValidateCredentialCommandMethod, "success")
 
 	return nil
 }
@@ -243,33 +243,33 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, SaveCredentialCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.Name == "" {
-		logutil.LogDebug(logger, commandName, saveCredentialCommandMethod, errEmptyCredentialName)
+		logutil.LogDebug(logger, CommandName, SaveCredentialCommandMethod, errEmptyCredentialName)
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
 	vc, err := verifiable.ParseUnverifiedCredential([]byte(request.VerifiableCredential))
 	if err != nil {
-		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
+		logutil.LogError(logger, CommandName, SaveCredentialCommandMethod, "parse vc : "+err.Error())
 
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
 	}
 
 	err = o.verifiableStore.SaveCredential(request.Name, vc)
 	if err != nil {
-		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "save vc : "+err.Error())
+		logutil.LogError(logger, CommandName, SaveCredentialCommandMethod, "save vc : "+err.Error())
 
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("save vc : %w", err))
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, saveCredentialCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, SaveCredentialCommandMethod, "success")
 
 	return nil
 }
@@ -280,34 +280,34 @@ func (o *Command) SavePresentation(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, savePresentationCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, SavePresentationCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.Name == "" {
-		logutil.LogDebug(logger, commandName, savePresentationCommandMethod, errEmptyPresentationName)
+		logutil.LogDebug(logger, CommandName, SavePresentationCommandMethod, errEmptyPresentationName)
 		return command.NewValidationError(SavePresentationErrorCode, fmt.Errorf(errEmptyPresentationName))
 	}
 
 	vp, err := verifiable.ParsePresentation([]byte(request.VerifiablePresentation),
 		verifiable.WithDisabledPresentationProofCheck())
 	if err != nil {
-		logutil.LogError(logger, commandName, savePresentationCommandMethod, "parse vp : "+err.Error())
+		logutil.LogError(logger, CommandName, SavePresentationCommandMethod, "parse vp : "+err.Error())
 
 		return command.NewValidationError(SavePresentationErrorCode, fmt.Errorf("parse vp : %w", err))
 	}
 
 	err = o.verifiableStore.SavePresentation(request.Name, vp)
 	if err != nil {
-		logutil.LogError(logger, commandName, savePresentationCommandMethod, "save vp : "+err.Error())
+		logutil.LogError(logger, CommandName, SavePresentationCommandMethod, "save vp : "+err.Error())
 
 		return command.NewValidationError(SavePresentationErrorCode, fmt.Errorf("save vp : %w", err))
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, savePresentationCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, SavePresentationCommandMethod, "success")
 
 	return nil
 }
@@ -318,18 +318,18 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, getCredentialCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, GetCredentialCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ID == "" {
-		logutil.LogDebug(logger, commandName, getCredentialCommandMethod, errEmptyCredentialID)
+		logutil.LogDebug(logger, CommandName, GetCredentialCommandMethod, errEmptyCredentialID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
 	}
 
 	vc, err := o.verifiableStore.GetCredential(request.ID)
 	if err != nil {
-		logutil.LogError(logger, commandName, getCredentialCommandMethod, "get vc : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetCredentialCommandMethod, "get vc : "+err.Error(),
 			logutil.CreateKeyValueString(vcID, request.ID))
 
 		return command.NewValidationError(GetCredentialErrorCode, fmt.Errorf("get vc : %w", err))
@@ -337,7 +337,7 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 
 	vcBytes, err := vc.MarshalJSON()
 	if err != nil {
-		logutil.LogError(logger, commandName, getCredentialCommandMethod, "marshal vc : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetCredentialCommandMethod, "marshal vc : "+err.Error(),
 			logutil.CreateKeyValueString(vcID, request.ID))
 
 		return command.NewValidationError(GetCredentialErrorCode, fmt.Errorf("marshal vc : %w", err))
@@ -347,7 +347,7 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 		VerifiableCredential: string(vcBytes),
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getCredentialCommandMethod, "success",
+	logutil.LogDebug(logger, CommandName, GetCredentialCommandMethod, "success",
 		logutil.CreateKeyValueString(vcID, request.ID))
 
 	return nil
@@ -359,7 +359,7 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, signCredentialCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, SignCredentialCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
@@ -369,7 +369,7 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
-			logutil.LogError(logger, commandName, signCredentialCommandMethod,
+			logutil.LogError(logger, CommandName, SignCredentialCommandMethod,
 				"failed to get did doc from store or vdri: "+err.Error())
 
 			return command.NewValidationError(SignCredentialErrorCode,
@@ -379,21 +379,21 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 
 	vc, err := verifiable.ParseUnverifiedCredential(request.Credential)
 	if err != nil {
-		logutil.LogError(logger, commandName, signCredentialCommandMethod, "parse credential : "+err.Error())
+		logutil.LogError(logger, CommandName, SignCredentialCommandMethod, "parse credential : "+err.Error())
 
 		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
 	}
 
 	err = o.addCredentialProof(vc, didDoc, request.ProofOptions)
 	if err != nil {
-		logutil.LogError(logger, commandName, signCredentialCommandMethod, "sign credential : "+err.Error())
+		logutil.LogError(logger, CommandName, SignCredentialCommandMethod, "sign credential : "+err.Error())
 
 		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("sign credential : %w", err))
 	}
 
 	vcBytes, err := vc.MarshalJSON()
 	if err != nil {
-		logutil.LogError(logger, commandName, signCredentialCommandMethod, "marshal credential : "+err.Error())
+		logutil.LogError(logger, CommandName, SignCredentialCommandMethod, "marshal credential : "+err.Error())
 
 		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("marshal credential : %w", err))
 	}
@@ -402,7 +402,7 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		VerifiableCredential: vcBytes,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, signCredentialCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, SignCredentialCommandMethod, "success")
 
 	return nil
 }
@@ -413,18 +413,18 @@ func (o *Command) GetPresentation(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, getPresentationCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, GetPresentationCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ID == "" {
-		logutil.LogDebug(logger, commandName, getPresentationCommandMethod, errEmptyPresentationID)
+		logutil.LogDebug(logger, CommandName, GetPresentationCommandMethod, errEmptyPresentationID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPresentationID))
 	}
 
 	vp, err := o.verifiableStore.GetPresentation(request.ID)
 	if err != nil {
-		logutil.LogError(logger, commandName, getPresentationCommandMethod, "get vp : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetPresentationCommandMethod, "get vp : "+err.Error(),
 			logutil.CreateKeyValueString(vpID, request.ID))
 
 		return command.NewValidationError(GetPresentationErrorCode, fmt.Errorf("get vp : %w", err))
@@ -432,7 +432,7 @@ func (o *Command) GetPresentation(rw io.Writer, req io.Reader) command.Error {
 
 	vpBytes, err := vp.MarshalJSON()
 	if err != nil {
-		logutil.LogError(logger, commandName, getPresentationCommandMethod, "marshal vp : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetPresentationCommandMethod, "marshal vp : "+err.Error(),
 			logutil.CreateKeyValueString(vpID, request.ID))
 
 		return command.NewValidationError(GetPresentationErrorCode, fmt.Errorf("marshal vp : %w", err))
@@ -442,7 +442,7 @@ func (o *Command) GetPresentation(rw io.Writer, req io.Reader) command.Error {
 		VerifiablePresentation: vpBytes,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getPresentationCommandMethod, "success",
+	logutil.LogDebug(logger, CommandName, GetPresentationCommandMethod, "success",
 		logutil.CreateKeyValueString(vpID, request.ID))
 
 	return nil
@@ -454,18 +454,18 @@ func (o *Command) GetCredentialByName(rw io.Writer, req io.Reader) command.Error
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, getCredentialByNameCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, GetCredentialByNameCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.Name == "" {
-		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyCredentialName)
+		logutil.LogDebug(logger, CommandName, GetCredentialByNameCommandMethod, errEmptyCredentialName)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
 	id, err := o.verifiableStore.GetCredentialIDByName(request.Name)
 	if err != nil {
-		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by name : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetCredentialByNameCommandMethod, "get vc by name : "+err.Error(),
 			logutil.CreateKeyValueString(vcName, request.Name))
 
 		return command.NewValidationError(GetCredentialByNameErrorCode, fmt.Errorf("get vc by name : %w", err))
@@ -476,7 +476,7 @@ func (o *Command) GetCredentialByName(rw io.Writer, req io.Reader) command.Error
 		ID:   id,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, "success",
+	logutil.LogDebug(logger, CommandName, GetCredentialByNameCommandMethod, "success",
 		logutil.CreateKeyValueString(vcName, request.Name))
 
 	return nil
@@ -486,7 +486,7 @@ func (o *Command) GetCredentialByName(rw io.Writer, req io.Reader) command.Error
 func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 	vcRecords, err := o.verifiableStore.GetCredentials()
 	if err != nil {
-		logutil.LogError(logger, commandName, getCredentialsCommandMethod, "get credential records : "+err.Error())
+		logutil.LogError(logger, CommandName, GetCredentialsCommandMethod, "get credential records : "+err.Error())
 
 		return command.NewValidationError(GetCredentialsErrorCode, fmt.Errorf("get credential records : %w", err))
 	}
@@ -495,7 +495,7 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 		Result: vcRecords,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getCredentialsCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, GetCredentialsCommandMethod, "success")
 
 	return nil
 }
@@ -504,7 +504,7 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 func (o *Command) GetPresentations(rw io.Writer, req io.Reader) command.Error {
 	vpRecords, err := o.verifiableStore.GetPresentations()
 	if err != nil {
-		logutil.LogError(logger, commandName, getPresentationsCommandMethod, "get presentation records : "+err.Error())
+		logutil.LogError(logger, CommandName, GetPresentationsCommandMethod, "get presentation records : "+err.Error())
 
 		return command.NewValidationError(GetPresentationsErrorCode, fmt.Errorf("get presentation records : %w", err))
 	}
@@ -513,7 +513,7 @@ func (o *Command) GetPresentations(rw io.Writer, req io.Reader) command.Error {
 		Result: vpRecords,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getPresentationsCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, GetPresentationsCommandMethod, "success")
 
 	return nil
 }
@@ -524,7 +524,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, generatePresentationCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, GeneratePresentationCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
@@ -534,7 +534,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
-			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to get did doc from store or vdri: "+err.Error())
 
 			return command.NewValidationError(GeneratePresentationErrorCode,
@@ -544,7 +544,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 
 	credentials, presentation, opts, err := o.parsePresentationRequest(request, didDoc)
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 			"parse presentation request: "+err.Error())
 
 		return command.NewValidationError(GeneratePresentationErrorCode,
@@ -560,24 +560,24 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, generatePresentationCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, GeneratePresentationCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ID == "" {
-		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyCredentialID)
+		logutil.LogDebug(logger, CommandName, GetCredentialByNameCommandMethod, errEmptyCredentialID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
 	}
 
 	if request.DID == "" {
-		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyDID)
+		logutil.LogDebug(logger, CommandName, GetCredentialByNameCommandMethod, errEmptyDID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDID))
 	}
 
 	vc, err := o.verifiableStore.GetCredential(request.ID)
 	if err != nil {
-		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by id : "+err.Error(),
+		logutil.LogError(logger, CommandName, GetCredentialByNameCommandMethod, "get vc by id : "+err.Error(),
 			logutil.CreateKeyValueString(vcID, request.ID))
 
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
@@ -585,7 +585,7 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 
 	doc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 			"failed to get did doc from store: "+err.Error())
 
 		return command.NewValidationError(GeneratePresentationErrorCode,
@@ -600,7 +600,7 @@ func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verif
 	// prepare vp
 	vp, err := o.createAndSignPresentation(vcs, p, holder, opts)
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp: "+err.Error())
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod, "create and sign vp: "+err.Error())
 
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("prepare vp: %w", err))
 	}
@@ -609,7 +609,7 @@ func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verif
 		VerifiablePresentation: vp,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, generatePresentationCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, GeneratePresentationCommandMethod, "success")
 
 	return nil
 }
@@ -619,7 +619,7 @@ func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credenti
 	// prepare vp by id
 	vp, err := o.createAndSignPresentationByID(vc, didDoc, signatureType)
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp by id: "+err.Error())
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod, "create and sign vp by id: "+err.Error())
 
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("prepare vp by id: %w", err))
 	}
@@ -629,7 +629,7 @@ func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credenti
 		VerifiablePresentation: vp,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, generatePresentationCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, GeneratePresentationCommandMethod, "success")
 
 	return nil
 }
@@ -747,7 +747,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 
 			vc, e := verifiable.ParseCredential(vcRaw, credOpts...)
 			if e != nil {
-				logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+				logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 					"failed to parse credential from request, invalid credential: "+e.Error())
 				return nil, nil, nil, fmt.Errorf("parse credential failed: %w", e)
 			}
@@ -757,7 +757,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 	} else {
 		presentation, err = verifiable.ParseUnverifiedPresentation(request.Presentation)
 		if err != nil {
-			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to parse presentation from request: "+err.Error())
 			return nil, nil, nil, fmt.Errorf("parse presentation failed: %w", err)
 		}
@@ -765,7 +765,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 
 	opts, err := prepareOpts(request.ProofOptions, didDoc, did.Authentication)
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 			"failed to prepare proof options: "+err.Error())
 		return nil, nil, nil, fmt.Errorf("failed to prepare proof options: %w", err)
 	}

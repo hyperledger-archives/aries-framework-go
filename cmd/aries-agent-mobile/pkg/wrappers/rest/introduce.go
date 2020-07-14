@@ -11,7 +11,7 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 )
 
-// IntroduceREST contains an http client and endpoints for each of its operations
+// IntroduceREST contains necessary fields for each of its operations
 type IntroduceREST struct {
 	httpClient httpClient
 	endpoints  map[string]*Endpoint
@@ -27,7 +27,7 @@ func (ir *IntroduceREST) Actions(request *models.RequestEnvelope) *models.Respon
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.Actions],
+		endpoint:   ir.endpoints[cmdintroduce.Actions],
 		request:    request,
 	})
 
@@ -40,7 +40,7 @@ func (ir *IntroduceREST) SendProposal(request *models.RequestEnvelope) *models.R
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.SendProposal],
+		endpoint:   ir.endpoints[cmdintroduce.SendProposal],
 		request:    request,
 	})
 
@@ -54,7 +54,7 @@ func (ir *IntroduceREST) SendProposalWithOOBRequest(request *models.RequestEnvel
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.SendProposalWithOOBRequest],
+		endpoint:   ir.endpoints[cmdintroduce.SendProposalWithOOBRequest],
 		request:    request,
 	})
 
@@ -67,7 +67,7 @@ func (ir *IntroduceREST) SendRequest(request *models.RequestEnvelope) *models.Re
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.SendRequest],
+		endpoint:   ir.endpoints[cmdintroduce.SendRequest],
 		request:    request,
 	})
 
@@ -80,7 +80,7 @@ func (ir *IntroduceREST) AcceptProposalWithOOBRequest(request *models.RequestEnv
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.AcceptProposalWithOOBRequest],
+		endpoint:   ir.endpoints[cmdintroduce.AcceptProposalWithOOBRequest],
 		request:    request,
 	})
 
@@ -93,7 +93,7 @@ func (ir *IntroduceREST) AcceptProposal(request *models.RequestEnvelope) *models
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.AcceptProposal],
+		endpoint:   ir.endpoints[cmdintroduce.AcceptProposal],
 		request:    request,
 	})
 
@@ -107,7 +107,7 @@ func (ir *IntroduceREST) AcceptRequestWithPublicOOBRequest(request *models.Reque
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.AcceptRequestWithPublicOOBRequest],
+		endpoint:   ir.endpoints[cmdintroduce.AcceptRequestWithPublicOOBRequest],
 		request:    request,
 	})
 
@@ -121,7 +121,7 @@ func (ir *IntroduceREST) AcceptRequestWithRecipients(request *models.RequestEnve
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.AcceptRequestWithRecipients],
+		endpoint:   ir.endpoints[cmdintroduce.AcceptRequestWithRecipients],
 		request:    request,
 	})
 
@@ -134,7 +134,7 @@ func (ir *IntroduceREST) DeclineProposal(request *models.RequestEnvelope) *model
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.DeclineProposal],
+		endpoint:   ir.endpoints[cmdintroduce.DeclineProposal],
 		request:    request,
 	})
 
@@ -147,7 +147,7 @@ func (ir *IntroduceREST) DeclineRequest(request *models.RequestEnvelope) *models
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
-		endpoint:   *ir.endpoints[cmdintroduce.DeclineRequest],
+		endpoint:   ir.endpoints[cmdintroduce.DeclineRequest],
 		request:    request,
 	})
 

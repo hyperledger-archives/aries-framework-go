@@ -15,8 +15,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
+	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
@@ -25,10 +25,20 @@ var (
 )
 
 type mockHTTPClient struct {
-	data string
+	data   string
+	url    string
+	method string
 }
 
-func (client *mockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
+func (client *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if client.url != req.URL.String() {
+		return nil, fmt.Errorf("wrong url: expected - %s got - %s", client.url, req.URL.String())
+	}
+
+	if client.method != req.Method {
+		return nil, fmt.Errorf("wrong method: expected - %s got - %s", client.method, req.Method)
+	}
+
 	r := ioutil.NopCloser(bytes.NewReader([]byte(client.data)))
 
 	return &http.Response{
@@ -37,42 +47,42 @@ func (client *mockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
 	}, nil
 }
 
+func getIntroduceController(t *testing.T) *IntroduceREST {
+	a := getAgent()
+	ic, err := a.GetIntroduceController()
+	require.NoError(t, err)
+	require.NotNil(t, ic)
+
+	i, ok := ic.(*IntroduceREST)
+	require.Equal(t, ok, true)
+
+	return i
+}
+
 func TestIntroduceREST_Actions(t *testing.T) {
 	t.Run("test it performs an actions request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
 		mockResponse := `{"actions":[{"PIID":"ID1","Msg":null,"MyDID":"","TheirDID":""},
 {"PIID":"ID2","Msg":null,"MyDID":"","TheirDID":""}]}`
 
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodGet, url: mockAgentURL + opintroduce.Actions}
 
 		req := &models.RequestEnvelope{}
 		resp := i.Actions(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_SendProposal(t *testing.T) {
 	t.Run("test it performs a send proposal request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
-		client := mockHTTPClient{data: mockPIID}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
+		i.httpClient = &mockHTTPClient{data: mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposal}
 
 		req := &models.RequestEnvelope{Payload: []byte(`{
 	"recipients": [
@@ -93,24 +103,19 @@ func TestIntroduceREST_SendProposal(t *testing.T) {
 	]
 }`)}
 		resp := i.SendProposal(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockPIID, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
-		client := mockHTTPClient{data: mockPIID}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
+		i.httpClient = &mockHTTPClient{data: mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposalWithOOBRequest}
 
 		reqData := fmt.Sprintf(`{
 	"recipient": {
@@ -123,24 +128,19 @@ func TestIntroduceREST_SendProposalWithOOBRequest(t *testing.T) {
 }`, outofband.RequestMsgType)
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.SendProposalWithOOBRequest(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockPIID, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_SendRequest(t *testing.T) {
 	t.Run("test it performs a send request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
-		client := mockHTTPClient{data: mockPIID}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
+		i.httpClient = &mockHTTPClient{data: mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendRequest}
 
 		reqData := `{
 	"my_did": "did:mydid:123",
@@ -151,142 +151,128 @@ func TestIntroduceREST_SendRequest(t *testing.T) {
 }`
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.SendRequest(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockPIID, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_AcceptProposalWithOOBRequest(t *testing.T) {
-	t.Run("test it accepts a proposal with out-of-bound request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+	t.Run("test it accepts a proposal with out-of-band request", func(t *testing.T) {
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"request": {},
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptProposalWithOOBRequest, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.AcceptProposalWithOOBRequest(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_AcceptProposal(t *testing.T) {
 	t.Run("test it accepts a proposal", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptProposal, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.AcceptProposal(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_AcceptRequestWithPublicOOBRequest(t *testing.T) {
-	t.Run("test it performs an accept request with a public out-of-bound request", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+	t.Run("test it performs an accept request with a public out-of-band request", func(t *testing.T) {
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"request": {},
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2",
 	"to": {}
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptRequestWithPublicOOBRequest, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.AcceptRequestWithPublicOOBRequest(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
 
 func TestIntroduceREST_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("test it accepts a request with recipients", func(t *testing.T) {
-		opts := &api.Options{}
-		a := NewAries(opts)
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"request": {},
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2",
 	"to": {}
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptRequestWithRecipients, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.AcceptRequestWithRecipients(req)
-		require.NotNil(t, resp)
 
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
 
 func TestIntroduce_DeclineProposal(t *testing.T) {
 	t.Run("test it declines a proposal", func(t *testing.T) {
-		a := NewAries(&api.Options{})
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"reason": "not in agreement",
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.DeclineProposal, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.DeclineProposal(req)
+
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
 		require.Equal(t, "", string(resp.Payload))
@@ -295,25 +281,22 @@ func TestIntroduce_DeclineProposal(t *testing.T) {
 
 func TestIntroduce_DeclineRequest(t *testing.T) {
 	t.Run("test it declines a request", func(t *testing.T) {
-		a := NewAries(&api.Options{})
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
+		i := getIntroduceController(t)
 
 		mockResponse := ``
-
-		client := mockHTTPClient{data: mockResponse}
-		i, ok := ic.(*IntroduceREST)
-		require.Equal(t, ok, true)
-		i.httpClient = &client
-
 		reqData := `{
 	"reason": "not in agreement",
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"
 }`
+
+		mockURL, err := parseURL(mockAgentURL, opintroduce.DeclineRequest, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := i.DeclineRequest(req)
+
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
 		require.Equal(t, "", string(resp.Payload))
