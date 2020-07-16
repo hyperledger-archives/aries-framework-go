@@ -18,9 +18,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
+	mockmessagep "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -43,6 +45,9 @@ type updateResult struct {
 func TestServiceNew(t *testing.T) {
 	t.Run("test new service - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
@@ -74,6 +79,9 @@ func TestServiceAccept(t *testing.T) {
 func TestServiceHandleInbound(t *testing.T) {
 	t.Run("test handle inbound ", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
@@ -93,6 +101,9 @@ func TestServiceHandleOutbound(t *testing.T) {
 
 		s := make(map[string][]byte)
 		provider := &mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -151,6 +162,9 @@ func TestServiceHandleOutbound(t *testing.T) {
 	t.Run("wraps error getting connection ID", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
@@ -171,6 +185,9 @@ func TestServiceHandleOutbound(t *testing.T) {
 	t.Run("wraps error getting connection record", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
@@ -192,6 +209,9 @@ func TestServiceHandleOutbound(t *testing.T) {
 func TestServiceRequestMsg(t *testing.T) {
 	t.Run("test service handle inbound request msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -210,6 +230,9 @@ func TestServiceRequestMsg(t *testing.T) {
 
 	t.Run("test service handle request msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -230,6 +253,9 @@ func TestServiceRequestMsg(t *testing.T) {
 	t.Run("test service handle request msg - verify outbound message", func(t *testing.T) {
 		endpoint := "ws://agent.example.com"
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -266,6 +292,9 @@ func TestServiceRequestMsg(t *testing.T) {
 	t.Run("test service handle request msg - kms failure", func(t *testing.T) {
 		expected := errors.New("test")
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue: &mockkms.CloseableKMS{
@@ -289,6 +318,9 @@ func TestServiceRequestMsg(t *testing.T) {
 func TestEvents(t *testing.T) {
 	t.Run("HandleInbound dispatches action events", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -318,6 +350,9 @@ func TestEvents(t *testing.T) {
 	t.Run("continuing inbound request event dispatches outbound grant", func(t *testing.T) {
 		dispatched := make(chan struct{})
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -354,6 +389,9 @@ func TestEvents(t *testing.T) {
 	t.Run("stopping inbound request event does not dispatch outbound grant", func(t *testing.T) {
 		dispatched := make(chan struct{})
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -389,6 +427,9 @@ func TestEvents(t *testing.T) {
 
 	t.Run("fails when no listeners are registered for action events", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -404,6 +445,9 @@ func TestEvents(t *testing.T) {
 		routingKeys := []string{"key1", "key2"}
 		dispatched := make(chan struct{})
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -479,6 +523,9 @@ func TestEvents(t *testing.T) {
 func TestServiceGrantMsg(t *testing.T) {
 	t.Run("test service handle inbound grant msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -494,6 +541,9 @@ func TestServiceGrantMsg(t *testing.T) {
 
 	t.Run("test service handle grant msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -511,6 +561,9 @@ func TestServiceGrantMsg(t *testing.T) {
 func TestServiceUpdateKeyListMsg(t *testing.T) {
 	t.Run("test service handle inbound key list update msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -529,6 +582,9 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 
 	t.Run("test service handle key list update msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -549,6 +605,9 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		update[""] = updateResult{action: add, result: success}
 
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -592,6 +651,9 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 	t.Run("test service handle inbound key list update response msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -611,6 +673,9 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 
 	t.Run("test service handle key list update response msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -629,6 +694,9 @@ func TestServiceForwardMsg(t *testing.T) {
 	t.Run("test service handle inbound forward msg - success", func(t *testing.T) {
 		to := randomID()
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -647,6 +715,9 @@ func TestServiceForwardMsg(t *testing.T) {
 
 	t.Run("test service handle forward msg - success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -665,6 +736,9 @@ func TestServiceForwardMsg(t *testing.T) {
 		msgID := randomID()
 
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -692,6 +766,9 @@ func TestServiceForwardMsg(t *testing.T) {
 		msg := generateForwardMsgPayload(t, msgID, to, content)
 
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -728,12 +805,105 @@ func TestServiceForwardMsg(t *testing.T) {
 	})
 }
 
+func TestMessagePickup(t *testing.T) {
+	t.Run("test service handle inbound message pick up - success", func(t *testing.T) {
+		to := randomID()
+
+		content := &model.Envelope{
+			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
+				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
+			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
+			CipherText: "qQyzvajdvCDJbwxM",
+			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
+		}
+
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
+						AddMessageFunc: func(message *model.Envelope, theirDID string) error {
+							require.Equal(t, content, message)
+							return nil
+						}}},
+				StorageProviderValue:          mockstore.NewMockStoreProvider(),
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				LegacyKMSValue:                &mockkms.CloseableKMS{},
+				OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+					ValidateForward: func(_ interface{}, _ *service.Destination) error {
+						return errors.New("websocket connection failed")
+					},
+				},
+				VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+					ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+						return mockdiddoc.GetMockDIDDoc(), nil
+					},
+				},
+			})
+		require.NoError(t, err)
+
+		err = svc.routeStore.Put(dataKey(to), []byte("did:example:123"))
+		require.NoError(t, err)
+
+		msgID := randomID()
+		msg := generateForwardMsgPayload(t, msgID, to, content)
+
+		err = svc.handleForward(msg)
+		require.NoError(t, err)
+	})
+
+	t.Run("test service handle inbound message pick up - add message error", func(t *testing.T) {
+		to := randomID()
+
+		content := &model.Envelope{
+			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
+				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
+			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
+			CipherText: "qQyzvajdvCDJbwxM",
+			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
+		}
+
+		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
+					AddMessageErr: errors.New("add error"),
+				}},
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateForward: func(_ interface{}, _ *service.Destination) error {
+					return errors.New("websocket connection failed")
+				},
+			},
+			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return mockdiddoc.GetMockDIDDoc(), nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		err = svc.routeStore.Put(dataKey(to), []byte("did:example:123"))
+		require.NoError(t, err)
+
+		msgID := randomID()
+		msg := generateForwardMsgPayload(t, msgID, to, content)
+
+		err = svc.handleForward(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "add error")
+	})
+}
+
 func TestRegister(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		msgID := make(chan string)
 
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -774,6 +944,9 @@ func TestRegister(t *testing.T) {
 
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
 			},
@@ -808,6 +981,9 @@ func TestRegister(t *testing.T) {
 	t.Run("test register route - timeout error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -828,6 +1004,9 @@ func TestRegister(t *testing.T) {
 	t.Run("test register route - with client timeout error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -850,6 +1029,9 @@ func TestRegister(t *testing.T) {
 
 	t.Run("test register route - router connection not found", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -866,6 +1048,9 @@ func TestRegister(t *testing.T) {
 
 	t.Run("test register route - router connection fetch error", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -887,6 +1072,9 @@ func TestUnregister(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
@@ -903,6 +1091,9 @@ func TestUnregister(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s},
 				},
@@ -920,6 +1111,9 @@ func TestUnregister(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 				},
@@ -941,6 +1135,9 @@ func TestKeylistUpdate(t *testing.T) {
 
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -991,6 +1188,9 @@ func TestKeylistUpdate(t *testing.T) {
 
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1049,6 +1249,9 @@ func TestKeylistUpdate(t *testing.T) {
 	t.Run("test keylist update - timeout error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1070,6 +1273,9 @@ func TestKeylistUpdate(t *testing.T) {
 	t.Run("test keylist update - router connectionID fetch error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
@@ -1090,6 +1296,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test config - success", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1111,6 +1320,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test config - no router registered", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1126,6 +1338,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test config - missing configs", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1143,6 +1358,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test config - invalid config data in db", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue:                &mockkms.CloseableKMS{},
@@ -1161,6 +1379,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test config - router connectionID fetch error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
@@ -1186,6 +1407,9 @@ func TestGetConnection(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
@@ -1203,6 +1427,9 @@ func TestGetConnection(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
@@ -1219,6 +1446,9 @@ func TestGetConnection(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
@@ -1237,6 +1467,9 @@ func TestGetConnection(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 				},

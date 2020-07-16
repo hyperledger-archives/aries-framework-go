@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -92,6 +93,7 @@ type provider interface {
 	RouterEndpoint() string
 	LegacyKMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry
+	Service(id string) (interface{}, error)
 }
 
 // ClientOption configures the route client
@@ -137,6 +139,7 @@ type Service struct {
 	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
 	keylistUpdateMapLock     sync.RWMutex
 	callbacks                chan *callback
+	messagePickupSvc         messagepickup.ProtocolService
 }
 
 // New return route coordination service.
@@ -151,6 +154,16 @@ func New(prov provider) (*Service, error) {
 		return nil, err
 	}
 
+	mp, err := prov.Service(messagepickup.MessagePickup)
+	if err != nil {
+		return nil, err
+	}
+
+	messagePickupSvc, ok := mp.(messagepickup.ProtocolService)
+	if !ok {
+		return nil, errors.New("cast service to message pickup service failed")
+	}
+
 	s := &Service{
 		routeStore:           store,
 		outbound:             prov.OutboundDispatcher(),
@@ -161,6 +174,7 @@ func New(prov provider) (*Service, error) {
 		routeRegistrationMap: make(map[string]chan Grant),
 		keylistUpdateMap:     make(map[string]chan *KeylistUpdateResponse),
 		callbacks:            make(chan *callback),
+		messagePickupSvc:     messagePickupSvc,
 	}
 
 	go s.listenForCallbacks()
@@ -486,7 +500,12 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 		return fmt.Errorf("get destination : %w", err)
 	}
 
-	return s.outbound.Forward(forward.Msg, dest)
+	err = s.outbound.Forward(forward.Msg, dest)
+	if err != nil && s.messagePickupSvc != nil {
+		return s.messagePickupSvc.AddMessage(forward.Msg, string(theirDID))
+	}
+
+	return err
 }
 
 // Register registers the agent with the router on the other end of the connection identified by

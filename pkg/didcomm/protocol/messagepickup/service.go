@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -79,18 +78,6 @@ type Service struct {
 	statusMap        map[string]chan Status
 	statusMapLock    sync.RWMutex
 	inboxLock        *lockbox
-}
-
-// ServiceCreator for the messagepickup protocol
-func ServiceCreator() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		tp, ok := prv.(transport.Provider)
-		if !ok {
-			return nil, errors.New("failed to cast transport provider")
-		}
-
-		return New(prv, tp)
-	}
 }
 
 // New returns the messagepickup service
