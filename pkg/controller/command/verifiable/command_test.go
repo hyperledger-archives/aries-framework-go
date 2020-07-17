@@ -1200,9 +1200,9 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		credList[0] = v
 
 		var b bytes.Buffer
-		err = cmd.generatePresentation(&b, credList, nil, "did:example", &ProofOptions{VerificationMethod: "pk"})
+		err = cmd.generatePresentation(&b, credList, nil, "did:example", &ProofOptions{VerificationMethod: "pk#tk#hk"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "prepare vp: failed to sign vp: wrong id [pk] to resolve")
+		require.Contains(t, err.Error(), "prepare vp: failed to sign vp: wrong id pk#tk#hk to resolve")
 	})
 
 	t.Run("test generate presentation by id helper- error", func(t *testing.T) {
@@ -2069,6 +2069,20 @@ func TestCommand_SignCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "generate vp - failed to get did doc from store or vdri")
 	})
+}
+
+func Test_getKID(t *testing.T) {
+	kid, err := getKID("kid1")
+	require.NoError(t, err)
+	require.Equal(t, "kid1", kid)
+
+	kid, err = getKID("did#kid2")
+	require.NoError(t, err)
+	require.Equal(t, "kid2", kid)
+
+	kid, err = getKID("did#kid3#unexpected")
+	require.Error(t, err)
+	require.Empty(t, kid)
 }
 
 func stringToJSONRaw(jsonStr string) json.RawMessage {

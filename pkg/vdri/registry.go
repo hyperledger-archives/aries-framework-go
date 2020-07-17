@@ -99,30 +99,31 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 	}
 
 	var (
-		err          error
 		base58PubKey string
-		id           string
+		idPubKey     string
 	)
 
-	if r.legacykms != nil {
-		_, base58PubKey, err = r.legacykms.CreateKeySet()
+	if r.kms != nil {
+		id, _, err := r.kms.Create(kms.ED25519Type)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create DID: %w", err)
 		}
 
-		id = ""
-	} else {
-		id, _, err = r.kms.Create(kms.ED25519Type)
+		pubKey, err := r.kms.ExportPubKeyBytes(id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create DID: %w", err)
-		}
-
-		pubKey, e := r.kms.ExportPubKeyBytes(id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create DID: %w", e)
 		}
 
 		base58PubKey = base58.Encode(pubKey)
+		idPubKey = id
+	} else {
+		_, pubKey, err := r.legacykms.CreateKeySet()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DID: %w", err)
+		}
+
+		base58PubKey = pubKey
+		idPubKey = pubKey
 	}
 
 	method, err := r.resolveVDRI(didMethod)
@@ -130,7 +131,7 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 		return nil, err
 	}
 
-	doc, err := method.Build(&vdriapi.PubKey{ID: id, Value: base58PubKey, Type: docOpts.KeyType},
+	doc, err := method.Build(&vdriapi.PubKey{ID: idPubKey, Value: base58PubKey, Type: docOpts.KeyType},
 		r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err

@@ -102,7 +102,8 @@ const (
 	vcName = "vcName"
 	vpID   = "vpID"
 
-	creatorParts = 2
+	creatorKID       = 1
+	creatorDIDAndKID = 2
 
 	// Ed25519Signature2018 ed25519 signature suite
 	Ed25519Signature2018 = "Ed25519Signature2018"
@@ -133,18 +134,32 @@ type kmsSigner struct {
 }
 
 func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
-	// creator will contain didID#keyID
-	idSplit := strings.Split(creator, "#")
-	if len(idSplit) != creatorParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	kid, err := getKID(creator)
+	if err != nil {
+		return nil, err
 	}
 
-	keyHandler, err := keyManager.Get(idSplit[1])
+	keyHandler, err := keyManager.Get(kid)
 	if err != nil {
 		return nil, err
 	}
 
 	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
+}
+
+func getKID(s string) (string, error) {
+	idSplit := strings.Split(s, "#")
+
+	switch len(idSplit) {
+	case creatorKID:
+		// keyID
+		return idSplit[0], nil
+	case creatorDIDAndKID:
+		// didID#keyID
+		return idSplit[1], nil
+	default:
+		return "", fmt.Errorf("wrong id %s to resolve", s)
+	}
 }
 
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
