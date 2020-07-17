@@ -47,8 +47,8 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, svc)
 
 		_, err = New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -71,8 +71,8 @@ func TestNew(t *testing.T) {
 
 	t.Run("test route service cast error", func(t *testing.T) {
 		_, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mocksvc.MockDIDExchangeSvc{},
@@ -92,7 +92,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, svc)
 
 		_, err = New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
 			ServiceMap: map[string]interface{}{
@@ -104,7 +104,7 @@ func TestNew(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to open store")
 	})
 
-	t.Run("test error from open transient store", func(t *testing.T) {
+	t.Run("test error from open protocol state store", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -115,15 +115,15 @@ func TestNew(t *testing.T) {
 
 		_, err = New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open transient store")},
+			ProtocolStateStorageProviderValue: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store")},
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			ServiceEndpointValue: "endpoint"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open transient store")
+		require.Contains(t, err.Error(), "failed to open protocol state store")
 	})
 }
 
@@ -138,8 +138,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -167,8 +167,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -196,8 +196,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -222,8 +222,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
@@ -252,8 +252,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
@@ -282,8 +282,8 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{
@@ -315,8 +315,8 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -351,8 +351,8 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -382,8 +382,8 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -418,8 +418,8 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		}
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -447,8 +447,8 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -478,8 +478,8 @@ func TestClient_GetConnection(t *testing.T) {
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte), ErrGet: ErrConnectionNotFound}
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -508,8 +508,8 @@ func TestClientGetConnectionAtState(t *testing.T) {
 
 	// create client
 	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: svc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -534,12 +534,12 @@ func TestClient_CreateConnection(t *testing.T) {
 		invitationDID := newPeerDID(t).ID
 		implicit := true
 		storageProvider := &mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		}
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: storageProvider.TransientStorageProvider(),
-			StorageProviderValue:          storageProvider.StorageProvider(),
+			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
+			StorageProviderValue:              storageProvider.StorageProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					CreateConnRecordFunc: func(r *connection.Record, td *did.Doc) error {
@@ -577,8 +577,8 @@ func TestClient_CreateConnection(t *testing.T) {
 
 	t.Run("test create connection - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					CreateConnRecordFunc: func(*connection.Record, *did.Doc) error {
@@ -611,8 +611,8 @@ func TestClient_RemoveConnection(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -644,8 +644,8 @@ func TestClient_RemoveConnection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -662,8 +662,8 @@ func TestClient_RemoveConnection(t *testing.T) {
 func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -682,8 +682,8 @@ func TestClient_HandleInvitation(t *testing.T) {
 
 	t.Run("test error from handle msg", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) (string, error) {
 					return "", fmt.Errorf("handle error")
@@ -705,8 +705,8 @@ func TestClient_HandleInvitation(t *testing.T) {
 func TestClient_CreateImplicitInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -722,8 +722,8 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 
 	t.Run("test error from service", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					ImplicitInvitationErr: errors.New("implicit error")},
@@ -746,8 +746,8 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -763,8 +763,8 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 
 	t.Run("test error from service", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					ImplicitInvitationErr: errors.New("implicit with DID error")},
@@ -782,8 +782,8 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 
 	t.Run("test missing required DID info", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -816,8 +816,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 
 		storageProvider := mockstore.NewMockStoreProvider()
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          storageProvider,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -856,8 +856,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 
 		storageProvider := mockstore.NewMockStoreProvider()
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          storageProvider,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -946,8 +946,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 
 		storageProvider := mockstore.NewMockStoreProvider()
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          storageProvider,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -964,11 +964,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 }
 
 func TestServiceEvents(t *testing.T) {
-	transientStore := mockstore.NewMockStoreProvider()
+	protocolStateStore := mockstore.NewMockStoreProvider()
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
-		TransientStoreProvider: transientStore,
-		StoreProvider:          store,
+		ProtocolStateStoreProvider: protocolStateStore,
+		StoreProvider:              store,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -977,8 +977,8 @@ func TestServiceEvents(t *testing.T) {
 
 	// create the client
 	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: transientStore,
-		StorageProviderValue:          store,
+		ProtocolStateStorageProviderValue: protocolStateStore,
+		StorageProviderValue:              store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -1068,8 +1068,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	// create the client
 	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          store,
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -1161,8 +1161,8 @@ func TestAcceptInvitation(t *testing.T) {
 
 	// create the client
 	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          store,
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},

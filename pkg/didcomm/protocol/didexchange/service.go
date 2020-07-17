@@ -62,7 +62,7 @@ type message struct {
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	Signer() legacykms.Signer
 	VDRIRegistry() vdriapi.Registry
 	Service(id string) (interface{}, error)
@@ -354,7 +354,7 @@ func createErrorEventProperties(connectionID, invitationID string, err error) *d
 // function in the event message.
 func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DIDCommAction) error {
 	// save data to support AcceptExchangeRequest APIs (when client will not be able to invoke the callback function)
-	err := s.storeEventTransientData(internalMsg)
+	err := s.storeEventProtocolStateData(internalMsg)
 	if err != nil {
 		return fmt.Errorf("send action event : %w", err)
 	}
@@ -444,7 +444,7 @@ func (s *Service) SaveInvitation(i *OOBInvitation) error {
 }
 
 func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {
-	msg, err := s.getEventTransientData(connectionID)
+	msg, err := s.getEventProtocolStateData(connectionID)
 	if err != nil {
 		return fmt.Errorf("failed to accept invitation for connectionID=%s : %s : %w", connectionID, errMsg, err)
 	}
@@ -464,26 +464,26 @@ func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string)
 	return s.handleWithoutAction(msg)
 }
 
-func (s *Service) storeEventTransientData(msg *message) error {
+func (s *Service) storeEventProtocolStateData(msg *message) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("store transient data : %w", err)
+		return fmt.Errorf("store protocol state data : %w", err)
 	}
 
 	return s.connectionStore.SaveEvent(msg.ConnRecord.ConnectionID, bytes)
 }
 
-func (s *Service) getEventTransientData(connectionID string) (*message, error) {
+func (s *Service) getEventProtocolStateData(connectionID string) (*message, error) {
 	val, err := s.connectionStore.GetEvent(connectionID)
 	if err != nil {
-		return nil, fmt.Errorf("get transient data : %w", err)
+		return nil, fmt.Errorf("get protocol state data : %w", err)
 	}
 
 	msg := &message{}
 
 	err = json.Unmarshal(val, msg)
 	if err != nil {
-		return nil, fmt.Errorf("get transient data : %w", err)
+		return nil, fmt.Errorf("get protocol state data : %w", err)
 	}
 
 	return msg, nil

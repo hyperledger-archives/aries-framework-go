@@ -500,7 +500,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 	t.Run("test accept invitation complete flow", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		didExSvc, err := didexsvc.New(&protocol.MockProvider{
-			TransientStoreProvider: store,
+			ProtocolStateStoreProvider: store,
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -513,8 +513,8 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 		// create the client
 		cmd, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: store,
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: store,
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -721,11 +721,11 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 	})
 
 	t.Run("test accept exchange request complete flow", func(t *testing.T) {
-		transientStore := mockstore.NewMockStoreProvider()
+		protocolStateStore := mockstore.NewMockStoreProvider()
 		store := mockstore.NewMockStoreProvider()
 		didExSvc, err := didexsvc.New(
 			&protocol.MockProvider{
-				TransientStoreProvider: transientStore, StoreProvider: store,
+				ProtocolStateStoreProvider: protocolStateStore, StoreProvider: store,
 				ServiceMap: map[string]interface{}{
 					mediator.Coordination: &mockroute.MockMediatorSvc{},
 				},
@@ -739,8 +739,8 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		// create the client
 		cmd, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: transientStore,
-			StorageProviderValue:          store,
+			ProtocolStateStorageProviderValue: protocolStateStore,
+			StorageProviderValue:              store,
 			ServiceMap: map[string]interface{}{
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -930,8 +930,8 @@ func TestCommand_RemoveConnection(t *testing.T) {
 
 func mockProvider() *mockprovider.Provider {
 	return &mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},

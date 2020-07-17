@@ -340,11 +340,11 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, s, prov.StorageProvider())
 	})
 
-	t.Run("test new with transient storage provider", func(t *testing.T) {
+	t.Run("test new with protocol state storage provider", func(t *testing.T) {
 		s := storage.NewMockStoreProvider()
-		prov, err := New(WithTransientStorageProvider(s))
+		prov, err := New(WithProtocolStateStorageProvider(s))
 		require.NoError(t, err)
-		require.Equal(t, s, prov.TransientStorageProvider())
+		require.Equal(t, s, prov.ProtocolStateStorageProvider())
 	})
 
 	t.Run("test new with vdri", func(t *testing.T) {

@@ -191,9 +191,9 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		}
 	}
 
-	if frameworkOpts.transientStoreProvider == nil {
+	if frameworkOpts.protocolStateStoreProvider == nil {
 		var err error
-		frameworkOpts.transientStoreProvider, err = transientStoreProvider()
+		frameworkOpts.protocolStateStoreProvider, err = protocolStateStoreProvider()
 
 		if err != nil {
 			return err

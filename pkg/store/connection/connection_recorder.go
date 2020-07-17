@@ -60,15 +60,15 @@ func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 // SaveConnectionRecord saves given connection records in underlying store
 func (c *Recorder) SaveConnectionRecord(record *Record) error {
 	if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
-		record, c.transientStore); err != nil {
-		return fmt.Errorf("save connection record in transient store: %w", err)
+		record, c.protocolStateStore); err != nil {
+		return fmt.Errorf("save connection record in protocol state store: %w", err)
 	}
 
 	if record.State != "" {
 		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
-			record, c.transientStore)
+			record, c.protocolStateStore)
 		if err != nil {
-			return fmt.Errorf("save connection record with state in transient store: %w", err)
+			return fmt.Errorf("save connection record with state in protocol state store: %w", err)
 		}
 	}
 
@@ -112,10 +112,10 @@ func (c *Recorder) SaveConnectionRecordWithMappings(record *Record) error {
 // SaveEvent saves event related data for given connection ID
 // TODO connection event data shouldn't be transient [Issues #1029]
 func (c *Recorder) SaveEvent(connectionID string, data []byte) error {
-	return c.transientStore.Put(getEventDataKeyPrefix()(connectionID), data)
+	return c.protocolStateStore.Put(getEventDataKeyPrefix()(connectionID), data)
 }
 
-// SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in transient store
+// SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in protocol state store
 func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID string) error {
 	if namespace != MyNSPrefix && namespace != TheirNSPrefix {
 		return fmt.Errorf("namespace not supported")
@@ -131,7 +131,7 @@ func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID strin
 		return err
 	}
 
-	return c.transientStore.Put(getNamespaceKeyPrefix(prefix)(key), []byte(connectionID))
+	return c.protocolStateStore.Put(getNamespaceKeyPrefix(prefix)(key), []byte(connectionID))
 }
 
 // RemoveConnection removes connection record from the store for given id
@@ -141,12 +141,12 @@ func (c *Recorder) RemoveConnection(connectionID string) error {
 		return fmt.Errorf("unable to get connection record: connectionid=%s err=%w", connectionID, err)
 	}
 
-	if err = c.transientStore.Delete(getConnectionKeyPrefix()(connectionID)); err != nil {
-		return fmt.Errorf("unable to delete connection record from the transient store: connectionid=%s err=%w",
+	if err = c.protocolStateStore.Delete(getConnectionKeyPrefix()(connectionID)); err != nil {
+		return fmt.Errorf("unable to delete connection record from the protocol state store: connectionid=%s err=%w",
 			connectionID, err)
 	}
 
-	// remove connection records for different states from transient store
+	// remove connection records for different states from protocol state store
 	err = removeConnectionsForStates(c, connectionID)
 	if err != nil {
 		return fmt.Errorf("remove records for different connections states error: %w", err)
@@ -163,7 +163,7 @@ func (c *Recorder) RemoveConnection(connectionID string) error {
 			connectionID, err)
 	}
 
-	// remove namespace, threadID and connection ID mapping from transient store
+	// remove namespace, threadID and connection ID mapping from protocol state store
 	err = removeMappings(c, record)
 	if err != nil {
 		return fmt.Errorf("unable to delete connection record with namespace mappings: %w", err)
@@ -204,7 +204,7 @@ func computeHash(bytes []byte) (string, error) {
 }
 
 func removeConnectionsForStates(c *Recorder, connectionID string) error {
-	itr := c.transientStore.Iterator(getConnectionStateKeyPrefix()(
+	itr := c.protocolStateStore.Iterator(getConnectionStateKeyPrefix()(
 		connectionID),
 		getConnectionStateKeyPrefix()(connectionID)+storage.EndKeySuffix,
 	)
@@ -212,11 +212,11 @@ func removeConnectionsForStates(c *Recorder, connectionID string) error {
 
 	for itr.Next() {
 		key := string(itr.Key())
-		err := c.transientStore.Delete(key)
+		err := c.protocolStateStore.Delete(key)
 
 		if err != nil {
 			return fmt.Errorf(
-				"unable to delete connection state record from the transient store: key=%s connectionid=%s err=%w",
+				"unable to delete connection state record from the protocol state store: key=%s connectionid=%s err=%w",
 				key, connectionID, err)
 		}
 	}

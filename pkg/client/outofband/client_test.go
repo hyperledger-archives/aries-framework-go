@@ -512,9 +512,9 @@ type didcommMsg struct {
 
 func withTestProvider() *mockprovider.Provider {
 	return &mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
+		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 			outofband.Name:        &stubOOBService{},

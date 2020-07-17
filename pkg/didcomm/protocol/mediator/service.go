@@ -89,7 +89,7 @@ var ErrRouterNotRegistered = errors.New("router not registered")
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	RouterEndpoint() string
 	LegacyKMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry

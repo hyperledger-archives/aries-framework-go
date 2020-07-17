@@ -39,7 +39,7 @@ const (
 type provider interface {
 	VDRIRegistry() vdri.Registry
 	Messenger() service.Messenger
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	LegacyKMS() legacykms.KeyManager
 }

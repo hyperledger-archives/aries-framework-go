@@ -544,16 +544,16 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test transient store - with user provided transient store", func(t *testing.T) {
+	t.Run("test protocol state store - with user provided protocol state store", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 		s := storage.NewMockStoreProvider()
 
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithTransientStoreProvider(s))
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithProtocolStateStoreProvider(s))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
-		require.Equal(t, s, aries.transientStoreProvider)
+		require.Equal(t, s, aries.protocolStateStoreProvider)
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

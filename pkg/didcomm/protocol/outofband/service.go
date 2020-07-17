@@ -108,7 +108,7 @@ type transitionalPayload struct {
 type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	OutboundMessageHandler() service.OutboundHandler
 }
 
@@ -124,7 +124,7 @@ func New(p Provider) (*Service, error) {
 		return nil, errors.New("failed to cast the didexchange service to satisfy our dependency")
 	}
 
-	store, err := p.TransientStorageProvider().OpenStore(Name)
+	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the store : %w", err)
 	}

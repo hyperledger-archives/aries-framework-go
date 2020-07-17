@@ -42,7 +42,7 @@ type provider interface {
 	LegacyKMS() legacykms.KeyManager
 	ServiceEndpoint() string
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 }
 
 // New returns new DID Exchange rest client protocol instance

@@ -33,12 +33,12 @@ func TestNewConnectionReader(t *testing.T) {
 		lookup, err := NewLookup(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, lookup)
-		require.NotNil(t, lookup.transientStore)
+		require.NotNil(t, lookup.protocolStateStore)
 		require.NotNil(t, lookup.store)
 	})
 
-	t.Run("create new connection reader failure due to transient store error", func(t *testing.T) {
-		lookup, err := NewLookup(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
+	t.Run("create new connection reader failure due to protocol state store error", func(t *testing.T) {
+		lookup, err := NewLookup(&mockProvider{protocolStateStoreError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
@@ -99,7 +99,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		require.Len(t, records, noOfItems)
 	})
 
-	t.Run("get connection record - from transient store", func(t *testing.T) {
+	t.Run("get connection record - from protocol state store", func(t *testing.T) {
 		lookup, e := NewLookup(&mockProvider{})
 		require.NoError(t, e)
 		require.NotNil(t, lookup)
@@ -112,7 +112,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		}
 
 		// prepare data
-		saveInStore(lookup.transientStore, connectionIDS)
+		saveInStore(lookup.protocolStateStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
 			connection, err := lookup.GetConnectionRecord(connectionID)
@@ -137,7 +137,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		require.NotNil(t, lookup)
 
 		// prepare data
-		saveInStore(lookup.transientStore, connectionIDS)
+		saveInStore(lookup.protocolStateStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
 			connection, err := lookup.GetConnectionRecord(connectionID)
@@ -185,7 +185,7 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 		// prepare data in store
 		saveInStore(store.store, connectionIDS)
 
-		// should fail since data doesn't exists in transient store
+		// should fail since data doesn't exists in protocol state store
 		for _, connectionID := range connectionIDS {
 			connection, err := store.GetConnectionRecordAtState(connectionID, state)
 			require.Error(t, err)
@@ -193,8 +193,8 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 			require.Nil(t, connection)
 		}
 
-		// prepare data in transient store
-		saveInStore(store.transientStore, connectionIDS)
+		// prepare data in protocol state store
+		saveInStore(store.protocolStateStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
 			connection, err := store.GetConnectionRecordAtState(connectionID, state)
@@ -257,7 +257,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 		// prepare data in store
 		saveInStore(store.store, nsThreadIDs, false)
 
-		// should fail since data doesn't exists in transient store
+		// should fail since data doesn't exists in protocol state store
 		for _, nsThreadID := range nsThreadIDs {
 			connection, err := store.GetConnectionRecordByNSThreadID(nsThreadID)
 			require.Error(t, err)
@@ -265,11 +265,11 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 			require.Nil(t, connection)
 		}
 
-		// prepare only ns thread data in transient store
+		// prepare only ns thread data in protocol state store
 		// skip connection
-		saveInStore(store.transientStore, nsThreadIDs, true)
+		saveInStore(store.protocolStateStore, nsThreadIDs, true)
 
-		// should fail since data doesn't exists in transient store
+		// should fail since data doesn't exists in protocol state store
 		for _, nsThreadID := range nsThreadIDs {
 			connection, err := store.GetConnectionRecordByNSThreadID(nsThreadID)
 			require.Error(t, err)
@@ -277,10 +277,10 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 			require.Nil(t, connection)
 		}
 
-		// prepare data in transient store
-		saveInStore(store.transientStore, nsThreadIDs, false)
+		// prepare data in protocol state store
+		saveInStore(store.protocolStateStore, nsThreadIDs, false)
 
-		// should fail since data doesn't exists in transient store
+		// should fail since data doesn't exists in protocol state store
 		for _, nsThreadID := range nsThreadIDs {
 			connection, err := store.GetConnectionRecordByNSThreadID(nsThreadID)
 			require.NoError(t, err)
@@ -294,13 +294,13 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 	t.Run("test query connection record", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
 
-		transientStore, err := mem.NewProvider().OpenStore(Namespace)
+		protocolStateStore, err := mem.NewProvider().OpenStore(Namespace)
 		require.NoError(t, err)
 
 		const (
-			storeCount          = 5
-			overlap             = 3
-			transientStoreCount = 4
+			storeCount              = 5
+			overlap                 = 3
+			protocolStateStoreCount = 4
 		)
 
 		for i := 0; i < storeCount+overlap; i++ {
@@ -312,22 +312,22 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			err = store.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
 			require.NoError(t, err)
 		}
-		for i := overlap; i < transientStoreCount+storeCount; i++ {
+		for i := overlap; i < protocolStateStoreCount+storeCount; i++ {
 			val, jsonErr := json.Marshal(&Record{
 				ConnectionID: string(i),
 			})
 			require.NoError(t, jsonErr)
 
-			err = transientStore.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
+			err = protocolStateStore.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
 			require.NoError(t, err)
 		}
 
-		recorder, err := NewLookup(&mockProvider{store: store, transientStore: transientStore})
+		recorder, err := NewLookup(&mockProvider{store: store, protocolStateStore: protocolStateStore})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()
 		require.NoError(t, err)
-		require.Len(t, result, storeCount+transientStoreCount)
+		require.Len(t, result, storeCount+protocolStateStoreCount)
 	})
 
 	t.Run("test query connection record failure", func(t *testing.T) {
@@ -382,20 +382,20 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 
 // mockProvider for connection recorder
 type mockProvider struct {
-	transientStoreError error
-	storeError          error
-	store               storage.Store
-	transientStore      storage.Store
+	protocolStateStoreError error
+	storeError              error
+	store                   storage.Store
+	protocolStateStore      storage.Store
 }
 
-// TransientStorageProvider is mock transient storage provider for connection recorder
-func (p *mockProvider) TransientStorageProvider() storage.Provider {
-	if p.transientStoreError != nil {
-		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.transientStoreError}
+// ProtocolStateStorageProvider is mock protocol state storage provider for connection recorder
+func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
+	if p.protocolStateStoreError != nil {
+		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.protocolStateStoreError}
 	}
 
-	if p.transientStore != nil {
-		return mockstorage.NewCustomMockStoreProvider(p.transientStore)
+	if p.protocolStateStore != nil {
+		return mockstorage.NewCustomMockStoreProvider(p.protocolStateStore)
 	}
 
 	return mockstorage.NewMockStoreProvider()

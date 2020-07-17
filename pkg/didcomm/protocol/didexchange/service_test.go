@@ -68,12 +68,12 @@ func TestServiceNew(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to open store")
 	})
 
-	t.Run("test error from open transient store", func(t *testing.T) {
+	t.Run("test error from open protocol state store", func(t *testing.T) {
 		_, err := New(
-			&protocol.MockProvider{TransientStoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open transient store")}})
+			&protocol.MockProvider{ProtocolStateStoreProvider: &mockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store")}})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open transient store")
+		require.Contains(t, err.Error(), "failed to open protocol state store")
 	})
 
 	t.Run("test service new error - no route service found", func(t *testing.T) {
@@ -233,10 +233,10 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 
 // did-exchange flow with role Invitee
 func TestService_Handle_Invitee(t *testing.T) {
-	transientStore := mockstorage.NewMockStoreProvider()
+	protocolStateStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
 	prov := &protocol.MockProvider{StoreProvider: store,
-		TransientStoreProvider: transientStore,
+		ProtocolStateStoreProvider: protocolStateStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -398,9 +398,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("handleInbound - connection record error", func(t *testing.T) {
-		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+		protocolStateStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
 		prov := &protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(transientStore),
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(protocolStateStore),
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -432,7 +432,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
 
-		transientStore := &mockStore{
+		protocolStateStore := &mockStore{
 			get: func(s string) (bytes []byte, e error) {
 				return nil, storage.ErrDataNotFound
 			},
@@ -446,7 +446,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		}
 
 		svc.connectionStore, err = newConnectionStore(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(transientStore),
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(protocolStateStore),
 		})
 		require.NotNil(t, svc.connectionStore)
 		require.NoError(t, err)
@@ -508,7 +508,7 @@ func TestService_CurrentState(t *testing.T) {
 		require.NoError(t, err)
 
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 				get: func(string) ([]byte, error) { return connRec, nil },
 			}),
 		})
@@ -527,7 +527,7 @@ func TestService_CurrentState(t *testing.T) {
 
 	t.Run("forwards generic error from store", func(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, errors.New("test")
 				},
@@ -595,13 +595,13 @@ func TestCreateConnection(t *testing.T) {
 		}
 		storedInVDRI := false
 		storageProvider := &mockprovider.Provider{
-			StorageProviderValue:          mockstorage.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 		}
 		provider := &mockprovider.Provider{
-			LegacyKMSValue:                &mocklegacykms.CloseableKMS{},
-			StorageProviderValue:          storageProvider.StorageProvider(),
-			TransientStorageProviderValue: storageProvider.TransientStorageProvider(),
+			LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+			StorageProviderValue:              storageProvider.StorageProvider(),
+			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
 			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
 				StoreFunc: func(result *did.Doc) error {
 					storedInVDRI = true
@@ -631,9 +631,9 @@ func TestCreateConnection(t *testing.T) {
 	t.Run("wraps vdri registry error", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
-			LegacyKMSValue:                &mocklegacykms.CloseableKMS{},
-			StorageProviderValue:          mockstorage.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
 				PutErr: expected,
 			},
@@ -655,8 +655,8 @@ func TestCreateConnection(t *testing.T) {
 			StorageProviderValue: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{ErrPut: expected},
 			},
-			TransientStorageProviderValue: mockstorage.NewMockStoreProvider(),
-			VDRIRegistryValue:             &mockvdri.MockVDRIRegistry{},
+			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			VDRIRegistryValue:                 &mockvdri.MockVDRIRegistry{},
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -944,7 +944,7 @@ func TestServiceErrors(t *testing.T) {
 	}}
 
 	prov := &protocol.MockProvider{
-		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
+		ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(
 			mockStore,
 		),
 		ServiceMap: map[string]interface{}{
@@ -1066,7 +1066,7 @@ func TestInvitationRecord(t *testing.T) {
 
 	// db error
 	svc, err = New(&protocol.MockProvider{
-		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+		ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 			Store: make(map[string][]byte), ErrPut: errors.New("db error"),
 		}),
 		ServiceMap: map[string]interface{}{
@@ -1110,7 +1110,7 @@ func TestRequestRecord(t *testing.T) {
 
 	t.Run("fails on db error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(
 				&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")},
 			),
 			ServiceMap: map[string]interface{}{
@@ -1343,7 +1343,7 @@ func TestAcceptInvitation(t *testing.T) {
 
 		err = svc.AcceptInvitation(generateRandomID(), "", "")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
+		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
 
 	t.Run("accept invitation - state error", func(t *testing.T) {
@@ -1362,7 +1362,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.connectionStore.saveConnectionRecord(connRecord)
 		require.NoError(t, err)
 
-		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
 		err = svc.AcceptInvitation(id, "", "")
@@ -1384,7 +1384,7 @@ func TestAcceptInvitation(t *testing.T) {
 			State:        StateIDRequested,
 		}
 
-		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
 		err = svc.AcceptInvitation(id, "", "")
@@ -1475,7 +1475,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 
 		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
+		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
 
 	t.Run("accept invitation - state error", func(t *testing.T) {
@@ -1494,7 +1494,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		err = svc.connectionStore.saveConnectionRecord(connRecord)
 		require.NoError(t, err)
 
-		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
 		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
@@ -1516,7 +1516,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 			State:        StateIDRequested,
 		}
 
-		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
 		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
@@ -1525,8 +1525,8 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 	})
 }
 
-func TestEventTransientData(t *testing.T) {
-	t.Run("event transient data - success", func(t *testing.T) {
+func TestEventProtocolStateData(t *testing.T) {
+	t.Run("event protocol state data - success", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1539,15 +1539,15 @@ func TestEventTransientData(t *testing.T) {
 		msg := &message{
 			ConnRecord: &connection.Record{ConnectionID: connID},
 		}
-		err = svc.storeEventTransientData(msg)
+		err = svc.storeEventProtocolStateData(msg)
 		require.NoError(t, err)
 
-		retrievedMsg, err := svc.getEventTransientData(connID)
+		retrievedMsg, err := svc.getEventProtocolStateData(connID)
 		require.NoError(t, err)
 		require.Equal(t, msg, retrievedMsg)
 	})
 
-	t.Run("event transient data - data not found", func(t *testing.T) {
+	t.Run("event protocol state data - data not found", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1557,14 +1557,14 @@ func TestEventTransientData(t *testing.T) {
 
 		err = svc.AcceptExchangeRequest(generateRandomID(), "", "")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 
 		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 	})
 
-	t.Run("event transient data - invalid data", func(t *testing.T) {
+	t.Run("event protocol state data - invalid data", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1577,9 +1577,9 @@ func TestEventTransientData(t *testing.T) {
 		err = svc.connectionStore.SaveEvent(connID, []byte("invalid data"))
 		require.NoError(t, err)
 
-		_, err = svc.getEventTransientData(connID)
+		_, err = svc.getEventProtocolStateData(connID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get transient data : invalid character")
+		require.Contains(t, err.Error(), "get protocol state data : invalid character")
 	})
 }
 
@@ -1751,10 +1751,10 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 	t.Run("error during saving connection", func(t *testing.T) {
 		routeSvc := &mockroute.MockMediatorSvc{}
-		transientStore := mockstorage.NewMockStoreProvider()
-		transientStore.Store.ErrPut = errors.New("store put error")
+		protocolStateStore := mockstorage.NewMockStoreProvider()
+		protocolStateStore.Store.ErrPut = errors.New("store put error")
 		prov := &protocol.MockProvider{
-			TransientStoreProvider: transientStore,
+			ProtocolStateStoreProvider: protocolStateStore,
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: routeSvc,
 			},

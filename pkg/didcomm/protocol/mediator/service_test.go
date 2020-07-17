@@ -48,8 +48,8 @@ func TestServiceNew(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
 		require.Equal(t, Coordination, svc.Name())
@@ -82,8 +82,8 @@ func TestServiceHandleInbound(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
 
@@ -104,9 +104,9 @@ func TestServiceHandleOutbound(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -165,8 +165,8 @@ func TestServiceHandleOutbound(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
 		s.connectionLookup = &connectionsStub{
@@ -188,8 +188,8 @@ func TestServiceHandleOutbound(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
 		s.connectionLookup = &connectionsStub{
@@ -212,10 +212,10 @@ func TestServiceRequestMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
@@ -233,10 +233,10 @@ func TestServiceRequestMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -256,10 +256,10 @@ func TestServiceRequestMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			ServiceEndpointValue:          endpoint,
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			ServiceEndpointValue:              endpoint,
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -295,8 +295,8 @@ func TestServiceRequestMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			LegacyKMSValue: &mockkms.CloseableKMS{
 				CreateKeyErr: expected,
 			},
@@ -321,10 +321,10 @@ func TestEvents(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		events := make(chan service.DIDCommAction)
@@ -353,9 +353,9 @@ func TestEvents(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					dispatched <- struct{}{}
@@ -392,9 +392,9 @@ func TestEvents(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					dispatched <- struct{}{}
@@ -430,10 +430,10 @@ func TestEvents(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
@@ -448,10 +448,10 @@ func TestEvents(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			ServiceEndpointValue:          "http://other.com",
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			ServiceEndpointValue:              "http://other.com",
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					res, err := json.Marshal(msg)
@@ -526,10 +526,10 @@ func TestServiceGrantMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -544,10 +544,10 @@ func TestServiceGrantMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -564,10 +564,10 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -585,10 +585,10 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -608,9 +608,9 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -654,10 +654,10 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -676,10 +676,10 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -697,10 +697,10 @@ func TestServiceForwardMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.routeStore.Put(to, []byte("did:example:123"))
@@ -718,10 +718,10 @@ func TestServiceForwardMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -739,10 +739,10 @@ func TestServiceForwardMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.handleForward(generateForwardMsgPayload(t, msgID, to, nil))
@@ -769,9 +769,9 @@ func TestServiceForwardMsg(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(msg interface{}, des *service.Destination) error {
 					require.Equal(t, content, msg)
@@ -825,9 +825,9 @@ func TestMessagePickup(t *testing.T) {
 							require.Equal(t, content, message)
 							return nil
 						}}},
-				StorageProviderValue:          mockstore.NewMockStoreProvider(),
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-				LegacyKMSValue:                &mockkms.CloseableKMS{},
+				StorageProviderValue:              mockstore.NewMockStoreProvider(),
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+				LegacyKMSValue:                    &mockkms.CloseableKMS{},
 				OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 					ValidateForward: func(_ interface{}, _ *service.Destination) error {
 						return errors.New("websocket connection failed")
@@ -867,9 +867,9 @@ func TestMessagePickup(t *testing.T) {
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
 					AddMessageErr: errors.New("add error"),
 				}},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(_ interface{}, _ *service.Destination) error {
 					return errors.New("websocket connection failed")
@@ -904,9 +904,9 @@ func TestRegister(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -950,8 +950,8 @@ func TestRegister(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
 			},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					request, ok := msg.(*Request)
@@ -984,10 +984,10 @@ func TestRegister(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
@@ -1007,10 +1007,10 @@ func TestRegister(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
@@ -1032,9 +1032,9 @@ func TestRegister(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -1053,8 +1053,8 @@ func TestRegister(t *testing.T) {
 			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -1075,8 +1075,8 @@ func TestUnregister(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1097,7 +1097,7 @@ func TestUnregister(t *testing.T) {
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s},
 				},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1117,7 +1117,7 @@ func TestUnregister(t *testing.T) {
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 				},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1138,9 +1138,9 @@ func TestKeylistUpdate(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -1191,9 +1191,9 @@ func TestKeylistUpdate(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -1252,10 +1252,10 @@ func TestKeylistUpdate(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
@@ -1279,9 +1279,9 @@ func TestKeylistUpdate(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.AddKey("recKey")
@@ -1299,10 +1299,10 @@ func TestConfig(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1323,10 +1323,10 @@ func TestConfig(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		conf, err := svc.Config()
@@ -1341,10 +1341,10 @@ func TestConfig(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1361,10 +1361,10 @@ func TestConfig(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1385,9 +1385,9 @@ func TestConfig(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1410,8 +1410,8 @@ func TestGetConnection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1430,8 +1430,8 @@ func TestGetConnection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1449,8 +1449,8 @@ func TestGetConnection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
@@ -1473,7 +1473,7 @@ func TestGetConnection(t *testing.T) {
 				StorageProviderValue: &mockstore.MockStoreProvider{
 					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 				},
-				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)

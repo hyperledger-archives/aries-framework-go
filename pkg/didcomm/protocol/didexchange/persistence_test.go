@@ -68,7 +68,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record error", func(t *testing.T) {
 		const errMsg = "get error"
 		record, err := newConnectionStore(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
@@ -82,7 +82,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record error", func(t *testing.T) {
 		const errMsg = "get error"
 		record, err := newConnectionStore(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),

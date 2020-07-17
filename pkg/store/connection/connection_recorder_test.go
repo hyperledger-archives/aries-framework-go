@@ -35,8 +35,8 @@ func Test_NewConnectionRecorder(t *testing.T) {
 		require.NotNil(t, recorder)
 	})
 
-	t.Run("create new connection recorder - transient store error", func(t *testing.T) {
-		lookup, err := NewRecorder(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
+	t.Run("create new connection recorder - protocol state store error", func(t *testing.T) {
+		lookup, err := NewRecorder(&mockProvider{protocolStateStoreError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
@@ -138,7 +138,7 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		require.NoError(t, err)
 
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
@@ -155,7 +155,7 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		}
 
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
@@ -185,7 +185,7 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		require.NoError(t, err)
 
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
@@ -230,7 +230,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 		require.Equal(t, value, &v1)
 
 		var v2 mockInvitation
-		err = getAndUnmarshal(k, &v2, recorder.transientStore)
+		err = getAndUnmarshal(k, &v2, recorder.protocolStateStore)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 	})
@@ -384,14 +384,14 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NotNil(t, recordFound)
 		require.Equal(t, record, recordFound)
 
-		// make sure it exists only in transient store
+		// make sure it exists only in protocol state store
 		var r1 Record
 		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.store)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
 		var r2 Record
-		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r2, recorder.transientStore)
+		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r2, recorder.protocolStateStore)
 		require.NoError(t, err)
 		require.Equal(t, record, &r2)
 	})
@@ -417,9 +417,9 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NotNil(t, recordFound)
 		require.Equal(t, record, recordFound)
 
-		// make sure it exists only in both permanent and transient store
+		// make sure it exists only in both permanent and protocol state store
 		var r1 Record
-		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.transientStore)
+		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.protocolStateStore)
 		require.NoError(t, err)
 		require.Equal(t, record, &r1)
 
@@ -432,7 +432,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record error scenario 1", func(t *testing.T) {
 		const errMsg = "get error"
 		record, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
@@ -485,9 +485,9 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		err = recorder.RemoveConnection(record.ConnectionID)
 		require.NoError(t, err)
 
-		// make sure no records exist in both permanent and transient store
+		// make sure no records exist in both permanent and protocol state store
 		var r1 Record
-		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.transientStore)
+		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.protocolStateStore)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
@@ -496,14 +496,14 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
-		itr := recorder.transientStore.Iterator(
+		itr := recorder.protocolStateStore.Iterator(
 			getConnectionStateKeyPrefix()(record.ConnectionID),
 			getConnectionStateKeyPrefix()(record.ConnectionID)+storage.EndKeySuffix,
 		)
 		defer itr.Release()
 
 		for itr.Next() {
-			t.Errorf("transient store still has connection state records: key=%s", itr.Key())
+			t.Errorf("protocol state store still has connection state records: key=%s", itr.Key())
 		}
 
 		var r3 Record
@@ -555,10 +555,10 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)
 	})
-	t.Run("save and remove connection record - failed to delete from the transient store", func(t *testing.T) {
+	t.Run("save and remove connection record - failed to delete from the protocol state store", func(t *testing.T) {
 		const errMsg = "get error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:     make(map[string][]byte),
 				ErrDelete: fmt.Errorf(errMsg),
 			}),
@@ -584,7 +584,7 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 	t.Run("save and remove connection record - failed to iterate connection states records", func(t *testing.T) {
 		const errMsg = "get error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrItr: fmt.Errorf(errMsg),
 			}),
@@ -677,7 +677,7 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 	t.Run("save connection record with mapping - store failure", func(t *testing.T) {
 		const errMsg = "put error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
-			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),

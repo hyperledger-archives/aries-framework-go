@@ -57,7 +57,7 @@ var logger = log.New("aries-framework/messagepickup")
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 }
 
 type connections interface {

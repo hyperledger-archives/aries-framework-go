@@ -18,7 +18,7 @@ func Example() {
 	framework, err := New(
 		WithInboundTransport(newMockInTransport()),
 		WithStoreProvider(newMockDBProvider()),
-		WithTransientStoreProvider(newMockDBProvider()),
+		WithProtocolStateStoreProvider(newMockDBProvider()),
 	)
 	if err != nil {
 		fmt.Println("failed to create framework")

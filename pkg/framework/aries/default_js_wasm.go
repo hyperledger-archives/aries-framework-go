@@ -22,7 +22,7 @@ func storeProvider() (storage.Provider, error) {
 	return storeProv, nil
 }
 
-func transientStoreProvider() (storage.Provider, error) {
+func protocolStateStoreProvider() (storage.Provider, error) {
 	storeProv, err := jsindexeddb.NewProvider("temp")
 	if err != nil {
 		return nil, fmt.Errorf("js indexeddb  provider initialization failed : %w", err)
