@@ -29,26 +29,26 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	services               []dispatcher.ProtocolService
-	msgSvcProvider         api.MessageServiceProvider
-	storeProvider          storage.Provider
-	transientStoreProvider storage.Provider
-	legacyKMS              legacykms.KMS
-	kms                    kms.KeyManager
-	secretLock             secretlock.Service
-	crypto                 crypto.Crypto
-	packager               commontransport.Packager
-	primaryPacker          packer.Packer
-	packers                []packer.Packer
-	serviceEndpoint        string
-	routerEndpoint         string
-	outboundDispatcher     dispatcher.Outbound
-	messenger              service.MessengerHandler
-	outboundTransports     []transport.OutboundTransport
-	vdriRegistry           vdriapi.Registry
-	verifiableStore        verifiable.Store
-	transportReturnRoute   string
-	frameworkID            string
+	services                   []dispatcher.ProtocolService
+	msgSvcProvider             api.MessageServiceProvider
+	storeProvider              storage.Provider
+	protocolStateStoreProvider storage.Provider
+	legacyKMS                  legacykms.KMS
+	kms                        kms.KeyManager
+	secretLock                 secretlock.Service
+	crypto                     crypto.Crypto
+	packager                   commontransport.Packager
+	primaryPacker              packer.Packer
+	packers                    []packer.Packer
+	serviceEndpoint            string
+	routerEndpoint             string
+	outboundDispatcher         dispatcher.Outbound
+	messenger                  service.MessengerHandler
+	outboundTransports         []transport.OutboundTransport
+	vdriRegistry               vdriapi.Registry
+	verifiableStore            verifiable.Store
+	transportReturnRoute       string
+	frameworkID                string
 }
 
 type outboundHandler struct {
@@ -218,9 +218,9 @@ func (p *Provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
-// TransientStorageProvider return a transient storage provider.
-func (p *Provider) TransientStorageProvider() storage.Provider {
-	return p.transientStoreProvider
+// ProtocolStateStorageProvider return a protocol state storage provider.
+func (p *Provider) ProtocolStateStorageProvider() storage.Provider {
+	return p.protocolStateStoreProvider
 }
 
 // VDRIRegistry returns a vdri registry
@@ -350,10 +350,10 @@ func WithStorageProvider(s storage.Provider) ProviderOption {
 	}
 }
 
-// WithTransientStorageProvider injects a transient storage provider into the context.
-func WithTransientStorageProvider(s storage.Provider) ProviderOption {
+// WithProtocolStateStorageProvider injects a protocol state storage provider into the context.
+func WithProtocolStateStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
-		opts.transientStoreProvider = s
+		opts.protocolStateStoreProvider = s
 		return nil
 	}
 }

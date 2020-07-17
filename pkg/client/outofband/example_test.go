@@ -293,9 +293,9 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 
 func getContext(agent string) *mockprovider.Provider {
 	return &mockprovider.Provider{
-		LegacyKMSValue:                &mocklegacykms.CloseableKMS{},
-		StorageProviderValue:          mem.NewProvider(),
-		TransientStorageProviderValue: mem.NewProvider(),
+		LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+		StorageProviderValue:              mem.NewProvider(),
+		ProtocolStateStorageProviderValue: mem.NewProvider(),
 		ServiceMap: map[string]interface{}{
 			outofband.Name: &stubOOBService{
 				Event: nil,

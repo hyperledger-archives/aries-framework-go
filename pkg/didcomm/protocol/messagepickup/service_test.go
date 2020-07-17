@@ -42,8 +42,8 @@ func TestServiceNew(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("error opening the store")},
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -139,8 +139,8 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -231,8 +231,8 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -302,9 +302,9 @@ func TestHandleInbound(t *testing.T) {
 	t.Run("test MessagePickupService.HandleInbound() - BatchPickup - get error", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockStore,
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -328,9 +328,9 @@ func TestHandleInbound(t *testing.T) {
 	t.Run("test MessagePickupService.pullMessages() - put inbox error", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockStore,
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -451,9 +451,9 @@ func TestAddMessage(t *testing.T) {
 	t.Run("test MessagePickupService.AddMessage() - success", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockStore,
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -500,9 +500,9 @@ func TestAddMessage(t *testing.T) {
 	t.Run("test MessagePickupService.AddMessage() - put error", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockStore,
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -529,9 +529,9 @@ func TestAddMessage(t *testing.T) {
 	t.Run("test MessagePickupService.AddMessage() - get error", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockStore,
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			OutboundDispatcherValue:       nil,
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -553,8 +553,8 @@ func TestStatusRequest(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -629,8 +629,8 @@ func TestStatusRequest(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
@@ -666,8 +666,8 @@ func TestBatchPickup(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -746,8 +746,8 @@ func TestBatchPickup(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
@@ -819,8 +819,8 @@ func TestNoop(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -858,8 +858,8 @@ func TestNoop(t *testing.T) {
 		s := make(map[string][]byte)
 
 		provider := &mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
@@ -924,9 +924,9 @@ func TestGetConnection(t *testing.T) {
 
 func getService() (*Service, error) {
 	svc, err := New(&mockprovider.Provider{
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		OutboundDispatcherValue:       nil,
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		OutboundDispatcherValue:           nil,
 	}, &mockTransportProvider{
 		packagerValue: &mockPackager{},
 	})

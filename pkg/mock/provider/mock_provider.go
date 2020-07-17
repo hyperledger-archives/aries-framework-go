@@ -17,19 +17,19 @@ import (
 
 // Provider mocks provider needed for did exchange service initialization
 type Provider struct {
-	ServiceValue                  interface{}
-	ServiceErr                    error
-	ServiceMap                    map[string]interface{}
-	KMSValue                      kms.KeyManager
-	LegacyKMSValue                legacykms.KMS
-	ServiceEndpointValue          string
-	StorageProviderValue          storage.Provider
-	TransientStorageProviderValue storage.Provider
-	PackerList                    []packer.Packer
-	PackerValue                   packer.Packer
-	OutboundDispatcherValue       dispatcher.Outbound
-	VDRIRegistryValue             vdriapi.Registry
-	CryptoValue                   crypto.Crypto
+	ServiceValue                      interface{}
+	ServiceErr                        error
+	ServiceMap                        map[string]interface{}
+	KMSValue                          kms.KeyManager
+	LegacyKMSValue                    legacykms.KMS
+	ServiceEndpointValue              string
+	StorageProviderValue              storage.Provider
+	ProtocolStateStorageProviderValue storage.Provider
+	PackerList                        []packer.Packer
+	PackerValue                       packer.Packer
+	OutboundDispatcherValue           dispatcher.Outbound
+	VDRIRegistryValue                 vdriapi.Registry
+	CryptoValue                       crypto.Crypto
 }
 
 // Service return service
@@ -75,9 +75,9 @@ func (p *Provider) StorageProvider() storage.Provider {
 	return p.StorageProviderValue
 }
 
-// TransientStorageProvider returns the transient storage provider
-func (p *Provider) TransientStorageProvider() storage.Provider {
-	return p.TransientStorageProviderValue
+// ProtocolStateStorageProvider returns the protocol state storage provider
+func (p *Provider) ProtocolStateStorageProvider() storage.Provider {
+	return p.ProtocolStateStorageProviderValue
 }
 
 // Packers returns the available Packer services

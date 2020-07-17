@@ -39,33 +39,32 @@ const (
 
 // Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
 type Aries struct {
-	storeProvider storage.Provider
-	// TODO Rename transient store to protocol state store https://github.com/hyperledger/aries-framework-go/issues/835
-	transientStoreProvider storage.Provider
-	protocolSvcCreators    []api.ProtocolSvcCreator
-	services               []dispatcher.ProtocolService
-	msgSvcProvider         api.MessageServiceProvider
-	outboundDispatcher     dispatcher.Outbound
-	messenger              service.MessengerHandler
-	outboundTransports     []transport.OutboundTransport
-	inboundTransports      []transport.InboundTransport
-	legacyKMSCreator       api.KMSCreator
-	legacyKMS              api.CloseableKMS
-	kms                    kms.KeyManager
-	kmsCreator             kms.Creator
-	secretLock             secretlock.Service
-	crypto                 crypto.Crypto
-	packagerCreator        packager.Creator
-	packager               commontransport.Packager
-	packerCreator          packer.LegacyCreator
-	packerCreators         []packer.LegacyCreator
-	primaryPacker          packer.Packer
-	packers                []packer.Packer
-	vdriRegistry           vdriapi.Registry
-	vdri                   []vdriapi.VDRI
-	verifiableStore        verifiable.Store
-	transportReturnRoute   string
-	id                     string
+	storeProvider              storage.Provider
+	protocolStateStoreProvider storage.Provider
+	protocolSvcCreators        []api.ProtocolSvcCreator
+	services                   []dispatcher.ProtocolService
+	msgSvcProvider             api.MessageServiceProvider
+	outboundDispatcher         dispatcher.Outbound
+	messenger                  service.MessengerHandler
+	outboundTransports         []transport.OutboundTransport
+	inboundTransports          []transport.InboundTransport
+	legacyKMSCreator           api.KMSCreator
+	legacyKMS                  api.CloseableKMS
+	kms                        kms.KeyManager
+	kmsCreator                 kms.Creator
+	secretLock                 secretlock.Service
+	crypto                     crypto.Crypto
+	packagerCreator            packager.Creator
+	packager                   commontransport.Packager
+	packerCreator              packer.LegacyCreator
+	packerCreators             []packer.LegacyCreator
+	primaryPacker              packer.Packer
+	packers                    []packer.Packer
+	vdriRegistry               vdriapi.Registry
+	vdri                       []vdriapi.VDRI
+	verifiableStore            verifiable.Store
+	transportReturnRoute       string
+	id                         string
 }
 
 // Option configures the framework.
@@ -196,10 +195,10 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
-// WithTransientStoreProvider injects a transient storage provider to the Aries framework.
-func WithTransientStoreProvider(prov storage.Provider) Option {
+// WithProtocolStateStoreProvider injects a protocol state storage provider to the Aries framework.
+func WithProtocolStateStoreProvider(prov storage.Provider) Option {
 	return func(opts *Aries) error {
-		opts.transientStoreProvider = prov
+		opts.protocolStateStoreProvider = prov
 		return nil
 	}
 }
@@ -296,7 +295,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithServiceEndpoint(serviceEndpoint(a)),
 		context.WithRouterEndpoint(routingEndpoint(a)),
 		context.WithStorageProvider(a.storeProvider),
-		context.WithTransientStorageProvider(a.transientStoreProvider),
+		context.WithProtocolStateStorageProvider(a.protocolStateStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
 		context.WithPackager(a.packager),
 		context.WithVDRIRegistry(a.vdriRegistry),
@@ -329,8 +328,8 @@ func (a *Aries) Close() error {
 		}
 	}
 
-	if a.transientStoreProvider != nil {
-		err := a.transientStoreProvider.Close()
+	if a.protocolStateStoreProvider != nil {
+		err := a.protocolStateStoreProvider.Close()
 		if err != nil {
 			return fmt.Errorf("failed to close the store: %w", err)
 		}
@@ -495,7 +494,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithMessengerHandler(frameworkOpts.messenger),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
+		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
 		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),

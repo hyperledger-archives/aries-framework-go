@@ -40,7 +40,7 @@ type Provider interface {
 	RouterEndpoint() string
 	VDRIRegistry() vdriapi.Registry
 	Signer() legacykms.Signer
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	InboundMessageHandler() didcommtransport.InboundMessageHandler
 	OutboundMessageHandler() service.OutboundHandler
 	VerifiableStore() verifiable.Store

@@ -24,6 +24,6 @@ func storeProvider() (storage.Provider, error) {
 	return leveldb.NewProvider(dbPath), nil
 }
 
-func transientStoreProvider() (storage.Provider, error) {
+func protocolStateStoreProvider() (storage.Provider, error) {
 	return mem.NewProvider(), nil
 }

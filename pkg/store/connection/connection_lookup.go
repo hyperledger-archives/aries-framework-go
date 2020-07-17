@@ -37,7 +37,7 @@ const (
 type KeyPrefix func(...string) string
 
 type provider interface {
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 }
 
@@ -67,18 +67,18 @@ func NewLookup(p provider) (*Lookup, error) {
 		return nil, fmt.Errorf("failed to open permanent store to create new connection recorder: %w", err)
 	}
 
-	transientStore, err := p.TransientStorageProvider().OpenStore(Namespace)
+	protocolStateStore, err := p.ProtocolStateStorageProvider().OpenStore(Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open transient store to create new connection recorder: %w", err)
+		return nil, fmt.Errorf("failed to open protocol state store to create new connection recorder: %w", err)
 	}
 
-	return &Lookup{transientStore: transientStore, store: store}, nil
+	return &Lookup{protocolStateStore: protocolStateStore, store: store}, nil
 }
 
 // Lookup takes care of connection related persistence features
 type Lookup struct {
-	transientStore storage.Store
-	store          storage.Store
+	protocolStateStore storage.Store
+	store              storage.Store
 }
 
 // GetConnectionRecord return connection record based on the connection ID
@@ -88,7 +88,7 @@ func (c *Lookup) GetConnectionRecord(connectionID string) (*Record, error) {
 	err := getAndUnmarshal(getConnectionKeyPrefix()(connectionID), &rec, c.store)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
-			err = getAndUnmarshal(getConnectionKeyPrefix()(connectionID), &rec, c.transientStore)
+			err = getAndUnmarshal(getConnectionKeyPrefix()(connectionID), &rec, c.protocolStateStore)
 			if err != nil {
 				return nil, err
 			}
@@ -126,19 +126,19 @@ func (c *Lookup) QueryConnectionRecords() ([]*Record, error) {
 		records = append(records, &record)
 	}
 
-	transientItr := c.transientStore.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer transientItr.Release()
+	protocolStateItr := c.protocolStateStore.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
+	defer protocolStateItr.Release()
 
-	for transientItr.Next() {
-		// don't fetch data from transient store if same record is present in permanent store
-		if _, ok := keys[string(transientItr.Key())]; ok {
+	for protocolStateItr.Next() {
+		// don't fetch data from protocol state store if same record is present in permanent store
+		if _, ok := keys[string(protocolStateItr.Key())]; ok {
 			continue
 		}
 
 		var record Record
 
-		if err := json.Unmarshal(transientItr.Value(), &record); err != nil {
-			return nil, fmt.Errorf("query connection records from transient store : %w", err)
+		if err := json.Unmarshal(protocolStateItr.Value(), &record); err != nil {
+			return nil, fmt.Errorf("query connection records from protocol state store : %w", err)
 		}
 
 		records = append(records, &record)
@@ -155,7 +155,7 @@ func (c *Lookup) GetConnectionRecordAtState(connectionID, stateID string) (*Reco
 
 	var rec Record
 
-	err := getAndUnmarshal(getConnectionStateKeyPrefix()(connectionID, stateID), &rec, c.transientStore)
+	err := getAndUnmarshal(getConnectionStateKeyPrefix()(connectionID, stateID), &rec, c.protocolStateStore)
 	if err != nil {
 		return nil, fmt.Errorf("faild to get connection record by state : %s, cause : %w", stateID, err)
 	}
@@ -165,14 +165,14 @@ func (c *Lookup) GetConnectionRecordAtState(connectionID, stateID string) (*Reco
 
 // GetConnectionRecordByNSThreadID return connection record via namespaced threadID
 func (c *Lookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*Record, error) {
-	connectionIDBytes, err := c.transientStore.Get(nsThreadID)
+	connectionIDBytes, err := c.protocolStateStore.Get(nsThreadID)
 	if err != nil {
 		return nil, fmt.Errorf("get connectionID by namespaced threadID: %w", err)
 	}
 
 	var rec Record
 
-	err = getAndUnmarshal(getConnectionKeyPrefix()(string(connectionIDBytes)), &rec, c.transientStore)
+	err = getAndUnmarshal(getConnectionKeyPrefix()(string(connectionIDBytes)), &rec, c.protocolStateStore)
 	if err != nil {
 		return nil, fmt.Errorf("faild to get connection record by NS thread ID : %s, cause : %w", nsThreadID, err)
 	}
@@ -207,7 +207,7 @@ func (c *Recorder) GetEvent(connectionID string) ([]byte, error) {
 		return nil, fmt.Errorf(errMsgInvalidKey)
 	}
 
-	return c.transientStore.Get(getEventDataKeyPrefix()(connectionID))
+	return c.protocolStateStore.Get(getEventDataKeyPrefix()(connectionID))
 }
 
 func getAndUnmarshal(key string, target interface{}, store storage.Store) error {

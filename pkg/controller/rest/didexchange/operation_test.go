@@ -43,8 +43,8 @@ import (
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -409,8 +409,8 @@ func TestEmptyID(t *testing.T) {
 	const response = `{"code":2000,"message":"empty connection ID"}`
 
 	prov := &mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -477,7 +477,7 @@ type fails struct {
 }
 
 func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
-	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
+	protocolStateStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
 	connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
@@ -508,10 +508,10 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 			},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-		ServiceEndpointValue:          "endpoint",
-		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
-		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
+		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		ServiceEndpointValue:              "endpoint",
+		ProtocolStateStorageProviderValue: &mockstore.MockStoreProvider{Store: &protocolStateStore},
+		StorageProviderValue:              &mockstore.MockStoreProvider{Store: &store}},
 		webnotifier.NewHTTPNotifier(nil),
 		"", true,
 	)

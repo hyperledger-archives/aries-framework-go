@@ -52,10 +52,10 @@ func TestNew(t *testing.T) {
 		_, err := New(provider)
 		require.Error(t, err)
 	})
-	t.Run("wraps error thrown from transient store when it cannot be opened", func(t *testing.T) {
+	t.Run("wraps error thrown from protocol state store when it cannot be opened", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := testProvider()
-		provider.TransientStoreProvider = &mockstore.MockStoreProvider{
+		provider.ProtocolStateStoreProvider = &mockstore.MockStoreProvider{
 			ErrOpenStoreHandle: expected,
 		}
 		_, err := New(provider)
@@ -414,10 +414,10 @@ func TestHandleRequestCallback(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
-	t.Run("wraps error returned by the transient store", func(t *testing.T) {
+	t.Run("wraps error returned by the protocol state store", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := testProvider()
-		provider.TransientStoreProvider = &mockstore.MockStoreProvider{
+		provider.ProtocolStateStoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
 				ErrPut: expected,
 			},
@@ -478,11 +478,11 @@ func TestHandleDIDEvent(t *testing.T) {
 			t.Error("timeout")
 		}
 	})
-	t.Run("wraps error returned by the transient store", func(t *testing.T) {
+	t.Run("wraps error returned by the protocol state store", func(t *testing.T) {
 		expected := errors.New("test")
 		const connID = "123"
 		provider := testProvider()
-		provider.TransientStoreProvider = &mockstore.MockStoreProvider{
+		provider.ProtocolStateStoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
 				Store:  make(map[string][]byte),
 				ErrGet: expected,
@@ -605,7 +605,7 @@ func TestHandleDIDEvent(t *testing.T) {
 			))
 
 		s.store = &mockstore.MockStore{
-			Store:  provider.TransientStoreProvider.Store.Store,
+			Store:  provider.ProtocolStateStoreProvider.Store.Store,
 			ErrPut: expected,
 		}
 
@@ -1115,8 +1115,8 @@ func TestChooseTarget(t *testing.T) {
 
 func testProvider() *protocol.MockProvider {
 	return &protocol.MockProvider{
-		StoreProvider:          mockstore.NewMockStoreProvider(),
-		TransientStoreProvider: mockstore.NewMockStoreProvider(),
+		StoreProvider:              mockstore.NewMockStoreProvider(),
+		ProtocolStateStoreProvider: mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 		},

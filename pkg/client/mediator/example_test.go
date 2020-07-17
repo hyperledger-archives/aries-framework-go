@@ -101,11 +101,11 @@ func performDIDExchangeWithRouter(client *didexClient.Client) string {
 }
 
 func didClientMockContext() *mockprovider.Provider {
-	transientStoreProvider := mockstore.NewMockStoreProvider()
+	protocolStateStoreProvider := mockstore.NewMockStoreProvider()
 	storeProvider := mockstore.NewMockStoreProvider()
 	mockProvider := &mockprotocol.MockProvider{
-		TransientStoreProvider: transientStoreProvider,
-		StoreProvider:          storeProvider,
+		ProtocolStateStoreProvider: protocolStateStoreProvider,
+		StoreProvider:              storeProvider,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -117,9 +117,9 @@ func didClientMockContext() *mockprovider.Provider {
 	}
 
 	context := &mockprovider.Provider{
-		LegacyKMSValue:                &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
-		TransientStorageProviderValue: transientStoreProvider,
-		StorageProviderValue:          storeProvider,
+		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
+		ProtocolStateStorageProviderValue: protocolStateStoreProvider,
+		StorageProviderValue:              storeProvider,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: svc,
 			mediator.Coordination:   routeService(),

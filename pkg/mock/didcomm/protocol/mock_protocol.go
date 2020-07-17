@@ -22,16 +22,16 @@ import (
 
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
-	StoreProvider          *mockstore.MockStoreProvider
-	TransientStoreProvider *mockstore.MockStoreProvider
-	CustomVDRI             vdriapi.Registry
-	CustomOutbound         *mockdispatcher.MockOutbound
-	CustomMessenger        *mockservice.MockMessenger
-	CustomKMS              *mockkms.CloseableKMS
-	ServiceErr             error
-	ServiceMap             map[string]interface{}
-	InboundMsgHandler      transport.InboundMessageHandler
-	OutboundMsgHandler     service.OutboundHandler
+	StoreProvider              *mockstore.MockStoreProvider
+	ProtocolStateStoreProvider *mockstore.MockStoreProvider
+	CustomVDRI                 vdriapi.Registry
+	CustomOutbound             *mockdispatcher.MockOutbound
+	CustomMessenger            *mockservice.MockMessenger
+	CustomKMS                  *mockkms.CloseableKMS
+	ServiceErr                 error
+	ServiceMap                 map[string]interface{}
+	InboundMsgHandler          transport.InboundMessageHandler
+	OutboundMsgHandler         service.OutboundHandler
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -52,10 +52,10 @@ func (p *MockProvider) StorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// TransientStorageProvider is mock transient storage provider for DID exchange service
-func (p *MockProvider) TransientStorageProvider() storage.Provider {
-	if p.TransientStoreProvider != nil {
-		return p.TransientStoreProvider
+// ProtocolStateStorageProvider is mock protocol state storage provider for DID exchange service
+func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
+	if p.ProtocolStateStoreProvider != nil {
+		return p.ProtocolStateStoreProvider
 	}
 
 	return mockstore.NewMockStoreProvider()

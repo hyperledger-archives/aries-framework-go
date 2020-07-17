@@ -40,7 +40,7 @@ type provider interface {
 	LegacyKMS() legacykms.KeyManager
 	ServiceEndpoint() string
 	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
+	ProtocolStateStorageProvider() storage.Provider
 }
 
 // Client enable access to didexchange api
