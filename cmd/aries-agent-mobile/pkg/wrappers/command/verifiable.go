@@ -27,7 +27,7 @@ func (v *Verifiable) ValidateCredential(request *models.RequestEnvelope) *models
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.ValidateCredentialCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.ValidateCredentialCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -43,7 +43,7 @@ func (v *Verifiable) SaveCredential(request *models.RequestEnvelope) *models.Res
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.SaveCredentialCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.SaveCredentialCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -59,7 +59,7 @@ func (v *Verifiable) SavePresentation(request *models.RequestEnvelope) *models.R
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.SavePresentationCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.SavePresentationCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -75,7 +75,7 @@ func (v *Verifiable) GetCredential(request *models.RequestEnvelope) *models.Resp
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GetCredentialCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GetCredentialCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -91,7 +91,7 @@ func (v *Verifiable) SignCredential(request *models.RequestEnvelope) *models.Res
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.SignCredentialCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.SignCredentialCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -107,7 +107,7 @@ func (v *Verifiable) GetPresentation(request *models.RequestEnvelope) *models.Re
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GetPresentationCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GetPresentationCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -123,7 +123,7 @@ func (v *Verifiable) GetCredentialByName(request *models.RequestEnvelope) *model
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GetCredentialByNameCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GetCredentialByNameCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -133,7 +133,7 @@ func (v *Verifiable) GetCredentialByName(request *models.RequestEnvelope) *model
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
 func (v *Verifiable) GetCredentials(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GetCredentialsCommandMethod], request)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GetCredentialsCommandMethod], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -143,7 +143,7 @@ func (v *Verifiable) GetCredentials(request *models.RequestEnvelope) *models.Res
 
 // GetPresentations retrieves the verifiable presentation records containing name and fields of interest.
 func (v *Verifiable) GetPresentations(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GetPresentationsCommandMethod], request)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GetPresentationsCommandMethod], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -159,7 +159,7 @@ func (v *Verifiable) GeneratePresentation(request *models.RequestEnvelope) *mode
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GeneratePresentationCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GeneratePresentationCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -175,7 +175,7 @@ func (v *Verifiable) GeneratePresentationByID(request *models.RequestEnvelope) *
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(v.handlers[cmdverifiable.GeneratePresentationByIDCommandMethod], args)
+	response, cmdErr := exec(v.handlers[cmdverifiable.GeneratePresentationByIDCommandMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

@@ -1,6 +1,6 @@
 # Aries Agent Mobile
 
-Mobile bindings for the [Aries Framework Go](github.com/hyperledger/aries-framework-go) library.
+Mobile bindings for the [Aries Framework Go](https://github.com/hyperledger/aries-framework-go) library.
 > Note: these bindings are experimental and are subject to frequent changes.
 
 ## 1. Requirements
@@ -8,7 +8,7 @@ Mobile bindings for the [Aries Framework Go](github.com/hyperledger/aries-framew
 - [Golang](https://golang.org/doc/install) >= 1.13
 - [Android SDK](https://developer.android.com/studio/install) (via Android Studio)
 - [Android NDK](https://developer.android.com/ndk/downloads)
-- [XCode](https://developer.apple.com/xcode/) (macOS only)
+- [Xcode](https://developer.apple.com/xcode/) (macOS only)
 - Make
     - [Windows](http://gnuwin32.sourceforge.net/packages/make.htm)
     - [macOS](https://brew.sh/) (via Homebrew)
@@ -47,9 +47,9 @@ $ make bindings-ios
 
 ## 3. Usage
 
-### a. Android
+### 3.1. Android
 
-#### Importing the generated binding as a module in Android Studio
+#### a. Importing the generated binding as a module in Android Studio
 - In the menu of your Android Studio project, go to **File>Project Structure**.
 - A modal will be displayed and on the left click on **Modules**.
 - In the section title _Modules_ click on the **+**.
@@ -61,7 +61,7 @@ $ make bindings-ios
 - Click on **Module Dependency** and select `aries-agent.aar`.
 - Click **OK** and select **Apply** if applicable and then **OK**.
 
-#### Code sample
+#### b. Code sample
 This is an example of how the imported module can be used:
 ```java
 import org.hyperledger.aries.api.AriesController;
@@ -77,19 +77,20 @@ import java.nio.charset.StandardCharsets;
 */
         // create options
         Options opts = new Options();
-        opts.setURL("http://example.com");
-        opts.setUseLocalAgent(true);
+        opts.setAgentURL("http://example.com");
+        opts.setUseLocalAgent(false);
 
         ResponseEnvelope res = new ResponseEnvelope();
         try {
             // create an aries agent instance
-            AriesController a = Ariesagent.newAriesAgent(opts);
+            AriesController a = Ariesagent.new_(opts);
 
             // create a controller
             IntroduceController i = a.getIntroduceController();
 
             // perform an operation
-            res = i.actions(new RequestEnvelope());
+            byte[] data = "{}".getBytes(StandardCharsets.UTF_8);
+            res = i.actions(new RequestEnvelope(data));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -99,13 +100,13 @@ import java.nio.charset.StandardCharsets;
 ```
 
 
-### b. iOS
+### 3.3. iOS
 
-#### Importing the generated binding as a framework in XCode
-- In the menu of your XCode project, go to **File>Add Files to "your project name"...**.
+#### a. Importing the generated binding as a framework in Xcode
+- In the menu of your Xcode project, go to **File>Add Files to "your project name"...**.
 - In the displayed modal, navigate to the path of your `AriesAgent.framework` file and click **Add**.
 
-#### Code sample
+#### c. Code sample
 This is an example of how the imported framework can be used:
 ```objc
 #import <AriesAgent/Ariesagent.h>
@@ -115,38 +116,38 @@ This is an example of how the imported framework can be used:
     NSError *error = nil;
 
     // create options
-    ConfigOptions *opts = [[ConfigOptions alloc] init];
-    opts.url = @"http://example.com";
-    opts.useLocalAgent = true;
+    ConfigOptions *opts = ConfigNew();
+    // [opts setAgentURL:@"http://example.com"];
+    [opts setUseLocalAgent:true];
     
     // create an aries agent instance
-    RestAriesREST *ac = (RestAriesREST*) AriesagentNewAriesAgent(opts, &error);
+    ApiAriesController *ac = (ApiAriesController*) AriesagentNew(opts, &error);
     if(error) {
-        NSLog(@"error creating a remote aries agent: %@", error);
+        NSLog(@"error creating an aries agent: %@", error);
     }
     
     // create a controller
-    RestIntroduceREST *ic = (RestIntroduceREST*) [ac getIntroduceController:&error];
+    ApiVerifiableController *ic = (ApiVerifiableController*) [ac getVerifiableController:&error];
     if(error) {
-        NSLog(@"error creating an introduce controller instance: %@", error);
+        NSLog(@"error creating an verifiable controller instance: %@", error);
     }
 
     // perform an operation
-    ModelsRequestEnvelope *req = [[ModelsRequestEnvelope alloc] init];
-    req.payload = [@"" dataUsingEncoding:NSUTF8StringEncoding];
-    ModelsResponseEnvelope *resp = [ic actions:req];
+    NSData *data = [@"" dataUsingEncoding:NSUTF8StringEncoding];
+    ModelsRequestEnvelope *req = ModelsNewRequestEnvelope(data);
+    ModelsResponseEnvelope *resp = [ic getCredentials:req];
     if(resp.error) {
-        NSLog(@"error getting actions: %@", resp.error.message);
+        NSLog(@"error getting credentials: %@", resp.error.message);
+    } else {
+        NSString *credResp = [[NSString alloc] initWithData:resp.payload encoding:NSUTF8StringEncoding];
+        NSLog(@"credentials response: %@", credResp);
     }
-    
-    NSString *actionsResp = [[NSString alloc] initWithData:resp.payload encoding:NSUTF8StringEncoding];
-    NSLog(@"actions response: %@", actionsResp);
 ```
 
 
 ### c. Demo apps
 
-For examples of mobile apps built with the aries-agent-mobile bindings, see [trustbloc/aries-examples](https://github.com/trustbloc/aries-examples).
+For examples of mobile apps built with the aries-agent-mobile bindings, see [https://github.com/trustbloc/aries-examples](https://github.com/trustbloc/aries-examples).
 
 
 ## 4. Test

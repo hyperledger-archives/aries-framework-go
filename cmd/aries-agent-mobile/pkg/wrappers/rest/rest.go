@@ -31,11 +31,11 @@ type restOperation struct {
 	token string
 
 	httpClient httpClient
-	endpoint   *Endpoint
+	endpoint   *endpoint
 	request    *models.RequestEnvelope
 }
 
-func execREST(operation *restOperation) *models.ResponseEnvelope {
+func exec(operation *restOperation) *models.ResponseEnvelope {
 	parsedURL, err := url.Parse(operation.url)
 	if err != nil {
 		return &models.ResponseEnvelope{

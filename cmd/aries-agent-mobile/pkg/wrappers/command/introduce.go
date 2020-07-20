@@ -21,7 +21,7 @@ type Introduce struct {
 
 // Actions returns unfinished actions for the async usage
 func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.Actions], request)
+	response, cmdErr := exec(i.handlers[cmdintroduce.Actions], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -37,7 +37,7 @@ func (i *Introduce) SendProposal(request *models.RequestEnvelope) *models.Respon
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.SendProposal], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.SendProposal], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -53,7 +53,7 @@ func (i *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) 
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.SendProposalWithOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.SendProposalWithOOBRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -69,7 +69,7 @@ func (i *Introduce) SendRequest(request *models.RequestEnvelope) *models.Respons
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.SendRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.SendRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -85,7 +85,7 @@ func (i *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.AcceptProposalWithOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptProposalWithOOBRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -101,7 +101,7 @@ func (i *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.Resp
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.AcceptProposal], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptProposal], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -117,7 +117,7 @@ func (i *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnv
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.AcceptRequestWithPublicOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptRequestWithPublicOOBRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -134,7 +134,7 @@ func (i *Introduce) AcceptRequestWithRecipients(request *models.RequestEnvelope)
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.AcceptRequestWithRecipients], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptRequestWithRecipients], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -150,7 +150,7 @@ func (i *Introduce) DeclineProposal(request *models.RequestEnvelope) *models.Res
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.DeclineProposal], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.DeclineProposal], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -166,7 +166,7 @@ func (i *Introduce) DeclineRequest(request *models.RequestEnvelope) *models.Resp
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := execCommand(i.handlers[cmdintroduce.DeclineRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.DeclineRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

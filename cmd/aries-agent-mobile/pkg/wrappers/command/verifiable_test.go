@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 )
@@ -89,17 +88,24 @@ const (
 	emptyResponse        = `{}`
 )
 
+func getVerifiableController(t *testing.T) *Verifiable {
+	a, err := getAgent()
+	require.NotNil(t, a)
+	require.NoError(t, err)
+
+	vc, err := a.GetVerifiableController()
+	require.NoError(t, err)
+	require.NotNil(t, vc)
+
+	v, ok := vc.(*Verifiable)
+	require.Equal(t, ok, true)
+
+	return v
+}
+
 func TestVerifiable_ValidateCredential(t *testing.T) {
 	t.Run("test it validates a credential", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := emptyResponse
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -119,15 +125,7 @@ func TestVerifiable_ValidateCredential(t *testing.T) {
 
 func TestVerifiable_SaveCredential(t *testing.T) {
 	t.Run("test it saves a credential", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := emptyResponse
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -147,15 +145,7 @@ func TestVerifiable_SaveCredential(t *testing.T) {
 
 func TestVerifiable_SavePresentation(t *testing.T) {
 	t.Run("test it saves a presentation", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := emptyResponse
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -175,15 +165,7 @@ func TestVerifiable_SavePresentation(t *testing.T) {
 
 func TestVerifiable_GetCredential(t *testing.T) {
 	t.Run("test it gets a credential", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"verifiableCredential": %s}`, strconv.Quote(mockVC))
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -203,15 +185,7 @@ func TestVerifiable_GetCredential(t *testing.T) {
 
 func TestVerifiable_SignCredential(t *testing.T) {
 	t.Run("test it signs a credential", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"verifiableCredential": %s}`, strconv.Quote(mockSignedVC))
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -235,15 +209,7 @@ func TestVerifiable_SignCredential(t *testing.T) {
 
 func TestVerifiable_GetPresentation(t *testing.T) {
 	t.Run("test it gets a presentation", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"verifiablePresentation": %s}`, strconv.Quote(mockVP))
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -263,15 +229,7 @@ func TestVerifiable_GetPresentation(t *testing.T) {
 
 func TestVerifiable_GetCredentialByName(t *testing.T) {
 	t.Run("test it gets a verifiable credential by name", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"name": %s, "id": %s}`, mockCredentialName, mockCredentialID)
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -291,15 +249,7 @@ func TestVerifiable_GetCredentialByName(t *testing.T) {
 
 func TestVerifiable_GetCredentials(t *testing.T) {
 	t.Run("test it gets all stored verifiable credentials", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"result": [{"name": "%s", "id":" %s"}, {"name": "%s"", "id": "%s""}]`,
 			mockCredentialName, mockCredentialID, mockCredentialName, mockCredentialID)
@@ -320,15 +270,7 @@ func TestVerifiable_GetCredentials(t *testing.T) {
 
 func TestVerifiable_GetPresentations(t *testing.T) {
 	t.Run("test it gets all stored verifiable presentations", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := fmt.Sprintf(`{"result": [{"name": "%s", "id":" %s"}, {"name": "%s"", "id": "%s""}]`,
 			mockPresentationName, mockPresentationID, mockPresentationName, mockPresentationID)
@@ -349,15 +291,7 @@ func TestVerifiable_GetPresentations(t *testing.T) {
 
 func TestVerifiable_GeneratePresentation(t *testing.T) {
 	t.Run("test it generates a presentation", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := mockPresentationResponse
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
@@ -382,15 +316,7 @@ func TestVerifiable_GeneratePresentation(t *testing.T) {
 
 func TestVerifiable_GeneratePresentationByID(t *testing.T) {
 	t.Run("test it generates a presentation by id", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		vc, err := a.GetVerifiableController()
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-
-		v, ok := vc.(*Verifiable)
-		require.Equal(t, ok, true)
+		v := getVerifiableController(t)
 
 		mockResponse := mockPresentationResponse
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}

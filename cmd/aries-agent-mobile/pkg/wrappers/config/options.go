@@ -10,7 +10,7 @@ package config
 type Options struct {
 	UseLocalAgent bool
 
-	URL      string
+	AgentURL string
 	APIToken string
 
 	Label                string
@@ -23,6 +23,11 @@ type Options struct {
 	// not intended to be used by golang code
 	HTTPResolvers     []string
 	OutboundTransport []string
+}
+
+// New returns an instance of Options which can be used to configure an aries controller instance
+func New() *Options {
+	return &Options{}
 }
 
 // AddHTTPResolver appends an http resolver url to the options

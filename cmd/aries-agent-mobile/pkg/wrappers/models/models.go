@@ -23,3 +23,13 @@ type ResponseEnvelope struct {
 	Payload []byte        `json:"payload"`
 	Error   *CommandError `json:"error,omitempty"`
 }
+
+// NewRequestEnvelope will return an instance of RequestEnvelope
+func NewRequestEnvelope(data []byte) *RequestEnvelope {
+	return &RequestEnvelope{Payload: data}
+}
+
+// NewResponseEnvelope will return an instance of ResponseEnvelope
+func NewResponseEnvelope() *ResponseEnvelope {
+	return &ResponseEnvelope{}
+}

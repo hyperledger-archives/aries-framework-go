@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/rest"
 )
 
-func TestNewAriesAgent(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Run("test it creates a local agent", func(t *testing.T) {
-		localAgent, err := NewAriesAgent(&config.Options{UseLocalAgent: true})
+		localAgent, err := New(&config.Options{UseLocalAgent: true})
 		require.NoError(t, err)
 		require.NotNil(t, localAgent)
 
@@ -27,11 +27,11 @@ func TestNewAriesAgent(t *testing.T) {
 	})
 
 	t.Run("test it creates a remote agent", func(t *testing.T) {
-		remoteAgent, err := NewAriesAgent(&config.Options{UseLocalAgent: false})
+		remoteAgent, err := New(&config.Options{UseLocalAgent: false, AgentURL: "http://example.com"})
 		require.NoError(t, err)
 		require.NotNil(t, remoteAgent)
 
-		var a *rest.AriesREST
+		var a *rest.Aries
 		require.IsType(t, a, remoteAgent)
 	})
 }

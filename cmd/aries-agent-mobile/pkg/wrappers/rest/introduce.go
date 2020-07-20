@@ -11,10 +11,10 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 )
 
-// IntroduceREST contains necessary fields for each of its operations
-type IntroduceREST struct {
+// Introduce contains necessary fields for each of its operations
+type Introduce struct {
 	httpClient httpClient
-	endpoints  map[string]*Endpoint
+	endpoints  map[string]*endpoint
 
 	URL   string
 	Token string
@@ -22,8 +22,8 @@ type IntroduceREST struct {
 
 // Actions returns unfinished actions for the async usage.
 // This creates an http request based on the provided method arguments.
-func (ir *IntroduceREST) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -35,8 +35,8 @@ func (ir *IntroduceREST) Actions(request *models.RequestEnvelope) *models.Respon
 }
 
 // SendProposal sends a proposal to the introducees (the client has not published an out-of-band message) via HTTP.
-func (ir *IntroduceREST) SendProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) SendProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -49,8 +49,8 @@ func (ir *IntroduceREST) SendProposal(request *models.RequestEnvelope) *models.R
 
 // SendProposalWithOOBRequest sends a proposal to the introducee
 // (the client has published an out-of-band request) via HTTP.
-func (ir *IntroduceREST) SendProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -62,8 +62,8 @@ func (ir *IntroduceREST) SendProposalWithOOBRequest(request *models.RequestEnvel
 }
 
 // SendRequest sends a request showing that the introducee is willing to share their own out-of-band message (via HTTP).
-func (ir *IntroduceREST) SendRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) SendRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -75,8 +75,8 @@ func (ir *IntroduceREST) SendRequest(request *models.RequestEnvelope) *models.Re
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request (via HTTP).
-func (ir *IntroduceREST) AcceptProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -88,8 +88,8 @@ func (ir *IntroduceREST) AcceptProposalWithOOBRequest(request *models.RequestEnv
 }
 
 // AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest (via HTTP).
-func (ir *IntroduceREST) AcceptProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -102,8 +102,8 @@ func (ir *IntroduceREST) AcceptProposal(request *models.RequestEnvelope) *models
 
 // AcceptRequestWithPublicOOBRequest is used when an introducer
 // wants to provide a published out-of-band request (via HTTP).
-func (ir *IntroduceREST) AcceptRequestWithPublicOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -116,8 +116,8 @@ func (ir *IntroduceREST) AcceptRequestWithPublicOOBRequest(request *models.Reque
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but they are willing to introduce agents to each other. This is done via HTTP.
-func (ir *IntroduceREST) AcceptRequestWithRecipients(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) AcceptRequestWithRecipients(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -129,8 +129,8 @@ func (ir *IntroduceREST) AcceptRequestWithRecipients(request *models.RequestEnve
 }
 
 // DeclineProposal is used to reject the proposal (via HTTP).
-func (ir *IntroduceREST) DeclineProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) DeclineProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
@@ -142,8 +142,8 @@ func (ir *IntroduceREST) DeclineProposal(request *models.RequestEnvelope) *model
 }
 
 // DeclineRequest is used to reject the request (via HTTP).
-func (ir *IntroduceREST) DeclineRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (ir *Introduce) DeclineRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        ir.URL,
 		token:      ir.Token,
 		httpClient: ir.httpClient,
