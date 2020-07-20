@@ -66,7 +66,7 @@ func TestNew_Fail(t *testing.T) {
 
 func TestOperation_CreateInvitation(t *testing.T) {
 	t.Run("Successful CreateInvitation with label", func(t *testing.T) {
-		handler := getHandler(t, createInvitationPath)
+		handler := getHandler(t, CreateInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel")
 		require.NoError(t, err)
 
@@ -83,7 +83,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 
 	t.Run("Successful CreateInvitation with label and public DID", func(t *testing.T) {
 		const publicDID = "sample-public-did"
-		handler := getHandler(t, createInvitationPath)
+		handler := getHandler(t, CreateInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public="+publicDID)
 		require.NoError(t, err)
 
@@ -101,7 +101,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("Successful CreateInvitation with default params", func(t *testing.T) {
-		handler := getHandler(t, createInvitationPath)
+		handler := getHandler(t, CreateInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path())
 		require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 
 	t.Run("CreateInvitation failure", func(t *testing.T) {
 		const errMsg = "sample-err-01"
-		handler := getHandlerWithError(t, createInvitationPath, &fails{storePutErr: fmt.Errorf(errMsg)})
+		handler := getHandlerWithError(t, CreateInvitationPath, &fails{storePutErr: fmt.Errorf(errMsg)})
 
 		buf, code, err := sendRequestToHandler(handler, nil, handler.Path())
 		require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 		"label":"agent",
 		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
-	handler := getHandler(t, receiveInvitationPath)
+	handler := getHandler(t, ReceiveInvitationPath)
 	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
@@ -150,9 +150,9 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 
 func TestOperation_QueryConnectionByID(t *testing.T) {
 	t.Run("connectionsByID success", func(t *testing.T) {
-		handler := getHandler(t, connectionsByID)
+		handler := getHandler(t, ConnectionsByID)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("sample-connection-id")),
-			operationID+"/1234")
+			OperationID+"/1234")
 		require.NoError(t, err)
 
 		response := didexchange.QueryConnectionResponse{}
@@ -166,7 +166,7 @@ func TestOperation_QueryConnectionByID(t *testing.T) {
 
 	t.Run("connectionsByID failure", func(t *testing.T) {
 		const errMsg = "sample-err-01"
-		handler := getHandlerWithError(t, connectionsByID, &fails{storeGetErr: fmt.Errorf(errMsg)})
+		handler := getHandlerWithError(t, ConnectionsByID, &fails{storeGetErr: fmt.Errorf(errMsg)})
 
 		buf, code, err := sendRequestToHandler(handler, nil, handler.Path())
 		require.NoError(t, err)
@@ -184,15 +184,15 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 		"label":"agent",
 		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
-	handler := getHandler(t, receiveInvitationPath)
+	handler := getHandler(t, ReceiveInvitationPath)
 	_, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
 	t.Run("test query connections with state filter", func(t *testing.T) {
 		// perform test
-		handler = getHandler(t, connections)
+		handler = getHandler(t, Connections)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
-			operationID+"?state=complete")
+			OperationID+"?state=complete")
 		require.NoError(t, err)
 
 		response := didexchange.QueryConnectionsResponse{}
@@ -210,9 +210,9 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 
 	t.Run("test query connections without state filter", func(t *testing.T) {
 		// perform test
-		handler = getHandler(t, connections)
+		handler = getHandler(t, Connections)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
-			operationID)
+			OperationID)
 		require.NoError(t, err)
 
 		response := didexchange.QueryConnectionsResponse{}
@@ -241,7 +241,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
     		]
   	}`)
 
-	handler := getHandlerWithError(t, receiveInvitationPath, &fails{handleErr: fmt.Errorf("handle failed")})
+	handler := getHandlerWithError(t, ReceiveInvitationPath, &fails{handleErr: fmt.Errorf("handle failed")})
 	buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, code)
@@ -249,7 +249,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 
 	// Failure due to invalid request body
 	jsonStr = []byte("")
-	handler = getHandler(t, receiveInvitationPath)
+	handler = getHandler(t, ReceiveInvitationPath)
 	buf, code, err = sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, code)
@@ -259,9 +259,9 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 
 func TestOperation_AcceptInvitation(t *testing.T) {
 	t.Run("test accept invitation success", func(t *testing.T) {
-		handler := getHandler(t, acceptInvitationPath)
+		handler := getHandler(t, AcceptInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
-			operationID+"/1111/accept-invitation?public=sample-public-did")
+			OperationID+"/1111/accept-invitation?public=sample-public-did")
 		require.NoError(t, err)
 
 		response := didexchange.AcceptInvitationResponse{}
@@ -273,9 +273,9 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	})
 
 	t.Run("test accept invitation failures", func(t *testing.T) {
-		handler := getHandlerWithError(t, acceptInvitationPath, &fails{acceptErr: fmt.Errorf("fail it")})
+		handler := getHandlerWithError(t, AcceptInvitationPath, &fails{acceptErr: fmt.Errorf("fail it")})
 		buf, code, err := sendRequestToHandler(handler, nil,
-			operationID+"/1111/accept-invitation?publicDID=xyz")
+			OperationID+"/1111/accept-invitation?publicDID=xyz")
 		require.NoError(t, err)
 
 		require.NoError(t, err)
@@ -286,9 +286,9 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 
 func TestOperation_CreateImplicitInvitation(t *testing.T) {
 	t.Run("test create implicit invitation success", func(t *testing.T) {
-		handler := getHandler(t, createImplicitInvitationPath)
+		handler := getHandler(t, CreateImplicitInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
-			createImplicitInvitationPath+"?their_did=sample-public-did")
+			CreateImplicitInvitationPath+"?their_did=sample-public-did")
 		require.NoError(t, err)
 
 		response := didexchange.ImplicitInvitationResponse{}
@@ -300,9 +300,9 @@ func TestOperation_CreateImplicitInvitation(t *testing.T) {
 	})
 
 	t.Run("test create implicit invitation with DID success", func(t *testing.T) {
-		handler := getHandler(t, createImplicitInvitationPath)
+		handler := getHandler(t, CreateImplicitInvitationPath)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
-			createImplicitInvitationPath+"?their_did=their-public-did&my_did=my-public-did")
+			CreateImplicitInvitationPath+"?their_did=their-public-did&my_did=my-public-did")
 		require.NoError(t, err)
 
 		response := didexchange.ImplicitInvitationResponse{}
@@ -314,9 +314,9 @@ func TestOperation_CreateImplicitInvitation(t *testing.T) {
 	})
 
 	t.Run("test required parameters", func(t *testing.T) {
-		handler := getHandler(t, createImplicitInvitationPath)
+		handler := getHandler(t, CreateImplicitInvitationPath)
 		buf, code, err := sendRequestToHandler(handler, nil,
-			createImplicitInvitationPath+"?invalid=xyz")
+			CreateImplicitInvitationPath+"?invalid=xyz")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
 
@@ -324,9 +324,9 @@ func TestOperation_CreateImplicitInvitation(t *testing.T) {
 	})
 
 	t.Run("test handler failure", func(t *testing.T) {
-		handler := getHandlerWithError(t, createImplicitInvitationPath, &fails{implicitErr: fmt.Errorf("implicit error")})
+		handler := getHandlerWithError(t, CreateImplicitInvitationPath, &fails{implicitErr: fmt.Errorf("implicit error")})
 		buf, code, err := sendRequestToHandler(handler, nil,
-			createImplicitInvitationPath+"?their_did=xyz")
+			CreateImplicitInvitationPath+"?their_did=xyz")
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusInternalServerError, code)
@@ -336,9 +336,9 @@ func TestOperation_CreateImplicitInvitation(t *testing.T) {
 
 func TestOperation_AcceptExchangeRequest(t *testing.T) {
 	t.Run("test accept exchange request failures", func(t *testing.T) {
-		handler := getHandler(t, acceptExchangeRequest)
+		handler := getHandler(t, AcceptExchangeRequest)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
-			operationID+"/4444/accept-request?public=sample-public-did")
+			OperationID+"/4444/accept-request?public=sample-public-did")
 		require.NoError(t, err)
 
 		response := didexchange.ExchangeResponse{}
@@ -351,9 +351,9 @@ func TestOperation_AcceptExchangeRequest(t *testing.T) {
 	})
 
 	t.Run("test accept exchange request failures", func(t *testing.T) {
-		handler := getHandlerWithError(t, acceptExchangeRequest, &fails{acceptErr: fmt.Errorf("fail it")})
+		handler := getHandlerWithError(t, AcceptExchangeRequest, &fails{acceptErr: fmt.Errorf("fail it")})
 		buf, code, err := sendRequestToHandler(handler, nil,
-			operationID+"/4444/accept-request?public=sample-public-did")
+			OperationID+"/4444/accept-request?public=sample-public-did")
 		require.NoError(t, err)
 
 		require.NoError(t, err)
@@ -374,9 +374,9 @@ func TestOperation_CreateConnection(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		handler := getHandler(t, createConnection)
+		handler := getHandler(t, CreateConnection)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(request),
-			createConnection)
+			CreateConnection)
 		require.NoError(t, err)
 
 		response := &didexchange.ConnectionIDArg{}
@@ -391,9 +391,9 @@ func TestOperation_CreateConnection(t *testing.T) {
 
 func TestOperation_RemoveConnection(t *testing.T) {
 	t.Run("test remove connection success", func(t *testing.T) {
-		handler := getHandler(t, removeConnection)
+		handler := getHandler(t, RemoveConnection)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
-			operationID+"/1234/remove")
+			OperationID+"/1234/remove")
 		require.NoError(t, err)
 		require.Empty(t, buf.Bytes())
 	})

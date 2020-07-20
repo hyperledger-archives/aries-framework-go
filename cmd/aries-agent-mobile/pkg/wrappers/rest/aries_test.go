@@ -36,7 +36,7 @@ func TestAries_GetIntroduceController(t *testing.T) {
 	})
 }
 
-func TestAries_GetGetVerifiableController(t *testing.T) {
+func TestAries_GetVerifiableController(t *testing.T) {
 	t.Run("test it creates a verifiable controller instance", func(t *testing.T) {
 		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
 		require.NoError(t, err)
@@ -45,5 +45,17 @@ func TestAries_GetGetVerifiableController(t *testing.T) {
 		ic, err := a.GetVerifiableController()
 		require.NoError(t, err)
 		require.NotNil(t, ic)
+	})
+}
+
+func TestAries_GetDIDExchangeController(t *testing.T) {
+	t.Run("test it creates a did exchange controller instance", func(t *testing.T) {
+		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		de, err := a.GetDIDExchangeController()
+		require.NoError(t, err)
+		require.NotNil(t, de)
 	})
 }

@@ -22,11 +22,12 @@ Hyperledger Aries is related to both Hyperledger Indy, which provides a resolver
 The following controllers are supported by Aries-Framework-Go.
 
 ### 1. DIDExchange Protocol
+This protocol, at the core of Aries, allows [agents](./01_terminologies.md#agent) to establish relationships with each other for the purpose of sharing [DIDs](./01_terminologies.md#did) and [DID documents](./01_terminologies.md#did-document). _(4)_
 
 ### 2. Introduce Protocol
 
 This protocol describes how an intermediary can introduce two parties that it already knows, but that do not know each other.
-_(4)_
+_(5)_
 
 ### 3. IssueCredential Protocol
 
@@ -52,4 +53,5 @@ This controller allows for the creation, retrieval, validation and signing of [v
 1. [Official library page](https://www.hyperledger.org/use/aries)
 2. [Blog post annoucement](https://www.hyperledger.org/blog/2019/05/14/announcing-hyperledger-aries-infrastructure-supporting-interoperable-identity-solutions)
 3. [Hyperledger Aries Wiki](https://wiki.hyperledger.org/display/ARIES/Hyperledger+Aries)
-4. [Aries RFCs - Introduce](https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce)
+4. [Aries RFCs - DIDExchange](https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange)
+5. [Aries RFCs - Introduce](https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce)

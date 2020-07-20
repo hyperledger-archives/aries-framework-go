@@ -1,5 +1,25 @@
 # Terminologies
 
+### Agent
+
+An agent, in the context of self-sovereign identity, acts as a delegate of an individual identity; holds cryptographic keys to prove this responsibility; and interacts with other agents.
+
+_Reference: https://github.com/hyperledger/aries-rfcs/tree/master/concepts/0004-agents_
+
+### DID
+
+Decentralized identifiers (DIDs) are a new type of identifier that enables verifiable, decentralized digital identity.
+A DID identifies any subject (e.g., a person, organization, thing, data model, abstract entity, etc.) that the controller of the DID decides that it identifies.
+
+_Reference: https://www.w3.org/TR/did-core/_
+
+### DID Document
+
+A set of data describing the DID subject, including mechanisms, such as public keys and pseudonymous biometrics, that the DID subject or a DID delegate can use to authenticate itself and prove its association with the DID.
+A DID document may also contain other attributes or claims describing the DID subject.
+
+_Reference: https://www.w3.org/TR/did-core/#dfn-did-documents_
+
 ### Verifiable Credential
 
 A verifiable credential can represent all of the same information that a physical credential represents. It is a tamper-evident credential that has authorship that can be cryptographically verified.

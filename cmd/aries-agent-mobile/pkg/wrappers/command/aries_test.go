@@ -51,3 +51,16 @@ func TestAries_GetVerifiableController(t *testing.T) {
 		require.NotNil(t, ic)
 	})
 }
+
+func TestAries_GetDIDExchangeController(t *testing.T) {
+	t.Run("test it creates a did exchange controller instance", func(t *testing.T) {
+		opts := &config.Options{}
+		a, err := NewAries(opts)
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		dec, err := a.GetDIDExchangeController()
+		require.NoError(t, err)
+		require.NotNil(t, dec)
+	})
+}

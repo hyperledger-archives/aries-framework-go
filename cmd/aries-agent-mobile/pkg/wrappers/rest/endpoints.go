@@ -9,9 +9,11 @@ package rest
 import (
 	"net/http"
 
+	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 
+	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
@@ -22,11 +24,12 @@ type endpoint struct {
 	Method string
 }
 
-func getProtocolEndpoints() map[string]map[string]*endpoint {
+func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints := make(map[string]map[string]*endpoint)
 
 	allEndpoints[opintroduce.OperationID] = getIntroduceEndpoints()
 	allEndpoints[opverifiable.VerifiableOperationID] = getVerifiableEndpoints()
+	allEndpoints[opdidexch.OperationID] = getDIDExchangeEndpoints()
 
 	return allEndpoints
 }
@@ -120,6 +123,47 @@ func getVerifiableEndpoints() map[string]*endpoint {
 		},
 		cmdverifiable.GeneratePresentationByIDCommandMethod: {
 			Path:   opverifiable.GeneratePresentationByIDPath,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getDIDExchangeEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmddidexch.CreateInvitationCommandMethod: {
+			Path:   opdidexch.CreateInvitationPath,
+			Method: http.MethodPost,
+		},
+		cmddidexch.ReceiveInvitationCommandMethod: {
+			Path:   opdidexch.ReceiveInvitationPath,
+			Method: http.MethodPost,
+		},
+		cmddidexch.AcceptInvitationCommandMethod: {
+			Path:   opdidexch.AcceptInvitationPath,
+			Method: http.MethodPost,
+		},
+		cmddidexch.CreateImplicitInvitationCommandMethod: {
+			Path:   opdidexch.CreateImplicitInvitationPath,
+			Method: http.MethodPost,
+		},
+		cmddidexch.AcceptExchangeRequestCommandMethod: {
+			Path:   opdidexch.AcceptExchangeRequest,
+			Method: http.MethodPost,
+		},
+		cmddidexch.QueryConnectionsCommandMethod: {
+			Path:   opdidexch.Connections,
+			Method: http.MethodGet,
+		},
+		cmddidexch.QueryConnectionByIDCommandMethod: {
+			Path:   opdidexch.ConnectionsByID,
+			Method: http.MethodGet,
+		},
+		cmddidexch.CreateConnectionCommandMethod: {
+			Path:   opdidexch.CreateConnection,
+			Method: http.MethodPost,
+		},
+		cmddidexch.RemoveConnectionCommandMethod: {
+			Path:   opdidexch.RemoveConnection,
 			Method: http.MethodPost,
 		},
 	}
