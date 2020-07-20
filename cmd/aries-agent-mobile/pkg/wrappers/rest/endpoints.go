@@ -16,14 +16,14 @@ import (
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
-// Endpoint describes the fields for making calls to external agents
-type Endpoint struct {
+// endpoint describes the fields for making calls to external agents
+type endpoint struct {
 	Path   string
 	Method string
 }
 
-func getProtocolEndpoints() map[string]map[string]*Endpoint {
-	allEndpoints := make(map[string]map[string]*Endpoint)
+func getProtocolEndpoints() map[string]map[string]*endpoint {
+	allEndpoints := make(map[string]map[string]*endpoint)
 
 	allEndpoints[opintroduce.OperationID] = getIntroduceEndpoints()
 	allEndpoints[opverifiable.VerifiableOperationID] = getVerifiableEndpoints()
@@ -31,8 +31,8 @@ func getProtocolEndpoints() map[string]map[string]*Endpoint {
 	return allEndpoints
 }
 
-func getIntroduceEndpoints() map[string]*Endpoint {
-	return map[string]*Endpoint{
+func getIntroduceEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
 		cmdintroduce.Actions: {
 			Path:   opintroduce.Actions,
 			Method: http.MethodGet,
@@ -76,8 +76,8 @@ func getIntroduceEndpoints() map[string]*Endpoint {
 	}
 }
 
-func getVerifiableEndpoints() map[string]*Endpoint {
-	return map[string]*Endpoint{
+func getVerifiableEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
 		cmdverifiable.ValidateCredentialCommandMethod: {
 			Path:   opverifiable.ValidateCredentialPath,
 			Method: http.MethodPost,

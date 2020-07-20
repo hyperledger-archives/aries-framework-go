@@ -90,18 +90,21 @@ const (
 	emptyResponse        = `{}`
 )
 
-func getAgent() *AriesREST {
-	opts := &config.Options{URL: mockAgentURL}
+func getAgent() (*Aries, error) {
+	opts := &config.Options{AgentURL: mockAgentURL}
 	return NewAries(opts)
 }
 
-func getVerifiableController(t *testing.T) *VerifiableREST {
-	a := getAgent()
+func getVerifiableController(t *testing.T) *Verifiable {
+	a, err := getAgent()
+	require.NoError(t, err)
+	require.NotNil(t, a)
+
 	vc, err := a.GetVerifiableController()
 	require.NoError(t, err)
 	require.NotNil(t, vc)
 
-	v, ok := vc.(*VerifiableREST)
+	v, ok := vc.(*Verifiable)
 	require.Equal(t, ok, true)
 
 	return v
@@ -111,7 +114,7 @@ func parseURL(agentURL, operationPath, payload string) (string, error) { //nolin
 	return embedParams(agentURL+operationPath, []byte(payload))
 }
 
-func TestVerifiableREST_ValidateCredential(t *testing.T) {
+func TestVerifiable_ValidateCredential(t *testing.T) {
 	t.Run("test it preforms a validates credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -129,7 +132,7 @@ func TestVerifiableREST_ValidateCredential(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_SaveCredential(t *testing.T) {
+func TestVerifiable_SaveCredential(t *testing.T) {
 	t.Run("test it performs a save credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -148,7 +151,7 @@ func TestVerifiableREST_SaveCredential(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_SavePresentation(t *testing.T) {
+func TestVerifiable_SavePresentation(t *testing.T) {
 	t.Run("test it performs a save presentation request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -165,7 +168,7 @@ func TestVerifiableREST_SavePresentation(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GetCredential(t *testing.T) {
+func TestVerifiable_GetCredential(t *testing.T) {
 	t.Run("test it performs a get credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -187,7 +190,7 @@ func TestVerifiableREST_GetCredential(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_SignCredential(t *testing.T) {
+func TestVerifiable_SignCredential(t *testing.T) {
 	t.Run("test it performs a sign credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -206,7 +209,7 @@ func TestVerifiableREST_SignCredential(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GetPresentation(t *testing.T) {
+func TestVerifiable_GetPresentation(t *testing.T) {
 	t.Run("test it performs a get presentation request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -227,7 +230,7 @@ func TestVerifiableREST_GetPresentation(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GetCredentialByName(t *testing.T) {
+func TestVerifiable_GetCredentialByName(t *testing.T) {
 	t.Run("test it performs a get credential by name request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -248,7 +251,7 @@ func TestVerifiableREST_GetCredentialByName(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GetCredentials(t *testing.T) {
+func TestVerifiable_GetCredentials(t *testing.T) {
 	t.Run("test it performs a get credentials request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -267,7 +270,7 @@ func TestVerifiableREST_GetCredentials(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GetPresentations(t *testing.T) {
+func TestVerifiable_GetPresentations(t *testing.T) {
 	t.Run("test it performs a get presentations request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -285,7 +288,7 @@ func TestVerifiableREST_GetPresentations(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GeneratePresentation(t *testing.T) {
+func TestVerifiable_GeneratePresentation(t *testing.T) {
 	t.Run("test it performs a generate presentation request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
@@ -305,7 +308,7 @@ func TestVerifiableREST_GeneratePresentation(t *testing.T) {
 	})
 }
 
-func TestVerifiableREST_GeneratePresentationByID(t *testing.T) {
+func TestVerifiable_GeneratePresentationByID(t *testing.T) {
 	t.Run("test it performs a generate presentation by id request", func(t *testing.T) {
 		v := getVerifiableController(t)
 

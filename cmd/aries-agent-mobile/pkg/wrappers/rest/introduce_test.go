@@ -47,19 +47,22 @@ func (client *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-func getIntroduceController(t *testing.T) *IntroduceREST {
-	a := getAgent()
+func getIntroduceController(t *testing.T) *Introduce {
+	a, err := getAgent()
+	require.NoError(t, err)
+	require.NotNil(t, a)
+
 	ic, err := a.GetIntroduceController()
 	require.NoError(t, err)
 	require.NotNil(t, ic)
 
-	i, ok := ic.(*IntroduceREST)
+	i, ok := ic.(*Introduce)
 	require.Equal(t, ok, true)
 
 	return i
 }
 
-func TestIntroduceREST_Actions(t *testing.T) {
+func TestIntroduce_Actions(t *testing.T) {
 	t.Run("test it performs an actions request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -77,7 +80,7 @@ func TestIntroduceREST_Actions(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_SendProposal(t *testing.T) {
+func TestIntroduce_SendProposal(t *testing.T) {
 	t.Run("test it performs a send proposal request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -110,7 +113,7 @@ func TestIntroduceREST_SendProposal(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_SendProposalWithOOBRequest(t *testing.T) {
+func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -135,7 +138,7 @@ func TestIntroduceREST_SendProposalWithOOBRequest(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_SendRequest(t *testing.T) {
+func TestIntroduce_SendRequest(t *testing.T) {
 	t.Run("test it performs a send request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -158,7 +161,7 @@ func TestIntroduceREST_SendRequest(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_AcceptProposalWithOOBRequest(t *testing.T) {
+func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it accepts a proposal with out-of-band request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -182,7 +185,7 @@ func TestIntroduceREST_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_AcceptProposal(t *testing.T) {
+func TestIntroduce_AcceptProposal(t *testing.T) {
 	t.Run("test it accepts a proposal", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -205,7 +208,7 @@ func TestIntroduceREST_AcceptProposal(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_AcceptRequestWithPublicOOBRequest(t *testing.T) {
+func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	t.Run("test it performs an accept request with a public out-of-band request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
@@ -230,7 +233,7 @@ func TestIntroduceREST_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	})
 }
 
-func TestIntroduceREST_AcceptRequestWithRecipients(t *testing.T) {
+func TestIntroduce_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("test it accepts a request with recipients", func(t *testing.T) {
 		i := getIntroduceController(t)
 

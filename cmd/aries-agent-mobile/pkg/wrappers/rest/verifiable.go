@@ -11,18 +11,18 @@ import (
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 )
 
-// VerifiableREST contains necessary fields for each of its operations
-type VerifiableREST struct {
+// Verifiable contains necessary fields for each of its operations
+type Verifiable struct {
 	httpClient httpClient
-	endpoints  map[string]*Endpoint
+	endpoints  map[string]*endpoint
 
 	URL   string
 	Token string
 }
 
 // ValidateCredential validates the verifiable credential.
-func (vr *VerifiableREST) ValidateCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) ValidateCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -34,8 +34,8 @@ func (vr *VerifiableREST) ValidateCredential(request *models.RequestEnvelope) *m
 }
 
 // SaveCredential saves the verifiable credential to the store.
-func (vr *VerifiableREST) SaveCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) SaveCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -47,8 +47,8 @@ func (vr *VerifiableREST) SaveCredential(request *models.RequestEnvelope) *model
 }
 
 // SavePresentation saves the presentation to the store.
-func (vr *VerifiableREST) SavePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) SavePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -60,8 +60,8 @@ func (vr *VerifiableREST) SavePresentation(request *models.RequestEnvelope) *mod
 }
 
 // GetCredential retrieves the verifiable credential from the store.
-func (vr *VerifiableREST) GetCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GetCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -73,8 +73,8 @@ func (vr *VerifiableREST) GetCredential(request *models.RequestEnvelope) *models
 }
 
 // SignCredential adds proof to given verifiable credential
-func (vr *VerifiableREST) SignCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) SignCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -86,8 +86,8 @@ func (vr *VerifiableREST) SignCredential(request *models.RequestEnvelope) *model
 }
 
 // GetPresentation retrieves the verifiable presentation from the store.
-func (vr *VerifiableREST) GetPresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GetPresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -99,8 +99,8 @@ func (vr *VerifiableREST) GetPresentation(request *models.RequestEnvelope) *mode
 }
 
 // GetCredentialByName retrieves the verifiable credential by name from the store.
-func (vr *VerifiableREST) GetCredentialByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GetCredentialByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -112,8 +112,8 @@ func (vr *VerifiableREST) GetCredentialByName(request *models.RequestEnvelope) *
 }
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
-func (vr *VerifiableREST) GetCredentials(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GetCredentials(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -125,8 +125,8 @@ func (vr *VerifiableREST) GetCredentials(request *models.RequestEnvelope) *model
 }
 
 // GetPresentations retrieves the verifiable presentation records containing name and fields of interest.
-func (vr *VerifiableREST) GetPresentations(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GetPresentations(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -138,8 +138,8 @@ func (vr *VerifiableREST) GetPresentations(request *models.RequestEnvelope) *mod
 }
 
 // GeneratePresentation generates verifiable presentation from a verifiable credential.
-func (vr *VerifiableREST) GeneratePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GeneratePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,
@@ -151,8 +151,8 @@ func (vr *VerifiableREST) GeneratePresentation(request *models.RequestEnvelope) 
 }
 
 // GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
-func (vr *VerifiableREST) GeneratePresentationByID(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	respEnvelope := execREST(&restOperation{
+func (vr *Verifiable) GeneratePresentationByID(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	respEnvelope := exec(&restOperation{
 		url:        vr.URL,
 		token:      vr.Token,
 		httpClient: vr.httpClient,

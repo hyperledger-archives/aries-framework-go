@@ -33,22 +33,34 @@ func (m *mockCommandRunner) exec(rw io.Writer, _ io.Reader) command.Error {
 	return nil
 }
 
+func getAgent() (*Aries, error) {
+	opts := &config.Options{}
+	return NewAries(opts)
+}
+
+func getIntroduceController(t *testing.T) *Introduce {
+	a, err := getAgent()
+	require.NotNil(t, a)
+	require.NoError(t, err)
+
+	ic, err := a.GetIntroduceController()
+	require.NoError(t, err)
+	require.NotNil(t, ic)
+
+	i, ok := ic.(*Introduce)
+	require.Equal(t, ok, true)
+
+	return i
+}
+
 func TestIntroduce_Actions(t *testing.T) {
 	t.Run("test it performs an actions request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(`{"actions":[{"PIID":"ID1","Msg":null,"MyDID":"","TheirDID":""}]}`)}
 		i.handlers[cmdintroduce.Actions] = fakeHandler.exec
 
-		resp := i.Actions(nil)
+		resp := i.Actions(&models.RequestEnvelope{})
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
 		require.Equal(t, `{"actions":[{"PIID":"ID1","Msg":null,"MyDID":"","TheirDID":""}]}`, string(resp.Payload))
@@ -57,15 +69,7 @@ func TestIntroduce_Actions(t *testing.T) {
 
 func TestIntroduce_SendProposal(t *testing.T) {
 	t.Run("test it performs a send proposal request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(`{"piid":"f749b739-1f3d-4213-9c33-c3878cdb6e24"}`)}
 		i.handlers[cmdintroduce.SendProposal] = fakeHandler.exec
@@ -97,15 +101,7 @@ func TestIntroduce_SendProposal(t *testing.T) {
 
 func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(`{"piid":"a13832dc-88b8-4714-b697-e5410d23abe2"}`)}
 		i.handlers[cmdintroduce.SendProposalWithOOBRequest] = fakeHandler.exec
@@ -129,15 +125,7 @@ func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 
 func TestIntroduce_SendRequest(t *testing.T) {
 	t.Run("test it performs a send request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(`{"piid":"a13832dc-88b8-4714-b697-e5410d23abe2"}`)}
 		i.handlers[cmdintroduce.SendRequest] = fakeHandler.exec
@@ -159,15 +147,7 @@ func TestIntroduce_SendRequest(t *testing.T) {
 
 func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs an accept proposal with out-of-band request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.AcceptProposalWithOOBRequest] = fakeHandler.exec
@@ -186,15 +166,7 @@ func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
 
 func TestIntroduce_AcceptProposal(t *testing.T) {
 	t.Run("test it accepts a proposal", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.AcceptProposal] = fakeHandler.exec
@@ -212,15 +184,7 @@ func TestIntroduce_AcceptProposal(t *testing.T) {
 
 func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	t.Run("test it performs an accept request with a public out-of-band request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.AcceptRequestWithPublicOOBRequest] = fakeHandler.exec
@@ -240,15 +204,7 @@ func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 
 func TestIntroduce_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("test it accepts a request with recipients", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.AcceptRequestWithRecipients] = fakeHandler.exec
@@ -268,15 +224,7 @@ func TestIntroduce_AcceptRequestWithRecipients(t *testing.T) {
 
 func TestIntroduce_DeclineProposal(t *testing.T) {
 	t.Run("test it declines a proposal", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.DeclineProposal] = fakeHandler.exec
@@ -295,15 +243,7 @@ func TestIntroduce_DeclineProposal(t *testing.T) {
 
 func TestIntroduce_DeclineRequest(t *testing.T) {
 	t.Run("test it declines a request", func(t *testing.T) {
-		a, err := NewAries(&config.Options{})
-		require.NoError(t, err)
-
-		ic, err := a.GetIntroduceController()
-		require.NoError(t, err)
-		require.NotNil(t, ic)
-
-		i, ok := ic.(*Introduce)
-		require.Equal(t, ok, true)
+		i := getIntroduceController(t)
 
 		fakeHandler := mockCommandRunner{data: []byte(``)}
 		i.handlers[cmdintroduce.DeclineRequest] = fakeHandler.exec

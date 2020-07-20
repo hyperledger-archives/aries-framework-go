@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 )
 
-func execCommand(handlerFunc command.Exec, request interface{}) ([]byte, *models.CommandError) {
+func exec(handlerFunc command.Exec, request interface{}) ([]byte, *models.CommandError) {
 	marshaledRequest, err := json.Marshal(request)
 	if err != nil {
 		return nil, &models.CommandError{Message: fmt.Sprintf("failed to marshal request: %v", err)}
