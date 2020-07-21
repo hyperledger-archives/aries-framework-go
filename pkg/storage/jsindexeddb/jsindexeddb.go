@@ -11,6 +11,7 @@ package jsindexeddb
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"syscall/js"
 	"time"
@@ -43,7 +44,6 @@ type Provider struct {
 }
 
 // NewProvider instantiates Provider
-// TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
 func NewProvider(name string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
@@ -163,16 +163,22 @@ func (s *store) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *store) Iterator(start, limit string) storage.StoreIterator {
-	// TODO Change Store Iterator https://github.com/hyperledger/aries-framework-go/issues/852
-	if start == "" {
-		return newIterator(nil, fmt.Errorf("start key is mandatory"))
+	if limit == "" {
+		return newIterator(nil, false, fmt.Errorf("limit key is mandatory"))
 	}
 
-	keyRange := js.Global().Get("IDBKeyRange").Call("bound", start, start+"\uffff")
+	skipLast := true
+
+	if strings.HasSuffix(limit, storage.EndKeySuffix) {
+		limit = strings.TrimSuffix(limit, storage.EndKeySuffix)
+		skipLast = false
+	}
+
+	keyRange := js.Global().Get("IDBKeyRange").Call("bound", start, limit+"\uffff")
 	openCursor := s.db.Call("transaction", s.name).Call("objectStore", s.name).Call("getAll", keyRange)
 	batch, err := getResult(openCursor)
 
-	return newIterator(batch, err)
+	return newIterator(batch, skipLast, err)
 }
 
 // Delete will delete record with k key
@@ -192,14 +198,15 @@ func (s *store) Delete(k string) error {
 }
 
 type iterator struct {
-	batch *js.Value
-	err   error
-	index int
+	batch    *js.Value
+	err      error
+	index    int
+	skipLast bool
 }
 
 // newIterator returns new iterator for given batch
-func newIterator(batch *js.Value, err error) *iterator {
-	return &iterator{batch: batch, err: err, index: -1}
+func newIterator(batch *js.Value, skipLast bool, err error) *iterator {
+	return &iterator{batch: batch, skipLast: skipLast, err: err, index: -1}
 }
 
 // Next moves pointer to next value of iterator.
@@ -208,6 +215,10 @@ func (s *iterator) Next() bool {
 	s.index++
 
 	if s.batch != nil && s.batch.Index(s.index).Truthy() {
+		if s.skipLast && !s.batch.Index(s.index+1).Truthy() {
+			return false
+		}
+
 		return true
 	}
 
@@ -216,6 +227,7 @@ func (s *iterator) Next() bool {
 
 // Release releases associated resources.
 func (s *iterator) Release() {
+	s.err = errors.New("iterator released")
 }
 
 // Error returns error in iterator.

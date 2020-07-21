@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -143,10 +142,6 @@ func (s *leveldbStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
-	if start == "" || limit == "" {
-		iterator.NewEmptyIterator(errors.New("start or limit key is mandatory"))
-	}
-
 	return s.db.NewIterator(&util.Range{Start: []byte(start),
 		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~"))}, nil)
 }

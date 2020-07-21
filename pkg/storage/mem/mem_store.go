@@ -8,6 +8,7 @@ package mem
 
 import (
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 
@@ -127,17 +128,47 @@ func (s *memStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
-	// TODO Change Store Iterator https://github.com/hyperledger/aries-framework-go/issues/852
+	if limit == "" {
+		return newMemIterator(nil)
+	}
+
 	s.RLock()
 	data := s.db
 	defer s.RUnlock()
 
 	var batch [][]string
 
-	for k, v := range data {
-		if strings.HasPrefix(k, start) {
-			batch = append(batch, []string{k, string(v)})
+	var keys []string
+	for k := range data {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	var (
+		sIDx, eIDx = 0, len(keys)
+		skip       bool
+	)
+
+	for i, k := range keys {
+		if !skip && strings.HasPrefix(k, start) {
+			sIDx = i
+			skip = true
 		}
+
+		if strings.HasPrefix(k, strings.TrimSuffix(limit, storage.EndKeySuffix)) {
+			eIDx = i
+
+			if limit == k {
+				break
+			}
+
+			eIDx++
+		}
+	}
+
+	for _, k := range keys[sIDx:eIDx] {
+		batch = append(batch, []string{k, string(data[k])})
 	}
 
 	return newMemIterator(batch)
@@ -194,6 +225,8 @@ func (s *memIterator) Release() {
 	s.currentIndex = 0
 	s.items = make([][]string, 0)
 	s.currentItem = make([]string, 0)
+
+	s.err = errors.New("iterator released")
 }
 
 // Error returns error in iterator.

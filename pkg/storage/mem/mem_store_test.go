@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,9 +34,29 @@ func TestMemStore(t *testing.T) {
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
 
+		// test update
+		data = []byte(`{"key1":"value1"}`)
+		err = store.Put(key, data)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, data, doc)
+
+		// test update
+		update := []byte(`{"_key1":"value1"}`)
+		err = store.Put(key, update)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, update, doc)
+
 		did2 := "did:example:789"
 		_, err = store.Get(did2)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, storage.ErrDataNotFound))
 
 		// nil key
 		_, err = store.Get("")
@@ -108,11 +131,12 @@ func TestMemStore(t *testing.T) {
 
 	t.Run("Test mem multi store close by name", func(t *testing.T) {
 		prov := NewProvider()
+
 		const commonKey = "did:example:1"
 		data := []byte("value1")
 
 		storeNames := []string{"store_1", "store_2", "store_3", "store_4", "store_5"}
-		storesToClose := []string{"store_1", "STore_3", "stOre_5"}
+		storesToClose := []string{"store_1", "store_3", "store_5"}
 
 		for _, name := range storeNames {
 			store, e := prov.OpenStore(name)
@@ -168,54 +192,58 @@ func TestMemStore(t *testing.T) {
 		err = prov.Close()
 		require.NoError(t, err)
 	})
-}
 
-func TestMemStoreIterator(t *testing.T) {
 	t.Run("Test mem store iterator", func(t *testing.T) {
 		prov := NewProvider()
-		store, err := prov.OpenStore("test")
+		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
 
-		rawData := make(map[string][]byte)
-		rawData["key1"] = []byte("value1")
-		rawData["key2"] = []byte("value2")
-		rawData["key3"] = []byte("value3")
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
 
-		for k, v := range rawData {
-			err = store.Put(k, v)
+		for _, key := range keys {
+			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
 			require.NoError(t, err)
 		}
 
-		itr := store.Iterator("", "")
-		defer itr.Release()
+		itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
+		verifyItr(t, itr, 4, "abc_")
 
-		count := 0
-		for itr.Next() {
-			val := rawData[string(itr.Key())]
-			require.Equal(t, val, itr.Value())
-			count++
-		}
-		require.Equal(t, len(rawData), count)
-	})
+		itr = store.Iterator("", "")
+		verifyItr(t, itr, 0, "")
 
-	t.Run("Test mem store iterator - no data in iterator", func(t *testing.T) {
-		// no data from iterator
-		prov := NewProvider()
-		store, err := prov.OpenStore("test2")
-		require.NoError(t, err)
+		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
+		verifyItr(t, itr, 7, "")
 
-		itr := store.Iterator("", "")
-		defer itr.Release()
-
-		require.False(t, itr.Next())
-		require.Nil(t, itr.Key())
-		require.Nil(t, itr.Value())
-		require.NoError(t, itr.Error())
+		itr = store.Iterator("abc_", "mno_123")
+		verifyItr(t, itr, 6, "")
 	})
 }
 
-func TestMemStoreDelete(t *testing.T) {
-	const commonKey = "did:example:1"
+func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	t.Helper()
+
+	var vals []string
+
+	for itr.Next() {
+		if prefix != "" {
+			require.True(t, strings.HasPrefix(string(itr.Key()), prefix))
+		}
+
+		vals = append(vals, string(itr.Value()))
+	}
+	require.Len(t, vals, count)
+
+	itr.Release()
+	require.False(t, itr.Next())
+	require.Empty(t, itr.Key())
+	require.Empty(t, itr.Value())
+	require.Error(t, itr.Error())
+	require.Contains(t, itr.Error().Error(), "iterator released")
+}
+
+func TestMemStore_Delete(t *testing.T) {
+	const commonKey = "did:example:1234"
 
 	prov := NewProvider()
 	data := []byte("value1")
@@ -236,6 +264,9 @@ func TestMemStoreDelete(t *testing.T) {
 	// now try Delete with an empty key - should fail
 	err = store1.Delete("")
 	require.EqualError(t, err, "key is mandatory")
+
+	err = store1.Delete("k1")
+	require.NoError(t, err)
 
 	// finally test Delete an existing key
 	err = store1.Delete(commonKey)

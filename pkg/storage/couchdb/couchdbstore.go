@@ -157,7 +157,7 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 
 	var valueToPut []byte
 	if isJSON(v) {
-		valueToPut = v
+		valueToPut = []byte(`{"payload":` + string(v) + `}`)
 	} else {
 		valueToPut = wrapTextAsCouchDBAttachment(v)
 	}
@@ -168,10 +168,7 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 	}
 
 	if revID != "" {
-		valueToPut, err = c.addRevID(valueToPut, revID)
-		if err != nil {
-			return err
-		}
+		valueToPut = []byte(`{"_rev":"` + revID + `",` + string(valueToPut[1:]))
 	}
 
 	_, err = c.db.Put(context.Background(), k, valueToPut)
@@ -183,7 +180,7 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 }
 
 func isJSON(textToCheck []byte) bool {
-	var js map[string]interface{}
+	var js struct{}
 	return json.Unmarshal(textToCheck, &js) == nil
 }
 
@@ -216,22 +213,6 @@ func (c *CouchDBStore) Get(k string) ([]byte, error) {
 	return c.getStoredValueFromRawDoc(rawDoc, k)
 }
 
-func (c *CouchDBStore) addRevID(valueToPut []byte, revID string) ([]byte, error) {
-	var m map[string]interface{}
-	if err := json.Unmarshal(valueToPut, &m); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal put value: %w", err)
-	}
-
-	m["_rev"] = revID
-
-	newValue, err := json.Marshal(m)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal put value: %w", err)
-	}
-
-	return newValue, nil
-}
-
 // get rev ID
 func (c *CouchDBStore) getRevID(k string) (string, error) {
 	rawDoc := make(map[string]interface{})
@@ -259,6 +240,11 @@ func (c *CouchDBStore) Delete(k string) error {
 	revID, err := c.getRevID(k)
 	if err != nil {
 		return err
+	}
+
+	// no error if nothing to delete
+	if revID == "" {
+		return nil
 	}
 
 	_, err = c.db.Delete(context.TODO(), k, revID)
@@ -355,11 +341,7 @@ func (c *CouchDBStore) getStoredValueFromRawDoc(rawDoc map[string]interface{}, k
 		return c.getDataFromAttachment(k)
 	}
 
-	// Strip out the CouchDB-specific fields
-	delete(rawDoc, "_id")
-	delete(rawDoc, "_rev")
-
-	strippedJSON, err := json.Marshal(rawDoc)
+	strippedJSON, err := json.Marshal(rawDoc["payload"])
 	if err != nil {
 		return nil, err
 	}
