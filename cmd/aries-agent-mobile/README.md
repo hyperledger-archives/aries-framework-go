@@ -100,13 +100,13 @@ import java.nio.charset.StandardCharsets;
 ```
 
 
-### 3.3. iOS
+### 3.2. iOS
 
 #### a. Importing the generated binding as a framework in Xcode
 - In the menu of your Xcode project, go to **File>Add Files to "your project name"...**.
 - In the displayed modal, navigate to the path of your `AriesAgent.framework` file and click **Add**.
 
-#### c. Code sample
+#### b. Code sample
 This is an example of how the imported framework can be used:
 ```objc
 #import <AriesAgent/Ariesagent.h>
@@ -145,7 +145,7 @@ This is an example of how the imported framework can be used:
 ```
 
 
-### c. Demo apps
+### 3.3. Demo apps
 
 For examples of mobile apps built with the aries-agent-mobile bindings, see [https://github.com/trustbloc/aries-examples](https://github.com/trustbloc/aries-examples).
 

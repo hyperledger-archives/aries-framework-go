@@ -12,15 +12,15 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
-	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
-
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
+	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -147,7 +147,7 @@ func populateHandlers(commands []command.Handler, pkgMap map[string]map[string]c
 func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	handlers, ok := a.handlers[cmdintroduce.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for protocol [%s]", cmdintroduce.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdintroduce.CommandName)
 	}
 
 	return &Introduce{handlers: handlers}, nil
@@ -157,8 +157,18 @@ func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
 func (a *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	handlers, ok := a.handlers[cmdverifiable.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for protocol [%s]", cmdverifiable.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdverifiable.CommandName)
 	}
 
 	return &Verifiable{handlers: handlers}, nil
+}
+
+// GetDIDExchangeController returns a DIDExchange instance
+func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
+	handlers, ok := a.handlers[cmddidexch.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmddidexch.CommandName)
+	}
+
+	return &DIDExchange{handlers: handlers}, nil
 }

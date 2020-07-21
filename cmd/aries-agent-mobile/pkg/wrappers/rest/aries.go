@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
+	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
@@ -32,7 +33,7 @@ func NewAries(opts *config.Options) (*Aries, error) {
 		return nil, errors.New("no agent url provided")
 	}
 
-	endpoints := getProtocolEndpoints()
+	endpoints := getControllerEndpoints()
 
 	return &Aries{endpoints: endpoints, URL: opts.AgentURL, Token: opts.APIToken}, nil
 }
@@ -41,7 +42,7 @@ func NewAries(opts *config.Options) (*Aries, error) {
 func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	endpoints, ok := ar.endpoints[opintroduce.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for protocol [%s]", opintroduce.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", opintroduce.OperationID)
 	}
 
 	return &Introduce{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -51,8 +52,18 @@ func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
 func (ar *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	endpoints, ok := ar.endpoints[opverifiable.VerifiableOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for protocol [%s]", opverifiable.VerifiableOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", opverifiable.VerifiableOperationID)
 	}
 
 	return &Verifiable{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetDIDExchangeController returns a DIDExchange instance
+func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
+	endpoints, ok := ar.endpoints[opdidexch.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", opdidexch.OperationID)
+	}
+
+	return &DIDExchange{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
