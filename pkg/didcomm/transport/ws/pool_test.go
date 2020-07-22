@@ -41,7 +41,7 @@ func TestConnectionStore(t *testing.T) {
 		// create a transport provider (framework context)
 		verKey := "ABCD"
 		mockPackager := &mockpackager.Packager{
-			UnpackValue: &commontransport.Envelope{Message: request, FromVerKey: base58.Decode(verKey)},
+			UnpackValue: &commontransport.Envelope{Message: request, FromKey: base58.Decode(verKey)},
 		}
 
 		response := "Hello"

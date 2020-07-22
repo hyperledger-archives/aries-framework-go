@@ -753,7 +753,7 @@ func TestGeneratePresentation(t *testing.T) {
 		var b bytes.Buffer
 		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "#key-1 is not found for DID did:trustbloc:testnet.trustbloc.local")
+		require.Contains(t, err.Error(), "key-1 is not found for DID did:trustbloc:testnet.trustbloc.local")
 
 		// try by skipping proof check
 		presReq.SkipVerify = true

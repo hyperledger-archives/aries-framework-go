@@ -390,12 +390,6 @@ const pkgs = {
             method: "POST",
         }
     },
-    legacykms: {
-        CreateKeySet: {
-            path: "/legacykms/keyset",
-            method: "POST",
-        }
-    }
 }
 
 /**

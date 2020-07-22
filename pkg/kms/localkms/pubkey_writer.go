@@ -20,16 +20,20 @@ import (
 	ed25519pb "github.com/google/tink/go/proto/ed25519_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 )
 
 const (
-	ecdsaVerifierTypeURL   = "type.googleapis.com/google.crypto.tink.EcdsaPublicKey"
-	ed25519VerifierTypeURL = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
+	ecdsaVerifierTypeURL       = "type.googleapis.com/google.crypto.tink.EcdsaPublicKey"
+	ed25519VerifierTypeURL     = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
+	ecdhesAESPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAesAeadPublicKey"
+	ecdh1puAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAesAeadPublicKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
 // The keyset must be one of the keyURLs defined above
-// Note: Only signing public keys can be exported through this PubKeyWriter.
+// Note: Only signing public keys and ecdh key types created in tinkcrypto can be exported through this PubKeyWriter.
 // ECHDES has its own Writer to export its public keys due to cyclic dependency.
 type PubKeyWriter struct {
 	w io.Writer
@@ -67,6 +71,15 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 				if err != nil {
 					return err
 				}
+			case ecdhesAESPublicKeyTypeURL, ecdh1puAESPublicKeyTypeURL:
+				pkW := keyio.NewWriter(w)
+
+				err = pkW.Write(msg)
+				if err != nil {
+					return err
+				}
+
+				created = true
 			default:
 				return fmt.Errorf("key type not supported for writing raw key bytes: %s", key.KeyData.TypeUrl)
 			}
@@ -85,6 +98,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 	var marshaledRawPubKey []byte
 
+	// TODO add other key types than the ones below and other than ecdhesAESPublicKeyTypeURL, ecdh1puAESPublicKeyTypeURL
 	switch key.KeyData.TypeUrl {
 	case ecdsaVerifierTypeURL:
 		pubKeyProto := new(ecdsapb.EcdsaPublicKey)

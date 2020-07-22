@@ -50,7 +50,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
-	allEndpoints[opkms.KmseOperationID] = getKMSEndpoints()
+	allEndpoints[opkms.KmsOperationID] = getKMSEndpoints()
 
 	return allEndpoints
 }

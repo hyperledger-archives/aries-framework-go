@@ -9,6 +9,7 @@ package subtle
 import (
 	"crypto/aes"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -44,6 +45,10 @@ func (s *ECDHESConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrapped
 	epkCurve, err := hybrid.GetCurve(recWK.EPK.Curve)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.recipientPrivateKey.PublicKey.Curve != epkCurve {
+		return nil, errors.New("unwrapKey: recipient and sender keys are not on the same curve")
 	}
 
 	epkPubKey := &ecdsa.PublicKey{

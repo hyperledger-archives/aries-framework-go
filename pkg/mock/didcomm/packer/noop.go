@@ -91,9 +91,9 @@ func (p *Packer) Unpack(message []byte) (*transport.Envelope, error) {
 	}
 
 	return &transport.Envelope{
-		Message:    []byte(env.Message),
-		FromVerKey: base58.Decode(env.Sender),
-		ToVerKey:   base58.Decode(env.Recipient),
+		Message: []byte(env.Message),
+		FromKey: base58.Decode(env.Sender),
+		ToKey:   base58.Decode(env.Recipient),
 	}, nil
 }
 

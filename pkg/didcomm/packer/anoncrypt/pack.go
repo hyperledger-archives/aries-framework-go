@@ -40,13 +40,16 @@ type Packer struct {
 
 // New will create an Packer instance to 'AnonCrypt' payloads for a given list of recipients.
 // The returned Packer contains all the information required to pack and unpack payloads.
-func New(ctx packer.Provider, encAlg jose.EncAlg) *Packer {
+func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	k := ctx.KMS()
+	if k == nil {
+		return nil, errors.New("anoncrypt: failed to create packer because KMS is empty")
+	}
 
 	return &Packer{
 		kms:    k,
 		encAlg: encAlg,
-	}
+	}, nil
 }
 
 // Pack will encode the payload argument
@@ -62,7 +65,7 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 		return nil, fmt.Errorf("anoncrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, "", nil, recECKeys)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, "", nil, recECKeys)
 	if err != nil {
 		return nil, fmt.Errorf("anoncrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -153,8 +156,8 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
-			Message:  pt,
-			ToVerKey: ecdhesPubKeyByes,
+			Message: pt,
+			ToKey:   ecdhesPubKeyByes,
 		}, nil
 	}
 

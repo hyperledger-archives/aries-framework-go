@@ -148,7 +148,7 @@ func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) 
 }
 
 func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
-	return &commontransport.Envelope{Message: encMessage, FromVerKey: base58.Decode(m.verKey)}, nil
+	return &commontransport.Envelope{Message: encMessage, FromKey: base58.Decode(m.verKey)}, nil
 }
 
 type mockTransportProvider struct {

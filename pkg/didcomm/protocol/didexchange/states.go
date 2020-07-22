@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -300,7 +301,7 @@ func (ctx *context) handleInboundOOBInvitation(
 	msg *stateMachineMsg, thid string, options *options) (stateAction, *connectionstore.Record, error) {
 	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
-		return nil, nil, fmt.Errorf("handleInboundOOBInvitation - failed to get diddoc and connection : %w", err)
+		return nil, nil, fmt.Errorf("handleInboundOOBInvitation - failed to get diddoc and connection: %w", err)
 	}
 
 	msg.connRecord.MyDID = myDID.ID
@@ -310,7 +311,7 @@ func (ctx *context) handleInboundOOBInvitation(
 
 	err = msg.Decode(&oobInvitation)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode oob invitation : %w", err)
+		return nil, nil, fmt.Errorf("failed to decode oob invitation: %w", err)
 	}
 
 	request := &Request{
@@ -326,7 +327,7 @@ func (ctx *context) handleInboundOOBInvitation(
 
 	svc, err := ctx.getServiceBlock(&oobInvitation)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get service block : %w", err)
+		return nil, nil, fmt.Errorf("failed to get service block: %w", err)
 	}
 
 	dest := &service.Destination{
@@ -337,7 +338,7 @@ func (ctx *context) handleInboundOOBInvitation(
 
 	recipientKey, err := recipientKey(myDID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound OOBInvitation : %w", err)
+		return nil, nil, fmt.Errorf("handle inbound OOBInvitation: %w", err)
 	}
 
 	return func() error {
@@ -376,13 +377,13 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 	}
 	connRec.MyDID = request.Connection.DID
 
-	recipientKey, err := recipientKey(didDoc)
+	senderKey, err := recipientKey(didDoc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound invitation : %w", err)
+		return nil, nil, fmt.Errorf("handle inbound invitation: %w", err)
 	}
 
 	return func() error {
-		return ctx.outboundDispatcher.Send(request, recipientKey, destination)
+		return ctx.outboundDispatcher.Send(request, senderKey, destination)
 	}, connRec, nil
 }
 
@@ -427,7 +428,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	senderVerKey, err := recipientKey(responseDidDoc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound request : %w", err)
+		return nil, nil, fmt.Errorf("handle inbound request: %w", err)
 	}
 
 	// send exchange response
@@ -484,10 +485,10 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
-	// get the route configs (pass empty service endpoint, as default servie endpoint added in VDRI)
+	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
 	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, "")
 	if err != nil {
-		return nil, nil, fmt.Errorf("did doc - fetch router config : %w", err)
+		return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
 	}
 
 	// by default use peer did
@@ -506,7 +507,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
 			//  recKeys to the Router
 			if err = mediator.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {
-				return nil, nil, fmt.Errorf("did doc - add key to the router : %w", err)
+				return nil, nil, fmt.Errorf("did doc - add key to the router: %w", err)
 			}
 		}
 	}
@@ -548,7 +549,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 
 	connAttributeBytes, err := json.Marshal(connection)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal connection : %w", err)
+		return nil, fmt.Errorf("failed to marshal connection: %w", err)
 	}
 
 	now := getEpochTime()
@@ -558,11 +559,21 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 
 	pubKey, err := ctx.getVerKey(invitationID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get verkey : %w", err)
+		return nil, fmt.Errorf("failed to get verkey: %w", err)
+	}
+
+	signingKID, err := localkms.CreateKID(base58.Decode(pubKey), kms.ED25519Type)
+	if err != nil {
+		return nil, fmt.Errorf("prepareConnectionSignature: failed to generate KID from public key: %w", err)
+	}
+
+	kh, err := ctx.kms.Get(signingKID)
+	if err != nil {
+		return nil, fmt.Errorf("prepareConnectionSignature: failed to get key handle: %w", err)
 	}
 
 	// TODO: Replace with signed attachments issue-626
-	signature, err := ctx.signer.SignMessage(concatenateSignData, pubKey)
+	signature, err := ctx.crypto.Sign(concatenateSignData, kh)
 	if err != nil {
 		return nil, fmt.Errorf("sign response message: %w", err)
 	}
@@ -618,13 +629,13 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
 
-	recipientKey, err := recipientKey(myDidDoc)
+	recKey, err := recipientKey(myDidDoc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound response : %w", err)
+		return nil, nil, fmt.Errorf("handle inbound response: %w", err)
 	}
 
 	return func() error {
-		return ctx.outboundDispatcher.Send(ack, recipientKey, destination)
+		return ctx.outboundDispatcher.Send(ack, recKey, destination)
 	}, connRecord, nil
 }
 
@@ -682,7 +693,7 @@ func getEpochTime() int64 {
 func (ctx *context) getVerKey(invitationID string) (string, error) {
 	pubKey, err := ctx.getVerKeyFromOOBInvitation(invitationID)
 	if err != nil && !errors.Is(err, errVerKeyNotFound) {
-		return "", fmt.Errorf("failed to get my verkey from oob invitation : %w", err)
+		return "", fmt.Errorf("failed to get my verkey from oob invitation: %w", err)
 	}
 
 	if err == nil {
@@ -699,12 +710,12 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 		}
 	}
 
-	pubKey, err = ctx.getInvitationRecipientKey(&invitation)
+	invPubKey, err := ctx.getInvitationRecipientKey(&invitation)
 	if err != nil {
 		return "", fmt.Errorf("get invitation recipient key: %w", err)
 	}
 
-	return pubKey, nil
+	return invPubKey, nil
 }
 
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
@@ -714,12 +725,12 @@ func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, e
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
 
-		recipientKey, err := recipientKey(didDoc)
+		recKey, err := recipientKey(didDoc)
 		if err != nil {
 			return "", fmt.Errorf("getInvitationRecipientKey: %w", err)
 		}
 
-		return recipientKey, nil
+		return recKey, nil
 	}
 
 	return invitation.RecipientKeys[0], nil
@@ -736,7 +747,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("failed to load oob invitation : %w", err)
+		return "", fmt.Errorf("failed to load oob invitation: %w", err)
 	}
 
 	if invitation.Type != oobMsgType {
@@ -745,7 +756,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 
 	pubKey, err := ctx.resolveVerKey(&invitation)
 	if err != nil {
-		return "", fmt.Errorf("failed to get my verkey : %w", err)
+		return "", fmt.Errorf("failed to get my verkey: %w", err)
 	}
 
 	return pubKey, nil
@@ -814,10 +825,11 @@ func isDID(str string) bool {
 	return strings.HasPrefix(str, didPrefix)
 }
 
+// returns the did:key ID of the first element in the doc's destination RecipientKeys.
 func recipientKey(doc *did.Doc) (string, error) {
 	dest, err := service.CreateDestination(doc)
 	if err != nil {
-		return "", fmt.Errorf("failed to create destination : %w", err)
+		return "", fmt.Errorf("failed to create destination: %w", err)
 	}
 
 	return dest.RecipientKeys[0], nil

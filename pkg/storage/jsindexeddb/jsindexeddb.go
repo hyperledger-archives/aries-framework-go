@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -287,7 +286,6 @@ func getStoreNames() []string {
 		mediator.Coordination,
 		connection.Namespace,
 		introduce.Introduce,
-		legacykms.KeyStoreNamespace,
 		peer.StoreNamespace,
 		did.StoreName,
 		localkms.Namespace,

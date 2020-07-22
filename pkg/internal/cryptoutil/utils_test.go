@@ -255,7 +255,7 @@ func TestKeyConversion(t *testing.T) {
 
 	t.Run("Fail on converting nil Pub key", func(t *testing.T) {
 		_, err := PublicEd25519toCurve25519(nil)
-		require.EqualError(t, err, "key is nil")
+		require.EqualError(t, err, "public key is nil")
 	})
 
 	t.Run("Fail on converting Pub key of incorrect length", func(t *testing.T) {
@@ -265,7 +265,7 @@ func TestKeyConversion(t *testing.T) {
 
 	t.Run("Fail on converting nil Priv key", func(t *testing.T) {
 		_, err := SecretEd25519toCurve25519(nil)
-		require.EqualError(t, err, "key is nil")
+		require.EqualError(t, err, "private key is nil")
 	})
 
 	t.Run("Fail: invalid pubkey, cannot convert to curve25519", func(t *testing.T) {

@@ -42,7 +42,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -104,10 +104,11 @@ func TestFramework(t *testing.T) {
 
 		aries, err := New(
 			WithInboundTransport(&mockInboundTransport{}),
-			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
-				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
+			WithKMS(func(ctx kms.Provider) (kms.KeyManager, error) {
+				return &mockkms.KeyManager{CreateKeyID: "abc"}, nil
 			}),
-			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
+			WithCrypto(&mockcrypto.Crypto{SignValue: []byte("mockValue")}),
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
 				return &didcomm.MockAuthCrypt{
 					EncryptValue: func(payload, senderPubKey []byte, recipients [][]byte) (bytes []byte, e error) {
 						return []byte("packed message"), nil
@@ -116,7 +117,7 @@ func TestFramework(t *testing.T) {
 					Type:         "",
 				}, nil
 			},
-				func(ctx packer.LegacyProvider) (packer.Packer, error) {
+				func(ctx packer.Provider) (packer.Packer, error) {
 					return &didcomm.MockAuthCrypt{
 						EncryptValue: nil,
 						Type:         "dummy format",
@@ -302,23 +303,24 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "inbound transport close failed")
 	})
 
-	t.Run("test legacyKMS svc - with user provided instance", func(t *testing.T) {
+	t.Run("test KMS svc - with user provided instance", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		// with custom legacyKMS
+		// with custom KMS
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
-				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
-			}))
+			WithKMS(func(ctx kms.Provider) (kms.KeyManager, error) {
+				return &mockkms.KeyManager{CreateKeyID: "abc"}, nil
+			}),
+			WithCrypto(&mockcrypto.Crypto{SignValue: []byte("mockValue")}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		v, err := ctx.Signer().SignMessage(nil, "")
+		v, err := ctx.Crypto().Sign(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
 		err = aries.Close()
@@ -392,14 +394,14 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test error from legacy kms svc", func(t *testing.T) {
+	t.Run("test error from kms svc", func(t *testing.T) {
 		// with custom legacy kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
-				return nil, fmt.Errorf("error from legacyKMS")
+			WithKMS(func(ctx kms.Provider) (kms.KeyManager, error) {
+				return nil, fmt.Errorf("error from KMS")
 			}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from legacyKMS")
+		require.Contains(t, err.Error(), "error from KMS")
 	})
 
 	t.Run("test new with explicitly passing noop secret lock svc as an option", func(t *testing.T) {
@@ -658,7 +660,7 @@ func Test_Packager(t *testing.T) {
 	t.Run("test error from packager svc - primary packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
-			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
 				return nil, fmt.Errorf("error from primary packer")
 			}))
 		require.Error(t, err)
@@ -669,10 +671,10 @@ func Test_Packager(t *testing.T) {
 	t.Run("test error from packager svc - fallback packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
-			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
 				return nil, nil
 			},
-				func(ctx packer.LegacyProvider) (packer.Packer, error) {
+				func(ctx packer.Provider) (packer.Packer, error) {
 					return nil, fmt.Errorf("error from fallback packer")
 				}))
 		require.Error(t, err)

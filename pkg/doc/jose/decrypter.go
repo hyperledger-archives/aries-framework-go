@@ -61,9 +61,10 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		err              error
 		protectedHeaders Headers
 		encAlg           string
+		encType          string
 	)
 
-	protectedHeaders, encAlg, err = jd.validateAndExtractProtectedHeaders(jwe)
+	protectedHeaders, encAlg, encType, err = jd.validateAndExtractProtectedHeaders(jwe)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
@@ -83,7 +84,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: failed to get decryption primitive: %w", err)
 	}
 
-	encryptedData, err := buildEncryptedData(encAlg, jwe)
+	encryptedData, err := buildEncryptedData(encAlg, encType, jwe)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: failed to build encryptedData for Decrypt(): %w", err)
 	}
@@ -137,29 +138,33 @@ func (jd *JWEDecrypt) addSenderKey(skid string) error {
 	return nil
 }
 
-func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) (Headers, string, error) {
+func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) (Headers, string, string, error) {
 	if jwe == nil {
-		return nil, "", fmt.Errorf("jwe is nil")
+		return nil, "", "", fmt.Errorf("jwe is nil")
 	}
 
 	protectedHeaders := jwe.ProtectedHeaders
 
 	encAlg, ok := protectedHeaders.Encryption()
 	if !ok {
-		return nil, "", fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
+		return nil, "", "", fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
 	}
+
+	// TODO go Jose doesn't set/enforce content `typ` in the protected headers when encrypting. When fixed, remove
+	//      the following line and add a check to ensure it's available.
+	encType := composite.DIDCommEncType // used by authcrypt/anoncrypt. The jose package is not used by LegacyPacker.
 
 	// TODO add support for Chacha content encryption, issue #1684
 	switch encAlg {
 	case string(A256GCM):
 	default:
-		return nil, "", fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
+		return nil, "", "", fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
 
-	return protectedHeaders, encAlg, nil
+	return protectedHeaders, encAlg, encType, nil
 }
 
-func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
+func buildEncryptedData(encAlg, encType string, jwe *JSONWebEncryption) ([]byte, error) {
 	var recipients []*composite.RecipientWrappedKey
 
 	if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
@@ -201,6 +206,7 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 	encData.IV = []byte(jwe.IV)
 	encData.Ciphertext = []byte(jwe.Ciphertext)
 	encData.EncAlg = encAlg
+	encData.EncType = encType
 
 	return json.Marshal(encData)
 }

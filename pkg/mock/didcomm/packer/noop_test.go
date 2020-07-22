@@ -58,8 +58,8 @@ func TestPacker(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, correct, envOut.Message)
-		require.Equal(t, key, envOut.FromVerKey)
-		require.Equal(t, rec, envOut.ToVerKey)
+		require.Equal(t, key, envOut.FromKey)
+		require.Equal(t, rec, envOut.ToKey)
 	})
 
 	t.Run("multiple pack/unpacks", func(t *testing.T) {
@@ -80,14 +80,14 @@ func TestPacker(t *testing.T) {
 
 		env1, err := p.Unpack(msg2)
 		require.NoError(t, err)
-		require.Equal(t, key2, env1.FromVerKey)
-		require.Equal(t, rec2, env1.ToVerKey)
+		require.Equal(t, key2, env1.FromKey)
+		require.Equal(t, rec2, env1.ToKey)
 		require.Equal(t, correct1, env1.Message)
 
 		env2, err := p.Unpack(env1.Message)
 		require.NoError(t, err)
-		require.Equal(t, key1, env2.FromVerKey)
-		require.Equal(t, rec1, env2.ToVerKey)
+		require.Equal(t, key1, env2.FromKey)
+		require.Equal(t, rec1, env2.ToKey)
 		require.Equal(t, cleartext, env2.Message)
 	})
 

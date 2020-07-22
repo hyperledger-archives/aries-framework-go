@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-const maxKeyIDLen = 20
+const maxKeyIDLen = 50
 
 // newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI.
 func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter {

@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
 
 // EncAlg represents the JWE content encryption algorithm.
@@ -31,7 +30,7 @@ type EncAlg string
 
 const (
 	// A256GCM for AES256GCM content encryption.
-	A256GCM = EncAlg(subtle.A256GCM)
+	A256GCM = EncAlg(composite.A256GCM)
 )
 
 // Encrypter interface to Encrypt/Decrypt JWE messages.
@@ -53,11 +52,12 @@ type JWEEncrypt struct {
 	senderKH     *keyset.Handle
 	getPrimitive encPrimitiveFunc
 	encAlg       EncAlg
+	encTyp       string
 }
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
 // senderKID and senderKH are used for Authcrypt (to authenticate the sender), if not set JWEEncrypt assumes Anoncrypt.
-func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
+func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Handle,
 	recipientsPubKeys []*composite.PublicKey) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
@@ -70,6 +70,7 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 		return nil, fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
 
+	// ECDH-ES does not reveal the sender's key (ie anoncrypt)
 	primitiveFunc := getECDHESEncPrimitive
 
 	if senderKH != nil {
@@ -78,6 +79,7 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 			return nil, errors.New("senderKID is required with senderKH")
 		}
 
+		// ECDH-1PU reveals the sender's key (ie authcrypt)
 		primitiveFunc = getECDH1PUEncPrimitive
 	}
 
@@ -94,6 +96,7 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 		senderKH:     senderKH,
 		getPrimitive: primitiveFunc,
 		encAlg:       encAlg,
+		encTyp:       encType,
 	}, nil
 }
 
@@ -144,6 +147,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 
 	protectedHeaders := map[string]interface{}{
 		HeaderEncryption: je.encAlg,
+		HeaderType:       je.encTyp,
 	}
 
 	if je.skid != "" {

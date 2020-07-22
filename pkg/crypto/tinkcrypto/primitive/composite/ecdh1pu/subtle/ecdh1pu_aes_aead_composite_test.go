@@ -18,6 +18,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
+	"github.com/google/tink/go/subtle/random"
 	"github.com/google/tink/go/tink"
 	"github.com/stretchr/testify/require"
 
@@ -318,7 +319,7 @@ func (m *MockEncHelper) GetIVSize() int {
 }
 
 // BuildEncData will build the []byte representing the ciphertext sent to the end user of the Composite primitive.
-func (m *MockEncHelper) BuildEncData(eAlg string, recipientsWK []*composite.RecipientWrappedKey, ct,
+func (m *MockEncHelper) BuildEncData(eAlg, eTyp string, recipientsWK []*composite.RecipientWrappedKey, ct,
 	singleRecipientAAD []byte) ([]byte, error) {
 	tagSize := m.GetTagSize()
 	ivSize := m.GetIVSize()
@@ -328,6 +329,7 @@ func (m *MockEncHelper) BuildEncData(eAlg string, recipientsWK []*composite.Reci
 
 	encData := &composite.EncryptedData{
 		EncAlg:             eAlg,
+		EncType:            eTyp,
 		Ciphertext:         ctAndTag[:tagOffset],
 		IV:                 iv,
 		Tag:                ctAndTag[tagOffset:],
@@ -352,4 +354,85 @@ func (m *MockEncHelper) BuildDecData(encData *composite.EncryptedData) []byte {
 	finalCT = append(finalCT, tag...)
 
 	return finalCT
+}
+
+func TestUnWrapUsingKeysOnDifferentCurves(t *testing.T) {
+	keySize := 32
+	curveP256, err := hybrid.GetCurve(commonpb.EllipticCurveType_NIST_P256.String())
+	require.NoError(t, err)
+
+	curveP384, err := hybrid.GetCurve(commonpb.EllipticCurveType_NIST_P384.String())
+	require.NoError(t, err)
+
+	recPvt, err := hybrid.GenerateECDHKeyPair(curveP256)
+	require.NoError(t, err)
+
+	recPubKey := &composite.PublicKey{
+		Type:  compositepb.KeyType_EC.String(),
+		Curve: recPvt.PublicKey.Curve.Params().Name,
+		X:     recPvt.PublicKey.Point.X.Bytes(),
+		Y:     recPvt.PublicKey.Point.Y.Bytes(),
+	}
+
+	// try to wrap a key on a different curve
+	badSenderPvt2, err := hybrid.GenerateECDHKeyPair(curveP384)
+	require.NoError(t, err)
+
+	senderKW := &ECDH1PUConcatKDFSenderKW{
+		senderPrivateKey:   badSenderPvt2,
+		recipientPublicKey: recPubKey,
+		cek:                random.GetRandomBytes(uint32(keySize)),
+	}
+
+	wrappedKey, err := senderKW.wrapKey(A256KWAlg, keySize)
+	require.EqualError(t, err, "unwrapKey: recipient and sender keys are not on the same curve")
+	require.Nil(t, wrappedKey)
+
+	senderPvt, err := hybrid.GenerateECDHKeyPair(curveP256)
+	require.NoError(t, err)
+
+	// now wrap with keys on the same curve
+	senderKW = &ECDH1PUConcatKDFSenderKW{
+		senderPrivateKey:   senderPvt,
+		recipientPublicKey: recPubKey,
+		cek:                random.GetRandomBytes(uint32(keySize)),
+	}
+
+	wrappedKey, err = senderKW.wrapKey(A256KWAlg, keySize)
+	require.NoError(t, err)
+	require.NotEmpty(t, wrappedKey)
+	require.EqualValues(t, A256KWAlg, wrappedKey.Alg)
+
+	senderPub := &hybrid.ECPublicKey{
+		Point: hybrid.ECPoint{
+			X: senderPvt.PublicKey.Point.X,
+			Y: senderPvt.PublicKey.Point.Y,
+		},
+		Curve: senderPvt.PublicKey.Curve,
+	}
+
+	recipientKW := &ECDH1PUConcatKDFRecipientKW{
+		senderPubKey:        senderPub,
+		recipientPrivateKey: recPvt,
+	}
+
+	cek, err := recipientKW.unwrapKey(wrappedKey, keySize)
+	require.NoError(t, err)
+	require.EqualValues(t, senderKW.cek, cek)
+
+	// error test cases
+	_, err = recipientKW.unwrapKey(nil, keySize)
+	require.Error(t, err)
+
+	// change recPvt curve to trigger an error during unwrapKey
+	recPvt.PublicKey.Curve = curveP384
+
+	recipientKW = &ECDH1PUConcatKDFRecipientKW{
+		senderPubKey:        senderPub,
+		recipientPrivateKey: recPvt,
+	}
+
+	cek, err = recipientKW.unwrapKey(wrappedKey, keySize)
+	require.EqualError(t, err, "unwrapKey: recipient and sender keys are not on the same curve")
+	require.Empty(t, cek)
 }

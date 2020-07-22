@@ -31,7 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/service"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -494,7 +494,7 @@ func TestOperation_Send(t *testing.T) {
 			name           string
 			testConnection *connection.Record
 			messenger      *mocksvc.MockMessenger
-			kms            *mockkms.CloseableKMS
+			kms            *mockkms.KeyManager
 			vdri           *mockvdri.MockVDRIRegistry
 			requestJSON    string
 			httpErrCode    int
@@ -541,7 +541,7 @@ func TestOperation_Send(t *testing.T) {
 				name: "send message to destination",
 				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf", 
 "recipientKeys":["test"]}}`,
-				kms:         &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("sample-kmserr-01")},
+				kms:         &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("sample-kmserr-01")},
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-kmserr-01",

@@ -20,18 +20,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
@@ -92,22 +96,27 @@ func TestServiceNew(t *testing.T) {
 // did-exchange flow with role Inviter.
 func TestService_Handle_Inviter(t *testing.T) {
 	mockStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+	storeProv := mockstorage.NewCustomMockStoreProvider(mockStore)
+	k := newKMS(t, storeProv)
 	prov := &protocol.MockProvider{
-		StoreProvider: mockstorage.NewCustomMockStoreProvider(mockStore),
+		StoreProvider: storeProv,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
+		CustomKMS: k,
 	}
-	pubKey, privKey := generateKeyPair()
-	connectionStore, err := newConnectionStore(prov)
+
+	pubKey := newED25519Key(t, k)
+	cStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
-	require.NotNil(t, connectionStore)
+	require.NotNil(t, cStore)
 
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
-		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    connectionStore,
+		crypto:             &tinkcrypto.Crypto{},
+		connectionStore:    cStore,
+		kms:                k,
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
@@ -231,27 +240,57 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 	}
 }
 
+func newKMS(t *testing.T, store *mockstorage.MockStoreProvider) kms.KeyManager {
+	t.Helper()
+
+	kmsProv := &protocol.MockProvider{
+		StoreProvider: store,
+		CustomLock:    &noop.NoLock{},
+	}
+
+	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)
+	require.NoError(t, err)
+
+	return customKMS
+}
+
+func newED25519Key(t *testing.T, k kms.KeyManager) string {
+	t.Helper()
+
+	kid, _, err := k.Create(kms.ED25519)
+	require.NoError(t, err)
+
+	pubKey, err := k.ExportPubKeyBytes(kid)
+	require.NoError(t, err)
+
+	return base58.Encode(pubKey)
+}
+
 // did-exchange flow with role Invitee.
 func TestService_Handle_Invitee(t *testing.T) {
 	protocolStateStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, store)
 	prov := &protocol.MockProvider{StoreProvider: store,
 		ProtocolStateStoreProvider: protocolStateStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
+		CustomKMS: k,
 	}
-	pubKey, privKey := generateKeyPair()
 
-	connectionStore, err := newConnectionStore(prov)
+	pubKey := newED25519Key(t, k)
+
+	cStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
-	require.NotNil(t, connectionStore)
+	require.NotNil(t, cStore)
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
-		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    connectionStore,
+		crypto:             &tinkcrypto.Crypto{},
+		connectionStore:    cStore,
+		kms:                k,
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
@@ -599,7 +638,7 @@ func TestCreateConnection(t *testing.T) {
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 		}
 		provider := &mockprovider.Provider{
-			LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              storageProvider.StorageProvider(),
 			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
 			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
@@ -631,7 +670,7 @@ func TestCreateConnection(t *testing.T) {
 	t.Run("wraps vdri registry error", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
-			LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
@@ -651,7 +690,7 @@ func TestCreateConnection(t *testing.T) {
 	t.Run("wraps connection store error", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
-			LegacyKMSValue: &mocklegacykms.CloseableKMS{},
+			KMSValue: &mockkms.KeyManager{},
 			StorageProviderValue: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{ErrPut: expected},
 			},
@@ -730,7 +769,9 @@ func TestEventsSuccess(t *testing.T) {
 		}
 	}()
 
-	pubKey, _ := generateKeyPair()
+	sp := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, sp)
+	pubKey := newED25519Key(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -771,7 +812,9 @@ func TestContinueWithPublicDID(t *testing.T) {
 
 	go func() { continueWithPublicDID(actionCh, didDoc.ID) }()
 
-	pubKey, _ := generateKeyPair()
+	sp := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, sp)
+	pubKey := newED25519Key(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -977,17 +1020,17 @@ func TestServiceErrors(t *testing.T) {
 
 	// test handle - invalid state name
 	msg["@type"] = ResponseMsgType
-	message := &message{Msg: msg, ThreadID: randomString()}
-	err = svc.handleWithoutAction(message)
+	m := &message{Msg: msg, ThreadID: randomString()}
+	err = svc.handleWithoutAction(m)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name:")
 
 	// invalid state name
-	message.NextStateName = StateIDInvited
-	message.ConnRecord = &connection.Record{ConnectionID: "abc"}
-	err = svc.handleWithoutAction(message)
+	m.NextStateName = StateIDInvited
+	m.ConnRecord = &connection.Record{ConnectionID: "abc"}
+	err = svc.handleWithoutAction(m)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to execute state invited")
+	require.Contains(t, err.Error(), "failed to execute state 'invited':")
 }
 
 func TestHandleOutbound(t *testing.T) {
@@ -1037,7 +1080,9 @@ func TestInvitationRecord(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pubKey, _ := generateKeyPair()
+	sp := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, sp)
+	pubKey := newED25519Key(t, k)
 	invitationBytes, err := json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
 		ID:            "id",
@@ -1143,8 +1188,9 @@ func TestRequestRecord(t *testing.T) {
 }
 
 func TestAcceptExchangeRequest(t *testing.T) {
+	sp := mockstorage.NewMockStoreProvider()
 	svc, err := New(&protocol.MockProvider{
-		StoreProvider: mockstorage.NewMockStoreProvider(),
+		StoreProvider: sp,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -1155,7 +1201,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
-	pubKey, _ := generateKeyPair()
+	k := newKMS(t, sp)
+	pubKey := newED25519Key(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
@@ -1202,8 +1249,9 @@ func TestAcceptExchangeRequest(t *testing.T) {
 }
 
 func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
+	sp := mockstorage.NewMockStoreProvider()
 	svc, err := New(&protocol.MockProvider{
-		StoreProvider: mockstorage.NewMockStoreProvider(),
+		StoreProvider: sp,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -1221,7 +1269,8 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
-	pubKey, _ := generateKeyPair()
+	k := newKMS(t, sp)
+	pubKey := newED25519Key(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
@@ -1269,8 +1318,9 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 func TestAcceptInvitation(t *testing.T) {
 	t.Run("accept invitation - success", func(t *testing.T) {
+		sp := mockstorage.NewMockStoreProvider()
 		svc, err := New(&protocol.MockProvider{
-			StoreProvider: mockstorage.NewMockStoreProvider(),
+			StoreProvider: sp,
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -1312,7 +1362,8 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 			}
 		}()
-		pubKey, _ := generateKeyPair()
+		k := newKMS(t, sp)
+		pubKey := newED25519Key(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
@@ -1395,8 +1446,9 @@ func TestAcceptInvitation(t *testing.T) {
 
 func TestAcceptInvitationWithPublicDID(t *testing.T) {
 	t.Run("accept invitation with public DID - success", func(t *testing.T) {
+		sp := mockstorage.NewMockStoreProvider()
 		svc, err := New(&protocol.MockProvider{
-			StoreProvider: mockstorage.NewMockStoreProvider(),
+			StoreProvider: sp,
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -1444,7 +1496,8 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 				}
 			}
 		}()
-		pubKey, _ := generateKeyPair()
+		k := newKMS(t, sp)
+		pubKey := newED25519Key(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
@@ -1695,17 +1748,19 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 				mediator.Coordination: routeSvc,
 			},
 		}
-		pubKey, _ := generateKeyPair()
+		sp := mockstorage.NewMockStoreProvider()
+		k := newKMS(t, sp)
+		pubKey := newED25519Key(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
-		connStore, err := newConnectionStore(prov)
+		cStore, err := newConnectionStore(prov)
 		require.NoError(t, err)
-		require.NotNil(t, connStore)
+		require.NotNil(t, cStore)
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    connStore,
+			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
 
@@ -1725,17 +1780,19 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 				mediator.Coordination: routeSvc,
 			},
 		}
-		pubKey, _ := generateKeyPair()
+		sp := mockstorage.NewMockStoreProvider()
+		k := newKMS(t, sp)
+		pubKey := newED25519Key(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
-		connStore, err := newConnectionStore(prov)
+		cStore, err := newConnectionStore(prov)
 		require.NoError(t, err)
-		require.NotNil(t, connStore)
+		require.NotNil(t, cStore)
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
-			connectionStore:    connStore,
+			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
 
@@ -1759,17 +1816,19 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 				mediator.Coordination: routeSvc,
 			},
 		}
-		pubKey, _ := generateKeyPair()
+		sp := mockstorage.NewMockStoreProvider()
+		k := newKMS(t, sp)
+		pubKey := newED25519Key(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
-		connStore, err := newConnectionStore(prov)
+		cStore, err := newConnectionStore(prov)
 		require.NoError(t, err)
-		require.NotNil(t, connStore)
+		require.NotNil(t, cStore)
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    connStore,
+			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
 
@@ -1785,6 +1844,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 }
 
 func TestRespondTo(t *testing.T) {
+	sp := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, sp)
 	t.Run("responds to an explicit invitation", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
@@ -1798,7 +1859,7 @@ func TestRespondTo(t *testing.T) {
 		require.NotEmpty(t, connID)
 	})
 	t.Run("responds to an implicit invitation", func(t *testing.T) {
-		publicDID := createDIDDoc()
+		publicDID := createDIDDoc(t, k)
 		provider := testProvider()
 		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDID}
 		s, err := New(provider)

@@ -16,7 +16,7 @@ import (
 func GetRouterConfig(routeSvc ProtocolService, endpoint string) (string, []string, error) {
 	routeConf, err := routeSvc.Config()
 	if err != nil && !errors.Is(err, ErrRouterNotRegistered) {
-		return "", nil, fmt.Errorf("fetch router config : %w", err)
+		return "", nil, fmt.Errorf("fetch router config: %w", err)
 	}
 
 	if routeConf != nil {
@@ -29,7 +29,7 @@ func GetRouterConfig(routeSvc ProtocolService, endpoint string) (string, []strin
 // AddKeyToRouter util to add the recipient keys to the router.
 func AddKeyToRouter(routeSvc ProtocolService, recKey string) error {
 	if err := routeSvc.AddKey(recKey); err != nil && !errors.Is(err, ErrRouterNotRegistered) {
-		return fmt.Errorf("add key to the router : %w", err)
+		return fmt.Errorf("addKey: %w", err)
 	}
 
 	return nil

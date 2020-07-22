@@ -12,8 +12,8 @@ import (
 	"regexp"
 	"strings"
 
-	multibase "github.com/multiformats/go-multibase"
-	multihash "github.com/multiformats/go-multihash"
+	"github.com/multiformats/go-multibase"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -21,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -63,7 +64,8 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
-	Signer() legacykms.Signer
+	Crypto() crypto.Crypto
+	KMS() kms.KeyManager
 	VDRIRegistry() vdriapi.Registry
 	Service(id string) (interface{}, error)
 }
@@ -86,7 +88,8 @@ type Service struct {
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
-	signer             legacykms.Signer
+	crypto             crypto.Crypto
+	kms                kms.KeyManager
 	connectionStore    *connectionStore
 	vdriRegistry       vdriapi.Registry
 	routeSvc           mediator.ProtocolService
@@ -123,7 +126,8 @@ func New(prov provider) (*Service, error) {
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			signer:             prov.Signer(),
+			crypto:             prov.Crypto(),
+			kms:                prov.KMS(),
 			vdriRegistry:       prov.VDRIRegistry(),
 			connectionStore:    connRecorder,
 			routeSvc:           routeSvc,
@@ -280,7 +284,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 			s.ctx)
 
 		if err != nil {
-			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
+			return fmt.Errorf("failed to execute state '%s': %w", next.Name(), err)
 		}
 
 		connectionRecord.State = next.Name()
@@ -293,10 +297,10 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		logger.Debugf("updated connection record %+v", connectionRecord)
 
 		if err = action(); err != nil {
-			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
+			return fmt.Errorf("failed to execute state action '%s': %w", next.Name(), err)
 		}
 
-		logger.Debugf("finish execute state action: %s", next.Name())
+		logger.Debugf("finish execute state action: '%s'", next.Name())
 
 		prev := next
 		next = followup

@@ -13,15 +13,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
@@ -228,9 +229,15 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 	}
 
 	pubKey := doc.PublicKey[0]
-	kms := a.bddContext.AgentCtx[prover].Signer()
+	km := a.bddContext.AgentCtx[prover].KMS()
+	cr := a.bddContext.AgentCtx[prover].Crypto()
 
-	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(kms, base58.Encode(pubKey.Value)), "")
+	kid, err := localkms.CreateKID(pubKey.Value, kms.ED25519)
+	if err != nil {
+		return fmt.Errorf("failed to key kid for kms: %w", err)
+	}
+
+	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), "")
 	if err != nil {
 		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
 	}
@@ -356,14 +363,21 @@ func (a *SDKSteps) getConnection(agent1, agent2 string) (*didexchange.Connection
 }
 
 type signer struct {
-	kms   legacykms.Signer
+	km    kms.KeyManager
+	cr    crypto.Crypto
 	keyID string
 }
 
-func newSigner(kms legacykms.Signer, keyID string) *signer {
-	return &signer{kms: kms, keyID: keyID}
+func newSigner(km kms.KeyManager, cr crypto.Crypto, keyID string) *signer {
+	return &signer{km: km, cr: cr, keyID: keyID}
 }
 
+// Sign signs data with signer's keyID found in an internal kms.
 func (s *signer) Sign(data []byte) ([]byte, error) {
-	return s.kms.SignMessage(data, s.keyID)
+	kh, err := s.km.Get(s.keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.cr.Sign(data, kh)
 }

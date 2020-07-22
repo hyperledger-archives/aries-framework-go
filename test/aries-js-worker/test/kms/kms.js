@@ -57,21 +57,6 @@ async function kms(mode) {
         )
     })
 
-
-    it("Alice create key set legacy kms", function (done) {
-        aries.legacykms.createKeySet().then(
-            resp => {
-                try {
-                    assert.isNotEmpty(resp.publicKey)
-                } catch (err) {
-                    done(err)
-                }
-                done()
-            },
-            err => done(err)
-        )
-    })
-
     it("Alice import ed25519 key", function (done) {
         aries.kms.importKey({
             kty: "OKP",

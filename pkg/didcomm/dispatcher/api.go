@@ -28,10 +28,10 @@ type MessageService interface {
 
 // Outbound interface.
 type Outbound interface {
-	// Sends the message after packing with the sender key and recipient keys.
+	// Send the message after packing with the sender key and recipient keys.
 	Send(interface{}, string, *service.Destination) error
 
-	// Sends the message after packing with the keys derived from DIDs.
+	// SendToDID Sends the message after packing with the keys derived from DIDs.
 	SendToDID(msg interface{}, myDID, theirDID string) error
 
 	// Forward forwards the message without packing to the destination.

@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
@@ -177,7 +177,7 @@ func TestCreateRequest(t *testing.T) {
 	t.Run("wraps did service block creation error when KMS fails", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
-		provider.LegacyKMSValue = &mockkms.CloseableKMS{CreateKeyErr: expected}
+		provider.KMSValue = &mockkms.KeyManager{CreateKeyErr: expected}
 		c, err := New(provider)
 		require.NoError(t, err)
 		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
@@ -511,10 +511,15 @@ type didcommMsg struct {
 }
 
 func withTestProvider() *mockprovider.Provider {
+	mockKey, err := mockkms.CreateMockED25519KeyHandle()
+	if err != nil {
+		return nil
+	}
+
 	return &mockprovider.Provider{
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:              mockstore.NewMockStoreProvider(),
-		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:                          &mockkms.KeyManager{CreateKeyValue: mockKey},
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 			outofband.Name:        &stubOOBService{},

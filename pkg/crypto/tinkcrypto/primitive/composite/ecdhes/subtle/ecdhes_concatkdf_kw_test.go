@@ -55,3 +55,43 @@ func TestWrap(t *testing.T) {
 	_, err = recipientKW.unwrapKey(nil, keySize)
 	require.Error(t, err)
 }
+
+func TestUnWrapUsingKeysOnDifferentCurves(t *testing.T) {
+	keySize := 32
+	curveP256, err := hybrid.GetCurve(commonpb.EllipticCurveType_NIST_P256.String())
+	require.NoError(t, err)
+
+	curveP384, err := hybrid.GetCurve(commonpb.EllipticCurveType_NIST_P384.String())
+	require.NoError(t, err)
+
+	recPvt, err := hybrid.GenerateECDHKeyPair(curveP256)
+	require.NoError(t, err)
+
+	recPubKey := &composite.PublicKey{
+		Type:  compositepb.KeyType_EC.String(),
+		Curve: recPvt.PublicKey.Curve.Params().Name,
+		X:     recPvt.PublicKey.Point.X.Bytes(),
+		Y:     recPvt.PublicKey.Point.Y.Bytes(),
+	}
+
+	senderKW := &ECDHESConcatKDFSenderKW{
+		recipientPublicKey: recPubKey,
+		cek:                random.GetRandomBytes(uint32(keySize)),
+	}
+
+	wrappedKey, err := senderKW.wrapKey(A256KWAlg, keySize)
+	require.NoError(t, err)
+	require.NotEmpty(t, wrappedKey)
+	require.EqualValues(t, A256KWAlg, wrappedKey.Alg)
+
+	// change recPvt curve to trigger an error during unwrapKey
+	recPvt.PublicKey.Curve = curveP384
+
+	recipientKW := &ECDHESConcatKDFRecipientKW{
+		recipientPrivateKey: recPvt,
+	}
+
+	cek, err := recipientKW.unwrapKey(wrappedKey, keySize)
+	require.EqualError(t, err, "unwrapKey: recipient and sender keys are not on the same curve")
+	require.Empty(t, cek)
+}

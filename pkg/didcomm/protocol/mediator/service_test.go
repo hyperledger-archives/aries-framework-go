@@ -24,7 +24,7 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockmessagep "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -106,7 +106,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -214,7 +214,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -235,7 +235,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -258,7 +258,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			ServiceEndpointValue:              endpoint,
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
@@ -297,7 +297,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue: &mockkms.CloseableKMS{
+			KMSValue: &mockkms.KeyManager{
 				CreateKeyErr: expected,
 			},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
@@ -323,7 +323,7 @@ func TestEvents(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -355,7 +355,7 @@ func TestEvents(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					dispatched <- struct{}{}
@@ -394,7 +394,7 @@ func TestEvents(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					dispatched <- struct{}{}
@@ -432,7 +432,7 @@ func TestEvents(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -450,7 +450,7 @@ func TestEvents(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			ServiceEndpointValue:              "http://other.com",
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
@@ -528,7 +528,7 @@ func TestServiceGrantMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -546,7 +546,7 @@ func TestServiceGrantMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -566,7 +566,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -587,7 +587,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -610,7 +610,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -656,7 +656,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -678,7 +678,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -699,7 +699,7 @@ func TestServiceForwardMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -720,7 +720,7 @@ func TestServiceForwardMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -741,7 +741,7 @@ func TestServiceForwardMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -771,7 +771,7 @@ func TestServiceForwardMsg(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(msg interface{}, des *service.Destination) error {
 					require.Equal(t, content, msg)
@@ -827,7 +827,7 @@ func TestMessagePickup(t *testing.T) {
 						}}},
 				StorageProviderValue:              mockstore.NewMockStoreProvider(),
 				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-				LegacyKMSValue:                    &mockkms.CloseableKMS{},
+				KMSValue:                          &mockkms.KeyManager{},
 				OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 					ValidateForward: func(_ interface{}, _ *service.Destination) error {
 						return errors.New("websocket connection failed")
@@ -869,7 +869,7 @@ func TestMessagePickup(t *testing.T) {
 				}},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(_ interface{}, _ *service.Destination) error {
 					return errors.New("websocket connection failed")
@@ -906,7 +906,7 @@ func TestRegister(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -951,7 +951,7 @@ func TestRegister(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					request, ok := msg.(*Request)
@@ -986,7 +986,7 @@ func TestRegister(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1009,7 +1009,7 @@ func TestRegister(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1034,7 +1034,7 @@ func TestRegister(t *testing.T) {
 			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -1054,7 +1054,7 @@ func TestRegister(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -1140,7 +1140,7 @@ func TestKeylistUpdate(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -1193,7 +1193,7 @@ func TestKeylistUpdate(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -1254,7 +1254,7 @@ func TestKeylistUpdate(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1280,7 +1280,7 @@ func TestKeylistUpdate(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1301,7 +1301,7 @@ func TestConfig(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1325,7 +1325,7 @@ func TestConfig(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1343,7 +1343,7 @@ func TestConfig(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1363,7 +1363,7 @@ func TestConfig(t *testing.T) {
 			},
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -1386,7 +1386,7 @@ func TestConfig(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			LegacyKMSValue:                    &mockkms.CloseableKMS{},
+			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 

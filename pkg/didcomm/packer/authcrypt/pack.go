@@ -51,8 +51,16 @@ type Packer struct {
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	k := ctx.KMS()
+	if k == nil {
+		return nil, errors.New("authcrypt: failed to create packer because KMS is empty")
+	}
 
-	store, err := ctx.StorageProvider().OpenStore(ThirdPartyKeysDB)
+	sp := ctx.StorageProvider()
+	if sp == nil {
+		return nil, errors.New("authcrypt: failed to create packer because StorageProvider is empty")
+	}
+
+	store, err := sp.OpenStore(ThirdPartyKeysDB)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt: %w", err)
 	}
@@ -85,7 +93,7 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, string(senderID), kh.(*keyset.Handle), recECKeys)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, string(senderID), kh.(*keyset.Handle), recECKeys)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -182,8 +190,8 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
-			Message:  pt,
-			ToVerKey: ecdh1puPubKeyByes,
+			Message: pt,
+			ToKey:   ecdh1puPubKeyByes,
 		}, nil
 	}
 

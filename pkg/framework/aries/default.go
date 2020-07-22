@@ -16,7 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	jwe "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/jwe/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/anoncrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
@@ -29,10 +30,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -75,7 +76,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		newIntroduceSvc(), newIssueCredentialSvc(), newPresentProofSvc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
-		err := createDefSecretLock(frameworkOpts)
+		err = createDefSecretLock(frameworkOpts)
 		if err != nil {
 			return err
 		}
@@ -154,9 +155,9 @@ func newOutOfBandSvc() api.ProtocolSvcCreator {
 }
 
 func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
-	if frameworkOpts.legacyKMSCreator == nil {
-		frameworkOpts.legacyKMSCreator = func(provider api.Provider) (api.CloseableKMS, error) {
-			return legacykms.New(provider)
+	if frameworkOpts.kmsCreator == nil {
+		frameworkOpts.kmsCreator = func(provider kms.Provider) (kms.KeyManager, error) {
+			return localkms.New("local-lock://", provider)
 		}
 	}
 
@@ -171,16 +172,19 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.packerCreator == nil {
-		frameworkOpts.packerCreator = func(provider packer.LegacyProvider) (packer.Packer, error) {
+		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
 			return legacy.New(provider), nil
 		}
 
-		frameworkOpts.packerCreators = []packer.LegacyCreator{
-			func(provider packer.LegacyProvider) (packer.Packer, error) {
+		frameworkOpts.packerCreators = []packer.Creator{
+			func(provider packer.Provider) (packer.Packer, error) {
 				return legacy.New(provider), nil
 			},
-			func(provider packer.LegacyProvider) (packer.Packer, error) {
-				return jwe.New(provider, jwe.XC20P)
+			func(provider packer.Provider) (packer.Packer, error) {
+				return authcrypt.New(provider, jose.A256GCM)
+			},
+			func(provider packer.Provider) (packer.Packer, error) {
+				return anoncrypt.New(provider, jose.A256GCM)
 			},
 		}
 	}

@@ -28,7 +28,7 @@ import (
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -137,6 +137,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -144,7 +147,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
@@ -173,7 +176,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -202,7 +205,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue: &mockkms.CloseableKMS{}})
+			KMSValue: &mockkms.KeyManager{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -221,6 +224,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -228,7 +234,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
@@ -251,6 +257,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -258,14 +267,13 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
 		inviteReq, err := c.CreateInvitation("agent")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create invitation - fetch router config")
+		require.EqualError(t, err, "createInvitation: getRouterConfig: fetch router config: router config error")
 		require.Nil(t, inviteReq)
 	})
 
@@ -281,6 +289,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -292,14 +303,13 @@ func TestClient_CreateInvitation(t *testing.T) {
 					AddKeyErr:      errors.New("failed to add key to the router"),
 				},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
 		inviteReq, err := c.CreateInvitation("agent")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create invitation - add key to the router")
+		require.EqualError(t, err, "createInvitation: AddKeyToRouter: addKey: failed to add key to the router")
 		require.Nil(t, inviteReq)
 	})
 }
@@ -314,6 +324,9 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -321,7 +334,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -357,7 +370,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue: &mockkms.CloseableKMS{}})
+			KMSValue: &mockkms.KeyManager{}})
 		require.NoError(t, err)
 
 		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
@@ -371,6 +384,9 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		connID   = "id1"
 		threadID = "thid1"
 	)
+
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
 
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
@@ -388,7 +404,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -424,7 +440,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -453,7 +469,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -591,9 +607,50 @@ func TestClient_CreateConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		id, err := c.CreateConnection(newPeerDID(t).ID, newPeerDID(t))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "save connection")
+		require.EqualError(t, err, "createConnection: err: save connection")
 		require.Empty(t, id)
+	})
+
+	t.Run("test create connection - error from CreateDestination", func(t *testing.T) {
+		theirDID := newPeerDID(t)
+		myDID := newPeerDID(t)
+		threadID := uuid.New().String()
+		parentThreadID := uuid.New().String()
+		label := uuid.New().String()
+		invitationID := uuid.New().String()
+		invitationDID := newPeerDID(t).ID
+		implicit := true
+		storageProvider := &mockprovider.Provider{
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+		}
+		c, err := New(&mockprovider.Provider{
+			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
+			StorageProviderValue:              storageProvider.StorageProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
+					CreateConnRecordFunc: func(r *connection.Record, td *did.Doc) error {
+						recorder, err := connection.NewRecorder(storageProvider)
+						require.NoError(t, err)
+						err = recorder.SaveConnectionRecord(r)
+						require.NoError(t, err)
+
+						return nil
+					},
+				},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		// empty ServiceEndpoint to trigger CreateDestination error
+		theirDID.Service[0].ServiceEndpoint = ""
+
+		_, err = c.CreateConnection(myDID.ID, theirDID,
+			WithTheirLabel(label), WithThreadID(threadID), WithParentThreadID(parentThreadID),
+			WithInvitationID(invitationID), WithInvitationDID(invitationDID), WithImplicit(implicit))
+		require.Contains(t, err.Error(), "createConnection: failed to create destination: "+
+			"create destination: no service endpoint on didcomm service block in diddoc:")
 	})
 }
 
@@ -660,6 +717,9 @@ func TestClient_RemoveConnection(t *testing.T) {
 }
 
 func TestClient_HandleInvitation(t *testing.T) {
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -668,7 +728,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
@@ -691,7 +751,8 @@ func TestClient_HandleInvitation(t *testing.T) {
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 
-			LegacyKMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, ServiceEndpointValue: "endpoint"})
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -703,6 +764,9 @@ func TestClient_HandleInvitation(t *testing.T) {
 }
 
 func TestClient_CreateImplicitInvitation(t *testing.T) {
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -711,7 +775,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -729,7 +793,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 					ImplicitInvitationErr: errors.New("implicit error")},
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -744,6 +808,9 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 	inviter := &DIDInfo{Label: "alice", DID: "did:example:alice"}
 	invitee := &DIDInfo{Label: "bob", DID: "did:example:bob"}
 
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -752,7 +819,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -770,7 +837,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 					ImplicitInvitationErr: errors.New("implicit with DID error")},
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -788,7 +855,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -975,6 +1042,9 @@ func TestServiceEvents(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: protocolStateStore,
@@ -983,7 +1053,7 @@ func TestServiceEvents(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}})
+		KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -1066,6 +1136,9 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -1074,7 +1147,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
+		KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, c)

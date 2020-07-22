@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -293,7 +293,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 
 func getContext(agent string) *mockprovider.Provider {
 	return &mockprovider.Provider{
-		LegacyKMSValue:                    &mocklegacykms.CloseableKMS{},
+		KMSValue:                          &mockkms.KeyManager{},
 		StorageProviderValue:              mem.NewProvider(),
 		ProtocolStateStorageProviderValue: mem.NewProvider(),
 		ServiceMap: map[string]interface{}{

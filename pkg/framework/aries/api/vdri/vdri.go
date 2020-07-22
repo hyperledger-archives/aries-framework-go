@@ -8,10 +8,12 @@ package vdri
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
@@ -19,6 +21,10 @@ var ErrNotFound = errors.New("DID not found")
 
 // DIDCommServiceType default DID Communication service endpoint type.
 const DIDCommServiceType = "did-communication"
+
+// JSONWebKey2020 key type for general encryption key as key agreement, see following discussion:
+// https://github.com/w3c/did-core/issues/240#issuecomment-663230565.
+const JSONWebKey2020 = "JsonWebKey2020"
 
 // Registry vdri registry.
 type Registry interface {
@@ -93,6 +99,7 @@ type CreateDIDOpts struct {
 	ServiceEndpoint string
 	RoutingKeys     []string
 	RequestBuilder  func([]byte) (io.Reader, error)
+	EncryptionKey   *PubKey
 }
 
 // DocOpts is a create DID option.
@@ -126,6 +133,13 @@ func WithRoutingKeys(routingKeys []string) DocOpts {
 	}
 }
 
+// WithEncryptionKey allows for setting encryption key.
+func WithEncryptionKey(encryptionKey *PubKey) DocOpts {
+	return func(opts *CreateDIDOpts) {
+		opts.EncryptionKey = encryptionKey
+	}
+}
+
 // WithRequestBuilder allows to supply request builder
 // which can be used to add headers to request stream to be sent to HTTP binding URL.
 func WithRequestBuilder(builder func(payload []byte) (io.Reader, error)) DocOpts {
@@ -137,7 +151,7 @@ func WithRequestBuilder(builder func(payload []byte) (io.Reader, error)) DocOpts
 // PubKey contains public key type and value.
 type PubKey struct {
 	ID    string
-	Value string // base58 encoded
+	Value []byte
 	Type  string
 }
 
@@ -145,4 +159,30 @@ type PubKey struct {
 type ModifiedBy struct {
 	Key string `json:"key,omitempty"`
 	Sig string `json:"sig,omitempty"`
+}
+
+// RetrieveEncryptionKey retrieves an encryption PublicKey in JWK format from key.
+func RetrieveEncryptionKey(didKey string, key *PubKey) (*did.PublicKey, error) {
+	jwk, err := toJWK(key)
+	if err != nil {
+		return nil, err
+	}
+
+	keyID := fmt.Sprintf("%s#%s", didKey, key.ID)
+
+	publicKey, err := did.NewPublicKeyFromJWK(keyID, key.Type, didKey, jwk)
+	if err != nil {
+		return nil, err
+	}
+
+	return publicKey, nil
+}
+
+func toJWK(key *PubKey) (*jose.JWK, error) {
+	switch key.Type {
+	case JSONWebKey2020:
+		return jose.JWKFromPublicKey(key.Value)
+	default:
+		return nil, fmt.Errorf("not supported public agreement key type: %s", key.Type)
+	}
 }

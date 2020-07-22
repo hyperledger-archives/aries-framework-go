@@ -312,7 +312,7 @@ func (m *MockEncHelper) GetIVSize() int {
 }
 
 // BuildEncData will build the []byte representing the ciphertext sent to the end user of the Composite primitive.
-func (m *MockEncHelper) BuildEncData(eAlg string, recipientsWK []*composite.RecipientWrappedKey, ct,
+func (m *MockEncHelper) BuildEncData(eAlg, eTyp string, recipientsWK []*composite.RecipientWrappedKey, ct,
 	singleRecipientAAD []byte) ([]byte, error) {
 	tagSize := m.GetTagSize()
 	ivSize := m.GetIVSize()
@@ -322,6 +322,7 @@ func (m *MockEncHelper) BuildEncData(eAlg string, recipientsWK []*composite.Reci
 
 	encData := &composite.EncryptedData{
 		EncAlg:             eAlg,
+		EncType:            eTyp,
 		Ciphertext:         ctAndTag[:tagOffset],
 		IV:                 iv,
 		Tag:                ctAndTag[tagOffset:],

@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
@@ -137,8 +137,16 @@ func mockContext() provider {
 		panic(err)
 	}
 
+	mockSigningKey, err := mockkms.CreateMockED25519KeyHandle()
+	if err != nil {
+		panic(err)
+	}
+
 	context := &mockprovider.Provider{
-		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
+		KMSValue: &mockkms.KeyManager{
+			CreateKeyID:    "signing-key-123",
+			CreateKeyValue: mockSigningKey,
+		},
 		ProtocolStateStorageProviderValue: protocolStateStoreProvider,
 		StorageProviderValue:              storeProvider,
 		ServiceMap: map[string]interface{}{

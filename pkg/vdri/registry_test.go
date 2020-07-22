@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
@@ -159,7 +158,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test opts is passed", func(t *testing.T) {
-		kh, err := mockkms.CreateMockKeyHandle()
+		kh, err := mockkms.CreateMockAESGCMKeyHandle()
 		require.NoError(t, err)
 
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{
@@ -179,8 +178,8 @@ func TestRegistry_Create(t *testing.T) {
 		_, err = registry.Create("id", vdriapi.WithKeyType("key1"))
 		require.NoError(t, err)
 	})
-	t.Run("with legacyKMS opts - test opts is passed ", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mocklegacykms.CloseableKMS{}},
+	t.Run("with KMS opts - test opts is passed ", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					docOpts := &vdriapi.CreateDIDOpts{}

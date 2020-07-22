@@ -12,8 +12,11 @@ package messaging
 import (
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
@@ -119,13 +122,18 @@ func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string
 		return fmt.Errorf("unable to get destination from public DID `%s` : %w", publicDID.ID, err)
 	}
 
-	_, sigPubKey, err := ctx.LegacyKMS().CreateKeySet()
+	kid, _, err := ctx.KMS().Create(kms.ED25519Type)
 	if err != nil {
 		return fmt.Errorf("unable to create sender verkey : %w", err)
 	}
 
+	sigPubKey, err := ctx.KMS().ExportPubKeyBytes(kid)
+	if err != nil {
+		return err
+	}
+
 	// send message
-	err = messenger.SendToDestination(msg, sigPubKey, dest)
+	err = messenger.SendToDestination(msg, base58.Encode(sigPubKey), dest)
 	if err != nil {
 		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
 	}

@@ -10,13 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
 // Pack will encode the payload argument
@@ -32,7 +34,7 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 
 	_, err = p.randSource.Read(nonce)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pack: failed to generate random nonce: %w", err)
 	}
 
 	// cek (content encryption key) is a symmetric key, for chacha20, a symmetric cipher
@@ -40,19 +42,14 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 
 	_, err = p.randSource.Read(cek[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pack: failed to generate cek: %w", err)
 	}
 
 	var recipients []recipient
 
-	recKeys := make([]string, len(recipientPubKeys))
-	for i, key := range recipientPubKeys {
-		recKeys[i] = base58.Encode(key)
-	}
-
 	recipients, err = p.buildRecipients(cek, sender, recipientPubKeys)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pack: failed to build recipients: %w", err)
 	}
 
 	header := protected{
@@ -106,12 +103,12 @@ func (p *Packer) buildRecipients(cek *[chacha.KeySize]byte, senderKey []byte, re
 	var encodedRecipients = make([]recipient, len(recPubKeys))
 
 	for i, recKey := range recPubKeys {
-		recipient, err := p.buildRecipient(cek, senderKey, recKey)
+		rec, err := p.buildRecipient(cek, senderKey, recKey)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("buildRecipients: failed to build recipient: %w", err)
 		}
 
-		encodedRecipients[i] = *recipient
+		encodedRecipients[i] = *rec
 	}
 
 	return encodedRecipients, nil
@@ -124,34 +121,33 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 
 	_, err := p.randSource.Read(nonce[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to generate random nonce: %w", err)
 	}
 
-	// We need the private key to be converted and keypair to be persisted
-	senderEncKey, err := p.legacyKMS.ConvertToEncryptionKey(senderKey)
+	senderKID, err := localkms.CreateKID(senderKey, kms.ED25519Type)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to create KID for public key: %w", err)
 	}
 
 	recEncKey, err := cryptoutil.PublicEd25519toCurve25519(recKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to convert public Ed25519 to Curve25519: %w", err)
 	}
 
-	box, err := legacykms.NewCryptoBox(p.legacyKMS)
+	box, err := localkms.NewCryptoBox(p.kms)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to create new CryptoBox: %w", err)
 	}
 
-	encCEK, err := box.Easy(cek[:], nonce[:], recEncKey, senderEncKey)
+	encCEK, err := box.Easy(cek[:], nonce[:], recEncKey, senderKID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to encrypt cek: %w", err)
 	}
 
 	// assumption: senderKey is ed25519
 	encSender, err := box.Seal([]byte(base58.Encode(senderKey)), recEncKey, p.randSource)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildRecipient: failed to encrypt sender key: %w", err)
 	}
 
 	return &recipient{

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	keyType = "key-type"
+	keyType = ed25519VerificationKey2018
 )
 
 func TestDIDCreator(t *testing.T) {
@@ -84,7 +84,7 @@ func TestBuild(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Service)
 		require.NotEmpty(t, result.Service[0].RecipientKeys)
-		require.Equal(t, expected.Value, result.Service[0].RecipientKeys[0])
+		require.Equal(t, base58.Encode(expected.Value), result.Service[0].RecipientKeys[0])
 	})
 }
 
@@ -94,5 +94,5 @@ func getSigningKey() *api.PubKey {
 		panic(err)
 	}
 
-	return &api.PubKey{Value: base58.Encode(pub[:]), Type: keyType}
+	return &api.PubKey{Value: pub[:], Type: keyType}
 }

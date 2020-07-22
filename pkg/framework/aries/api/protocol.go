@@ -16,7 +16,6 @@ import (
 	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
@@ -31,7 +30,6 @@ type Provider interface {
 	Messenger() service.Messenger
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
-	LegacyKMS() legacykms.KeyManager
 	KMS() kms.KeyManager
 	SecretLock() secretlock.Service
 	Crypto() crypto.Crypto
@@ -39,7 +37,6 @@ type Provider interface {
 	ServiceEndpoint() string
 	RouterEndpoint() string
 	VDRIRegistry() vdriapi.Registry
-	Signer() legacykms.Signer
 	ProtocolStateStorageProvider() storage.Provider
 	InboundMessageHandler() didcommtransport.InboundMessageHandler
 	OutboundMessageHandler() service.OutboundHandler
