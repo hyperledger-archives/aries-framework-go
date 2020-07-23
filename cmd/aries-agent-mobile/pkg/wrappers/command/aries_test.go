@@ -27,7 +27,7 @@ func TestNewAries(t *testing.T) {
 }
 
 func TestAries_GetIntroduceController(t *testing.T) {
-	t.Run("test it creates an introduce controller instance", func(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
 		opts := &config.Options{}
 		a, err := NewAries(opts)
 		require.NoError(t, err)
@@ -40,7 +40,7 @@ func TestAries_GetIntroduceController(t *testing.T) {
 }
 
 func TestAries_GetVerifiableController(t *testing.T) {
-	t.Run("test it creates a verifiable controller instance", func(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
 		opts := &config.Options{}
 		a, err := NewAries(opts)
 		require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestAries_GetVerifiableController(t *testing.T) {
 }
 
 func TestAries_GetDIDExchangeController(t *testing.T) {
-	t.Run("test it creates a did exchange controller instance", func(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
 		opts := &config.Options{}
 		a, err := NewAries(opts)
 		require.NoError(t, err)
@@ -62,5 +62,18 @@ func TestAries_GetDIDExchangeController(t *testing.T) {
 		dec, err := a.GetDIDExchangeController()
 		require.NoError(t, err)
 		require.NotNil(t, dec)
+	})
+}
+
+func TestAries_GetIssueCredentialController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		opts := &config.Options{}
+		a, err := NewAries(opts)
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		ic, err := a.GetIssueCredentialController()
+		require.NoError(t, err)
+		require.NotNil(t, ic)
 	})
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 )
 
-// VerifiableController defines methods for the verifiable protocol
+// VerifiableController defines methods for the verifiable controller
 type VerifiableController interface {
 
 	// ValidateCredential validates the verifiable credential.

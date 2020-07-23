@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
+	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -171,4 +172,14 @@ func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	}
 
 	return &DIDExchange{handlers: handlers}, nil
+}
+
+// GetIssueCredentialController returns an IssueCredential instance
+func (a *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
+	handlers, ok := a.handlers[cmdisscred.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdisscred.CommandName)
+	}
+
+	return &IssueCredential{handlers: handlers}, nil
 }

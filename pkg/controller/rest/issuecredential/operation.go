@@ -24,21 +24,22 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
+// constants for issue credential endpoints
 const (
-	operationID       = "/issuecredential"
-	actions           = operationID + "/actions"
-	sendOffer         = operationID + "/send-offer"
-	sendProposal      = operationID + "/send-proposal"
-	sendRequest       = operationID + "/send-request"
-	acceptProposal    = operationID + "/{piid}/accept-proposal"
-	declineProposal   = operationID + "/{piid}/decline-proposal"
-	acceptOffer       = operationID + "/{piid}/accept-offer"
-	declineOffer      = operationID + "/{piid}/decline-offer"
-	negotiateProposal = operationID + "/{piid}/negotiate-proposal"
-	acceptRequest     = operationID + "/{piid}/accept-request"
-	declineRequest    = operationID + "/{piid}/decline-request"
-	acceptCredential  = operationID + "/{piid}/accept-credential"
-	declineCredential = operationID + "/{piid}/decline-credential"
+	OperationID       = "/issuecredential"
+	Actions           = OperationID + "/actions"
+	SendOffer         = OperationID + "/send-offer"
+	SendProposal      = OperationID + "/send-proposal"
+	SendRequest       = OperationID + "/send-request"
+	AcceptProposal    = OperationID + "/{piid}/accept-proposal"
+	DeclineProposal   = OperationID + "/{piid}/decline-proposal"
+	AcceptOffer       = OperationID + "/{piid}/accept-offer"
+	DeclineOffer      = OperationID + "/{piid}/decline-offer"
+	NegotiateProposal = OperationID + "/{piid}/negotiate-proposal"
+	AcceptRequest     = OperationID + "/{piid}/accept-request"
+	DeclineRequest    = OperationID + "/{piid}/decline-request"
+	AcceptCredential  = OperationID + "/{piid}/accept-credential"
+	DeclineCredential = OperationID + "/{piid}/decline-credential"
 )
 
 // Operation is controller REST service controller for issue credential
@@ -69,19 +70,19 @@ func (c *Operation) GetRESTHandlers() []rest.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(actions, http.MethodGet, c.Actions),
-		cmdutil.NewHTTPHandler(sendOffer, http.MethodPost, c.SendOffer),
-		cmdutil.NewHTTPHandler(sendProposal, http.MethodPost, c.SendProposal),
-		cmdutil.NewHTTPHandler(sendRequest, http.MethodPost, c.SendRequest),
-		cmdutil.NewHTTPHandler(acceptProposal, http.MethodPost, c.AcceptProposal),
-		cmdutil.NewHTTPHandler(declineProposal, http.MethodPost, c.DeclineProposal),
-		cmdutil.NewHTTPHandler(acceptOffer, http.MethodPost, c.AcceptOffer),
-		cmdutil.NewHTTPHandler(declineOffer, http.MethodPost, c.DeclineOffer),
-		cmdutil.NewHTTPHandler(negotiateProposal, http.MethodPost, c.NegotiateProposal),
-		cmdutil.NewHTTPHandler(acceptRequest, http.MethodPost, c.AcceptRequest),
-		cmdutil.NewHTTPHandler(declineRequest, http.MethodPost, c.DeclineRequest),
-		cmdutil.NewHTTPHandler(acceptCredential, http.MethodPost, c.AcceptCredential),
-		cmdutil.NewHTTPHandler(declineCredential, http.MethodPost, c.DeclineCredential),
+		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
+		cmdutil.NewHTTPHandler(SendOffer, http.MethodPost, c.SendOffer),
+		cmdutil.NewHTTPHandler(SendProposal, http.MethodPost, c.SendProposal),
+		cmdutil.NewHTTPHandler(SendRequest, http.MethodPost, c.SendRequest),
+		cmdutil.NewHTTPHandler(AcceptProposal, http.MethodPost, c.AcceptProposal),
+		cmdutil.NewHTTPHandler(DeclineProposal, http.MethodPost, c.DeclineProposal),
+		cmdutil.NewHTTPHandler(AcceptOffer, http.MethodPost, c.AcceptOffer),
+		cmdutil.NewHTTPHandler(DeclineOffer, http.MethodPost, c.DeclineOffer),
+		cmdutil.NewHTTPHandler(NegotiateProposal, http.MethodPost, c.NegotiateProposal),
+		cmdutil.NewHTTPHandler(AcceptRequest, http.MethodPost, c.AcceptRequest),
+		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
+		cmdutil.NewHTTPHandler(AcceptCredential, http.MethodPost, c.AcceptCredential),
+		cmdutil.NewHTTPHandler(DeclineCredential, http.MethodPost, c.DeclineCredential),
 	}
 }
 

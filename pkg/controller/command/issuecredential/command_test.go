@@ -39,6 +39,9 @@ func TestNew(t *testing.T) {
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
+
+		handlers := cmd.GetHandlers()
+		require.NotEmpty(t, handlers)
 	})
 
 	t.Run("Create client (error)", func(t *testing.T) {

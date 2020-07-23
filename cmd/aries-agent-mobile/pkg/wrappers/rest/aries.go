@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
+	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -66,4 +67,14 @@ func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	}
 
 	return &DIDExchange{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetIssueCredentialController returns an IssueCredential instance
+func (ar *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
+	endpoints, ok := ar.endpoints[opisscred.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", opisscred.OperationID)
+	}
+
+	return &IssueCredential{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

@@ -46,8 +46,8 @@ func TestOperation_AcceptProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposal), nil,
-			strings.Replace(acceptProposal, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptProposal), nil,
+			strings.Replace(AcceptProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -60,9 +60,9 @@ func TestOperation_AcceptProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposal),
+			handlerLookup(t, operation, AcceptProposal),
 			bytes.NewBufferString(`{"offer_credential":{}}`),
-			strings.Replace(acceptProposal, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -79,9 +79,9 @@ func TestOperation_AcceptOffer(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptOffer),
+			handlerLookup(t, operation, AcceptOffer),
 			nil,
-			strings.Replace(acceptOffer, `{piid}`, "1234", 1),
+			strings.Replace(AcceptOffer, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -98,8 +98,8 @@ func TestOperation_AcceptRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequest), nil,
-			strings.Replace(acceptRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequest), nil,
+			strings.Replace(AcceptRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -112,9 +112,9 @@ func TestOperation_AcceptRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequest),
+			handlerLookup(t, operation, AcceptRequest),
 			bytes.NewBufferString(`{"issue_credential":{}}`),
-			strings.Replace(acceptRequest, `{piid}`, "1234", 1),
+			strings.Replace(AcceptRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -131,8 +131,8 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, negotiateProposal), nil,
-			strings.Replace(negotiateProposal, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, NegotiateProposal), nil,
+			strings.Replace(NegotiateProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -145,9 +145,9 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, negotiateProposal),
+			handlerLookup(t, operation, NegotiateProposal),
 			bytes.NewBufferString(`{"propose_credential":{}}`),
-			strings.Replace(negotiateProposal, `{piid}`, "1234", 1),
+			strings.Replace(NegotiateProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -164,8 +164,8 @@ func TestOperation_AcceptCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptCredential), nil,
-			strings.Replace(acceptCredential, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptCredential), nil,
+			strings.Replace(AcceptCredential, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -178,9 +178,9 @@ func TestOperation_AcceptCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptCredential),
+			handlerLookup(t, operation, AcceptCredential),
 			bytes.NewBufferString(`{}`),
-			strings.Replace(acceptCredential, `{piid}`, "1234", 1),
+			strings.Replace(AcceptCredential, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -192,9 +192,9 @@ func TestOperation_AcceptCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptCredential),
+			handlerLookup(t, operation, AcceptCredential),
 			bytes.NewBufferString(`{"names":[]}`),
-			strings.Replace(acceptCredential, `{piid}`, "1234", 1),
+			strings.Replace(AcceptCredential, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -211,9 +211,9 @@ func TestOperation_DeclineProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineProposal),
+			handlerLookup(t, operation, DeclineProposal),
 			nil,
-			strings.Replace(declineProposal, `{piid}`, "1234", 1),
+			strings.Replace(DeclineProposal, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -230,9 +230,9 @@ func TestOperation_DeclineOffer(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineOffer),
+			handlerLookup(t, operation, DeclineOffer),
 			nil,
-			strings.Replace(declineOffer, `{piid}`, "1234", 1),
+			strings.Replace(DeclineOffer, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -249,9 +249,9 @@ func TestOperation_DeclineRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineRequest),
+			handlerLookup(t, operation, DeclineRequest),
 			nil,
-			strings.Replace(declineRequest, `{piid}`, "1234", 1),
+			strings.Replace(DeclineRequest, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -268,9 +268,9 @@ func TestOperation_DeclineCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineCredential),
+			handlerLookup(t, operation, DeclineCredential),
 			nil,
-			strings.Replace(declineCredential, `{piid}`, "1234", 1),
+			strings.Replace(DeclineCredential, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
