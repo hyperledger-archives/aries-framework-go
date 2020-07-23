@@ -43,6 +43,8 @@ type Store interface {
 	GetPresentationIDByName(name string) (string, error)
 	GetCredentials() ([]*Record, error)
 	GetPresentations() ([]*Record, error)
+	RemoveCredentialByName(name string) error
+	RemovePresentationByName(name string) error
 }
 
 type record struct {
@@ -227,6 +229,58 @@ func (s *StoreImplementation) GetCredentials() ([]*Record, error) {
 // GetPresentations retrieves the verifiable presenations records containing name and fields of interest.
 func (s *StoreImplementation) GetPresentations() ([]*Record, error) {
 	return s.getAllRecords(presentationNameDataKey(""), getPresentationName)
+}
+
+// RemoveCredentialByName removes the verifiable credential and its records containing given name.
+func (s *StoreImplementation) RemoveCredentialByName(name string) error {
+	if name == "" {
+		return errors.New("credential name is mandatory")
+	}
+
+	id, err := s.GetCredentialIDByName(name)
+	if err != nil {
+		return fmt.Errorf("get credential id using name : %w", err)
+	}
+
+	err = s.remove(id, credentialNameDataKey(name))
+	if err != nil {
+		return fmt.Errorf("unable to delete credential : %w", err)
+	}
+
+	return nil
+}
+
+// RemovePresentationByName removes the verifiable presentation and its records containing given name.
+func (s *StoreImplementation) RemovePresentationByName(name string) error {
+	if name == "" {
+		return errors.New("presentation name is mandatory")
+	}
+
+	id, err := s.GetPresentationIDByName(name)
+	if err != nil {
+		return fmt.Errorf("get presentation id using name : %w", err)
+	}
+
+	err = s.remove(id, presentationNameDataKey(name))
+	if err != nil {
+		return fmt.Errorf("unable to delete presentation : %w", err)
+	}
+
+	return nil
+}
+
+func (s *StoreImplementation) remove(id, recordKey string) error {
+	err := s.store.Delete(id)
+	if err != nil {
+		return fmt.Errorf("unable to delete from store : %w", err)
+	}
+
+	err = s.store.Delete(recordKey)
+	if err != nil {
+		return fmt.Errorf("unable to delete record : %w", err)
+	}
+
+	return nil
 }
 
 func (s *StoreImplementation) getAllRecords(searchKey string, keyPrefix func(string) string) ([]*Record, error) {
