@@ -124,6 +124,34 @@ func (mr *MockStoreMockRecorder) GetPresentations() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPresentations", reflect.TypeOf((*MockStore)(nil).GetPresentations))
 }
 
+// RemoveCredentialByName mocks base method
+func (m *MockStore) RemoveCredentialByName(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveCredentialByName", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveCredentialByName indicates an expected call of RemoveCredentialByName
+func (mr *MockStoreMockRecorder) RemoveCredentialByName(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCredentialByName", reflect.TypeOf((*MockStore)(nil).RemoveCredentialByName), arg0)
+}
+
+// RemovePresentationByName mocks base method
+func (m *MockStore) RemovePresentationByName(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemovePresentationByName", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemovePresentationByName indicates an expected call of RemovePresentationByName
+func (mr *MockStoreMockRecorder) RemovePresentationByName(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePresentationByName", reflect.TypeOf((*MockStore)(nil).RemovePresentationByName), arg0)
+}
+
 // SaveCredential mocks base method
 func (m *MockStore) SaveCredential(arg0 string, arg1 *verifiable.Credential) error {
 	m.ctrl.T.Helper()

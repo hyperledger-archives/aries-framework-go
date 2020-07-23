@@ -669,3 +669,171 @@ func TestGetPresentations(t *testing.T) {
 		require.Equal(t, records[0].SubjectID, udVP.Holder)
 	})
 }
+
+func TestRemoveVC(t *testing.T) {
+	t.Run("test remove vc - success", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		udVC, err := verifiable.ParseCredential([]byte(udCredential),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+		require.NoError(t, s.SaveCredential(sampleCredentialName, udVC))
+
+		id, err := s.GetCredentialIDByName(sampleCredentialName)
+		require.NoError(t, err)
+		require.NotEmpty(t, id)
+
+		vc, err := s.GetCredential(id)
+		require.NoError(t, err)
+		require.Equal(t, vc.Types[0], "VerifiableCredential")
+		require.EqualValues(t, vc.ID,
+			"http://example.edu/credentials/1872")
+
+		err = s.RemoveCredentialByName(sampleCredentialName)
+		require.NoError(t, err)
+
+		_, err = s.GetCredentialIDByName(sampleCredentialName)
+		require.Error(t, err)
+
+		_, err = s.GetCredential(id)
+		require.Error(t, err)
+	})
+	t.Run("test remove vc - error from store delete", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: fmt.Errorf("error delete"),
+			}),
+		})
+		require.NoError(t, err)
+		udVC, err := verifiable.ParseCredential([]byte(udCredential),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+		require.NoError(t, s.SaveCredential(sampleCredentialName, udVC))
+
+		err = s.RemoveCredentialByName(sampleCredentialName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to delete credential")
+	})
+	t.Run("test remove vc - empty name", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store: make(map[string][]byte),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemoveCredentialByName("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential name is mandatory")
+	})
+	t.Run("test remove vc - error removing non-existing credential", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store: make(map[string][]byte),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemoveCredentialByName(sampleCredentialName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get credential id using name")
+	})
+	t.Run("test remove vc - error removing non-existing credential", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: fmt.Errorf("error get"),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemoveCredentialByName(sampleCredentialName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get credential id using name")
+	})
+}
+
+func TestRemoveVP(t *testing.T) {
+	t.Run("test remove vp - success", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
+			verifiable.WithDisabledPresentationProofCheck())
+		require.NoError(t, err)
+		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
+
+		id, err := s.GetPresentationIDByName(samplePresentationName)
+		require.NoError(t, err)
+		require.NotEmpty(t, id)
+
+		vp, err := s.GetPresentation(id)
+		require.NoError(t, err)
+		require.Equal(t, vp.Type[0], "VerifiablePresentation")
+		require.NotEmpty(t, vp.Credentials())
+		require.EqualValues(t, vp.Credentials()[0].(map[string]interface{})["id"],
+			"https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3")
+
+		err = s.RemovePresentationByName(samplePresentationName)
+		require.NoError(t, err)
+
+		_, err = s.GetPresentationIDByName(samplePresentationName)
+		require.Error(t, err)
+
+		_, err = s.GetPresentation(id)
+		require.Error(t, err)
+	})
+
+	t.Run("test remove vp - error from store delete", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: fmt.Errorf("error delete"),
+			}),
+		})
+		require.NoError(t, err)
+		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
+			verifiable.WithDisabledPresentationProofCheck())
+		require.NoError(t, err)
+		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
+
+		err = s.RemovePresentationByName(samplePresentationName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to delete presentation")
+	})
+	t.Run("test remove vp - empty name", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store: make(map[string][]byte),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemovePresentationByName("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "presentation name is mandatory")
+	})
+	t.Run("test remove vp - error removing non-existing presentation", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store: make(map[string][]byte),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemovePresentationByName(samplePresentationName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get presentation id using name")
+	})
+	t.Run("test remove vp - error getting id", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: fmt.Errorf("error get"),
+			}),
+		})
+		require.NoError(t, err)
+		err = s.RemovePresentationByName(samplePresentationName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get presentation id using name")
+	})
+}
