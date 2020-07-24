@@ -20,6 +20,13 @@ A DID document may also contain other attributes or claims describing the DID su
 
 _Reference: https://www.w3.org/TR/did-core/#dfn-did-documents_
 
+### Holder
+
+This is the entity to whom an [issuer](#issuer) issues a credential. Although the holder can request or propose that a credential be issued to them, they may not always be the subjects of a credential.
+
+### Issuer
+The entity that issues a [credential](#verifiable-credential) to a holder.
+
 ### Verifiable Credential
 
 A verifiable credential can represent all of the same information that a physical credential represents. It is a tamper-evident credential that has authorship that can be cryptographically verified.
