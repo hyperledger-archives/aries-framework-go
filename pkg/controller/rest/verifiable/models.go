@@ -28,7 +28,14 @@ type validateCredentialReq struct { // nolint: unused,deadcode
 // emptyRes model
 //
 // swagger:response emptyRes
-type emptyRes struct {
+type emptyRes struct{}
+
+// emptyResponse model
+//
+// swagger:response emptyResponse
+type emptyResponse struct { // nolint:unused,deadcode
+	// in: body
+	Body emptyRes
 }
 
 // saveCredentialReq model
@@ -97,6 +104,32 @@ type getPresentationReq struct { // nolint: unused,deadcode
 //
 // swagger:parameters getCredentialByNameReq
 type getCredentialByNameReq struct { // nolint: unused,deadcode
+	// VC Name
+	//
+	// in: path
+	// required: true
+	Name string `json:"name"`
+}
+
+// removeCredentialByNameReq model
+//
+// This is used to remove the verifiable credential by name.
+//
+// swagger:parameters removeCredentialByNameReq
+type removeCredentialByNameReq struct { // nolint: unused,deadcode
+	// VC Name
+	//
+	// in: path
+	// required: true
+	Name string `json:"name"`
+}
+
+// removePersentationByNameReq model
+//
+// This is used to remove the verifiable persentation by name.
+//
+// swagger:parameters removePersentationByNameReq
+type removePersentationByNameReq struct { // nolint: unused,deadcode
 	// VC Name
 	//
 	// in: path

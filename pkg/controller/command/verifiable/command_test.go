@@ -317,7 +317,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 11, len(handlers))
+		require.Equal(t, 13, len(handlers))
 	})
 
 	t.Run("test new command - vc store error", func(t *testing.T) {
@@ -2073,4 +2073,211 @@ func TestCommand_SignCredential(t *testing.T) {
 
 func stringToJSONRaw(jsonStr string) json.RawMessage {
 	return []byte(jsonStr)
+}
+
+func TestCommand_RemoveVCByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save vc with name
+		vcReq := CredentialExt{
+			Credential: Credential{VerifiableCredential: vc},
+			Name:       sampleCredentialName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SaveCredential(&b, bytes.NewBuffer(vcReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, sampleCredentialName)
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemoveCredentialByName(&remRW, bytes.NewBufferString(jsoStr))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save vc with name
+		vcReq := CredentialExt{
+			Credential: Credential{VerifiableCredential: vc},
+			Name:       sampleCredentialName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SaveCredential(&b, bytes.NewBuffer(vcReqBytes))
+		require.NoError(t, err)
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemoveCredentialByName(&remRW, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "request decode")
+	})
+
+	t.Run("no name", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save vc with name
+		vcReq := CredentialExt{
+			Credential: Credential{VerifiableCredential: vc},
+			Name:       sampleCredentialName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SaveCredential(&b, bytes.NewBuffer(vcReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, "")
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemoveCredentialByName(&remRW, bytes.NewBufferString(jsoStr))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyCredentialName)
+	})
+
+	t.Run("store error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{
+					ErrGet: fmt.Errorf("get error"),
+				},
+			},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, sampleCredentialName)
+
+		var b bytes.Buffer
+		err = cmd.RemoveCredentialByName(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "remove vc by name")
+	})
+}
+
+func TestCommand_RemoveVPByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/presentations/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save presentation
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, samplePresentationName)
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemovePresentationByName(&remRW, bytes.NewBufferString(jsoStr))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("invalid request", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/presentations/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save presentation
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemovePresentationByName(&remRW, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "request decode")
+	})
+
+	t.Run("no name", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/presentations/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save presentation
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, "")
+
+		var remRW bytes.Buffer
+		cmdErr := cmd.RemovePresentationByName(&remRW, bytes.NewBufferString(jsoStr))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyCredentialName)
+	})
+
+	t.Run("store error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{
+					ErrGet: fmt.Errorf("get error"),
+				},
+			},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, samplePresentationName)
+
+		var b bytes.Buffer
+		err = cmd.RemovePresentationByName(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "remove vp by name")
+	})
 }

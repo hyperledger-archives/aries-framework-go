@@ -207,7 +207,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 11, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 13, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -1024,6 +1024,108 @@ func TestSignCredential(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, verifiable.SignCredentialErrorCode,
 			"parse vc : unmarshal new credential", buf.Bytes())
+	})
+}
+
+func TestRemoveVCByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		vcReq := verifiable.CredentialExt{
+			Credential: verifiable.Credential{VerifiableCredential: vc},
+			Name:       sampleCredentialName,
+		}
+		jsonStr, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, SaveCredentialPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		handler = lookupHandler(t, cmd, RemoveCredentialByNamePath, http.MethodPost)
+		_, err = getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/remove/name/%s`,
+			verifiableCredentialPath, sampleCredentialName))
+		require.NoError(t, err)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, RemoveCredentialByNamePath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/remove/name/%s`,
+			verifiableCredentialPath, sampleCredentialName))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.RemoveCredentialByNameErrorCode, "remove vc by name", buf.Bytes())
+	})
+}
+
+func TestRemoveVPByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s[sampleVPID] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, SavePresentationPath, http.MethodPost)
+
+		vpReq := verifiable.PresentationExt{
+			Presentation: verifiable.Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		jsonStr, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+
+		response := emptyRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.Empty(t, response)
+
+		handler = lookupHandler(t, cmd, RemovePresentationByNamePath, http.MethodPost)
+
+		_, err = getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/remove/name/%s`,
+			verifiablePresentationPath, samplePresentationName))
+		require.NoError(t, err)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s[sampleVPID] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, RemovePresentationByNamePath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, nil,
+			fmt.Sprintf(`%s/remove/name/%s`, verifiablePresentationPath, samplePresentationName))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.RemovePresentationByNameErrorCode, "remove vp by name", buf.Bytes())
 	})
 }
 

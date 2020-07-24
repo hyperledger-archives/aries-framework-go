@@ -31,12 +31,13 @@ const (
 	verifiablePresentationPath = VerifiableOperationID + "/presentation"
 
 	// credential paths
-	ValidateCredentialPath  = verifiableCredentialPath + "/validate"
-	SaveCredentialPath      = verifiableCredentialPath
-	GetCredentialPath       = verifiableCredentialPath + "/{id}"
-	GetCredentialByNamePath = verifiableCredentialPath + "/name" + "/{name}"
-	GetCredentialsPath      = VerifiableOperationID + "/credentials"
-	SignCredentialsPath     = VerifiableOperationID + "/signcredential"
+	ValidateCredentialPath     = verifiableCredentialPath + "/validate"
+	SaveCredentialPath         = verifiableCredentialPath
+	GetCredentialPath          = verifiableCredentialPath + "/{id}"
+	GetCredentialByNamePath    = verifiableCredentialPath + "/name" + "/{name}"
+	GetCredentialsPath         = VerifiableOperationID + "/credentials"
+	SignCredentialsPath        = VerifiableOperationID + "/signcredential"
+	RemoveCredentialByNamePath = verifiableCredentialPath + "/remove/name" + "/{name}"
 
 	// presentation paths
 	GeneratePresentationPath     = verifiablePresentationPath + "/generate"
@@ -44,6 +45,7 @@ const (
 	SavePresentationPath         = verifiablePresentationPath
 	GetPresentationPath          = verifiablePresentationPath + "/{id}"
 	GetPresentationsPath         = VerifiableOperationID + "/presentations"
+	RemovePresentationByNamePath = verifiablePresentationPath + "/remove/name" + "/{name}"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -92,6 +94,8 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(SavePresentationPath, http.MethodPost, o.SavePresentation),
 		cmdutil.NewHTTPHandler(GetPresentationPath, http.MethodGet, o.GetPresentation),
 		cmdutil.NewHTTPHandler(GetPresentationsPath, http.MethodGet, o.GetPresentations),
+		cmdutil.NewHTTPHandler(RemoveCredentialByNamePath, http.MethodPost, o.RemoveCredentialByName),
+		cmdutil.NewHTTPHandler(RemovePresentationByNamePath, http.MethodPost, o.RemovePresentationByName),
 	}
 }
 
@@ -239,4 +243,34 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 //        200: presentationRes
 func (o *Operation) GeneratePresentationByID(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.GeneratePresentationByID, rw, req.Body)
+}
+
+// RemoveCredentialByName swagger:route POST /verifiable/credential/remove/name/{name} verifiable removeCredentialByNameReq
+//
+// Removes a verifiable credential by name.
+//
+// Responses:
+//    default: genericError
+//        200: emptyResponse
+func (o *Operation) RemoveCredentialByName(rw http.ResponseWriter, req *http.Request) {
+	name := mux.Vars(req)["name"]
+
+	request := fmt.Sprintf(`{"name":"%s"}`, name)
+
+	rest.Execute(o.command.RemoveCredentialByName, rw, bytes.NewBufferString(request))
+}
+
+// RemovePresentationByName swagger:route POST /verifiable/presentation/remove/name/{name} verifiable removePersentationByNameReq
+//
+// Removes a verifiable presentation by name.
+//
+// Responses:
+//    default: genericError
+//        200: emptyResponse
+func (o *Operation) RemovePresentationByName(rw http.ResponseWriter, req *http.Request) {
+	name := mux.Vars(req)["name"]
+
+	request := fmt.Sprintf(`{"name":"%s"}`, name)
+
+	rest.Execute(o.command.RemovePresentationByName, rw, bytes.NewBufferString(request))
 }
