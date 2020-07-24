@@ -71,6 +71,12 @@ const (
 
 	// SignCredentialErrorCode for sign credential error
 	SignCredentialErrorCode
+
+	// RemoveCredentialByNameErrorCode for remove vc by name errors
+	RemoveCredentialByNameErrorCode
+
+	// RemovePresentationByNameErrorCode for remove vp by name errors
+	RemovePresentationByNameErrorCode
 )
 
 // constants for the Verifiable protocol
@@ -89,6 +95,8 @@ const (
 	GetPresentationsCommandMethod         = "GetPresentations"
 	GeneratePresentationCommandMethod     = "GeneratePresentation"
 	GeneratePresentationByIDCommandMethod = "GeneratePresentationByID"
+	RemoveCredentialByNameCommandMethod   = "RemoveCredentialByName"
+	RemovePresentationByNameCommandMethod = "RemovePresentationByName"
 
 	// error messages
 	errEmptyCredentialName   = "credential name is mandatory"
@@ -206,6 +214,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, SavePresentationCommandMethod, o.SavePresentation),
 		cmdutil.NewCommandHandler(CommandName, GetPresentationCommandMethod, o.GetPresentation),
 		cmdutil.NewCommandHandler(CommandName, GetPresentationsCommandMethod, o.GetPresentations),
+		cmdutil.NewCommandHandler(CommandName, RemoveCredentialByNameCommandMethod, o.RemoveCredentialByName),
+		cmdutil.NewCommandHandler(CommandName, RemovePresentationByNameCommandMethod, o.RemovePresentationByName),
 	}
 }
 
@@ -593,6 +603,68 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 	}
 
 	return o.generatePresentationByID(rw, vc, doc, request.SignatureType)
+}
+
+// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store
+// nolint: dupl
+func (o *Command) RemoveCredentialByName(rw io.Writer, req io.Reader) command.Error {
+	var request NameArg
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RemoveCredentialByNameCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.Name == "" {
+		logutil.LogDebug(logger, CommandName, RemoveCredentialByNameCommandMethod, errEmptyCredentialName)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialName))
+	}
+
+	if err := o.verifiableStore.RemoveCredentialByName(request.Name); err != nil {
+		logutil.LogError(logger, CommandName, RemoveCredentialByNameCommandMethod, "remove vc by name : "+err.Error(),
+			logutil.CreateKeyValueString(vcName, request.Name))
+
+		return command.NewValidationError(RemoveCredentialByNameErrorCode, fmt.Errorf("remove vc by name : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &RemoveCredentialByNameResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, RemoveCredentialByNameCommandMethod, "success",
+		logutil.CreateKeyValueString(vcName, request.Name))
+
+	return nil
+}
+
+// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store
+// nolint: dupl
+func (o *Command) RemovePresentationByName(rw io.Writer, req io.Reader) command.Error {
+	var request NameArg
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RemovePresentationByNameCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.Name == "" {
+		logutil.LogDebug(logger, CommandName, RemovePresentationByNameCommandMethod, errEmptyCredentialName)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialName))
+	}
+
+	if err := o.verifiableStore.RemovePresentationByName(request.Name); err != nil {
+		logutil.LogError(logger, CommandName, RemovePresentationByNameCommandMethod, "remove vp by name : "+err.Error(),
+			logutil.CreateKeyValueString(vcName, request.Name))
+
+		return command.NewValidationError(RemovePresentationByNameErrorCode, fmt.Errorf("remove vp by name : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &RemovePresentationByNameResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, RemovePresentationByNameCommandMethod, "success",
+		logutil.CreateKeyValueString(vcName, request.Name))
+
+	return nil
 }
 
 func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verifiable.Presentation,

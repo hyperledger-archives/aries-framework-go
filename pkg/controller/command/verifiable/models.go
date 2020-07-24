@@ -111,3 +111,11 @@ type RecordResult struct {
 type Presentation struct {
 	VerifiablePresentation json.RawMessage `json:"verifiablePresentation,omitempty"`
 }
+
+// RemoveCredentialByNameResponse is a response model for removing a vc by name
+// from the verifiable store
+type RemoveCredentialByNameResponse struct{}
+
+// RemovePresentationByNameResponse is a response model for removing a vp by name
+// from the verifiable store
+type RemovePresentationByNameResponse struct{}
