@@ -14,4 +14,7 @@ type AriesController interface {
 
 	// GetVerifiableController returns an implementation of VerifiableController
 	GetVerifiableController() (VerifiableController, error)
+
+	// GetIssueCredentialController returns an implementation of IssueCredentialController
+	GetIssueCredentialController() (IssueCredentialController, error)
 }

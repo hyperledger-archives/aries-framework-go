@@ -11,10 +11,12 @@ import (
 
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
+	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
+	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -30,6 +32,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opintroduce.OperationID] = getIntroduceEndpoints()
 	allEndpoints[opverifiable.VerifiableOperationID] = getVerifiableEndpoints()
 	allEndpoints[opdidexch.OperationID] = getDIDExchangeEndpoints()
+	allEndpoints[opisscred.OperationID] = getIssueCredentialEndpoints()
 
 	return allEndpoints
 }
@@ -164,6 +167,63 @@ func getDIDExchangeEndpoints() map[string]*endpoint {
 		},
 		cmddidexch.RemoveConnectionCommandMethod: {
 			Path:   opdidexch.RemoveConnection,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getIssueCredentialEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdisscred.Actions: {
+			Path:   opisscred.Actions,
+			Method: http.MethodGet,
+		},
+		cmdisscred.SendOffer: {
+			Path:   opisscred.SendOffer,
+			Method: http.MethodPost,
+		},
+		cmdisscred.SendProposal: {
+			Path:   opisscred.SendProposal,
+			Method: http.MethodPost,
+		},
+		cmdisscred.SendRequest: {
+			Path:   opisscred.SendRequest,
+			Method: http.MethodPost,
+		},
+		cmdisscred.AcceptProposal: {
+			Path:   opisscred.AcceptProposal,
+			Method: http.MethodPost,
+		},
+		cmdisscred.NegotiateProposal: {
+			Path:   opisscred.NegotiateProposal,
+			Method: http.MethodPost,
+		},
+		cmdisscred.DeclineProposal: {
+			Path:   opisscred.DeclineProposal,
+			Method: http.MethodPost,
+		},
+		cmdisscred.AcceptOffer: {
+			Path:   opisscred.AcceptOffer,
+			Method: http.MethodPost,
+		},
+		cmdisscred.DeclineOffer: {
+			Path:   opisscred.DeclineOffer,
+			Method: http.MethodPost,
+		},
+		cmdisscred.AcceptRequest: {
+			Path:   opisscred.AcceptRequest,
+			Method: http.MethodPost,
+		},
+		cmdisscred.DeclineRequest: {
+			Path:   opisscred.DeclineRequest,
+			Method: http.MethodPost,
+		},
+		cmdisscred.AcceptCredential: {
+			Path:   opisscred.AcceptCredential,
+			Method: http.MethodPost,
+		},
+		cmdisscred.DeclineCredential: {
+			Path:   opisscred.DeclineCredential,
 			Method: http.MethodPost,
 		},
 	}
