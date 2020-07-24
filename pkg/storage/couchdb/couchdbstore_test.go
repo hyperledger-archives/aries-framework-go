@@ -10,11 +10,11 @@ package couchdbstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-kivik/kivik"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ const (
 // To run the tests manually, start an instance by running docker run -p 5984:5984 couchdb:2.3.1 from a terminal.
 
 func TestMain(m *testing.M) {
-	err := waitForCouchDBToStart()
+	err := prepareCouchDB()
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a couchDB instance using" +
@@ -42,33 +42,24 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func waitForCouchDBToStart() error {
+func prepareCouchDB() error {
 	client, err := kivik.New("couch", couchDBURL)
 	if err != nil {
 		return err
 	}
 
-	timeout := time.After(5 * time.Second)
+	dbs, err := client.AllDBs(context.Background())
+	if err != nil {
+		return err
+	}
 
-	for {
-		select {
-		case <-timeout:
-			return fmt.Errorf("timeout: couldn't reach CouchDB server")
-		default:
-			dbs, err := client.AllDBs(context.Background())
-			if err != nil {
-				return err
-			}
-
-			for _, v := range dbs {
-				if err := client.DestroyDB(context.Background(), v); err != nil {
-					panic(err.Error())
-				}
-			}
-
-			return nil
+	for _, v := range dbs {
+		if err := client.DestroyDB(context.Background(), v); err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 func TestCouchDBStore(t *testing.T) {
@@ -99,20 +90,19 @@ func TestCouchDBStore(t *testing.T) {
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
 
-		// test update with invalid key
-		invalidData := []byte(`{"_key1":"value1"}`)
-		err = store.Put(key, invalidData)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to store data")
+		// test update
+		update := []byte(`{"_key1":"value1"}`)
+		err = store.Put(key, update)
+		require.NoError(t, err)
 
 		doc, err = store.Get(key)
 		require.NoError(t, err)
 		require.NotEmpty(t, doc)
-		require.Equal(t, data, doc)
+		require.Equal(t, update, doc)
 
 		did2 := "did:example:789"
 		_, err = store.Get(did2)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, storage.ErrDataNotFound))
 
 		// nil key
 		_, err = store.Get("")
@@ -263,7 +253,7 @@ func TestCouchDBStore(t *testing.T) {
 		require.NoError(t, err)
 
 		const valPrefix = "val-for-%s"
-		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
 
 		for _, key := range keys {
 			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
@@ -277,14 +267,16 @@ func TestCouchDBStore(t *testing.T) {
 		verifyItr(t, itr, 0, "")
 
 		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
-		verifyItr(t, itr, 6, "")
+		verifyItr(t, itr, 7, "")
 
 		itr = store.Iterator("abc_", "mno_123")
-		verifyItr(t, itr, 5, "")
+		verifyItr(t, itr, 6, "")
 	})
 }
 
 func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	t.Helper()
+
 	var vals []string
 
 	for itr.Next() {
@@ -304,7 +296,7 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 	require.Contains(t, itr.Error().Error(), "Iterator is closed")
 }
 
-func TestCouchDBStoreDelete(t *testing.T) {
+func TestCouchDBStore_Delete(t *testing.T) {
 	const commonKey = "did:example:1234"
 
 	prov, err := NewProvider(couchDBURL)
@@ -331,8 +323,7 @@ func TestCouchDBStoreDelete(t *testing.T) {
 	require.EqualError(t, err, "key is mandatory")
 
 	err = store1.Delete("k1")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to delete doc")
+	require.NoError(t, err)
 
 	// finally test Delete an existing key
 	err = store1.Delete(commonKey)

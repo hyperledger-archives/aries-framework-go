@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package leveldb
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -34,7 +35,7 @@ func setupLevelDB(t testing.TB) (string, func()) {
 	}
 }
 
-func TestLevelDBStore(t *testing.T) {
+func TestLeveldbStore(t *testing.T) {
 	path, cleanup := setupLevelDB(t)
 	defer cleanup()
 
@@ -54,9 +55,29 @@ func TestLevelDBStore(t *testing.T) {
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
 
+		// test update
+		data = []byte(`{"key1":"value1"}`)
+		err = store.Put(key, data)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, data, doc)
+
+		// test update
+		update := []byte(`{"_key1":"value1"}`)
+		err = store.Put(key, update)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, update, doc)
+
 		did2 := "did:example:789"
 		_, err = store.Get(did2)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, storage.ErrDataNotFound))
 
 		// nil key
 		_, err = store.Get("")
@@ -150,7 +171,7 @@ func TestLevelDBStore(t *testing.T) {
 		data := []byte("value1")
 
 		storeNames := []string{"store_1", "store_2", "store_3", "store_4", "store_5"}
-		storesToClose := []string{"store_1", "STore_3", "stOre_5"}
+		storesToClose := []string{"store_1", "store_3", "store_5"}
 
 		for _, name := range storeNames {
 			store, e := prov.OpenStore(name)
@@ -213,7 +234,7 @@ func TestLevelDBStore(t *testing.T) {
 		require.NoError(t, err)
 
 		const valPrefix = "val-for-%s"
-		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
 
 		for _, key := range keys {
 			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
@@ -227,14 +248,16 @@ func TestLevelDBStore(t *testing.T) {
 		verifyItr(t, itr, 0, "")
 
 		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
-		verifyItr(t, itr, 6, "")
+		verifyItr(t, itr, 7, "")
 
 		itr = store.Iterator("abc_", "mno_123")
-		verifyItr(t, itr, 5, "")
+		verifyItr(t, itr, 6, "")
 	})
 }
 
 func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	t.Helper()
+
 	var vals []string
 
 	for itr.Next() {
@@ -250,6 +273,8 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 	require.False(t, itr.Next())
 	require.Empty(t, itr.Key())
 	require.Empty(t, itr.Value())
+	require.Error(t, itr.Error())
+	require.Contains(t, itr.Error().Error(), "iterator released")
 }
 
 func cleanupFile(t *testing.T, file *os.File) {
@@ -259,11 +284,11 @@ func cleanupFile(t *testing.T, file *os.File) {
 	}
 }
 
-func TestLevelDBStoreDelete(t *testing.T) {
+func TestLeveldbStore_Delete(t *testing.T) {
 	path, cleanup := setupLevelDB(t)
 	defer cleanup()
 
-	const commonKey = "did:example:1"
+	const commonKey = "did:example:1234"
 
 	prov := NewProvider(path)
 	data := []byte("value1")
@@ -285,6 +310,9 @@ func TestLevelDBStoreDelete(t *testing.T) {
 	// now try Delete with an empty key - should fail
 	err = store1.Delete("")
 	require.EqualError(t, err, "key is mandatory")
+
+	err = store1.Delete("k1")
+	require.NoError(t, err)
 
 	// finally test Delete an existing key
 	err = store1.Delete(commonKey)

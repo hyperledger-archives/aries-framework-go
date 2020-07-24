@@ -42,8 +42,8 @@ const (
 	failToCloseProviderErrMsg = "failed to close provider"
 	tablePrefix               = "t_"
 	sqlDBNotFound             = "no rows"
-	createDBQuery             = "CREATE DATABASE IF NOT EXISTS "
-	useDBQuery                = "USE "
+	createDBQuery             = "CREATE DATABASE IF NOT EXISTS `%s`"
+	useDBQuery                = "USE `%s`"
 )
 
 // Option configures the couchdb provider
@@ -93,7 +93,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		name = p.dbPrefix + "_" + name
 	}
 	// creating the database
-	_, err := p.db.Exec(createDBQuery + name)
+	_, err := p.db.Exec(fmt.Sprintf(createDBQuery, name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create db %s: %w", name, err)
 	}
@@ -105,15 +105,15 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	}
 
 	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err = newDBConn.Exec(useDBQuery + name)
+	_, err = newDBConn.Exec(fmt.Sprintf(useDBQuery, name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to use db %s: %w", name, err)
 	}
 
 	tableName := tablePrefix + name
 	// TODO: Issue-1940 Store the hashed key to control the width of the key varchar column
-	createTableStmt := "CREATE Table IF NOT EXISTS " + tableName +
-		"(`key` varchar(255) NOT NULL ,`value` BLOB, PRIMARY KEY (`key`));"
+	createTableStmt := "CREATE Table IF NOT EXISTS `" + tableName +
+		"` (`key` varchar(255) NOT NULL ,`value` BLOB, PRIMARY KEY (`key`));"
 
 	// creating key-value table inside the database
 	_, err = newDBConn.Exec(createTableStmt)
@@ -172,13 +172,13 @@ func (p *Provider) CloseStore(name string) error {
 
 // Put stores the key and the value
 func (s *sqlDBStore) Put(k string, v []byte) error {
-	if k == "" {
-		return storage.ErrKeyRequired
+	if k == "" || v == nil {
+		return errors.New("key and value are mandatory")
 	}
 
 	//nolint: gosec
 	// create upsert query to insert the record, checking whether the key is already mapped to a value in the store.
-	createStmt := "INSERT INTO " + s.tableName + " VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
+	createStmt := "INSERT INTO `" + s.tableName + "` VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
 	// executing the prepared insert statement
 	_, err := s.db.Exec(createStmt, k, v, v)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	var value []byte
 	//nolint: gosec
 	// select query to fetch the record by key
-	err := s.db.QueryRow("SELECT `value` FROM "+s.tableName+" "+
+	err := s.db.QueryRow("SELECT `value` FROM `"+s.tableName+"` "+
 		" WHERE `key` = ?", k).Scan(&value)
 	if err != nil {
 		if strings.Contains(err.Error(), sqlDBNotFound) {
@@ -217,7 +217,7 @@ func (s *sqlDBStore) Delete(k string) error {
 	}
 	//nolint: gosec
 	// delete query to delete the record by key
-	_, err := s.db.Exec("DELETE FROM "+s.tableName+" WHERE `key`= ?", k)
+	_, err := s.db.Exec("DELETE FROM `"+s.tableName+"` WHERE `key`= ?", k)
 
 	if err != nil {
 		return fmt.Errorf("failed to delete row %w", err)
@@ -236,10 +236,11 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	// reference : https://dev.mysql.com/doc/refman/8.0/en/fulltext-boolean.html
 	if strings.Contains(endKey, storage.EndKeySuffix) {
 		endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "*")
+		endKey = strings.ReplaceAll(endKey, "_", `\_`)
 	}
 	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
-	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` < ? order by `key`"
+	queryStmt := "SELECT * FROM `" + s.tableName + "` WHERE `key` >= ? AND `key` < ? order by `key`"
 
 	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
 	if err != nil {

@@ -13,6 +13,7 @@ echo "Running $0"
 # TODO Fail CI if headless chrome isn't available https://github.com/hyperledger/aries-framework-go/issues/843
 
 PKGS="github.com/hyperledger/aries-framework-go/pkg/storage/jsindexeddb
+github.com/hyperledger/aries-framework-go/pkg/storage
 github.com/hyperledger/aries-framework-go/cmd/aries-js-worker"
 
 cd cmd/aries-js-worker

@@ -83,6 +83,9 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - godot
+    - nestif
+    - testpackage
     - maligned
     - prealloc
 

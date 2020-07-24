@@ -7,17 +7,16 @@ package mysql
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-
-	"github.com/stretchr/testify/require"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -30,7 +29,7 @@ const (
 // docker run -p 3306:3306 --name MYSQLStoreTest -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:8.0.20
 
 func TestMain(m *testing.M) {
-	err := waitForSQLDBToStart()
+	err := checkMySQL()
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a sqlStoreDB instance using" +
@@ -41,37 +40,23 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func waitForSQLDBToStart() error {
+func checkMySQL() error {
 	db, err := sql.Open("mysql", sqlStoreDBURL)
 	if err != nil {
 		return err
 	}
 
-	timeout := time.After(10 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			return fmt.Errorf("timeout: couldn't reach sql db server")
-		default:
-			err := db.Ping()
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-	}
+	return db.Ping()
 }
 
-func TestSQLDBStore(t *testing.T) {
+func TestSqlDBStore(t *testing.T) {
 	t.Run("Test sql db store put and get", func(t *testing.T) {
 		prov, err := NewProvider(sqlStoreDBURL, WithDBPrefix("prefixdb"))
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
 
-		const key = "did:example:124"
+		const key = "did:example:123"
 		data := []byte("value")
 
 		err = store.Put(key, data)
@@ -92,23 +77,40 @@ func TestSQLDBStore(t *testing.T) {
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
 
+		// test update
+		update := []byte(`{"_key1":"value1"}`)
+		err = store.Put(key, update)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, update, doc)
+
 		did2 := "did:example:789"
 		_, err = store.Get(did2)
-		require.Error(t, err)
-		require.Contains(t, storage.ErrDataNotFound.Error(), err.Error())
+		require.True(t, errors.Is(err, storage.ErrDataNotFound))
 
 		// nil key
 		_, err = store.Get("")
 		require.Error(t, err)
 		require.Equal(t, "key is mandatory", err.Error())
 
+		// nil value
+		err = store.Put(key, nil)
+		require.Error(t, err)
+
 		// nil key
 		err = store.Put("", data)
 		require.Error(t, err)
-		require.Equal(t, "key is mandatory", err.Error())
+		require.Equal(t, "key and value are mandatory", err.Error())
 
 		err = prov.Close()
 		require.NoError(t, err)
+
+		// try to get after provider is closed
+		_, err = store.Get(key)
+		require.Error(t, err)
 	})
 
 	t.Run("Test sql multi store put and get", func(t *testing.T) {
@@ -137,6 +139,12 @@ func TestSQLDBStore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
+
+		// get in store 2 - not found
+		doc, err = store2.Get(commonKey)
+		require.Error(t, err)
+		require.Equal(t, err, storage.ErrDataNotFound)
+		require.Empty(t, doc)
 
 		// put in store 2
 		err = store2.Put(commonKey, data)
@@ -249,6 +257,7 @@ func TestSQLDBStore(t *testing.T) {
 		for _, name := range storeNames {
 			store, e := prov.OpenStore(name)
 			require.NoError(t, e)
+			require.NotNil(t, store)
 
 			dataRead, e := store.Get(commonKey)
 			require.NoError(t, e)
@@ -291,32 +300,32 @@ func TestSQLDBStore(t *testing.T) {
 	t.Run("Test sql db store iterator", func(t *testing.T) {
 		prov, err := NewProvider(sqlStoreDBURL)
 		require.NoError(t, err)
-		store, err := prov.OpenStore("testIterator")
+		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
 
 		const valPrefix = "val-for-%s"
-		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
 
 		for _, key := range keys {
 			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
 			require.NoError(t, err)
 		}
 
-		itr := store.Iterator("abc_", "abc"+storage.EndKeySuffix)
+		itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
 		verifyItr(t, itr, 4, "abc_")
 
 		itr = store.Iterator("", "")
 		verifyItr(t, itr, 0, "")
 
-		itr = store.Iterator("abc_", "mno"+storage.EndKeySuffix)
-		verifyItr(t, itr, 6, "")
+		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
+		verifyItr(t, itr, 7, "")
 
 		itr = store.Iterator("abc_", "mno_123")
-		verifyItr(t, itr, 5, "")
+		verifyItr(t, itr, 6, "")
 	})
 }
 
-func TestSQLDBStoreDelete(t *testing.T) {
+func TestCouchDBStore_Delete(t *testing.T) {
 	const commonKey = "did:example:1234"
 
 	prov, err := NewProvider(sqlStoreDBURL)
@@ -342,6 +351,9 @@ func TestSQLDBStoreDelete(t *testing.T) {
 	err = store1.Delete("")
 	require.EqualError(t, err, "key is mandatory")
 
+	err = store1.Delete("k1")
+	require.NoError(t, err)
+
 	// finally test Delete an existing key
 	err = store1.Delete(commonKey)
 	require.NoError(t, err)
@@ -352,6 +364,8 @@ func TestSQLDBStoreDelete(t *testing.T) {
 }
 
 func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	t.Helper()
+
 	var vals []string
 
 	for itr.Next() {
