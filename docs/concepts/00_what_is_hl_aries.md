@@ -31,6 +31,8 @@ _(5)_
 
 ### 3. IssueCredential Protocol
 
+This protocol enables an [issuer](./01_terminologies.md#issuer) to provide a [holder](./01_terminologies.md#holder) with a [verifiable credential](./01_terminologies.md#verifiable-credential). This process can be initiated by the issuer or holder. _(6)_
+
 ### 4. KMS
 
 ### 5. Mediator
@@ -55,3 +57,4 @@ This controller allows for the creation, retrieval, validation and signing of [v
 3. [Hyperledger Aries Wiki](https://wiki.hyperledger.org/display/ARIES/Hyperledger+Aries)
 4. [Aries RFCs - DIDExchange](https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange)
 5. [Aries RFCs - Introduce](https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce)
+6. [Aries RFCs - IssueCredential Choreography Diagram](https://github.com/hyperledger/aries-rfcs/tree/master/features/0453-issue-credential-v2#choreography-diagram)
