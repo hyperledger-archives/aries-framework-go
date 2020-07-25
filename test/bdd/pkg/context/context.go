@@ -25,7 +25,7 @@ import (
 
 var logger = log.New("aries-framework/tests/context")
 
-// BDDContext is a global context shared between different test suites in bddtests
+// BDDContext is a global context shared between different test suites in bddtests.
 type BDDContext struct {
 	OutOfBandClients   map[string]*outofband.Client
 	DIDExchangeClients map[string]*didexchange.Client
@@ -46,7 +46,7 @@ type BDDContext struct {
 	lock               sync.RWMutex
 }
 
-// NewBDDContext create new BDDContext
+// NewBDDContext create new BDDContext.
 func NewBDDContext() *BDDContext {
 	return &BDDContext{
 		OutOfBandClients:   make(map[string]*outofband.Client),
@@ -68,7 +68,7 @@ func NewBDDContext() *BDDContext {
 	}
 }
 
-// Destroy BDD context
+// Destroy BDD context.
 func (b *BDDContext) Destroy() {
 	// close all websocket connections
 	for agentID, conn := range b.webSocketConns {
@@ -85,7 +85,7 @@ func (b *BDDContext) Destroy() {
 	}
 }
 
-// RegisterWebhookURL registers given url to agent id for webhook
+// RegisterWebhookURL registers given url to agent id for webhook.
 func (b *BDDContext) RegisterWebhookURL(agentID, url string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -93,7 +93,7 @@ func (b *BDDContext) RegisterWebhookURL(agentID, url string) {
 	b.webhookURLs[agentID] = url
 }
 
-// GetWebhookURL returns webhook url registered for given agent id
+// GetWebhookURL returns webhook url registered for given agent id.
 func (b *BDDContext) GetWebhookURL(agentID string) (string, bool) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
@@ -103,7 +103,7 @@ func (b *BDDContext) GetWebhookURL(agentID string) (string, bool) {
 	return url, ok
 }
 
-// RegisterControllerURL registers given url to agent id for controller
+// RegisterControllerURL registers given url to agent id for controller.
 func (b *BDDContext) RegisterControllerURL(agentID, url string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -111,7 +111,7 @@ func (b *BDDContext) RegisterControllerURL(agentID, url string) {
 	b.controllerURLs[agentID] = url
 }
 
-// GetControllerURL returns controller url registered for given agent id
+// GetControllerURL returns controller url registered for given agent id.
 func (b *BDDContext) GetControllerURL(agentID string) (string, bool) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
@@ -121,7 +121,7 @@ func (b *BDDContext) GetControllerURL(agentID string) (string, bool) {
 	return url, ok
 }
 
-// RegisterWebSocketConn registers given websocket connection to agent id for web notifications
+// RegisterWebSocketConn registers given websocket connection to agent id for web notifications.
 func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn) {
 	b.lock.Lock()
 	defer b.lock.Unlock()

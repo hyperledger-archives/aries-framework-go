@@ -90,7 +90,7 @@ func (m *MessageService) Name() string {
 	return m.name
 }
 
-// Accept is acceptance criteria for this basic message service,
+// Accept is acceptance criteria for this basic message service.
 func (m *MessageService) Accept(msgType string, purpose []string) bool {
 	return msgType == MessageRequestType
 }

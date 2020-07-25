@@ -58,7 +58,7 @@ func NewBDDSteps() *BDDSteps {
 	}
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (b *BDDSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(
 		`^"([^"]*)" is connected to "([^"]*)" with transport "([^"]*)" on "([^"]*)" port "([^"]*)"$`,

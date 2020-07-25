@@ -84,7 +84,7 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte("success"))         // nolint
 }
 
-// decodeCerts will decode a list of pemCertsList (string) into a list of x509 certificates
+// decodeCerts will decode a list of pemCertsList (string) into a list of x509 certificates.
 func decodeCerts(pemCertsList []string) []*x509.Certificate {
 	var certs []*x509.Certificate
 

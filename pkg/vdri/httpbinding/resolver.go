@@ -29,7 +29,7 @@ type didResolution struct {
 	MethodMetadata   map[string]interface{} `json:"methodMetadata"`
 }
 
-// resolveDID makes DID resolution via HTTP
+// resolveDID makes DID resolution via HTTP.
 func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {

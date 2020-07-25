@@ -96,7 +96,7 @@ func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 	return cipher.Open(nil, nonce, payload, []byte(pldAAD))
 }
 
-// findRecipient will loop through jweRecipients and returns the first matching key from the legacyKMS
+// findRecipient will loop through jweRecipients and returns the first matching key from the legacyKMS.
 func (p *Packer) findRecipient(jweRecipients []*jose.Recipient) (*[chacha.KeySize]byte, *jose.Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
@@ -114,7 +114,7 @@ func (p *Packer) findRecipient(jweRecipients []*jose.Recipient) (*[chacha.KeySiz
 	return pubK, jweRecipients[i], nil
 }
 
-// decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey
+// decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey.
 func (p *Packer) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *jose.Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {

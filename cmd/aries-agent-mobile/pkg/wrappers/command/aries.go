@@ -144,7 +144,7 @@ func populateHandlers(commands []command.Handler, pkgMap map[string]map[string]c
 	}
 }
 
-// GetIntroduceController returns an Introduce instance
+// GetIntroduceController returns an Introduce instance.
 func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	handlers, ok := a.handlers[cmdintroduce.CommandName]
 	if !ok {
@@ -154,7 +154,7 @@ func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	return &Introduce{handlers: handlers}, nil
 }
 
-// GetVerifiableController returns a Verifiable instance
+// GetVerifiableController returns a Verifiable instance.
 func (a *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	handlers, ok := a.handlers[cmdverifiable.CommandName]
 	if !ok {
@@ -164,7 +164,7 @@ func (a *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	return &Verifiable{handlers: handlers}, nil
 }
 
-// GetDIDExchangeController returns a DIDExchange instance
+// GetDIDExchangeController returns a DIDExchange instance.
 func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	handlers, ok := a.handlers[cmddidexch.CommandName]
 	if !ok {
@@ -174,7 +174,7 @@ func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	return &DIDExchange{handlers: handlers}, nil
 }
 
-// GetIssueCredentialController returns an IssueCredential instance
+// GetIssueCredentialController returns an IssueCredential instance.
 func (a *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
 	handlers, ok := a.handlers[cmdisscred.CommandName]
 	if !ok {

@@ -35,7 +35,7 @@ import (
 
 const timeout = time.Second * 2
 
-// SDKSteps is steps for introduce using client SDK
+// SDKSteps is steps for introduce using client SDK.
 type SDKSteps struct {
 	bddContext      *context.BDDContext
 	didExchangeSDKS *didexchangebdd.SDKSteps
@@ -45,7 +45,7 @@ type SDKSteps struct {
 	events          map[string]chan service.StateMsg
 }
 
-// NewIntroduceSDKSteps creates steps for introduce with SDK
+// NewIntroduceSDKSteps creates steps for introduce with SDK.
 func NewIntroduceSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		clients: make(map[string]*introduce.Client),
@@ -54,12 +54,12 @@ func NewIntroduceSDKSteps() *SDKSteps {
 	}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)"$`, a.sendProposal)
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band request$`,

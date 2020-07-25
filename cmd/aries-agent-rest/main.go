@@ -30,7 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
 
-// This is an application which starts Aries agent controller API on given port
+// This is an application which starts Aries agent controller API on given port.
 func main() {
 	rootCmd := &cobra.Command{
 		Use: "aries-agent-rest",

@@ -30,17 +30,17 @@ const (
 
 var logger = log.New("aries-framework/didresolver-tests")
 
-// Steps for DID resolver tests
+// Steps for DID resolver tests.
 type Steps struct {
 	bddContext *bddctx.BDDContext
 }
 
-// NewDIDResolverSteps returns new steps for DID resolver tests
+// NewDIDResolverSteps returns new steps for DID resolver tests.
 func NewDIDResolverSteps() *Steps {
 	return &Steps{}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *Steps) SetContext(ctx *bddctx.BDDContext) {
 	d.bddContext = ctx
 }
@@ -49,7 +49,7 @@ func (d *Steps) createDIDDocument(agents, method string) error {
 	return createDIDDocument(d.bddContext, agents, "")
 }
 
-// CreateDIDDocument creates DIDDocument
+// CreateDIDDocument creates DIDDocument.
 func CreateDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 	return createDIDDocument(ctx, agents, keyType)
 }
@@ -120,7 +120,7 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 	return doc, err
 }
 
-// RegisterSteps registers did exchange steps
+// RegisterSteps registers did exchange steps.
 func (d *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates public DID for did method "([^"]*)"`, d.createDIDDocument)
 	s.Step(`^"([^"]*)" agent successfully resolves DID document$`, d.resolveDID)

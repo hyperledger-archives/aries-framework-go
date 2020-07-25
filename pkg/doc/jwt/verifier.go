@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	// signatureEdDSA defines EdDSA alg
+	// signatureEdDSA defines EdDSA alg.
 	signatureEdDSA = "EdDSA"
 
-	// signatureRS256 defines RS256 alg
+	// signatureRS256 defines RS256 alg.
 	signatureRS256 = "RS256"
 )
 
@@ -37,7 +37,7 @@ type KeyResolver interface {
 	Resolve(what, kid string) (*verifier.PublicKey, error)
 }
 
-// KeyResolverFunc defines function
+// KeyResolverFunc defines function.
 type KeyResolverFunc func(what, kid string) (*verifier.PublicKey, error)
 
 // Resolve resolves public key.

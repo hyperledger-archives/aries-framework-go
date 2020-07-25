@@ -6,14 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package service
 
-// StateMsgType state msg type
+// StateMsgType state msg type.
 type StateMsgType int
 
 const (
-	// PreState pre state
+	// PreState pre state.
 	PreState StateMsgType = iota
 
-	// PostState post state
+	// PostState post state.
 	PostState
 )
 
@@ -70,7 +70,7 @@ type DIDCommAction struct {
 }
 
 // EventProperties type for event related data.
-// NOTE: Properties always should be serializable
+// NOTE: Properties always should be serializable.
 type EventProperties interface {
 	All() map[string]interface{}
 }
@@ -109,6 +109,6 @@ func AutoExecuteActionEvent(ch chan DIDCommAction) {
 	}
 }
 
-// Empty is used if there are no arguments to Continue
+// Empty is used if there are no arguments to Continue.
 type Empty struct {
 }

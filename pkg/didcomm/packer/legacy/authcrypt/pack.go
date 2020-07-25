@@ -20,7 +20,7 @@ import (
 )
 
 // Pack will encode the payload argument
-// Using the protocol defined by Aries RFC 0019
+// Using the protocol defined by Aries RFC 0019.
 func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte, error) {
 	var err error
 
@@ -118,7 +118,7 @@ func (p *Packer) buildRecipients(cek *[chacha.KeySize]byte, senderKey []byte, re
 }
 
 // buildRecipient encodes the necessary data for the recipient to decrypt the message
-// 	encrypting the CEK and sender Pub key
+// encrypting the CEK and sender Pub key.
 func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []byte) (*recipient, error) { // nolint: lll
 	var nonce [24]byte
 

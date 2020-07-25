@@ -388,7 +388,7 @@ type mockProvider struct {
 	protocolStateStore      storage.Store
 }
 
-// ProtocolStateStorageProvider is mock protocol state storage provider for connection recorder
+// ProtocolStateStorageProvider is mock protocol state storage provider for connection recorder.
 func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
 	if p.protocolStateStoreError != nil {
 		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.protocolStateStoreError}
@@ -401,7 +401,7 @@ func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return mockstorage.NewMockStoreProvider()
 }
 
-// StorageProvider is mock storage provider for connection recorder
+// StorageProvider is mock storage provider for connection recorder.
 func (p *mockProvider) StorageProvider() storage.Provider {
 	if p.storeError != nil {
 		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.storeError}

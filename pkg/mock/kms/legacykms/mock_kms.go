@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
-// CloseableKMS mock Key Management Service (LegacyKMS)
+// CloseableKMS mock Key Management Service (LegacyKMS).
 type CloseableKMS struct {
 	CreateEncryptionKeyValue string
 	CreateKeyErr             error
@@ -41,7 +41,7 @@ func (m *CloseableKMS) CreateKeySet() (string, string, error) {
 	return m.CreateEncryptionKeyValue, m.CreateSigningKeyValue, m.CreateKeyErr
 }
 
-// FindVerKey return a verification key from the list of candidates
+// FindVerKey return a verification key from the list of candidates.
 func (m *CloseableKMS) FindVerKey(candidateKeys []string) (int, error) {
 	return m.FindVerKeyValue, m.FindVerKeyErr
 }
@@ -52,17 +52,17 @@ func (m *CloseableKMS) SignMessage(message []byte, fromVerKey string) ([]byte, e
 }
 
 // DeriveKEK derives a key encryption key from two keys
-// mocked to return empty derived KEK
+// mocked to return empty derived KEK.
 func (m *CloseableKMS) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	return []byte(""), nil
 }
 
-// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument.
 func (m *CloseableKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	return m.EncryptionKeyValue, m.EncryptionKeyErr
 }
 
-// ConvertToEncryptionKey converts the keypair containing the given verkey to an encryption keypair
+// ConvertToEncryptionKey converts the keypair containing the given verkey to an encryption keypair.
 func (m *CloseableKMS) ConvertToEncryptionKey(key []byte) ([]byte, error) {
 	return m.EncryptionKeyValue, m.EncryptionKeyErr
 }

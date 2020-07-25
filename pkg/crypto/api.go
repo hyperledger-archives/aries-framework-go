@@ -9,7 +9,7 @@ package crypto
 // package crypto contains the Crypto interface to be used by the framework.
 // it will be created via Options creation in pkg/framework/context.Provider
 
-// Crypto interface provides all crypto operations needed in the Aries framework
+// Crypto interface provides all crypto operations needed in the Aries framework.
 type Crypto interface {
 	// Encrypt will encrypt msg and aad using a matching AEAD primitive in kh key handle
 	// returns:

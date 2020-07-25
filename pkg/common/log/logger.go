@@ -14,7 +14,7 @@ import (
 
 //nolint:lll
 const (
-	// loggerNotInitializedMsg is used when a logger is not initialized before logging
+	// loggerNotInitializedMsg is used when a logger is not initialized before logging.
 	loggerNotInitializedMsg = "Default logger initialized (please call log.Initialize() if you wish to use a custom logger)"
 	loggerModule            = "aries-framework/common"
 )
@@ -36,33 +36,33 @@ func New(module string) *Log {
 }
 
 // Fatalf calls Fatalf function of underlying logger
-// should possibly cause system shutdown based on implementation
+// should possibly cause system shutdown based on implementation.
 func (l *Log) Fatalf(msg string, args ...interface{}) {
 	l.logger().Fatalf(msg, args...)
 }
 
 // Panicf calls Panic function of underlying logger
-// should possibly cause panic based on implementation
+// should possibly cause panic based on implementation.
 func (l *Log) Panicf(msg string, args ...interface{}) {
 	l.logger().Panicf(msg, args...)
 }
 
-// Debugf calls Debugf function of underlying logger
+// Debugf calls Debugf function of underlying logger.
 func (l *Log) Debugf(msg string, args ...interface{}) {
 	l.logger().Debugf(msg, args...)
 }
 
-// Infof calls Infof function of underlying logger
+// Infof calls Infof function of underlying logger.
 func (l *Log) Infof(msg string, args ...interface{}) {
 	l.logger().Infof(msg, args...)
 }
 
-// Warnf calls Warnf function of underlying logger
+// Warnf calls Warnf function of underlying logger.
 func (l *Log) Warnf(msg string, args ...interface{}) {
 	l.logger().Warnf(msg, args...)
 }
 
-// Errorf calls Errorf function of underlying logger
+// Errorf calls Errorf function of underlying logger.
 func (l *Log) Errorf(msg string, args ...interface{}) {
 	l.logger().Errorf(msg, args...)
 }
@@ -80,7 +80,7 @@ func (l *Log) logger() Logger {
 //  module is module name
 //  level is logging level
 //
-// If not set default logging level is info
+// If not set default logging level is info.
 func SetLevel(module string, level Level) {
 	metadata.SetLevel(module, metadata.Level(level))
 }
@@ -92,7 +92,7 @@ func SetLevel(module string, level Level) {
 //  Returns:
 //  logging level
 //
-// If not set default logging level is info
+// If not set default logging level is info.
 func GetLevel(module string) Level {
 	return Level(metadata.GetLevel(module))
 }
@@ -105,7 +105,7 @@ func GetLevel(module string) Level {
 //  Returns:
 //  is logging enabled for this module and level
 //
-// If not set default logging level is info
+// If not set default logging level is info.
 func IsEnabledFor(module string, level Level) bool {
 	return metadata.IsEnabledFor(module, metadata.Level(level))
 }

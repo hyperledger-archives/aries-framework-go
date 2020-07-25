@@ -53,7 +53,7 @@ func getVCredential() *verifiable.Credential {
 	}
 }
 
-// SDKSteps is steps for the issuecredential using client SDK
+// SDKSteps is steps for the issuecredential using client SDK.
 type SDKSteps struct {
 	bddContext *context.BDDContext
 	clients    map[string]*issuecredential.Client
@@ -61,7 +61,7 @@ type SDKSteps struct {
 	events     map[string]chan service.StateMsg
 }
 
-// NewIssueCredentialSDKSteps creates steps for the issuecredential with SDK
+// NewIssueCredentialSDKSteps creates steps for the issuecredential with SDK.
 func NewIssueCredentialSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		clients: make(map[string]*issuecredential.Client),
@@ -70,12 +70,12 @@ func NewIssueCredentialSDKSteps() *SDKSteps {
 	}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" requests credential from "([^"]*)"$`, a.sendsRequest)
 	s.Step(`^"([^"]*)" accepts request and sends credential to the Holder$`, a.acceptRequest)
@@ -243,7 +243,7 @@ type prop interface {
 	TheirDID() string
 }
 
-// CheckProperties checks properties
+// CheckProperties checks properties.
 func CheckProperties(action service.DIDCommAction) error {
 	properties, ok := action.Properties.(prop)
 	if !ok {

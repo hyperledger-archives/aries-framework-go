@@ -11,13 +11,13 @@ import (
 	"strings"
 )
 
-// DockerHelper helper for docker specific functions
+// DockerHelper helper for docker specific functions.
 type DockerHelper interface {
 	GetIPAddress(containerID string) (string, error)
 	RemoveContainersWithNamePrefix(namePrefix string) error
 }
 
-// NewDockerCmdlineHelper returns a new command line DockerHelper instance
+// NewDockerCmdlineHelper returns a new command line DockerHelper instance.
 func NewDockerCmdlineHelper() DockerHelper {
 	return &dockerCmdlineHelper{}
 }

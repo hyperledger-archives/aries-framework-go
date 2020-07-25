@@ -36,7 +36,7 @@ type (
 	// IssueCredential contains as attached payload the credentials being issued and is
 	// sent in response to a valid Request Credential message.
 	IssueCredential issuecredential.IssueCredential
-	// Action contains helpful information about action
+	// Action contains helpful information about action.
 	Action issuecredential.Action
 )
 
@@ -53,13 +53,13 @@ type ProtocolService interface {
 	ActionStop(piID string, err error) error
 }
 
-// Client enable access to issuecredential API
+// Client enable access to issuecredential API.
 type Client struct {
 	service.Event
 	service ProtocolService
 }
 
-// New return new instance of the issuecredential client
+// New return new instance of the issuecredential client.
 func New(ctx Provider) (*Client, error) {
 	raw, err := ctx.Service(issuecredential.Name)
 	if err != nil {
@@ -77,7 +77,7 @@ func New(ctx Provider) (*Client, error) {
 	}, nil
 }
 
-// Actions returns unfinished actions for the async usage
+// Actions returns unfinished actions for the async usage.
 func (c *Client) Actions() ([]Action, error) {
 	actions, err := c.service.Actions()
 	if err != nil {
@@ -149,7 +149,7 @@ func (c *Client) DeclineOffer(piID, reason string) error {
 }
 
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
-// NOTE: For async usage. This function can be used only after receiving OfferCredential
+// NOTE: For async usage. This function can be used only after receiving OfferCredential.
 func (c *Client) NegotiateProposal(piID string, msg *ProposeCredential) error {
 	return c.service.ActionContinue(piID, WithProposeCredential(msg))
 }
@@ -179,28 +179,28 @@ func (c *Client) DeclineCredential(piID, reason string) error {
 }
 
 // WithProposeCredential allows providing ProposeCredential message
-// USAGE: This message should be provided after receiving an OfferCredential message
+// USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
 	origin := issuecredential.ProposeCredential(*msg)
 	return issuecredential.WithProposeCredential(&origin)
 }
 
 // WithOfferCredential allows providing OfferCredential message
-// USAGE: This message should be provided after receiving a ProposeCredential message
+// USAGE: This message should be provided after receiving a ProposeCredential message.
 func WithOfferCredential(msg *OfferCredential) issuecredential.Opt {
 	origin := issuecredential.OfferCredential(*msg)
 	return issuecredential.WithOfferCredential(&origin)
 }
 
 // WithIssueCredential allows providing IssueCredential message
-// USAGE: This message should be provided after receiving a RequestCredential message
+// USAGE: This message should be provided after receiving a RequestCredential message.
 func WithIssueCredential(msg *IssueCredential) issuecredential.Opt {
 	origin := issuecredential.IssueCredential(*msg)
 	return issuecredential.WithIssueCredential(&origin)
 }
 
 // WithFriendlyNames allows providing names for the credentials.
-// USAGE: This function should be used when the Holder receives IssueCredential message
+// USAGE: This function should be used when the Holder receives IssueCredential message.
 func WithFriendlyNames(names ...string) issuecredential.Opt {
 	return issuecredential.WithFriendlyNames(names...)
 }

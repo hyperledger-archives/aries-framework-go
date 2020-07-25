@@ -20,7 +20,7 @@ const (
 	errTimeoutWaitingForMsg = "timeout waiting for incoming message"
 )
 
-// genericInviteMsg is the sample generic invite message
+// genericInviteMsg is the sample generic invite message.
 type genericInviteMsg struct {
 	ID      string   `json:"@id"`
 	Type    string   `json:"@type"`
@@ -29,7 +29,7 @@ type genericInviteMsg struct {
 	From    string   `json:"from"`
 }
 
-// newMessageService returns new message service instance
+// newMessageService returns new message service instance.
 func newMessageService(name, msgType string, purpose []string) *msgService {
 	return &msgService{
 		name:     name,
@@ -39,7 +39,7 @@ func newMessageService(name, msgType string, purpose []string) *msgService {
 	}
 }
 
-// msgService is basic message service implementation
+// msgService is basic message service implementation.
 type msgService struct {
 	name     string
 	purpose  []string

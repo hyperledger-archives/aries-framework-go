@@ -89,7 +89,7 @@ func TestServiceNew(t *testing.T) {
 	})
 }
 
-// did-exchange flow with role Inviter
+// did-exchange flow with role Inviter.
 func TestService_Handle_Inviter(t *testing.T) {
 	mockStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
 	prov := &protocol.MockProvider{
@@ -231,7 +231,7 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 	}
 }
 
-// did-exchange flow with role Invitee
+// did-exchange flow with role Invitee.
 func TestService_Handle_Invitee(t *testing.T) {
 	protocolStateStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
@@ -677,22 +677,22 @@ type mockStore struct {
 	delete func(string) error
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (m *mockStore) Put(k string, v []byte) error {
 	return m.put(k, v)
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
 }
 
-// Delete the record based on key
+// Delete the record based on key.
 func (m *mockStore) Delete(k string) error {
 	return m.delete(k)
 }
 
-// Search returns storage iterator
+// Search returns storage iterator.
 func (m *mockStore) Iterator(start, limit string) storage.StoreIterator {
 	return nil
 }

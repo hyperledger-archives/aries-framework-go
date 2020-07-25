@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 )
 
-// IntroduceController defines methods for the introduce protocol controller
+// IntroduceController defines methods for the introduce protocol controller.
 type IntroduceController interface {
 
 	// Actions returns unfinished actions for the async usage.

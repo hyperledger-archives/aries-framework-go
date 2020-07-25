@@ -22,17 +22,17 @@ type Notifier interface {
 	Notify(topic string, message []byte) error
 }
 
-// Observer instance
+// Observer instance.
 type Observer struct {
 	notifier Notifier
 }
 
-// NewObserver returns observer
+// NewObserver returns observer.
 func NewObserver(notifier Notifier) *Observer {
 	return &Observer{notifier: notifier}
 }
 
-// RegisterAction registers action channel to observer events
+// RegisterAction registers action channel to observer events.
 func (o *Observer) RegisterAction(topic string, ch <-chan service.DIDCommAction) {
 	go func() {
 		for action := range ch {
@@ -41,7 +41,7 @@ func (o *Observer) RegisterAction(topic string, ch <-chan service.DIDCommAction)
 	}()
 }
 
-// RegisterStateMsg registers state channel to observer events
+// RegisterStateMsg registers state channel to observer events.
 func (o *Observer) RegisterStateMsg(topic string, ch <-chan service.StateMsg) {
 	go func() {
 		for msg := range ch {
@@ -63,7 +63,7 @@ func (o *Observer) notify(topic string, v interface{}) {
 	}
 }
 
-// StateMsg represents service.StateMsg
+// StateMsg represents service.StateMsg.
 type StateMsg struct {
 	ProtocolName string                 `json:",omitempty"`
 	Type         string                 `json:",omitempty"`
@@ -94,7 +94,7 @@ func toStateMsg(e service.StateMsg) *StateMsg {
 	return stateMsg
 }
 
-// Action represents service.DIDCommAction
+// Action represents service.DIDCommAction.
 type Action struct {
 	ProtocolName string                 `json:",omitempty"`
 	Message      service.DIDCommMsgMap  `json:",omitempty"`

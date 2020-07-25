@@ -58,7 +58,7 @@ func (e eventProps) Err() error {
 	return e.err
 }
 
-// All implements EventProperties interface
+// All implements EventProperties interface.
 func (e eventProps) All() map[string]interface{} {
 	if e.myDID != "" {
 		e.properties[myDIDPropKey] = e.myDID

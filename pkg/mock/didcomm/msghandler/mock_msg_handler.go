@@ -18,12 +18,12 @@ import (
 
 const errNeverRegistered = "failed to unregister, unable to find registered message service with name `%s`"
 
-// NewMockMsgServiceProvider returns new custom mock message handler
+// NewMockMsgServiceProvider returns new custom mock message handler.
 func NewMockMsgServiceProvider() *MockMsgSvcProvider {
 	return &MockMsgSvcProvider{svcs: []dispatcher.MessageService{}}
 }
 
-// MockMsgSvcProvider is mock message handler
+// MockMsgSvcProvider is mock message handler.
 type MockMsgSvcProvider struct {
 	svcs          []dispatcher.MessageService
 	RegisterErr   error
@@ -31,7 +31,7 @@ type MockMsgSvcProvider struct {
 	lock          sync.RWMutex
 }
 
-// Services returns message services registered to this mock message handler
+// Services returns message services registered to this mock message handler.
 func (m *MockMsgSvcProvider) Services() []dispatcher.MessageService {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -39,7 +39,7 @@ func (m *MockMsgSvcProvider) Services() []dispatcher.MessageService {
 	return m.svcs
 }
 
-// Register registers given message services to this mock message handler
+// Register registers given message services to this mock message handler.
 func (m *MockMsgSvcProvider) Register(msgSvcs ...dispatcher.MessageService) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -49,7 +49,7 @@ func (m *MockMsgSvcProvider) Register(msgSvcs ...dispatcher.MessageService) erro
 	return m.RegisterErr
 }
 
-// Unregister unregisters given message services from this mock message handler
+// Unregister unregisters given message services from this mock message handler.
 func (m *MockMsgSvcProvider) Unregister(name string) error {
 	if m.UnregisterErr != nil {
 		return m.UnregisterErr

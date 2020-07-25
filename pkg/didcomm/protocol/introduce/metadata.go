@@ -23,12 +23,12 @@ const (
 	metaAttachment   = Introduce + "_attachment"
 )
 
-// Opt describes option signature for the Continue function
+// Opt describes option signature for the Continue function.
 type Opt func(m map[string]interface{})
 
 // WithOOBRequest is used when introducee wants to provide an out-of-band request.
 // NOTE: Introducee can provide this request only after receiving ProposalMsgType
-// USAGE: event.Continue(WithOOBRequest(req))
+// USAGE: event.Continue(WithOOBRequest(req)).
 func WithOOBRequest(req *outofband.Request, attachments ...*decorator.Attachment) Opt {
 	return func(m map[string]interface{}) {
 		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
@@ -38,7 +38,7 @@ func WithOOBRequest(req *outofband.Request, attachments ...*decorator.Attachment
 
 // WithPublicOOBRequest is used when introducer wants to provide public an out-of-band request.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicOOBRequest(req, to))
+// USAGE: event.Continue(WithPublicOOBRequest(req, to)).
 func WithPublicOOBRequest(req *outofband.Request, to *To) Opt {
 	return func(m map[string]interface{}) {
 		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
@@ -52,7 +52,7 @@ func WithPublicOOBRequest(req *outofband.Request, to *To) Opt {
 // WithRecipients is used when the introducer does not have a public invitation
 // but he is willing to introduce agents to each other.
 // NOTE: Introducer can provide recipients only after receiving RequestMsgType.
-// USAGE: event.Continue(WithRecipients(to, recipient))
+// USAGE: event.Continue(WithRecipients(to, recipient)).
 func WithRecipients(to *To, recipient *Recipient) Opt {
 	return func(m map[string]interface{}) {
 		m[metaRecipients] = []interface{}{

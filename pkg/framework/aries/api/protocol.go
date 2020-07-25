@@ -22,10 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
-// ErrSvcNotFound is returned when service not found
+// ErrSvcNotFound is returned when service not found.
 var ErrSvcNotFound = errors.New("service not found")
 
-// Provider interface for protocol ctx
+// Provider interface for protocol ctx.
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	Messenger() service.Messenger
@@ -46,10 +46,10 @@ type Provider interface {
 	VerifiableStore() verifiable.Store
 }
 
-// ProtocolSvcCreator method to create new protocol service
+// ProtocolSvcCreator method to create new protocol service.
 type ProtocolSvcCreator func(prv Provider) (dispatcher.ProtocolService, error)
 
-// MessageServiceProvider is provider of message services
+// MessageServiceProvider is provider of message services.
 type MessageServiceProvider interface {
 	// Services returns list of available message services in this message handler
 	Services() []dispatcher.MessageService

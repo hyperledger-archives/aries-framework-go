@@ -282,7 +282,7 @@ type SchemaCache interface {
 	Get(k string) ([]byte, bool)
 }
 
-// cache defines a cache interface
+// cache defines a cache interface.
 type cache interface {
 	Set(k, v []byte)
 
@@ -328,7 +328,7 @@ func (b *CredentialSchemaLoaderBuilder) SetCache(cache SchemaCache) *CredentialS
 	return b
 }
 
-// SetJSONLoader defines gojsonschema.JSONLoader
+// SetJSONLoader defines gojsonschema.JSONLoader.
 func (b *CredentialSchemaLoaderBuilder) SetJSONLoader(loader gojsonschema.JSONLoader) *CredentialSchemaLoaderBuilder {
 	b.loader.jsonLoader = loader
 	return b
@@ -386,10 +386,10 @@ func (sc *ExpirableSchemaCache) Get(k string) ([]byte, bool) {
 	return b[numBytesTime:], true
 }
 
-// Evidence defines evidence of Verifiable Credential
+// Evidence defines evidence of Verifiable Credential.
 type Evidence interface{}
 
-// Issuer of the Verifiable Credential
+// Issuer of the Verifiable Credential.
 type Issuer struct {
 	ID string `json:"id,omitempty"`
 
@@ -445,7 +445,7 @@ func (i *Issuer) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-// Subject of the Verifiable Credential
+// Subject of the Verifiable Credential.
 type Subject struct {
 	ID string `json:"id,omitempty"`
 
@@ -495,7 +495,7 @@ func (s *Subject) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-// Credential Verifiable Credential definition
+// Credential Verifiable Credential definition.
 type Credential struct {
 	Context       []string
 	CustomContext []interface{}
@@ -516,7 +516,7 @@ type Credential struct {
 	CustomFields CustomFields
 }
 
-// rawCredential is a basic verifiable credential
+// rawCredential is a basic verifiable credential.
 type rawCredential struct {
 	Context        interface{}                    `json:"@context,omitempty"`
 	ID             string                         `json:"id,omitempty"`
@@ -567,7 +567,7 @@ type CredentialDecoder func(dataJSON []byte, vc *Credential) error
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
 
-// credentialOpts holds options for the Verifiable Credential decoding
+// credentialOpts holds options for the Verifiable Credential decoding.
 type credentialOpts struct {
 	publicKeyFetcher      PublicKeyFetcher
 	disabledCustomSchema  bool
@@ -582,7 +582,7 @@ type credentialOpts struct {
 	jsonldCredentialOpts
 }
 
-// CredentialOpt is the Verifiable Credential decoding option
+// CredentialOpt is the Verifiable Credential decoding option.
 type CredentialOpt func(opts *credentialOpts)
 
 // WithDisabledProofCheck option for disabling of proof check.
@@ -632,7 +632,7 @@ func WithBaseContextValidation() CredentialOpt {
 }
 
 // WithBaseContextExtendedValidation validates that fields that are specified in base context are as specified.
-// Additional fields are allowed
+// Additional fields are allowed.
 func WithBaseContextExtendedValidation(customContexts, customTypes []string) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.modelValidationMode = baseContextExtendedValidation
@@ -1103,6 +1103,7 @@ func issuerToRaw(issuer Issuer) (json.RawMessage, error) {
 // - slice of Subjects
 // - custom struct
 // - slice of custom structs
+// If the subject is nil no error will be returned.
 func subjectToBytes(subject interface{}) ([]byte, error) {
 	if subject == nil {
 		return nil, nil
@@ -1433,7 +1434,7 @@ func typedIDsToRaw(typedIDs []TypedID) ([]byte, error) {
 	}
 }
 
-// MarshalJSON converts Verifiable Credential to JSON bytes
+// MarshalJSON converts Verifiable Credential to JSON bytes.
 func (vc *Credential) MarshalJSON() ([]byte, error) {
 	raw, err := vc.raw()
 	if err != nil {

@@ -80,7 +80,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.P
 	}
 }
 
-// validatePayload validate and get the payload from the request
+// validatePayload validate and get the payload from the request.
 func validatePayload(r *http.Request, w http.ResponseWriter) bool {
 	if r.ContentLength == 0 { // empty payload should not be accepted
 		http.Error(w, "Empty payload", http.StatusBadRequest)
@@ -90,7 +90,7 @@ func validatePayload(r *http.Request, w http.ResponseWriter) bool {
 	return true
 }
 
-// validateHTTPMethod validate HTTP method and content-type
+// validateHTTPMethod validate HTTP method and content-type.
 func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != "POST" {
 		http.Error(w, "HTTP Method not allowed", http.StatusMethodNotAllowed)

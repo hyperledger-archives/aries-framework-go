@@ -197,7 +197,7 @@ func createKMS(t *testing.T) *LocalKMS {
 	return k
 }
 
-// mockProvider mocks a provider for KMS storage
+// mockProvider mocks a provider for KMS storage.
 type goMockProvider struct {
 	storage    *storageGoMocks.MockProvider
 	secretLock secretlock.Service

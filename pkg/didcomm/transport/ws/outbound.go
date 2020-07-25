@@ -61,7 +61,7 @@ func (cs *OutboundClient) Accept(url string) bool {
 	return strings.HasPrefix(url, webSocketScheme)
 }
 
-// AcceptRecipient checks if there is a connection for the list of recipient keys
+// AcceptRecipient checks if there is a connection for the list of recipient keys.
 func (cs *OutboundClient) AcceptRecipient(keys []string) bool {
 	return acceptRecipient(cs.pool, keys)
 }
@@ -85,28 +85,32 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 
 	cleanup := func() {}
 
-	if conn == nil {
-		var err error
+	if conn != nil {
+		return conn, cleanup, nil
+	}
 
-		conn, _, err = websocket.Dial(context.Background(), destination.ServiceEndpoint, nil)
-		if err != nil {
-			return nil, cleanup, fmt.Errorf("websocket client : %w", err)
+	var err error
+
+	conn, _, err = websocket.Dial(context.Background(), destination.ServiceEndpoint, nil)
+	if err != nil {
+		return nil, cleanup, fmt.Errorf("websocket client : %w", err)
+	}
+
+	// keep the connection open to listen to the response in case of return route option set
+	if destination.TransportReturnRoute == decorator.TransportReturnRouteAll {
+		for _, v := range destination.RecipientKeys {
+			cs.pool.add(v, conn)
 		}
 
-		// keep the connection open to listen to the response in case of return route option set
-		if destination.TransportReturnRoute == decorator.TransportReturnRouteAll {
-			for _, v := range destination.RecipientKeys {
-				cs.pool.add(v, conn)
-			}
+		go cs.pool.listener(conn, true)
 
-			go cs.pool.listener(conn, true)
-		} else {
-			cleanup = func() {
-				err = conn.Close(websocket.StatusNormalClosure, "closing the connection")
-				if err != nil && websocket.CloseStatus(err) != websocket.StatusNormalClosure {
-					logger.Errorf("failed to close connection: %v", err)
-				}
-			}
+		return conn, cleanup, nil
+	}
+
+	cleanup = func() {
+		err = conn.Close(websocket.StatusNormalClosure, "closing the connection")
+		if err != nil && websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			logger.Errorf("failed to close connection: %v", err)
 		}
 	}
 

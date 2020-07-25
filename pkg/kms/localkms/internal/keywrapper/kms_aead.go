@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )
 
-// LocalKeyURIPrefix for locally stored keys
+// LocalKeyURIPrefix for locally stored keys.
 const LocalKeyURIPrefix = "local-lock://"
 
 // LocalAEAD represents a local kms aead service invoking a local SecretLock to a particular key URI.
@@ -27,7 +27,7 @@ type LocalAEAD struct {
 	secretLock secretlock.Service
 }
 
-// New creates a new key wrapper with the given uriPrefix and a local secretLock service
+// New creates a new key wrapper with the given uriPrefix and a local secretLock service.
 func New(secretLock secretlock.Service, keyURI string) (tink.AEAD, error) {
 	if !strings.HasPrefix(strings.ToLower(keyURI), LocalKeyURIPrefix) || len(keyURI) <= len(LocalKeyURIPrefix) {
 		return nil, fmt.Errorf("keyURI must start with %s", LocalKeyURIPrefix)

@@ -10,13 +10,13 @@ import (
 	"sync"
 )
 
-// Action thread-safe action register structure
+// Action thread-safe action register structure.
 type Action struct {
 	mu    sync.RWMutex
 	event chan<- DIDCommAction
 }
 
-// ActionEvent returns event action channel
+// ActionEvent returns event action channel.
 func (a *Action) ActionEvent() chan<- DIDCommAction {
 	a.mu.RLock()
 	e := a.event

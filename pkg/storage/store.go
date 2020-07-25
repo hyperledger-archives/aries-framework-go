@@ -8,16 +8,16 @@ package storage
 
 import "errors"
 
-// EndKeySuffix end key suffix
+// EndKeySuffix end key suffix.
 const EndKeySuffix = "!!"
 
-// ErrDataNotFound is returned when data not found
+// ErrDataNotFound is returned when data not found.
 var ErrDataNotFound = errors.New("data not found")
 
-// ErrKeyRequired is returned when key is mandatory
+// ErrKeyRequired is returned when key is mandatory.
 var ErrKeyRequired = errors.New("key is mandatory")
 
-// Provider storage provider interface
+// Provider storage provider interface.
 type Provider interface {
 	// OpenStore opens a store with given name space and returns the handle
 	OpenStore(name string) (Store, error)
@@ -29,7 +29,7 @@ type Provider interface {
 	Close() error
 }
 
-// Store is the storage interface
+// Store is the storage interface.
 type Store interface {
 	// Put stores the key and the record
 	Put(k string, v []byte) error

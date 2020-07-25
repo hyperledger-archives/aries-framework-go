@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
-// NewCustomMockMessageSvc returns new custom mock message service
+// NewCustomMockMessageSvc returns new custom mock message service.
 func NewCustomMockMessageSvc(typeVal, name string) *MockMessageSvc {
 	return &MockMessageSvc{
 		HandleFunc: func(*service.DIDCommMsg) (string, error) {
@@ -28,14 +28,14 @@ func NewCustomMockMessageSvc(typeVal, name string) *MockMessageSvc {
 	}
 }
 
-// MockMessageSvc is mock generic service
+// MockMessageSvc is mock generic service.
 type MockMessageSvc struct {
 	HandleFunc func(*service.DIDCommMsg) (string, error)
 	AcceptFunc func(msgType string, purpose []string) bool
 	NameVal    string
 }
 
-// HandleInbound msg
+// HandleInbound msg.
 func (m *MockMessageSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(&msg)
@@ -44,7 +44,7 @@ func (m *MockMessageSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID s
 	return uuid.New().String(), nil
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (m *MockMessageSvc) Accept(msgType string, purpose []string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType, purpose)
@@ -53,7 +53,7 @@ func (m *MockMessageSvc) Accept(msgType string, purpose []string) bool {
 	return true
 }
 
-// Name name of message service
+// Name name of message service.
 func (m *MockMessageSvc) Name() string {
 	return m.NameVal
 }

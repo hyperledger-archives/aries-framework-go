@@ -27,29 +27,29 @@ const (
 )
 
 // outboundCommHTTPOpts holds options for the HTTP transport implementation of CommTransport
-// it has an http.Client instance
+// it has an http.Client instance.
 type outboundCommHTTPOpts struct {
 	client *http.Client
 }
 
-// OutboundHTTPOpt is an outbound HTTP transport option
+// OutboundHTTPOpt is an outbound HTTP transport option.
 type OutboundHTTPOpt func(opts *outboundCommHTTPOpts)
 
-// WithOutboundHTTPClient option is for creating an Outbound HTTP transport using an http.Client instance
+// WithOutboundHTTPClient option is for creating an Outbound HTTP transport using an http.Client instance.
 func WithOutboundHTTPClient(client *http.Client) OutboundHTTPOpt {
 	return func(opts *outboundCommHTTPOpts) {
 		opts.client = client
 	}
 }
 
-// WithOutboundTimeout option is for creating an Outbound HTTP transport using a client timeout value
+// WithOutboundTimeout option is for creating an Outbound HTTP transport using a client timeout value.
 func WithOutboundTimeout(timeout time.Duration) OutboundHTTPOpt {
 	return func(opts *outboundCommHTTPOpts) {
 		opts.client.Timeout = timeout
 	}
 }
 
-// WithOutboundTLSConfig option is for creating an Outbound HTTP transport using a tls.Config instance
+// WithOutboundTLSConfig option is for creating an Outbound HTTP transport using a tls.Config instance.
 func WithOutboundTLSConfig(tlsConfig *tls.Config) OutboundHTTPOpt {
 	return func(opts *outboundCommHTTPOpts) {
 		opts.client = &http.Client{
@@ -60,7 +60,7 @@ func WithOutboundTLSConfig(tlsConfig *tls.Config) OutboundHTTPOpt {
 	}
 }
 
-// OutboundHTTPClient represents the Outbound HTTP transport instance
+// OutboundHTTPClient represents the Outbound HTTP transport instance.
 type OutboundHTTPClient struct {
 	client *http.Client
 }
@@ -85,12 +85,12 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 	return cs, nil
 }
 
-// Start starts outbound transport
+// Start starts outbound transport.
 func (cs *OutboundHTTPClient) Start(prov transport.Provider) error {
 	return nil
 }
 
-// Send sends a2a exchange data via HTTP (client side)
+// Send sends a2a exchange data via HTTP (client side).
 func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination) (string, error) {
 	resp, err := cs.client.Post(destination.ServiceEndpoint, commContentType, bytes.NewBuffer(data))
 	if err != nil {
@@ -127,12 +127,12 @@ func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination
 	return respData, nil
 }
 
-// AcceptRecipient checks if there is a connection for the list of recipient keys
+// AcceptRecipient checks if there is a connection for the list of recipient keys.
 func (cs *OutboundHTTPClient) AcceptRecipient([]string) bool {
 	return false
 }
 
-// Accept url
+// Accept url.
 func (cs *OutboundHTTPClient) Accept(url string) bool {
 	return strings.HasPrefix(url, httpScheme)
 }

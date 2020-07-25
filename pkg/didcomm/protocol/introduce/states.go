@@ -179,7 +179,7 @@ func getMetaRecipients(md *metaData) []*Recipient {
 	return recipients
 }
 
-// CreateProposal creates a DIDCommMsgMap proposal
+// CreateProposal creates a DIDCommMsgMap proposal.
 func CreateProposal(r *Recipient) service.DIDCommMsgMap {
 	return service.NewDIDCommMsgMap(Proposal{
 		Type:     ProposalMsgType,

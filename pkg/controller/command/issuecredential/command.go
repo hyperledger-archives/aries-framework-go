@@ -26,33 +26,33 @@ var logger = log.New("aries-framework/controller/issuecredential")
 
 const (
 	// InvalidRequestErrorCode is typically a code for validation errors
-	// for invalid issue credential controller requests
+	// for invalid issue credential controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.IssueCredential)
-	// AcceptProposalErrorCode is for failures in accept proposal command
+	// AcceptProposalErrorCode is for failures in accept proposal command.
 	AcceptProposalErrorCode
-	// AcceptOfferErrorCode is for failures in accept offer command
+	// AcceptOfferErrorCode is for failures in accept offer command.
 	AcceptOfferErrorCode
-	// AcceptRequestErrorCode is for failures in accept request command
+	// AcceptRequestErrorCode is for failures in accept request command.
 	AcceptRequestErrorCode
-	// AcceptCredentialErrorCode is for failures in accept credential command
+	// AcceptCredentialErrorCode is for failures in accept credential command.
 	AcceptCredentialErrorCode
-	// NegotiateProposalErrorCode is for failures in negotiate proposal command
+	// NegotiateProposalErrorCode is for failures in negotiate proposal command.
 	NegotiateProposalErrorCode
-	// DeclineProposalErrorCode is for failures in decline proposal command
+	// DeclineProposalErrorCode is for failures in decline proposal command.
 	DeclineProposalErrorCode
-	// DeclineOfferErrorCode is for failures in decline offer command
+	// DeclineOfferErrorCode is for failures in decline offer command.
 	DeclineOfferErrorCode
-	// DeclineRequestErrorCode is for failures in decline request command
+	// DeclineRequestErrorCode is for failures in decline request command.
 	DeclineRequestErrorCode
-	// DeclineCredentialErrorCode is for failures in decline credential command
+	// DeclineCredentialErrorCode is for failures in decline credential command.
 	DeclineCredentialErrorCode
-	// SendProposalErrorCode failures in send proposal command
+	// SendProposalErrorCode failures in send proposal command.
 	SendProposalErrorCode
-	// SendOfferErrorCode failures in send offer command
+	// SendOfferErrorCode failures in send offer command.
 	SendOfferErrorCode
-	// SendRequestErrorCode failures in send request command
+	// SendRequestErrorCode failures in send request command.
 	SendRequestErrorCode
-	// ActionsErrorCode failures in actions command
+	// ActionsErrorCode failures in actions command.
 	ActionsErrorCode
 )
 
@@ -92,12 +92,12 @@ const (
 	_states  = "_states"
 )
 
-// Command is controller command for issue credential
+// Command is controller command for issue credential.
 type Command struct {
 	client *issuecredential.Client
 }
 
-// New returns new issue credential controller command instance
+// New returns new issue credential controller command instance.
 func New(ctx issuecredential.Provider, notifier command.Notifier) (*Command, error) {
 	client, err := issuecredential.New(ctx)
 	if err != nil {
@@ -125,7 +125,7 @@ func New(ctx issuecredential.Provider, notifier command.Notifier) (*Command, err
 	return &Command{client: client}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),

@@ -8,7 +8,7 @@ package model
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
-// Ack acknowledgement struct
+// Ack acknowledgement struct.
 type Ack struct {
 	Type   string            `json:"@type,omitempty"`
 	ID     string            `json:"@id,omitempty"`

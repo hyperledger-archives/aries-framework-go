@@ -125,7 +125,7 @@ func (n *WSNotifier) removeConn(conn *websocket.Conn) {
 	n.conns = conns
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (n *WSNotifier) registerHandler(path string) {
 	n.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(path, http.MethodGet, n.handleWS),

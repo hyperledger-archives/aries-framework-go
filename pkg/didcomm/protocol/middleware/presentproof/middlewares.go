@@ -21,16 +21,16 @@ import (
 
 const stateNamePresentationReceived = "presentation-received"
 
-// Metadata is an alias to the original Metadata
+// Metadata is an alias to the original Metadata.
 type Metadata presentproof.Metadata
 
-// Provider contains dependencies for the SavePresentation middleware function
+// Provider contains dependencies for the SavePresentation middleware function.
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
 	VDRIRegistry() vdri.Registry
 }
 
-// SavePresentation the helper function for the present proof protocol which saves the presentations
+// SavePresentation the helper function for the present proof protocol which saves the presentations.
 func SavePresentation(p Provider) presentproof.Middleware {
 	registryVDRI := p.VDRIRegistry()
 	store := p.VerifiableStore()

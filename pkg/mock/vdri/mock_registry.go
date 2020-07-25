@@ -16,7 +16,7 @@ import (
 )
 
 // MockVDRIRegistry mock implementation of vdri
-// to be used only for unit tests
+// to be used only for unit tests.
 type MockVDRIRegistry struct {
 	CreateErr    error
 	CreateValue  *did.Doc
@@ -29,7 +29,7 @@ type MockVDRIRegistry struct {
 	ResolveFunc  func(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error)
 }
 
-// Store stores the key and the record
+// Store stores the key and the record.
 func (m *MockVDRIRegistry) Store(doc *did.Doc) error {
 	k := doc.ID
 
@@ -46,7 +46,7 @@ func (m *MockVDRIRegistry) Store(doc *did.Doc) error {
 	return m.PutErr
 }
 
-// Create mock implementation of create DID
+// Create mock implementation of create DID.
 func (m *MockVDRIRegistry) Create(method string, opts ...vdriapi.DocOpts) (*did.Doc, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
@@ -64,7 +64,7 @@ func (m *MockVDRIRegistry) Create(method string, opts ...vdriapi.DocOpts) (*did.
 	return doc, nil
 }
 
-// Resolve did document
+// Resolve did document.
 func (m *MockVDRIRegistry) Resolve(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
 	if m.ResolveFunc != nil {
 		return m.ResolveFunc(didID, opts...)

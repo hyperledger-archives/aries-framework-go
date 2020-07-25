@@ -14,7 +14,7 @@ import (
 )
 
 // newReader will create a new local storage storeReader of a keyset with ID value = keysetID
-// it is used internally by local kms
+// it is used internally by local kms.
 func newReader(store storage.Store, keysetID string) *storeReader {
 	return &storeReader{
 		storage:  store,
@@ -22,7 +22,7 @@ func newReader(store storage.Store, keysetID string) *storeReader {
 	}
 }
 
-// storeReader struct to load a keyset from a local storage
+// storeReader struct to load a keyset from a local storage.
 type storeReader struct {
 	buf      *bytes.Buffer
 	storage  storage.Store

@@ -52,7 +52,7 @@ type Invitation struct {
 	*didexchange.Invitation
 }
 
-// DIDInfo model for specifying public DID and associated label
+// DIDInfo model for specifying public DID and associated label.
 type DIDInfo struct {
 
 	// the DID

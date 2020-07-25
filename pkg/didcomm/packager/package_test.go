@@ -369,7 +369,7 @@ func (m *mockProvider) PrimaryPacker() packer.Packer {
 	return m.primaryPacker
 }
 
-// VDRIRegistry returns a vdri registry
+// VDRIRegistry returns a vdri registry.
 func (m *mockProvider) VDRIRegistry() vdriapi.Registry {
 	return m.vdriRegistry
 }

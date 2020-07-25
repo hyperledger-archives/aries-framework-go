@@ -8,7 +8,7 @@ package cryptoutil
 
 import "golang.org/x/crypto/blake2b"
 
-// Nonce makes a nonce using blake2b, to match the format expected by libsodium
+// Nonce makes a nonce using blake2b, to match the format expected by libsodium.
 func Nonce(pub1, pub2 []byte) (*[NonceSize]byte, error) {
 	var nonce [NonceSize]byte
 	// generate an equivalent nonce to libsodium's (see link above)

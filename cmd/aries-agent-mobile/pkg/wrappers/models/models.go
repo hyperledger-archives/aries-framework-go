@@ -13,23 +13,23 @@ type CommandError struct {
 	Type    int    `json:"type,omitempty"`
 }
 
-// RequestEnvelope contains a payload representing parameters for each operation on a protocol
+// RequestEnvelope contains a payload representing parameters for each operation on a protocol.
 type RequestEnvelope struct {
 	Payload []byte `json:"payload"`
 }
 
-// ResponseEnvelope contains a payload and an error from performing an operation on a protocol
+// ResponseEnvelope contains a payload and an error from performing an operation on a protocol.
 type ResponseEnvelope struct {
 	Payload []byte        `json:"payload"`
 	Error   *CommandError `json:"error,omitempty"`
 }
 
-// NewRequestEnvelope will return an instance of RequestEnvelope
+// NewRequestEnvelope will return an instance of RequestEnvelope.
 func NewRequestEnvelope(data []byte) *RequestEnvelope {
 	return &RequestEnvelope{Payload: data}
 }
 
-// NewResponseEnvelope will return an instance of ResponseEnvelope
+// NewResponseEnvelope will return an instance of ResponseEnvelope.
 func NewResponseEnvelope() *ResponseEnvelope {
 	return &ResponseEnvelope{}
 }

@@ -17,7 +17,7 @@ type Signer interface {
 	Sign(data []byte) ([]byte, error)
 }
 
-// jwtSigner implement jose.Signer interface
+// jwtSigner implement jose.Signer interface.
 type jwtSigner struct {
 	signer  Signer
 	headers map[string]interface{}
@@ -49,7 +49,7 @@ func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }
 
-// MarshalJWS serializes JWT presentation claims into signed form (JWS)
+// MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
 	algName, err := signatureAlg.name()
 	if err != nil {

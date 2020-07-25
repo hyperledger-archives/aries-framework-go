@@ -11,7 +11,7 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 )
 
-// DIDExchange contains necessary fields to support its operations
+// DIDExchange contains necessary fields to support its operations.
 type DIDExchange struct {
 	httpClient httpClient
 	endpoints  map[string]*endpoint

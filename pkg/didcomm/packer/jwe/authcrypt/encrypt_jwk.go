@@ -18,7 +18,7 @@ import (
 
 // generateSPK will encrypt a msg (in the case of this package, it will be
 // the sender's public key) using the recipient's pubKey, the output will be
-// a compact JWE wrapping a JWK containing the (encrypted) sender's public key
+// a compact JWE wrapping a JWK containing the (encrypted) sender's public key.
 func (p *Packer) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
 	if recipientPubKey == nil {
 		return "", cryptoutil.ErrInvalidKey

@@ -40,7 +40,7 @@ type JWK struct {
 }
 
 // JWKFromPublicKey creates a JWK from public key struct.
-// It's e.g. *ecdsa.PublicKey or ed25519.PublicKey
+// It's e.g. *ecdsa.PublicKey or ed25519.PublicKey.
 func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{
@@ -257,7 +257,7 @@ func (h Headers) JWK() (*JWK, bool) {
 	return &jwk, true
 }
 
-// jsonWebKey contains subset of json web key json properties
+// jsonWebKey contains subset of json web key json properties.
 type jsonWebKey struct {
 	Use string `json:"use,omitempty"`
 	Kty string `json:"kty,omitempty"`
@@ -271,7 +271,7 @@ type jsonWebKey struct {
 	D *byteBuffer `json:"d,omitempty"`
 }
 
-// Get size of curve in bytes
+// Get size of curve in bytes.
 func curveSize(crv elliptic.Curve) int {
 	bits := crv.Params().BitSize
 

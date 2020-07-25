@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package service
 
-// DIDCommMsg describes message interface
+// DIDCommMsg describes message interface.
 type DIDCommMsg interface {
 	ID() string
 	SetID(id string) error
@@ -26,7 +26,7 @@ type DIDCommMsg interface {
 // NOTE: The package modifies message data by JSON tag name according to aries-rfcs.
 //       Fields like @id, ~thread , etc. are redundant and may be rewritten.
 
-// Messenger provides methods for the communication
+// Messenger provides methods for the communication.
 type Messenger interface {
 	// ReplyTo replies to the message by given msgID.
 	// Keeps threadID in the *decorator.Thread.
@@ -44,7 +44,7 @@ type Messenger interface {
 	ReplyToNested(threadID string, msg DIDCommMsgMap, myDID, theirDID string) error
 }
 
-// MessengerHandler includes Messenger interface and Handle function to handle inbound messages
+// MessengerHandler includes Messenger interface and Handle function to handle inbound messages.
 type MessengerHandler interface {
 	Messenger
 	// HandleInbound handles all inbound messages

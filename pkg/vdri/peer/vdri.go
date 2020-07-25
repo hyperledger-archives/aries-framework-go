@@ -13,16 +13,16 @@ import (
 )
 
 const (
-	// StoreNamespace store name space for DID Store
+	// StoreNamespace store name space for DID Store.
 	StoreNamespace = "peer"
 )
 
-// VDRI implements building new peer dids
+// VDRI implements building new peer dids.
 type VDRI struct {
 	store storage.Store
 }
 
-// New return new instance of peer vdri
+// New return new instance of peer vdri.
 func New(s storage.Provider) (*VDRI, error) {
 	didDBStore, err := s.OpenStore(StoreNamespace)
 	if err != nil {
@@ -32,7 +32,7 @@ func New(s storage.Provider) (*VDRI, error) {
 	return &VDRI{store: didDBStore}, nil
 }
 
-// Accept did method
+// Accept did method.
 func (v *VDRI) Accept(method string) bool {
 	return method == didMethod
 }

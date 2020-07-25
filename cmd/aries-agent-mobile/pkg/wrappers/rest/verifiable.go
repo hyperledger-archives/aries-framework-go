@@ -11,7 +11,7 @@ import (
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 )
 
-// Verifiable contains necessary fields for each of its operations
+// Verifiable contains necessary fields for each of its operations.
 type Verifiable struct {
 	httpClient httpClient
 	endpoints  map[string]*endpoint
@@ -40,7 +40,7 @@ func (vr *Verifiable) GetCredential(request *models.RequestEnvelope) *models.Res
 	return vr.createRespEnvelope(request, cmdverifiable.GetCredentialCommandMethod)
 }
 
-// SignCredential adds proof to given verifiable credential
+// SignCredential adds proof to given verifiable credential.
 func (vr *Verifiable) SignCredential(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	return vr.createRespEnvelope(request, cmdverifiable.SignCredentialCommandMethod)
 }

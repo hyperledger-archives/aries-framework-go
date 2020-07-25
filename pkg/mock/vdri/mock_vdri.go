@@ -12,7 +12,7 @@ import (
 )
 
 // MockVDRI mock implementation of vdri
-// to be used only for unit tests
+// to be used only for unit tests.
 type MockVDRI struct {
 	AcceptValue bool
 	StoreErr    error
@@ -21,7 +21,7 @@ type MockVDRI struct {
 	CloseErr    error
 }
 
-// Read did
+// Read did.
 func (m *MockVDRI) Read(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
 	if m.ReadFunc != nil {
 		return m.ReadFunc(didID, opts...)
@@ -30,12 +30,12 @@ func (m *MockVDRI) Read(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, er
 	return nil, nil
 }
 
-// Store did
+// Store did.
 func (m *MockVDRI) Store(doc *did.Doc, by *[]vdriapi.ModifiedBy) error {
 	return m.StoreErr
 }
 
-// Build did
+// Build did.
 func (m *MockVDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error) {
 	if m.BuildFunc != nil {
 		return m.BuildFunc(pubKey, opts...)
@@ -44,7 +44,7 @@ func (m *MockVDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.
 	return nil, nil
 }
 
-// Accept did
+// Accept did.
 func (m *MockVDRI) Accept(method string) bool {
 	return m.AcceptValue
 }

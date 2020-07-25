@@ -524,7 +524,7 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 	return s
 }
 
-// mockProvider mocks a provider for KMS storage
+// mockProvider mocks a provider for KMS storage.
 type mockProvider struct {
 	storage    *mockstorage.MockStoreProvider
 	secretLock secretlock.Service

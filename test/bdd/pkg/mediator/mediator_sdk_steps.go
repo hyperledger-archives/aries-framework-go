@@ -22,21 +22,21 @@ import (
 
 const sleepDuration = 2 * time.Millisecond
 
-// SDKSteps is steps for route using client SDK
+// SDKSteps is steps for route using client SDK.
 type SDKSteps struct {
 	bddContext     *context.BDDContext
 	eventsReceived map[string]service.DIDCommAction
 	lock           sync.RWMutex
 }
 
-// NewRouteSDKSteps return steps for router using client SDK
+// NewRouteSDKSteps return steps for router using client SDK.
 func NewRouteSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		eventsReceived: make(map[string]service.DIDCommAction),
 	}
 }
 
-// CreateRouteClient creates route client
+// CreateRouteClient creates route client.
 func (d *SDKSteps) CreateRouteClient(agentID string) error {
 	// create new route client
 	routeClient, err := mediator.New(d.bddContext.AgentCtx[agentID])
@@ -144,7 +144,7 @@ func (d *SDKSteps) ApproveRequest(agentID string, args interface{}) {
 	c <- args
 }
 
-// RegisterRoute registers the router for the agent
+// RegisterRoute registers the router for the agent.
 func (d *SDKSteps) RegisterRoute(agentID, varName, routerID string) error {
 	go d.ApproveRequest(routerID, nil)
 
@@ -171,12 +171,12 @@ func (d *SDKSteps) VerifyConnection(agentID, varName string) error {
 	return nil
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 	d.bddContext = ctx
 }
 
-// RegisterSteps registers router steps
+// RegisterSteps registers router steps.
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates a route exchange client$`, d.CreateRouteClient)
 	s.Step(`^"([^"]*)" sets "([^"]*)" as the router and "([^"]*)" approves$`, d.RegisterRoute)

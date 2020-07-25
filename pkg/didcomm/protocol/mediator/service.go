@@ -32,10 +32,10 @@ var logger = log.New("aries-framework/route/service")
 
 // constants for route coordination spec types
 const (
-	// Coordination route coordination protocol
+	// Coordination route coordination protocol.
 	Coordination = "coordinatemediation"
 
-	// RouteCoordinationSpec defines the route coordination spec
+	// RouteCoordinationSpec defines the route coordination spec.
 	CoordinationSpec = "https://didcomm.org/coordinatemediation/1.0/"
 
 	// RouteRequestMsgType defines the route coordination request message type.
@@ -79,10 +79,10 @@ const (
 	updateTimeout = 5 * time.Second
 )
 
-// ErrConnectionNotFound connection not found error
+// ErrConnectionNotFound connection not found error.
 var ErrConnectionNotFound = errors.New("connection not found")
 
-// ErrRouterNotRegistered router not registered error
+// ErrRouterNotRegistered router not registered error.
 var ErrRouterNotRegistered = errors.New("router not registered")
 
 // provider contains dependencies for the Routing protocol and is typically created by using aries.Context()
@@ -96,10 +96,10 @@ type provider interface {
 	Service(id string) (interface{}, error)
 }
 
-// ClientOption configures the route client
+// ClientOption configures the route client.
 type ClientOption func(opts *ClientOptions)
 
-// ClientOptions holds options for the router client
+// ClientOptions holds options for the router client.
 type ClientOptions struct {
 	Timeout time.Duration
 }
@@ -329,7 +329,7 @@ func (s *Service) Accept(msgType string) bool {
 	return false
 }
 
-// Name of the service
+// Name of the service.
 func (s *Service) Name() string {
 	return Coordination
 }

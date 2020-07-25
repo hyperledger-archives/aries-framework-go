@@ -32,7 +32,7 @@ const encodingType = "didcomm-envelope-enc"
 
 var logger = log.New("aries-framework/pkg/didcomm/packer/anoncrypt")
 
-// Packer represents an Anoncrypt Pack/Unpacker that outputs/reads Aries envelopes
+// Packer represents an Anoncrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
 	kms    kms.KeyManager
 	encAlg jose.EncAlg
@@ -51,7 +51,7 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) *Packer {
 
 // Pack will encode the payload argument
 // Using the protocol defined by the Anoncrypt message of Aries RFC 0334
-// Anoncrypt ignores the sender argument, it's added to meet the Packer interface
+// Anoncrypt ignores the sender argument, it's added to meet the Packer interface.
 func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("anoncrypt Pack: empty recipientsPubKeys")
@@ -104,7 +104,7 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*composite.PublicKey, error) {
 	return pubKeys, nil
 }
 
-// Unpack will decode the envelope using a standard format
+// Unpack will decode the envelope using a standard format.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	jwe, err := jose.Deserialize(string(envelope))
 	if err != nil {
@@ -195,7 +195,7 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// EncodingType for didcomm
+// EncodingType for didcomm.
 func (p *Packer) EncodingType() string {
 	return encodingType
 }

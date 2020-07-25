@@ -17,8 +17,8 @@ func TestWithoutUserAgs(t *testing.T) { //nolint - see above
 	main()
 }
 
-// Strips out the extra args that the unit test framework adds
-// This allows main() to execute as if it was called directly from the command line
+// Strips out the extra args that the unit test framework adds.
+// This allows main() to execute as if it was called directly from the command line.
 func setUpArgs() {
 	os.Args = os.Args[:1]
 }

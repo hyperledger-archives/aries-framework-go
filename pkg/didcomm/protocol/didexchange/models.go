@@ -85,7 +85,7 @@ type Response struct {
 	Thread              *decorator.Thread    `json:"~thread,omitempty"`
 }
 
-// ConnectionSignature connection signature
+// ConnectionSignature connection signature.
 type ConnectionSignature struct {
 	Type       string `json:"@type,omitempty"`
 	Signature  string `json:"signature,omitempty"`
@@ -93,7 +93,7 @@ type ConnectionSignature struct {
 	SignVerKey string `json:"signers,omitempty"`
 }
 
-// Connection connection
+// Connection connection.
 type Connection struct {
 	DID    string   `json:"did,omitempty"`
 	DIDDoc *did.Doc `json:"did_doc,omitempty"`

@@ -58,7 +58,7 @@ type AlgSignatureVerifier struct {
 	Verifier SignatureVerifier
 }
 
-// NewCompositeAlgSigVerifier creates a new CompositeAlgSigVerifier
+// NewCompositeAlgSigVerifier creates a new CompositeAlgSigVerifier.
 func NewCompositeAlgSigVerifier(v AlgSignatureVerifier, vOther ...AlgSignatureVerifier) *CompositeAlgSigVerifier {
 	verifierByAlg := make(map[string]SignatureVerifier, 1+len(vOther))
 	verifierByAlg[v.Alg] = v.Verifier

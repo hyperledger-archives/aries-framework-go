@@ -13,14 +13,14 @@ type privateKeyOpts struct {
 
 // NewOpt creates a new empty private key option.
 // Not to be used directly. It's intended for implementations of KeyManager interface
-// Use WithKeyID() option function below instead
+// Use WithKeyID() option function below instead.
 func NewOpt() *privateKeyOpts { // nolint
 	return &privateKeyOpts{}
 }
 
 // KsID gets the KsID to be used for import a private key.
 // Not to be used directly. It's intended for implementations of KeyManager interface
-// Use WithKeyID() option function below instead
+// Use WithKeyID() option function below instead.
 func (pk *privateKeyOpts) KsID() string {
 	return pk.ksID
 }

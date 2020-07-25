@@ -31,10 +31,10 @@ import (
 )
 
 const (
-	// OverDIDCommSpec is http over DIDComm Spec value
+	// OverDIDCommSpec is http over DIDComm Spec value.
 	OverDIDCommSpec = "https://didcomm.org/http-over-didcomm/1.0/"
 
-	// OverDIDCommMsgRequestType is http over DIDComm request message type
+	// OverDIDCommMsgRequestType is http over DIDComm request message type.
 	OverDIDCommMsgRequestType = OverDIDCommSpec + "request"
 
 	// error messages

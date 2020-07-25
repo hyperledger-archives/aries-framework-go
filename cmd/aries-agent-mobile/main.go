@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/rest"
 )
 
-// New initializes and returns an implementation of the AriesController
+// New initializes and returns an implementation of the AriesController.
 func New(opts *config.Options) (api.AriesController, error) {
 	if !opts.UseLocalAgent {
 		return rest.NewAries(opts)

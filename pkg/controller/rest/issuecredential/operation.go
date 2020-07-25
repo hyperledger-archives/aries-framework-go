@@ -42,13 +42,13 @@ const (
 	DeclineCredential = OperationID + "/{piid}/decline-credential"
 )
 
-// Operation is controller REST service controller for issue credential
+// Operation is controller REST service controller for issue credential.
 type Operation struct {
 	command  *issuecredential.Command
 	handlers []rest.Handler
 }
 
-// New returns new issue credential rest client protocol instance
+// New returns new issue credential rest client protocol instance.
 func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
 	cmd, err := issuecredential.New(ctx, notifier)
 	if err != nil {
@@ -61,12 +61,12 @@ func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
 	return o, nil
 }
 
-// GetRESTHandlers get all controller API handler available for this protocol service
+// GetRESTHandlers get all controller API handler available for this protocol service.
 func (c *Operation) GetRESTHandlers() []rest.Handler {
 	return c.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{

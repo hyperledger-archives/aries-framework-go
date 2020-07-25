@@ -26,27 +26,27 @@ var logger = log.New("aries-framework/controller/introduce")
 
 const (
 	// InvalidRequestErrorCode is typically a code for validation errors
-	// for invalid introduce controller requests
+	// for invalid introduce controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.Introduce)
-	// SendProposalErrorCode is for failures in send proposal command
+	// SendProposalErrorCode is for failures in send proposal command.
 	SendProposalErrorCode
-	// SendProposalWithOOBRequestErrorCode is for failures in send proposal with OOBRequest command
+	// SendProposalWithOOBRequestErrorCode is for failures in send proposal with OOBRequest command.
 	SendProposalWithOOBRequestErrorCode
-	// SendRequestErrorCode is for failures in send request command
+	// SendRequestErrorCode is for failures in send request command.
 	SendRequestErrorCode
-	// AcceptProposalWithOOBRequestErrorCode is for failures in accept proposal with OOBRequest command
+	// AcceptProposalWithOOBRequestErrorCode is for failures in accept proposal with OOBRequest command.
 	AcceptProposalWithOOBRequestErrorCode
-	// AcceptProposalErrorCode is for failures in accept proposal command
+	// AcceptProposalErrorCode is for failures in accept proposal command.
 	AcceptProposalErrorCode
-	// AcceptRequestWithPublicOOBRequestErrorCode is for failures in accept request with public OOBRequest command
+	// AcceptRequestWithPublicOOBRequestErrorCode is for failures in accept request with public OOBRequest command.
 	AcceptRequestWithPublicOOBRequestErrorCode
-	// AcceptRequestWithRecipientsErrorCode is for failures in accept request with recipients command
+	// AcceptRequestWithRecipientsErrorCode is for failures in accept request with recipients command.
 	AcceptRequestWithRecipientsErrorCode
-	// DeclineProposalErrorCode failures in decline proposal command
+	// DeclineProposalErrorCode failures in decline proposal command.
 	DeclineProposalErrorCode
-	// DeclineRequestErrorCode failures in decline request command
+	// DeclineRequestErrorCode failures in decline request command.
 	DeclineRequestErrorCode
-	// ActionsErrorCode failures in actions command
+	// ActionsErrorCode failures in actions command.
 	ActionsErrorCode
 )
 
@@ -82,12 +82,12 @@ const (
 	_states  = "_states"
 )
 
-// Command is controller command for introduce
+// Command is controller command for introduce.
 type Command struct {
 	client *introduce.Client
 }
 
-// New returns new introduce controller command instance
+// New returns new introduce controller command instance.
 func New(ctx introduce.Provider, notifier command.Notifier) (*Command, error) {
 	client, err := introduce.New(ctx)
 	if err != nil {
@@ -115,7 +115,7 @@ func New(ctx introduce.Provider, notifier command.Notifier) (*Command, error) {
 	return &Command{client: client}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),

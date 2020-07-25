@@ -15,7 +15,7 @@ import (
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/475 pull cipher into separate crypter
 
-// createCipher will create and return a new Chacha20Poly1305 cipher for the given nonceSize and symmetric key
+// createCipher will create and return a new Chacha20Poly1305 cipher for the given nonceSize and symmetric key.
 func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
 	switch nonceSize {
 	case chacha.NonceSize:

@@ -14,12 +14,12 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 )
 
-// Introduce contains handler function for introduce protocol commands
+// Introduce contains handler function for introduce protocol commands.
 type Introduce struct {
 	handlers map[string]command.Exec
 }
 
-// Actions returns unfinished actions for the async usage
+// Actions returns unfinished actions for the async usage.
 func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	response, cmdErr := exec(i.handlers[cmdintroduce.Actions], request.Payload)
 	if cmdErr != nil {
@@ -29,7 +29,7 @@ func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnv
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// SendProposal sends a proposal to the introducees (the client has not published an out-of-band message)
+// SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
 func (i *Introduce) SendProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.SendProposalArgs{}
 
@@ -45,7 +45,7 @@ func (i *Introduce) SendProposal(request *models.RequestEnvelope) *models.Respon
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request)
+// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
 func (i *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.SendProposalWithOOBRequestArgs{}
 
@@ -61,7 +61,7 @@ func (i *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) 
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// SendRequest sends a request showing that the introducee is willing to share their own out-of-band message
+// SendRequest sends a request showing that the introducee is willing to share their own out-of-band message.
 func (i *Introduce) SendRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.SendRequestArgs{}
 
@@ -77,7 +77,7 @@ func (i *Introduce) SendRequest(request *models.RequestEnvelope) *models.Respons
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request
+// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
 func (i *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.AcceptProposalWithOOBRequestArgs{}
 
@@ -93,7 +93,7 @@ func (i *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// AcceptProposal is used when introducee wants to accept a proposal without providing an OOBRequest
+// AcceptProposal is used when introducee wants to accept a proposal without providing an OOBRequest.
 func (i *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.AcceptProposalArgs{}
 
@@ -109,7 +109,7 @@ func (i *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.Resp
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request
+// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 func (i *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.AcceptRequestWithPublicOOBRequestArgs{}
 
@@ -126,7 +126,7 @@ func (i *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnv
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
-// but they are willing to introduce agents to each other
+// but they are willing to introduce agents to each other.
 func (i *Introduce) AcceptRequestWithRecipients(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.AcceptRequestWithRecipientsArgs{}
 
@@ -142,7 +142,7 @@ func (i *Introduce) AcceptRequestWithRecipients(request *models.RequestEnvelope)
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// DeclineProposal is used to reject the proposal
+// DeclineProposal is used to reject the proposal.
 func (i *Introduce) DeclineProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.DeclineProposalArgs{}
 
@@ -158,7 +158,7 @@ func (i *Introduce) DeclineProposal(request *models.RequestEnvelope) *models.Res
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// DeclineRequest is used to reject the request
+// DeclineRequest is used to reject the request.
 func (i *Introduce) DeclineRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.DeclineRequestArgs{}
 

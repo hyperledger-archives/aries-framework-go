@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	// Introduce protocol name
+	// Introduce protocol name.
 	Introduce = "introduce"
-	// IntroduceSpec defines the introduce spec
+	// IntroduceSpec defines the introduce spec.
 	IntroduceSpec = "https://didcomm.org/introduce/1.0/"
 	// ProposalMsgType defines the introduce proposal message type.
 	ProposalMsgType = IntroduceSpec + "proposal"
@@ -69,7 +69,7 @@ type Recipient struct {
 	TheirDID string `json:"their_did,omitempty"`
 }
 
-// Action contains helpful information about action
+// Action contains helpful information about action.
 type Action struct {
 	// Protocol instance ID
 	PIID     string
@@ -98,7 +98,7 @@ type metaData struct {
 	err error
 }
 
-// Service for introduce protocol
+// Service for introduce protocol.
 type Service struct {
 	service.Action
 	service.Message
@@ -115,7 +115,7 @@ type Provider interface {
 	Service(id string) (interface{}, error)
 }
 
-// New returns introduce service
+// New returns introduce service.
 func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Introduce)
 	if err != nil {
@@ -246,7 +246,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 }
 
 // OOBMessageReceived is used to finish the state machine
-// the function should be called by the out-of-band service after receiving an oob message
+// the function should be called by the out-of-band service after receiving an oob message.
 func (s *Service) OOBMessageReceived(msg service.StateMsg) error {
 	if msg.StateID != stateOOBRequested || msg.Type != service.PostState || msg.Msg.ParentThreadID() == "" {
 		return nil
@@ -263,7 +263,7 @@ func (s *Service) OOBMessageReceived(msg service.StateMsg) error {
 	return err
 }
 
-// HandleInbound handles inbound message (introduce protocol)
+// HandleInbound handles inbound message (introduce protocol).
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	aEvent := s.ActionEvent()
 
@@ -298,7 +298,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	return md.PIID, s.handle(md)
 }
 
-// HandleOutbound handles outbound message (introduce protocol)
+// HandleOutbound handles outbound message (introduce protocol).
 func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	md, err := s.doHandle(msg, true)
 	if err != nil {
@@ -326,7 +326,7 @@ func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.
 	}
 }
 
-// newDIDCommActionMsg creates new DIDCommAction message
+// newDIDCommActionMsg creates new DIDCommAction message.
 func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
@@ -371,7 +371,7 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	}
 }
 
-// ActionContinue allows proceeding with the action by the piID
+// ActionContinue allows proceeding with the action by the piID.
 func (s *Service) ActionContinue(piID string, opt Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -404,7 +404,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 	return nil
 }
 
-// ActionStop allows stopping the action by the piID
+// ActionStop allows stopping the action by the piID.
 func (s *Service) ActionStop(piID string, cErr error) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -477,7 +477,7 @@ func (s *Service) currentStateName(piID string) (string, error) {
 	return string(src), err
 }
 
-// Actions returns actions for the async usage
+// Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
@@ -565,7 +565,7 @@ func stateFromName(name string) state {
 	}
 }
 
-// canTriggerActionEvents checks if the incoming message can trigger an action event
+// canTriggerActionEvents checks if the incoming message can trigger an action event.
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	switch msg.Type() {
 	case ProposalMsgType, RequestMsgType:
@@ -759,12 +759,12 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 	return followup, action, nil
 }
 
-// Name returns service name
+// Name returns service name.
 func (s *Service) Name() string {
 	return Introduce
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
 	case ProposalMsgType, RequestMsgType, ResponseMsgType, AckMsgType, ProblemReportMsgType:

@@ -11,7 +11,7 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 )
 
-// Introduce contains necessary fields for each of its operations
+// Introduce contains necessary fields for each of its operations.
 type Introduce struct {
 	httpClient httpClient
 	endpoints  map[string]*endpoint

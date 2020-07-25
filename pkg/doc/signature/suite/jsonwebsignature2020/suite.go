@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 )
 
-// Suite implements jsonWebSignature2020 signature suite
+// Suite implements jsonWebSignature2020 signature suite.
 type Suite struct {
 	suite.SignatureSuite
 	jsonldProcessor *jsonld.Processor
@@ -59,7 +59,7 @@ func (s *Suite) GetDigest(doc []byte) []byte {
 	return digest[:]
 }
 
-// Accept will accept only Linked Data Signatures for JWS/
+// Accept will accept only Linked Data Signatures for JWS.
 func (s *Suite) Accept(t string) bool {
 	return t == signatureType
 }

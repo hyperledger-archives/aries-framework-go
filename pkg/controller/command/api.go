@@ -12,10 +12,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 )
 
-// Exec is controller command execution function type
+// Exec is controller command execution function type.
 type Exec func(rw io.Writer, req io.Reader) Error
 
-// Handler for each controller command
+// Handler for each controller command.
 type Handler interface {
 	// name of the command
 	Name() string
@@ -26,7 +26,7 @@ type Handler interface {
 }
 
 // MessageHandler maintains registered message services
-// and it allows dynamic registration of message services
+// and it allows dynamic registration of message services.
 type MessageHandler interface {
 	// Services returns list of available message services in this message handler
 	Services() []dispatcher.MessageService

@@ -35,19 +35,19 @@ const (
 	acceptCredential  = operationID + "/%s/accept-credential"
 )
 
-// ControllerSteps is steps for issuecredential with controller
+// ControllerSteps is steps for issuecredential with controller.
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	did        map[string]string
 	nameToPIID map[string]string
 }
 
-// NewIssueCredentialControllerSteps creates steps for issuecredential with controller
+// NewIssueCredentialControllerSteps creates steps for issuecredential with controller.
 func NewIssueCredentialControllerSteps() *ControllerSteps {
 	return &ControllerSteps{nameToPIID: map[string]string{}}
 }
 
-// SetContext sets every scenario with a fresh context
+// SetContext sets every scenario with a fresh context.
 func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 }

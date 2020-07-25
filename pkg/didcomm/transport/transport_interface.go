@@ -12,7 +12,7 @@ import (
 )
 
 // OutboundTransport interface definition for transport layer
-// This is the client side of the agent
+// This is the client side of the agent.
 type OutboundTransport interface {
 	// starts the outbound transport
 	Start(prov Provider) error
@@ -40,7 +40,7 @@ type Provider interface {
 	AriesFrameworkID() string
 }
 
-// InboundTransport interface definition for inbound transport layer
+// InboundTransport interface definition for inbound transport layer.
 type InboundTransport interface {
 	// starts the inbound transport
 	Start(prov Provider) error

@@ -444,7 +444,7 @@ func getPublicDID(options *options) string {
 	return options.publicDID
 }
 
-// returns the label given in the options, otherwise an empty string
+// returns the label given in the options, otherwise an empty string.
 func getLabel(options *options) string {
 	if options == nil {
 		return ""
@@ -628,7 +628,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 	}, connRecord, nil
 }
 
-// verifySignature verifies connection signature and returns connection
+// verifySignature verifies connection signature and returns connection.
 func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (*Connection, error) {
 	sigData, err := base64.URLEncoding.DecodeString(connSignature.SignedData)
 	if err != nil {

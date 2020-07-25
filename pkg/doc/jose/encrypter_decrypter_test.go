@@ -375,7 +375,7 @@ func convertToGoJoseRecipients(t *testing.T, keys []*composite.PublicKey) []jose
 	return joseRecipients
 }
 
-// createRecipients and return their public key and keyset.Handle
+// createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, numberOfEntities int) ([]*composite.PublicKey, []*keyset.Handle) {
 	return createECDHEntities(t, numberOfEntities, true)
 }
@@ -402,7 +402,7 @@ func createECDHEntities(t *testing.T, numberOfEntities int, isECDHES bool) ([]*c
 }
 
 // createAndMarshalEntityKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
-// both marshalled public key and original recipient keyset.Handle
+// both marshalled public key and original recipient keyset.Handle.
 func createAndMarshalEntityKey(t *testing.T, isECDHES bool) ([]byte, *keyset.Handle) {
 	t.Helper()
 
@@ -607,7 +607,7 @@ type mockCompositeEncrypt struct {
 	EncryptError error
 }
 
-// Encrypt mocks Encrypt function
+// Encrypt mocks Encrypt function.
 func (e *mockCompositeEncrypt) Encrypt(plainText, aad []byte) ([]byte, error) {
 	return []byte(e.EncryptValue), e.EncryptError
 }

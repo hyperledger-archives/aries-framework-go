@@ -21,19 +21,19 @@ const (
 	stateNameDone       = "done"
 	stateNameNoop       = "noop"
 
-	// states for Verifier
+	// states for Verifier.
 	stateNameRequestSent          = "request-sent"
 	stateNamePresentationReceived = "presentation-received"
 	stateNameProposalReceived     = "proposal-received"
 
-	// states for Prover
+	// states for Prover.
 	stateNameRequestReceived  = "request-received"
 	stateNamePresentationSent = "presentation-sent"
 	stateNameProposalSent     = "proposal-sent"
 )
 
 const (
-	// error codes
+	// error codes.
 	codeInternalError = "internal"
 	codeRejectedError = "rejected"
 
@@ -54,7 +54,7 @@ type state interface {
 	Execute(msg *metaData) (state, stateAction, error)
 }
 
-// represents zero state's action
+// represents zero state's action.
 func zeroAction(service.Messenger) error { return nil }
 
 // start state
@@ -150,7 +150,7 @@ func (s *noOp) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
-// requestReceived the Prover's state
+// requestReceived the Prover's state.
 type requestReceived struct{}
 
 func (s *requestReceived) Name() string {
@@ -171,7 +171,7 @@ func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 	return &proposalSent{}, zeroAction, nil
 }
 
-// requestSent the Verifier's state
+// requestSent the Verifier's state.
 type requestSent struct{}
 
 func (s *requestSent) Name() string {
@@ -205,7 +205,7 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
-// presentationSent the Prover's state
+// presentationSent the Prover's state.
 type presentationSent struct{}
 
 func (s *presentationSent) Name() string {
@@ -232,7 +232,7 @@ func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
 	return &noOp{}, action, nil
 }
 
-// presentationReceived the Verifier's state
+// presentationReceived the Verifier's state.
 type presentationReceived struct{}
 
 func (s *presentationReceived) Name() string {
@@ -255,7 +255,7 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 	return &done{}, action, nil
 }
 
-// proposalSent the Prover's state
+// proposalSent the Prover's state.
 type proposalSent struct{}
 
 func (s *proposalSent) Name() string {
@@ -287,7 +287,7 @@ func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
-// proposalReceived the Verifier's state
+// proposalReceived the Verifier's state.
 type proposalReceived struct{}
 
 func (s *proposalReceived) Name() string {

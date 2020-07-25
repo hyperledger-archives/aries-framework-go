@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
 )
 
-// TestDefaultLogger tests custom logging feature when custom logging provider is supplied through 'Initialize()' call
+// TestDefaultLogger tests custom logging feature when custom logging provider is supplied through 'Initialize()' call.
 func TestCustomLogger(t *testing.T) {
 	defer func() { loggerProviderOnce = sync.Once{} }()
 
@@ -28,17 +28,17 @@ func TestCustomLogger(t *testing.T) {
 	modlog.VerifyCustomLogger(t, logger, module)
 }
 
-// newCustomProvider return new sample logging provider to demonstrate custom logging provider
+// newCustomProvider return new sample logging provider to demonstrate custom logging provider.
 func newCustomProvider(module string) *sampleProvider {
 	return &sampleProvider{modlog.GetSampleCustomLogger(module)}
 }
 
-// sampleProvider is a custom logging provider
+// sampleProvider is a custom logging provider.
 type sampleProvider struct {
 	logger Logger
 }
 
-// GetLogger returns custom logger implementation
+// GetLogger returns custom logger implementation.
 func (p *sampleProvider) GetLogger(module string) Logger {
 	return p.logger
 }

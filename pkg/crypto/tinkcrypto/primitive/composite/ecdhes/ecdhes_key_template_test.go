@@ -78,7 +78,7 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 	}
 }
 
-// createRecipients and return their public key and keyset.Handle
+// createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, curveType string, nbOfRecipients int) ([]*composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
@@ -98,7 +98,7 @@ func createRecipients(t *testing.T, curveType string, nbOfRecipients int) ([]*co
 }
 
 // createRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
-// both marshalled public key and original recipient keyset.Handle
+// both marshalled public key and original recipient keyset.Handle.
 func createRecipient(t *testing.T, curveType string) (*composite.PublicKey, *keyset.Handle) {
 	t.Helper()
 

@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	// MessagePickup defines the protocol name
+	// MessagePickup defines the protocol name.
 	MessagePickup = "messagepickup"
-	// Spec defines the protocol spec
+	// Spec defines the protocol spec.
 	Spec = "https://didcomm.org/messagepickup/1.0/"
 	// StatusMsgType defines the protocol propose-credential message type.
 	StatusMsgType = Spec + "status"
@@ -46,11 +46,11 @@ const (
 const (
 	updateTimeout = 50 * time.Second
 
-	// Namespace is namespace of messagepickup store name
+	// Namespace is namespace of messagepickup store name.
 	Namespace = "mailbox"
 )
 
-// ErrConnectionNotFound connection not found error
+// ErrConnectionNotFound connection not found error.
 var ErrConnectionNotFound = errors.New("connection not found")
 var logger = log.New("aries-framework/messagepickup")
 
@@ -64,7 +64,7 @@ type connections interface {
 	GetConnectionRecord(string) (*connection.Record, error)
 }
 
-// Service for the messagepickup protocol
+// Service for the messagepickup protocol.
 type Service struct {
 	service.Action
 	service.Message
@@ -80,7 +80,7 @@ type Service struct {
 	inboxLock        *lockbox
 }
 
-// New returns the messagepickup service
+// New returns the messagepickup service.
 func New(prov provider, tp transport.Provider) (*Service, error) {
 	store, err := prov.StorageProvider().OpenStore(Namespace)
 	if err != nil {
@@ -106,7 +106,7 @@ func New(prov provider, tp transport.Provider) (*Service, error) {
 	return svc, nil
 }
 
-// HandleInbound handles inbound message pick up messages
+// HandleInbound handles inbound message pick up messages.
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	// perform action asynchronously
 	go func() {
@@ -133,12 +133,12 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	return msg.ID(), nil
 }
 
-// HandleOutbound adherence to dispatcher.ProtocolService
+// HandleOutbound adherence to dispatcher.ProtocolService.
 func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
 	return "", errors.New("not implemented")
 }
 
-// Accept checks whether the service can handle the message type
+// Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
 	case BatchPickupMsgType, BatchMsgType, StatusRequestMsgType, StatusMsgType, NoopMsgType:
@@ -148,7 +148,7 @@ func (s *Service) Accept(msgType string) bool {
 	return false
 }
 
-// Name of the service
+// Name of the service.
 func (s *Service) Name() string {
 	return MessagePickup
 }
@@ -301,7 +301,7 @@ type inbox struct {
 	Messages          json.RawMessage `json:"messages"`
 }
 
-// DecodeMessages Messages
+// DecodeMessages Messages.
 func (r *inbox) DecodeMessages() ([]*Message, error) {
 	var out []*Message
 	err := json.Unmarshal(r.Messages, &out)
@@ -309,7 +309,7 @@ func (r *inbox) DecodeMessages() ([]*Message, error) {
 	return out, err
 }
 
-// EncodeMessages Messages
+// EncodeMessages Messages.
 func (r *inbox) EncodeMessages(msg []*Message) error {
 	d, err := json.Marshal(msg)
 	if err != nil {
@@ -323,7 +323,7 @@ func (r *inbox) EncodeMessages(msg []*Message) error {
 	return nil
 }
 
-// AddMessage add message to inbox
+// AddMessage add message to inbox.
 func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
 	s.inboxLock.Lock(theirDID)
 	defer s.inboxLock.Unlock(theirDID)
@@ -387,7 +387,7 @@ func (s *Service) putInbox(theirDID string, o *inbox) error {
 	return s.msgStore.Put(theirDID, b)
 }
 
-// StatusRequest request a status message
+// StatusRequest request a status message.
 func (s *Service) StatusRequest(connectionID string) (*Status, error) {
 	// get the connection record for the ID to fetch DID information
 	conn, err := s.getConnection(connectionID)
@@ -431,7 +431,7 @@ func (s *Service) StatusRequest(connectionID string) (*Status, error) {
 	return sts, nil
 }
 
-// BatchPickup a request to have multiple waiting messages sent inside a batch message
+// BatchPickup a request to have multiple waiting messages sent inside a batch message.
 func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 	// get the connection record for the ID to fetch DID information
 	conn, err := s.getConnection(connectionID)
@@ -480,7 +480,7 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 	return processed, nil
 }
 
-// Noop a noop message
+// Noop a noop message.
 func (s *Service) Noop(connectionID string) error {
 	// get the connection record for the ID to fetch DID information
 	conn, err := s.getConnection(connectionID)

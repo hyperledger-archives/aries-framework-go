@@ -23,16 +23,16 @@ const (
 	defaultKeyType = "Ed25519VerificationKey2018"
 )
 
-// Option is a vdri instance option
+// Option is a vdri instance option.
 type Option func(opts *Registry)
 
-// provider contains dependencies for the did creator
+// provider contains dependencies for the did creator.
 type provider interface {
 	LegacyKMS() legacykms.KeyManager
 	KMS() kms.KeyManager
 }
 
-// Registry vdri registry
+// Registry vdri registry.
 type Registry struct {
 	vdri               []vdriapi.VDRI
 	legacykms          legacykms.KeyManager
@@ -41,7 +41,7 @@ type Registry struct {
 	defServiceType     string
 }
 
-// New return new instance of vdri
+// New return new instance of vdri.
 func New(ctx provider, opts ...Option) *Registry {
 	baseVDRI := &Registry{kms: ctx.KMS(), legacykms: ctx.LegacyKMS()}
 
@@ -53,7 +53,7 @@ func New(ctx provider, opts ...Option) *Registry {
 	return baseVDRI
 }
 
-// Resolve did document
+// Resolve did document.
 func (r *Registry) Resolve(did string, opts ...vdriapi.ResolveOpts) (*diddoc.Doc, error) {
 	resolveOpts := &vdriapi.ResolveDIDOpts{}
 	// Apply options
@@ -143,7 +143,7 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 	return doc, nil
 }
 
-// applyDefaultDocOpts applies default creator options to doc options
+// applyDefaultDocOpts applies default creator options to doc options.
 func (r *Registry) applyDefaultDocOpts(docOpts *vdriapi.CreateDIDOpts, opts ...vdriapi.DocOpts) []vdriapi.DocOpts {
 	if docOpts.ServiceType == "" {
 		opts = append(opts, vdriapi.WithServiceType(r.defServiceType))
@@ -156,7 +156,7 @@ func (r *Registry) applyDefaultDocOpts(docOpts *vdriapi.CreateDIDOpts, opts ...v
 	return opts
 }
 
-// Store did store
+// Store did store.
 func (r *Registry) Store(doc *diddoc.Doc) error {
 	didMethod, err := getDidMethod(doc.ID)
 	if err != nil {
@@ -192,21 +192,21 @@ func (r *Registry) resolveVDRI(method string) (vdriapi.VDRI, error) {
 	return nil, fmt.Errorf("did method %s not supported for vdri", method)
 }
 
-// WithVDRI adds did method implementation for store
+// WithVDRI adds did method implementation for store.
 func WithVDRI(method vdriapi.VDRI) Option {
 	return func(opts *Registry) {
 		opts.vdri = append(opts.vdri, method)
 	}
 }
 
-// WithDefaultServiceType is default service type for this creator
+// WithDefaultServiceType is default service type for this creator.
 func WithDefaultServiceType(serviceType string) Option {
 	return func(opts *Registry) {
 		opts.defServiceType = serviceType
 	}
 }
 
-// WithDefaultServiceEndpoint allows for setting default service endpoint
+// WithDefaultServiceEndpoint allows for setting default service endpoint.
 func WithDefaultServiceEndpoint(serviceEndpoint string) Option {
 	return func(opts *Registry) {
 		opts.defServiceEndpoint = serviceEndpoint

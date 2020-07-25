@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// Namespace is namespace of connection store name
+	// Namespace is namespace of connection store name.
 	Namespace           = "didexchange"
 	keyPattern          = "%s_%s"
 	connIDKeyPrefix     = "conn"
@@ -27,13 +27,13 @@ const (
 	invKeyPrefix        = "inv"
 	eventDataKeyPrefix  = "connevent"
 	didConnMapKeyPrefix = "didconn"
-	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
+	// limitPattern with `~` at the end for lte of given prefix (less than or equal).
 	limitPattern    = "%s" + storage.EndKeySuffix
 	keySeparator    = "_"
 	stateIDEmptyErr = "stateID can't be empty"
 )
 
-// KeyPrefix is prefix builder for storage keys
+// KeyPrefix is prefix builder for storage keys.
 type KeyPrefix func(...string) string
 
 type provider interface {
@@ -41,7 +41,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// Record contain info about did exchange connection
+// Record contain info about did exchange connection.
 type Record struct {
 	ConnectionID    string
 	State           string
@@ -75,13 +75,13 @@ func NewLookup(p provider) (*Lookup, error) {
 	return &Lookup{protocolStateStore: protocolStateStore, store: store}, nil
 }
 
-// Lookup takes care of connection related persistence features
+// Lookup takes care of connection related persistence features.
 type Lookup struct {
 	protocolStateStore storage.Store
 	store              storage.Store
 }
 
-// GetConnectionRecord return connection record based on the connection ID
+// GetConnectionRecord return connection record based on the connection ID.
 func (c *Lookup) GetConnectionRecord(connectionID string) (*Record, error) {
 	var rec Record
 
@@ -101,7 +101,7 @@ func (c *Lookup) GetConnectionRecord(connectionID string) (*Record, error) {
 }
 
 // QueryConnectionRecords returns connection records found in underlying store
-// for given query criteria
+// for given query criteria.
 func (c *Lookup) QueryConnectionRecords() ([]*Record, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 query criteria to be added as part of issue
 	searchKey := getConnectionKeyPrefix()("")
@@ -163,7 +163,7 @@ func (c *Lookup) GetConnectionRecordAtState(connectionID, stateID string) (*Reco
 	return &rec, nil
 }
 
-// GetConnectionRecordByNSThreadID return connection record via namespaced threadID
+// GetConnectionRecordByNSThreadID return connection record via namespaced threadID.
 func (c *Lookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*Record, error) {
 	connectionIDBytes, err := c.protocolStateStore.Get(nsThreadID)
 	if err != nil {
@@ -190,8 +190,8 @@ func (c *Lookup) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
 	return string(connectionIDBytes), nil
 }
 
-// GetInvitation finds and parses stored invitation to target type
-// TODO should avoid using target of type `interface{}` [Issue #1030]
+// GetInvitation finds and parses stored invitation to target type.
+// TODO should avoid using target of type `interface{}` [Issue #1030].
 func (c *Lookup) GetInvitation(id string, target interface{}) error {
 	if id == "" {
 		return fmt.Errorf(errMsgInvalidKey)
@@ -200,8 +200,8 @@ func (c *Lookup) GetInvitation(id string, target interface{}) error {
 	return getAndUnmarshal(getInvitationKeyPrefix()(id), target, c.store)
 }
 
-// GetEvent returns persisted event data for given connection ID
-// TODO connection event data shouldn't be transient [Issues #1029]
+// GetEvent returns persisted event data for given connection ID.
+// TODO connection event data shouldn't be transient [Issues #1029].
 func (c *Recorder) GetEvent(connectionID string) ([]byte, error) {
 	if connectionID == "" {
 		return nil, fmt.Errorf(errMsgInvalidKey)
@@ -224,49 +224,49 @@ func getAndUnmarshal(key string, target interface{}, store storage.Store) error 
 	return nil
 }
 
-// getConnectionKeyPrefix key prefix for connection record persisted
+// getConnectionKeyPrefix key prefix for connection record persisted.
 func getConnectionKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, connIDKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
-// getConnectionStateKeyPrefix key prefix for state based connection record persisted
+// getConnectionStateKeyPrefix key prefix for state based connection record persisted.
 func getConnectionStateKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, connStateKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
-// getInvitationKeyPrefix key prefix for saving invitations
+// getInvitationKeyPrefix key prefix for saving invitations.
 func getInvitationKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, invKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
-// getNamespaceKeyPrefix key prefix for saving connections records with mappings
+// getNamespaceKeyPrefix key prefix for saving connections records with mappings.
 func getNamespaceKeyPrefix(prefix string) KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, prefix, strings.Join(key, keySeparator))
 	}
 }
 
-// getEventDataKeyPrefix key prefix for saving event data
+// getEventDataKeyPrefix key prefix for saving event data.
 func getEventDataKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, eventDataKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
-// getDIDConnMapKeyPrefix key prefix for saving mapping between DID and ConnectionID
+// getDIDConnMapKeyPrefix key prefix for saving mapping between DID and ConnectionID.
 func getDIDConnMapKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, didConnMapKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
-// CreateNamespaceKey creates key prefix for namespace related data
+// CreateNamespaceKey creates key prefix for namespace related data.
 func CreateNamespaceKey(prefix, thID string) (string, error) {
 	key, err := computeHash([]byte(thID))
 	if err != nil {

@@ -49,7 +49,7 @@ func TestNoopState(t *testing.T) {
 	})
 }
 
-// null state can transition to invited state or requested state
+// null state can transition to invited state or requested state.
 func TestNullState(t *testing.T) {
 	null := &null{}
 	require.Equal(t, "null", null.Name())
@@ -60,7 +60,7 @@ func TestNullState(t *testing.T) {
 	require.False(t, null.CanTransitionTo(&completed{}))
 }
 
-// invited can only transition to requested state
+// invited can only transition to requested state.
 func TestInvitedState(t *testing.T) {
 	invited := &invited{}
 	require.Equal(t, "invited", invited.Name())
@@ -71,7 +71,7 @@ func TestInvitedState(t *testing.T) {
 	require.False(t, invited.CanTransitionTo(&completed{}))
 }
 
-// requested can only transition to responded state
+// requested can only transition to responded state.
 func TestRequestedState(t *testing.T) {
 	requested := &requested{}
 	require.Equal(t, "requested", requested.Name())
@@ -82,7 +82,7 @@ func TestRequestedState(t *testing.T) {
 	require.False(t, requested.CanTransitionTo(&completed{}))
 }
 
-// responded can only transition to completed state
+// responded can only transition to completed state.
 func TestRespondedState(t *testing.T) {
 	responded := &responded{}
 	require.Equal(t, "responded", responded.Name())
@@ -93,7 +93,7 @@ func TestRespondedState(t *testing.T) {
 	require.True(t, responded.CanTransitionTo(&completed{}))
 }
 
-// completed is an end state
+// completed is an end state.
 func TestCompletedState(t *testing.T) {
 	completed := &completed{}
 	require.Equal(t, "completed", completed.Name())
@@ -203,7 +203,7 @@ func TestStateFromName(t *testing.T) {
 	})
 }
 
-// noOp.ExecuteInbound() returns nil, error
+// noOp.ExecuteInbound() returns nil, error.
 func TestNoOpState_Execute(t *testing.T) {
 	_, followup, _, err := (&noOp{}).ExecuteInbound(&stateMachineMsg{}, "", &context{})
 	require.Error(t, err)
@@ -211,7 +211,7 @@ func TestNoOpState_Execute(t *testing.T) {
 	require.Nil(t, followup)
 }
 
-// null.ExecuteInbound() is a no-op
+// null.ExecuteInbound() is a no-op.
 func TestNullState_Execute(t *testing.T) {
 	_, followup, _, err := (&null{}).ExecuteInbound(&stateMachineMsg{}, "", &context{})
 	require.NoError(t, err)
@@ -577,7 +577,7 @@ func TestAbandonedState_Execute(t *testing.T) {
 	})
 }
 
-// completed is an end state
+// completed is an end state.
 func TestCompletedState_Execute(t *testing.T) {
 	pubKey, privKey := generateKeyPair()
 	prov := getProvider()

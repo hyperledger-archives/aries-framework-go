@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 )
 
-// MockMessagePickupSvc mock messagepickup service
+// MockMessagePickupSvc mock messagepickup service.
 type MockMessagePickupSvc struct {
 	service.DIDComm
 	ProtocolName       string
@@ -29,7 +29,7 @@ type MockMessagePickupSvc struct {
 	NoopFunc           func(connectionID string) error
 }
 
-// Name return service name
+// Name return service name.
 func (m *MockMessagePickupSvc) Name() string {
 	if m.ProtocolName != "" {
 		return m.ProtocolName
@@ -38,7 +38,7 @@ func (m *MockMessagePickupSvc) Name() string {
 	return "messagepickup"
 }
 
-// StatusRequest perform StatusRequest
+// StatusRequest perform StatusRequest.
 func (m *MockMessagePickupSvc) StatusRequest(connectionID string) (*messagepickup.Status, error) {
 	if m.StatusRequestErr != nil {
 		return nil, m.StatusRequestErr
@@ -51,7 +51,7 @@ func (m *MockMessagePickupSvc) StatusRequest(connectionID string) (*messagepicku
 	return nil, nil
 }
 
-// BatchPickup perform BatchPickup
+// BatchPickup perform BatchPickup.
 func (m *MockMessagePickupSvc) BatchPickup(connectionID string, size int) (int, error) {
 	if m.BatchPickupErr != nil {
 		return 0, m.BatchPickupErr
@@ -64,7 +64,7 @@ func (m *MockMessagePickupSvc) BatchPickup(connectionID string, size int) (int, 
 	return 0, nil
 }
 
-// HandleInbound msg
+// HandleInbound msg.
 func (m *MockMessagePickupSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleInboundFunc != nil {
 		return m.HandleInboundFunc(msg, myDID, theirDID)
@@ -73,7 +73,7 @@ func (m *MockMessagePickupSvc) HandleInbound(msg service.DIDCommMsg, myDID, thei
 	return "", nil
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (m *MockMessagePickupSvc) Accept(msgType string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType)
@@ -82,7 +82,7 @@ func (m *MockMessagePickupSvc) Accept(msgType string) bool {
 	return true
 }
 
-// AddMessage perform AddMessage
+// AddMessage perform AddMessage.
 func (m *MockMessagePickupSvc) AddMessage(message *model.Envelope, theirDID string) error {
 	if m.AddMessageErr != nil {
 		return m.AddMessageErr
@@ -95,7 +95,7 @@ func (m *MockMessagePickupSvc) AddMessage(message *model.Envelope, theirDID stri
 	return nil
 }
 
-// Noop perform Noop
+// Noop perform Noop.
 func (m *MockMessagePickupSvc) Noop(connectionID string) error {
 	if m.NoopErr != nil {
 		return m.NoopErr

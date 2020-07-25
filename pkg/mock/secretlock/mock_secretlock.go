@@ -8,7 +8,7 @@ package secretlock
 
 import "github.com/hyperledger/aries-framework-go/pkg/secretlock"
 
-// MockSecretLock mocking a Secret Lock service
+// MockSecretLock mocking a Secret Lock service.
 type MockSecretLock struct {
 	ValEncrypt string
 	ValDecrypt string
@@ -16,7 +16,7 @@ type MockSecretLock struct {
 	ErrDecrypt error
 }
 
-// Encrypt req for master key in keyURI
+// Encrypt req for master key in keyURI.
 func (m *MockSecretLock) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
 	if m.ErrEncrypt != nil {
 		return nil, m.ErrEncrypt
@@ -25,7 +25,7 @@ func (m *MockSecretLock) Encrypt(keyURI string, req *secretlock.EncryptRequest) 
 	return &secretlock.EncryptResponse{Ciphertext: m.ValEncrypt}, nil
 }
 
-// Decrypt req for master key in keyURI
+// Decrypt req for master key in keyURI.
 func (m *MockSecretLock) Decrypt(keyURI string, req *secretlock.DecryptRequest) (*secretlock.DecryptResponse, error) {
 	if m.ErrDecrypt != nil {
 		return nil, m.ErrDecrypt

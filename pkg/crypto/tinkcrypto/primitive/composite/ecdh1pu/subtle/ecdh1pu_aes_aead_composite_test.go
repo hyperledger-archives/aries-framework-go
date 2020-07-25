@@ -286,7 +286,7 @@ func getAEADPrimitive(t *testing.T, kt *tinkpb.KeyTemplate) tink.AEAD {
 	return p
 }
 
-// MockEncHelper an mocked AEAD helper of Composite Encrypt/Decrypt primitives
+// MockEncHelper an mocked AEAD helper of Composite Encrypt/Decrypt primitives.
 type MockEncHelper struct {
 	KeySizeValue  int
 	AEADValue     tink.AEAD
@@ -297,27 +297,27 @@ type MockEncHelper struct {
 	MergeRecErr   error
 }
 
-// GetSymmetricKeySize gives the size of the Encryption key (CEK) in bytes
+// GetSymmetricKeySize gives the size of the Encryption key (CEK) in bytes.
 func (m *MockEncHelper) GetSymmetricKeySize() int {
 	return m.KeySizeValue
 }
 
-// GetAEAD returns the newly created AEAD primitive used for the content Encryption
+// GetAEAD returns the newly created AEAD primitive used for the content Encryption.
 func (m *MockEncHelper) GetAEAD(symmetricKeyValue []byte) (tink.AEAD, error) {
 	return m.AEADValue, m.AEADErrValue
 }
 
-// GetTagSize provides the aead primitive tag size
+// GetTagSize provides the aead primitive tag size.
 func (m *MockEncHelper) GetTagSize() int {
 	return m.TagSizeValue
 }
 
-// GetIVSize provides the aead primitive nonce size
+// GetIVSize provides the aead primitive nonce size.
 func (m *MockEncHelper) GetIVSize() int {
 	return m.IVSizeValue
 }
 
-// BuildEncData will build the []byte representing the ciphertext sent to the end user of the Composite primitive
+// BuildEncData will build the []byte representing the ciphertext sent to the end user of the Composite primitive.
 func (m *MockEncHelper) BuildEncData(eAlg string, recipientsWK []*composite.RecipientWrappedKey, ct,
 	singleRecipientAAD []byte) ([]byte, error) {
 	tagSize := m.GetTagSize()

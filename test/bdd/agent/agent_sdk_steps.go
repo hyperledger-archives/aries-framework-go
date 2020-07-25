@@ -41,12 +41,12 @@ const (
 
 var logger = log.New("aries-framework/tests")
 
-// SDKSteps contains steps for agent from client SDK
+// SDKSteps contains steps for agent from client SDK.
 type SDKSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewSDKSteps returns new agent from client SDK
+// NewSDKSteps returns new agent from client SDK.
 func NewSDKSteps() *SDKSteps {
 	return &SDKSteps{}
 }
@@ -90,7 +90,7 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
-// CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver
+// CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver.
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
@@ -238,12 +238,12 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	return nil
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.CreateAgent)

@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// Decrypter interface to Decrypt JWE messages
+// Decrypter interface to Decrypt JWE messages.
 type Decrypter interface {
 	// Decrypt a deserialized JWE, extracts the corresponding recipient key to decrypt plaintext and returns it
 	Decrypt(jwe *JSONWebEncryption) ([]byte, error)
@@ -29,7 +29,7 @@ type Decrypter interface {
 
 type decPrimitiveFunc func(*keyset.Handle) (api.CompositeDecrypt, error)
 
-// JWEDecrypt is responsible for decrypting a JWE message and returns its protected plaintext
+// JWEDecrypt is responsible for decrypting a JWE message and returns its protected plaintext.
 type JWEDecrypt struct {
 	recipientKH  *keyset.Handle
 	getPrimitive decPrimitiveFunc
@@ -55,7 +55,7 @@ func getECDH1PUDecPrimitive(recipientKH *keyset.Handle) (api.CompositeDecrypt, e
 	return ecdh1pu.NewECDH1PUDecrypt(recipientKH)
 }
 
-// Decrypt a deserialized JWE, decrypts its protected content and returns plaintext
+// Decrypt a deserialized JWE, decrypts its protected content and returns plaintext.
 func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	var (
 		err              error
@@ -205,7 +205,7 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 	return json.Marshal(encData)
 }
 
-// extractRecipientHeaders will extract RecipientHeaders from headers argument
+// extractRecipientHeaders will extract RecipientHeaders from headers argument.
 func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders, error) {
 	// Since headers is a generic map, epk value is converted to a generic map by Serialize(), ie we lose RawMessage
 	// type of epk. We need to convert epk value (generic map) to marshaled json so we can call RawMessage.Unmarshal()

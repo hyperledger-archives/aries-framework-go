@@ -21,7 +21,7 @@ import (
 const A256GCM = "A256GCM"
 
 // ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
-// and AEAD content encryption
+// and AEAD content encryption.
 type ECDHESAEADCompositeEncrypt struct {
 	recPublicKeys []*composite.PublicKey
 	pointFormat   string
@@ -32,7 +32,7 @@ type ECDHESAEADCompositeEncrypt struct {
 var _ api.CompositeEncrypt = (*ECDHESAEADCompositeEncrypt)(nil)
 
 // NewECDHESAEADCompositeEncrypt returns ECDH-ES encryption construct with Concat KDF key wrapping
-// and AEAD content encryption
+// and AEAD content encryption.
 func NewECDHESAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptFormat string,
 	encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDHESAEADCompositeEncrypt {
 	return &ECDHESAEADCompositeEncrypt{
@@ -43,7 +43,7 @@ func NewECDHESAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptForm
 	}
 }
 
-// Encrypt using composite ECDH-ES with a Concat KDF key wrap and AEAD content encryption
+// Encrypt using composite ECDH-ES with a Concat KDF key wrap and AEAD content encryption.
 func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, error) {
 	if len(e.recPublicKeys) == 0 {
 		return nil, fmt.Errorf("ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")

@@ -34,20 +34,20 @@ const (
 	actionContinue                    = "/outofband/{piid}/action-continue"
 )
 
-// ControllerSteps is steps for introduce with controller
+// ControllerSteps is steps for introduce with controller.
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	outofband  *bddoutofband.ControllerSteps
 }
 
-// NewIntroduceControllerSteps creates steps for introduce with controller
+// NewIntroduceControllerSteps creates steps for introduce with controller.
 func NewIntroduceControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		outofband: bddoutofband.NewOutofbandControllerSteps(),
 	}
 }
 
-// SetContext sets every scenario with a fresh context
+// SetContext sets every scenario with a fresh context.
 func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 	s.outofband.SetContext(s.bddContext)

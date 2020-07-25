@@ -8,23 +8,23 @@ package presentproof
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 
-// Handler describes middleware interface
+// Handler describes middleware interface.
 type Handler interface {
 	Handle(metadata Metadata) error
 }
 
-// Middleware function receives next handler and returns handler that needs to be executed
+// Middleware function receives next handler and returns handler that needs to be executed.
 type Middleware func(next Handler) Handler
 
-// HandlerFunc is a helper type which implements the middleware Handler interface
+// HandlerFunc is a helper type which implements the middleware Handler interface.
 type HandlerFunc func(metadata Metadata) error
 
-// Handle implements function to satisfy the Handler interface
+// Handle implements function to satisfy the Handler interface.
 func (hf HandlerFunc) Handle(metadata Metadata) error {
 	return hf(metadata)
 }
 
-// Metadata provides helpful information for the processing
+// Metadata provides helpful information for the processing.
 type Metadata interface {
 	// Message contains the original inbound/outbound message
 	Message() service.DIDCommMsg

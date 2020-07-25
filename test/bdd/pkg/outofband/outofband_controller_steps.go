@@ -36,7 +36,7 @@ const (
 	stateCompleted = "completed"
 )
 
-// ControllerSteps is steps for outofband with controller
+// ControllerSteps is steps for outofband with controller.
 type ControllerSteps struct {
 	bddContext         *context.BDDContext
 	pendingRequests    map[string]*outofband.Request
@@ -45,7 +45,7 @@ type ControllerSteps struct {
 	didexchange        *didexsteps.ControllerSteps
 }
 
-// NewOutofbandControllerSteps creates steps for outofband with controller
+// NewOutofbandControllerSteps creates steps for outofband with controller.
 func NewOutofbandControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		didexchange:        didexsteps.NewDIDExchangeControllerSteps(),
@@ -55,7 +55,7 @@ func NewOutofbandControllerSteps() *ControllerSteps {
 	}
 }
 
-// SetContext sets every scenario with a fresh context
+// SetContext sets every scenario with a fresh context.
 func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 	s.didexchange.SetContext(s.bddContext)
@@ -76,7 +76,7 @@ func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" and "([^"]*)" have a connection \(controller\)$`, s.CheckConnection)
 }
 
-// CheckConnection checks a connection between agents
+// CheckConnection checks a connection between agents.
 func (s *ControllerSteps) CheckConnection(receiverID, senderID string) error {
 	_, err := s.GetConnection(receiverID, senderID)
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string
 	return s.DidExchangeApproveRequest(receiverID, senderID)
 }
 
-// DidExchangeApproveRequest approves request (didexchange)
+// DidExchangeApproveRequest approves request (didexchange).
 func (s *ControllerSteps) DidExchangeApproveRequest(receiverID, senderID string) error {
 	if err := s.didexchange.ApproveRequest(senderID); err != nil {
 		return fmt.Errorf("approve request: %w", err)
@@ -172,7 +172,7 @@ func (s *ControllerSteps) newInvitation(agentID string) (*outofband.Invitation, 
 	return res.Invitation, util.SendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
 }
 
-// GetConnection returns a connection between agents
+// GetConnection returns a connection between agents.
 func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchange.Connection, error) {
 	controllerURL, ok := s.bddContext.GetControllerURL(receiverID)
 	if !ok {
@@ -255,7 +255,7 @@ func (s *ControllerSteps) sendRequestThruOOBChannel(senderID, receiverID string)
 	return nil
 }
 
-// NewRequest creates a new request
+// NewRequest creates a new request.
 func (s *ControllerSteps) NewRequest(agentID string) (*outofband.Request, error) {
 	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
 	if !ok {

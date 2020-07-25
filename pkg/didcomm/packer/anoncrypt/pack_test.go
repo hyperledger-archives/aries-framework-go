@@ -125,7 +125,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 }
 
-// createRecipients and return their public key and keyset.Handle
+// createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
 	t.Helper()
 
@@ -147,7 +147,7 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 }
 
 // createAndMarshalRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
-// both marshalled public key and original recipient keyset.Handle
+// both marshalled public key and original recipient keyset.Handle.
 func createAndMarshalRecipient(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
 	t.Helper()
 

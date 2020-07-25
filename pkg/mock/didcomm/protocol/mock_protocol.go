@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// MockProvider is provider for DIDExchange Service
+// MockProvider is provider for DIDExchange Service.
 type MockProvider struct {
 	StoreProvider              *mockstore.MockStoreProvider
 	ProtocolStateStoreProvider *mockstore.MockStoreProvider
@@ -34,7 +34,7 @@ type MockProvider struct {
 	OutboundMsgHandler         service.OutboundHandler
 }
 
-// OutboundDispatcher is mock outbound dispatcher for DID exchange service
+// OutboundDispatcher is mock outbound dispatcher for DID exchange service.
 func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 	if p.CustomOutbound != nil {
 		return p.CustomOutbound
@@ -43,7 +43,7 @@ func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
 }
 
-// StorageProvider is mock storage provider for DID exchange service
+// StorageProvider is mock storage provider for DID exchange service.
 func (p *MockProvider) StorageProvider() storage.Provider {
 	if p.StoreProvider != nil {
 		return p.StoreProvider
@@ -52,7 +52,7 @@ func (p *MockProvider) StorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// ProtocolStateStorageProvider is mock protocol state storage provider for DID exchange service
+// ProtocolStateStorageProvider is mock protocol state storage provider for DID exchange service.
 func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	if p.ProtocolStateStoreProvider != nil {
 		return p.ProtocolStateStoreProvider
@@ -61,12 +61,12 @@ func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// Signer is mock signer for DID exchange service
+// Signer is mock signer for DID exchange service.
 func (p *MockProvider) Signer() legacykms.Signer {
 	return &mockkms.CloseableKMS{}
 }
 
-// VDRIRegistry is mock vdri registry
+// VDRIRegistry is mock vdri registry.
 func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	if p.CustomVDRI != nil {
 		return p.CustomVDRI
@@ -75,7 +75,7 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	return &mockvdri.MockVDRIRegistry{}
 }
 
-// LegacyKMS returns mock LegacyKMS
+// LegacyKMS returns mock LegacyKMS.
 func (p *MockProvider) LegacyKMS() legacykms.KeyManager {
 	if p.CustomKMS != nil {
 		return p.CustomKMS
@@ -84,7 +84,7 @@ func (p *MockProvider) LegacyKMS() legacykms.KeyManager {
 	return &mockkms.CloseableKMS{}
 }
 
-// Service return service
+// Service return service.
 func (p *MockProvider) Service(id string) (interface{}, error) {
 	if p.ServiceErr != nil {
 		return nil, p.ServiceErr
@@ -93,7 +93,7 @@ func (p *MockProvider) Service(id string) (interface{}, error) {
 	return p.ServiceMap[id], nil
 }
 
-// Messenger return mock messenger
+// Messenger return mock messenger.
 func (p *MockProvider) Messenger() service.Messenger {
 	if p.CustomMessenger != nil {
 		return p.CustomMessenger

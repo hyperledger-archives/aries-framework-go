@@ -75,7 +75,7 @@ const vpStrFromWallet = `
 }
 `
 
-// SDKSteps is steps for the presentproof using client SDK
+// SDKSteps is steps for the presentproof using client SDK.
 type SDKSteps struct {
 	bddContext *context.BDDContext
 	clients    map[string]*presentproof.Client
@@ -83,7 +83,7 @@ type SDKSteps struct {
 	events     map[string]chan service.StateMsg
 }
 
-// NewPresentProofSDKSteps creates steps for the presentproof with SDK
+// NewPresentProofSDKSteps creates steps for the presentproof with SDK.
 func NewPresentProofSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		clients: make(map[string]*presentproof.Client),
@@ -92,12 +92,12 @@ func NewPresentProofSDKSteps() *SDKSteps {
 	}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends a request presentation to the "([^"]*)"$`, a.sendRequestPresentation)
 	s.Step(`^"([^"]*)" sends a propose presentation to the "([^"]*)"$`, a.sendProposePresentation)

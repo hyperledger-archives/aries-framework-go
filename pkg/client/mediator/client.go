@@ -45,7 +45,7 @@ type protocolService interface {
 	Config() (*mediator.Config, error)
 }
 
-// WithTimeout option is for definition timeout value waiting for responses received from the router
+// WithTimeout option is for definition timeout value waiting for responses received from the router.
 func WithTimeout(t time.Duration) mediator.ClientOption {
 	return func(opts *mediator.ClientOptions) {
 		opts.Timeout = t

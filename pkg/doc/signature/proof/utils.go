@@ -13,7 +13,7 @@ const (
 	jsonldProof = "proof"
 )
 
-// GetProofs gets proof(s) from LD Object
+// GetProofs gets proof(s) from LD Object.
 func GetProofs(jsonLdObject map[string]interface{}) ([]*Proof, error) {
 	entry, ok := jsonLdObject[jsonldProof]
 	if !ok {
@@ -49,7 +49,7 @@ func GetProofs(jsonLdObject map[string]interface{}) ([]*Proof, error) {
 	return result, nil
 }
 
-// AddProof adds a proof to LD Object
+// AddProof adds a proof to LD Object.
 func AddProof(jsonLdObject map[string]interface{}, proof *Proof) error {
 	var proofs []interface{}
 
@@ -70,7 +70,7 @@ func AddProof(jsonLdObject map[string]interface{}, proof *Proof) error {
 	return nil
 }
 
-// GetCopyWithoutProof gets copy of JSON LD Object without proofs (signatures)
+// GetCopyWithoutProof gets copy of JSON LD Object without proofs (signatures).
 func GetCopyWithoutProof(jsonLdObject map[string]interface{}) map[string]interface{} {
 	if jsonLdObject == nil {
 		return nil
@@ -87,5 +87,5 @@ func GetCopyWithoutProof(jsonLdObject map[string]interface{}) map[string]interfa
 	return dest
 }
 
-// ErrProofNotFound is returned when proof is not found
+// ErrProofNotFound is returned when proof is not found.
 var ErrProofNotFound = errors.New("proof not found")

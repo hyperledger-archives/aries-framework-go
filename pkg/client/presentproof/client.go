@@ -22,7 +22,7 @@ type (
 	// presentation process, or in response to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentation presentproof.ProposePresentation
-	// Action contains helpful information about action
+	// Action contains helpful information about action.
 	Action presentproof.Action
 )
 
@@ -51,7 +51,7 @@ type Client struct {
 	service ProtocolService
 }
 
-// New returns new instance of the presentproof client
+// New returns new instance of the presentproof client.
 func New(ctx Provider) (*Client, error) {
 	raw, err := ctx.Service(presentproof.Name)
 	if err != nil {
@@ -144,21 +144,21 @@ func (c *Client) DeclinePresentation(piID, reason string) error {
 }
 
 // WithPresentation allows providing Presentation message
-// Use this option to respond to RequestPresentation
+// Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {
 	origin := presentproof.Presentation(*msg)
 	return presentproof.WithPresentation(&origin)
 }
 
 // WithProposePresentation allows providing ProposePresentation message
-// Use this option to respond to RequestPresentation
+// Use this option to respond to RequestPresentation.
 func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 	origin := presentproof.ProposePresentation(*msg)
 	return presentproof.WithProposePresentation(&origin)
 }
 
 // WithRequestPresentation allows providing RequestPresentation message
-// Use this option to respond to ProposePresentation
+// Use this option to respond to ProposePresentation.
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
 	origin := presentproof.RequestPresentation(*msg)
 	return presentproof.WithRequestPresentation(&origin)

@@ -15,17 +15,17 @@ import (
 )
 
 const (
-	// TransportReturnRouteNone return route option none
+	// TransportReturnRouteNone return route option none.
 	TransportReturnRouteNone = "none"
 
-	// TransportReturnRouteAll return route option all
+	// TransportReturnRouteAll return route option all.
 	TransportReturnRouteAll = "all"
 
-	// TransportReturnRouteThread return route option thread
+	// TransportReturnRouteThread return route option thread.
 	TransportReturnRouteThread = "thread"
 )
 
-// Thread thread data
+// Thread thread data.
 type Thread struct {
 	ID             string         `json:"thid,omitempty"`
 	PID            string         `json:"pthid,omitempty"`
@@ -33,7 +33,7 @@ type Thread struct {
 	ReceivedOrders map[string]int `json:"received_orders,omitempty"`
 }
 
-// Timing keeps expiration time
+// Timing keeps expiration time.
 type Timing struct {
 	ExpiresTime time.Time `json:"expires_time,omitempty"`
 }
@@ -76,7 +76,7 @@ type Attachment struct {
 	Data AttachmentData `json:"data,omitempty"`
 }
 
-// AttachmentData contains attachment payload
+// AttachmentData contains attachment payload.
 type AttachmentData struct {
 	// Sha256 is a hash of the content. Optional. Used as an integrity check if content is inlined.
 	// if content is only referenced, then including this field makes the content tamper-evident.

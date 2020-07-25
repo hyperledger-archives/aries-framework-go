@@ -34,7 +34,7 @@ type masterLockHKDF struct {
 // The salt is optional and can be set to nil.
 // This implementation must not be used directly in Aries framework. It should be passed in
 // as the second argument to local secret lock service constructor:
-// `local.NewService(masterKeyReader io.Reader, secLock secretlock.Service)`
+// `local.NewService(masterKeyReader io.Reader, secLock secretlock.Service)`.
 func NewMasterLock(passphrase string, h func() hash.Hash, salt []byte) (secretlock.Service, error) {
 	if passphrase == "" {
 		return nil, fmt.Errorf("passphrase is empty")
@@ -88,7 +88,7 @@ func (m *masterLockHKDF) Encrypt(keyURI string, req *secretlock.EncryptRequest) 
 }
 
 // Decrypt a master key in req
-// (keyURI is used for remote locks, it is ignored by this implementation)
+// (keyURI is used for remote locks, it is ignored by this implementation).
 func (m *masterLockHKDF) Decrypt(keyURI string, req *secretlock.DecryptRequest) (*secretlock.DecryptResponse, error) {
 	ct, err := base64.URLEncoding.DecodeString(req.Ciphertext)
 	if err != nil {

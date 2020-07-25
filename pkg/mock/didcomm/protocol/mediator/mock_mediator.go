@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
-// MockMediatorSvc mock route service
+// MockMediatorSvc mock route service.
 type MockMediatorSvc struct {
 	service.Action
 	service.Message
@@ -32,7 +32,7 @@ type MockMediatorSvc struct {
 	AddKeyFunc         func(string) error
 }
 
-// HandleInbound msg
+// HandleInbound msg.
 func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
@@ -41,7 +41,7 @@ func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID 
 	return uuid.New().String(), nil
 }
 
-// HandleOutbound msg
+// HandleOutbound msg.
 func (m *MockMediatorSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleOutboundFunc != nil {
 		return m.HandleOutboundFunc(msg, myDID, theirDID)
@@ -50,7 +50,7 @@ func (m *MockMediatorSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID
 	return "", nil
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (m *MockMediatorSvc) Accept(msgType string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType)
@@ -59,7 +59,7 @@ func (m *MockMediatorSvc) Accept(msgType string) bool {
 	return true
 }
 
-// Name return service name
+// Name return service name.
 func (m *MockMediatorSvc) Name() string {
 	if m.ProtocolName != "" {
 		return m.ProtocolName
@@ -77,12 +77,12 @@ func (m *MockMediatorSvc) Register(connectionID string, options ...mediator.Clie
 	return nil
 }
 
-// Unregister unregisters the router
+// Unregister unregisters the router.
 func (m *MockMediatorSvc) Unregister() error {
 	return m.UnregisterErr
 }
 
-// AddKey adds agents recKey to the router
+// AddKey adds agents recKey to the router.
 func (m *MockMediatorSvc) AddKey(recKey string) error {
 	if m.AddKeyErr != nil {
 		return m.AddKeyErr
@@ -95,7 +95,7 @@ func (m *MockMediatorSvc) AddKey(recKey string) error {
 	return nil
 }
 
-// Config gives back the router configuration
+// Config gives back the router configuration.
 func (m *MockMediatorSvc) Config() (*mediator.Config, error) {
 	if m.ConfigErr != nil {
 		return nil, m.ConfigErr

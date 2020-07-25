@@ -31,7 +31,7 @@ func (ex *didExchangeEvent) InvitationID() string {
 	return ex.invitationID
 }
 
-// All implements EventProperties interface
+// All implements EventProperties interface.
 func (ex *didExchangeEvent) All() map[string]interface{} {
 	return map[string]interface{}{
 		"connectionID": ex.ConnectionID(),
@@ -54,7 +54,7 @@ func (ex *didExchangeEventError) Error() string {
 	return ""
 }
 
-// All implements EventProperties interface
+// All implements EventProperties interface.
 func (ex *didExchangeEventError) All() map[string]interface{} {
 	return map[string]interface{}{
 		"connectionID": ex.ConnectionID(),

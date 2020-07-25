@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package transport
 
-// Envelope holds message data and metadata for inbound and outbound messaging
+// Envelope holds message data and metadata for inbound and outbound messaging.
 type Envelope struct {
 	Message    []byte
 	FromVerKey []byte

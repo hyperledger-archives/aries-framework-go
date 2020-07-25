@@ -8,7 +8,7 @@ package introduce
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
-// Proposal defines proposal request
+// Proposal defines proposal request.
 type Proposal struct {
 	Type     string            `json:"@type,omitempty"`
 	ID       string            `json:"@id,omitempty"`
@@ -21,7 +21,7 @@ type Proposal struct {
 }
 
 // To introducee descriptor keeps information about the introduction
-// e.g introducer wants to introduce Bot to introducee { "name": "Bob" }
+// e.g introducer wants to introduce Bot to introducee { "name": "Bob" }.
 type To struct {
 	Name            string          `json:"name,omitempty"`
 	Description     string          `json:"description,omitempty"`
@@ -33,10 +33,10 @@ type To struct {
 
 // DescriptionL10N may contain locale field and key->val pair for translation
 // e.g { "locale": "en", "es": "Donde se toma el MRI; no en el centro"},
-// where locale field tells that field Description form To struct has en translation
+// where locale field tells that field Description form To struct has en translation.
 type DescriptionL10N map[string]string
 
-// Locale returns locale for the specified description (To.Description)
+// Locale returns locale for the specified description (To.Description).
 func (d DescriptionL10N) Locale() string {
 	if d == nil {
 		return ""
@@ -45,7 +45,7 @@ func (d DescriptionL10N) Locale() string {
 	return d["locale"]
 }
 
-// ImgAttach represent information about the image
+// ImgAttach represent information about the image.
 type ImgAttach struct {
 	Description string  `json:"description,omitempty"`
 	MimeType    string  `json:"mime-type,omitempty"`
@@ -53,7 +53,7 @@ type ImgAttach struct {
 	Content     Content `json:"content,omitempty"`
 }
 
-// Content keeps image data
+// Content keeps image data.
 type Content struct {
 	Link      string `json:"link,omitempty"`
 	ByteCount int    `json:"byte_count,omitempty"`
@@ -61,7 +61,7 @@ type Content struct {
 }
 
 // PleaseIntroduceTo includes all field from To structure
-// also it has Discovered the field which should be provided by help-me-discover protocol
+// also it has Discovered the field which should be provided by help-me-discover protocol.
 type PleaseIntroduceTo struct {
 	// nolint: staticcheck
 	To `json:",squash"`
@@ -80,7 +80,7 @@ type Request struct {
 	Timing            *decorator.Timing  `json:"~timing,omitempty"`
 }
 
-// Response message that introducee usually sends in response to an introduction proposal
+// Response message that introducee usually sends in response to an introduction proposal.
 type Response struct {
 	Type        string                  `json:"@type,omitempty"`
 	ID          string                  `json:"@id,omitempty"`

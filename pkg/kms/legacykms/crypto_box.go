@@ -33,7 +33,7 @@ type CryptoBox struct {
 	km *BaseKMS
 }
 
-// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given LegacyKMS's keypairs
+// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given LegacyKMS's keypairs.
 func NewCryptoBox(w KeyManager) (*CryptoBox, error) {
 	wa, ok := w.(*BaseKMS)
 	if !ok {
@@ -44,7 +44,7 @@ func NewCryptoBox(w KeyManager) (*CryptoBox, error) {
 }
 
 // Easy seals a message with a provided nonce
-// theirPub is used as a public key, while myPub is used to identify the private key that should be used
+// theirPub is used as a public key, while myPub is used to identify the private key that should be used.
 func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error) {
 	var recPubBytes [cryptoutil.Curve25519KeySize]byte
 
@@ -70,7 +70,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 }
 
 // EasyOpen unseals a message sealed with Easy, where the nonce is provided
-// theirPub is the public key used to decrypt directly, while myPub is used to identify the private key to be used
+// theirPub is the public key used to decrypt directly, while myPub is used to identify the private key to be used.
 func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error) {
 	//	 myPub is used to get the recipient private key for decryption
 	var sendPubBytes [cryptoutil.Curve25519KeySize]byte

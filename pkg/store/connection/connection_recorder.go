@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	// StateNameCompleted completed state
+	// StateNameCompleted completed state.
 	StateNameCompleted = "completed"
-	// MyNSPrefix namespace val my
+	// MyNSPrefix namespace val my.
 	MyNSPrefix = "my"
 	// TheirNSPrefix namespace val their
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/556 It will not be constant, this namespace
@@ -32,7 +32,7 @@ const (
 
 // NewRecorder returns new connection recorder.
 // Recorder is read-write connection store which provides
-// write features on top query features from Lookup
+// write features on top query features from Lookup.
 func NewRecorder(p provider) (*Recorder, error) {
 	lookup, err := NewLookup(p)
 	if err != nil {
@@ -42,13 +42,13 @@ func NewRecorder(p provider) (*Recorder, error) {
 	return &Recorder{lookup}, nil
 }
 
-// Recorder is read-write connection store
+// Recorder is read-write connection store.
 type Recorder struct {
 	*Lookup
 }
 
-// SaveInvitation saves invitation in permanent store for given key
-// TODO should avoid using target of type `interface{}` [Issue #1030]
+// SaveInvitation saves invitation in permanent store for given key.
+// TODO should avoid using target of type `interface{}` [Issue #1030].
 func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 	if id == "" {
 		return fmt.Errorf(errMsgInvalidKey)
@@ -57,7 +57,7 @@ func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 	return marshalAndSave(getInvitationKeyPrefix()(id), invitation, c.store)
 }
 
-// SaveConnectionRecord saves given connection records in underlying store
+// SaveConnectionRecord saves given connection records in underlying store.
 func (c *Recorder) SaveConnectionRecord(record *Record) error {
 	if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
 		record, c.protocolStateStore); err != nil {
@@ -89,7 +89,7 @@ func (c *Recorder) SaveConnectionRecord(record *Record) error {
 }
 
 // SaveConnectionRecordWithMappings saves newly created connection record against the connection id in the store
-// and it creates mapping from namespaced ThreadID to connection ID
+// and it creates mapping from namespaced ThreadID to connection ID.
 func (c *Recorder) SaveConnectionRecordWithMappings(record *Record) error {
 	err := isValidConnection(record)
 	if err != nil {
@@ -110,12 +110,12 @@ func (c *Recorder) SaveConnectionRecordWithMappings(record *Record) error {
 }
 
 // SaveEvent saves event related data for given connection ID
-// TODO connection event data shouldn't be transient [Issues #1029]
+// TODO connection event data shouldn't be transient [Issues #1029].
 func (c *Recorder) SaveEvent(connectionID string, data []byte) error {
 	return c.protocolStateStore.Put(getEventDataKeyPrefix()(connectionID), data)
 }
 
-// SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in protocol state store
+// SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in protocol state store.
 func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID string) error {
 	if namespace != MyNSPrefix && namespace != TheirNSPrefix {
 		return fmt.Errorf("namespace not supported")
@@ -134,7 +134,7 @@ func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID strin
 	return c.protocolStateStore.Put(getNamespaceKeyPrefix(prefix)(key), []byte(connectionID))
 }
 
-// RemoveConnection removes connection record from the store for given id
+// RemoveConnection removes connection record from the store for given id.
 func (c *Recorder) RemoveConnection(connectionID string) error {
 	record, err := c.GetConnectionRecord(connectionID)
 	if err != nil {
@@ -181,7 +181,7 @@ func marshalAndSave(k string, v interface{}, store storage.Store) error {
 	return store.Put(k, bytes)
 }
 
-// isValidConnection validates connection record
+// isValidConnection validates connection record.
 func isValidConnection(r *Record) error {
 	if r.ThreadID == "" || r.ConnectionID == "" || r.Namespace == "" {
 		return fmt.Errorf("input parameters thid : %s and connectionId : %s namespace : %s cannot be empty",
@@ -191,7 +191,7 @@ func isValidConnection(r *Record) error {
 	return nil
 }
 
-// computeHash will compute the hash for the supplied bytes
+// computeHash will compute the hash for the supplied bytes.
 func computeHash(bytes []byte) (string, error) {
 	if len(bytes) == 0 {
 		return "", errors.New("unable to compute hash, empty bytes")

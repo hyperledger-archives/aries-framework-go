@@ -24,27 +24,27 @@ import (
 
 const (
 	// InvalidRequestErrorCode is typically a code for validation errors
-	// for invalid present proof controller requests
+	// for invalid present proof controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.PresentProof)
-	// ActionsErrorCode is for failures in actions command
+	// ActionsErrorCode is for failures in actions command.
 	ActionsErrorCode
-	// SendRequestPresentationErrorCode is for failures in send request presentation command
+	// SendRequestPresentationErrorCode is for failures in send request presentation command.
 	SendRequestPresentationErrorCode
-	// AcceptRequestPresentationErrorCode is for failures in accept request presentation command
+	// AcceptRequestPresentationErrorCode is for failures in accept request presentation command.
 	AcceptRequestPresentationErrorCode
-	// NegotiateRequestPresentationErrorCode is for failures in negotiate request presentation command
+	// NegotiateRequestPresentationErrorCode is for failures in negotiate request presentation command.
 	NegotiateRequestPresentationErrorCode
-	// DeclineRequestPresentationErrorCode is for failures in decline request presentation command
+	// DeclineRequestPresentationErrorCode is for failures in decline request presentation command.
 	DeclineRequestPresentationErrorCode
-	// SendProposePresentationErrorCode is for failures in send propose presentation command
+	// SendProposePresentationErrorCode is for failures in send propose presentation command.
 	SendProposePresentationErrorCode
-	// AcceptProposePresentationErrorCode is for failures in accept propose presentation command
+	// AcceptProposePresentationErrorCode is for failures in accept propose presentation command.
 	AcceptProposePresentationErrorCode
-	// DeclineProposePresentationErrorCode is for failures in decline propose presentation command
+	// DeclineProposePresentationErrorCode is for failures in decline propose presentation command.
 	DeclineProposePresentationErrorCode
-	// AcceptPresentationErrorCode is for failures in accept presentation command
+	// AcceptPresentationErrorCode is for failures in accept presentation command.
 	AcceptPresentationErrorCode
-	// DeclinePresentationErrorCode is for failures in decline presentation command
+	// DeclinePresentationErrorCode is for failures in decline presentation command.
 	DeclinePresentationErrorCode
 )
 
@@ -82,12 +82,12 @@ const (
 
 var logger = log.New("aries-framework/controller/presentproof")
 
-// Command is controller command for present proof
+// Command is controller command for present proof.
 type Command struct {
 	client *presentproof.Client
 }
 
-// New returns new present proof controller command instance
+// New returns new present proof controller command instance.
 func New(ctx presentproof.Provider, notifier command.Notifier) (*Command, error) {
 	client, err := presentproof.New(ctx)
 	if err != nil {
@@ -115,7 +115,7 @@ func New(ctx presentproof.Provider, notifier command.Notifier) (*Command, error)
 	return &Command{client: client}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, actions, c.Actions),

@@ -22,7 +22,7 @@ const (
 	// Reference: https://openssi.github.io/peer-did-method-spec/index.html#method-specific-identifier
 	// numAlgo is the algorithm for choosing a numeric basis.
 	numAlgo = "1"
-	// The transform is base58, represented by the multibase prefix z as per spec
+	// The transform is base58, represented by the multibase prefix z as per spec.
 	transform = multibase.Base58BTC
 
 	peerPrefix = "did:peer:"
@@ -35,7 +35,7 @@ var (
 	didRegex = regexp.MustCompile(`did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{46})`)
 )
 
-// NewDoc returns the resolved variant of the genesis version of the peer DID document
+// NewDoc returns the resolved variant of the genesis version of the peer DID document.
 func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
 	opts ...did.DocOption) (*did.Doc, error) {
 	// build DID Doc
@@ -56,7 +56,7 @@ func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
 }
 
 // computeDid creates the peer DID.
-// For example: did:peer:1zQmZMygzYqNwU6Uhmewx5Xepf2VLp5S4HLSwwgf2aiKZuwa
+// For example: did:peer:1zQmZMygzYqNwU6Uhmewx5Xepf2VLp5S4HLSwwgf2aiKZuwa.
 func computeDid(doc *did.Doc) (string, error) {
 	if doc.PublicKey == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")

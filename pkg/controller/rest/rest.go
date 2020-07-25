@@ -17,7 +17,7 @@ import (
 
 var logger = log.New("aries-framework/rest")
 
-// Handler http handler for each controller API endpoint
+// Handler http handler for each controller API endpoint.
 type Handler interface {
 	Path() string
 	Method() string
@@ -25,7 +25,7 @@ type Handler interface {
 }
 
 // Execute executes given command with args provided and writes error to
-// response writer
+// response writer.
 func Execute(exec command.Exec, rw http.ResponseWriter, req io.Reader) {
 	err := exec(rw, req)
 	if err != nil {
@@ -46,7 +46,7 @@ type genericErrorBody struct {
 	Message string       `json:"message"`
 }
 
-// SendError sends command error as http response in generic error format
+// SendError sends command error as http response in generic error format.
 func SendError(rw http.ResponseWriter, err command.Error) {
 	var status int
 
@@ -60,7 +60,7 @@ func SendError(rw http.ResponseWriter, err command.Error) {
 	SendHTTPStatusError(rw, status, err.Code(), err)
 }
 
-// SendHTTPStatusError sends given http status code to response with error body
+// SendHTTPStatusError sends given http status code to response with error body.
 func SendHTTPStatusError(rw http.ResponseWriter, httpStatus int, code command.Code, err error) {
 	rw.WriteHeader(httpStatus)
 

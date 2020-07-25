@@ -29,17 +29,17 @@ import (
 )
 
 const (
-	// AESGCMTypeURL for AESGCM content encryption URL identifier
+	// AESGCMTypeURL for AESGCM content encryption URL identifier.
 	AESGCMTypeURL = "type.googleapis.com/google.crypto.tink.AesGcmKey"
-	// ChaCha20Poly1305TypeURL for Chacha20Poly1305 content encryption URL identifier
+	// ChaCha20Poly1305TypeURL for Chacha20Poly1305 content encryption URL identifier.
 	ChaCha20Poly1305TypeURL = "type.googleapis.com/google.crypto.tink.ChaCha20Poly1305Key"
-	// XChaCha20Poly1305TypeURL for XChachaPoly1305 content encryption URL identifier
+	// XChaCha20Poly1305TypeURL for XChachaPoly1305 content encryption URL identifier.
 	XChaCha20Poly1305TypeURL = "type.googleapis.com/google.crypto.tink.XChaCha20Poly1305Key"
 )
 
 type marshalFunc func(interface{}) ([]byte, error)
 
-// RegisterCompositeAEADEncHelper registers a content encryption helper
+// RegisterCompositeAEADEncHelper registers a content encryption helper.
 type RegisterCompositeAEADEncHelper struct {
 	encKeyURL        string
 	keyData          []byte
@@ -51,7 +51,7 @@ type RegisterCompositeAEADEncHelper struct {
 
 var _ EncrypterHelper = (*RegisterCompositeAEADEncHelper)(nil)
 
-// NewRegisterCompositeAEADEncHelper initializes and returns a RegisterCompositeAEADEncHelper
+// NewRegisterCompositeAEADEncHelper initializes and returns a RegisterCompositeAEADEncHelper.
 func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterCompositeAEADEncHelper, error) {
 	var (
 		keySize, tagSize, ivSize int
@@ -115,22 +115,22 @@ func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterComposit
 	}, nil
 }
 
-// GetSymmetricKeySize returns the symmetric key size
+// GetSymmetricKeySize returns the symmetric key size.
 func (r *RegisterCompositeAEADEncHelper) GetSymmetricKeySize() int {
 	return r.symmetricKeySize
 }
 
-// GetTagSize returns the primitive tag size
+// GetTagSize returns the primitive tag size.
 func (r *RegisterCompositeAEADEncHelper) GetTagSize() int {
 	return r.tagSize
 }
 
-// GetIVSize returns the primitive IV size
+// GetIVSize returns the primitive IV size.
 func (r *RegisterCompositeAEADEncHelper) GetIVSize() int {
 	return r.ivSize
 }
 
-// GetAEAD returns the AEAD primitive from the DEM
+// GetAEAD returns the AEAD primitive from the DEM.
 func (r *RegisterCompositeAEADEncHelper) GetAEAD(symmetricKeyValue []byte) (tink.AEAD, error) {
 	if len(symmetricKeyValue) != r.GetSymmetricKeySize() {
 		return nil, fmt.Errorf("symmetric key has incorrect length")

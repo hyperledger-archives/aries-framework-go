@@ -12,7 +12,7 @@ package legacykms
 // TODO https://github.com/hyperledger/aries-framework-go/issues/752 Signer is not part of KMS and should be
 //  moved elsewhere, merge KMS and KeyManager interface when Signer is removed.
 
-// KMS Key Management Service interface
+// KMS Key Management Service interface.
 type KMS interface {
 	KeyManager
 	Signer
@@ -53,7 +53,7 @@ type KeyManager interface {
 	GetEncryptionKey(verKey []byte) ([]byte, error)
 }
 
-// Signer interface provides signing capabilities
+// Signer interface provides signing capabilities.
 type Signer interface {
 
 	// SignMessage sign a message using the private key associated with a given verification key.
@@ -72,22 +72,22 @@ type Signer interface {
 	SignMessage(message []byte, fromVerKey string) ([]byte, error)
 }
 
-// KeyConverter provides methods for converting signing to encryption keys
+// KeyConverter provides methods for converting signing to encryption keys.
 type KeyConverter interface {
 	// ConvertToEncryptionKey creates and persists a Curve25519 keypair created from the given SigningPubKey's
 	// Ed25519 keypair, returning the EncryptionPubKey for this new keypair.
 	ConvertToEncryptionKey(key []byte) ([]byte, error)
 }
 
-// createDIDOpts holds the options for creating DID
+// createDIDOpts holds the options for creating DID.
 type createDIDOpts struct {
 	serviceType string
 }
 
-// DocOpts is a create DID option
+// DocOpts is a create DID option.
 type DocOpts func(opts *createDIDOpts)
 
-// WithServiceType service type of DID document to be created
+// WithServiceType service type of DID document to be created.
 func WithServiceType(serviceType string) DocOpts {
 	return func(opts *createDIDOpts) {
 		opts.serviceType = serviceType

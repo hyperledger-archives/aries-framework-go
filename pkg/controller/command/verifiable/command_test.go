@@ -1237,6 +1237,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		credList := make([]json.RawMessage, 0)
 
 		req := &PresentationRequest{
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 			VerifiableCredentials: credList,
 		}
 
@@ -1247,7 +1248,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		require.Contains(t, err.Error(), "no valid credentials/presentation found")
 	})
 
-	t.Run("test parse presentation- public key not found in DID Document", func(t *testing.T) {
+	t.Run("parse credentials- public key not found in DID Document", func(t *testing.T) {
 		credList := []json.RawMessage{[]byte(vc)}
 
 		req := &PresentationRequest{
@@ -1264,6 +1265,40 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		require.Nil(t, p)
 		require.Nil(t, opts)
 		require.Contains(t, err.Error(), "public key not found in DID Document")
+	})
+
+	t.Run("parse presentation - public key not found in DID Document", func(t *testing.T) {
+		req := &PresentationRequest{
+			Presentation: stringToJSONRaw(udPresentation),
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
+
+		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
+		require.NoError(t, err)
+
+		vc, p, opts, err := cmd.parsePresentationRequest(req, doc)
+		require.Error(t, err)
+		require.Nil(t, vc)
+		require.Nil(t, p)
+		require.Nil(t, opts)
+		require.Contains(t, err.Error(), "public key not found in DID Document")
+	})
+
+	t.Run("parse presentation - failed", func(t *testing.T) {
+		req := &PresentationRequest{
+			Presentation: []byte(`[]`),
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
+
+		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
+		require.NoError(t, err)
+
+		vc, p, opts, err := cmd.parsePresentationRequest(req, doc)
+		require.Error(t, err)
+		require.Nil(t, vc)
+		require.Nil(t, p)
+		require.Nil(t, opts)
+		require.Contains(t, err.Error(), "parse presentation failed")
 	})
 
 	t.Run("test parse presentation- public key not found in DID Document", func(t *testing.T) {

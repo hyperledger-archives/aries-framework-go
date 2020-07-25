@@ -31,7 +31,7 @@ type header struct {
 // Packer encodes messages using the NO-OP format - sending them as-is, with only a header to indicate message format.
 type Packer struct{}
 
-// encodingType is the `typ` string identifier in a message that identifies the format as being legacy
+// encodingType is the `typ` string identifier in a message that identifies the format as being legacy.
 const encodingType string = "NOOP"
 
 // New will create a Packer that transmits messages IN PLAINTEXT.
@@ -97,7 +97,7 @@ func (p *Packer) Unpack(message []byte) (*transport.Envelope, error) {
 	}, nil
 }
 
-// EncodingType returns the type of the encoding, as found in the header `Typ` field
+// EncodingType returns the type of the encoding, as found in the header `Typ` field.
 func (p *Packer) EncodingType() string {
 	return encodingType
 }

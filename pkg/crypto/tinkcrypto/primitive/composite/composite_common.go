@@ -17,7 +17,7 @@ import (
 // package composite provides the core crypto composite primitives such as ECDH-ES and ECDH-1PU to be used by JWE crypto
 
 // EncryptedData represents the Encryption's output data as a result of ECDHESEncrypt.Encrypt(pt, aad) call
-// The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg)
+// The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg).
 type EncryptedData struct {
 	EncAlg     string                 `json:"encalg,omitempty"`
 	Ciphertext []byte                 `json:"ciphertext,omitempty"`
@@ -31,7 +31,7 @@ type EncryptedData struct {
 	SingleRecipientAAD []byte `json:"singlerecipientaad,omitempty"`
 }
 
-// RecipientWrappedKey contains recipient key material required to unwrap CEK
+// RecipientWrappedKey contains recipient key material required to unwrap CEK.
 type RecipientWrappedKey struct {
 	KID          string    `json:"kid,omitempty"`
 	EncryptedCEK []byte    `json:"encryptedcek,omitempty"`
@@ -39,7 +39,7 @@ type RecipientWrappedKey struct {
 	Alg          string    `json:"alg,omitempty"`
 }
 
-// PublicKey mainly to exchange EPK in RecipientWrappedKey
+// PublicKey mainly to exchange EPK in RecipientWrappedKey.
 type PublicKey struct {
 	KID   string `json:"kid,omitempty"`
 	X     []byte `json:"x,omitempty"`
@@ -48,7 +48,7 @@ type PublicKey struct {
 	Type  string `json:"type,omitempty"`
 }
 
-// GetCurveType is a utility function that converts a string EC curve name into an EC curve proto type
+// GetCurveType is a utility function that converts a string EC curve name into an EC curve proto type.
 func GetCurveType(curve string) (commonpb.EllipticCurveType, error) {
 	switch curve {
 	case "secp256r1", "NIST_P256", "P-256", "EllipticCurveType_NIST_P256":
@@ -62,7 +62,7 @@ func GetCurveType(curve string) (commonpb.EllipticCurveType, error) {
 	}
 }
 
-// GetKeyType is a utility function that converts a string type value into an proto KeyType
+// GetKeyType is a utility function that converts a string type value into an proto KeyType.
 func GetKeyType(keyType string) (compositepb.KeyType, error) {
 	switch keyType {
 	case "EC":

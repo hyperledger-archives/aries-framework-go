@@ -19,10 +19,10 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// errEmptyRecipients is used when recipients list is empty
+// errEmptyRecipients is used when recipients list is empty.
 var errEmptyRecipients = errors.New("empty recipients")
 
-// errInvalidKeypair is used when a keypair is invalid
+// errInvalidKeypair is used when a keypair is invalid.
 var errInvalidKeypair = errors.New("invalid keypair")
 
 // SignatureAlgorithm represents a signature algorithm.
@@ -32,18 +32,18 @@ type SignatureAlgorithm string
 type EncryptionAlgorithm string
 
 const (
-	// encryption key types
+	// encryption key types.
 
-	// Curve25519 encryption key type
+	// Curve25519 encryption key type.
 	Curve25519 = EncryptionAlgorithm("Curve25519")
 
-	// signing key types
+	// signing key types.
 
-	// EdDSA signature key type
+	// EdDSA signature key type.
 	EdDSA = SignatureAlgorithm("EdDSA")
 )
 
-// VerifyKeys is a utility function that verifies if sender key pair and recipients keys are valid (not empty)
+// VerifyKeys is a utility function that verifies if sender key pair and recipients keys are valid (not empty).
 func VerifyKeys(sender KeyPair, recipients [][]byte) error {
 	if len(recipients) == 0 {
 		return errEmptyRecipients
@@ -61,12 +61,12 @@ func VerifyKeys(sender KeyPair, recipients [][]byte) error {
 }
 
 // IsChachaKeyValid will return true if key size is the same as chacha20poly1305.keySize
-// false otherwise
+// false otherwise.
 func IsChachaKeyValid(key []byte) bool {
 	return len(key) == chacha.KeySize
 }
 
-// KeyPair represents a private/public key pair
+// KeyPair represents a private/public key pair.
 type KeyPair struct {
 	// Priv is a private key
 	Priv []byte `json:"priv,omitempty"`
@@ -74,14 +74,14 @@ type KeyPair struct {
 	Pub []byte `json:"pub,omitempty"`
 }
 
-// EncKeyPair represents a private/public encryption key pair
+// EncKeyPair represents a private/public encryption key pair.
 type EncKeyPair struct {
 	KeyPair `json:"keypair,omitempty"`
 	// Alg is the encryption algorithm of keys enclosed in this key pair
 	Alg EncryptionAlgorithm `json:"alg,omitempty"`
 }
 
-// SigKeyPair represents a private/public signature (verification) key pair
+// SigKeyPair represents a private/public signature (verification) key pair.
 type SigKeyPair struct {
 	KeyPair `json:"keypair,omitempty"`
 	// Alg is the signature algorithm of keys enclosed in this key pair
@@ -90,13 +90,13 @@ type SigKeyPair struct {
 
 // MessagingKeys represents a pair of key pairs, one for encryption and one for signature
 // usually stored in a LegacyKMS, it helps prevent converting signing keys into encryption ones
-// TODO refactor this structure and all KeyPair handling as per issue #596
+// TODO refactor this structure and all KeyPair handling as per issue #596.
 type MessagingKeys struct {
 	*EncKeyPair `json:"enckeypair,omitempty"`
 	*SigKeyPair `json:"sigkeypair,omitempty"`
 }
 
-// isKeyPairValid is a utility function that validates a KeyPair
+// isKeyPairValid is a utility function that validates a KeyPair.
 func isKeyPairValid(kp KeyPair) bool {
 	if kp.Priv == nil || kp.Pub == nil {
 		return false
@@ -105,7 +105,7 @@ func isKeyPairValid(kp KeyPair) bool {
 	return true
 }
 
-// IsEncKeyPairValid is a utility function that validates an EncKeyPair
+// IsEncKeyPairValid is a utility function that validates an EncKeyPair.
 func IsEncKeyPairValid(kp *EncKeyPair) bool {
 	if !isKeyPairValid(kp.KeyPair) {
 		return false
@@ -119,7 +119,7 @@ func IsEncKeyPairValid(kp *EncKeyPair) bool {
 	}
 }
 
-// IsSigKeyPairValid is a utility function that validates an EncKeyPair
+// IsSigKeyPairValid is a utility function that validates an EncKeyPair.
 func IsSigKeyPairValid(kp *SigKeyPair) bool {
 	if !isKeyPairValid(kp.KeyPair) {
 		return false
@@ -133,7 +133,7 @@ func IsSigKeyPairValid(kp *SigKeyPair) bool {
 	}
 }
 
-// IsMessagingKeysValid is a utility function that validates a KeyPair
+// IsMessagingKeysValid is a utility function that validates a KeyPair.
 func IsMessagingKeysValid(kpb *MessagingKeys) bool {
 	if !IsSigKeyPairValid(kpb.SigKeyPair) || !IsEncKeyPairValid(kpb.EncKeyPair) {
 		return false
@@ -142,7 +142,8 @@ func IsMessagingKeysValid(kpb *MessagingKeys) bool {
 	return true
 }
 
-// Derive25519KEK is a utility function that will derive an ephemeral symmetric key (kek) using fromPrivKey and toPubKey
+// Derive25519KEK is a utility function that will derive an ephemeral
+// symmetric key (kek) using fromPrivKey and toPubKey.
 func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) { // nolint:lll
 	if fromPrivKey == nil || toPubKey == nil {
 		return nil, ErrInvalidKey
@@ -193,7 +194,7 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	return kek, nil
 }
 
-// LengthPrefix array with a bigEndian uint32 value of array's length
+// LengthPrefix array with a bigEndian uint32 value of array's length.
 func LengthPrefix(array []byte) []byte {
 	const prefixLen = 4
 
@@ -204,10 +205,10 @@ func LengthPrefix(array []byte) []byte {
 	return arrInfo
 }
 
-// Curve25519KeySize number of bytes in a Curve25519 public or private key
+// Curve25519KeySize number of bytes in a Curve25519 public or private key.
 const Curve25519KeySize = 32
 
-// NonceSize size of a nonce used by Box encryption (Xchacha20Poly1305)
+// NonceSize size of a nonce used by Box encryption (Xchacha20Poly1305).
 const NonceSize = 24
 
 // PublicEd25519toCurve25519 takes an Ed25519 public key and provides the corresponding Curve25519 public key
@@ -251,8 +252,8 @@ func SecretEd25519toCurve25519(priv []byte) ([]byte, error) {
 	return sKOut[:], nil
 }
 
-// ErrKeyNotFound is returned when key not found
+// ErrKeyNotFound is returned when key not found.
 var ErrKeyNotFound = errors.New("key not found")
 
-// ErrInvalidKey is used when a key is invalid
+// ErrInvalidKey is used when a key is invalid.
 var ErrInvalidKey = errors.New("invalid key")

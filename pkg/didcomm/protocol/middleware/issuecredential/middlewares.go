@@ -21,16 +21,16 @@ import (
 
 const stateNameCredentialReceived = "credential-received"
 
-// Metadata is an alias to the original Metadata
+// Metadata is an alias to the original Metadata.
 type Metadata issuecredential.Metadata
 
-// Provider contains dependencies for the SaveCredentials middleware function
+// Provider contains dependencies for the SaveCredentials middleware function.
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
 	VDRIRegistry() vdri.Registry
 }
 
-// SaveCredentials the helper function for the issue credential protocol which saves credentials
+// SaveCredentials the helper function for the issue credential protocol which saves credentials.
 func SaveCredentials(p Provider) issuecredential.Middleware {
 	registryVDRI := p.VDRIRegistry()
 	store := p.VerifiableStore()

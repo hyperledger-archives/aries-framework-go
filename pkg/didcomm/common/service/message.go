@@ -8,13 +8,13 @@ package service
 
 import "sync"
 
-// Message thread-safe message register structure
+// Message thread-safe message register structure.
 type Message struct {
 	mu     sync.RWMutex
 	events []chan<- StateMsg
 }
 
-// MsgEvents returns event message channels
+// MsgEvents returns event message channels.
 func (m *Message) MsgEvents() []chan<- StateMsg {
 	m.mu.RLock()
 	events := append(m.events[:0:0], m.events...)

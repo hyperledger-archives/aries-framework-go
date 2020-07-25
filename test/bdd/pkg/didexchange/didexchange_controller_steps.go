@@ -44,7 +44,7 @@ const (
 
 var logger = log.New("aries-framework/didexchange-tests")
 
-// ControllerSteps is steps for didexchange with controller
+// ControllerSteps is steps for didexchange with controller.
 type ControllerSteps struct {
 	bddContext            *context.BDDContext
 	invitations           map[string]*didexchange.Invitation
@@ -52,7 +52,7 @@ type ControllerSteps struct {
 	agentServiceEndpoints map[string]string
 }
 
-// NewDIDExchangeControllerSteps creates steps for didexchange with controller
+// NewDIDExchangeControllerSteps creates steps for didexchange with controller.
 func NewDIDExchangeControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		invitations:   make(map[string]*didexchange.Invitation),
@@ -64,12 +64,12 @@ func NewDIDExchangeControllerSteps() *ControllerSteps {
 	}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
@@ -95,12 +95,12 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
 }
 
-// EstablishConnection establishes connection between two agents through did exchange protocol
+// EstablishConnection establishes connection between two agents through did exchange protocol.
 func (a *ControllerSteps) EstablishConnection(inviter, invitee string) error {
 	return a.performDIDExchange(inviter, invitee)
 }
 
-// ConnectionIDs gets connection IDs
+// ConnectionIDs gets connection IDs.
 func (a *ControllerSteps) ConnectionIDs() map[string]string {
 	return a.connectionIDs
 }
@@ -319,7 +319,7 @@ func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) 
 	return nil
 }
 
-// ApproveRequest approves a request
+// ApproveRequest approves a request.
 func (a *ControllerSteps) ApproveRequest(agentID string) error {
 	return a.performApproveRequest(agentID, false)
 }
@@ -381,7 +381,7 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 	return nil
 }
 
-// WaitForPostEvent waits for the specific post event state
+// WaitForPostEvent waits for the specific post event state.
 func (a *ControllerSteps) WaitForPostEvent(agentID, statesValue string) error {
 	_, err := a.pullEventsFromWebSocket(agentID, statesValue)
 	if err != nil {
@@ -517,7 +517,7 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 	return nil
 }
 
-// waitForPublicDID wait for public DID to be available before throw error after timeout
+// waitForPublicDID wait for public DID to be available before throw error after timeout.
 func (a *ControllerSteps) waitForPublicDID(id string) error {
 	const retryDelay = 500 * time.Millisecond
 

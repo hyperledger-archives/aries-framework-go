@@ -56,13 +56,13 @@ type provider interface {
 	Crypto() ariescrypto.Crypto
 }
 
-// Operation contains basic common operations provided by controller REST API
+// Operation contains basic common operations provided by controller REST API.
 type Operation struct {
 	handlers []rest.Handler
 	command  *verifiable.Command
 }
 
-// New returns new common operations rest client instance
+// New returns new common operations rest client instance.
 func New(p provider) (*Operation, error) {
 	cmd, err := verifiable.New(p)
 	if err != nil {
@@ -75,12 +75,12 @@ func New(p provider) (*Operation, error) {
 	return o, nil
 }
 
-// GetRESTHandlers get all controller API handler available for this service
+// GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []rest.Handler {
 	return o.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(ValidateCredentialPath, http.MethodPost, o.ValidateCredential),

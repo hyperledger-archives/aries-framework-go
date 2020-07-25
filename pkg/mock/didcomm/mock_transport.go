@@ -10,14 +10,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
-// MockOutboundTransport mock outbound transport structure
+// MockOutboundTransport mock outbound transport structure.
 type MockOutboundTransport struct {
 	ExpectedResponse string
 	SendErr          error
 	AcceptValue      bool
 }
 
-// NewMockOutboundTransport new MockOutboundTransport instance
+// NewMockOutboundTransport new MockOutboundTransport instance.
 func NewMockOutboundTransport(expectedResponse string) *MockOutboundTransport {
 	return &MockOutboundTransport{ExpectedResponse: expectedResponse}
 }
@@ -27,17 +27,17 @@ func (o *MockOutboundTransport) Start(prov transport.Provider) error {
 	return nil
 }
 
-// Send implementation of MockOutboundTransport.Send api
+// Send implementation of MockOutboundTransport.Send api.
 func (o *MockOutboundTransport) Send(data []byte, destination *service.Destination) (string, error) {
 	return o.ExpectedResponse, o.SendErr
 }
 
-// AcceptRecipient checks if there is a connection for the list of recipient keys
+// AcceptRecipient checks if there is a connection for the list of recipient keys.
 func (o *MockOutboundTransport) AcceptRecipient([]string) bool {
 	return false
 }
 
-// Accept url
+// Accept url.
 func (o *MockOutboundTransport) Accept(url string) bool {
 	return o.AcceptValue
 }

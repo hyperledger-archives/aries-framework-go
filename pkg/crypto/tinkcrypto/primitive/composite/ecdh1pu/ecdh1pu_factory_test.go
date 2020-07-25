@@ -136,7 +136,7 @@ func ecdh1puAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt comm
 	}
 }
 
-// ecdh1puPrivateKey returns a Ecdh1PuAeadPrivateKey with specified parameters
+// ecdh1puPrivateKey returns a Ecdh1PuAeadPrivateKey with specified parameters.
 func ecdh1puPrivateKey(t *testing.T, p *ecdh1pupb.Ecdh1PuAeadPublicKey, d []byte) *ecdh1pupb.Ecdh1PuAeadPrivateKey {
 	t.Helper()
 

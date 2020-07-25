@@ -28,14 +28,14 @@ import (
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
 
-// JWSAlgorithm defines JWT signature algorithms of Verifiable Credential
+// JWSAlgorithm defines JWT signature algorithms of Verifiable Credential.
 type JWSAlgorithm int
 
 const (
-	// RS256 JWT Algorithm
+	// RS256 JWT Algorithm.
 	RS256 JWSAlgorithm = iota
 
-	// EdDSA JWT Algorithm
+	// EdDSA JWT Algorithm.
 	EdDSA
 )
 
@@ -111,7 +111,7 @@ func (r *DIDKeyResolver) PublicKeyFetcher() PublicKeyFetcher {
 	return r.resolvePublicKey
 }
 
-// Proof defines embedded proof of Verifiable Credential
+// Proof defines embedded proof of Verifiable Credential.
 type Proof map[string]interface{}
 
 // CustomFields is a map of extra fields of struct build when unmarshalling JSON which are not

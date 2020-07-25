@@ -22,14 +22,14 @@ import (
 
 const pathPattern = "%s-%s"
 
-// Provider leveldb implementation of storage.Provider interface
+// Provider leveldb implementation of storage.Provider interface.
 type Provider struct {
 	dbPath string
 	dbs    map[string]*leveldbStore
 	lock   sync.RWMutex
 }
 
-// NewProvider instantiates Provider
+// NewProvider instantiates Provider.
 func NewProvider(dbPath string) *Provider {
 	return &Provider{dbs: make(map[string]*leveldbStore), dbPath: dbPath}
 }
@@ -45,7 +45,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 }
 
 // getLeveldbStore finds level db store with given name
-// returns nil if not found
+// returns nil if not found.
 func (p *Provider) getLeveldbStore(name string) *leveldbStore {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -54,7 +54,7 @@ func (p *Provider) getLeveldbStore(name string) *leveldbStore {
 }
 
 // newLeveldbStore creates level db store for given name space
-// returns nil if not found
+// returns nil if not found.
 func (p *Provider) newLeveldbStore(name string) (*leveldbStore, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -70,7 +70,7 @@ func (p *Provider) newLeveldbStore(name string) (*leveldbStore, error) {
 	return store, nil
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (p *Provider) Close() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -93,7 +93,7 @@ func (p *Provider) Close() error {
 	return nil
 }
 
-// CloseStore closes level db store of given name
+// CloseStore closes level db store of given name.
 func (p *Provider) CloseStore(name string) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -113,7 +113,7 @@ type leveldbStore struct {
 	db *leveldb.DB
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (s *leveldbStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")
@@ -122,7 +122,7 @@ func (s *leveldbStore) Put(k string, v []byte) error {
 	return s.db.Put([]byte(k), v, nil)
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (s *leveldbStore) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, errors.New("key is mandatory")
@@ -146,7 +146,7 @@ func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
 		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~"))}, nil)
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (s *leveldbStore) Delete(k string) error {
 	if k == "" {
 		return errors.New("key is mandatory")

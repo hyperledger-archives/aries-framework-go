@@ -52,31 +52,31 @@ const (
 
 const (
 	// InvalidRequestErrorCode is typically a code for validation errors
-	// for invalid didexchange controller requests
+	// for invalid didexchange controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.DIDExchange)
 
-	// CreateInvitationErrorCode is for failures in create invitation command
+	// CreateInvitationErrorCode is for failures in create invitation command.
 	CreateInvitationErrorCode
 
-	// CreateImplicitInvitationErrorCode is for failures in create implicit invitation command
+	// CreateImplicitInvitationErrorCode is for failures in create implicit invitation command.
 	CreateImplicitInvitationErrorCode
 
-	// ReceiveInvitationErrorCode is for failures in receive invitation command
+	// ReceiveInvitationErrorCode is for failures in receive invitation command.
 	ReceiveInvitationErrorCode
 
-	// AcceptInvitationErrorCode is for failures in accept invitation command
+	// AcceptInvitationErrorCode is for failures in accept invitation command.
 	AcceptInvitationErrorCode
 
-	// AcceptExchangeRequestErrorCode is for failures in accept exchange request command
+	// AcceptExchangeRequestErrorCode is for failures in accept exchange request command.
 	AcceptExchangeRequestErrorCode
 
-	// QueryConnectionsErrorCode is for failures in query connection command
+	// QueryConnectionsErrorCode is for failures in query connection command.
 	QueryConnectionsErrorCode
 
-	// RemoveConnectionErrorCode is for failures in remove connection command
+	// RemoveConnectionErrorCode is for failures in remove connection command.
 	RemoveConnectionErrorCode
 
-	// CreateConnectionErrorCode is for failures in create connection command
+	// CreateConnectionErrorCode is for failures in create connection command.
 	CreateConnectionErrorCode
 
 	_actions = "_actions"
@@ -92,7 +92,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 }
 
-// New returns new DID Exchange controller command instance
+// New returns new DID Exchange controller command instance.
 func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccept bool) (*Command, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
@@ -146,7 +146,7 @@ func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccep
 	return cmd, nil
 }
 
-// Command is controller command for DID Exchange
+// Command is controller command for DID Exchange.
 type Command struct {
 	ctx          provider
 	client       *didexchange.Client
@@ -154,7 +154,7 @@ type Command struct {
 	defaultLabel string
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, CreateInvitationCommandMethod, c.CreateInvitation),

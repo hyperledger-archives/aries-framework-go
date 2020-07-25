@@ -34,7 +34,7 @@ type failReader struct {
 	data  io.Reader
 }
 
-// newFailReader constructs a failWriter
+// newFailReader constructs a failWriter.
 func newFailReader(numSuccesses int, reader io.Reader) *failReader {
 	fw := failReader{numSuccesses, reader}
 	return &fw

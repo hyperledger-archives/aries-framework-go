@@ -24,7 +24,7 @@ const (
 	callerInfoFormatter = "- %s "
 )
 
-// NewDefLog returns new DefLog instance based on given module
+// NewDefLog returns new DefLog instance based on given module.
 func NewDefLog(module string) *DefLog {
 	logger := log.New(os.Stdout, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC)
 	return &DefLog{logger: logger, module: module}
@@ -33,7 +33,7 @@ func NewDefLog(module string) *DefLog {
 // DefLog is a logger implementation built on top of standard go log.
 // There is a  configurable caller info feature which displays caller function information name in logged lines.
 // caller info can be configured by log levels and modules. By default it is enabled.
-// Log Format : [<MODULE NAME>] <TIME IN UTC> - <CALLER INFO> -> <LOG LEVEL> <LOG TEXT>
+// Log Format : [<MODULE NAME>] <TIME IN UTC> - <CALLER INFO> -> <LOG LEVEL> <LOG TEXT>.
 type DefLog struct {
 	logger *log.Logger
 	module string
@@ -45,7 +45,7 @@ func (l *DefLog) Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// Panicf is CRITICAL log formatted followed by a call to panic()
+// Panicf is CRITICAL log formatted followed by a call to panic().
 func (l *DefLog) Panicf(format string, args ...interface{}) {
 	l.logf(metadata.CRITICAL, format, args...)
 	panic(fmt.Sprintf(format, args...))
@@ -94,7 +94,7 @@ func (l *DefLog) logf(level metadata.Level, format string, args ...interface{}) 
 }
 
 // getCallerInfo going through runtime caller frames to determine the caller of logger function by filtering
-// internal logging library functions
+// internal logging library functions.
 func (l *DefLog) getCallerInfo(level metadata.Level) string {
 	if !metadata.IsCallerInfoEnabled(l.module, level) {
 		return ""

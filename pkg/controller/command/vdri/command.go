@@ -25,16 +25,16 @@ var logger = log.New("aries-framework/command/vdri")
 
 // Error codes
 const (
-	// InvalidRequestErrorCode is typically a code for invalid requests
+	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VDRI)
 
-	// SaveDIDErrorCode for save did error
+	// SaveDIDErrorCode for save did error.
 	SaveDIDErrorCode
 
-	// GetDIDErrorCode for get did error
+	// GetDIDErrorCode for get did error.
 	GetDIDErrorCode
 
-	// ResolveDIDErrorCode for get did error
+	// ResolveDIDErrorCode for get did error.
 	ResolveDIDErrorCode
 )
 
@@ -63,13 +63,13 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// Command contains command operations provided by vdri controller
+// Command contains command operations provided by vdri controller.
 type Command struct {
 	ctx      provider
 	didStore *didstore.Store
 }
 
-// New returns new vdri controller command instance
+// New returns new vdri controller command instance.
 func New(ctx provider) (*Command, error) {
 	didStore, err := didstore.New(ctx)
 	if err != nil {
@@ -82,7 +82,7 @@ func New(ctx provider) (*Command, error) {
 	}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, saveDIDCommandMethod, o.SaveDID),
@@ -92,7 +92,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	}
 }
 
-// ResolveDID resolve did
+// ResolveDID resolve did.
 func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 	var request IDArg
 
@@ -133,7 +133,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// SaveDID saves the did doc to the store
+// SaveDID saves the did doc to the store.
 func (o *Command) SaveDID(rw io.Writer, req io.Reader) command.Error {
 	request := &DIDArgs{}
 
@@ -211,7 +211,7 @@ func (o *Command) GetDID(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// GetDIDRecords retrieves the did doc containing name and didID. //TODO Add pagination feature #1566
+// GetDIDRecords retrieves the did doc containing name and didID. //TODO Add pagination feature #1566.
 func (o *Command) GetDIDRecords(rw io.Writer, req io.Reader) command.Error {
 	didRecords := o.didStore.GetDIDRecords()
 

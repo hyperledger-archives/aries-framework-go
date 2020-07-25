@@ -30,7 +30,7 @@ func NewMockStoreProvider() *MockStoreProvider {
 }
 
 // NewCustomMockStoreProvider new mock store provider instance
-// from existing mock store
+// from existing mock store.
 func NewCustomMockStoreProvider(customStore storage.Store) *MockStoreProvider {
 	return &MockStoreProvider{Custom: customStore}
 }
@@ -48,12 +48,12 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 	return s.Store, s.ErrOpenStoreHandle
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (s *MockStoreProvider) Close() error {
 	return nil
 }
 
-// CloseStore closes store for given name space
+// CloseStore closes store for given name space.
 func (s *MockStoreProvider) CloseStore(name string) error {
 	return nil
 }
@@ -68,7 +68,7 @@ type MockStore struct {
 	ErrDelete error
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (s *MockStore) Put(k string, v []byte) error {
 	if k == "" {
 		return errors.New("key is mandatory")
@@ -85,7 +85,7 @@ func (s *MockStore) Put(k string, v []byte) error {
 	return s.ErrPut
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (s *MockStore) Get(k string) ([]byte, error) {
 	if s.ErrGet != nil {
 		return nil, s.ErrGet
@@ -102,7 +102,7 @@ func (s *MockStore) Get(k string) ([]byte, error) {
 	return val, s.ErrGet
 }
 
-// Iterator returns an iterator for the underlying mockstore
+// Iterator returns an iterator for the underlying mockstore.
 func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
 	if s.ErrItr != nil {
 		return NewMockIteratorWithError(s.ErrItr)
@@ -122,7 +122,7 @@ func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
 	return NewMockIterator(batch)
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (s *MockStore) Delete(k string) error {
 	s.lock.Lock()
 	delete(s.Store, k)
@@ -131,7 +131,7 @@ func (s *MockStore) Delete(k string) error {
 	return s.ErrDelete
 }
 
-// NewMockIterator returns new mock iterator for given batch
+// NewMockIterator returns new mock iterator for given batch.
 func NewMockIterator(batch [][]string) *MockIterator {
 	if len(batch) == 0 {
 		return &MockIterator{}
@@ -140,12 +140,12 @@ func NewMockIterator(batch [][]string) *MockIterator {
 	return &MockIterator{items: batch}
 }
 
-// NewMockIteratorWithError returns new mock iterator with error
+// NewMockIteratorWithError returns new mock iterator with error.
 func NewMockIteratorWithError(err error) *MockIterator {
 	return &MockIterator{err: err}
 }
 
-// MockIterator is the mock implementation of storage iterator
+// MockIterator is the mock implementation of storage iterator.
 type MockIterator struct {
 	currentIndex int
 	currentItem  []string
