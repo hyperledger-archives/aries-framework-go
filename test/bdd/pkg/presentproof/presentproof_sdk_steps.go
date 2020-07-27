@@ -177,7 +177,9 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 		return err
 	}
 
-	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{}, conn.MyDID, conn.TheirDID)
+	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
+		WillConfirm: true,
+	}, conn.MyDID, conn.TheirDID)
 
 	return err
 }
@@ -292,7 +294,9 @@ func (a *SDKSteps) acceptProposePresentation(verifier string) error {
 		return err
 	}
 
-	return a.clients[verifier].AcceptProposePresentation(PIID, &presentproof.RequestPresentation{})
+	return a.clients[verifier].AcceptProposePresentation(PIID, &presentproof.RequestPresentation{
+		WillConfirm: true,
+	})
 }
 
 func (a *SDKSteps) createClient(agentID string) error {

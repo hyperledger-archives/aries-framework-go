@@ -193,11 +193,27 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 
 func TestRequestReceived_Execute(t *testing.T) {
 	t.Run("With presentation", func(t *testing.T) {
+		msg := randomInboundMessage(RequestPresentationMsgType)
+		msg["will_confirm"] = true
+
 		followup, action, err := (&requestReceived{}).Execute(&metaData{
-			presentation: &Presentation{},
+			presentation:        &Presentation{},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 		})
 		require.NoError(t, err)
 		require.Equal(t, &presentationSent{}, followup)
+		require.NoError(t, action(nil))
+	})
+
+	t.Run("With presentation - Ack is not required", func(t *testing.T) {
+		followup, action, err := (&requestReceived{}).Execute(&metaData{
+			presentation: &Presentation{},
+			transitionalPayload: transitionalPayload{Action: Action{
+				Msg: randomInboundMessage(RequestPresentationMsgType),
+			}},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
 		require.NoError(t, action(nil))
 	})
 
@@ -206,6 +222,18 @@ func TestRequestReceived_Execute(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, &proposalSent{}, followup)
 		require.NoError(t, action(nil))
+	})
+
+	t.Run("Message decode error", func(t *testing.T) {
+		followup, action, err := (&requestReceived{}).Execute(&metaData{
+			presentation: &Presentation{},
+			transitionalPayload: transitionalPayload{Action: Action{
+				Msg: service.DIDCommMsgMap{"@type": []int{1}},
+			}},
+		})
+		require.Error(t, err)
+		require.Nil(t, followup)
+		require.Nil(t, action)
 	})
 }
 
@@ -268,7 +296,11 @@ func TestRequestSent_Execute(t *testing.T) {
 	})
 
 	t.Run("Success (outbound)", func(t *testing.T) {
-		followup, action, err := (&requestSent{}).Execute(&metaData{})
+		followup, action, err := (&requestSent{}).Execute(&metaData{transitionalPayload: transitionalPayload{
+			Action: Action{Msg: service.NewDIDCommMsgMap(struct {
+				WillConfirm bool `json:"will_confirm"`
+			}{WillConfirm: true})},
+		}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -280,6 +312,15 @@ func TestRequestSent_Execute(t *testing.T) {
 		messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Message decode error", func(t *testing.T) {
+		followup, action, err := (&requestSent{}).Execute(&metaData{transitionalPayload: transitionalPayload{
+			Action: Action{Msg: service.DIDCommMsgMap{"@type": []int{1}}},
+		}})
+		require.Error(t, err)
+		require.Nil(t, followup)
+		require.Nil(t, action)
 	})
 }
 
@@ -345,7 +386,10 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 
 func TestPresentationReceived_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&presentationReceived{}).Execute(&metaData{presentation: &Presentation{}})
+		followup, action, err := (&presentationReceived{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{AckRequired: true},
+			presentation:        &Presentation{},
+		})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
@@ -357,6 +401,17 @@ func TestPresentationReceived_Execute(t *testing.T) {
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Ack is not required", func(t *testing.T) {
+		followup, action, err := (&presentationReceived{}).Execute(&metaData{
+			request:      &RequestPresentation{WillConfirm: true},
+			presentation: &Presentation{},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+		require.NoError(t, action(nil))
 	})
 }
 

@@ -30,6 +30,9 @@ type RequestPresentation struct {
 	// Comment is a field that provides some human readable information about the proposed presentation.
 	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
 	Comment string `json:"comment,omitempty"`
+	// WillConfirm is a field that defaults to "false" to indicate that the verifier will or will not
+	// send a post-presentation confirmation ack message.
+	WillConfirm bool `json:"will_confirm,omitempty"`
 	// Formats contains an entry for each request_presentations~attach array entry, providing the the value of the
 	// attachment @id and the verifiable presentation request format and version of the attachment.
 	Formats []Format `json:"formats,omitempty"`
@@ -38,6 +41,7 @@ type RequestPresentation struct {
 }
 
 // Presentation is a response to a RequestPresentation message and contains signed presentations.
+// TODO: Add ~please_ack decorator support for the protocol [Issue #2047]
 type Presentation struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is a field that provides some human readable information about the proposed presentation.

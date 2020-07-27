@@ -104,7 +104,7 @@ func (s *ControllerSteps) sendRequestPresentation(verifier, prover string) error
 	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
 		MyDID:               s.did[verifier],
 		TheirDID:            s.did[prover],
-		RequestPresentation: &presentproof.RequestPresentation{},
+		RequestPresentation: &presentproof.RequestPresentation{WillConfirm: true},
 	})
 }
 
@@ -149,7 +149,9 @@ func (s *ControllerSteps) acceptProposePresentation(verifier string) error {
 	}
 
 	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), presentproofcmd.AcceptProposePresentationArgs{
-		RequestPresentation: &presentproof.RequestPresentation{},
+		RequestPresentation: &presentproof.RequestPresentation{
+			WillConfirm: true,
+		},
 	})
 }
 

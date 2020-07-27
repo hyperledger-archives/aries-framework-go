@@ -69,7 +69,7 @@ async function presentProof(mode) {
         return verifier.presentproof.sendRequestPresentation({
             my_did: conn.MyDID,
             their_did: conn.TheirDID,
-            request_presentation: {},
+            request_presentation: {will_confirm:true},
         })
     })
 

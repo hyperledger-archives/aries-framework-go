@@ -38,7 +38,7 @@ const (
 )
 
 const (
-	stateNameKey           = "state_name_"
+	internalDataKey        = "internal_data_"
 	transitionalPayloadKey = "transitionalPayload_%s"
 )
 
@@ -57,7 +57,8 @@ type customError struct{ error }
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
 type transitionalPayload struct {
 	Action
-	StateName string
+	StateName   string
+	AckRequired bool
 }
 
 // metaData type to store data for internal usage
@@ -241,33 +242,33 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 	return "", errors.New("not implemented")
 }
 
-func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
+func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string, *internalData, error) {
 	piID, err := getPIID(msg)
 	if errors.Is(err, service.ErrThreadIDNotFound) {
 		piID = uuid.New().String()
 
-		return piID, stateNameStart, msg.SetID(piID)
+		return piID, &internalData{StateName: stateNameStart}, msg.SetID(piID)
 	}
 
 	if err != nil {
-		return "", "", fmt.Errorf("piID: %w", err)
+		return "", nil, fmt.Errorf("piID: %w", err)
 	}
 
-	stateName, err := s.currentStateName(piID)
+	data, err := s.currentInternalData(piID)
 	if err != nil {
-		return "", "", fmt.Errorf("currentStateName: %w", err)
+		return "", nil, fmt.Errorf("current internal data: %w", err)
 	}
 
-	return piID, stateName, nil
+	return piID, data, nil
 }
 
 func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
-	piID, stateName, err := s.getCurrentStateNameAndPIID(msg)
+	piID, data, err := s.getCurrentInternalDataAndPIID(msg)
 	if err != nil {
-		return nil, fmt.Errorf("getCurrentStateNameAndPIID: %w", err)
+		return nil, fmt.Errorf("current internal data and PIID: %w", err)
 	}
 
-	current := stateFromName(stateName)
+	current := stateFromName(data.StateName)
 
 	next, err := nextState(msg)
 	if err != nil {
@@ -280,7 +281,8 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 
 	return &metaData{
 		transitionalPayload: transitionalPayload{
-			StateName: next.Name(),
+			StateName:   next.Name(),
+			AckRequired: data.AckRequired,
 			Action: Action{
 				Msg:  msg,
 				PIID: piID,
@@ -333,7 +335,9 @@ func (s *Service) handle(md *metaData) error {
 			return fmt.Errorf("invalid state transition: %s --> %s", current.Name(), next.Name())
 		}
 
-		if err := s.saveStateName(md.PIID, current.Name()); err != nil {
+		// WARN: md.ackRequired is being modified by requestSent state
+		data := &internalData{StateName: current.Name(), AckRequired: md.AckRequired}
+		if err := s.saveInternalData(md.PIID, data); err != nil {
 			return fmt.Errorf("failed to persist state %s: %w", current.Name(), err)
 		}
 
@@ -355,17 +359,36 @@ func getPIID(msg service.DIDCommMsg) (string, error) {
 	return msg.ThreadID()
 }
 
-func (s *Service) saveStateName(piID, stateName string) error {
-	return s.store.Put(stateNameKey+piID, []byte(stateName))
+type internalData struct {
+	AckRequired bool
+	StateName   string
 }
 
-func (s *Service) currentStateName(piID string) (string, error) {
-	src, err := s.store.Get(stateNameKey + piID)
-	if errors.Is(err, storage.ErrDataNotFound) {
-		return stateNameStart, nil
+func (s *Service) saveInternalData(piID string, data *internalData) error {
+	src, err := json.Marshal(data)
+	if err != nil {
+		return err
 	}
 
-	return string(src), err
+	return s.store.Put(internalDataKey+piID, src)
+}
+
+func (s *Service) currentInternalData(piID string) (*internalData, error) {
+	src, err := s.store.Get(internalDataKey + piID)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return &internalData{StateName: stateNameStart}, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var data *internalData
+	if err := json.Unmarshal(src, &data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 // nolint: gocyclo
