@@ -19,7 +19,7 @@ import (
 )
 
 const certPrefix = "testdata/crypto/"
-const clientTimeout = 1 * time.Second
+const clientTimeout = 5 * time.Second
 
 func addCertsToCertPool(pool *x509.CertPool) error {
 	var rawCerts []string
