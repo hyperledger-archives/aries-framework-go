@@ -164,11 +164,21 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
-	if md.presentation != nil {
+	if md.presentation == nil {
+		return &proposalSent{}, zeroAction, nil
+	}
+
+	var req *RequestPresentation
+
+	if err := md.Msg.Decode(&req); err != nil {
+		return nil, nil, err
+	}
+
+	if req.WillConfirm {
 		return &presentationSent{}, zeroAction, nil
 	}
 
-	return &proposalSent{}, zeroAction, nil
+	return &done{}, zeroAction, nil
 }
 
 // requestSent the Verifier's state.
@@ -192,12 +202,22 @@ func forwardInitial(md *metaData) stateAction {
 
 func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 	if !canReplyTo(md.Msg) {
+		var req *RequestPresentation
+
+		if err := md.Msg.Decode(&req); err != nil {
+			return nil, nil, err
+		}
+
+		md.AckRequired = req.WillConfirm
+
 		return &noOp{}, forwardInitial(md), nil
 	}
 
 	if md.request == nil {
 		return nil, nil, errors.New("request was not provided")
 	}
+
+	md.AckRequired = md.request.WillConfirm
 
 	return &noOp{}, func(messenger service.Messenger) error {
 		md.request.Type = RequestPresentationMsgType
@@ -245,6 +265,10 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
+	if !md.AckRequired {
+		return &done{}, zeroAction, nil
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
