@@ -9,7 +9,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
-// MockOutbound mock outbound dispatcher
+// MockOutbound mock outbound dispatcher.
 type MockOutbound struct {
 	ValidateSend      func(msg interface{}, senderVerKey string, des *service.Destination) error
 	ValidateSendToDID func(msg interface{}, myDID, theirDID string) error
@@ -17,7 +17,7 @@ type MockOutbound struct {
 	SendErr           error
 }
 
-// Send msg
+// Send msg.
 func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	if m.ValidateSend != nil {
 		return m.ValidateSend(msg, senderVerKey, des)
@@ -26,7 +26,7 @@ func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.D
 	return m.SendErr
 }
 
-// SendToDID msg
+// SendToDID msg.
 func (m *MockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
 	if m.ValidateSendToDID != nil {
 		return m.ValidateSendToDID(msg, myDID, theirDID)
@@ -35,7 +35,7 @@ func (m *MockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error 
 	return m.SendErr
 }
 
-// Forward msg
+// Forward msg.
 func (m *MockOutbound) Forward(msg interface{}, des *service.Destination) error {
 	if m.ValidateForward != nil {
 		return m.ValidateForward(msg, des)

@@ -32,37 +32,37 @@ type Group int32
 
 // TODO command types shouldn't be mentioned in common error package, [Issue#1182]
 const (
-	// Common error group for general command errors
+	// Common error group for general command errors.
 	Common Group = 1000
 
-	// DIDExchange error group for DID exchange command errors
+	// DIDExchange error group for DID exchange command errors.
 	DIDExchange Group = 2000
 
-	// Messaging error group for messaging service errors
+	// Messaging error group for messaging service errors.
 	Messaging Group = 3000
 
-	// VDRI error group for VDRI command errors
+	// VDRI error group for VDRI command errors.
 	VDRI Group = 4000
 
-	// ROUTE error group for Route command errors
+	// ROUTE error group for Route command errors.
 	ROUTE Group = 5000
 
-	// VC error group for Verifiable Credential command errors
+	// VC error group for Verifiable Credential command errors.
 	VC Group = 6000
 
-	// KMS error group for key management service errors
+	// KMS error group for key management service errors.
 	KMS Group = 7000
 
-	// IssueCredential error group for issue credential command errors
+	// IssueCredential error group for issue credential command errors.
 	IssueCredential = 8000
 
-	// PresentProof error group for present proof command errors
+	// PresentProof error group for present proof command errors.
 	PresentProof = 9000
 
-	// Introduce error group for introduce command errors
+	// Introduce error group for introduce command errors.
 	Introduce = 10000
 
-	// Outofband error group for outofband command errors
+	// Outofband error group for outofband command errors.
 	Outofband = 11000
 )
 

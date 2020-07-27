@@ -37,13 +37,13 @@ const (
 
 var dbVersion = 1 //nolint:gochecknoglobals
 
-// Provider jsindexeddb implementation of storage.Provider interface
+// Provider jsindexeddb implementation of storage.Provider interface.
 type Provider struct {
 	sync.RWMutex
 	stores map[string]*js.Value
 }
 
-// NewProvider instantiates Provider
+// NewProvider instantiates Provider.
 func NewProvider(name string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
@@ -60,12 +60,12 @@ func NewProvider(name string) (*Provider, error) {
 	return p, nil
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (p *Provider) Close() error {
 	return nil
 }
 
-// OpenStore open store
+// OpenStore open store.
 func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	p.RLock()
 	db, ok := p.stores[name]
@@ -111,7 +111,7 @@ func (p *Provider) openDB(db string, names ...string) error {
 	return nil
 }
 
-// CloseStore closes level db store of given name
+// CloseStore closes level db store of given name.
 func (p *Provider) CloseStore(name string) error {
 	return nil
 }
@@ -121,7 +121,7 @@ type store struct {
 	db   *js.Value
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (s *store) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")
@@ -141,7 +141,7 @@ func (s *store) Put(k string, v []byte) error {
 	return nil
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (s *store) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, errors.New("key is mandatory")
@@ -181,7 +181,7 @@ func (s *store) Iterator(start, limit string) storage.StoreIterator {
 	return newIterator(batch, skipLast, err)
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (s *store) Delete(k string) error {
 	if k == "" {
 		return errors.New("key is mandatory")
@@ -204,7 +204,7 @@ type iterator struct {
 	skipLast bool
 }
 
-// newIterator returns new iterator for given batch
+// newIterator returns new iterator for given batch.
 func newIterator(batch *js.Value, skipLast bool, err error) *iterator {
 	return &iterator{batch: batch, skipLast: skipLast, err: err, index: -1}
 }
@@ -280,7 +280,7 @@ func getResult(req js.Value) (*js.Value, error) {
 
 // since jsindexdb doesn't support adding object stores on fly, using predefined object store names to
 //  create object store in advance instead of creating a database per store.
-// TODO pass store names from higher level packages during initialization [Issue #1347]
+// TODO pass store names from higher level packages during initialization [Issue #1347].
 func getStoreNames() []string {
 	return []string{
 		messenger.MessengerStore,

@@ -20,7 +20,7 @@ import (
 // internal use only.
 
 // ECDHESAEADCompositeDecrypt is an instance of ECDH-ES decryption with Concat KDF
-// and AEAD content decryption
+// and AEAD content decryption.
 type ECDHESAEADCompositeDecrypt struct {
 	privateKey  *hybrid.ECPrivateKey
 	pointFormat string
@@ -40,7 +40,7 @@ func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, en
 	}
 }
 
-// Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption
+// Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption.
 func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, error) {
 	if d.privateKey == nil {
 		return nil, fmt.Errorf("ECDHESAEADCompositeDecrypt: missing recipient private key for key unwrapping")

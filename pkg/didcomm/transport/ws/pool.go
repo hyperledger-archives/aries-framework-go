@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// TODO configure ping request frequency
+	// TODO configure ping request frequency.
 	pingFrequency = 30 * time.Second
 )
 
@@ -31,7 +31,7 @@ type connPool struct {
 	msgHandler transport.InboundMessageHandler
 }
 
-// nolint gochecknoglobals
+// nolint: gochecknoglobals
 var pool = make(map[string]*connPool)
 
 func getConnPool(prov transport.Provider) *connPool {

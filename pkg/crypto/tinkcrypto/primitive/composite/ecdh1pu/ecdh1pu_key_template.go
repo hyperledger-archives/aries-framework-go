@@ -22,7 +22,8 @@ import (
 //  - Key Wrapping: ECDH-1PU over A256KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient (or sender) public/private key pairs
+// and can be stored in the KMS.
 func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256)
 }
@@ -32,7 +33,8 @@ func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-1PU over A384KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient (or sender) public/private key pairs
+// and can be stored in the KMS.
 func ECDH1PU384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P384)
 }
@@ -42,7 +44,8 @@ func ECDH1PU384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-1PU over A521KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient (or sender) public/private key pairs
+// and can be stored in the KMS.
 func ECDH1PU521KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521)
 }

@@ -62,7 +62,7 @@ type CreateDIDParams struct {
 	ServiceEndpoint string
 }
 
-// CreateDID in sidetree
+// CreateDID in sidetree.
 func CreateDID(params *CreateDIDParams) (*diddoc.Doc, error) {
 	opaqueDoc, err := getOpaqueDocument(params)
 	if err != nil {

@@ -120,8 +120,7 @@ func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
 	require.NoError(t, err)
 
 	defer func() {
-		require.Contains(t, c.Close(websocket.StatusNormalClosure, "closing the connection").Error(),
-			"status = StatusNormalClosure")
+		require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
 	}()
 
 	ctx := context.Background()

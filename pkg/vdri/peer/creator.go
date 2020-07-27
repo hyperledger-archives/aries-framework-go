@@ -16,7 +16,7 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
-// Build builds new DID Document
+// Build builds new DID Document.
 func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error) {
 	docOpts := &vdriapi.CreateDIDOpts{}
 	// Apply options

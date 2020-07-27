@@ -47,7 +47,7 @@ var logger = log.New("aries-js-worker")
 var ready = make(chan struct{}) //nolint:gochecknoglobals
 var isTest = false              //nolint:gochecknoglobals
 
-// command is received from JS
+// command is received from JS.
 type command struct {
 	ID      string                 `json:"id"`
 	Pkg     string                 `json:"pkg"`
@@ -55,7 +55,7 @@ type command struct {
 	Payload map[string]interface{} `json:"payload"`
 }
 
-// result is sent back to JS
+// result is sent back to JS.
 type result struct {
 	ID      string                 `json:"id"`
 	IsErr   bool                   `json:"isErr"`
@@ -64,7 +64,7 @@ type result struct {
 	Topic   string                 `json:"topic"`
 }
 
-// ariesStartOpts contains opts for starting aries
+// ariesStartOpts contains opts for starting aries.
 type ariesStartOpts struct {
 	Label                string   `json:"agent-default-label"`
 	HTTPResolvers        []string `json:"http-resolver-url"`
@@ -431,11 +431,11 @@ func setLogLevel(logLevel string) error {
 	return nil
 }
 
-// jsNotifier notifies about all incoming events
+// jsNotifier notifies about all incoming events.
 type jsNotifier struct {
 }
 
-// Notify is mock implementation of webhook notifier Notify()
+// Notify is mock implementation of webhook notifier Notify().
 func (n *jsNotifier) Notify(topic string, message []byte) error {
 	payload := make(map[string]interface{})
 	if err := json.Unmarshal(message, &payload); err != nil {

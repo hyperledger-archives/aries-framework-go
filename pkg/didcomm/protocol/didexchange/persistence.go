@@ -20,7 +20,7 @@ const (
 	theirNSPrefix = "their"
 )
 
-// newConnectionStore returns new connection store instance
+// newConnectionStore returns new connection store instance.
 func newConnectionStore(p provider) (*connectionStore, error) {
 	recorder, err := connection.NewRecorder(p)
 	if err != nil {
@@ -42,7 +42,7 @@ type connectionStore struct {
 	*did.ConnectionStore
 }
 
-// saveConnectionRecord saves the connection record against the connection id  in the store
+// saveConnectionRecord saves the connection record against the connection id  in the store.
 func (c *connectionStore) saveConnectionRecord(record *connection.Record) error {
 	err := c.SaveConnectionRecord(record)
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *connectionStore) saveConnectionRecord(record *connection.Record) error 
 }
 
 // saveConnectionRecordWithMapping saves newly created connection record against the connection id in the store
-// and it creates mapping from namespaced ThreadID to connection ID
+// and it creates mapping from namespaced ThreadID to connection ID.
 func (c *connectionStore) saveConnectionRecordWithMapping(record *connection.Record) error {
 	err := c.SaveConnectionRecordWithMappings(record)
 	if err != nil {

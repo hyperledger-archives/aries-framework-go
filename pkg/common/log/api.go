@@ -18,7 +18,7 @@ const (
 	DEBUG
 )
 
-// Logger - Standard logger interface
+// Logger - Standard logger interface.
 type Logger interface {
 
 	// Fatalf is critical fatal logging, should possibly followed by a call to os.Exit(1)
@@ -40,7 +40,7 @@ type Logger interface {
 	Errorf(msg string, args ...interface{})
 }
 
-// LoggerProvider is a factory for moduled loggers
+// LoggerProvider is a factory for moduled loggers.
 type LoggerProvider interface {
 	GetLogger(module string) Logger
 }

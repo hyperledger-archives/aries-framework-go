@@ -20,7 +20,7 @@ import (
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
-// endpoint describes the fields for making calls to external agents
+// endpoint describes the fields for making calls to external agents.
 type endpoint struct {
 	Path   string
 	Method string

@@ -94,7 +94,7 @@ type PreviewCredential struct {
 	Attributes []Attribute `json:"attributes,omitempty"`
 }
 
-// Attribute describes an attribute for a Preview Credential
+// Attribute describes an attribute for a Preview Credential.
 type Attribute struct {
 	Name     string `json:"name,omitempty"`
 	MimeType string `json:"mime-type,omitempty"`

@@ -19,7 +19,7 @@ type Request struct {
 	Service  []interface{}           `json:"service"` // Service is an array of either DIDs or 'service' block entries.
 }
 
-// Invitation is this protocol's `invitation` message
+// Invitation is this protocol's `invitation` message.
 type Invitation struct {
 	ID        string        `json:"@id"`
 	Type      string        `json:"@type"`

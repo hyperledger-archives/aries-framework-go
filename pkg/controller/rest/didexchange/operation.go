@@ -46,7 +46,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 }
 
-// New returns new DID Exchange rest client protocol instance
+// New returns new DID Exchange rest client protocol instance.
 func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccept bool) (*Operation, error) {
 	dxcmd, err := didexchange.New(ctx, notifier, defaultLabel, autoAccept)
 	if err != nil {
@@ -59,18 +59,18 @@ func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccep
 	return o, nil
 }
 
-// Operation is controller REST service controller for DID Exchange
+// Operation is controller REST service controller for DID Exchange.
 type Operation struct {
 	command  *didexchange.Command
 	handlers []rest.Handler
 }
 
-// GetRESTHandlers get all controller API handler available for this protocol service
+// GetRESTHandlers get all controller API handler available for this protocol service.
 func (c *Operation) GetRESTHandlers() []rest.Handler {
 	return c.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
@@ -232,7 +232,7 @@ func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) 
 }
 
 // queryValuesAsJSON converts query strings to `map[string]string`
-// and marshals them to JSON bytes
+// and marshals them to JSON bytes.
 func queryValuesAsJSON(vals url.Values) ([]byte, error) {
 	// normalize all query string key/values
 	args := make(map[string]string)
@@ -246,7 +246,7 @@ func queryValuesAsJSON(vals url.Values) ([]byte, error) {
 	return json.Marshal(args)
 }
 
-// getIDFromRequest returns ID from request
+// getIDFromRequest returns ID from request.
 func getIDFromRequest(rw http.ResponseWriter, req *http.Request) (string, bool) {
 	id := mux.Vars(req)["id"]
 	if id == "" {

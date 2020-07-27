@@ -111,13 +111,13 @@ type mockSignatureSuite struct {
 	compactProof bool
 }
 
-// GetCanonicalDocument will return normalized/canonical version of the document
+// GetCanonicalDocument will return normalized/canonical version of the document.
 func (s *mockSignatureSuite) GetCanonicalDocument(doc map[string]interface{},
 	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	return jsonld.Default().GetCanonicalDocument(doc, opts...)
 }
 
-// GetDigest returns document digest
+// GetDigest returns document digest.
 func (s *mockSignatureSuite) GetDigest(doc []byte) []byte {
 	digest := sha512.Sum512(doc)
 	return digest[:]

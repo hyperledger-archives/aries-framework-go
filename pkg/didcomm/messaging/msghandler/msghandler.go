@@ -29,19 +29,19 @@ const (
 	errNeverRegistered   = "failed to unregister, unable to find registered message service with name `%s`"
 )
 
-// NewRegistrar returns new message registrar instance
+// NewRegistrar returns new message registrar instance.
 func NewRegistrar() *Registrar {
 	return &Registrar{}
 }
 
 // Registrar is message service provider implementation which maintains list of registered message service
-// and also allows dynamic register/unregister of message services
+// and also allows dynamic register/unregister of message services.
 type Registrar struct {
 	services []dispatcher.MessageService
 	lock     sync.RWMutex
 }
 
-// Services returns list of message services registered to this handler
+// Services returns list of message services registered to this handler.
 func (m *Registrar) Services() []dispatcher.MessageService {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -53,7 +53,7 @@ func (m *Registrar) Services() []dispatcher.MessageService {
 }
 
 // Register registers given message services to this handler,
-// returns error in case of duplicate registration
+// returns error in case of duplicate registration.
 func (m *Registrar) Register(msgServices ...dispatcher.MessageService) error {
 	if len(msgServices) == 0 {
 		return nil
@@ -83,7 +83,7 @@ func (m *Registrar) Register(msgServices ...dispatcher.MessageService) error {
 }
 
 // Unregister unregisters message service with given name from this message handler,
-// returns error if given message service doesn't exists
+// returns error if given message service doesn't exists.
 func (m *Registrar) Unregister(name string) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()

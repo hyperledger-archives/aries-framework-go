@@ -44,13 +44,13 @@ type provider interface {
 	LegacyKMS() legacykms.KeyManager
 }
 
-// Operation contains basic common operations provided by controller REST API
+// Operation contains basic common operations provided by controller REST API.
 type Operation struct {
 	command  *messaging.Command
 	handlers []rest.Handler
 }
 
-// New returns new common operations rest client instance
+// New returns new common operations rest client instance.
 func New(ctx provider, registrar command.MessageHandler, notifier command.Notifier) (*Operation, error) {
 	msgcmd, err := messaging.New(ctx, registrar, notifier)
 	if err != nil {
@@ -63,12 +63,12 @@ func New(ctx provider, registrar command.MessageHandler, notifier command.Notifi
 	return o, nil
 }
 
-// GetRESTHandlers get all controller API handler available for this service
+// GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []rest.Handler {
 	return o.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{

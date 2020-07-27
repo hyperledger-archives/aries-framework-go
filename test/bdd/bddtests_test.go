@@ -143,7 +143,7 @@ func getCmdArg(argName string) string {
 	return ""
 }
 
-// generateUUID returns a UUID based on RFC 4122
+// generateUUID returns a UUID based on RFC 4122.
 func generateUUID() string {
 	id := dockerutil.GenerateBytesUUID()
 	return fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:])

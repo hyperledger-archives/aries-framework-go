@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
-// MarshalJWS serializes JWT into signed form (JWS)
+// MarshalJWS serializes JWT into signed form (JWS).
 func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
 	return marshalJWS(jcc, signatureAlg, signer, keyID)
 }

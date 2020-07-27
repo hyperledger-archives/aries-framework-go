@@ -22,7 +22,7 @@ import (
 //  - Key Wrapping: ECDH-ES over A256KW as per https://tools.ietf.org/html/rfc7518#appendix-A.2
 //  - Content Encryption: AES256-GCM
 //  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.
 func ECDHES256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, nil)
 }
@@ -32,7 +32,7 @@ func ECDHES256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-ES over A384KW as per https://tools.ietf.org/html/rfc7518#appendix-A.2
 //  - Content Encryption: AES256-GCM
 //  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.
 func ECDHES384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P384, nil)
 }
@@ -42,14 +42,14 @@ func ECDHES384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-ES over A521KW as per https://tools.ietf.org/html/rfc7518#appendix-A.2
 //  - Content Encryption: AES256-GCM
 //  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.
 func ECDHES521KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, nil)
 }
 
 // ECDHES256KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES256KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS.
 func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
@@ -61,7 +61,7 @@ func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.Pu
 
 // ECDHES384KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES384KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS.
 func ECDHES384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
@@ -73,7 +73,7 @@ func ECDHES384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.Pu
 
 // ECDHES521KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES521KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS.
 func ECDHES521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {

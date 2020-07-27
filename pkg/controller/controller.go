@@ -48,14 +48,14 @@ const wsPath = "/ws"
 // Opt represents a controller option.
 type Opt func(opts *allOpts)
 
-// WithWebhookURLs is an option for setting up a webhook dispatcher which will notify clients of events
+// WithWebhookURLs is an option for setting up a webhook dispatcher which will notify clients of events.
 func WithWebhookURLs(webhookURLs ...string) Opt {
 	return func(opts *allOpts) {
 		opts.webhookURLs = webhookURLs
 	}
 }
 
-// WithNotifier is an option for setting up a notifier which will notify clients of events
+// WithNotifier is an option for setting up a notifier which will notify clients of events.
 func WithNotifier(notifier command.Notifier) Opt {
 	return func(opts *allOpts) {
 		opts.notifier = notifier

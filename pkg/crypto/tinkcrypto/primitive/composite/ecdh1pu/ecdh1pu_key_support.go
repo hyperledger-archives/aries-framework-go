@@ -137,12 +137,12 @@ func extractKeySet(kh *keyset.Handle, w keyset.Writer, lock tink.AEAD, fnName st
 
 type writerLock struct{}
 
-// Encrypt plaintext, internal function
+// Encrypt plaintext, internal function.
 func (n *writerLock) Encrypt(plaintext, additionalData []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// Decrypt ciphertext, internal
+// Decrypt ciphertext, internal.
 func (n *writerLock) Decrypt(ciphertext, additionalData []byte) ([]byte, error) {
 	return ciphertext, nil
 }

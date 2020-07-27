@@ -28,13 +28,13 @@ type provider interface {
 	Service(id string) (interface{}, error)
 }
 
-// Operation contains basic common operations provided by controller REST API
+// Operation contains basic common operations provided by controller REST API.
 type Operation struct {
 	handlers []rest.Handler
 	command  *mediator.Command
 }
 
-// New returns new common operations rest client instance
+// New returns new common operations rest client instance.
 func New(ctx provider, autoAccept bool) (*Operation, error) {
 	routeCmd, err := mediator.New(ctx, autoAccept)
 	if err != nil {
@@ -48,7 +48,7 @@ func New(ctx provider, autoAccept bool) (*Operation, error) {
 	return o, nil
 }
 
-// GetRESTHandlers get all controller API handler available for this service
+// GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []rest.Handler {
 	return o.handlers
 }

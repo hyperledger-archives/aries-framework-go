@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	// Namespace is the keystore's DB storage namespace
+	// Namespace is the keystore's DB storage namespace.
 	Namespace = "kmsdb"
 
 	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
@@ -50,7 +50,7 @@ type LocalKMS struct {
 	masterKeyEnvAEAD *aead.KMSEnvelopeAEAD
 }
 
-// New will create a new (local) KMS service
+// New will create a new (local) KMS service.
 func New(masterKeyURI string, p kms.Provider) (*LocalKMS, error) {
 	store, err := p.StorageProvider().OpenStore(Namespace)
 	if err != nil {
@@ -117,7 +117,7 @@ func (l *LocalKMS) Get(keyID string) (interface{}, error) {
 //  - new KeyID // TODO remove this return from Rotate() - #1837
 //  - handle instance (to private key)
 //  - error if failure
-// TODO remove new keyID creation from Rotate(), it should re use the same keyID - #1837
+// TODO remove new keyID creation from Rotate(), it should re use the same keyID - #1837.
 func (l *LocalKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, error) {
 	kh, err := l.getKeySet(keyID)
 	if err != nil {

@@ -36,14 +36,14 @@ const (
 	verifiablePresentations      = "/verifiable/presentations"
 )
 
-// ControllerSteps supports steps for Present Proof controller
+// ControllerSteps supports steps for Present Proof controller.
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	did        map[string]string
 	nameToPIID map[string]string
 }
 
-// NewPresentProofControllerSteps creates steps for Present Proof controller
+// NewPresentProofControllerSteps creates steps for Present Proof controller.
 func NewPresentProofControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		did:        make(map[string]string),
@@ -51,7 +51,7 @@ func NewPresentProofControllerSteps() *ControllerSteps {
 	}
 }
 
-// SetContext sets every scenario with a fresh context
+// SetContext sets every scenario with a fresh context.
 func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 }

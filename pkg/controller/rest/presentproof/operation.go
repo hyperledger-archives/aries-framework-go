@@ -38,13 +38,13 @@ const (
 	declinePresentation          = operationID + "/{piid}/decline-presentation"
 )
 
-// Operation is controller REST service controller for present proof
+// Operation is controller REST service controller for present proof.
 type Operation struct {
 	command  *presentproof.Command
 	handlers []rest.Handler
 }
 
-// New returns new present proof rest client protocol instance
+// New returns new present proof rest client protocol instance.
 func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
 	cmd, err := presentproof.New(ctx, notifier)
 	if err != nil {
@@ -57,12 +57,12 @@ func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
 	return o, nil
 }
 
-// GetRESTHandlers get all controller API handler available for this protocol service
+// GetRESTHandlers get all controller API handler available for this protocol service.
 func (c *Operation) GetRESTHandlers() []rest.Handler {
 	return c.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{

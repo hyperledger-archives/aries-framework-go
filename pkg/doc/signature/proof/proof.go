@@ -13,29 +13,29 @@ import (
 )
 
 const (
-	// jsonldType is key for proof type
+	// jsonldType is key for proof type.
 	jsonldType = "type"
-	// jsonldCreator is key for creator
+	// jsonldCreator is key for creator.
 	jsonldCreator = "creator"
-	// jsonldCreated is key for time proof created
+	// jsonldCreated is key for time proof created.
 	jsonldCreated = "created"
-	// jsonldDomain is key for domain name
+	// jsonldDomain is key for domain name.
 	jsonldDomain = "domain"
-	// jsonldNonce is key for nonce
+	// jsonldNonce is key for nonce.
 	jsonldNonce = "nonce"
-	// jsonldProofValue is key for proof value
+	// jsonldProofValue is key for proof value.
 	jsonldProofValue = "proofValue"
-	// jsonldProofPurpose is a purpose of proof
+	// jsonldProofPurpose is a purpose of proof.
 	jsonldProofPurpose = "proofPurpose"
-	// jsonldJWSProof is key for JWS proof
+	// jsonldJWSProof is key for JWS proof.
 	jsonldJWS = "jws"
-	// jsonldVerificationMethod is a key for verification method
+	// jsonldVerificationMethod is a key for verification method.
 	jsonldVerificationMethod = "verificationMethod"
-	// jsonldChallenge is a key for challenge
+	// jsonldChallenge is a key for challenge.
 	jsonldChallenge = "challenge"
 )
 
-// Proof is cryptographic proof of the integrity of the DID Document
+// Proof is cryptographic proof of the integrity of the DID Document.
 type Proof struct {
 	Type                    string
 	Created                 *util.TimeWithTrailingZeroMsec
@@ -50,7 +50,7 @@ type Proof struct {
 	SignatureRepresentation SignatureRepresentation
 }
 
-// NewProof creates new proof
+// NewProof creates new proof.
 func NewProof(emap map[string]interface{}) (*Proof, error) {
 	created := stringEntry(emap[jsonldCreated])
 
@@ -101,7 +101,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	}, nil
 }
 
-// stringEntry
+// stringEntry.
 func stringEntry(entry interface{}) string {
 	if entry == nil {
 		return ""
@@ -110,7 +110,7 @@ func stringEntry(entry interface{}) string {
 	return entry.(string)
 }
 
-// JSONLdObject returns map that represents JSON LD Object
+// JSONLdObject returns map that represents JSON LD Object.
 func (p *Proof) JSONLdObject() map[string]interface{} {
 	emap := make(map[string]interface{})
 	emap[jsonldType] = p.Type

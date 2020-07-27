@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// UniversityDegree university degree
+// UniversityDegree university degree.
 type UniversityDegree struct {
 	Type       string `json:"type,omitempty"`
 	Name       string `json:"name,omitempty"`
@@ -22,7 +22,7 @@ type UniversityDegree struct {
 	University string `json:"university,omitempty"`
 }
 
-// UniversityDegreeSubject subject of university degree
+// UniversityDegreeSubject subject of university degree.
 type UniversityDegreeSubject struct {
 	ID     string `json:"id,omitempty"`
 	Name   string `json:"name,omitempty"`

@@ -9,7 +9,7 @@ package secretlock
 // and more specifically used by the KMS service.
 
 // Service provides crypto service used internally by the KMS
-// it is responsible for wrapping/unwrapping keys stored by the KMS using a master key
+// it is responsible for wrapping/unwrapping keys stored by the KMS using a master key.
 type Service interface {
 	// Encrypt req for master key in keyURI
 	Encrypt(keyURI string, req *EncryptRequest) (*EncryptResponse, error)

@@ -29,9 +29,9 @@ import (
 var logger = log.New("aries-framework/did-exchange/service")
 
 const (
-	// DIDExchange did exchange protocol
+	// DIDExchange did exchange protocol.
 	DIDExchange = "didexchange"
-	// PIURI is the did-exchange protocol identifier URI
+	// PIURI is the did-exchange protocol identifier URI.
 	PIURI = "https://didcomm.org/didexchange/1.0"
 	// InvitationMsgType defines the did-exchange invite message type.
 	InvitationMsgType = PIURI + "/invitation"
@@ -75,7 +75,7 @@ type stateMachineMsg struct {
 	options    *options
 }
 
-// Service for DID exchange protocol
+// Service for DID exchange protocol.
 type Service struct {
 	service.Action
 	service.Message
@@ -92,7 +92,7 @@ type context struct {
 	routeSvc           mediator.ProtocolService
 }
 
-// opts are used to provide client properties to DID Exchange service
+// opts are used to provide client properties to DID Exchange service.
 type opts interface {
 	// PublicDID allows for setting public DID
 	PublicDID() string
@@ -101,7 +101,7 @@ type opts interface {
 	Label() string
 }
 
-// New return didexchange service
+// New return didexchange service.
 func New(prov provider) (*Service, error) {
 	connRecorder, err := newConnectionStore(prov)
 	if err != nil {
@@ -190,7 +190,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 	return connRecord.ConnectionID, nil
 }
 
-// Name return service name
+// Name return service name.
 func (s *Service) Name() string {
 	return DIDExchange
 }
@@ -204,7 +204,7 @@ func findNamespace(msgType string) string {
 	return namespace
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (s *Service) Accept(msgType string) bool {
 	return msgType == InvitationMsgType ||
 		msgType == RequestMsgType ||
@@ -723,8 +723,8 @@ func generateRandomID() string {
 }
 
 // canTriggerActionEvents true based on role and state.
-// 1. Role is invitee and state is invited
-// 2. Role is inviter and state is requested
+// 1. Role is invitee and state is invited.
+// 2. Role is inviter and state is requested.
 func canTriggerActionEvents(stateID, ns string) bool {
 	return (stateID == StateIDInvited && ns == myNSPrefix) || (stateID == StateIDRequested && ns == theirNSPrefix)
 }

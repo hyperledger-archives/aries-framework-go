@@ -258,7 +258,7 @@ func validateUnauthorized(t *testing.T, testHostURL, authorizationHdr string) {
 	runRequestTests(t, tests)
 }
 
-// isJSON checks if response is json
+// isJSON checks if response is json.
 func isJSON(res []byte) bool {
 	var js map[string]interface{}
 	return json.Unmarshal(res, &js) == nil

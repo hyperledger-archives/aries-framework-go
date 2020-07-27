@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package modlog
 
-// Logger - Standard logger interface
+// Logger - Standard logger interface.
 type Logger interface {
 
 	// Fatalf is critical fatal logging, should possibly followed by a call to os.Exit(1)

@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 )
 
-// Packager represents a mocked Packager
+// Packager represents a mocked Packager.
 type Packager struct {
 	PackValue   []byte
 	PackErr     error

@@ -219,16 +219,16 @@ func TestNegativeCases(t *testing.T) {
 	})
 }
 
-// NoLockMock is a mock lock service that does no encryption/decryption of plaintext and implements tink.AEAD interface
+// NoLockMock is a mock lock service that does no encryption/decryption of plaintext and implements tink.AEAD interface.
 type NoLockMock struct {
 }
 
-// Encrypt is a mock function of AEAD.Encrypt()
+// Encrypt is a mock function of AEAD.Encrypt().
 func (s *NoLockMock) Encrypt(pt, aad []byte) ([]byte, error) {
 	return pt, nil
 }
 
-// Decrypt is a mock function of AEAD.Decrypt()
+// Decrypt is a mock function of AEAD.Decrypt().
 func (s *NoLockMock) Decrypt(req, aad []byte) ([]byte, error) {
 	return req, nil
 }

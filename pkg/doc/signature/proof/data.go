@@ -14,7 +14,7 @@ import (
 
 const jsonldContext = "@context"
 
-// signatureSuite encapsulates signature suite methods required for normalizing document
+// signatureSuite encapsulates signature suite methods required for normalizing document.
 type signatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
@@ -112,7 +112,7 @@ func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]inte
 	return suite.GetCanonicalDocument(docCopy, opts...)
 }
 
-// excludedKey defines keys that are excluded for proof options
+// excludedKey defines keys that are excluded for proof options.
 type excludedKey uint
 
 const (

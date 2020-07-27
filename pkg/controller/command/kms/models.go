@@ -11,7 +11,7 @@ type CreateKeySetRequest struct {
 	KeyType string `json:"keyType,omitempty"`
 }
 
-// CreateKeySetResponse for returning key pair
+// CreateKeySetResponse for returning key pair.
 type CreateKeySetResponse struct {
 	//  key id base64 encoded
 	KeyID string `json:"keyID,omitempty"`
@@ -19,7 +19,7 @@ type CreateKeySetResponse struct {
 	PublicKey string `json:"publicKey,omitempty"`
 }
 
-// JSONWebKey contains subset of json web key json properties
+// JSONWebKey contains subset of json web key json properties.
 type JSONWebKey struct {
 	Use string `json:"use,omitempty"`
 	Kty string `json:"kty,omitempty"`

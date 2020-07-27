@@ -44,13 +44,13 @@ type JSONWebEncryption struct {
 	Tag                string
 }
 
-// Recipient is a recipient of a JWE including the shared encryption key
+// Recipient is a recipient of a JWE including the shared encryption key.
 type Recipient struct {
 	Header       *RecipientHeaders `json:"header,omitempty"`
 	EncryptedKey string            `json:"encrypted_key,omitempty"`
 }
 
-// RecipientHeaders are the recipient headers
+// RecipientHeaders are the recipient headers.
 type RecipientHeaders struct {
 	Alg string          `json:"alg,omitempty"`
 	APU string          `json:"apu,omitempty"`
@@ -334,26 +334,36 @@ func deserializeAndDecodeHeaders(rawJWE *rawJSONWebEncryption) (*Headers, *Heade
 	return &protectedHeaders, &unprotectedHeaders, nil
 }
 
-func deserializeRecipients(rawJWE *rawJSONWebEncryption) ([]*Recipient, error) {
-	var recipients []*Recipient
+func parseDeserializeRecipients(rawJWE *rawJSONWebEncryption) ([]*Recipient, error) {
+	if rawJWE.Recipients != nil {
+		var recipients []*Recipient
 
-	// If there is no recipients field, then we must be deserializing JWE with the flattened syntax as defined in
-	// https://tools.ietf.org/html/rfc7516#section-7.2.2.
-	if rawJWE.Recipients == nil {
-		recipients = make([]*Recipient, 1)
-		recipients[0] = &Recipient{EncryptedKey: rawJWE.B64SingleRecipientEncKey}
-
-		if rawJWE.SingleRecipientHeader != nil {
-			err := json.Unmarshal(rawJWE.SingleRecipientHeader, &recipients[0].Header)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
 		err := json.Unmarshal(rawJWE.Recipients, &recipients)
 		if err != nil {
 			return nil, err
 		}
+
+		return recipients, nil
+	}
+
+	// If there is no recipients field, then we must be deserializing JWE with the flattened syntax as defined in
+	// https://tools.ietf.org/html/rfc7516#section-7.2.2.
+	recipient := &Recipient{EncryptedKey: rawJWE.B64SingleRecipientEncKey}
+
+	if rawJWE.SingleRecipientHeader != nil {
+		err := json.Unmarshal(rawJWE.SingleRecipientHeader, &recipient.Header)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return []*Recipient{recipient}, nil
+}
+
+func deserializeRecipients(rawJWE *rawJSONWebEncryption) ([]*Recipient, error) {
+	recipients, err := parseDeserializeRecipients(rawJWE)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, recipient := range recipients {

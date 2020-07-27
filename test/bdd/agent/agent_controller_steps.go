@@ -23,22 +23,22 @@ import (
 
 const timeoutWebSocketDial = 5 * time.Second
 
-// ControllerSteps contains steps for controller based agent
+// ControllerSteps contains steps for controller based agent.
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewControllerSteps creates steps for agent with controller
+// NewControllerSteps creates steps for agent with controller.
 func NewControllerSteps() *ControllerSteps {
 	return &ControllerSteps{}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
-// RegisterSteps registers agent steps
+// RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)"$`,
 		a.checkAgentIsRunningWithHTTPInbound)

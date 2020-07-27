@@ -151,7 +151,7 @@ func (km *ecdh1puAESPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*
 	}, nil
 }
 
-// PublicKeyData returns the enclosed public key data of serializedPrivKey
+// PublicKeyData returns the enclosed public key data of serializedPrivKey.
 func (km *ecdh1puAESPrivateKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
 	privKey := new(ecdh1pupb.Ecdh1PuAeadPrivateKey)
 

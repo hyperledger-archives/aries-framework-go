@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// Provider represents an CouchDB implementation of the storage.Provider interface
+// Provider represents an CouchDB implementation of the storage.Provider interface.
 type Provider struct {
 	hostURL       string
 	couchDBClient *kivik.Client
@@ -39,17 +39,17 @@ const (
 	couchDBNotFoundErr        = "Not Found:"
 )
 
-// Option configures the couchdb provider
+// Option configures the couchdb provider.
 type Option func(opts *Provider)
 
-// WithDBPrefix option is for adding prefix to db name
+// WithDBPrefix option is for adding prefix to db name.
 func WithDBPrefix(dbPrefix string) Option {
 	return func(opts *Provider) {
 		opts.dbPrefix = dbPrefix
 	}
 }
 
-// NewProvider instantiates Provider
+// NewProvider instantiates Provider.
 func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 	if hostURL == "" {
 		return nil, errors.New(blankHostErrMsg)
@@ -213,7 +213,7 @@ func (c *CouchDBStore) Get(k string) ([]byte, error) {
 	return c.getStoredValueFromRawDoc(rawDoc, k)
 }
 
-// get rev ID
+// get rev ID.
 func (c *CouchDBStore) getRevID(k string) (string, error) {
 	rawDoc := make(map[string]interface{})
 
@@ -231,7 +231,7 @@ func (c *CouchDBStore) getRevID(k string) (string, error) {
 	return rawDoc["_rev"].(string), nil
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (c *CouchDBStore) Delete(k string) error {
 	if k == "" {
 		return errors.New("key is mandatory")

@@ -50,13 +50,13 @@ const (
 	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 
-// ControllerSteps is steps for messaging using controller/REST binding
+// ControllerSteps is steps for messaging using controller/REST binding.
 type ControllerSteps struct {
 	bddContext     *context.BDDContext
 	msgIDsBySender map[string]string
 }
 
-// NewMessagingControllerSteps return new steps for messaging using controller/REST binding
+// NewMessagingControllerSteps return new steps for messaging using controller/REST binding.
 func NewMessagingControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		msgIDsBySender: make(map[string]string),
@@ -490,12 +490,12 @@ func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, topic, from 
 	return nil
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	d.bddContext = ctx
 }
 
-// RegisterSteps registers messaging steps
+// RegisterSteps registers messaging steps.
 func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	// generic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for type "([^"]*)"`+

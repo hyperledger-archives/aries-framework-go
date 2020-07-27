@@ -60,23 +60,23 @@ const (
 
 // Error codes
 const (
-	// InvalidRequestErrorCode is typically a code for invalid requests
+	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.Messaging)
 
-	// RegisterMsgSvcError is for failures while registering new message service
+	// RegisterMsgSvcError is for failures while registering new message service.
 	RegisterMsgSvcError
 
-	// UnregisterMsgSvcError is for failures while unregistering a message service
+	// UnregisterMsgSvcError is for failures while unregistering a message service.
 	UnregisterMsgSvcError
 
-	// SendMsgError is for failures while sending messages
+	// SendMsgError is for failures while sending messages.
 	SendMsgError
 
-	// SendMsgReplyError is for failures while sending message replies
+	// SendMsgReplyError is for failures while sending message replies.
 	SendMsgReplyError
 )
 
-// errConnForDIDNotFound when matching connection ID not found
+// errConnForDIDNotFound when matching connection ID not found.
 var errConnForDIDNotFound = fmt.Errorf(errMsgConnectionMatchingDIDNotFound)
 
 // provider contains dependencies for the messaging controller command operations
@@ -89,7 +89,7 @@ type provider interface {
 	LegacyKMS() legacykms.KeyManager
 }
 
-// Command contains basic command operations provided by messaging controller command
+// Command contains basic command operations provided by messaging controller command.
 type Command struct {
 	ctx              provider
 	msgRegistrar     command.MessageHandler
@@ -97,7 +97,7 @@ type Command struct {
 	connectionLookup *connection.Lookup
 }
 
-// New returns new command instance for messaging controller API
+// New returns new command instance for messaging controller API.
 func New(ctx provider, registrar command.MessageHandler, notifier command.Notifier) (*Command, error) {
 	connectionLookup, err := connection.NewLookup(ctx)
 	if err != nil {
@@ -114,7 +114,7 @@ func New(ctx provider, registrar command.MessageHandler, notifier command.Notifi
 	return o, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, registeredServicesCommandMethod, o.Services),
@@ -126,7 +126,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	}
 }
 
-// RegisterService registers new message service to message handler registrar
+// RegisterService registers new message service to message handler registrar.
 func (o *Command) RegisterService(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterMsgSvcArgs
 
@@ -139,7 +139,7 @@ func (o *Command) RegisterService(rw io.Writer, req io.Reader) command.Error {
 	return o.registerMessageService(&request)
 }
 
-// UnregisterService unregisters given message service handler registrar
+// UnregisterService unregisters given message service handler registrar.
 func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 	var request UnregisterMsgSvcArgs
 
@@ -168,7 +168,7 @@ func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// Services returns list of registered service names
+// Services returns list of registered service names.
 func (o *Command) Services(rw io.Writer, req io.Reader) command.Error {
 	names := []string{}
 	for _, svc := range o.msgRegistrar.Services() {
@@ -182,7 +182,7 @@ func (o *Command) Services(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// Send sends new message to destination provided
+// Send sends new message to destination provided.
 func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	var request SendNewMessageArgs
 
@@ -230,7 +230,7 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	return o.sendToDestination(&request)
 }
 
-// Reply sends reply to existing message
+// Reply sends reply to existing message.
 func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 	var request SendReplyMessageArgs
 
@@ -267,7 +267,7 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// RegisterHTTPService registers new http over didcomm service to message handler registrar
+// RegisterHTTPService registers new http over didcomm service to message handler registrar.
 func (o *Command) RegisterHTTPService(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterHTTPMsgSvcArgs
 

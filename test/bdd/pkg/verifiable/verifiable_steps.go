@@ -37,14 +37,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 )
 
-// SDKSteps is steps for verifiable credentials using client SDK
+// SDKSteps is steps for verifiable credentials using client SDK.
 type SDKSteps struct {
 	bddContext       *context.BDDContext
 	issuedVCBytes    []byte
 	secp256k1PrivKey *ecdsa.PrivateKey
 }
 
-// NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK
+// NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK.
 func NewVerifiableCredentialSDKSteps() *SDKSteps {
 	return &SDKSteps{}
 }
@@ -59,7 +59,7 @@ const (
 	jwsProof = "Ed25519 JWS"
 )
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 }

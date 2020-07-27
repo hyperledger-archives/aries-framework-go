@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// test callbacks
+// test callbacks.
 var callbacks = make(map[string]chan *result) // nolint:gochecknoglobals
 
 func TestMain(m *testing.M) {

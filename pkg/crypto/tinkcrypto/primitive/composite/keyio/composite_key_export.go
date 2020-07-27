@@ -41,7 +41,7 @@ type PubKeyWriter struct {
 	w io.Writer
 }
 
-// NewWriter creates a new PubKeyWriter instance
+// NewWriter creates a new PubKeyWriter instance.
 func NewWriter(w io.Writer) *PubKeyWriter {
 	return &PubKeyWriter{
 		w: w,
@@ -237,7 +237,7 @@ func (e *ecdh1puKey) y() []byte {
 	return e.protoKey.Y
 }
 
-// ExtractPrimaryPublicKey is a utility function that will extract the main public key from *keyset.Handle kh
+// ExtractPrimaryPublicKey is a utility function that will extract the main public key from *keyset.Handle kh.
 func ExtractPrimaryPublicKey(kh *keyset.Handle) (*composite.PublicKey, error) {
 	keyBytes, err := writePubKeyFromKeyHandle(kh)
 	if err != nil {

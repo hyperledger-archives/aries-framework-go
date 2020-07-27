@@ -35,19 +35,19 @@ type PubKeyWriter struct {
 	w io.Writer
 }
 
-// NewWriter creates a new PubKeyWriter instance
+// NewWriter creates a new PubKeyWriter instance.
 func NewWriter(w io.Writer) *PubKeyWriter {
 	return &PubKeyWriter{
 		w: w,
 	}
 }
 
-// Write writes the public keyset to the underlying w.Writer
+// Write writes the public keyset to the underlying w.Writer.
 func (p *PubKeyWriter) Write(keyset *tinkpb.Keyset) error {
 	return write(p.w, keyset)
 }
 
-// WriteEncrypted writes the encrypted keyset to the underlying w.Writer
+// WriteEncrypted writes the encrypted keyset to the underlying w.Writer.
 func (p *PubKeyWriter) WriteEncrypted(keyset *tinkpb.EncryptedKeyset) error {
 	return fmt.Errorf("write encrypted function not supported")
 }

@@ -130,7 +130,7 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 	}
 }
 
-// eciesAEADESPrivateKey returns a EciesAeadHkdfPrivateKey with specified parameters
+// eciesAEADESPrivateKey returns a EciesAeadHkdfPrivateKey with specified parameters.
 func eciesAEADESPrivateKey(t *testing.T, p *ecdhespb.EcdhesAeadPublicKey, d []byte) *ecdhespb.EcdhesAeadPrivateKey {
 	t.Helper()
 

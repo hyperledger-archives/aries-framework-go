@@ -20,7 +20,7 @@ import (
 // internal use only.
 
 // ECDH1PUAEADCompositeDecrypt is an instance of ECDH-1PU decryption with Concat KDF
-// and AEAD content decryption
+// and AEAD content decryption.
 type ECDH1PUAEADCompositeDecrypt struct {
 	senderPubKey *hybrid.ECPublicKey
 	recPrivKey   *hybrid.ECPrivateKey
@@ -42,7 +42,7 @@ func NewECDH1PUAEADCompositeDecrypt(senderPub *hybrid.ECPublicKey, recPvt *hybri
 	}
 }
 
-// Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption
+// Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption.
 func (d *ECDH1PUAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, error) {
 	if d.recPrivKey == nil {
 		return nil, fmt.Errorf("ECDH1PUAEADCompositeDecrypt: missing recipient private key for key unwrapping")

@@ -8,7 +8,7 @@ package api
 
 import "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 
-// IssueCredentialController defines methods for the IssueCredential protocol controller
+// IssueCredentialController defines methods for the IssueCredential protocol controller.
 type IssueCredentialController interface {
 
 	// Actions returns pending actions that have not yet to be executed or canceled.

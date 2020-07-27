@@ -14,7 +14,7 @@ type ProblemReport struct {
 	Description Code   `json:"description"`
 }
 
-// Code represents a problem report code
+// Code represents a problem report code.
 type Code struct {
 	Code string `json:"code"`
 }

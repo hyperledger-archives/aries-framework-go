@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	// NameSpace for vc store
+	// NameSpace for vc store.
 	NameSpace = "verifiable"
 
 	credentialNameKey              = "vcname_"
@@ -33,7 +33,7 @@ const (
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
 var ErrNotFound = errors.New("did not found under given key")
 
-// Store provides interface for storing and managing verifiable credentials
+// Store provides interface for storing and managing verifiable credentials.
 type Store interface {
 	SaveCredential(name string, vc *verifiable.Credential) error
 	SavePresentation(name string, vp *verifiable.Presentation) error
@@ -54,7 +54,7 @@ type record struct {
 	SubjectID string   `json:"subjectId,omitempty"`
 }
 
-// StoreImplementation stores vc
+// StoreImplementation stores vc.
 type StoreImplementation struct {
 	store storage.Store
 }
@@ -63,7 +63,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// New returns a new vc store
+// New returns a new vc store.
 func New(ctx provider) (*StoreImplementation, error) {
 	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {

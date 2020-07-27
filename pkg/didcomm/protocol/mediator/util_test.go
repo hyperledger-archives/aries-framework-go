@@ -78,12 +78,12 @@ type mockRouteSvc struct {
 	AddKeyErr      error
 }
 
-// AddKey adds agents recKey to the router
+// AddKey adds agents recKey to the router.
 func (m *mockRouteSvc) AddKey(recKey string) error {
 	return m.AddKeyErr
 }
 
-// Config gives back the router configuration
+// Config gives back the router configuration.
 func (m *mockRouteSvc) Config() (*Config, error) {
 	if m.ConfigErr != nil {
 		return nil, m.ConfigErr

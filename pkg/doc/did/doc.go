@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// Context of the DID document
+	// Context of the DID document.
 	Context             = "https://w3id.org/did/v1"
 	contextV011         = "https://w3id.org/did/v0.11"
 	contextV12019       = "https://www.w3.org/2019/did/v1"
@@ -50,7 +50,7 @@ const (
 	jsonldNonce          = "nonce"
 	jsonldProofPurpose   = "proofPurpose"
 
-	// various public key encodings
+	// various public key encodings.
 	jsonldPublicKeyBase58 = "publicKeyBase58"
 	jsonldPublicKeyHex    = "publicKeyHex"
 	jsonldPublicKeyPem    = "publicKeyPem"
@@ -68,7 +68,7 @@ type DID struct {
 	MethodSpecificID string // MethodSpecificID is the unique ID computed or assigned by the DID method
 }
 
-// String returns a string representation of this DID
+// String returns a string representation of this DID.
 func (d *DID) String() string {
 	return fmt.Sprintf("%s:%s:%s", d.Scheme, d.Method, d.MethodSpecificID)
 }
@@ -100,7 +100,7 @@ func Parse(did string) (*DID, error) {
 	}, nil
 }
 
-// Doc DID Document definition
+// Doc DID Document definition.
 type Doc struct {
 	Context              []string
 	ID                   string
@@ -155,12 +155,12 @@ func NewPublicKeyFromJWK(id, kType, controller string, jwk *jose.JWK) (*PublicKe
 	}, nil
 }
 
-// JSONWebKey returns JSON Web key if defined
+// JSONWebKey returns JSON Web key if defined.
 func (pk *PublicKey) JSONWebKey() *jose.JWK {
 	return pk.jsonWebKey
 }
 
-// Service DID doc service
+// Service DID doc service.
 type Service struct {
 	ID              string
 	Type            string
@@ -195,7 +195,7 @@ const (
 	KeyAgreement
 )
 
-// VerificationMethod authentication verification method
+// VerificationMethod authentication verification method.
 type VerificationMethod struct {
 	PublicKey    PublicKey
 	Relationship VerificationRelationship
@@ -203,7 +203,7 @@ type VerificationMethod struct {
 	RelativeURL  bool
 }
 
-// NewEmbeddedVerificationMethod creates a new verification method with embedded public key
+// NewEmbeddedVerificationMethod creates a new verification method with embedded public key.
 func NewEmbeddedVerificationMethod(pk *PublicKey, r VerificationRelationship) *VerificationMethod {
 	return &VerificationMethod{
 		PublicKey:    *pk,
@@ -212,7 +212,7 @@ func NewEmbeddedVerificationMethod(pk *PublicKey, r VerificationRelationship) *V
 	}
 }
 
-// NewReferencedVerificationMethod creates a new verification method with referenced public key
+// NewReferencedVerificationMethod creates a new verification method with referenced public key.
 func NewReferencedVerificationMethod(pk *PublicKey, r VerificationRelationship, isRelativeURL bool) *VerificationMethod { //nolint:lll
 	return &VerificationMethod{
 		PublicKey:    *pk,
@@ -236,7 +236,7 @@ type rawDoc struct {
 	Proof                []interface{}            `json:"proof,omitempty"`
 }
 
-// Proof is cryptographic proof of the integrity of the DID Document
+// Proof is cryptographic proof of the integrity of the DID Document.
 type Proof struct {
 	Type         string
 	Created      *time.Time
@@ -247,7 +247,7 @@ type Proof struct {
 	ProofPurpose string
 }
 
-// ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes
+// ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
 func ParseDocument(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
 
@@ -423,7 +423,7 @@ func populateVerificationMethods(doc *Doc, rawVerificationMethods []interface{},
 	return vms, nil
 }
 
-// getVerificationMethods gets verification methods from raw data
+// getVerificationMethods gets verification methods from raw data.
 func getVerificationMethods(doc *Doc, rawVerificationMethod interface{},
 	relationship VerificationRelationship) ([]VerificationMethod, error) {
 	// context, docID string
@@ -462,7 +462,7 @@ func getVerificationMethods(doc *Doc, rawVerificationMethod interface{},
 	return []VerificationMethod{{PublicKey: pk[0], Relationship: relationship, Embedded: true}}, nil
 }
 
-// getVerificationMethodsByKeyID get verification methods by key IDs
+// getVerificationMethodsByKeyID get verification methods by key IDs.
 func getVerificationMethodsByKeyID(didID string, pks []PublicKey, relationship VerificationRelationship,
 	keyIDs ...interface{}) ([]VerificationMethod, error) {
 	var vms []VerificationMethod
@@ -648,7 +648,7 @@ func validate(data []byte, schemaLoader gojsonschema.JSONLoader) error {
 	return nil
 }
 
-// stringEntry
+// stringEntry.
 func stringEntry(entry interface{}) string {
 	if entry == nil {
 		return ""
@@ -657,7 +657,7 @@ func stringEntry(entry interface{}) string {
 	return entry.(string)
 }
 
-// uintEntry
+// uintEntry.
 func uintEntry(entry interface{}) uint {
 	if entry == nil {
 		return 0
@@ -666,7 +666,7 @@ func uintEntry(entry interface{}) uint {
 	return uint(entry.(float64))
 }
 
-// stringArray
+// stringArray.
 func stringArray(entry interface{}) []string {
 	if entry == nil {
 		return nil
@@ -701,7 +701,7 @@ func mapEntry(entry interface{}) map[string]interface{} {
 	return result
 }
 
-// JSONBytes converts document to json bytes
+// JSONBytes converts document to json bytes.
 func (doc *Doc) JSONBytes() ([]byte, error) {
 	context := Context
 
@@ -762,7 +762,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	return byteDoc, nil
 }
 
-// VerifyProof verifies document proofs
+// VerifyProof verifies document proofs.
 func (doc *Doc) VerifyProof(suites []verifier.SignatureSuite, jsonldOpts ...jsonld.ProcessorOpts) error {
 	if len(doc.Proof) == 0 {
 		return ErrProofNotFound
@@ -844,10 +844,10 @@ func (doc *Doc) VerificationMethods(customVerificationRelationships ...Verificat
 	return verificationMethods
 }
 
-// ErrProofNotFound is returned when proof is not found
+// ErrProofNotFound is returned when proof is not found.
 var ErrProofNotFound = errors.New("proof not found")
 
-// didKeyResolver implements public key resolution for DID public keys
+// didKeyResolver implements public key resolution for DID public keys.
 type didKeyResolver struct {
 	PubKeys []PublicKey
 }
@@ -866,7 +866,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 	return nil, ErrKeyNotFound
 }
 
-// ErrKeyNotFound is returned when key is not found
+// ErrKeyNotFound is returned when key is not found.
 var ErrKeyNotFound = errors.New("key not found")
 
 func populateRawServices(services []Service) []map[string]interface{} {

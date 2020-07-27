@@ -19,13 +19,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// StoreName DID connection store name
+// StoreName DID connection store name.
 const StoreName = "didconnection"
 
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
 var ErrNotFound = errors.New("did not found under given key")
 
-// ConnectionStore stores DIDs indexed by key
+// ConnectionStore stores DIDs indexed by key.
 type ConnectionStore struct {
 	store storage.Store
 	vdr   vdri.Registry
@@ -42,7 +42,7 @@ type connectionProvider interface {
 	VDRIRegistry() vdri.Registry
 }
 
-// NewConnectionStore returns a new did lookup ConnectionStore
+// NewConnectionStore returns a new did lookup ConnectionStore.
 func NewConnectionStore(ctx connectionProvider) (*ConnectionStore, error) {
 	store, err := ctx.StorageProvider().OpenStore(StoreName)
 	if err != nil {
@@ -52,7 +52,7 @@ func NewConnectionStore(ctx connectionProvider) (*ConnectionStore, error) {
 	return &ConnectionStore{store: store, vdr: ctx.VDRIRegistry()}, nil
 }
 
-// saveDID saves a DID, indexed using the given public key
+// saveDID saves a DID, indexed using the given public key.
 func (c *ConnectionStore) saveDID(did, key string) error {
 	data := didRecord{
 		DID: did,
@@ -66,7 +66,7 @@ func (c *ConnectionStore) saveDID(did, key string) error {
 	return c.store.Put(key, bytes)
 }
 
-// SaveDID saves a DID, indexed using the given public keys
+// SaveDID saves a DID, indexed using the given public keys.
 func (c *ConnectionStore) SaveDID(did string, keys ...string) error {
 	for _, key := range keys {
 		err := c.saveDID(did, key)
@@ -78,7 +78,7 @@ func (c *ConnectionStore) SaveDID(did string, keys ...string) error {
 	return nil
 }
 
-// SaveDIDFromDoc saves a map from a did doc's keys to the did
+// SaveDIDFromDoc saves a map from a did doc's keys to the did.
 func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
 	for i := range doc.PublicKey {
@@ -109,7 +109,7 @@ func (c *ConnectionStore) SaveDIDByResolving(did string, keys ...string) error {
 	return c.SaveDIDFromDoc(doc)
 }
 
-// GetDID gets the DID stored under the given key
+// GetDID gets the DID stored under the given key.
 func (c *ConnectionStore) GetDID(key string) (string, error) {
 	bytes, err := c.store.Get(key)
 	if errors.Is(err, storage.ErrDataNotFound) {

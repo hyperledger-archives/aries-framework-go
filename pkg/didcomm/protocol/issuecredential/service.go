@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	// Name defines the protocol name
+	// Name defines the protocol name.
 	Name = "issue-credential"
-	// Spec defines the protocol spec
+	// Spec defines the protocol spec.
 	Spec = "https://didcomm.org/issue-credential/2.0/"
 	// ProposeCredentialMsgType defines the protocol propose-credential message type.
 	ProposeCredentialMsgType = Spec + "propose-credential"
@@ -109,7 +109,7 @@ func (md *metaData) Properties() map[string]interface{} {
 	return md.properties
 }
 
-// Action contains helpful information about action
+// Action contains helpful information about action.
 type Action struct {
 	// Protocol instance ID
 	PIID     string
@@ -118,11 +118,11 @@ type Action struct {
 	TheirDID string
 }
 
-// Opt describes option signature for the Continue function
+// Opt describes option signature for the Continue function.
 type Opt func(md *metaData)
 
 // WithProposeCredential allows providing ProposeCredential message
-// USAGE: This message should be provided after receiving an OfferCredential message
+// USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) Opt {
 	return func(md *metaData) {
 		md.proposeCredential = msg
@@ -130,7 +130,7 @@ func WithProposeCredential(msg *ProposeCredential) Opt {
 }
 
 // WithOfferCredential allows providing OfferCredential message
-// USAGE: This message should be provided after receiving a ProposeCredential message
+// USAGE: This message should be provided after receiving a ProposeCredential message.
 func WithOfferCredential(msg *OfferCredential) Opt {
 	return func(md *metaData) {
 		md.offerCredential = msg
@@ -138,7 +138,7 @@ func WithOfferCredential(msg *OfferCredential) Opt {
 }
 
 // WithIssueCredential allows providing IssueCredential message
-// USAGE: This message should be provided after receiving a RequestCredential message
+// USAGE: This message should be provided after receiving a RequestCredential message.
 func WithIssueCredential(msg *IssueCredential) Opt {
 	return func(md *metaData) {
 		md.issueCredential = msg
@@ -146,7 +146,7 @@ func WithIssueCredential(msg *IssueCredential) Opt {
 }
 
 // WithFriendlyNames allows providing names for the credentials.
-// USAGE: This function should be used when the Holder receives IssueCredential message
+// USAGE: This function should be used when the Holder receives IssueCredential message.
 func WithFriendlyNames(names ...string) Opt {
 	return func(md *metaData) {
 		md.credentialNames = names
@@ -159,7 +159,7 @@ type Provider interface {
 	StorageProvider() storage.Provider
 }
 
-// Service for the issuecredential protocol
+// Service for the issuecredential protocol.
 type Service struct {
 	service.Action
 	service.Message
@@ -169,7 +169,7 @@ type Service struct {
 	middleware Handler
 }
 
-// New returns the issuecredential service
+// New returns the issuecredential service.
 func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Name)
 	if err != nil {
@@ -189,7 +189,7 @@ func New(p Provider) (*Service, error) {
 	return svc, nil
 }
 
-// Use allows providing middlewares
+// Use allows providing middlewares.
 func (s *Service) Use(items ...Middleware) {
 	var handler Handler = initialHandler
 	for i := len(items) - 1; i >= 0; i-- {
@@ -199,7 +199,7 @@ func (s *Service) Use(items ...Middleware) {
 	s.middleware = handler
 }
 
-// HandleInbound handles inbound message (issuecredential protocol)
+// HandleInbound handles inbound message (issuecredential protocol).
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	aEvent := s.ActionEvent()
 
@@ -238,7 +238,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	return msg.ThreadID()
 }
 
-// HandleOutbound handles outbound message (issuecredential protocol)
+// HandleOutbound handles outbound message (issuecredential protocol).
 func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	md, err := s.doHandle(msg, true)
 	if err != nil {
@@ -464,7 +464,7 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
 }
 
-// canTriggerActionEvents checks if the incoming message can trigger an action event
+// canTriggerActionEvents checks if the incoming message can trigger an action event.
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == ProposeCredentialMsgType ||
 		msg.Type() == OfferCredentialMsgType ||
@@ -492,7 +492,7 @@ func (s *Service) deleteTransitionalPayload(id string) error {
 	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
 }
 
-// ActionContinue allows proceeding with the action by the piID
+// ActionContinue allows proceeding with the action by the piID.
 func (s *Service) ActionContinue(piID string, opt Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -520,7 +520,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 	return nil
 }
 
-// ActionStop allows stopping the action by the piID
+// ActionStop allows stopping the action by the piID.
 func (s *Service) ActionStop(piID string, cErr error) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -549,7 +549,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 	return nil
 }
 
-// Actions returns actions for the async usage
+// Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
@@ -581,7 +581,7 @@ func (s *Service) processCallback(msg *metaData) {
 	s.callbacks <- msg
 }
 
-// newDIDCommActionMsg creates new DIDCommAction message
+// newDIDCommActionMsg creates new DIDCommAction message.
 func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
@@ -647,12 +647,12 @@ func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.
 	}
 }
 
-// Name returns service name
+// Name returns service name.
 func (s *Service) Name() string {
 	return Name
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
 	case ProposeCredentialMsgType, OfferCredentialMsgType, RequestCredentialMsgType,

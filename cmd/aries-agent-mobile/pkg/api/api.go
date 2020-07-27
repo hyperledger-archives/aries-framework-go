@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package api
 
-// AriesController provides Aries agent protocols tailored to mobile platforms
+// AriesController provides Aries agent protocols tailored to mobile platforms.
 type AriesController interface {
 
 	// GetIntroduceController returns an implementation of IntroduceController

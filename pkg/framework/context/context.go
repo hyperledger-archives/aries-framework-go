@@ -89,7 +89,7 @@ func (p *Provider) OutboundTransports() []transport.OutboundTransport {
 	return p.outboundTransports
 }
 
-// Service return protocol service
+// Service return protocol service.
 func (p *Provider) Service(id string) (interface{}, error) {
 	for _, v := range p.services {
 		if v.Name() == id {
@@ -105,17 +105,17 @@ func (p *Provider) LegacyKMS() legacykms.KeyManager {
 	return p.legacyKMS
 }
 
-// KMS returns a Key Management Service
+// KMS returns a Key Management Service.
 func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
-// SecretLock returns a secret lock service
+// SecretLock returns a secret lock service.
 func (p *Provider) SecretLock() secretlock.Service {
 	return p.secretLock
 }
 
-// Crypto returns the Crypto service
+// Crypto returns the Crypto service.
 func (p *Provider) Crypto() crypto.Crypto {
 	return p.crypto
 }
@@ -223,12 +223,12 @@ func (p *Provider) ProtocolStateStorageProvider() storage.Provider {
 	return p.protocolStateStoreProvider
 }
 
-// VDRIRegistry returns a vdri registry
+// VDRIRegistry returns a vdri registry.
 func (p *Provider) VDRIRegistry() vdriapi.Registry {
 	return p.vdriRegistry
 }
 
-// TransportReturnRoute returns transport return route
+// TransportReturnRoute returns transport return route.
 func (p *Provider) TransportReturnRoute() string {
 	return p.transportReturnRoute
 }
@@ -294,7 +294,7 @@ func WithLegacyKMS(w legacykms.KMS) ProviderOption {
 	}
 }
 
-// WithKMS injects a kms service into the context
+// WithKMS injects a kms service into the context.
 func WithKMS(k kms.KeyManager) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = k
@@ -302,7 +302,7 @@ func WithKMS(k kms.KeyManager) ProviderOption {
 	}
 }
 
-// WithSecretLock injects a secret lock service into the context
+// WithSecretLock injects a secret lock service into the context.
 func WithSecretLock(s secretlock.Service) ProviderOption {
 	return func(opts *Provider) error {
 		opts.secretLock = s
@@ -310,7 +310,7 @@ func WithSecretLock(s secretlock.Service) ProviderOption {
 	}
 }
 
-// WithCrypto injects a Crypto service into the context
+// WithCrypto injects a Crypto service into the context.
 func WithCrypto(c crypto.Crypto) ProviderOption {
 	return func(opts *Provider) error {
 		opts.crypto = c
@@ -388,7 +388,7 @@ func WithAriesFrameworkID(id string) ProviderOption {
 	}
 }
 
-// WithMessageServiceProvider injects a message service provider into the context
+// WithMessageServiceProvider injects a message service provider into the context.
 func WithMessageServiceProvider(msv api.MessageServiceProvider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.msgSvcProvider = msv
@@ -396,7 +396,7 @@ func WithMessageServiceProvider(msv api.MessageServiceProvider) ProviderOption {
 	}
 }
 
-// WithVerifiableStore injects a verifiable credential store
+// WithVerifiableStore injects a verifiable credential store.
 func WithVerifiableStore(store verifiable.Store) ProviderOption {
 	return func(opts *Provider) error {
 		opts.verifiableStore = store

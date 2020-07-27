@@ -20,7 +20,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
-// Ensure Client can emit events
+// Ensure Client can emit events.
 var _ service.Event = (*Client)(nil)
 
 func TestNew(t *testing.T) {

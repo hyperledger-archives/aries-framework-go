@@ -34,7 +34,7 @@ const (
 
 	// StateRequested is one of the possible states of this protocol.
 	StateRequested = "requested"
-	// StateInvited is this protocol's state after accepting an invitation
+	// StateInvited is this protocol's state after accepting an invitation.
 	StateInvited = "invited"
 
 	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
@@ -89,7 +89,7 @@ type myState struct {
 	Done         bool
 }
 
-// Action contains helpful information about action
+// Action contains helpful information about action.
 type Action struct {
 	// Protocol instance ID
 	PIID         string
@@ -161,17 +161,17 @@ func New(p Provider) (*Service, error) {
 	return s, nil
 }
 
-// Name is this service's name
+// Name is this service's name.
 func (s *Service) Name() string {
 	return Name
 }
 
-// Accept determines whether this service can handle the given type of message
+// Accept determines whether this service can handle the given type of message.
 func (s *Service) Accept(msgType string) bool {
 	return msgType == RequestMsgType || msgType == InvitationMsgType
 }
 
-// HandleInbound handles inbound messages
+// HandleInbound handles inbound messages.
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { //nolint:funlen
 	logger.Debugf("receive inbound message : %s", msg)
 
@@ -247,7 +247,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	return "", nil
 }
 
-// Actions returns actions for the async usage
+// Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
@@ -269,7 +269,7 @@ func (s *Service) Actions() ([]Action, error) {
 	return actions, records.Error()
 }
 
-// ActionContinue allows proceeding with the action by the piID
+// ActionContinue allows proceeding with the action by the piID.
 func (s *Service) ActionContinue(piID string, opts Options) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -288,7 +288,7 @@ func (s *Service) ActionContinue(piID string, opts Options) error {
 	return s.deleteTransitionalPayload(tPayload.PIID)
 }
 
-// ActionStop allows stopping the action by the piID
+// ActionStop allows stopping the action by the piID.
 func (s *Service) ActionStop(piID string, _ error) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -350,7 +350,7 @@ func sendMsgEvent(t service.StateMsgType, listeners *service.Message,
 	}
 }
 
-// HandleOutbound handles outbound messages
+// HandleOutbound handles outbound messages.
 func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
 	// TODO implement
 	return "", errors.New("not implemented")
@@ -764,7 +764,7 @@ func (e *userOptions) MyLabel() string {
 	return e.myLabel
 }
 
-// All implements EventProperties interface
+// All implements EventProperties interface.
 func (e *eventProps) All() map[string]interface{} {
 	return map[string]interface{}{
 		"connectionID": e.ConnectionID(),

@@ -52,7 +52,7 @@ func CreateDetachedJWTHeader(p *Proof) string {
 	return base64.RawURLEncoding.EncodeToString(jwtHeaderBytes)
 }
 
-// GetJWTSignature returns signature part of JWT
+// GetJWTSignature returns signature part of JWT.
 func GetJWTSignature(jwt string) ([]byte, error) {
 	jwtParts := strings.Split(jwt, ".")
 	if len(jwtParts) != jwtPartsNumber || jwtParts[jwtSignaturePart] == "" {

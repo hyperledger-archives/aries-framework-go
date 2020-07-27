@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// KeyStoreNamespace is keystore namespace
+	// KeyStoreNamespace is keystore namespace.
 	KeyStoreNamespace = "keystore"
 )
 
@@ -32,12 +32,12 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// BaseKMS Base Key Management Service implementation
+// BaseKMS Base Key Management Service implementation.
 type BaseKMS struct {
 	keystore storage.Store
 }
 
-// New return new instance of LegacyKMS implementation
+// New return new instance of LegacyKMS implementation.
 func New(ctx provider) (*BaseKMS, error) {
 	ks, err := ctx.StorageProvider().OpenStore(KeyStoreNamespace)
 	if err != nil {
@@ -173,12 +173,12 @@ func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error)
 	return ed25519signature2018.New(suite.WithSigner(signer)).Sign(message)
 }
 
-// Close the LegacyKMS
+// Close the LegacyKMS.
 func (w *BaseKMS) Close() error {
 	return nil
 }
 
-// getKeyPairSet get encryption & signature key pairs combo
+// getKeyPairSet get encryption & signature key pairs combo.
 func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
 	bytes, err := w.keystore.Get(verKey)
 	if err != nil {
@@ -201,7 +201,7 @@ func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error
 
 // DeriveKEK will derive an ephemeral symmetric key (kek) using a private key fetched from
 // the LegacyKMS corresponding to fromPubKey and derived with toPubKey
-// This implementation is for curve 25519 only
+// This implementation is for curve 25519 only.
 func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	if fromPubKey == nil || toPubKey == nil {
 		return nil, cryptoutil.ErrInvalidKey
@@ -224,7 +224,7 @@ func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, erro
 	return cryptoutil.Derive25519KEK(alg, apu, fromPrivKey, toKey)
 }
 
-// FindVerKey selects a signing key which is present in candidateKeys that is present in the LegacyKMS
+// FindVerKey selects a signing key which is present in candidateKeys that is present in the LegacyKMS.
 func (w *BaseKMS) FindVerKey(candidateKeys []string) (int, error) {
 	for i, key := range candidateKeys {
 		_, err := w.getKeyPairSet(key)
@@ -243,7 +243,7 @@ func (w *BaseKMS) FindVerKey(candidateKeys []string) (int, error) {
 	return -1, cryptoutil.ErrKeyNotFound
 }
 
-// persist marshals value and saves it in store for given key
+// persist marshals value and saves it in store for given key.
 func persist(store storage.Store, key string, value interface{}) error {
 	bytes, err := json.Marshal(value)
 	if err != nil {
@@ -258,7 +258,7 @@ func persist(store storage.Store, key string, value interface{}) error {
 	return nil
 }
 
-// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument.
 func (w *BaseKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	b58VerKey := base58.Encode(verKey)
 	kpCombo, err := w.getKeyPairSet(b58VerKey)

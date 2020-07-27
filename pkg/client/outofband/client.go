@@ -24,9 +24,9 @@ import (
 type (
 	// Request is the out-of-band protocol's 'request' message.
 	Request outofband.Request
-	// Invitation is this protocol's `invitation` message
+	// Invitation is this protocol's `invitation` message.
 	Invitation outofband.Invitation
-	// Action contains helpful information about action
+	// Action contains helpful information about action.
 	Action outofband.Action
 )
 
@@ -209,7 +209,7 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 	return inv, nil
 }
 
-// Actions returns unfinished actions for the async usage
+// Actions returns unfinished actions for the async usage.
 func (c *Client) Actions() ([]Action, error) {
 	actions, err := c.oobService.Actions()
 	if err != nil {
@@ -224,14 +224,14 @@ func (c *Client) Actions() ([]Action, error) {
 	return result, nil
 }
 
-// ActionContinue allows continuing with the protocol after an action event was triggered
+// ActionContinue allows continuing with the protocol after an action event was triggered.
 func (c *Client) ActionContinue(piID, label string) error {
 	return c.oobService.ActionContinue(piID, &EventOptions{
 		Label: label,
 	})
 }
 
-// ActionStop stops the protocol after an action event was triggered
+// ActionStop stops the protocol after an action event was triggered.
 func (c *Client) ActionStop(piID string, err error) error {
 	return c.oobService.ActionStop(piID, err)
 }

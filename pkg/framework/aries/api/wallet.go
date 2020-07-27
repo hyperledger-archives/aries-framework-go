@@ -12,12 +12,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
-// CloseableKMS interface
+// CloseableKMS interface.
 type CloseableKMS interface {
 	io.Closer
 	legacykms.KeyManager
 	legacykms.Signer
 }
 
-// KMSCreator method to create new key management service
+// KMSCreator method to create new key management service.
 type KMSCreator func(provider Provider) (CloseableKMS, error)

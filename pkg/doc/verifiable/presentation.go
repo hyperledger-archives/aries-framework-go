@@ -166,7 +166,7 @@ var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentation
 // MarshalledCredential can be passed to verifiable.ParseCredential().
 type MarshalledCredential []byte
 
-// Presentation Verifiable Presentation base data model definition
+// Presentation Verifiable Presentation base data model definition.
 type Presentation struct {
 	Context       []string
 	CustomContext []interface{}
@@ -299,7 +299,7 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 	}, nil
 }
 
-// rawPresentation is a basic verifiable credential
+// rawPresentation is a basic verifiable credential.
 type rawPresentation struct {
 	Context    interface{}     `json:"@context,omitempty"`
 	ID         string          `json:"id,omitempty"`
@@ -335,7 +335,7 @@ func (rp *rawPresentation) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// presentationOpts holds options for the Verifiable Presentation decoding
+// presentationOpts holds options for the Verifiable Presentation decoding.
 type presentationOpts struct {
 	publicKeyFetcher   PublicKeyFetcher
 	disabledProofCheck bool
@@ -346,7 +346,7 @@ type presentationOpts struct {
 	jsonldCredentialOpts
 }
 
-// PresentationOpt is the Verifiable Presentation decoding option
+// PresentationOpt is the Verifiable Presentation decoding option.
 type PresentationOpt func(opts *presentationOpts)
 
 // WithPresPublicKeyFetcher indicates that Verifiable Presentation should be decoded from JWS using

@@ -39,7 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
-// defFrameworkOpts provides default framework options
+// defFrameworkOpts provides default framework options.
 func defFrameworkOpts(frameworkOpts *Aries) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/209 Move default providers to the sub-package
 	if len(frameworkOpts.outboundTransports) == 0 {
@@ -233,10 +233,10 @@ func createDefSecretLock(opts *Aries) error {
 	return nil
 }
 
-// noOpMessageServiceProvider returns noop message service provider
+// noOpMessageServiceProvider returns noop message service provider.
 type noOpMessageServiceProvider struct{}
 
-// Services returns empty list of services for noOpMessageServiceProvider
+// Services returns empty list of services for noOpMessageServiceProvider.
 func (n *noOpMessageServiceProvider) Services() []dispatcher.MessageService {
 	return []dispatcher.MessageService{}
 }

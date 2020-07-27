@@ -25,7 +25,7 @@ import (
 // Pack will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 // It will encrypt by fetching the sender's encryption key corresponding to senderVerKey and converting the list
-// of recipientsVerKeys into a list of encryption keys
+// of recipientsVerKeys into a list of encryption keys.
 func (p *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
 	senderPubKey, err := p.getSenderPubEncKey(senderVerKey)
 	if err != nil {
@@ -120,7 +120,7 @@ func (p *Packer) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte,
 }
 
 // convertRecipients is a utility function that converts keys from signature keys ([][]byte type)
-// into encryption keys ([]*[chacha.KeySize]byte type)
+// into encryption keys ([]*[chacha.KeySize]byte type).
 func (p *Packer) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	var chachaRecipients []*[chacha.KeySize]byte
 
@@ -142,7 +142,7 @@ func (p *Packer) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte
 	return chachaRecipients, nil
 }
 
-// extractTag is a utility function that extracts base64UrlEncoded tag sub-slice from symOutput returned by cipher.Seal
+// extractTag is a utility function that extracts base64UrlEncoded tag sub-slice from symOutput returned by cipher.Seal.
 func extractTag(symOutput []byte) string {
 	// symOutput has a length of len(clear msg) + poly1305.TagSize
 	// fetch the tag from the tail of symOutput
@@ -153,7 +153,7 @@ func extractTag(symOutput []byte) string {
 }
 
 // extractCipherText is a utility function that extracts base64UrlEncoded cipherText sub-slice
-// from symOutput returned by cipher.Seal
+// from symOutput returned by cipher.Seal.
 func extractCipherText(symOutput []byte) string {
 	// fetch the cipherText from the head of symOutput (0:up to the trailing tag)
 	cipherText := symOutput[0 : len(symOutput)-poly1305.TagSize]
@@ -163,7 +163,7 @@ func extractCipherText(symOutput []byte) string {
 }
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
-// and returns its marshalled []byte representation
+// and returns its marshalled []byte representation.
 func (p *Packer) buildJWE(headers string, recipients []*jose.Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
@@ -184,7 +184,7 @@ func (p *Packer) buildJWE(headers string, recipients []*jose.Recipient, aad, iv,
 
 // buildAAD is a utility function to build the Additional Authentication Data for the AEAD (chach20poly1305) cipher.
 // the build takes the list of recipients keys base58 encoded and sorted then SHA256 hash
-// the concatenation of these keys with a '.' separator
+// the concatenation of these keys with a '.' separator.
 func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
 	var keys []string
 	for _, r := range recipients {
@@ -195,7 +195,7 @@ func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
 }
 
 // hashAAD will string sort keys and return sha256 hash of the string representation
-// of keys concatenated by '.'
+// of keys concatenated by '.'.
 func hashAAD(keys []string) []byte {
 	sort.Strings(keys)
 	sha := sha256.Sum256([]byte(strings.Join(keys, ".")))
@@ -204,7 +204,7 @@ func hashAAD(keys []string) []byte {
 }
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
-// and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
+// and return a list of encoded recipient keys in a JWE compliant format ([]Recipient).
 func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte,
 	senderPubKey *[chacha.KeySize]byte) ([]*jose.Recipient, error) {
 	var encodedRecipients []*jose.Recipient
@@ -223,7 +223,7 @@ func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chac
 
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
-// it returns a JWE compliant Recipient
+// it returns a JWE compliant Recipient.
 func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*jose.Recipient, error) {
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
@@ -252,7 +252,7 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 	return p.buildRecipient(sharedKeyCipher, apu, spk, nonce, tag, recipientPubKey)
 }
 
-// buildRecipient will build a proper JSON formatted and JWE compliant Recipient
+// buildRecipient will build a proper JSON formatted and JWE compliant Recipient.
 func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*jose.Recipient, error) { //nolint:lll
 	recipientHeaders := jose.RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),

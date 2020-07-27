@@ -53,7 +53,7 @@ type Batch struct {
 	Thread   *decorator.Thread `json:"~thread,omitempty"`
 }
 
-// Message messagepickup wrapper
+// Message messagepickup wrapper.
 type Message struct {
 	ID        string          `json:"id"`
 	AddedTime time.Time       `json:"added_time"`

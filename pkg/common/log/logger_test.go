@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
 )
 
-// TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call
+// TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call.
 func TestDefaultLogger(t *testing.T) {
 	defer func() { loggerProviderOnce = sync.Once{} }()
 
@@ -34,7 +34,7 @@ func TestDefaultLogger(t *testing.T) {
 }
 
 // TestAllLevels tests logging level behaviour
-// logging levels can be set per modules, if not set then it will default to 'INFO'
+// logging levels can be set per modules, if not set then it will default to 'INFO'.
 func TestAllLevels(t *testing.T) {
 	module := "sample-module-critical"
 	SetLevel(module, CRITICAL)
@@ -64,7 +64,7 @@ func TestAllLevels(t *testing.T) {
 
 // TestCallerInfos callerinfo behavior which displays caller function details in log lines
 // CallerInfo is available in default logger.
-// Based on implementation it may not be available for custom logger
+// Based on implementation it may not be available for custom logger.
 func TestCallerInfos(t *testing.T) {
 	module := "sample-module-caller-info"
 
@@ -81,7 +81,7 @@ func TestCallerInfos(t *testing.T) {
 	require.False(t, IsCallerInfoEnabled(module, WARNING))
 }
 
-// TestLogLevel testing 'LogLevel()' used for parsing log levels from strings
+// TestLogLevel testing 'LogLevel()' used for parsing log levels from strings.
 func TestLogLevel(t *testing.T) {
 	verifyLevelsNoError := func(expected Level, levels ...string) {
 		for _, level := range levels {
@@ -98,7 +98,7 @@ func TestLogLevel(t *testing.T) {
 	verifyLevelsNoError(INFO, "info", "INFO", "iNFo")
 }
 
-// TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings
+// TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings.
 func TestParseLevelError(t *testing.T) {
 	verifyLevelError := func(levels ...string) {
 		for _, level := range levels {

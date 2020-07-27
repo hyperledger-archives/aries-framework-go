@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// SDKSteps is steps for didexchange using client SDK
+// SDKSteps is steps for didexchange using client SDK.
 type SDKSteps struct {
 	bddContext     *context.BDDContext
 	nextAction     map[string]chan struct{}
@@ -31,7 +31,7 @@ type SDKSteps struct {
 	postStatesFlag map[string]map[string]chan bool
 }
 
-// NewDIDExchangeSDKSteps return new steps for didexchange using client SDK
+// NewDIDExchangeSDKSteps return new steps for didexchange using client SDK.
 func NewDIDExchangeSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		nextAction:     make(map[string]chan struct{}),
@@ -69,7 +69,7 @@ func (d *SDKSteps) validateInvitationEndpointScheme(inviterAgentID, scheme strin
 	return nil
 }
 
-// CreateInvitationWithDID creates invitation with DID
+// CreateInvitationWithDID creates invitation with DID.
 func (d *SDKSteps) CreateInvitationWithDID(inviterAgentID string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID,
 		d.bddContext.PublicDIDDocs[inviterAgentID].ID)
@@ -122,7 +122,7 @@ func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentI
 	return nil
 }
 
-// WaitForPublicDID waits for public DID
+// WaitForPublicDID waits for public DID.
 func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		vdri := d.bddContext.AgentCtx[agentID].VDRIRegistry()
@@ -134,7 +134,7 @@ func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
 	return nil
 }
 
-// ReceiveInvitation receives invitation
+// ReceiveInvitation receives invitation.
 func (d *SDKSteps) ReceiveInvitation(inviteeAgentID, inviterAgentID string) error {
 	connectionID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].HandleInvitation(d.invitations[inviterAgentID])
 	if err != nil {
@@ -146,7 +146,7 @@ func (d *SDKSteps) ReceiveInvitation(inviteeAgentID, inviterAgentID string) erro
 	return nil
 }
 
-// WaitForPostEvent waits for post event
+// WaitForPostEvent waits for post event.
 func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 	const timeout = 5 * time.Second
 
@@ -188,7 +188,7 @@ func (d *SDKSteps) ValidateConnection(agentID, stateValue string) error {
 	return nil
 }
 
-// validateResolveDID verifies if given agent is able to resolve their DID
+// validateResolveDID verifies if given agent is able to resolve their DID.
 func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Resolve(theirDID)
 	if err != nil {
@@ -202,7 +202,7 @@ func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 	return nil
 }
 
-// ApproveRequest approves request
+// ApproveRequest approves request.
 func (d *SDKSteps) ApproveRequest(agentID string) error {
 	c, found := d.nextAction[agentID]
 	if !found {
@@ -241,7 +241,7 @@ func (copts *clientOptions) Label() string {
 	return copts.label
 }
 
-// CreateDIDExchangeClient creates DIDExchangeClient
+// CreateDIDExchangeClient creates DIDExchangeClient.
 func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		if _, exists := d.bddContext.DIDExchangeClients[agentID]; exists {
@@ -286,7 +286,7 @@ func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDC
 	}
 }
 
-// RegisterPostMsgEvent registers PostMsgEvent
+// RegisterPostMsgEvent registers PostMsgEvent.
 func (d *SDKSteps) RegisterPostMsgEvent(agents, statesValue string) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		statusCh := make(chan service.StateMsg)
@@ -428,12 +428,12 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 	return doc, err
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 	d.bddContext = ctx
 }
 
-// RegisterSteps registers did exchange steps
+// RegisterSteps registers did exchange steps.
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)

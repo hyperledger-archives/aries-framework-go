@@ -25,25 +25,25 @@ var logger = log.New("aries-framework/command/route")
 
 // Error codes
 const (
-	// InvalidRequestErrorCode for invalid requests
+	// InvalidRequestErrorCode for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.ROUTE)
 
-	// ResponseWriteErrorCode for connection ID validation error
+	// ResponseWriteErrorCode for connection ID validation error.
 	RegisterMissingConnIDCode
 
-	// RegisterRouterErrorCode for register router error
+	// RegisterRouterErrorCode for register router error.
 	RegisterRouterErrorCode
 
-	// UnregisterRouterErrorCode for unregister router error
+	// UnregisterRouterErrorCode for unregister router error.
 	UnregisterRouterErrorCode
 
-	// Connection for get connection id error
+	// Connection for get connection id error.
 	GetConnectionIDErrorCode
 
-	// ReconnectMissingConnIDCode for connection ID validation error
+	// ReconnectMissingConnIDCode for connection ID validation error.
 	ReconnectMissingConnIDCode
 
-	// ReconnectRouterErrorCode for reconnecting router error
+	// ReconnectRouterErrorCode for reconnecting router error.
 	ReconnectRouterErrorCode
 )
 
@@ -107,7 +107,7 @@ func New(ctx provider, autoAccept bool) (*Command, error) {
 	}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),

@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 )
 
-// RegisterMsgSvcArgs contains parameters for registering a message service to message handler
+// RegisterMsgSvcArgs contains parameters for registering a message service to message handler.
 type RegisterMsgSvcArgs struct {
 	// Name of the message service
 	Name string `json:"name"`
@@ -26,14 +26,14 @@ type RegisterMsgSvcArgs struct {
 	Type string `json:"type"`
 }
 
-// UnregisterMsgSvcArgs contains parameters for unregistering a message service from message handler
+// UnregisterMsgSvcArgs contains parameters for unregistering a message service from message handler.
 type UnregisterMsgSvcArgs struct {
 	// Name of the message service to be unregistered
 	// required: true
 	Name string `json:"name"`
 }
 
-// RegisteredServicesResponse is for returning list of registered service names
+// RegisteredServicesResponse is for returning list of registered service names.
 type RegisteredServicesResponse struct {
 	// Registered service names
 	Names []string `json:"names"`
@@ -63,7 +63,7 @@ type SendNewMessageArgs struct {
 	MessageBody json.RawMessage `json:"message_body"`
 }
 
-// ServiceEndpointDestinationParams contains service endpoint params
+// ServiceEndpointDestinationParams contains service endpoint params.
 type ServiceEndpointDestinationParams struct {
 	// Recipient keys of service endpoint
 	RecipientKeys []string `json:"recipientKeys,omitempty"`
@@ -75,7 +75,7 @@ type ServiceEndpointDestinationParams struct {
 	RoutingKeys []string `json:"routingKeys,omitempty"`
 }
 
-// SendReplyMessageArgs contains parameters for sending message reply
+// SendReplyMessageArgs contains parameters for sending message reply.
 type SendReplyMessageArgs struct {
 	// ID of the message replying to
 	MessageID string `json:"message_ID"`

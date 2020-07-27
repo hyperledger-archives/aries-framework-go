@@ -27,11 +27,11 @@ const (
 	InvitationMsgType = didexchange.InvitationMsgType
 	// RequestMsgType defines the did-exchange request message type.
 	RequestMsgType = didexchange.RequestMsgType
-	// ProtocolName is the framework's friendly name for the did exchange protocol
+	// ProtocolName is the framework's friendly name for the did exchange protocol.
 	ProtocolName = didexchange.DIDExchange
 )
 
-// ErrConnectionNotFound is returned when connection not found
+// ErrConnectionNotFound is returned when connection not found.
 var ErrConnectionNotFound = errors.New("connection not found")
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -43,7 +43,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 }
 
-// Client enable access to didexchange api
+// Client enable access to didexchange api.
 type Client struct {
 	service.Event
 	didexchangeSvc  protocolService
@@ -72,7 +72,7 @@ type protocolService interface {
 	CreateConnection(*connection.Record, *did.Doc) error
 }
 
-// New return new instance of didexchange client
+// New return new instance of didexchange client.
 func New(ctx provider) (*Client, error) {
 	svc, err := ctx.Service(didexchange.DIDExchange)
 	if err != nil {
@@ -111,7 +111,7 @@ func New(ctx provider) (*Client, error) {
 
 // CreateInvitation creates an invitation. New key pair will be generated and base58 encoded public key will be
 // used as basis for invitation. This invitation will be stored so client can cross reference this invitation during
-// did exchange protocol
+// did exchange protocol.
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
@@ -148,7 +148,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 }
 
 // CreateInvitationWithDID creates an invitation with specified public DID. This invitation will be stored
-// so client can cross reference this invitation during did exchange protocol
+// so client can cross reference this invitation during did exchange protocol.
 func (c *Client) CreateInvitationWithDID(label, publicDID string) (*Invitation, error) {
 	invitation := &didexchange.Invitation{
 		ID:    uuid.New().String(),
@@ -190,7 +190,7 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 // TODO https://github.com/hyperledger/aries-framework-go/issues/754 - e.Continue v Explicit API call for action events
 
 // AcceptInvitation accepts/approves exchange invitation. This call is not used if auto execute is setup
-// for this client (see package example for more details about how to setup auto execute)
+// for this client (see package example for more details about how to setup auto execute).
 func (c *Client) AcceptInvitation(connectionID, publicDID, label string) error {
 	if err := c.didexchangeSvc.AcceptInvitation(connectionID, publicDID, label); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange invitation: %w", err)
@@ -200,7 +200,7 @@ func (c *Client) AcceptInvitation(connectionID, publicDID, label string) error {
 }
 
 // AcceptExchangeRequest accepts/approves exchange request. This call is not used if auto execute is setup
-// for this client (see package example for more details about how to setup auto execute)
+// for this client (see package example for more details about how to setup auto execute).
 func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) error {
 	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID, publicDID, label); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange request: %w", err)
@@ -223,7 +223,7 @@ func (c *Client) CreateImplicitInvitationWithDID(inviter, invitee *DIDInfo) (str
 	return c.didexchangeSvc.CreateImplicitInvitation(inviter.Label, inviter.DID, invitee.Label, invitee.DID)
 }
 
-// QueryConnections queries connections matching given criteria(parameters)
+// QueryConnections queries connections matching given criteria(parameters).
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 - query all connections from all criteria and
 	//  also results needs to be paged.
@@ -253,7 +253,7 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connectio
 	return result, nil
 }
 
-// GetConnection fetches single connection record for given id
+// GetConnection fetches single connection record for given id.
 func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 	conn, err := c.connectionStore.GetConnectionRecord(connectionID)
 	if err != nil {
@@ -314,7 +314,7 @@ func (c *Client) CreateConnection(myDID string, theirDID *did.Doc, options ...Co
 	return conn.ConnectionID, nil
 }
 
-// RemoveConnection removes connection record for given id
+// RemoveConnection removes connection record for given id.
 func (c *Client) RemoveConnection(connectionID string) error {
 	err := c.connectionStore.RemoveConnection(connectionID)
 	if err != nil {

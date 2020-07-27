@@ -79,7 +79,7 @@ func (s *SignatureSuite) Sign(data []byte) ([]byte, error) {
 	return s.Signer.Sign(data)
 }
 
-// CompactProof indicates weather to compact the proof doc before canonization
+// CompactProof indicates weather to compact the proof doc before canonization.
 func (s *SignatureSuite) CompactProof() bool {
 	return s.CompactedProof
 }

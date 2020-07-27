@@ -14,7 +14,7 @@ import (
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 )
 
-// IssueCredential implements the IssueCredentialController interface for all credential issuing operations
+// IssueCredential implements the IssueCredentialController interface for all credential issuing operations.
 type IssueCredential struct {
 	handlers map[string]command.Exec
 }

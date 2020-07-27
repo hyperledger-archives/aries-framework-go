@@ -19,7 +19,7 @@ import (
 
 const defaultProofPurpose = "assertionMethod"
 
-// SignatureSuite encapsulates signature suite methods required for signing documents
+// SignatureSuite encapsulates signature suite methods required for signing documents.
 type SignatureSuite interface {
 	// GetCanonicalDocument will return normalized/canonical version of the document
 	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error)
@@ -37,12 +37,12 @@ type SignatureSuite interface {
 	CompactProof() bool
 }
 
-// DocumentSigner implements signing of JSONLD documents
+// DocumentSigner implements signing of JSONLD documents.
 type DocumentSigner struct {
 	signatureSuites []SignatureSuite
 }
 
-// Context holds signing options and private key
+// Context holds signing options and private key.
 type Context struct {
 	SignatureType           string                        // required
 	Creator                 string                        // required
@@ -55,12 +55,12 @@ type Context struct {
 	Purpose                 string                        // optional
 }
 
-// New returns new instance of document verifier
+// New returns new instance of document verifier.
 func New(signatureSuites ...SignatureSuite) *DocumentSigner {
 	return &DocumentSigner{signatureSuites: signatureSuites}
 }
 
-// Sign  will sign JSON LD document
+// Sign  will sign JSON LD document.
 func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	var jsonLdObject map[string]interface{}
 
@@ -82,7 +82,7 @@ func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte, opts ...j
 	return signedDoc, nil
 }
 
-// signObject is a helper method that operates on JSON LD objects
+// signObject is a helper method that operates on JSON LD objects.
 func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[string]interface{},
 	opts []jsonld.ProcessorOpts) error {
 	if err := isValidContext(context); err != nil {
@@ -146,7 +146,7 @@ func (signer *DocumentSigner) applySignatureValue(context *Context, p *proof.Pro
 	}
 }
 
-// getSignatureSuite returns signature suite based on signature type
+// getSignatureSuite returns signature suite based on signature type.
 func (signer *DocumentSigner) getSignatureSuite(signatureType string) (SignatureSuite, error) {
 	for _, s := range signer.signatureSuites {
 		if s.Accept(signatureType) {
@@ -157,7 +157,7 @@ func (signer *DocumentSigner) getSignatureSuite(signatureType string) (Signature
 	return nil, fmt.Errorf("signature type %s not supported", signatureType)
 }
 
-// isValidContext checks required parameters (for signing)
+// isValidContext checks required parameters (for signing).
 func isValidContext(context *Context) error {
 	if context.SignatureType == "" {
 		return errors.New("signature type is missing")

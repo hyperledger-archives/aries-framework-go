@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	// Name defines the protocol name
+	// Name defines the protocol name.
 	Name = "present-proof"
-	// Spec defines the protocol spec
+	// Spec defines the protocol spec.
 	Spec = "https://didcomm.org/present-proof/2.0/"
 	// ProposePresentationMsgType defines the protocol propose-presentation message type.
 	ProposePresentationMsgType = Spec + "propose-presentation"
@@ -104,7 +104,7 @@ func (md *metaData) Properties() map[string]interface{} {
 	return md.properties
 }
 
-// Action contains helpful information about action
+// Action contains helpful information about action.
 type Action struct {
 	// Protocol instance ID
 	PIID     string
@@ -113,11 +113,11 @@ type Action struct {
 	TheirDID string
 }
 
-// Opt describes option signature for the Continue function
+// Opt describes option signature for the Continue function.
 type Opt func(md *metaData)
 
 // WithPresentation allows providing Presentation message
-// USAGE: This message can be provided after receiving a Request message
+// USAGE: This message can be provided after receiving a Request message.
 func WithPresentation(msg *Presentation) Opt {
 	return func(md *metaData) {
 		md.presentation = msg
@@ -125,7 +125,7 @@ func WithPresentation(msg *Presentation) Opt {
 }
 
 // WithProposePresentation allows providing ProposePresentation message
-// USAGE: This message can be provided after receiving a Request message
+// USAGE: This message can be provided after receiving a Request message.
 func WithProposePresentation(msg *ProposePresentation) Opt {
 	return func(md *metaData) {
 		md.proposePresentation = msg
@@ -133,7 +133,7 @@ func WithProposePresentation(msg *ProposePresentation) Opt {
 }
 
 // WithRequestPresentation allows providing RequestPresentation message
-// USAGE: This message can be provided after receiving a propose message
+// USAGE: This message can be provided after receiving a propose message.
 func WithRequestPresentation(msg *RequestPresentation) Opt {
 	return func(md *metaData) {
 		md.request = msg
@@ -153,7 +153,7 @@ type Provider interface {
 	StorageProvider() storage.Provider
 }
 
-// Service for the presentproof protocol
+// Service for the presentproof protocol.
 type Service struct {
 	service.Action
 	service.Message
@@ -163,7 +163,7 @@ type Service struct {
 	middleware Handler
 }
 
-// New returns the presentproof service
+// New returns the presentproof service.
 func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Name)
 	if err != nil {
@@ -183,7 +183,7 @@ func New(p Provider) (*Service, error) {
 	return svc, nil
 }
 
-// Use allows providing middlewares
+// Use allows providing middlewares.
 func (s *Service) Use(items ...Middleware) {
 	var handler Handler = initialHandler
 	for i := len(items) - 1; i >= 0; i-- {
@@ -193,7 +193,7 @@ func (s *Service) Use(items ...Middleware) {
 	s.middleware = handler
 }
 
-// HandleInbound handles inbound message (presentproof protocol)
+// HandleInbound handles inbound message (presentproof protocol).
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
 
@@ -236,7 +236,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	return thid, s.handle(md)
 }
 
-// HandleOutbound handles outbound message (presentproof protocol)
+// HandleOutbound handles outbound message (presentproof protocol).
 func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
 	return "", errors.New("not implemented")
 }
@@ -432,7 +432,7 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
 }
 
-// canTriggerActionEvents checks if the incoming message can trigger an action event
+// canTriggerActionEvents checks if the incoming message can trigger an action event.
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == PresentationMsgType ||
 		msg.Type() == ProposePresentationMsgType ||
@@ -459,7 +459,7 @@ func (s *Service) deleteTransitionalPayload(id string) error {
 	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
 }
 
-// Actions returns actions for the async usage
+// Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
@@ -485,7 +485,7 @@ func (s *Service) Actions() ([]Action, error) {
 	return actions, nil
 }
 
-// ActionContinue allows proceeding with the action by the piID
+// ActionContinue allows proceeding with the action by the piID.
 func (s *Service) ActionContinue(piID string, opt Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -512,7 +512,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 	return nil
 }
 
-// ActionStop allows stopping the action by the piID
+// ActionStop allows stopping the action by the piID.
 func (s *Service) ActionStop(piID string, cErr error) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
@@ -546,7 +546,7 @@ func (s *Service) processCallback(msg *metaData) {
 	s.callbacks <- msg
 }
 
-// newDIDCommActionMsg creates new DIDCommAction message
+// newDIDCommActionMsg creates new DIDCommAction message.
 func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
@@ -607,12 +607,12 @@ func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.
 	}
 }
 
-// Name returns service name
+// Name returns service name.
 func (s *Service) Name() string {
 	return Name
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
 	case ProposePresentationMsgType, RequestPresentationMsgType,

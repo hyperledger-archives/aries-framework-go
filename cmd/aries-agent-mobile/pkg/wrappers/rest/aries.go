@@ -19,7 +19,7 @@ import (
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
-// Aries is an Aries implementation with endpoints to execute operations
+// Aries is an Aries implementation with endpoints to execute operations.
 type Aries struct {
 	endpoints map[string]map[string]*endpoint
 
@@ -39,7 +39,7 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	return &Aries{endpoints: endpoints, URL: opts.AgentURL, Token: opts.APIToken}, nil
 }
 
-// GetIntroduceController returns an Introduce instance
+// GetIntroduceController returns an Introduce instance.
 func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	endpoints, ok := ar.endpoints[opintroduce.OperationID]
 	if !ok {
@@ -49,7 +49,7 @@ func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
 	return &Introduce{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetVerifiableController returns an Verifiable instance
+// GetVerifiableController returns an Verifiable instance.
 func (ar *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	endpoints, ok := ar.endpoints[opverifiable.VerifiableOperationID]
 	if !ok {
@@ -59,7 +59,7 @@ func (ar *Aries) GetVerifiableController() (api.VerifiableController, error) {
 	return &Verifiable{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetDIDExchangeController returns a DIDExchange instance
+// GetDIDExchangeController returns a DIDExchange instance.
 func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	endpoints, ok := ar.endpoints[opdidexch.OperationID]
 	if !ok {
@@ -69,7 +69,7 @@ func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 	return &DIDExchange{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetIssueCredentialController returns an IssueCredential instance
+// GetIssueCredentialController returns an IssueCredential instance.
 func (ar *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
 	endpoints, ok := ar.endpoints[opisscred.OperationID]
 	if !ok {

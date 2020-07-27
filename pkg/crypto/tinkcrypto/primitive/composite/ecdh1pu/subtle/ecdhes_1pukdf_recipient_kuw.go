@@ -19,13 +19,13 @@ import (
 )
 
 // ECDH1PUConcatKDFRecipientKW represents concat KDF based ECDH-1PU (One-Pass Unified Model) KW (key wrapping)
-// for ECDH-1PU recipient's unwrapping of CEK
+// for ECDH-1PU recipient's unwrapping of CEK.
 type ECDH1PUConcatKDFRecipientKW struct {
 	senderPubKey        *hybrid.ECPublicKey
 	recipientPrivateKey *hybrid.ECPrivateKey
 }
 
-// unwrapKey will do ECDH-1PU key unwrapping
+// unwrapKey will do ECDH-1PU key unwrapping.
 func (s *ECDH1PUConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrappedKey, keySize int) ([]byte, error) {
 	if recWK == nil {
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")

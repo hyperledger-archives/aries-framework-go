@@ -17,7 +17,6 @@ import (
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
-	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
@@ -27,15 +26,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
 
-// EncAlg represents the JWE content encryption algorithm
+// EncAlg represents the JWE content encryption algorithm.
 type EncAlg string
 
 const (
-	// A256GCM for AES256GCM content encryption
+	// A256GCM for AES256GCM content encryption.
 	A256GCM = EncAlg(subtle.A256GCM)
 )
 
-// Encrypter interface to Encrypt/Decrypt JWE messages
+// Encrypter interface to Encrypt/Decrypt JWE messages.
 type Encrypter interface {
 	// EncryptWithAuthData encrypt plaintext and aad sent to more than 1 recipients and returns a valid
 	// JSONWebEncryption instance
@@ -47,7 +46,7 @@ type Encrypter interface {
 
 type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
 
-// JWEEncrypt is responsible for encrypting a plaintext and its AAD into a protected JWE and decrypting it
+// JWEEncrypt is responsible for encrypting a plaintext and its AAD into a protected JWE and decrypting it.
 type JWEEncrypt struct {
 	recipients   []*composite.PublicKey
 	skid         string
@@ -64,11 +63,6 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}
 
-	var (
-		kt  *tinkpb.KeyTemplate
-		err error
-	)
-
 	// TODO add support for Chacha content encryption, issue #1684
 	switch encAlg {
 	case A256GCM:
@@ -78,30 +72,20 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 
 	primitiveFunc := getECDHESEncPrimitive
 
-	// empty senderPubKey means Anoncrypt encryption (ie sender identity is anonymous),
-	// create a new ECDHES key as senderPubKey
-	if senderKH == nil {
-		kt, err = ecdhes.ECDHES256KWAES256GCMKeyTemplateWithRecipients(recipientsPubKeys)
-		if err != nil {
-			return nil, err
-		}
-
-		senderKH, err = keyset.NewHandle(kt)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	if senderKH != nil {
 		// senderKID is required with non empty senderKH
 		if senderKID == "" {
 			return nil, errors.New("senderKID is required with senderKH")
 		}
 
-		senderKH, err = ecdh1pu.AddRecipientsKeys(senderKH, recipientsPubKeys)
-		if err != nil {
-			return nil, err
-		}
-
 		primitiveFunc = getECDH1PUEncPrimitive
+	}
+
+	var err error
+
+	senderKH, err = getHandle(senderKH, recipientsPubKeys)
+	if err != nil {
+		return nil, err
 	}
 
 	return &JWEEncrypt{
@@ -111,6 +95,21 @@ func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
 		getPrimitive: primitiveFunc,
 		encAlg:       encAlg,
 	}, nil
+}
+
+func getHandle(senderKH *keyset.Handle, recipientsPubKeys []*composite.PublicKey) (*keyset.Handle, error) {
+	if senderKH != nil {
+		return ecdh1pu.AddRecipientsKeys(senderKH, recipientsPubKeys)
+	}
+
+	// empty senderPubKey means Anoncrypt encryption (ie sender identity is anonymous),
+	// create a new ECDHES key as senderPubKey
+	kt, err := ecdhes.ECDHES256KWAES256GCMKeyTemplateWithRecipients(recipientsPubKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return keyset.NewHandle(kt)
 }
 
 func getECDHESEncPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, error) {
@@ -131,12 +130,12 @@ func getECDH1PUEncPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, erro
 	return ecdh1pu.NewECDH1PUEncrypt(senderPubKH)
 }
 
-// Encrypt encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
+// Encrypt encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance.
 func (je *JWEEncrypt) Encrypt(plaintext []byte) (*JSONWebEncryption, error) {
 	return je.EncryptWithAuthData(plaintext, nil)
 }
 
-// EncryptWithAuthData encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
+// EncryptWithAuthData encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance.
 func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryption, error) {
 	encPrimitive, err := je.getPrimitive(je.senderKH)
 	if err != nil {

@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	// TypeJWT defines JWT type
+	// TypeJWT defines JWT type.
 	TypeJWT = "JWT"
 
-	// AlgorithmNone used to indicate unsecured JWT
+	// AlgorithmNone used to indicate unsecured JWT.
 	AlgorithmNone = "none"
 )
 
@@ -106,7 +106,7 @@ type JSONWebToken struct {
 }
 
 // Parse parses input JWT in serialized form into JSON Web Token.
-// Currently JWS and unsecured JWT is supported.9
+// Currently JWS and unsecured JWT is supported.
 func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, error) {
 	if !jose.IsCompactJWS(jwtSerialized) {
 		return nil, errors.New("JWT of compacted JWS form is supported only")

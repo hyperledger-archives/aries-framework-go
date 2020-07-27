@@ -62,42 +62,35 @@ func newDecryptPrimitiveSet(ps *primitiveset.PrimitiveSet) (*decryptPrimitiveSet
 	return ret, nil
 }
 
+func (a *decryptPrimitiveSet) entries(ct []byte) map[string][]*primitiveset.Entry {
+	var cipherEntries = make(map[string][]*primitiveset.Entry)
+
+	prefixSize := cryptofmt.NonRawPrefixSize
+	if len(ct) > prefixSize {
+		if entries, err := a.ps.EntriesForPrefix(string(ct[:prefixSize])); err == nil {
+			cipherEntries[string(ct[prefixSize:])] = entries
+		}
+	}
+
+	if entries, err := a.ps.RawEntries(); err == nil {
+		cipherEntries[string(ct)] = entries
+	}
+
+	return cipherEntries
+}
+
 // Decrypt decrypts the given ciphertext and authenticates it with the given
 // additional authenticated data. It returns the corresponding plaintext if the
 // ciphertext is authenticated.
 func (a *decryptPrimitiveSet) Decrypt(ct, aad []byte) ([]byte, error) {
-	// try non-raw keys
-	prefixSize := cryptofmt.NonRawPrefixSize
-	if len(ct) > prefixSize {
-		prefix := ct[:prefixSize]
-		ctNoPrefix := ct[prefixSize:]
-
-		entries, err := a.ps.EntriesForPrefix(string(prefix))
-		if err == nil {
-			for i := 0; i < len(entries); i++ {
-				p, ok := (entries[i].Primitive).(api.CompositeDecrypt)
-				if !ok {
-					return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
-				}
-
-				pt, e := p.Decrypt(ctNoPrefix, aad)
-				if e == nil {
-					return pt, nil
-				}
-			}
-		}
-	}
-
-	// try raw keys
-	entries, err := a.ps.RawEntries()
-	if err == nil {
-		for i := 0; i < len(entries); i++ {
-			p, ok := (entries[i].Primitive).(api.CompositeDecrypt)
+	for cipher, entries := range a.entries(ct) {
+		for _, e := range entries {
+			p, ok := (e.Primitive).(api.CompositeDecrypt)
 			if !ok {
 				return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
 			}
 
-			pt, e := p.Decrypt(ct, aad)
+			pt, e := p.Decrypt([]byte(cipher), aad)
 			if e == nil {
 				return pt, nil
 			}

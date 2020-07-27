@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// KeyManager mocks a local Key Management Service + ExportableKeyManager
+// KeyManager mocks a local Key Management Service + ExportableKeyManager.
 type KeyManager struct {
 	CreateKeyID              string
 	CreateKeyValue           *keyset.Handle
@@ -38,7 +38,7 @@ type KeyManager struct {
 	ImportPrivateKeyValue    *keyset.Handle
 }
 
-// Create a new mock ey/keyset/key handle for the type kt
+// Create a new mock ey/keyset/key handle for the type kt.
 func (k *KeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) {
 	if k.CreateKeyErr != nil {
 		return "", nil, k.CreateKeyErr
@@ -47,7 +47,7 @@ func (k *KeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) 
 	return k.CreateKeyID, k.CreateKeyValue, nil
 }
 
-// Get a mock key handle for the given keyID
+// Get a mock key handle for the given keyID.
 func (k *KeyManager) Get(keyID string) (interface{}, error) {
 	if k.GetKeyErr != nil {
 		return nil, k.GetKeyErr
@@ -56,7 +56,7 @@ func (k *KeyManager) Get(keyID string) (interface{}, error) {
 	return k.GetKeyValue, nil
 }
 
-// Rotate returns a mocked rotated keyset handle and its ID
+// Rotate returns a mocked rotated keyset handle and its ID.
 func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interface{}, error) {
 	if k.RotateKeyErr != nil {
 		return "", nil, k.RotateKeyErr
@@ -65,7 +65,7 @@ func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interf
 	return k.RotateKeyID, k.RotateKeyValue, nil
 }
 
-// ExportPubKeyBytes will return a mocked []bytes public key
+// ExportPubKeyBytes will return a mocked []bytes public key.
 func (k *KeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	if k.ExportPubKeyBytesErr != nil {
 		return nil, k.ExportPubKeyBytesErr
@@ -74,7 +74,7 @@ func (k *KeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	return k.ExportPubKeyBytesValue, nil
 }
 
-// PubKeyBytesToHandle will return a mocked keyset.Handle representing a public key handle
+// PubKeyBytesToHandle will return a mocked keyset.Handle representing a public key handle.
 func (k *KeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyType) (interface{}, error) {
 	if k.PubKeyBytesToHandleErr != nil {
 		return nil, k.PubKeyBytesToHandleErr
@@ -83,7 +83,7 @@ func (k *KeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyTy
 	return k.PubKeyBytesToHandleValue, nil
 }
 
-// ImportPrivateKey will emulate importing a private key and returns a mocked keyID, private key handle
+// ImportPrivateKey will emulate importing a private key and returns a mocked keyID, private key handle.
 func (k *KeyManager) ImportPrivateKey(privKey interface{}, keyType kmsservice.KeyType,
 	opts ...kmsservice.PrivateKeyOpts) (string, interface{}, error) {
 	if k.ImportPrivateKeyErr != nil {
@@ -93,7 +93,7 @@ func (k *KeyManager) ImportPrivateKey(privKey interface{}, keyType kmsservice.Ke
 	return k.ImportPrivateKeyID, k.ImportPrivateKeyValue, nil
 }
 
-// CreateMockKeyHandle is a utility function that returns a mock key (for tests only. ie: not registered in Tink)
+// CreateMockKeyHandle is a utility function that returns a mock key (for tests only. ie: not registered in Tink).
 func CreateMockKeyHandle() (*keyset.Handle, error) {
 	ks := testutil.NewTestAESGCMKeyset(tinkpb.OutputPrefixType_TINK)
 	primaryKey := ks.Key[0]

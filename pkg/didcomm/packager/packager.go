@@ -29,10 +29,10 @@ type Provider interface {
 	VDRIRegistry() vdri.Registry
 }
 
-// Creator method to create new packager service
+// Creator method to create new packager service.
 type Creator func(prov Provider) (transport.Packager, error)
 
-// Packager is the basic implementation of Packager
+// Packager is the basic implementation of Packager.
 type Packager struct {
 	primaryPacker   packer.Packer
 	packers         map[string]packer.Packer
@@ -45,7 +45,7 @@ type PackerCreator struct {
 	Creator    packer.Creator
 }
 
-// New return new instance of LegacyKMS implementation
+// New return new instance of LegacyKMS implementation.
 func New(ctx Provider) (*Packager, error) {
 	didConnStore, err := did.NewConnectionStore(ctx)
 	if err != nil {

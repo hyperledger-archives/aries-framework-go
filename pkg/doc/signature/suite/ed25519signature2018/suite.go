@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 )
 
-// Suite implements ed25519 signature suite
+// Suite implements ed25519 signature suite.
 type Suite struct {
 	suite.SignatureSuite
 	jsonldProcessor *jsonld.Processor
@@ -30,7 +30,7 @@ const (
 	rdfDataSetAlg = "URDNA2015"
 )
 
-// New an instance of ed25519 signature suite
+// New an instance of ed25519 signature suite.
 func New(opts ...suite.Opt) *Suite {
 	s := &Suite{jsonldProcessor: jsonld.NewProcessor(rdfDataSetAlg)}
 
@@ -40,18 +40,18 @@ func New(opts ...suite.Opt) *Suite {
 }
 
 // GetCanonicalDocument will return normalized/canonical version of the document
-// Ed25519Signature2018 signature SignatureSuite uses RDF Dataset Normalization as canonicalization algorithm
+// Ed25519Signature2018 signature SignatureSuite uses RDF Dataset Normalization as canonicalization algorithm.
 func (s *Suite) GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	return s.jsonldProcessor.GetCanonicalDocument(doc, opts...)
 }
 
-// GetDigest returns document digest
+// GetDigest returns document digest.
 func (s *Suite) GetDigest(doc []byte) []byte {
 	digest := sha256.Sum256(doc)
 	return digest[:]
 }
 
-// Accept will accept only ed25519 signature type
+// Accept will accept only ed25519 signature type.
 func (s *Suite) Accept(t string) bool {
 	return t == signatureType
 }

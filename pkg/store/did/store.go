@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	// NameSpace for did store
+	// NameSpace for did store.
 	NameSpace = "didstore"
 
 	didNameKey        = "didname_"
@@ -24,10 +24,7 @@ const (
 	limitPattern = "%s" + storage.EndKeySuffix
 )
 
-// ErrDIDNotFound signals that the entry for the given DID and key is not present in the store.
-var ErrDIDNotFound = errors.New("did not found under given key")
-
-// Store stores did doc
+// Store stores did doc.
 type Store struct {
 	store storage.Store
 }
@@ -36,7 +33,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// New returns a new did store
+// New returns a new did store.
 func New(ctx provider) (*Store, error) {
 	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {

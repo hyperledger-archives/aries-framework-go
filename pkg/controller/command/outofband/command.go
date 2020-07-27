@@ -24,21 +24,21 @@ import (
 
 const (
 	// InvalidRequestErrorCode is typically a code for validation errors
-	// for invalid outofband controller requests
+	// for invalid outofband controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.Outofband)
-	// CreateRequestErrorCode is for failures in create request command
+	// CreateRequestErrorCode is for failures in create request command.
 	CreateRequestErrorCode
-	// CreateInvitationErrorCode is for failures in create invitation command
+	// CreateInvitationErrorCode is for failures in create invitation command.
 	CreateInvitationErrorCode
-	// AcceptRequestErrorCode is for failures in accept request command
+	// AcceptRequestErrorCode is for failures in accept request command.
 	AcceptRequestErrorCode
-	// AcceptInvitationErrorCode is for failures in accept invitation command
+	// AcceptInvitationErrorCode is for failures in accept invitation command.
 	AcceptInvitationErrorCode
-	// ActionStopErrorCode is for failures in action stop command
+	// ActionStopErrorCode is for failures in action stop command.
 	ActionStopErrorCode
-	// ActionsErrorCode is for failures in actions command
+	// ActionsErrorCode is for failures in actions command.
 	ActionsErrorCode
-	// ActionContinueErrorCode is for failures in action continue command
+	// ActionContinueErrorCode is for failures in action continue command.
 	ActionContinueErrorCode
 )
 
@@ -67,12 +67,12 @@ const (
 
 var logger = log.New("aries-framework/controller/outofband")
 
-// Command is controller command for outofband
+// Command is controller command for outofband.
 type Command struct {
 	client *outofband.Client
 }
 
-// New returns new outofband controller command instance
+// New returns new outofband controller command instance.
 func New(ctx outofband.Provider, notifier command.Notifier) (*Command, error) {
 	client, err := outofband.New(ctx)
 	if err != nil {
@@ -100,7 +100,7 @@ func New(ctx outofband.Provider, notifier command.Notifier) (*Command, error) {
 	return &Command{client: client}, nil
 }
 
-// GetHandlers returns list of all commands supported by this controller command
+// GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, createRequest, c.CreateRequest),
@@ -262,7 +262,7 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 	return nil
 }
 
-// ActionContinue allows continuing with the protocol after an action event was triggered
+// ActionContinue allows continuing with the protocol after an action event was triggered.
 func (c *Command) ActionContinue(rw io.Writer, req io.Reader) command.Error {
 	var args ActionContinueArgs
 
@@ -288,7 +288,7 @@ func (c *Command) ActionContinue(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// ActionStop stops the protocol after an action event was triggered
+// ActionStop stops the protocol after an action event was triggered.
 func (c *Command) ActionStop(rw io.Writer, req io.Reader) command.Error {
 	var args ActionStopArgs
 

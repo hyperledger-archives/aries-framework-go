@@ -26,12 +26,12 @@ type registerRouteReq struct {
 	ConnectionID string `json:"connectionID"`
 }
 
-// RESTSteps is steps for route using REST APIs
+// RESTSteps is steps for route using REST APIs.
 type RESTSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewRouteRESTSteps return steps for route using REST APIs
+// NewRouteRESTSteps return steps for route using REST APIs.
 func NewRouteRESTSteps() *RESTSteps {
 	return &RESTSteps{}
 }
@@ -106,12 +106,12 @@ func (d *RESTSteps) VerifyConnection(agentID, varName string) error {
 	return nil
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *RESTSteps) SetContext(ctx *context.BDDContext) {
 	d.bddContext = ctx
 }
 
-// RegisterSteps registers router steps
+// RegisterSteps registers router steps.
 func (d *RESTSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sets connection "([^"]*)" as the router$`, d.RegisterRoute)
 	s.Step(`^"([^"]*)" unregisters the router$`, d.UnregisterRoute)

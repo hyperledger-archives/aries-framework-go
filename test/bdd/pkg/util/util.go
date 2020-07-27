@@ -20,7 +20,7 @@ import (
 	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// SendHTTP sends HTTP request
+// SendHTTP sends HTTP request.
 func SendHTTP(method, destination string, message []byte, result interface{}) error {
 	// create request
 	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
@@ -110,38 +110,38 @@ type eventFilter struct {
 	PIID    *string
 }
 
-// Filter is an option for the PullEventsFromWebSocket function
+// Filter is an option for the PullEventsFromWebSocket function.
 type Filter func(*eventFilter)
 
-// FilterTopic filters WebSocket events by topic
+// FilterTopic filters WebSocket events by topic.
 func FilterTopic(val string) Filter {
 	return func(filter *eventFilter) {
 		filter.Topic = &val
 	}
 }
 
-// FilterStateID filters WebSocket events by stateID
+// FilterStateID filters WebSocket events by stateID.
 func FilterStateID(val string) Filter {
 	return func(filter *eventFilter) {
 		filter.StateID = &val
 	}
 }
 
-// FilterPIID filters WebSocket events by PIID
+// FilterPIID filters WebSocket events by PIID.
 func FilterPIID(val string) Filter {
 	return func(filter *eventFilter) {
 		filter.PIID = &val
 	}
 }
 
-// FilterType filters WebSocket events by type
+// FilterType filters WebSocket events by type.
 func FilterType(val string) Filter {
 	return func(filter *eventFilter) {
 		filter.Type = &val
 	}
 }
 
-// Incoming represents WebSocket event message
+// Incoming represents WebSocket event message.
 type Incoming struct {
 	ID      string `json:"id"`
 	Topic   string `json:"topic"`

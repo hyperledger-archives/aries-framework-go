@@ -11,7 +11,7 @@ import (
 )
 
 // ProtocolService is service interface for protocol services available in framework
-// for matching acceptance criteria based on message type
+// for matching acceptance criteria based on message type.
 type ProtocolService interface {
 	service.Handler
 	Accept(msgType string) bool
@@ -19,14 +19,14 @@ type ProtocolService interface {
 }
 
 // MessageService is service for handling generic messages
-// matching accept criteria based on message header
+// matching accept criteria based on message header.
 type MessageService interface {
 	service.InboundHandler
 	Accept(msgType string, purpose []string) bool
 	Name() string
 }
 
-// Outbound interface
+// Outbound interface.
 type Outbound interface {
 	// Sends the message after packing with the sender key and recipient keys.
 	Send(interface{}, string, *service.Destination) error

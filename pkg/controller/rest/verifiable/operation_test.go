@@ -625,6 +625,7 @@ func TestGeneratePresentation(t *testing.T) {
 	t.Run("test generate presentation - error", func(t *testing.T) {
 		var jsonStr = []byte(`{
 			"name" : "sample",
+			"signatureType":"Ed25519Signature2018",
             "did"  : "did:peer:21tDAKCERh95uGgKbJNHYp"
 		}`)
 

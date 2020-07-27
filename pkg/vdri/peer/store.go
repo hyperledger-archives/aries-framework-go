@@ -54,7 +54,7 @@ func (v *VDRI) Store(doc *did.Doc, by *[]vdriapi.ModifiedBy) error {
 	return v.store.Put(doc.ID, val)
 }
 
-// Get returns Peer DID Document
+// Get returns Peer DID Document.
 func (v *VDRI) Get(id string) (*did.Doc, error) {
 	if id == "" {
 		return nil, errors.New("ID is mandatory")

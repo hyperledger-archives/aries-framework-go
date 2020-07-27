@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	// Alice always plays introducer role
+	// Alice always plays introducer role.
 	Alice = "Alice"
-	// Bob always plays introducee (first) role
+	// Bob always plays introducee (first) role.
 	Bob = "Bob"
-	// Bob always plays introducee (second) role
+	// Bob always plays introducee (second) role.
 	Carol = "Carol"
 )
 

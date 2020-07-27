@@ -32,7 +32,7 @@ type provider interface {
 	LegacyKMS() legacykms.KeyManager
 }
 
-// OutboundDispatcher dispatch msgs to destination
+// OutboundDispatcher dispatch msgs to destination.
 type OutboundDispatcher struct {
 	outboundTransports   []transport.OutboundTransport
 	packager             commontransport.Packager
@@ -41,7 +41,7 @@ type OutboundDispatcher struct {
 	kms                  legacykms.KeyManager
 }
 
-// NewOutbound return new dispatcher outbound instance
+// NewOutbound return new dispatcher outbound instance.
 func NewOutbound(prov provider) *OutboundDispatcher {
 	return &OutboundDispatcher{
 		outboundTransports:   prov.OutboundTransports(),
@@ -52,7 +52,7 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 	}
 }
 
-// SendToDID sends a message from myDID to the agent who owns theirDID
+// SendToDID sends a message from myDID to the agent who owns theirDID.
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
 	dest, err := service.GetDestination(theirDID, o.vdRegistry)
 	if err != nil {

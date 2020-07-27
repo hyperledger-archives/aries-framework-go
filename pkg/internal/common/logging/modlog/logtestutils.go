@@ -29,7 +29,7 @@ const (
 )
 
 //nolint:gochecknoglobals
-// TODO https://github.com/hyperledger/aries-framework-go/issues/751 remove global var buff
+// TODO https://github.com/hyperledger/aries-framework-go/issues/751 remove global var buff.
 var buf bytes.Buffer
 
 // VerifyDefaultLogging verifies default logging behaviour.
@@ -154,32 +154,32 @@ type SampleLog struct {
 	logger *log.Logger
 }
 
-// Fatalf calls underlying logger.Fatalf
+// Fatalf calls underlying logger.Fatalf.
 func (m *SampleLog) Fatalf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Panicf calls underlying logger.Panicf
+// Panicf calls underlying logger.Panicf.
 func (m *SampleLog) Panicf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Debugf calls error log function if DEBUG level enabled
+// Debugf calls error log function if DEBUG level enabled.
 func (m *SampleLog) Debugf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Infof calls error log function if INFO level enabled
+// Infof calls error log function if INFO level enabled.
 func (m *SampleLog) Infof(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Warnf calls error log function if WARNING level enabled
+// Warnf calls error log function if WARNING level enabled.
 func (m *SampleLog) Warnf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Errorf calls error log function if ERROR level enabled
+// Errorf calls error log function if ERROR level enabled.
 func (m *SampleLog) Errorf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }

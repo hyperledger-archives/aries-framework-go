@@ -103,7 +103,7 @@ func TestNewDocError(t *testing.T) {
 	assert.Nil(t, doc)
 }
 
-// genesisDoc creates the doc without an id
+// genesisDoc creates the doc without an id.
 func genesisDoc() *did.Doc {
 	//nolint:lll
 	pk := []did.PublicKey{

@@ -21,7 +21,7 @@ func newLockBox() *lockbox {
 
 func (km *lockbox) locked(key interface{}) (ok bool) { _, ok = km.s[key]; return }
 
-// Unlock lockbox by unique ID
+// Unlock lockbox by unique ID.
 func (km *lockbox) Unlock(key interface{}) {
 	km.l.Lock()
 	defer km.l.Unlock()
@@ -29,7 +29,7 @@ func (km *lockbox) Unlock(key interface{}) {
 	km.c.Broadcast()
 }
 
-// Lock lockbox by unique ID
+// Lock lockbox by unique ID.
 func (km *lockbox) Lock(key interface{}) {
 	km.l.Lock()
 	defer km.l.Unlock()

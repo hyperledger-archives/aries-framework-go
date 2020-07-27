@@ -19,12 +19,12 @@ import (
 )
 
 // ECDHESConcatKDFRecipientKW represents concat KDF based ECDH-ES KW (key wrapping)
-// for ECDH-ES recipient's unwrapping of CEK
+// for ECDH-ES recipient's unwrapping of CEK.
 type ECDHESConcatKDFRecipientKW struct {
 	recipientPrivateKey *hybrid.ECPrivateKey
 }
 
-// unwrapKey will do ECDH-ES key unwrapping
+// unwrapKey will do ECDH-ES key unwrapping.
 func (s *ECDHESConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrappedKey, keySize int) ([]byte, error) {
 	if recWK == nil {
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")

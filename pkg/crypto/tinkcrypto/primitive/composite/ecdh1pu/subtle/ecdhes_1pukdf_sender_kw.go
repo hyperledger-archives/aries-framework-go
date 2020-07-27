@@ -22,18 +22,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-// A256KWAlg is the ECDH-1PU key wrapping algorithm
+// A256KWAlg is the ECDH-1PU key wrapping algorithm.
 const A256KWAlg = "ECDH-1PU+A256KW"
 
 // ECDH1PUConcatKDFSenderKW represents concat KDF based ECDH-1PU KW (key wrapping)
-// for ECDH-1PU sender
+// for ECDH-1PU sender.
 type ECDH1PUConcatKDFSenderKW struct {
 	senderPrivateKey   *hybrid.ECPrivateKey
 	recipientPublicKey *composite.PublicKey
 	cek                []byte
 }
 
-// wrapKey will do ECDH-1PU key wrapping
+// wrapKey will do ECDH-1PU key wrapping.
 func (s *ECDH1PUConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*composite.RecipientWrappedKey, error) {
 	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
 	keyType := compositepb.KeyType_EC.String()

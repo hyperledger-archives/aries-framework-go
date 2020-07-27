@@ -31,7 +31,7 @@ const (
 
 var logger = log.New("aries-framework/tests/messaging")
 
-// SDKSteps is steps for messaging using client SDK
+// SDKSteps is steps for messaging using client SDK.
 type SDKSteps struct {
 	steps           *messagingSDKSteps
 	genericMessages map[string]*msgService
@@ -39,7 +39,7 @@ type SDKSteps struct {
 	msgIDsBySender  map[string]string
 }
 
-// NewMessagingSDKSteps return new steps for messaging using client SDK
+// NewMessagingSDKSteps return new steps for messaging using client SDK.
 func NewMessagingSDKSteps() *SDKSteps {
 	return &SDKSteps{
 		genericMessages: make(map[string]*msgService),
@@ -179,14 +179,14 @@ func (d *SDKSteps) receiveBasicMsg(agentID, msg, from string) error {
 	return nil
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 	d.steps = &messagingSDKSteps{
 		bddContext: ctx,
 	}
 }
 
-// RegisterSteps registers messaging steps
+// RegisterSteps registers messaging steps.
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	// generic message
 	s.Step(`^"([^"]*)" registers a message service with name "([^"]*)" for type "([^"]*)" and purpose "([^"]*)"$`,

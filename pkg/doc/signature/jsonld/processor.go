@@ -24,10 +24,10 @@ const (
 
 var logger = log.New("aries-framework/json-ld-processor")
 
-// ErrInvalidRDFFound is returned when normalized view contains invalid RDF
+// ErrInvalidRDFFound is returned when normalized view contains invalid RDF.
 var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
 
-// normalizeOpts holds options for canonicalization of JSON LD docs
+// normalizeOpts holds options for canonicalization of JSON LD docs.
 type normalizeOpts struct {
 	removeInvalidRDF bool
 	validateRDF      bool
@@ -38,7 +38,7 @@ type normalizeOpts struct {
 // ProcessorOpts are the options for JSON LD operations on docs (like canonicalization or compacting).
 type ProcessorOpts func(opts *normalizeOpts)
 
-// WithRemoveAllInvalidRDF option for removing all invalid RDF dataset from normalize document
+// WithRemoveAllInvalidRDF option for removing all invalid RDF dataset from normalize document.
 func WithRemoveAllInvalidRDF() ProcessorOpts {
 	return func(opts *normalizeOpts) {
 		opts.removeInvalidRDF = true
@@ -73,7 +73,7 @@ type Processor struct {
 	algorithm string
 }
 
-// NewProcessor returns new JSON-LD processor for aries
+// NewProcessor returns new JSON-LD processor for aries.
 func NewProcessor(algorithm string) *Processor {
 	if algorithm == "" {
 		return Default()
@@ -82,12 +82,12 @@ func NewProcessor(algorithm string) *Processor {
 	return &Processor{algorithm}
 }
 
-// Default returns new JSON-LD processor with default RDF dataset algorithm
+// Default returns new JSON-LD processor with default RDF dataset algorithm.
 func Default() *Processor {
 	return &Processor{defaultAlgorithm}
 }
 
-// GetCanonicalDocument returns canonized document of given json ld
+// GetCanonicalDocument returns canonized document of given json ld.
 func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...ProcessorOpts) ([]byte, error) {
 	procOptions := prepareOpts(opts)
 
@@ -143,7 +143,7 @@ func AppendExternalContexts(context interface{}, extraContexts ...string) []inte
 	return contexts
 }
 
-// Compact compacts given json ld object
+// Compact compacts given json ld object.
 func (p *Processor) Compact(input, context map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
 	proc := ld.NewJsonLdProcessor()
@@ -217,7 +217,7 @@ func (p *Processor) removeMatchingInvalidRDFs(view string, opts *normalizeOpts) 
 }
 
 // normalizeFilteredDataset recreates json-ld from RDF view and
-// returns normalized RDF dataset from recreated json-ld
+// returns normalized RDF dataset from recreated json-ld.
 func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")

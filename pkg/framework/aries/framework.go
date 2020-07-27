@@ -146,7 +146,7 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 	return frameworkOpts, nil
 }
 
-// WithMessengerHandler injects a messenger handler to the Aries framework
+// WithMessengerHandler injects a messenger handler to the Aries framework.
 func WithMessengerHandler(mh service.MessengerHandler) Option {
 	return func(opts *Aries) error {
 		opts.messenger = mh
@@ -219,7 +219,7 @@ func WithLegacyKMS(k api.KMSCreator) Option {
 	}
 }
 
-// WithSecretLock injects a SecretLock service to the Aries framework
+// WithSecretLock injects a SecretLock service to the Aries framework.
 func WithSecretLock(s secretlock.Service) Option {
 	return func(opts *Aries) error {
 		opts.secretLock = s
@@ -235,7 +235,7 @@ func WithKMS(k kms.Creator) Option {
 	}
 }
 
-// WithCrypto injects a crypto service to the Aries framework
+// WithCrypto injects a crypto service to the Aries framework.
 func WithCrypto(c crypto.Crypto) Option {
 	return func(opts *Aries) error {
 		opts.crypto = c
@@ -273,7 +273,7 @@ func WithLegacyPacker(primary packer.LegacyCreator, additionalPackers ...packer.
 	}
 }
 
-// WithVerifiableStore injects a verifiable credential store
+// WithVerifiableStore injects a verifiable credential store.
 func WithVerifiableStore(store verifiable.Store) Option {
 	return func(opts *Aries) error {
 		opts.verifiableStore = store
@@ -307,7 +307,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 }
 
 // Messenger returns messenger for sending messages through this agent framework
-// TODO should use dedicated messenger interface instead of Outbound dispatcher [Issue #1058]
+// TODO should use dedicated messenger interface instead of Outbound dispatcher [Issue #1058].
 func (a *Aries) Messenger() service.Messenger {
 	return a.messenger
 }

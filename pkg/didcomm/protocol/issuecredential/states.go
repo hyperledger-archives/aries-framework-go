@@ -54,7 +54,7 @@ type state interface {
 	ExecuteOutbound(msg *metaData) (state, stateAction, error)
 }
 
-// represents zero state's action
+// represents zero state's action.
 func zeroAction(service.Messenger) error { return nil }
 
 // noOp state

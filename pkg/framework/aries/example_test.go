@@ -38,7 +38,7 @@ func Example() {
 	// http://server
 }
 
-// mock inbound transport
+// mock inbound transport.
 type mockInTransport struct {
 }
 
@@ -57,7 +57,7 @@ func (c *mockInTransport) Endpoint() string {
 	return "http://server"
 }
 
-// mock DB provider
+// mock DB provider.
 type mockDBProvider struct {
 }
 

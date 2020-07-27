@@ -33,11 +33,11 @@ import (
 )
 
 const (
-	// Alice always plays introducer role
+	// Alice always plays introducer role.
 	Alice = "Alice"
-	// Bob always plays introducee (first) role
+	// Bob always plays introducee (first) role.
 	Bob = "Bob"
-	// Bob always plays introducee (second) role
+	// Bob always plays introducee (second) role.
 	Carol = "Carol"
 )
 
@@ -228,9 +228,9 @@ func wait(t *testing.T, done chan struct{}) {
 	}
 }
 
-// Bob received proposal from Alice
-// Alice received response from Bob
-// Bob received invitation from Alice
+// Bob received proposal from Alice.
+// Alice received response from Bob.
+// Bob received invitation from Alice.
 func TestService_SkipProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -267,12 +267,12 @@ func TestService_SkipProposal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received invitation from Alice
-// Bob received ack from Alice
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received invitation from Alice.
+// Bob received ack from Alice.
 func TestService_Proposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -329,12 +329,12 @@ func TestService_Proposal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received invitation from Alice
-// Bob received ack from Alice
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received invitation from Alice.
+// Bob received ack from Alice.
 func TestService_ProposalActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -398,12 +398,12 @@ func TestService_ProposalActionContinue(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Bob received invitation from Alice
-// Carol received ack from Alice
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Bob received invitation from Alice.
+// Carol received ack from Alice.
 func TestService_ProposalSecond(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -460,12 +460,12 @@ func TestService_ProposalSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Bob received invitation from Alice
-// Carol received ack from Alice
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Bob received invitation from Alice.
+// Carol received ack from Alice.
 func TestService_ProposalSecondActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -529,12 +529,12 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received problem-report from Alice ( no invitation )
-// Bob received problem-report from Alice ( no invitation )
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received problem-report from Alice ( no invitation ).
+// Bob received problem-report from Alice ( no invitation ).
 func TestService_ProposalNoInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -586,8 +586,8 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Alice received response from Bob
+// Bob received proposal from Alice.
+// Alice received response from Bob.
 func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -633,8 +633,8 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Alice received response from Bob
+// Bob received proposal from Alice.
+// Alice received response from Bob.
 func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -682,11 +682,11 @@ func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received problem-report from Alice ( not approved )
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received problem-report from Alice ( not approved ).
 func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -745,11 +745,11 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Carol received proposal from Alice
-// Bob received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Bob received problem-report from Alice ( not approved )
+// Carol received proposal from Alice.
+// Bob received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Bob received problem-report from Alice ( not approved ).
 func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -808,11 +808,11 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Carol received proposal from Alice
-// Bob received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Bob received problem-report from Alice ( not approved )
+// Carol received proposal from Alice.
+// Bob received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Bob received problem-report from Alice ( not approved ).
 func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -874,13 +874,13 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received invitation from Alice
-// Bob received ack from Alice
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received invitation from Alice.
+// Bob received ack from Alice.
 func TestService_ProposalWithRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -947,13 +947,13 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received invitation from Alice
-// Bob received ack from Alice
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received invitation from Alice.
+// Bob received ack from Alice.
 func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1033,13 +1033,13 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Bob received invitation from Alice
-// Carol received ack from Alice
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Bob received invitation from Alice.
+// Carol received ack from Alice.
 func TestService_ProposalWithRequestSecond(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1106,12 +1106,12 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Carol received proposal from Alice
-// Alice received response from Bob
-// Alice received response from Carol
-// Carol received problem-report from Alice ( not approved )
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Carol received proposal from Alice.
+// Alice received response from Bob.
+// Alice received response from Carol.
+// Carol received problem-report from Alice ( not approved ).
 func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1180,12 +1180,12 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Carol received proposal from Alice
-// Bob received proposal from Alice
-// Alice received response from Carol
-// Alice received response from Bob
-// Bob received problem-report from Alice ( not approved )
+// Alice received request from Bob.
+// Carol received proposal from Alice.
+// Bob received proposal from Alice.
+// Alice received response from Carol.
+// Alice received response from Bob.
+// Bob received problem-report from Alice ( not approved ).
 func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1254,8 +1254,8 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received problem-report from Alice ( request declined )
+// Alice received request from Bob.
+// Bob received problem-report from Alice ( request declined ).
 func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1299,10 +1299,10 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Alice received response from Bob
-// Bob received invitation from Alice
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Alice received response from Bob.
+// Bob received invitation from Alice.
 func TestService_SkipProposalWithRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1349,9 +1349,9 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received proposal from Alice
-// Alice received response from Bob
+// Alice received request from Bob.
+// Bob received proposal from Alice.
+// Alice received response from Bob.
 func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1407,8 +1407,8 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Alice received request from Bob
-// Bob received problem-report from Alice
+// Alice received request from Bob.
+// Bob received problem-report from Alice.
 func TestService_ProposalWithRequestNoRecipients(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

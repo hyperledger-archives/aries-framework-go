@@ -18,16 +18,16 @@ import (
 )
 
 type (
-	// To introducee descriptor keeps information about the introduction
+	// To introducee descriptor keeps information about the introduction.
 	To introduce.To
 	// PleaseIntroduceTo includes all field from To structure
-	// also it has Discovered the field which should be provided by help-me-discover protocol
+	// also it has Discovered the field which should be provided by help-me-discover protocol.
 	PleaseIntroduceTo introduce.PleaseIntroduceTo
 	// Recipient keeps information needed for the service
 	// 'To' field is needed for the proposal message
 	// 'MyDID' and 'TheirDID' fields are needed for sending messages e.g report-problem, proposal, ack etc.
 	Recipient introduce.Recipient
-	// Action contains helpful information about action
+	// Action contains helpful information about action.
 	Action introduce.Action
 )
 
@@ -44,13 +44,13 @@ type ProtocolService interface {
 	ActionStop(piID string, err error) error
 }
 
-// Client enable access to introduce API
+// Client enable access to introduce API.
 type Client struct {
 	service.Event
 	service ProtocolService
 }
 
-// New return new instance of introduce client
+// New return new instance of introduce client.
 func New(ctx Provider) (*Client, error) {
 	svc, err := ctx.Service(introduce.Introduce)
 	if err != nil {
@@ -109,7 +109,7 @@ func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) (str
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
-// Introducee can provide this request only after receiving ProposalMsgType
+// Introducee can provide this request only after receiving ProposalMsgType.
 func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Request) error {
 	return c.service.ActionContinue(piID, WithOOBRequest(req))
 }
@@ -120,7 +120,7 @@ func (c *Client) AcceptProposal(piID string) error {
 }
 
 // AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
-// Introducer can provide invitation only after receiving RequestMsgType
+// Introducer can provide invitation only after receiving RequestMsgType.
 func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *To) error {
 	return c.service.ActionContinue(piID, WithPublicOOBRequest(req, to))
 }
@@ -144,7 +144,7 @@ func (c *Client) DeclineRequest(piID, reason string) error {
 	return c.service.ActionStop(piID, errors.New(reason))
 }
 
-// Actions returns unfinished actions for the async usage
+// Actions returns unfinished actions for the async usage.
 func (c *Client) Actions() ([]Action, error) {
 	actions, err := c.service.Actions()
 	if err != nil {
@@ -162,7 +162,7 @@ func (c *Client) Actions() ([]Action, error) {
 // WithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: Introducer can provide recipients only after receiving RequestMsgType.
-// USAGE: event.Continue(WithRecipients(to, recipient))
+// USAGE: event.Continue(WithRecipients(to, recipient)).
 func WithRecipients(to *To, recipient *Recipient) introduce.Opt {
 	_to := introduce.To(*to)
 	_recipient := introduce.Recipient(*recipient)
@@ -172,7 +172,7 @@ func WithRecipients(to *To, recipient *Recipient) introduce.Opt {
 
 // WithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicOOBRequest(req, to))
+// USAGE: event.Continue(WithPublicOOBRequest(req, to)).
 func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
 	_to := introduce.To(*to)
 	_req := outofbandsvc.Request(*req)
@@ -183,7 +183,7 @@ func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
 // WithOOBRequest is used when introducee wants to provide an out-of-band request with an optional
 // series of attachments.
 // NOTE: Introducee can provide the request only after receiving ProposalMsgType
-// USAGE: event.Continue(WithOOBRequest(inv))
+// USAGE: event.Continue(WithOOBRequest(inv)).
 func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
 	_req := outofbandsvc.Request(*req)
 	return introduce.WithOOBRequest(&_req, a...)

@@ -42,7 +42,7 @@ func NewOutOfBandSDKSteps() *SDKSteps {
 	}
 }
 
-// SetContext is called before every scenario is run with a fresh new context
+// SetContext is called before every scenario is run with a fresh new context.
 func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 	sdk.context = ctx
 	sdk.bddDIDExchSDK.SetContext(ctx)

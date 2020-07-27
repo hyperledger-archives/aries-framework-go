@@ -113,9 +113,9 @@ type Presentation struct {
 }
 
 // RemoveCredentialByNameResponse is a response model for removing a vc by name
-// from the verifiable store
+// from the verifiable store.
 type RemoveCredentialByNameResponse struct{}
 
 // RemovePresentationByNameResponse is a response model for removing a vp by name
-// from the verifiable store
+// from the verifiable store.
 type RemovePresentationByNameResponse struct{}

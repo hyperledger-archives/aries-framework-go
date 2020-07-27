@@ -38,7 +38,7 @@ type Metadata struct {
 	Payload map[string]interface{} `json:"_internal_metadata,omitempty"`
 }
 
-// DIDCommMsgMap did comm msg
+// DIDCommMsgMap did comm msg.
 type DIDCommMsgMap map[string]interface{}
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -65,7 +65,7 @@ func (m DIDCommMsgMap) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}(m))
 }
 
-// ParseDIDCommMsgMap returns DIDCommMsg with Header
+// ParseDIDCommMsgMap returns DIDCommMsg with Header.
 func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	var msg DIDCommMsgMap
 
@@ -77,7 +77,7 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	return msg, nil
 }
 
-// NewDIDCommMsgMap converts structure(model) to DIDCommMsgMap
+// NewDIDCommMsgMap converts structure(model) to DIDCommMsgMap.
 func NewDIDCommMsgMap(v interface{}) DIDCommMsgMap {
 	// NOTE: do not try to replace it with mapstructure pkg
 	// it doesn't work as expected, at least time.Time won't be converted
@@ -90,7 +90,7 @@ func NewDIDCommMsgMap(v interface{}) DIDCommMsgMap {
 }
 
 // ThreadID returns msg ~thread.thid if there is no ~thread.thid returns msg @id
-// message is invalid if ~thread.thid exist and @id is absent
+// message is invalid if ~thread.thid exist and @id is absent.
 func (m DIDCommMsgMap) ThreadID() (string, error) {
 	if m == nil {
 		return "", ErrInvalidMessage
@@ -123,7 +123,7 @@ func (m DIDCommMsgMap) ThreadID() (string, error) {
 	return "", ErrThreadIDNotFound
 }
 
-// Metadata returns message metadata
+// Metadata returns message metadata.
 func (m DIDCommMsgMap) Metadata() map[string]interface{} {
 	if m[jsonMetadata] == nil {
 		return nil
@@ -137,7 +137,7 @@ func (m DIDCommMsgMap) Metadata() map[string]interface{} {
 	return metadata
 }
 
-// Type returns the message type
+// Type returns the message type.
 func (m DIDCommMsgMap) Type() string {
 	if m == nil || m[jsonType] == nil {
 		return ""
@@ -151,7 +151,7 @@ func (m DIDCommMsgMap) Type() string {
 	return res
 }
 
-// ParentThreadID returns the message parent threadID
+// ParentThreadID returns the message parent threadID.
 func (m DIDCommMsgMap) ParentThreadID() string {
 	if m == nil || m[jsonThread] == nil {
 		return ""
@@ -166,7 +166,7 @@ func (m DIDCommMsgMap) ParentThreadID() string {
 	return ""
 }
 
-// ID returns the message id
+// ID returns the message id.
 func (m DIDCommMsgMap) ID() string {
 	if m == nil || m[jsonID] == nil {
 		return ""
@@ -180,7 +180,7 @@ func (m DIDCommMsgMap) ID() string {
 	return res
 }
 
-// SetID sets the message id
+// SetID sets the message id.
 func (m DIDCommMsgMap) SetID(id string) error {
 	if m == nil {
 		return ErrNilMessage
@@ -191,7 +191,7 @@ func (m DIDCommMsgMap) SetID(id string) error {
 	return nil
 }
 
-// Decode converts message to  struct
+// Decode converts message to  struct.
 func (m DIDCommMsgMap) Decode(v interface{}) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook: func(rt1 reflect.Type, rt2 reflect.Type, v interface{}) (interface{}, error) {

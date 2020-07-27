@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
-// SignatureSuite encapsulates signature suite methods required for signature verification
+// SignatureSuite encapsulates signature suite methods required for signature verification.
 type SignatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
@@ -42,20 +42,20 @@ type PublicKey struct {
 	JWK   *jose.JWK
 }
 
-// keyResolver encapsulates key resolution
+// keyResolver encapsulates key resolution.
 type keyResolver interface {
 
 	// Resolve will return public key bytes and the type of public key
 	Resolve(id string) (*PublicKey, error)
 }
 
-// DocumentVerifier implements JSON LD document proof verification
+// DocumentVerifier implements JSON LD document proof verification.
 type DocumentVerifier struct {
 	signatureSuites []SignatureSuite
 	pkResolver      keyResolver
 }
 
-// New returns new instance of document verifier
+// New returns new instance of document verifier.
 func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, error) {
 	if len(suites) == 0 {
 		return nil, errors.New("at least one suite must be provided")
@@ -66,7 +66,7 @@ func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, err
 		pkResolver:      resolver}, nil
 }
 
-// Verify will verify document proofs
+// Verify will verify document proofs.
 func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, opts ...jsonld.ProcessorOpts) error {
 	var jsonLdObject map[string]interface{}
 
@@ -78,7 +78,7 @@ func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, opts ...jsonld.ProcessorOpt
 	return dv.verifyObject(jsonLdObject, opts)
 }
 
-// verifyObject will verify document proofs for JSON LD object
+// verifyObject will verify document proofs for JSON LD object.
 func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}, opts []jsonld.ProcessorOpts) error {
 	proofs, err := proof.GetProofs(jsonLdObject)
 	if err != nil {
@@ -120,7 +120,7 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}, op
 	return nil
 }
 
-// getSignatureSuite returns signature suite based on signature type
+// getSignatureSuite returns signature suite based on signature type.
 func (dv *DocumentVerifier) getSignatureSuite(signatureType string) (SignatureSuite, error) {
 	for _, s := range dv.signatureSuites {
 		if s.Accept(signatureType) {

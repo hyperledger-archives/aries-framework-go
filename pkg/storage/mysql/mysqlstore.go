@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// Provider represents a MySQL DB implementation of the storage.Provider interface
+// Provider represents a MySQL DB implementation of the storage.Provider interface.
 type Provider struct {
 	dbURL    string
 	db       *sql.DB
@@ -46,17 +46,17 @@ const (
 	useDBQuery                = "USE `%s`"
 )
 
-// Option configures the couchdb provider
+// Option configures the couchdb provider.
 type Option func(opts *Provider)
 
-// WithDBPrefix option is for adding prefix to db name
+// WithDBPrefix option is for adding prefix to db name.
 func WithDBPrefix(dbPrefix string) Option {
 	return func(opts *Provider) {
 		opts.dbPrefix = dbPrefix
 	}
 }
 
-// NewProvider instantiates Provider
+// NewProvider instantiates Provider.
 func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 	if dbPath == "" {
 		return nil, errors.New(blankDBPathErrMsg)
@@ -151,7 +151,7 @@ func (p *Provider) Close() error {
 	return nil
 }
 
-// CloseStore closes a previously opened store
+// CloseStore closes a previously opened store.
 func (p *Provider) CloseStore(name string) error {
 	p.Lock()
 	defer p.Unlock()
@@ -170,7 +170,7 @@ func (p *Provider) CloseStore(name string) error {
 	return store.db.Close()
 }
 
-// Put stores the key and the value
+// Put stores the key and the value.
 func (s *sqlDBStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")
@@ -188,7 +188,7 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 	return nil
 }
 
-// Get fetches the value based on key
+// Get fetches the value based on key.
 func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, storage.ErrKeyRequired
@@ -210,7 +210,7 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	return value, nil
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (s *sqlDBStore) Delete(k string) error {
 	if k == "" {
 		return storage.ErrKeyRequired

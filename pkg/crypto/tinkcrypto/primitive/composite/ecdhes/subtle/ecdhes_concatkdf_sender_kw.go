@@ -19,17 +19,17 @@ import (
 	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
-// A256KWAlg is the ECDH-ES key wrapping algorithm
+// A256KWAlg is the ECDH-ES key wrapping algorithm.
 const A256KWAlg = "ECDH-ES+A256KW"
 
 // ECDHESConcatKDFSenderKW represents concat KDF based ECDH-ES KW (key wrapping)
-// for ECDH-ES sender
+// for ECDH-ES sender.
 type ECDHESConcatKDFSenderKW struct {
 	recipientPublicKey *composite.PublicKey
 	cek                []byte
 }
 
-// wrapKey will do ECDH-ES key wrapping
+// wrapKey will do ECDH-ES key wrapping.
 func (s *ECDHESConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*composite.RecipientWrappedKey, error) {
 	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
 	keyType := compositepb.KeyType_EC.String()

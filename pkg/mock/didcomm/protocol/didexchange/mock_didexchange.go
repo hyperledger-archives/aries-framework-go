@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
-// MockDIDExchangeSvc mock did exchange service
+// MockDIDExchangeSvc mock did exchange service.
 type MockDIDExchangeSvc struct {
 	ProtocolName             string
 	HandleFunc               func(service.DIDCommMsg) (string, error)
@@ -43,7 +43,7 @@ type MockDIDExchangeSvc struct {
 	CreateConnRecordFunc     func(*connection.Record, *did.Doc) error
 }
 
-// HandleInbound msg
+// HandleInbound msg.
 func (m *MockDIDExchangeSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
@@ -52,7 +52,7 @@ func (m *MockDIDExchangeSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirD
 	return uuid.New().String(), nil
 }
 
-// HandleOutbound msg
+// HandleOutbound msg.
 func (m *MockDIDExchangeSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleOutboundFunc != nil {
 		return m.HandleOutboundFunc(msg, myDID, theirDID)
@@ -61,7 +61,7 @@ func (m *MockDIDExchangeSvc) HandleOutbound(msg service.DIDCommMsg, myDID, their
 	return "", nil
 }
 
-// Accept msg checks the msg type
+// Accept msg checks the msg type.
 func (m *MockDIDExchangeSvc) Accept(msgType string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType)
@@ -70,7 +70,7 @@ func (m *MockDIDExchangeSvc) Accept(msgType string) bool {
 	return true
 }
 
-// Name return service name
+// Name return service name.
 func (m *MockDIDExchangeSvc) Name() string {
 	if m.ProtocolName != "" {
 		return m.ProtocolName
@@ -133,7 +133,7 @@ func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label str
 	return nil
 }
 
-// CreateImplicitInvitation creates implicit invitation using public DID(s)
+// CreateImplicitInvitation creates implicit invitation using public DID(s).
 func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) { //nolint: lll
 	if m.ImplicitInvitationErr != nil {
 		return "", m.ImplicitInvitationErr
@@ -169,19 +169,19 @@ func (m *MockDIDExchangeSvc) CreateConnection(r *connection.Record, theirDID *di
 	return nil
 }
 
-// MockProvider is provider for DIDExchange Service
+// MockProvider is provider for DIDExchange Service.
 type MockProvider struct {
 	StoreProvider              *mockstore.MockStoreProvider
 	ProtocolStateStoreProvider *mockstore.MockStoreProvider
 	CustomVDRI                 vdriapi.Registry
 }
 
-// OutboundDispatcher is mock outbound dispatcher for DID exchange service
+// OutboundDispatcher is mock outbound dispatcher for DID exchange service.
 func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
 }
 
-// StorageProvider is mock storage provider for DID exchange service
+// StorageProvider is mock storage provider for DID exchange service.
 func (p *MockProvider) StorageProvider() storage.Provider {
 	if p.StoreProvider != nil {
 		return p.StoreProvider
@@ -190,7 +190,7 @@ func (p *MockProvider) StorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// ProtocolStateStorageProvider is mock protocol state storage provider for DID exchange service
+// ProtocolStateStorageProvider is mock protocol state storage provider for DID exchange service.
 func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	if p.ProtocolStateStoreProvider != nil {
 		return p.ProtocolStateStoreProvider
@@ -199,12 +199,12 @@ func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// Signer is mock signer for DID exchange service
+// Signer is mock signer for DID exchange service.
 func (p *MockProvider) Signer() legacykms.Signer {
 	return &mockkms.CloseableKMS{}
 }
 
-// VDRIRegistry is mock vdri registry
+// VDRIRegistry is mock vdri registry.
 func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	if p.CustomVDRI != nil {
 		return p.CustomVDRI
@@ -213,23 +213,23 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	return &mockvdri.MockVDRIRegistry{}
 }
 
-// MockEventProperties is a didexchange.Event
+// MockEventProperties is a didexchange.Event.
 type MockEventProperties struct {
 	ConnID string
 	InvID  string
 }
 
-// ConnectionID returns the connection id
+// ConnectionID returns the connection id.
 func (m *MockEventProperties) ConnectionID() string {
 	return m.ConnID
 }
 
-// InvitationID returns the invitation id
+// InvitationID returns the invitation id.
 func (m *MockEventProperties) InvitationID() string {
 	return m.InvID
 }
 
-// All returns all properties
+// All returns all properties.
 func (m *MockEventProperties) All() map[string]interface{} {
 	return map[string]interface{}{
 		"connectionID": m.ConnectionID(),

@@ -36,46 +36,46 @@ var logger = log.New("aries-framework/command/verifiable")
 
 // Error codes
 const (
-	// InvalidRequestErrorCode is typically a code for invalid requests
+	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VC)
 
-	// ValidateCredential for validate vc error
+	// ValidateCredential for validate vc error.
 	ValidateCredentialErrorCode
 
-	// SaveCredentialErrorCode for save vc error
+	// SaveCredentialErrorCode for save vc error.
 	SaveCredentialErrorCode
 
-	// GetCredentialErrorCode for get vc error
+	// GetCredentialErrorCode for get vc error.
 	GetCredentialErrorCode
 
-	// GetCredentialErrorCode for get vc by name error
+	// GetCredentialErrorCode for get vc by name error.
 	GetCredentialByNameErrorCode
 
-	// GeneratePresentationErrorCode for get generate vp error
+	// GeneratePresentationErrorCode for get generate vp error.
 	GeneratePresentationErrorCode
 
-	// GeneratePresentationByIDErrorCode for get generate vp by vc id error
+	// GeneratePresentationByIDErrorCode for get generate vp by vc id error.
 	GeneratePresentationByIDErrorCode
 
-	// SavePresentationErrorCode for save presentation error
+	// SavePresentationErrorCode for save presentation error.
 	SavePresentationErrorCode
 
-	// GetPresentationErrorCode for get vp error
+	// GetPresentationErrorCode for get vp error.
 	GetPresentationErrorCode
 
-	// GetCredentialsErrorCode for get credential records
+	// GetCredentialsErrorCode for get credential records.
 	GetCredentialsErrorCode
 
-	// GetPresentationsErrorCode for get presentation records
+	// GetPresentationsErrorCode for get presentation records.
 	GetPresentationsErrorCode
 
-	// SignCredentialErrorCode for sign credential error
+	// SignCredentialErrorCode for sign credential error.
 	SignCredentialErrorCode
 
-	// RemoveCredentialByNameErrorCode for remove vc by name errors
+	// RemoveCredentialByNameErrorCode for remove vc by name errors.
 	RemoveCredentialByNameErrorCode
 
-	// RemovePresentationByNameErrorCode for remove vp by name errors
+	// RemovePresentationByNameErrorCode for remove vp by name errors.
 	RemovePresentationByNameErrorCode
 )
 
@@ -112,18 +112,18 @@ const (
 
 	creatorParts = 2
 
-	// Ed25519Signature2018 ed25519 signature suite
+	// Ed25519Signature2018 ed25519 signature suite.
 	Ed25519Signature2018 = "Ed25519Signature2018"
-	// JSONWebSignature2020 json web signature suite
+	// JSONWebSignature2020 json web signature suite.
 	JSONWebSignature2020 = "JsonWebSignature2020"
 
-	// Ed25519KeyType ed25519 key type
+	// Ed25519KeyType ed25519 key type.
 	Ed25519KeyType = "Ed25519"
 
-	// P256KeyType EC P-256 key type
+	// P256KeyType EC P-256 key type.
 	P256KeyType = "P256"
 
-	// Ed25519VerificationKey ED25519 verification key type
+	// Ed25519VerificationKey ED25519 verification key type.
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
 
@@ -363,7 +363,7 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// SignCredential adds proof to given verifiable credential
+// SignCredential adds proof to given verifiable credential.
 func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 	request := &SignCredentialRequest{}
 
@@ -790,49 +790,28 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 	return nil
 }
 
-func (o *Command) parsePresentationRequest(request *PresentationRequest,
+func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
-	if len(request.VerifiableCredentials) == 0 && len(request.Presentation) == 0 {
-		return nil, nil, nil, fmt.Errorf("invalid request, no valid credentials/presentation found")
-	}
-
-	if request.SignatureType == "" {
-		return nil, nil, nil, fmt.Errorf("invalid request, signature type empty")
-	}
-
 	var vcs []interface{}
 
-	var presentation *verifiable.Presentation
-
-	var err error
-
-	if len(request.VerifiableCredentials) > 0 {
-		for _, vcRaw := range request.VerifiableCredentials {
-			var credOpts []verifiable.CredentialOpt
-			if request.SkipVerify {
-				credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
-			} else {
-				credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
-					verifiable.NewDIDKeyResolver(o.ctx.VDRIRegistry()).PublicKeyFetcher(),
-				))
-			}
-
-			vc, e := verifiable.ParseCredential(vcRaw, credOpts...)
-			if e != nil {
-				logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
-					"failed to parse credential from request, invalid credential: "+e.Error())
-				return nil, nil, nil, fmt.Errorf("parse credential failed: %w", e)
-			}
-
-			vcs = append(vcs, vc)
+	for _, vcRaw := range request.VerifiableCredentials {
+		var credOpts []verifiable.CredentialOpt
+		if request.SkipVerify {
+			credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
+		} else {
+			credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
+				verifiable.NewDIDKeyResolver(o.ctx.VDRIRegistry()).PublicKeyFetcher(),
+			))
 		}
-	} else {
-		presentation, err = verifiable.ParseUnverifiedPresentation(request.Presentation)
-		if err != nil {
+
+		vc, e := verifiable.ParseCredential(vcRaw, credOpts...)
+		if e != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
-				"failed to parse presentation from request: "+err.Error())
-			return nil, nil, nil, fmt.Errorf("parse presentation failed: %w", err)
+				"failed to parse credential from request, invalid credential: "+e.Error())
+			return nil, nil, nil, fmt.Errorf("parse credential failed: %w", e)
 		}
+
+		vcs = append(vcs, vc)
 	}
 
 	opts, err := prepareOpts(request.ProofOptions, didDoc, did.Authentication)
@@ -842,7 +821,43 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 		return nil, nil, nil, fmt.Errorf("failed to prepare proof options: %w", err)
 	}
 
-	return vcs, presentation, opts, nil
+	return vcs, nil, opts, nil
+}
+
+func (o *Command) parsePresentation(request *PresentationRequest,
+	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
+	presentation, err := verifiable.ParseUnverifiedPresentation(request.Presentation)
+	if err != nil {
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
+			"failed to parse presentation from request: "+err.Error())
+		return nil, nil, nil, fmt.Errorf("parse presentation failed: %w", err)
+	}
+
+	opts, err := prepareOpts(request.ProofOptions, didDoc, did.Authentication)
+	if err != nil {
+		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
+			"failed to prepare proof options: "+err.Error())
+		return nil, nil, nil, fmt.Errorf("failed to prepare proof options: %w", err)
+	}
+
+	return nil, presentation, opts, nil
+}
+
+func (o *Command) parsePresentationRequest(request *PresentationRequest,
+	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
+	if request.ProofOptions == nil || request.SignatureType == "" {
+		return nil, nil, nil, fmt.Errorf("invalid request, signature type empty")
+	}
+
+	if len(request.VerifiableCredentials) > 0 {
+		return o.parseVerifiableCredentials(request, didDoc)
+	}
+
+	if len(request.Presentation) > 0 {
+		return o.parsePresentation(request, didDoc)
+	}
+
+	return nil, nil, nil, fmt.Errorf("invalid request, no valid credentials/presentation found")
 }
 
 func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
@@ -897,7 +912,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 	return opts, nil
 }
 
-// TODO default verification method logic needs to be revisited, [Issue #1693]
+// TODO default verification method logic needs to be revisited, [Issue #1693].
 func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 	switch {
 	case len(didDoc.PublicKey) > 0:

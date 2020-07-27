@@ -71,7 +71,7 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	require.Empty(t, pld)
 }
 
-// Reset random reader to original value
+// Reset random reader to original value.
 func resetRandReader(p *Packer) {
 	p.randReader = rand.Reader
 }

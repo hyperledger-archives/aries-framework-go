@@ -26,11 +26,11 @@ var logger = log.New("aries-framework/command/kms")
 
 // Error codes
 const (
-	// InvalidRequestErrorCode is typically a code for invalid requests
+	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.KMS)
-	// CreateKeySetError is for failures while creating key set
+	// CreateKeySetError is for failures while creating key set.
 	CreateKeySetError
-	// ImportKeyError is for failures while importing key
+	// ImportKeyError is for failures while importing key.
 	ImportKeyError
 )
 
@@ -142,7 +142,7 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// ImportKey import key
+// ImportKey import key.
 func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(req)

@@ -48,7 +48,7 @@ var logger = log.New("aries-framework/lock")
 
 const masterKeyLen = 512
 
-// Lock is a secret lock service responsible for encrypting keys using a master key
+// Lock is a secret lock service responsible for encrypting keys using a master key.
 type Lock struct {
 	aead cipher.AEAD
 }
@@ -109,7 +109,7 @@ func NewService(masterKeyReader io.Reader, secLock secretlock.Service) (secretlo
 }
 
 // Encrypt a key in req using master key in the local secret lock service
-// (keyURI is used for remote locks, it is ignored by this implementation)
+// (keyURI is used for remote locks, it is ignored by this implementation).
 func (s *Lock) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
 	nonce := random.GetRandomBytes(uint32(s.aead.NonceSize()))
 	ct := s.aead.Seal(nil, nonce, []byte(req.Plaintext), []byte(req.AdditionalAuthenticatedData))
@@ -121,7 +121,7 @@ func (s *Lock) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlo
 }
 
 // Decrypt a key in req using master key in the local secret lock service
-// (keyURI is used for remote locks, it is ignored by this implementation)
+// (keyURI is used for remote locks, it is ignored by this implementation).
 func (s *Lock) Decrypt(keyURI string, req *secretlock.DecryptRequest) (*secretlock.DecryptResponse, error) {
 	ct, err := base64.URLEncoding.DecodeString(req.Ciphertext)
 	if err != nil {

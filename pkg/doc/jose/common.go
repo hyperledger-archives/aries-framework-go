@@ -13,7 +13,7 @@ const (
 	// For JWE: the cryptographic algorithm used to encrypt or determine the value of the CEK.
 	HeaderAlgorithm = "alg" // string
 
-	// HeaderEncryption identifies the JWE content encryption algorithm
+	// HeaderEncryption identifies the JWE content encryption algorithm.
 	HeaderEncryption = "enc" // string
 
 	// HeaderJWKSetURL is a URI that refers to a resource for a set of JSON-encoded public keys, one of which:
@@ -73,7 +73,7 @@ const (
 	// For JWE: this JWE header specification and/or JWA are being used that MUST be understood and processed.
 	HeaderCritical = "crit" // array
 
-	// HeaderEPK is used by JWE applications to wrap/unwrap the CEK for a recipient
+	// HeaderEPK is used by JWE applications to wrap/unwrap the CEK for a recipient.
 	HeaderEPK = "epk" // JSON
 )
 
@@ -92,7 +92,7 @@ func (h Headers) KeyID() (string, bool) {
 	return h.stringValue(HeaderKeyID)
 }
 
-// SenderKeyID gets the sender Key ID from Jose headers
+// SenderKeyID gets the sender Key ID from Jose headers.
 func (h Headers) SenderKeyID() (string, bool) {
 	return h.stringValue(HeaderSenderKeyID)
 }

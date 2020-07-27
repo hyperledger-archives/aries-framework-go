@@ -61,7 +61,7 @@ func LookupRecipientKeys(didDoc *Doc, serviceType, keyType string) ([]string, bo
 	return recipientKeys, true
 }
 
-// LookupPublicKey returns the public key with the given id from the given DID Doc
+// LookupPublicKey returns the public key with the given id from the given DID Doc.
 func LookupPublicKey(id string, didDoc *Doc) (*PublicKey, bool) {
 	for _, key := range didDoc.PublicKey {
 		if key.ID == id {

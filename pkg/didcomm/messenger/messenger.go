@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// MessengerStore is messenger store name
+	// MessengerStore is messenger store name.
 	MessengerStore = "messenger_store"
 
 	metadataKey = "metadata_%s"
@@ -31,7 +31,7 @@ const (
 	jsonMetadata       = "_internal_metadata"
 )
 
-// record is an internal structure and keeps payload about inbound message
+// record is an internal structure and keeps payload about inbound message.
 type record struct {
 	MyDID          string                 `json:"my_did,omitempty"`
 	TheirDID       string                 `json:"their_did,omitempty"`
@@ -40,19 +40,19 @@ type record struct {
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// Provider contains dependencies for the Messenger
+// Provider contains dependencies for the Messenger.
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 }
 
-// Messenger describes the messenger structure
+// Messenger describes the messenger structure.
 type Messenger struct {
 	store      storage.Store
 	dispatcher dispatcher.Outbound
 }
 
-// NewMessenger returns a new instance of the Messenger
+// NewMessenger returns a new instance of the Messenger.
 func NewMessenger(ctx Provider) (*Messenger, error) {
 	store, err := ctx.StorageProvider().OpenStore(MessengerStore)
 	if err != nil {
@@ -65,7 +65,7 @@ func NewMessenger(ctx Provider) (*Messenger, error) {
 	}, nil
 }
 
-// HandleInbound handles all inbound messages
+// HandleInbound handles all inbound messages.
 func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID string) error {
 	// an incoming message cannot be without id
 	if msg.ID() == "" {
@@ -210,7 +210,7 @@ func (m *Messenger) ReplyToNested(threadID string, msg service.DIDCommMsgMap, my
 	return m.dispatcher.SendToDID(msg, myDID, theirDID)
 }
 
-// fillIfMissing populates message with common fields such as ID
+// fillIfMissing populates message with common fields such as ID.
 func fillIfMissing(msg service.DIDCommMsgMap) {
 	// if ID is empty we will create a new one
 	if msg.ID() == "" {
@@ -218,7 +218,7 @@ func fillIfMissing(msg service.DIDCommMsgMap) {
 	}
 }
 
-// getRecord returns message payload by msgID
+// getRecord returns message payload by msgID.
 func (m *Messenger) getRecord(msgID string) (*record, error) {
 	src, err := m.store.Get(msgID)
 	if err != nil {
@@ -233,7 +233,7 @@ func (m *Messenger) getRecord(msgID string) (*record, error) {
 	return r, nil
 }
 
-// saveRecord saves incoming message payload
+// saveRecord saves incoming message payload.
 func (m *Messenger) saveRecord(msgID string, rec record) error {
 	src, err := json.Marshal(rec)
 	if err != nil {

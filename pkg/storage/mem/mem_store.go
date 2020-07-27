@@ -18,13 +18,13 @@ import (
 // TODO https://github.com/hyperledger/aries-framework-go/issues/750 - we will need to consider
 //  automatic eviction based on TTL.
 
-// Provider leveldb implementation of storage.Provider interface
+// Provider leveldb implementation of storage.Provider interface.
 type Provider struct {
 	dbs  map[string]*memStore
 	lock sync.RWMutex
 }
 
-// NewProvider instantiates Provider
+// NewProvider instantiates Provider.
 func NewProvider() *Provider {
 	return &Provider{dbs: make(map[string]*memStore)}
 }
@@ -40,7 +40,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 }
 
 // getMemStore finds mem store with given name
-// returns nil if not found
+// returns nil if not found.
 func (p *Provider) getMemStore(name string) *memStore {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -49,7 +49,7 @@ func (p *Provider) getMemStore(name string) *memStore {
 }
 
 // newMemStore creates mem store for given name space
-// returns nil if not found
+// returns nil if not found.
 func (p *Provider) newMemStore(name string) *memStore {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -60,7 +60,7 @@ func (p *Provider) newMemStore(name string) *memStore {
 	return store
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (p *Provider) Close() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -74,7 +74,7 @@ func (p *Provider) Close() error {
 	return nil
 }
 
-// CloseStore closes level db store of given name
+// CloseStore closes level db store of given name.
 func (p *Provider) CloseStore(name string) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -96,7 +96,7 @@ type memStore struct {
 	sync.RWMutex
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (s *memStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")
@@ -109,7 +109,7 @@ func (s *memStore) Put(k string, v []byte) error {
 	return nil
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (s *memStore) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, errors.New("key is mandatory")
@@ -174,7 +174,7 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	return newMemIterator(batch)
 }
 
-// Delete will delete record with k key
+// Delete will delete record with k key.
 func (s *memStore) Delete(k string) error {
 	if k == "" {
 		return errors.New("key is mandatory")
@@ -194,7 +194,7 @@ type memIterator struct {
 	err          error
 }
 
-// NewMemIterator returns new mem iterator for given batch
+// NewMemIterator returns new mem iterator for given batch.
 func newMemIterator(batch [][]string) *memIterator {
 	if len(batch) == 0 {
 		return &memIterator{}

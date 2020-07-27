@@ -8,7 +8,7 @@ package api
 
 import "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 
-// DIDExchangeController  defines methods for the DIDExchange protocol controller
+// DIDExchangeController  defines methods for the DIDExchange protocol controller.
 type DIDExchangeController interface {
 
 	// CreateInvitation creates a new connection invitation.
