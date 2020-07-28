@@ -7,7 +7,6 @@ package startcmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -129,7 +128,7 @@ func listenFor(host string) error {
 	for {
 		select {
 		case <-timeout:
-			return errors.New("timeout: server is not available")
+			return fmt.Errorf("timeout: %s is not available", host)
 		default:
 			conn, err := net.Dial("tcp", host)
 			if err != nil {

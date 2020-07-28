@@ -21,15 +21,15 @@ Feature: Present Proof protocol
     Then "Thomas" sends a request presentation to the "Paul"
     And "Paul" accepts a request and sends a presentation to the "Thomas"
     And "Thomas" declines presentation
-    Then "Paul" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,abandoning,abandoning,done,done"
-    And "Thomas" checks the history of events "request-sent,request-sent,abandoning,abandoning,done,done"
+    Then "Paul" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,abandoned,abandoned"
+    And "Thomas" checks the history of events "request-sent,request-sent,abandoned,abandoned"
   @decline_request_presentation
   Scenario: The Prover declines a request presentation
     Given "Liam" exchange DIDs with "Samuel"
     Then "Liam" sends a request presentation to the "Samuel"
     And "Samuel" declines a request presentation
-    Then "Samuel" checks the history of events "abandoning,abandoning,done,done"
-    And "Liam" checks the history of events "request-sent,request-sent,abandoning,abandoning,done,done"
+    Then "Samuel" checks the history of events "abandoned,abandoned"
+    And "Liam" checks the history of events "request-sent,request-sent,abandoned,abandoned"
   @begin_with_propose_presentation
   Scenario: The Prover begins with a proposal
     Given "Carol" exchange DIDs with "Andrew"
@@ -44,8 +44,8 @@ Feature: Present Proof protocol
     Given "Michael" exchange DIDs with "David"
     Then "Michael" sends a propose presentation to the "David"
     And "David" declines a propose presentation
-    Then "Michael" checks the history of events "proposal-sent,proposal-sent,abandoning,abandoning,done,done"
-    And "David" checks the history of events "abandoning,abandoning,done,done"
+    Then "Michael" checks the history of events "proposal-sent,proposal-sent,abandoned,abandoned"
+    And "David" checks the history of events "abandoned,abandoned"
   @begin_with_request_presentation_negotiation
   Scenario: The Verifier begins with a request presentation (negotiation)
     Given "William" exchange DIDs with "Felix"

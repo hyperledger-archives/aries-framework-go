@@ -26,7 +26,7 @@ func TestStart_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameStart, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&abandoned{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -47,12 +47,12 @@ func TestStart_Execute(t *testing.T) {
 }
 
 func TestAbandoning_CanTransitionTo(t *testing.T) {
-	st := &abandoning{}
-	require.Equal(t, stateNameAbandoning, st.Name())
+	st := &abandoned{}
+	require.Equal(t, stateNameAbandoned, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
-	require.True(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&abandoned{}))
+	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
@@ -72,9 +72,9 @@ func TestAbandoning_Execute(t *testing.T) {
 		thID := uuid.New().String()
 		require.NoError(t, md.Msg.SetID(thID))
 
-		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(md)
+		followup, action, err := (&abandoned{Code: codeInternalError}).Execute(md)
 		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
+		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
 
 		ctrl := gomock.NewController(t)
@@ -96,7 +96,7 @@ func TestAbandoning_Execute(t *testing.T) {
 	})
 
 	t.Run("Invalid message", func(t *testing.T) {
-		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(&metaData{})
+		followup, action, err := (&abandoned{Code: codeInternalError}).Execute(&metaData{})
 		require.EqualError(t, errors.Unwrap(err), service.ErrInvalidMessage.Error())
 		require.Nil(t, followup)
 		require.Nil(t, action)
@@ -109,9 +109,9 @@ func TestAbandoning_Execute(t *testing.T) {
 		thID := uuid.New().String()
 		require.NoError(t, md.Msg.SetID(thID))
 
-		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(md)
+		followup, action, err := (&abandoned{Code: codeInternalError}).Execute(md)
 		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
+		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
 
 		ctrl := gomock.NewController(t)
@@ -138,9 +138,9 @@ func TestAbandoning_Execute(t *testing.T) {
 
 		require.NoError(t, md.Msg.SetID(uuid.New().String()))
 
-		followup, action, err := (&abandoning{}).Execute(md)
+		followup, action, err := (&abandoned{}).Execute(md)
 		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
+		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
 
 		require.NoError(t, action(nil))
@@ -178,7 +178,7 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameRequestReceived, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -242,7 +242,7 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameRequestSent, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -329,7 +329,7 @@ func TestPresentationSent_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNamePresentationSent, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.True(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -371,7 +371,7 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNamePresentationReceived, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.True(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -420,7 +420,7 @@ func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameProposalSent, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -482,7 +482,7 @@ func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameProposalReceived, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&abandoned{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	// states for Verifier
@@ -507,7 +507,7 @@ func notTransition(t *testing.T, st state) {
 
 	var allState = [...]state{
 		// common states
-		&start{}, &abandoning{}, &done{}, &noOp{},
+		&start{}, &abandoned{}, &done{}, &noOp{},
 		// states for Verifier
 		&requestSent{}, &presentationReceived{}, &proposalReceived{},
 		// states for Prover
