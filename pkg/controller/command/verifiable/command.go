@@ -301,7 +301,7 @@ func (o *Command) SavePresentation(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	vp, err := verifiable.ParsePresentation([]byte(request.VerifiablePresentation),
-		verifiable.WithDisabledPresentationProofCheck())
+		verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		logutil.LogError(logger, CommandName, SavePresentationCommandMethod, "parse vp : "+err.Error())
 

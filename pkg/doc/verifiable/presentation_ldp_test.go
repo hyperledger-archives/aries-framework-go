@@ -23,12 +23,14 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	signer, err := newCryptoSigner(kms.ED25519Type)
 	r.NoError(err)
 
-	ss := ed25519signature2018.New(suite.WithSigner(signer))
+	ss := ed25519signature2018.New(suite.WithSigner(signer),
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier())) // todo use crypto verifier
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureJWS,
 		Suite:                   ss,
+		VerificationMethod:      "did:example:123456#key1",
 	}
 
 	vc, err := newTestPresentation([]byte(validPresentation))
@@ -47,6 +49,11 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
+
+	// signature suite is not passed, cannot make a proof check
+	vcWithLdp, err = newTestPresentation(vcBytes)
+	r.Error(err)
+	require.Nil(t, vcWithLdp)
 }
 
 func TestPresentation_AddLinkedDataProof(t *testing.T) {
@@ -63,6 +70,9 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
+		r.NoError(err)
+
+		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 		r.NoError(err)
 
 		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))

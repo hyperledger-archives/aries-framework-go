@@ -101,7 +101,8 @@ func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte,
 	jsonldOpts ...jsonld.ProcessorOpts) ([]Proof, error) {
 	documentSigner := signer.New(context.Suite)
 
-	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes, jsonldOpts...)
+	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes,
+		append([]jsonld.ProcessorOpts{jsonld.WithDocumentLoader(CachingJSONLDLoader())}, jsonldOpts...)...)
 	if err != nil {
 		return nil, fmt.Errorf("add linked data proof: %w", err)
 	}

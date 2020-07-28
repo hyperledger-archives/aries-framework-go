@@ -794,7 +794,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation,
+			verifiable.WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -835,7 +836,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation,
+			verifiable.WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -879,7 +881,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation,
+			verifiable.WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -922,7 +925,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation,
+			verifiable.WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1004,7 +1008,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation,
+			verifiable.WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)

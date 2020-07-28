@@ -24,3 +24,17 @@ func WithPresNoProofCheck() PresentationOpt {
 		opts.disabledProofCheck = true
 	}
 }
+
+// WithPresRequireVC option enables check for at least one verifiableCredential in the VP.
+func WithPresRequireVC() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.requireVC = true
+	}
+}
+
+// WithPresRequireProof option enables check for at least one proof in the VP.
+func WithPresRequireProof() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.requireProof = true
+	}
+}
