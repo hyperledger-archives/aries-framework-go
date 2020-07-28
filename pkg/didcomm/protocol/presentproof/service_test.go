@@ -358,22 +358,15 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "abandoning"})
+			defer close(done)
+
+			src, err := json.Marshal(&internalData{StateName: "abandoned"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
 
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			defer close(done)
-
-			src, err := json.Marshal(&internalData{StateName: "done"})
-			require.NoError(t, err)
-			require.Equal(t, src, data)
-
-			return nil
-		})
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -702,17 +695,9 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "abandoning"})
-			require.NoError(t, err)
-			require.Equal(t, src, data)
-
-			return nil
-		})
-
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
-			src, err := json.Marshal(&internalData{StateName: "done"})
+			src, err := json.Marshal(&internalData{StateName: "abandoned"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
 
@@ -967,7 +952,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 func Test_stateFromName(t *testing.T) {
 	require.Equal(t, stateFromName(stateNameStart), &start{})
-	require.Equal(t, stateFromName(stateNameAbandoning), &abandoning{})
+	require.Equal(t, stateFromName(stateNameAbandoned), &abandoned{})
 	require.Equal(t, stateFromName(stateNameDone), &done{})
 	require.Equal(t, stateFromName(stateNameRequestSent), &requestSent{})
 	require.Equal(t, stateFromName(stateNamePresentationReceived), &presentationReceived{})
@@ -1061,7 +1046,7 @@ func Test_nextState(t *testing.T) {
 
 	next, err = nextState(randomInboundMessage(ProblemReportMsgType))
 	require.NoError(t, err)
-	require.Equal(t, next, &abandoning{})
+	require.Equal(t, next, &abandoned{})
 
 	next, err = nextState(service.NewDIDCommMsgMap(struct{}{}))
 	require.Error(t, err)

@@ -309,7 +309,7 @@ func (s *Service) startInternalListener() {
 
 		logger.Errorf("failed to handle msgID=%s : %s", msg.Msg.ID(), msg.err)
 
-		msg.state = &abandoning{Code: codeInternalError}
+		msg.state = &abandoned{Code: codeInternalError}
 
 		if err := s.handle(msg); err != nil {
 			logger.Errorf("listener handle: %s", err)
@@ -397,8 +397,8 @@ func stateFromName(name string) state {
 	switch name {
 	case stateNameStart:
 		return &start{}
-	case stateNameAbandoning:
-		return &abandoning{}
+	case stateNameAbandoned:
+		return &abandoned{}
 	case stateNameDone:
 		return &done{}
 	case stateNameRequestSent:
@@ -438,7 +438,7 @@ func nextState(msg service.DIDCommMsgMap) (state, error) {
 	case PresentationMsgType:
 		return &presentationReceived{}, nil
 	case ProblemReportMsgType:
-		return &abandoning{}, nil
+		return &abandoned{}, nil
 	case AckMsgType:
 		return &done{}, nil
 	default:
