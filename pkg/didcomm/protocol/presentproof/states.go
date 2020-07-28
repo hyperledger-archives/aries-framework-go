@@ -16,10 +16,10 @@ import (
 
 const (
 	// common states
-	stateNameStart      = "start"
-	stateNameAbandoning = "abandoning"
-	stateNameDone       = "done"
-	stateNameNoop       = "noop"
+	stateNameStart     = "start"
+	stateNameAbandoned = "abandoned"
+	stateNameDone      = "done"
+	stateNameNoop      = "noop"
 
 	// states for Verifier.
 	stateNameRequestSent          = "request-sent"
@@ -81,23 +81,23 @@ func (s *start) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: is not implemented yet", s.Name())
 }
 
-// abandoning state
-type abandoning struct {
+// abandoned state
+type abandoned struct {
 	Code string
 }
 
-func (s *abandoning) Name() string {
-	return stateNameAbandoning
+func (s *abandoned) Name() string {
+	return stateNameAbandoned
 }
 
-func (s *abandoning) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameDone
+func (s *abandoned) CanTransitionTo(st state) bool {
+	return false
 }
 
-func (s *abandoning) Execute(md *metaData) (state, stateAction, error) {
+func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 	// if code is not provided it means we do not need to notify the another agent
 	if s.Code == "" {
-		return &done{}, zeroAction, nil
+		return &noOp{}, zeroAction, nil
 	}
 
 	var code = model.Code{Code: s.Code}
@@ -112,7 +112,7 @@ func (s *abandoning) Execute(md *metaData) (state, stateAction, error) {
 		return nil, nil, fmt.Errorf("threadID: %w", err)
 	}
 
-	return &done{}, func(messenger service.Messenger) error {
+	return &noOp{}, func(messenger service.Messenger) error {
 		return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(&model.ProblemReport{
 			Type:        ProblemReportMsgType,
 			Description: code,
@@ -160,7 +160,7 @@ func (s *requestReceived) Name() string {
 func (s *requestReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationSent ||
 		st.Name() == stateNameProposalSent ||
-		st.Name() == stateNameAbandoning
+		st.Name() == stateNameAbandoned
 }
 
 func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
@@ -191,7 +191,7 @@ func (s *requestSent) Name() string {
 func (s *requestSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationReceived ||
 		st.Name() == stateNameProposalReceived ||
-		st.Name() == stateNameAbandoning
+		st.Name() == stateNameAbandoned
 }
 
 func forwardInitial(md *metaData) stateAction {
@@ -233,7 +233,7 @@ func (s *presentationSent) Name() string {
 }
 
 func (s *presentationSent) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameAbandoning ||
+	return st.Name() == stateNameAbandoned ||
 		st.Name() == stateNameDone
 }
 
@@ -260,7 +260,7 @@ func (s *presentationReceived) Name() string {
 }
 
 func (s *presentationReceived) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameAbandoning ||
+	return st.Name() == stateNameAbandoned ||
 		st.Name() == stateNameDone
 }
 
@@ -288,7 +288,7 @@ func (s *proposalSent) Name() string {
 
 func (s *proposalSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestReceived ||
-		st.Name() == stateNameAbandoning
+		st.Name() == stateNameAbandoned
 }
 
 func canReplyTo(msg service.DIDCommMsgMap) bool {
@@ -320,7 +320,7 @@ func (s *proposalReceived) Name() string {
 
 func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestSent ||
-		st.Name() == stateNameAbandoning
+		st.Name() == stateNameAbandoned
 }
 
 func (s *proposalReceived) Execute(_ *metaData) (state, stateAction, error) {
