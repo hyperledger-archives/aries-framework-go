@@ -32,6 +32,8 @@ const (
 	SendRequestPresentationErrorCode
 	// AcceptRequestPresentationErrorCode is for failures in accept request presentation command.
 	AcceptRequestPresentationErrorCode
+	// AcceptProblemReportErrorCode is for failures in accept problem report command.
+	AcceptProblemReportErrorCode
 	// NegotiateRequestPresentationErrorCode is for failures in negotiate request presentation command.
 	NegotiateRequestPresentationErrorCode
 	// DeclineRequestPresentationErrorCode is for failures in decline request presentation command.
@@ -56,6 +58,7 @@ const (
 	sendRequestPresentation      = "SendRequestPresentation"
 	acceptRequestPresentation    = "AcceptRequestPresentation"
 	negotiateRequestPresentation = "NegotiateRequestPresentation"
+	acceptProblemReport          = "AcceptProblemReport"
 	declineRequestPresentation   = "DeclineRequestPresentation"
 	sendProposePresentation      = "SendProposePresentation"
 	acceptProposePresentation    = "AcceptProposePresentation"
@@ -128,6 +131,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, declineProposePresentation, c.DeclineProposePresentation),
 		cmdutil.NewCommandHandler(commandName, acceptPresentation, c.AcceptPresentation),
 		cmdutil.NewCommandHandler(commandName, declinePresentation, c.DeclinePresentation),
+		cmdutil.NewCommandHandler(commandName, acceptProblemReport, c.AcceptProblemReport),
 	}
 }
 
@@ -401,6 +405,33 @@ func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error 
 	command.WriteNillableResponse(rw, &AcceptPresentationResponse{}, logger)
 
 	logutil.LogDebug(logger, commandName, acceptPresentation, successString)
+
+	return nil
+}
+
+// AcceptProblemReport is used for accepting problem report.
+// nolint: dupl
+func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProblemReportArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, commandName, acceptProblemReport, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, commandName, acceptProblemReport, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if err := c.client.AcceptProblemReport(args.PIID); err != nil {
+		logutil.LogError(logger, commandName, acceptProblemReport, err.Error())
+		return command.NewExecuteError(AcceptProblemReportErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProblemReportResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, acceptProblemReport, successString)
 
 	return nil
 }

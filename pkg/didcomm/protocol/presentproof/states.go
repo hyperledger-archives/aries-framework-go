@@ -95,8 +95,9 @@ func (s *abandoned) CanTransitionTo(st state) bool {
 }
 
 func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
-	// if code is not provided it means we do not need to notify the another agent
-	if s.Code == "" {
+	// if code is not provided it means we do not need to notify the another agent.
+	// if we received ProblemReport message no need to answer.
+	if s.Code == "" || md.Msg.Type() == ProblemReportMsgType {
 		return &noOp{}, zeroAction, nil
 	}
 

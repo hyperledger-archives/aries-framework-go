@@ -106,6 +106,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" declines a request presentation$`, a.declineRequestPresentation)
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
 	s.Step(`^"([^"]*)" declines a propose presentation$`, a.declineProposePresentation)
+	s.Step(`^"([^"]*)" receives problem report message \(Present Proof\)$`, a.receiveProblemReport)
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover$`, a.acceptProposePresentation)
 	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)"$`, a.acceptPresentation)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name$`, a.checkPresentation)
@@ -192,7 +193,7 @@ func (a *SDKSteps) getActionID(agent string) (string, error) {
 			return "", fmt.Errorf("check properties: %w", err)
 		}
 
-		return e.Message.ThreadID()
+		return e.Properties.All()["piid"].(string), nil
 	case <-time.After(timeout):
 		return "", errors.New("timeout")
 	}
@@ -241,6 +242,15 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 			},
 		}},
 	})
+}
+
+func (a *SDKSteps) receiveProblemReport(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].AcceptProblemReport(PIID)
 }
 
 func (a *SDKSteps) declineRequestPresentation(agent string) error {

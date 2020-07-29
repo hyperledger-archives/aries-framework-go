@@ -180,3 +180,18 @@ type SendRequestPresentationResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
 	PIID string `json:"piid"`
 }
+
+// AcceptProblemReportArgs model
+//
+// This is used for accepting a problem report
+//
+type AcceptProblemReportArgs struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+}
+
+// AcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+type AcceptProblemReportResponse struct{}

@@ -669,6 +669,98 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
+	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		src, err := json.Marshal(&internalData{StateName: "request-sent"})
+		require.NoError(t, err)
+
+		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			defer close(done)
+
+			src, err = json.Marshal(&internalData{StateName: "abandoned"})
+			require.NoError(t, err)
+			require.Equal(t, src, data)
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), Alice, Bob)
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithRequestPresentation(&RequestPresentation{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		src, err := json.Marshal(&internalData{StateName: "request-sent"})
+		require.NoError(t, err)
+
+		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			defer close(done)
+
+			src, err = json.Marshal(&internalData{StateName: "abandoned"})
+			require.NoError(t, err)
+			require.Equal(t, src, data)
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), Alice, Bob)
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
 	t.Run("Receive Propose Presentation (continue without request)", func(t *testing.T) {
 		var done = make(chan struct{})
 

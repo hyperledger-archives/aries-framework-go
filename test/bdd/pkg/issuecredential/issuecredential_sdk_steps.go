@@ -83,6 +83,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" declines a proposal$`, a.declineProposal)
 	s.Step(`^"([^"]*)" declines an offer$`, a.declineOffer)
 	s.Step(`^"([^"]*)" declines the credential`, a.declineCredential)
+	s.Step(`^"([^"]*)" receives problem report message \(Issue Credential\)$`, a.receiveProblemReport)
 	s.Step(`^"([^"]*)" waits for state "([^"]*)"$`, a.waitFor)
 	s.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)"$`, a.sendsProposal)
 	s.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder$`, a.acceptProposal)
@@ -268,7 +269,7 @@ func (a *SDKSteps) getActionID(agent string) (string, error) {
 			return "", fmt.Errorf("check properties: %w", err)
 		}
 
-		return e.Message.ThreadID()
+		return e.Properties.All()["piid"].(string), nil
 	case <-time.After(timeout):
 		return "", errors.New("timeout")
 	}
@@ -281,6 +282,15 @@ func (a *SDKSteps) negotiateProposal(agent string) error {
 	}
 
 	return a.clients[agent].NegotiateProposal(PIID, &issuecredential.ProposeCredential{})
+}
+
+func (a *SDKSteps) receiveProblemReport(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].AcceptProblemReport(PIID)
 }
 
 func (a *SDKSteps) acceptOffer(agent string) error {

@@ -13,7 +13,7 @@ jobs:
   unitTest:
     name: Unit test
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-18.04, macOS-10.15]
@@ -28,7 +28,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Run unit test
-      timeout-minutes: 10
+      timeout-minutes: 15
       run: make unit-test
 
     - name: Upload coverage to Codecov
@@ -59,7 +59,7 @@ jobs:
   bddTest:
     name: BDD test
     runs-on: ubuntu-18.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
 
       - name: Setup Go 1.14
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run BDD test
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           function logout {
             docker logout docker.pkg.github.com

@@ -370,3 +370,26 @@ type issueCredentialSendRequestResponse struct { // nolint: unused,deadcode
 		PIID string `json:"piid"`
 	}
 }
+
+// issueCredentialAcceptProblemReportRequest model
+//
+// This is used for operation to accept a problem report.
+//
+// swagger:parameters issueCredentialAcceptProblemReport
+type issueCredentialAcceptProblemReportRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+}
+
+// issueCredentialAcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+// swagger:response issueCredentialAcceptProblemReportResponse
+type issueCredentialAcceptProblemReportResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

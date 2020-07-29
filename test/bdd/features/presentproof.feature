@@ -21,6 +21,7 @@ Feature: Present Proof protocol
     Then "Thomas" sends a request presentation to the "Paul"
     And "Paul" accepts a request and sends a presentation to the "Thomas"
     And "Thomas" declines presentation
+    Then "Paul" receives problem report message (Present Proof)
     Then "Paul" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,abandoned,abandoned"
     And "Thomas" checks the history of events "request-sent,request-sent,abandoned,abandoned"
   @decline_request_presentation
@@ -28,6 +29,7 @@ Feature: Present Proof protocol
     Given "Liam" exchange DIDs with "Samuel"
     Then "Liam" sends a request presentation to the "Samuel"
     And "Samuel" declines a request presentation
+    Then "Liam" receives problem report message (Present Proof)
     Then "Samuel" checks the history of events "abandoned,abandoned"
     And "Liam" checks the history of events "request-sent,request-sent,abandoned,abandoned"
   @begin_with_propose_presentation
@@ -44,6 +46,7 @@ Feature: Present Proof protocol
     Given "Michael" exchange DIDs with "David"
     Then "Michael" sends a propose presentation to the "David"
     And "David" declines a propose presentation
+    Then "Michael" receives problem report message (Present Proof)
     Then "Michael" checks the history of events "proposal-sent,proposal-sent,abandoned,abandoned"
     And "David" checks the history of events "abandoned,abandoned"
   @begin_with_request_presentation_negotiation

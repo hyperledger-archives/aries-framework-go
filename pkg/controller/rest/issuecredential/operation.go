@@ -26,20 +26,21 @@ import (
 
 // constants for issue credential endpoints
 const (
-	OperationID       = "/issuecredential"
-	Actions           = OperationID + "/actions"
-	SendOffer         = OperationID + "/send-offer"
-	SendProposal      = OperationID + "/send-proposal"
-	SendRequest       = OperationID + "/send-request"
-	AcceptProposal    = OperationID + "/{piid}/accept-proposal"
-	DeclineProposal   = OperationID + "/{piid}/decline-proposal"
-	AcceptOffer       = OperationID + "/{piid}/accept-offer"
-	DeclineOffer      = OperationID + "/{piid}/decline-offer"
-	NegotiateProposal = OperationID + "/{piid}/negotiate-proposal"
-	AcceptRequest     = OperationID + "/{piid}/accept-request"
-	DeclineRequest    = OperationID + "/{piid}/decline-request"
-	AcceptCredential  = OperationID + "/{piid}/accept-credential"
-	DeclineCredential = OperationID + "/{piid}/decline-credential"
+	OperationID         = "/issuecredential"
+	Actions             = OperationID + "/actions"
+	SendOffer           = OperationID + "/send-offer"
+	SendProposal        = OperationID + "/send-proposal"
+	SendRequest         = OperationID + "/send-request"
+	AcceptProposal      = OperationID + "/{piid}/accept-proposal"
+	DeclineProposal     = OperationID + "/{piid}/decline-proposal"
+	AcceptOffer         = OperationID + "/{piid}/accept-offer"
+	DeclineOffer        = OperationID + "/{piid}/decline-offer"
+	NegotiateProposal   = OperationID + "/{piid}/negotiate-proposal"
+	AcceptRequest       = OperationID + "/{piid}/accept-request"
+	DeclineRequest      = OperationID + "/{piid}/decline-request"
+	AcceptCredential    = OperationID + "/{piid}/accept-credential"
+	DeclineCredential   = OperationID + "/{piid}/decline-credential"
+	AcceptProblemReport = OperationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for issue credential.
@@ -83,6 +84,7 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
 		cmdutil.NewHTTPHandler(AcceptCredential, http.MethodPost, c.AcceptCredential),
 		cmdutil.NewHTTPHandler(DeclineCredential, http.MethodPost, c.DeclineCredential),
+		cmdutil.NewHTTPHandler(AcceptProblemReport, http.MethodPost, c.AcceptProblemReport),
 	}
 }
 
@@ -166,6 +168,19 @@ func (c *Operation) DeclineProposal(rw http.ResponseWriter, req *http.Request) {
 //        200: issueCredentialAcceptOfferResponse
 func (c *Operation) AcceptOffer(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.AcceptOffer, rw, bytes.NewBufferString(fmt.Sprintf(`{
+		"piid":%q
+	}`, mux.Vars(req)["piid"])))
+}
+
+// AcceptProblemReport swagger:route POST /issuecredential/{piid}/accept-problem-report issue-credential issueCredentialAcceptProblemReport
+//
+// Accepts a problem report.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialAcceptProblemReportResponse
+func (c *Operation) AcceptProblemReport(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.AcceptProblemReport, rw, bytes.NewBufferString(fmt.Sprintf(`{
 		"piid":%q
 	}`, mux.Vars(req)["piid"])))
 }
