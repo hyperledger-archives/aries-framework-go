@@ -17,7 +17,7 @@ type AriesController interface {
 
 	// GetIssueCredentialController returns an implementation of IssueCredentialController
 	GetIssueCredentialController() (IssueCredentialController, error)
-	
+
 	// GetDIDExchangeController returns an implementation of DIDExchangeController
 	GetDIDExchangeController() (DIDExchangeController, error)
 }
