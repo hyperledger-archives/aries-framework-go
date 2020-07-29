@@ -44,7 +44,7 @@ linters-settings:
   maligned:
     suggest-new: true
   dupl:
-    threshold: 100
+    threshold: 500
   goconst:
     min-len: 3
     min-occurrences: 3
