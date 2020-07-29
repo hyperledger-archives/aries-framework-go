@@ -236,3 +236,18 @@ type SendRequestResponse struct {
 type ActionsResponse struct {
 	Actions []issuecredential.Action `json:"actions"`
 }
+
+// AcceptProblemReportArgs model
+//
+// This is used for accepting a problem report
+//
+type AcceptProblemReportArgs struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+}
+
+// AcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+type AcceptProblemReportResponse struct{}

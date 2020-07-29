@@ -456,6 +456,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "AcceptOffer", req, "timeout while accepting an offer")
             },
             /**
+             * Accepts a problem report.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProblemReport: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProblemReport", req, "timeout while accepting a problem report")
+            },
+            /**
              * Declines an offer.
              *
              * @param req - json document
@@ -542,6 +551,15 @@ const Aries = function (opts) {
              */
             sendProposePresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "SendProposePresentation", req, "timeout while sending a propose presentation")
+            },
+            /**
+             * Accepts a problem report.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProblemReport: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProblemReport", req, "timeout while accepting a problem report")
             },
             /**
              * Accepts a request presentation.

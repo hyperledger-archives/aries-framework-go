@@ -178,6 +178,11 @@ func (c *Client) DeclineCredential(piID, reason string) error {
 	return c.service.ActionStop(piID, errors.New(reason))
 }
 
+// AcceptProblemReport accepts problem report action.
+func (c *Client) AcceptProblemReport(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
 // WithProposeCredential allows providing ProposeCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {

@@ -293,3 +293,26 @@ type presentProofDeclinePresentationResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct{}
 }
+
+// presentProofAcceptProblemReportRequest model
+//
+// This is used for operation to accept a problem report.
+//
+// swagger:parameters presentProofAcceptProblemReport
+type presentProofAcceptProblemReportRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+}
+
+// presentProofAcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+// swagger:response presentProofAcceptProblemReportResponse
+type presentProofAcceptProblemReportResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

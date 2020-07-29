@@ -469,7 +469,8 @@ func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == ProposeCredentialMsgType ||
 		msg.Type() == OfferCredentialMsgType ||
 		msg.Type() == IssueCredentialMsgType ||
-		msg.Type() == RequestCredentialMsgType
+		msg.Type() == RequestCredentialMsgType ||
+		msg.Type() == ProblemReportMsgType
 }
 
 func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {

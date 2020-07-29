@@ -48,18 +48,21 @@ Feature: Issue credential protocol
     Given   "Alice" exchange DIDs with "Bank"
     Then "Alice" requests credential from "Bank"
     And "Bank" declines a request
+    Then "Alice" receives problem report message (Issue Credential)
     Then "Alice" waits for state "abandoning"
   @decline_proposal
   Scenario: The Holder begins with a proposal and the Issuer declines it
     Given   "Bob" exchange DIDs with "Authority"
     Then "Bob" sends proposal credential to the "Authority"
     And "Authority" declines a proposal
+    Then "Bob" receives problem report message (Issue Credential)
     Then "Bob" waits for state "abandoning"
   @decline_offer
   Scenario: The Issuer begins with an offer and the Holder declines it
     Given   "Carol" exchange DIDs with "School"
     Then "School" sends an offer to the "Carol"
     And "Carol" declines an offer
+    Then "School" receives problem report message (Issue Credential)
     Then "School" waits for state "abandoning"
   @decline_credential
   Scenario: The Holder begins with a request and the Holder declines the credential
@@ -67,4 +70,5 @@ Feature: Issue credential protocol
     Then "Tom" requests credential from "eSchool"
     And "eSchool" accepts request and sends credential to the Holder
     And "Tom" declines the credential
+    Then "eSchool" receives problem report message (Issue Credential)
     Then "eSchool" waits for state "abandoning"

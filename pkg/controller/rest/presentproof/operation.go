@@ -36,6 +36,7 @@ const (
 	declineProposePresentation   = operationID + "/{piid}/decline-propose-presentation"
 	acceptPresentation           = operationID + "/{piid}/accept-presentation"
 	declinePresentation          = operationID + "/{piid}/decline-presentation"
+	acceptProblemReport          = operationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for present proof.
@@ -76,6 +77,7 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(declineProposePresentation, http.MethodPost, c.DeclineProposePresentation),
 		cmdutil.NewHTTPHandler(acceptPresentation, http.MethodPost, c.AcceptPresentation),
 		cmdutil.NewHTTPHandler(declinePresentation, http.MethodPost, c.DeclinePresentation),
+		cmdutil.NewHTTPHandler(acceptProblemReport, http.MethodPost, c.AcceptProblemReport),
 	}
 }
 
@@ -110,6 +112,19 @@ func (c *Operation) SendRequestPresentation(rw http.ResponseWriter, req *http.Re
 //        200: presentProofSendProposePresentationResponse
 func (c *Operation) SendProposePresentation(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.SendProposePresentation, rw, req.Body)
+}
+
+// AcceptProblemReport swagger:route POST /presentproof/{piid}/accept-problem-report present-proof presentProofAcceptProblemReport
+//
+// Accepts a problem report.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofAcceptProblemReportResponse
+func (c *Operation) AcceptProblemReport(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.AcceptProblemReport, rw, bytes.NewBufferString(fmt.Sprintf(`{
+		"piid":%q
+	}`, mux.Vars(req)["piid"])))
 }
 
 // AcceptRequestPresentation swagger:route POST /presentproof/{piid}/accept-request-presentation present-proof presentProofAcceptRequestPresentation

@@ -168,7 +168,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-// nolint: gocyclo
+// nolint: gocyclo,gocognit
 func TestService_HandleInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -729,6 +729,100 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Equal(t, properties.TheirDID(), Bob)
 
 		action.Continue(WithIssueCredential(&IssueCredential{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			defer close(done)
+
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: ProblemReportMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithIssueCredential(&IssueCredential{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			defer close(done)
+
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: ProblemReportMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
 
 		select {
 		case <-done:

@@ -143,6 +143,11 @@ func (c *Client) DeclinePresentation(piID, reason string) error {
 	return c.service.ActionStop(piID, errors.New(reason))
 }
 
+// AcceptProblemReport accepts problem report action.
+func (c *Client) AcceptProblemReport(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
 // WithPresentation allows providing Presentation message
 // Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {

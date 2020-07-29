@@ -705,6 +705,84 @@ func TestCommand_AcceptPresentation(t *testing.T) {
 	})
 }
 
+func TestCommand_AcceptProblemReport(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProblemReport(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty PIID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProblemReport(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPIID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("AcceptProblemReport (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProblemReport(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, AcceptProblemReportErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		require.NoError(t, cmd.AcceptProblemReport(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
 func TestCommand_DeclineRequestPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

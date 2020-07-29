@@ -277,6 +277,11 @@ const pkgs = {
             method: "POST",
             pathParam:"piid"
         },
+        AcceptProblemReport: {
+            path: "/issuecredential/{piid}/accept-problem-report",
+            method: "POST",
+            pathParam:"piid"
+        },
         DeclineOffer: {
             path: "/issuecredential/{piid}/decline-offer",
             method: "POST",
@@ -320,6 +325,11 @@ const pkgs = {
         SendProposePresentation: {
             path: "/presentproof/send-propose-presentation",
             method: "POST",
+        },
+        AcceptProblemReport: {
+            path: "/presentproof/{piid}/accept-problem-report",
+            method: "POST",
+            pathParam:"piid"
         },
         AcceptRequestPresentation: {
             path: "/presentproof/{piid}/accept-request-presentation",

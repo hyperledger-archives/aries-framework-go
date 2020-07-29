@@ -36,6 +36,8 @@ const (
 	AcceptRequestErrorCode
 	// AcceptCredentialErrorCode is for failures in accept credential command.
 	AcceptCredentialErrorCode
+	// AcceptProblemReportErrorCode is for failures in accept problem report command.
+	AcceptProblemReportErrorCode
 	// NegotiateProposalErrorCode is for failures in negotiate proposal command.
 	NegotiateProposalErrorCode
 	// DeclineProposalErrorCode is for failures in decline proposal command.
@@ -61,19 +63,20 @@ const (
 	// command name
 	CommandName = "issuecredential"
 
-	Actions           = "Actions"
-	SendOffer         = "SendOffer"
-	SendProposal      = "SendProposal"
-	SendRequest       = "SendRequest"
-	AcceptProposal    = "AcceptProposal"
-	DeclineProposal   = "DeclineProposal"
-	AcceptOffer       = "AcceptOffer"
-	DeclineOffer      = "DeclineOffer"
-	NegotiateProposal = "NegotiateProposal"
-	AcceptRequest     = "AcceptRequest"
-	DeclineRequest    = "DeclineRequest"
-	AcceptCredential  = "AcceptCredential"
-	DeclineCredential = "DeclineCredential"
+	Actions             = "Actions"
+	SendOffer           = "SendOffer"
+	SendProposal        = "SendProposal"
+	SendRequest         = "SendRequest"
+	AcceptProposal      = "AcceptProposal"
+	DeclineProposal     = "DeclineProposal"
+	AcceptOffer         = "AcceptOffer"
+	DeclineOffer        = "DeclineOffer"
+	NegotiateProposal   = "NegotiateProposal"
+	AcceptRequest       = "AcceptRequest"
+	DeclineRequest      = "DeclineRequest"
+	AcceptCredential    = "AcceptCredential"
+	DeclineCredential   = "DeclineCredential"
+	AcceptProblemReport = "AcceptProblemReport"
 )
 
 const (
@@ -135,6 +138,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, AcceptProposal, c.AcceptProposal),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposal, c.DeclineProposal),
 		cmdutil.NewCommandHandler(CommandName, AcceptOffer, c.AcceptOffer),
+		cmdutil.NewCommandHandler(CommandName, AcceptProblemReport, c.AcceptProblemReport),
 		cmdutil.NewCommandHandler(CommandName, DeclineOffer, c.DeclineOffer),
 		cmdutil.NewCommandHandler(CommandName, NegotiateProposal, c.NegotiateProposal),
 		cmdutil.NewCommandHandler(CommandName, AcceptRequest, c.AcceptRequest),
@@ -367,6 +371,7 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptOffer is used when the Holder is willing to accept the offer.
+// nolint: dupl
 func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptOfferArgs
 
@@ -388,6 +393,33 @@ func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &AcceptOfferResponse{}, logger)
 
 	logutil.LogDebug(logger, CommandName, AcceptOffer, successString)
+
+	return nil
+}
+
+// AcceptProblemReport is used for accepting problem report.
+// nolint: dupl
+func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProblemReportArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptProblemReport, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptProblemReport, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if err := c.client.AcceptProblemReport(args.PIID); err != nil {
+		logutil.LogError(logger, CommandName, AcceptProblemReport, err.Error())
+		return command.NewExecuteError(AcceptProblemReportErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProblemReportResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptProblemReport, successString)
 
 	return nil
 }

@@ -459,7 +459,8 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == PresentationMsgType ||
 		msg.Type() == ProposePresentationMsgType ||
-		msg.Type() == RequestPresentationMsgType
+		msg.Type() == RequestPresentationMsgType ||
+		msg.Type() == ProblemReportMsgType
 }
 
 func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {
