@@ -25,7 +25,7 @@ type VerifiableController interface {
 	// GetCredential retrieves the verifiable credential from the store.
 	GetCredential(request *models.RequestEnvelope) *models.ResponseEnvelope
 
-	// SignCredential adds proof to given verifiable credential
+	// SignCredential adds proof to given verifiable credential.
 	SignCredential(request *models.RequestEnvelope) *models.ResponseEnvelope
 
 	// GetPresentation retrieves the verifiable presentation from the store.
@@ -45,4 +45,10 @@ type VerifiableController interface {
 
 	// GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
 	GeneratePresentationByID(request *models.RequestEnvelope) *models.ResponseEnvelope
+
+	// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store.
+	RemoveCredentialByName(request *models.RequestEnvelope) *models.ResponseEnvelope
+
+	// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store.
+	RemovePresentationByName(request *models.RequestEnvelope) *models.ResponseEnvelope
 }

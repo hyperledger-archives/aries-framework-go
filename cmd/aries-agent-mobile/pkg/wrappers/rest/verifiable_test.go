@@ -328,3 +328,45 @@ func TestVerifiable_GeneratePresentationByID(t *testing.T) {
 		require.Equal(t, mockResponse, string(resp.Payload))
 	})
 }
+
+func TestVerifiable_RemoveCredentialByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		v := getVerifiableController(t)
+
+		mockResponse := ``
+		reqData := fmt.Sprintf(`{"name":"%s"}`, mockCredentialName)
+
+		mockURL, err := parseURL(mockAgentURL, opverifiable.RemoveCredentialByNamePath, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		v.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
+		req := &models.RequestEnvelope{Payload: []byte(reqData)}
+		resp := v.RemoveCredentialByName(req)
+
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t, mockResponse, string(resp.Payload))
+	})
+}
+
+func TestVerifiable_RemovePresentationByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		v := getVerifiableController(t)
+
+		mockResponse := ``
+		reqData := fmt.Sprintf(`{"name":"%s"}`, mockCredentialName)
+
+		mockURL, err := parseURL(mockAgentURL, opverifiable.RemovePresentationByNamePath, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		v.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
+
+		req := &models.RequestEnvelope{Payload: []byte(reqData)}
+		resp := v.RemovePresentationByName(req)
+
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t, mockResponse, string(resp.Payload))
+	})
+}

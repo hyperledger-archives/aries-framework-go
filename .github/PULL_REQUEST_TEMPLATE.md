@@ -7,7 +7,7 @@ Use the following template for your PR (make sure you follow our
 **Description:**
 [Link to the GitHub issue it solves (if any)]
 
-Summary:
+**Summary:**
 
 [Include a brief summary of your changes]
 

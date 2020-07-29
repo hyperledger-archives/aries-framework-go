@@ -124,12 +124,12 @@ type removeCredentialByNameReq struct { // nolint: unused,deadcode
 	Name string `json:"name"`
 }
 
-// removePersentationByNameReq model
+// removePresentationByNameReq model
 //
-// This is used to remove the verifiable persentation by name.
+// This is used to remove the verifiable presentation by name.
 //
-// swagger:parameters removePersentationByNameReq
-type removePersentationByNameReq struct { // nolint: unused,deadcode
+// swagger:parameters removePresentationByNameReq
+type removePresentationByNameReq struct { // nolint: unused,deadcode
 	// VC Name
 	//
 	// in: path

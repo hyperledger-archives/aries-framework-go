@@ -337,3 +337,43 @@ func TestVerifiable_GeneratePresentationByID(t *testing.T) {
 			string(resp.Payload))
 	})
 }
+
+func TestVerifiable_RemoveCredentialByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		v := getVerifiableController(t)
+
+		mockResponse := ``
+		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
+		v.handlers[cmdverifiable.RemoveCredentialByNameCommandMethod] = fakeHandler.exec
+
+		payload := fmt.Sprintf(`{"name":"%s"}`, mockCredentialName)
+
+		req := &models.RequestEnvelope{Payload: []byte(payload)}
+		resp := v.RemoveCredentialByName(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t,
+			mockResponse,
+			string(resp.Payload))
+	})
+}
+
+func TestVerifiable_RemovePresentationByName(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		v := getVerifiableController(t)
+
+		mockResponse := ``
+		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
+		v.handlers[cmdverifiable.RemovePresentationByNameCommandMethod] = fakeHandler.exec
+
+		payload := fmt.Sprintf(`{"name":"%s"}`, mockPresentationName)
+
+		req := &models.RequestEnvelope{Payload: []byte(payload)}
+		resp := v.RemovePresentationByName(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t,
+			mockResponse,
+			string(resp.Payload))
+	})
+}

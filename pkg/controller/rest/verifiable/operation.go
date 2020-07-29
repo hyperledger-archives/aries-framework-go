@@ -260,7 +260,7 @@ func (o *Operation) RemoveCredentialByName(rw http.ResponseWriter, req *http.Req
 	rest.Execute(o.command.RemoveCredentialByName, rw, bytes.NewBufferString(request))
 }
 
-// RemovePresentationByName swagger:route POST /verifiable/presentation/remove/name/{name} verifiable removePersentationByNameReq
+// RemovePresentationByName swagger:route POST /verifiable/presentation/remove/name/{name} verifiable removePresentationByNameReq
 //
 // Removes a verifiable presentation by name.
 //

@@ -182,3 +182,35 @@ func (v *Verifiable) GeneratePresentationByID(request *models.RequestEnvelope) *
 
 	return &models.ResponseEnvelope{Payload: response}
 }
+
+// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store.
+func (v *Verifiable) RemoveCredentialByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdverifiable.NameArg{}
+
+	if err := json.Unmarshal(request.Payload, &args); err != nil {
+		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
+	}
+
+	response, cmdErr := exec(v.handlers[cmdverifiable.RemoveCredentialByNameCommandMethod], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
+// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store.
+func (v *Verifiable) RemovePresentationByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdverifiable.NameArg{}
+
+	if err := json.Unmarshal(request.Payload, &args); err != nil {
+		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
+	}
+
+	response, cmdErr := exec(v.handlers[cmdverifiable.RemovePresentationByNameCommandMethod], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}

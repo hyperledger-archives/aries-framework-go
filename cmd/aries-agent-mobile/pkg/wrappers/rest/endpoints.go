@@ -128,6 +128,14 @@ func getVerifiableEndpoints() map[string]*endpoint {
 			Path:   opverifiable.GeneratePresentationByIDPath,
 			Method: http.MethodPost,
 		},
+		cmdverifiable.RemoveCredentialByNameCommandMethod: {
+			Path:   opverifiable.RemoveCredentialByNamePath,
+			Method: http.MethodPost,
+		},
+		cmdverifiable.RemovePresentationByNameCommandMethod: {
+			Path:   opverifiable.RemovePresentationByNamePath,
+			Method: http.MethodPost,
+		},
 	}
 }
 

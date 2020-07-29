@@ -75,6 +75,16 @@ func (vr *Verifiable) GeneratePresentationByID(request *models.RequestEnvelope) 
 	return vr.createRespEnvelope(request, cmdverifiable.GeneratePresentationByIDCommandMethod)
 }
 
+// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store.
+func (vr *Verifiable) RemoveCredentialByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return vr.createRespEnvelope(request, cmdverifiable.RemoveCredentialByNameCommandMethod)
+}
+
+// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store.
+func (vr *Verifiable) RemovePresentationByName(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return vr.createRespEnvelope(request, cmdverifiable.RemovePresentationByNameCommandMethod)
+}
+
 func (vr *Verifiable) createRespEnvelope(request *models.RequestEnvelope, endpoint string) *models.ResponseEnvelope {
 	return exec(&restOperation{
 		url:        vr.URL,
