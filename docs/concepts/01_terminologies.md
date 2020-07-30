@@ -22,7 +22,9 @@ _Reference: https://www.w3.org/TR/did-core/#dfn-did-documents_
 
 ### Holder
 
-This is the entity to whom an [issuer](#issuer) issues a credential. Although the holder can request or propose that a credential be issued to them, they may not always be the subjects of a credential.
+Also known as a prover, a holder is the entity to whom an [issuer](#issuer) issues a credential. Although the holder can request or propose that a credential be issued to them, they may not always be the subjects of a credential. 
+
+In the [PresentProof](./00_what_is_hl_aries.md#8-presentproof-protocol) flow, the prover prepares the proof and presents it to the [verifier](#verifier).
 
 ### Issuer
 The entity that issues a [credential](#verifiable-credential) to a holder.
@@ -41,3 +43,8 @@ A verifiable presentation expresses data from one or more verifiable credentials
 
 _Reference: https://www.w3.org/TR/vc-data-model/#presentations_
 
+### Verifier
+
+This is the entity who makes a request for a [credential](#verifiable-credential) or proof from a [holder](#holder) and verifies it.
+
+_Reference: https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2#roles_
