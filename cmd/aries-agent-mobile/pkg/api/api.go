@@ -17,4 +17,7 @@ type AriesController interface {
 
 	// GetIssueCredentialController returns an implementation of IssueCredentialController
 	GetIssueCredentialController() (IssueCredentialController, error)
+
+	// GetPresentProofController returns an implementation of PresentProofController
+	GetPresentProofController() (PresentProofController, error)
 }
