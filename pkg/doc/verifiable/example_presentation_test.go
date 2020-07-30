@@ -9,8 +9,12 @@ package verifiable_test
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -488,7 +492,7 @@ func ExamplePresentation_MarshalledCredentials() {
 
 	// Decode VP from JWS.
 	// Note that VC-s inside will be decoded as well. If they are JWS, their signature is verified
-	// and thus we need to make sure the public key fetcher can access the
+	// and thus we need to make sure the public key fetcher can retrieve the public key.
 	vp, err = verifiable.ParsePresentation(
 		[]byte(vpJWS),
 		verifiable.WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -560,6 +564,180 @@ func ExamplePresentation_MarshalledCredentials() {
 	//	"type": [
 	//		"VerifiableCredential",
 	//		"UniversityDegreeCredential"
+	//	]
+	//}
+}
+
+//nolint:lll,gocyclo
+func ExamplePresentation_AddLinkedDataProof() {
+	// 1. ISSUER issues a VC.
+	vcToIssue := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialSubject": {
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "expirationDate": "2020-01-01T19:23:24Z",
+  "id": "http://example.edu/credentials/1872",
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}
+`
+
+	issuedVC, err := verifiable.ParseUnverifiedCredential([]byte(vcToIssue),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	issuerSigner := signature.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+
+	err = issuedVC.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(issuerSigner)),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:123456#key1",
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(fmt.Errorf("failed to add linked data proof: %w", err))
+	}
+
+	issuedVCBytes, err := issuedVC.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+	}
+
+	// 2. ISSUER creates a VP with the VC enclosed.
+	vcFromHolderWallet, err := verifiable.ParseUnverifiedCredential(issuedVCBytes)
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	vpToVerify, err := vcFromHolderWallet.Presentation()
+	if err != nil {
+		panic(fmt.Errorf("failed to build VP from VC: %w", err))
+	}
+
+	vpToVerify.Holder = "did:example:ebfeb1f712ebc6f1c276e12ec22"
+	vpToVerify.ID = "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c6"
+
+	holderVerifier := signature.GetEd25519Signer(holderPrivKey, holderPubKey)
+
+	err = vpToVerify.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(holderVerifier)),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:987654#key1",
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(fmt.Errorf("failed to add linked data proof: %w", err))
+	}
+
+	vpJSONWithProof, err := vpToVerify.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VP to JSON: %w", err))
+	}
+
+	// 3. VERIFIER verifies the presentation.
+	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+	vp, err := verifiable.ParsePresentation(vpJSONWithProof,
+		verifiable.WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			// both VP and enclosed VC signatures are verified, so we need to provide key resolving for all
+			switch issuerID {
+			case "did:example:123456": // issuer
+				return &verifier.PublicKey{
+					Type:  "Ed25519Signature2018",
+					Value: issuerPubKey,
+				}, nil
+
+			case "did:example:987654":
+				return &verifier.PublicKey{
+					Type:  "Ed25519Signature2018",
+					Value: holderPubKey,
+				}, nil
+			}
+
+			return nil, errors.New("unsupported issuer")
+		}),
+		verifiable.WithPresEmbeddedSignatureSuites(ed25519Suite))
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VP JWS: %w", err))
+	}
+
+	vpJSON, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+	}
+
+	fmt.Println(string(vpJSON))
+
+	// Output: {
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1"
+	//	],
+	//	"holder": "did:example:ebfeb1f712ebc6f1c276e12ec22",
+	//	"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c6",
+	//	"proof": {
+	//		"created": "2010-01-01T19:23:24Z",
+	//		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..8stDRasAcYjkQiqiczyFJdkff8VJIF3Lbaq5BNTaC-PcvJHGo2Xja8GTsHByTOx7QNCwC3bNiboPgfXtmm8aBA",
+	//		"proofPurpose": "assertionMethod",
+	//		"type": "Ed25519Signature2018",
+	//		"verificationMethod": "did:example:987654#key1"
+	//	},
+	//	"type": "VerifiablePresentation",
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1",
+	//				"https://www.w3.org/2018/credentials/examples/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"degree": {
+	//					"type": "BachelorDegree",
+	//					"university": "MIT"
+	//				},
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	//				"name": "Jayden Doe",
+	//				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	//			},
+	//			"expirationDate": "2020-01-01T19:23:24Z",
+	//			"id": "http://example.edu/credentials/1872",
+	//			"issuanceDate": "2010-01-01T19:23:24Z",
+	//			"issuer": {
+	//				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//				"name": "Example University"
+	//			},
+	//			"proof": {
+	//				"created": "2010-01-01T19:23:24Z",
+	//				"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..mQCxgQDvAYI-2YYCkHHe-at9eNI_wN03R6CRyjycb3CnfPWezbo6zEGe94W2AdYsBhC_Zzedcn_ZKgccMYFnCQ",
+	//				"proofPurpose": "assertionMethod",
+	//				"type": "Ed25519Signature2018",
+	//				"verificationMethod": "did:example:123456#key1"
+	//			},
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"UniversityDegreeCredential"
+	//			]
+	//		}
 	//	]
 	//}
 }

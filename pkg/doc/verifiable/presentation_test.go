@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
@@ -46,31 +49,7 @@ const validPresentation = `
       }
     }
   ],
-  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-  "proof": {
-    "type": "Ed25519Signature2018",
-    "created": "2020-01-21T16:44:53+02:00",
-    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
-  }
-}
-`
-
-// nolint:lll
-const validEmptyPresentation = `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1",
-    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-  ],
-  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-  "type": "VerifiablePresentation",
-  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-  "proof": {
-    "type": "Ed25519Signature2018",
-    "created": "2020-01-21T16:44:53+02:00",
-    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
-  }
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 }
 `
 
@@ -117,12 +96,7 @@ const validPresentationWithCustomFields = `
       }
     }
   ],
-  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-  "proof": {
-    "type": "Ed25519Signature2018",
-    "created": "2020-01-21T16:44:53+02:00",
-    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
-  }
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 }
 `
 
@@ -150,9 +124,6 @@ func TestParsePresentation(t *testing.T) {
 
 		// check holder
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
-
-		// check proof
-		require.NotNil(t, vp.Proofs)
 	})
 
 	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
@@ -180,18 +151,6 @@ func TestParsePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		verify(t, vp)
-	})
-
-	t.Run("creates a new Verifiable Presentation from JSON with invalid empty VC structure", func(t *testing.T) {
-		vp, err := newTestPresentation([]byte(validEmptyPresentation), WithPresStrictValidation(), WithPresRequireVC())
-		require.Error(t, err)
-		require.Nil(t, vp)
-	})
-
-	t.Run("creates a new Verifiable Presentation from JSON with valid empty VC structure", func(t *testing.T) {
-		vp, err := newTestPresentation([]byte(validEmptyPresentation), WithPresStrictValidation())
-		require.NoError(t, err)
-		require.NotNil(t, vp)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
@@ -230,13 +189,31 @@ func TestParsePresentation(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
+		signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		ss := ed25519signature2018.New(suite.WithSigner(signer),
+			suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+		ldpContext := &LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: SignatureJWS,
+			Suite:                   ss,
+			VerificationMethod:      "did:example:123456#key1",
+		}
+
+		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+		require.NoError(t, err)
+
 		proof := vp.Proofs[0]
 		proof["foo2"] = "bar2"
 
 		vpBytes, err := json.Marshal(vp)
 		require.NoError(t, err)
 
-		vp, err = newTestPresentation(vpBytes, WithPresStrictValidation())
+		vp, err = newTestPresentation(vpBytes,
+			WithPresStrictValidation(),
+			WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
@@ -403,20 +380,6 @@ func TestValidateVP_Holder(t *testing.T) {
 	})
 }
 
-func TestValidateVP_Proof(t *testing.T) {
-	t.Run("rejects verifiable presentation with missed embedded proof", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Proof = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		vp, err := newTestPresentation(bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "embedded proof is missing")
-		require.Nil(t, vp)
-	})
-}
-
 func TestPresentation_MarshalJSON(t *testing.T) {
 	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
@@ -548,14 +511,14 @@ func TestWithPresPublicKeyFetcher(t *testing.T) {
 }
 
 func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
-	suite := ed25519signature2018.New()
+	ss := ed25519signature2018.New()
 
-	vpOpt := WithPresEmbeddedSignatureSuites(suite)
+	vpOpt := WithPresEmbeddedSignatureSuites(ss)
 	require.NotNil(t, vpOpt)
 
 	opts := &presentationOpts{}
 	vpOpt(opts)
-	require.Equal(t, []verifier.SignatureSuite{suite}, opts.ldpSuites)
+	require.Equal(t, []verifier.SignatureSuite{ss}, opts.ldpSuites)
 }
 
 func TestWithPresJSONLDDocumentLoader(t *testing.T) {

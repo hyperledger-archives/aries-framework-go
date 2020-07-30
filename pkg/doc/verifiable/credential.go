@@ -1056,11 +1056,20 @@ func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
 			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}
 
-		return checkEmbeddedProof(vcDecodedBytes, vcOpts)
+		return checkEmbeddedProof(vcDecodedBytes, getEmbeddedProofCheckOpts(vcOpts))
 	}
 
 	// Embedded proof.
-	return checkEmbeddedProof(vcData, vcOpts)
+	return checkEmbeddedProof(vcData, getEmbeddedProofCheckOpts(vcOpts))
+}
+
+func getEmbeddedProofCheckOpts(vcOpts *credentialOpts) *embeddedProofCheckOpts {
+	return &embeddedProofCheckOpts{
+		publicKeyFetcher:     vcOpts.publicKeyFetcher,
+		disabledProofCheck:   vcOpts.disabledProofCheck,
+		ldpSuites:            vcOpts.ldpSuites,
+		jsonldCredentialOpts: vcOpts.jsonldCredentialOpts,
+	}
 }
 
 func getCredentialOpts(opts []CredentialOpt) *credentialOpts {

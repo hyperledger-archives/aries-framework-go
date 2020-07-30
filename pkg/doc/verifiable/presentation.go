@@ -342,6 +342,7 @@ type presentationOpts struct {
 	ldpSuites          []verifier.SignatureSuite
 	strictValidation   bool
 	requireVC          bool
+	requireProof       bool
 
 	jsonldCredentialOpts
 }
@@ -364,8 +365,8 @@ func WithPresEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) Presenta
 	}
 }
 
-// WithDisabledPresentationProofCheck option for disabling of proof check.
-func WithDisabledPresentationProofCheck() PresentationOpt {
+// WithPresDisabledProofCheck option for disabling of proof check.
+func WithPresDisabledProofCheck() PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.disabledProofCheck = true
 	}
@@ -377,13 +378,6 @@ func WithDisabledPresentationProofCheck() PresentationOpt {
 func WithPresStrictValidation() PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.strictValidation = true
-	}
-}
-
-// WithPresRequireVC option enables check for at least one verifiableCredential in the VP.
-func WithPresRequireVC() PresentationOpt {
-	return func(opts *presentationOpts) {
-		opts.requireVC = true
 	}
 }
 
@@ -582,6 +576,7 @@ func validateVPJSONSchema(data []byte) error {
 	return nil
 }
 
+//nolint:gocyclo
 func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
 	vpStr := string(vpData)
 
@@ -598,13 +593,24 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return vcDataFromJwt, rawCred, nil
 	}
 
+	embeddedProofCheckOpts := &embeddedProofCheckOpts{
+		publicKeyFetcher:     vpOpts.publicKeyFetcher,
+		disabledProofCheck:   vpOpts.disabledProofCheck,
+		ldpSuites:            vpOpts.ldpSuites,
+		jsonldCredentialOpts: vpOpts.jsonldCredentialOpts,
+	}
+
 	if jwt.IsJWTUnsecured(vpStr) {
-		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpStr)
+		rawBytes, rawPres, err := decodeVPFromUnsecuredJWT(vpStr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
 
-		return rawBytes, rawCred, nil
+		if _, err := checkEmbeddedProof(rawBytes, embeddedProofCheckOpts); err != nil {
+			return nil, nil, err
+		}
+
+		return rawBytes, rawPres, nil
 	}
 
 	vpBytes, vpRaw, err := decodeVPFromJSON(vpData)
@@ -612,8 +618,13 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return nil, nil, err
 	}
 
+	_, err = checkEmbeddedProof(vpBytes, embeddedProofCheckOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// check that embedded proof is present, if not, it's not a verifiable presentation
-	if !vpOpts.disabledProofCheck && vpRaw.Proof == nil {
+	if vpOpts.requireProof && vpRaw.Proof == nil {
 		return nil, nil, errors.New("embedded proof is missing")
 	}
 

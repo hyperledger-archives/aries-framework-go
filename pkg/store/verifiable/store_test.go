@@ -510,7 +510,7 @@ func TestGetVP(t *testing.T) {
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
-			verifiable.WithDisabledPresentationProofCheck())
+			verifiable.WithPresDisabledProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 
@@ -531,7 +531,8 @@ func TestGetVP(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
-		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation))
+		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation),
+			verifiable.WithPresDisabledProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 
@@ -657,7 +658,8 @@ func TestGetPresentations(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation))
+		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation),
+			verifiable.WithPresDisabledProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 
@@ -760,7 +762,7 @@ func TestRemoveVP(t *testing.T) {
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
-			verifiable.WithDisabledPresentationProofCheck())
+			verifiable.WithPresDisabledProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 
@@ -794,7 +796,7 @@ func TestRemoveVP(t *testing.T) {
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
-			verifiable.WithDisabledPresentationProofCheck())
+			verifiable.WithPresDisabledProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 

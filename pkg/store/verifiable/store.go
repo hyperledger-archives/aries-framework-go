@@ -179,7 +179,7 @@ func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentati
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+	vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		return nil, fmt.Errorf("new presentation failed: %w", err)
 	}

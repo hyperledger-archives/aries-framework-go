@@ -41,8 +41,17 @@ func getProofType(proofMap map[string]interface{}) (string, error) {
 	}
 }
 
-func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error) {
-	if vcOpts.disabledProofCheck {
+type embeddedProofCheckOpts struct {
+	publicKeyFetcher   PublicKeyFetcher
+	disabledProofCheck bool
+
+	ldpSuites []verifier.SignatureSuite
+
+	jsonldCredentialOpts
+}
+
+func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, error) {
+	if opts.disabledProofCheck {
 		return docBytes, nil
 	}
 
@@ -63,24 +72,24 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}
 
-	ldpSuites, err := getSuites(proofs, vcOpts)
+	ldpSuites, err := getSuites(proofs, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if vcOpts.publicKeyFetcher == nil {
+	if opts.publicKeyFetcher == nil {
 		return nil, errors.New("public key fetcher is not defined")
 	}
 
 	checkedDoc := docBytes
 
-	if len(vcOpts.externalContext) > 0 {
+	if len(opts.externalContext) > 0 {
 		// Use external contexts for check of the linked data proofs to enrich JSON-LD context vocabulary.
-		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], vcOpts.externalContext...)
+		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], opts.externalContext...)
 		checkedDoc, _ = json.Marshal(jsonldDoc) //nolint:errcheck
 	}
 
-	err = checkLinkedDataProof(checkedDoc, ldpSuites, vcOpts.publicKeyFetcher, &vcOpts.jsonldCredentialOpts)
+	err = checkLinkedDataProof(checkedDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
 	if err != nil {
 		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}
@@ -88,8 +97,8 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 	return docBytes, nil
 }
 
-func getSuites(proofs []map[string]interface{}, vcOpts *credentialOpts) ([]verifier.SignatureSuite, error) {
-	ldpSuites := vcOpts.ldpSuites
+func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([]verifier.SignatureSuite, error) {
+	ldpSuites := opts.ldpSuites
 
 	for i := range proofs {
 		t, err := getProofType(proofs[i])
@@ -97,7 +106,7 @@ func getSuites(proofs []map[string]interface{}, vcOpts *credentialOpts) ([]verif
 			return nil, fmt.Errorf("check embedded proof: %w", err)
 		}
 
-		if len(vcOpts.ldpSuites) == 0 {
+		if len(opts.ldpSuites) == 0 {
 			switch t {
 			case ed25519Signature2018:
 				ldpSuites = append(ldpSuites, ed25519signature2018.New(
