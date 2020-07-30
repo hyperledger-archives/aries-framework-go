@@ -192,6 +192,27 @@ func TestIssueCredential_AcceptOffer(t *testing.T) {
 	})
 }
 
+func TestIssueCredential_AcceptProblemReport(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ic := getIssueCredentialController(t)
+
+		reqData := fmt.Sprintf(`{"piid": "%s"}`, mockPIID)
+		mockURL, err := parseURL(mockAgentURL, opisscred.AcceptProblemReport, reqData)
+		require.NoError(t, err, "failed to parse test url")
+
+		mockResponse := emptyResponse
+		ic.httpClient = &mockHTTPClient{data: mockResponse,
+			method: http.MethodPost, url: mockURL}
+
+		req := &models.RequestEnvelope{Payload: []byte(reqData)}
+		resp := ic.AcceptProblemReport(req)
+
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t, mockResponse, string(resp.Payload))
+	})
+}
+
 func TestIssueCredential_DeclineOffer(t *testing.T) {
 	t.Run("test it makes a decline offer request", func(t *testing.T) {
 		ic := getIssueCredentialController(t)

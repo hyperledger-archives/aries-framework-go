@@ -60,6 +60,11 @@ func (ic *IssueCredential) AcceptOffer(request *models.RequestEnvelope) *models.
 	return ic.createRespEnvelope(request, cmdisscred.AcceptOffer)
 }
 
+// AcceptProblemReport is used for accepting problem report.
+func (ic *IssueCredential) AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return ic.createRespEnvelope(request, cmdisscred.AcceptProblemReport)
+}
+
 // DeclineOffer is used when the Holder does not want to accept the offer.
 func (ic *IssueCredential) DeclineOffer(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	return ic.createRespEnvelope(request, cmdisscred.DeclineOffer)

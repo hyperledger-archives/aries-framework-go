@@ -141,6 +141,22 @@ func (ic *IssueCredential) AcceptOffer(request *models.RequestEnvelope) *models.
 	return &models.ResponseEnvelope{Payload: response}
 }
 
+// AcceptProblemReport is used for accepting problem report.
+func (ic *IssueCredential) AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdisscred.AcceptProblemReportArgs{}
+
+	if err := json.Unmarshal(request.Payload, &args); err != nil {
+		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
+	}
+
+	response, cmdErr := exec(ic.handlers[cmdisscred.AcceptProblemReport], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
 // DeclineOffer is used when the Holder does not want to accept the offer.
 func (ic *IssueCredential) DeclineOffer(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdisscred.DeclineOfferArgs{}

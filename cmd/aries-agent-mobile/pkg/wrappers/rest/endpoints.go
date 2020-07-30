@@ -214,6 +214,10 @@ func getIssueCredentialEndpoints() map[string]*endpoint {
 			Path:   opisscred.AcceptOffer,
 			Method: http.MethodPost,
 		},
+		cmdisscred.AcceptProblemReport: {
+			Path:   opisscred.AcceptProblemReport,
+			Method: http.MethodPost,
+		},
 		cmdisscred.DeclineOffer: {
 			Path:   opisscred.DeclineOffer,
 			Method: http.MethodPost,
