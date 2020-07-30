@@ -16,6 +16,7 @@ import (
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -77,4 +78,14 @@ func (ar *Aries) GetIssueCredentialController() (api.IssueCredentialController, 
 	}
 
 	return &IssueCredential{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetPresentProofController returns an PresentProof instance.
+func (ar *Aries) GetPresentProofController() (api.PresentProofController, error) {
+	endpoints, ok := ar.endpoints[oppresproof.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", oppresproof.OperationID)
+	}
+
+	return &PresentProof{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

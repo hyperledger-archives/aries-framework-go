@@ -12,11 +12,13 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -33,6 +35,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opverifiable.VerifiableOperationID] = getVerifiableEndpoints()
 	allEndpoints[opdidexch.OperationID] = getDIDExchangeEndpoints()
 	allEndpoints[opisscred.OperationID] = getIssueCredentialEndpoints()
+	allEndpoints[oppresproof.OperationID] = getPresentProofEndpoints()
 
 	return allEndpoints
 }
@@ -232,6 +235,55 @@ func getIssueCredentialEndpoints() map[string]*endpoint {
 		},
 		cmdisscred.DeclineCredential: {
 			Path:   opisscred.DeclineCredential,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getPresentProofEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdpresproof.Actions: {
+			Path:   oppresproof.Actions,
+			Method: http.MethodGet,
+		},
+		cmdpresproof.SendRequestPresentation: {
+			Path:   oppresproof.SendRequestPresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.SendProposePresentation: {
+			Path:   oppresproof.SendProposePresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.AcceptRequestPresentation: {
+			Path:   oppresproof.AcceptRequestPresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.NegotiateRequestPresentation: {
+			Path:   oppresproof.NegotiateRequestPresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.DeclineRequestPresentation: {
+			Path:   oppresproof.DeclineRequestPresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.AcceptProposePresentation: {
+			Path:   oppresproof.AcceptProposePresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.DeclineProposePresentation: {
+			Path:   oppresproof.DeclineProposePresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.AcceptPresentation: {
+			Path:   oppresproof.AcceptPresentation,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.AcceptProblemReport: {
+			Path:   oppresproof.AcceptProblemReport,
+			Method: http.MethodPost,
+		},
+		cmdpresproof.DeclinePresentation: {
+			Path:   oppresproof.DeclinePresentation,
 			Method: http.MethodPost,
 		},
 	}

@@ -18,6 +18,7 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -182,4 +183,14 @@ func (a *Aries) GetIssueCredentialController() (api.IssueCredentialController, e
 	}
 
 	return &IssueCredential{handlers: handlers}, nil
+}
+
+// GetPresentProofController returns an PresentProof instance.
+func (a *Aries) GetPresentProofController() (api.PresentProofController, error) {
+	handlers, ok := a.handlers[cmdpresproof.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdpresproof.CommandName)
+	}
+
+	return &PresentProof{handlers: handlers}, nil
 }
