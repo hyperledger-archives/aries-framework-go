@@ -182,3 +182,18 @@ type AcceptProposalArgs struct {
 // Represents a AcceptProposal response message
 //
 type AcceptProposalResponse struct{}
+
+// AcceptProblemReportArgs model
+//
+// This is used for accepting a problem report
+//
+type AcceptProblemReportArgs struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+}
+
+// AcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+type AcceptProblemReportResponse struct{}

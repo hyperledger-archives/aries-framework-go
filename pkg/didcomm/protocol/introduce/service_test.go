@@ -565,14 +565,16 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
 	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
@@ -731,7 +733,8 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
 	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
@@ -779,7 +782,8 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
@@ -843,7 +847,8 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	handle(t, Carol, done, carol, checkStateMsg(t, Carol,
 		"deciding", "deciding",
@@ -1169,7 +1174,8 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
@@ -1228,7 +1234,8 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 		"waiting", "waiting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
+		action{Expected: introduce.ProblemReportMsgType}))
 
 	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
@@ -1288,7 +1295,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 		"requesting", "requesting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), nil)
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProblemReportMsgType}))
 
 	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
@@ -1434,7 +1441,7 @@ func TestService_ProposalWithRequestNoRecipients(t *testing.T) {
 		"requesting", "requesting",
 		"abandoning", "abandoning",
 		"done", "done",
-	), nil)
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProblemReportMsgType}))
 
 	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,

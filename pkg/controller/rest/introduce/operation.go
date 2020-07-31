@@ -37,6 +37,7 @@ const (
 	AcceptRequestWithRecipients       = OperationID + "/{piid}/accept-request-with-recipients"
 	DeclineProposal                   = OperationID + "/{piid}/decline-proposal"
 	DeclineRequest                    = OperationID + "/{piid}/decline-request"
+	AcceptProblemReport               = OperationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for the introduce.
@@ -77,6 +78,7 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(AcceptRequestWithRecipients, http.MethodPost, c.AcceptRequestWithRecipients),
 		cmdutil.NewHTTPHandler(DeclineProposal, http.MethodPost, c.DeclineProposal),
 		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
+		cmdutil.NewHTTPHandler(AcceptProblemReport, http.MethodPost, c.AcceptProblemReport),
 	}
 }
 
@@ -201,6 +203,19 @@ func (c *Operation) DeclineRequest(rw http.ResponseWriter, req *http.Request) {
 		"piid":%q,
 		"reason":%q
 	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
+}
+
+// AcceptProblemReport swagger:route POST /introduce/{piid}/accept-problem-report introduce introduceAcceptProblemReport
+//
+// Accepts a problem report.
+//
+// Responses:
+//    default: genericError
+//        200: introduceAcceptProblemReportResponse
+func (c *Operation) AcceptProblemReport(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.AcceptProblemReport, rw, bytes.NewBufferString(fmt.Sprintf(`{
+		"piid":%q
+	}`, mux.Vars(req)["piid"])))
 }
 
 func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reader) {

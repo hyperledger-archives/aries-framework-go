@@ -280,3 +280,26 @@ type introduceAcceptProposalResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct{}
 }
+
+// introduceAcceptProblemReportRequest model
+//
+// This is used for operation to accept a problem report.
+//
+// swagger:parameters introduceAcceptProblemReport
+type introduceAcceptProblemReportRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+}
+
+// introduceAcceptProblemReportResponse model
+//
+// Represents a AcceptProblemReport response message
+//
+// swagger:response introduceAcceptProblemReportResponse
+type introduceAcceptProblemReportResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

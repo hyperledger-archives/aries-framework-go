@@ -48,6 +48,8 @@ const (
 	DeclineRequestErrorCode
 	// ActionsErrorCode failures in actions command.
 	ActionsErrorCode
+	// AcceptProblemReportErrorCode is for failures in accept problem report command.
+	AcceptProblemReportErrorCode
 )
 
 // constants for command introduce
@@ -66,6 +68,7 @@ const (
 	AcceptRequestWithRecipients       = "AcceptRequestWithRecipients"
 	DeclineProposal                   = "DeclineProposal"
 	DeclineRequest                    = "DeclineRequest"
+	AcceptProblemReport               = "AcceptProblemReport"
 	// error messages
 	errTwoRecipients          = "two recipients must be specified"
 	errEmptyRequest           = "empty request"
@@ -128,6 +131,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, AcceptRequestWithRecipients, c.AcceptRequestWithRecipients),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposal, c.DeclineProposal),
 		cmdutil.NewCommandHandler(CommandName, DeclineRequest, c.DeclineRequest),
+		cmdutil.NewCommandHandler(CommandName, AcceptProblemReport, c.AcceptProblemReport),
 	}
 }
 
@@ -427,6 +431,32 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &DeclineRequestResponse{}, logger)
 
 	logutil.LogDebug(logger, CommandName, DeclineRequest, successString)
+
+	return nil
+}
+
+// AcceptProblemReport is used for accepting problem report.
+func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProblemReportArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptProblemReport, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptProblemReport, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if err := c.client.AcceptProblemReport(args.PIID); err != nil {
+		logutil.LogError(logger, CommandName, AcceptProblemReport, err.Error())
+		return command.NewExecuteError(AcceptProblemReportErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProblemReportResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptProblemReport, successString)
 
 	return nil
 }

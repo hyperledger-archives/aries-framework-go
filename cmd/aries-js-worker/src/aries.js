@@ -219,6 +219,16 @@ const Aries = function (opts) {
             },
 
             /**
+             * Accepts a problem report.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProblemReport: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProblemReport", req, "timeout while accepting a problem report")
+            },
+
+            /**
              * SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
              *
              * @param req - json document

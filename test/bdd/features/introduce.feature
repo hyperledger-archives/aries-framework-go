@@ -108,6 +108,8 @@ Feature: Introduce protocol
     And   "Alice" sends introduce proposal to the "Bob" and "Carol"
     And   "Bob" wants to know "Carol" and sends introduce response with approve
     And   "Carol" wants to know "Bob" and sends introduce response with approve
+    Then "Bob" receives problem report message (Introduce)
+    Then "Carol" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,arranging,arranging,delivering,delivering,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done" and stop
@@ -119,6 +121,8 @@ Feature: Introduce protocol
     Then   "Alice" sends introduce proposal back to the "Bob" and requested introduce
     And   "Bob" wants to know "Carol" and sends introduce response with approve
     And   "Carol" wants to know "Bob" and sends introduce response with approve
+    Then "Bob" receives problem report message (Introduce)
+    Then "Carol" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,delivering,delivering,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "requesting,requesting,deciding,deciding,waiting,waiting,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done" and stop
@@ -129,6 +133,7 @@ Feature: Introduce protocol
     When   "Alice" sends introduce proposal to the "Bob" and "Carol"
     And   "Bob" doesn't want to know "Carol" and sends introduce response
     And   "Carol" wants to know "Bob" and sends introduce response with approve
+    Then "Carol" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,arranging,arranging,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "deciding,deciding,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done" and stop
@@ -140,6 +145,7 @@ Feature: Introduce protocol
     Then   "Alice" sends introduce proposal back to the "Bob" and requested introduce
     And   "Bob" doesn't want to know "Carol" and sends introduce response
     And   "Carol" wants to know "Bob" and sends introduce response with approve
+    Then "Carol" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "requesting,requesting,deciding,deciding,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done" and stop
@@ -150,6 +156,7 @@ Feature: Introduce protocol
     When   "Alice" sends introduce proposal to the "Bob" and "Carol"
     And   "Bob" wants to know "Carol" and sends introduce response with approve
     And   "Carol" doesn't want to know "Bob" and sends introduce response
+    Then "Bob" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,arranging,arranging,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "deciding,deciding,waiting,waiting,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,abandoning,abandoning,done,done" and stop
@@ -161,6 +168,7 @@ Feature: Introduce protocol
     Then   "Alice" sends introduce proposal back to the "Bob" and requested introduce
     And   "Bob" wants to know "Carol" and sends introduce response with approve
     And   "Carol" doesn't want to know "Bob" and sends introduce response
+    Then "Bob" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "arranging,arranging,arranging,arranging,arranging,arranging,abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "requesting,requesting,deciding,deciding,waiting,waiting,abandoning,abandoning,done,done"
     And   "Carol" checks the history of introduce protocol events "deciding,deciding,abandoning,abandoning,done,done" and stop
@@ -170,5 +178,6 @@ Feature: Introduce protocol
     Given   "Bob" exchange DIDs with "Alice"
     When   "Bob" sends introduce request to the "Alice" asking about "Carol"
     And   "Alice" stops the introduce protocol
+    Then "Bob" receives problem report message (Introduce)
     Then   "Alice" checks the history of introduce protocol events "abandoning,abandoning,done,done"
     And   "Bob" checks the history of introduce protocol events "requesting,requesting,abandoning,abandoning,done,done" and stop
