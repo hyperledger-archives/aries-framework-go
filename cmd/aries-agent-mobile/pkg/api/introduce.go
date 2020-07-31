@@ -43,4 +43,7 @@ type IntroduceController interface {
 
 	// DeclineRequest is used to reject the request
 	DeclineRequest(request *models.RequestEnvelope) *models.ResponseEnvelope
+
+	// AcceptProblemReport is used for accepting problem report.
+	AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope
 }

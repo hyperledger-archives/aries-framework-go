@@ -82,6 +82,10 @@ func getIntroduceEndpoints() map[string]*endpoint {
 			Path:   opintroduce.DeclineRequest,
 			Method: http.MethodPost,
 		},
+		cmdintroduce.AcceptProblemReport: {
+			Path:   opintroduce.AcceptProblemReport,
+			Method: http.MethodPost,
+		},
 	}
 }
 

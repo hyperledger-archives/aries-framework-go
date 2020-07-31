@@ -74,6 +74,11 @@ func (ir *Introduce) DeclineRequest(request *models.RequestEnvelope) *models.Res
 	return ir.createRespEnvelope(request, cmdintroduce.DeclineRequest)
 }
 
+// AcceptProblemReport is used for accepting problem report.
+func (ir *Introduce) AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return ir.createRespEnvelope(request, cmdintroduce.AcceptProblemReport)
+}
+
 func (ir *Introduce) createRespEnvelope(request *models.RequestEnvelope, endpoint string) *models.ResponseEnvelope {
 	return exec(&restOperation{
 		url:        ir.URL,
