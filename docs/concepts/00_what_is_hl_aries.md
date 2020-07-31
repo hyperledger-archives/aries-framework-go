@@ -43,6 +43,10 @@ This protocol enables an [issuer](./01_terminologies.md#issuer) to provide a [ho
 
 ### 8. PresentProof Protocol
 
+This protocol enables a [verifier](./01_terminologies.md#verifier) to request a presentation of a proof from a [holder/prover](./01_terminologies.md#holder).
+
+It focuses on the exchange of [verifiable presentations](./01_terminologies.md#verifiable-presentation) and does not concern itself with the structure of the documents which are being exchanged. _(7)_
+
 ### 9. VDRI
 
 ### 10. Verifiable
@@ -58,3 +62,4 @@ This controller allows for the creation, retrieval, validation and signing of [v
 4. [Aries RFCs - DIDExchange](https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange)
 5. [Aries RFCs - Introduce](https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce)
 6. [Aries RFCs - IssueCredential Choreography Diagram](https://github.com/hyperledger/aries-rfcs/tree/master/features/0453-issue-credential-v2#choreography-diagram)
+7. [Aries RFCs - Present Proof](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)

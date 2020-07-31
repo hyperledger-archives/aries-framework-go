@@ -50,21 +50,22 @@ const (
 	DeclinePresentationErrorCode
 )
 
+// constants for the PresentProof operations
 const (
 	// command name
-	commandName = "presentproof"
+	CommandName = "presentproof"
 
-	actions                      = "Actions"
-	sendRequestPresentation      = "SendRequestPresentation"
-	acceptRequestPresentation    = "AcceptRequestPresentation"
-	negotiateRequestPresentation = "NegotiateRequestPresentation"
-	acceptProblemReport          = "AcceptProblemReport"
-	declineRequestPresentation   = "DeclineRequestPresentation"
-	sendProposePresentation      = "SendProposePresentation"
-	acceptProposePresentation    = "AcceptProposePresentation"
-	declineProposePresentation   = "DeclineProposePresentation"
-	acceptPresentation           = "AcceptPresentation"
-	declinePresentation          = "DeclinePresentation"
+	Actions                      = "Actions"
+	SendRequestPresentation      = "SendRequestPresentation"
+	AcceptRequestPresentation    = "AcceptRequestPresentation"
+	NegotiateRequestPresentation = "NegotiateRequestPresentation"
+	AcceptProblemReport          = "AcceptProblemReport"
+	DeclineRequestPresentation   = "DeclineRequestPresentation"
+	SendProposePresentation      = "SendProposePresentation"
+	AcceptProposePresentation    = "AcceptProposePresentation"
+	DeclineProposePresentation   = "DeclineProposePresentation"
+	AcceptPresentation           = "AcceptPresentation"
+	DeclinePresentation          = "DeclinePresentation"
 )
 
 const (
@@ -121,17 +122,17 @@ func New(ctx presentproof.Provider, notifier command.Notifier) (*Command, error)
 // GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, actions, c.Actions),
-		cmdutil.NewCommandHandler(commandName, sendRequestPresentation, c.SendRequestPresentation),
-		cmdutil.NewCommandHandler(commandName, acceptRequestPresentation, c.AcceptRequestPresentation),
-		cmdutil.NewCommandHandler(commandName, negotiateRequestPresentation, c.NegotiateRequestPresentation),
-		cmdutil.NewCommandHandler(commandName, declineRequestPresentation, c.DeclineRequestPresentation),
-		cmdutil.NewCommandHandler(commandName, sendProposePresentation, c.SendProposePresentation),
-		cmdutil.NewCommandHandler(commandName, acceptProposePresentation, c.AcceptProposePresentation),
-		cmdutil.NewCommandHandler(commandName, declineProposePresentation, c.DeclineProposePresentation),
-		cmdutil.NewCommandHandler(commandName, acceptPresentation, c.AcceptPresentation),
-		cmdutil.NewCommandHandler(commandName, declinePresentation, c.DeclinePresentation),
-		cmdutil.NewCommandHandler(commandName, acceptProblemReport, c.AcceptProblemReport),
+		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
+		cmdutil.NewCommandHandler(CommandName, SendRequestPresentation, c.SendRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequestPresentation, c.AcceptRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, NegotiateRequestPresentation, c.NegotiateRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, DeclineRequestPresentation, c.DeclineRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, SendProposePresentation, c.SendProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptProposePresentation, c.AcceptProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, DeclineProposePresentation, c.DeclineProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptPresentation, c.AcceptPresentation),
+		cmdutil.NewCommandHandler(CommandName, DeclinePresentation, c.DeclinePresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptProblemReport, c.AcceptProblemReport),
 	}
 }
 
@@ -139,7 +140,7 @@ func (c *Command) GetHandlers() []command.Handler {
 func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 	result, err := c.client.Actions()
 	if err != nil {
-		logutil.LogError(logger, commandName, actions, err.Error())
+		logutil.LogError(logger, CommandName, Actions, err.Error())
 		return command.NewExecuteError(ActionsErrorCode, err)
 	}
 
@@ -147,7 +148,7 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 		Actions: result,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, actions, successString)
+	logutil.LogDebug(logger, CommandName, Actions, successString)
 
 	return nil
 }
@@ -158,28 +159,28 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 	var args SendRequestPresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, sendRequestPresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, SendRequestPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.MyDID == "" {
-		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyMyDID)
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyMyDID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
 	}
 
 	if args.TheirDID == "" {
-		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyTheirDID)
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyTheirDID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
 	}
 
 	if args.RequestPresentation == nil {
-		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyRequestPresentation)
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyRequestPresentation)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
 	piid, err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendRequestPresentation, err.Error())
+		logutil.LogError(logger, CommandName, SendRequestPresentation, err.Error())
 		return command.NewExecuteError(SendRequestPresentationErrorCode, err)
 	}
 
@@ -187,7 +188,7 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 		PIID: piid,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, sendRequestPresentation, successString)
+	logutil.LogDebug(logger, CommandName, SendRequestPresentation, successString)
 
 	return nil
 }
@@ -198,28 +199,28 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 	var args SendProposePresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, sendProposePresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, SendProposePresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.MyDID == "" {
-		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyMyDID)
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyMyDID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
 	}
 
 	if args.TheirDID == "" {
-		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyTheirDID)
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyTheirDID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
 	}
 
 	if args.ProposePresentation == nil {
-		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyProposePresentation)
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyProposePresentation)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
 	piid, err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendProposePresentation, err.Error())
+		logutil.LogError(logger, CommandName, SendProposePresentation, err.Error())
 		return command.NewExecuteError(SendProposePresentationErrorCode, err)
 	}
 
@@ -227,7 +228,7 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 		PIID: piid,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, sendProposePresentation, successString)
+	logutil.LogDebug(logger, CommandName, SendProposePresentation, successString)
 
 	return nil
 }
@@ -238,28 +239,28 @@ func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command
 	var args AcceptRequestPresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptRequestPresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptRequestPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, acceptRequestPresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.Presentation == nil {
-		logutil.LogDebug(logger, commandName, acceptRequestPresentation, errEmptyPresentation)
+		logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, errEmptyPresentation)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPresentation))
 	}
 
 	if err := c.client.AcceptRequestPresentation(args.PIID, args.Presentation); err != nil {
-		logutil.LogError(logger, commandName, acceptRequestPresentation, err.Error())
+		logutil.LogError(logger, CommandName, AcceptRequestPresentation, err.Error())
 		return command.NewExecuteError(AcceptRequestPresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &AcceptRequestPresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptRequestPresentation, successString)
+	logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, successString)
 
 	return nil
 }
@@ -270,28 +271,28 @@ func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) comm
 	var args NegotiateRequestPresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, negotiateRequestPresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, NegotiateRequestPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, negotiateRequestPresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.ProposePresentation == nil {
-		logutil.LogDebug(logger, commandName, negotiateRequestPresentation, errEmptyProposePresentation)
+		logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, errEmptyProposePresentation)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
 	if err := c.client.NegotiateRequestPresentation(args.PIID, args.ProposePresentation); err != nil {
-		logutil.LogError(logger, commandName, negotiateRequestPresentation, err.Error())
+		logutil.LogError(logger, CommandName, NegotiateRequestPresentation, err.Error())
 		return command.NewExecuteError(NegotiateRequestPresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &NegotiateRequestPresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, negotiateRequestPresentation, successString)
+	logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, successString)
 
 	return nil
 }
@@ -302,23 +303,23 @@ func (c *Command) DeclineRequestPresentation(rw io.Writer, req io.Reader) comman
 	var args DeclineRequestPresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, declineRequestPresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, DeclineRequestPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, declineRequestPresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, DeclineRequestPresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineRequestPresentation(args.PIID, args.Reason); err != nil {
-		logutil.LogError(logger, commandName, declineRequestPresentation, err.Error())
+		logutil.LogError(logger, CommandName, DeclineRequestPresentation, err.Error())
 		return command.NewExecuteError(DeclineRequestPresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &DeclineRequestPresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, declineRequestPresentation, successString)
+	logutil.LogDebug(logger, CommandName, DeclineRequestPresentation, successString)
 
 	return nil
 }
@@ -329,28 +330,28 @@ func (c *Command) AcceptProposePresentation(rw io.Writer, req io.Reader) command
 	var args AcceptProposePresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptProposePresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptProposePresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, acceptProposePresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptProposePresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.RequestPresentation == nil {
-		logutil.LogDebug(logger, commandName, acceptProposePresentation, errEmptyRequestPresentation)
+		logutil.LogDebug(logger, CommandName, AcceptProposePresentation, errEmptyRequestPresentation)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
 	if err := c.client.AcceptProposePresentation(args.PIID, args.RequestPresentation); err != nil {
-		logutil.LogError(logger, commandName, acceptProposePresentation, err.Error())
+		logutil.LogError(logger, CommandName, AcceptProposePresentation, err.Error())
 		return command.NewExecuteError(AcceptProposePresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &AcceptProposePresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptProposePresentation, successString)
+	logutil.LogDebug(logger, CommandName, AcceptProposePresentation, successString)
 
 	return nil
 }
@@ -361,23 +362,23 @@ func (c *Command) DeclineProposePresentation(rw io.Writer, req io.Reader) comman
 	var args DeclineProposePresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, declineProposePresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, DeclineProposePresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, declineProposePresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, DeclineProposePresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineProposePresentation(args.PIID, args.Reason); err != nil {
-		logutil.LogError(logger, commandName, declineProposePresentation, err.Error())
+		logutil.LogError(logger, CommandName, DeclineProposePresentation, err.Error())
 		return command.NewExecuteError(DeclineProposePresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &DeclineProposePresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, declineProposePresentation, successString)
+	logutil.LogDebug(logger, CommandName, DeclineProposePresentation, successString)
 
 	return nil
 }
@@ -388,23 +389,23 @@ func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error 
 	var args AcceptPresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptPresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, acceptPresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptPresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.AcceptPresentation(args.PIID, args.Names...); err != nil {
-		logutil.LogError(logger, commandName, acceptPresentation, err.Error())
+		logutil.LogError(logger, CommandName, AcceptPresentation, err.Error())
 		return command.NewExecuteError(AcceptPresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &AcceptPresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptPresentation, successString)
+	logutil.LogDebug(logger, CommandName, AcceptPresentation, successString)
 
 	return nil
 }
@@ -415,23 +416,23 @@ func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error
 	var args AcceptProblemReportArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptProblemReport, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptProblemReport, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, acceptProblemReport, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptProblemReport, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.AcceptProblemReport(args.PIID); err != nil {
-		logutil.LogError(logger, commandName, acceptProblemReport, err.Error())
+		logutil.LogError(logger, CommandName, AcceptProblemReport, err.Error())
 		return command.NewExecuteError(AcceptProblemReportErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &AcceptProblemReportResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptProblemReport, successString)
+	logutil.LogDebug(logger, CommandName, AcceptProblemReport, successString)
 
 	return nil
 }
@@ -442,23 +443,23 @@ func (c *Command) DeclinePresentation(rw io.Writer, req io.Reader) command.Error
 	var args DeclinePresentationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, declinePresentation, err.Error())
+		logutil.LogInfo(logger, CommandName, DeclinePresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, declinePresentation, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, DeclinePresentation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclinePresentation(args.PIID, args.Reason); err != nil {
-		logutil.LogError(logger, commandName, declinePresentation, err.Error())
+		logutil.LogError(logger, CommandName, DeclinePresentation, err.Error())
 		return command.NewExecuteError(DeclinePresentationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &DeclinePresentationResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, declinePresentation, successString)
+	logutil.LogDebug(logger, CommandName, DeclinePresentation, successString)
 
 	return nil
 }

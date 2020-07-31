@@ -194,6 +194,26 @@ func TestIssueCredential_AcceptOffer(t *testing.T) {
 	})
 }
 
+func TestIssueCredential_AcceptProblemReport(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ic := getIssueCredentialController(t)
+
+		mockResponse := emptyResponse
+		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
+		ic.handlers[cmdisscred.AcceptProblemReport] = fakeHandler.exec
+
+		payload := mockPIID
+
+		req := &models.RequestEnvelope{Payload: []byte(payload)}
+		resp := ic.AcceptProblemReport(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t,
+			mockResponse,
+			string(resp.Payload))
+	})
+}
+
 func TestIssueCredential_DeclineOffer(t *testing.T) {
 	t.Run("test it performs an decline offer operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)

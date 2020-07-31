@@ -46,8 +46,8 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestPresentation), nil,
-			strings.Replace(acceptRequestPresentation, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequestPresentation), nil,
+			strings.Replace(AcceptRequestPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -60,9 +60,9 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptRequestPresentation),
+			handlerLookup(t, operation, AcceptRequestPresentation),
 			bytes.NewBufferString(`{"presentation":{}}`),
-			strings.Replace(acceptRequestPresentation, `{piid}`, "1234", 1),
+			strings.Replace(AcceptRequestPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -79,9 +79,9 @@ func TestOperation_DeclineRequestPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineRequestPresentation),
+			handlerLookup(t, operation, DeclineRequestPresentation),
 			nil,
-			strings.Replace(declineRequestPresentation, `{piid}`, "1234", 1),
+			strings.Replace(DeclineRequestPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -98,9 +98,9 @@ func TestOperation_AcceptProblemReport(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProblemReport),
+			handlerLookup(t, operation, AcceptProblemReport),
 			nil,
-			strings.Replace(acceptProblemReport, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProblemReport, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -117,8 +117,8 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposePresentation), nil,
-			strings.Replace(acceptProposePresentation, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptProposePresentation), nil,
+			strings.Replace(AcceptProposePresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -131,9 +131,9 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptProposePresentation),
+			handlerLookup(t, operation, AcceptProposePresentation),
 			bytes.NewBufferString(`{"request_presentation":{}}`),
-			strings.Replace(acceptProposePresentation, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposePresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -150,9 +150,9 @@ func TestOperation_DeclineProposePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declineProposePresentation),
+			handlerLookup(t, operation, DeclineProposePresentation),
 			nil,
-			strings.Replace(declineProposePresentation, `{piid}`, "1234", 1),
+			strings.Replace(DeclineProposePresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -169,9 +169,9 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptPresentation),
+			handlerLookup(t, operation, AcceptPresentation),
 			nil,
-			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
+			strings.Replace(AcceptPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -184,9 +184,9 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptPresentation),
+			handlerLookup(t, operation, AcceptPresentation),
 			bytes.NewBufferString(`{}`),
-			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
+			strings.Replace(AcceptPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -198,9 +198,9 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, acceptPresentation),
+			handlerLookup(t, operation, AcceptPresentation),
 			bytes.NewBufferString(`{"names":[]}`),
-			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
+			strings.Replace(AcceptPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -217,9 +217,9 @@ func TestOperation_DeclinePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, declinePresentation),
+			handlerLookup(t, operation, DeclinePresentation),
 			nil,
-			strings.Replace(declinePresentation, `{piid}`, "1234", 1),
+			strings.Replace(DeclinePresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -236,8 +236,8 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, negotiateRequestPresentation), nil,
-			strings.Replace(negotiateRequestPresentation, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, NegotiateRequestPresentation), nil,
+			strings.Replace(NegotiateRequestPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -250,9 +250,9 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, negotiateRequestPresentation),
+			handlerLookup(t, operation, NegotiateRequestPresentation),
 			bytes.NewBufferString(`{"propose_presentation":{}}`),
-			strings.Replace(negotiateRequestPresentation, `{piid}`, "1234", 1),
+			strings.Replace(NegotiateRequestPresentation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)

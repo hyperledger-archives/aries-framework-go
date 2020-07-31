@@ -35,6 +35,9 @@ type IssueCredentialController interface {
 	// AcceptOffer is used when the Holder is willing to accept the offer.
 	AcceptOffer(request *models.RequestEnvelope) *models.ResponseEnvelope
 
+	// AcceptProblemReport is used for accepting problem report.
+	AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope
+
 	// DeclineOffer is used when the Holder does not want to accept the offer.
 	DeclineOffer(request *models.RequestEnvelope) *models.ResponseEnvelope
 

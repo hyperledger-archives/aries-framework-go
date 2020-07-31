@@ -77,3 +77,16 @@ func TestAries_GetIssueCredentialController(t *testing.T) {
 		require.NotNil(t, ic)
 	})
 }
+
+func TestAries_GetPresentProofController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		opts := &config.Options{}
+		a, err := NewAries(opts)
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		p, err := a.GetPresentProofController()
+		require.NoError(t, err)
+		require.NotNil(t, p)
+	})
+}

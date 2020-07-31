@@ -24,19 +24,20 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
+// constants for PresentProof operations
 const (
-	operationID                  = "/presentproof"
-	actions                      = operationID + "/actions"
-	sendRequestPresentation      = operationID + "/send-request-presentation"
-	sendProposePresentation      = operationID + "/send-propose-presentation"
-	acceptRequestPresentation    = operationID + "/{piid}/accept-request-presentation"
-	negotiateRequestPresentation = operationID + "/{piid}/negotiate-request-presentation"
-	declineRequestPresentation   = operationID + "/{piid}/decline-request-presentation"
-	acceptProposePresentation    = operationID + "/{piid}/accept-propose-presentation"
-	declineProposePresentation   = operationID + "/{piid}/decline-propose-presentation"
-	acceptPresentation           = operationID + "/{piid}/accept-presentation"
-	declinePresentation          = operationID + "/{piid}/decline-presentation"
-	acceptProblemReport          = operationID + "/{piid}/accept-problem-report"
+	OperationID                  = "/presentproof"
+	Actions                      = OperationID + "/actions"
+	SendRequestPresentation      = OperationID + "/send-request-presentation"
+	SendProposePresentation      = OperationID + "/send-propose-presentation"
+	AcceptRequestPresentation    = OperationID + "/{piid}/accept-request-presentation"
+	NegotiateRequestPresentation = OperationID + "/{piid}/negotiate-request-presentation"
+	DeclineRequestPresentation   = OperationID + "/{piid}/decline-request-presentation"
+	AcceptProposePresentation    = OperationID + "/{piid}/accept-propose-presentation"
+	DeclineProposePresentation   = OperationID + "/{piid}/decline-propose-presentation"
+	AcceptPresentation           = OperationID + "/{piid}/accept-presentation"
+	DeclinePresentation          = OperationID + "/{piid}/decline-presentation"
+	AcceptProblemReport          = OperationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for present proof.
@@ -67,17 +68,17 @@ func (c *Operation) GetRESTHandlers() []rest.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(actions, http.MethodGet, c.Actions),
-		cmdutil.NewHTTPHandler(sendRequestPresentation, http.MethodPost, c.SendRequestPresentation),
-		cmdutil.NewHTTPHandler(sendProposePresentation, http.MethodPost, c.SendProposePresentation),
-		cmdutil.NewHTTPHandler(acceptRequestPresentation, http.MethodPost, c.AcceptRequestPresentation),
-		cmdutil.NewHTTPHandler(negotiateRequestPresentation, http.MethodPost, c.NegotiateRequestPresentation),
-		cmdutil.NewHTTPHandler(declineRequestPresentation, http.MethodPost, c.DeclineRequestPresentation),
-		cmdutil.NewHTTPHandler(acceptProposePresentation, http.MethodPost, c.AcceptProposePresentation),
-		cmdutil.NewHTTPHandler(declineProposePresentation, http.MethodPost, c.DeclineProposePresentation),
-		cmdutil.NewHTTPHandler(acceptPresentation, http.MethodPost, c.AcceptPresentation),
-		cmdutil.NewHTTPHandler(declinePresentation, http.MethodPost, c.DeclinePresentation),
-		cmdutil.NewHTTPHandler(acceptProblemReport, http.MethodPost, c.AcceptProblemReport),
+		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
+		cmdutil.NewHTTPHandler(SendRequestPresentation, http.MethodPost, c.SendRequestPresentation),
+		cmdutil.NewHTTPHandler(SendProposePresentation, http.MethodPost, c.SendProposePresentation),
+		cmdutil.NewHTTPHandler(AcceptRequestPresentation, http.MethodPost, c.AcceptRequestPresentation),
+		cmdutil.NewHTTPHandler(NegotiateRequestPresentation, http.MethodPost, c.NegotiateRequestPresentation),
+		cmdutil.NewHTTPHandler(DeclineRequestPresentation, http.MethodPost, c.DeclineRequestPresentation),
+		cmdutil.NewHTTPHandler(AcceptProposePresentation, http.MethodPost, c.AcceptProposePresentation),
+		cmdutil.NewHTTPHandler(DeclineProposePresentation, http.MethodPost, c.DeclineProposePresentation),
+		cmdutil.NewHTTPHandler(AcceptPresentation, http.MethodPost, c.AcceptPresentation),
+		cmdutil.NewHTTPHandler(DeclinePresentation, http.MethodPost, c.DeclinePresentation),
+		cmdutil.NewHTTPHandler(AcceptProblemReport, http.MethodPost, c.AcceptProblemReport),
 	}
 }
 
