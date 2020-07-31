@@ -81,6 +81,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" exchange DIDs with "([^"]*)"$`, a.createConnections)
 	s.Step(`^"([^"]*)" has did exchange connection with "([^"]*)"$`, a.connectionEstablished)
 	s.Step(`^"([^"]*)" confirms route registration with "([^"]*)"$`, a.confirmRouteRegistration)
+	s.Step(`^"([^"]*)" receives problem report message \(Introduce\)$`, a.receiveProblemReport)
 }
 
 func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
@@ -154,7 +155,7 @@ func (a *SDKSteps) createIntroduceClient(agents string) error {
 }
 
 func (a *SDKSteps) createClient(agentID string) error {
-	const stateMsgChanSize = 10
+	const stateMsgChanSize = 14
 
 	client, err := introduce.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
@@ -395,6 +396,22 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
+	}
+
+	return nil
+}
+
+func (a *SDKSteps) receiveProblemReport(agentID string) error {
+	select {
+	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
+		e.Continue(nil)
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout stopProtocol %s", agentID)
 	}
 
 	return nil

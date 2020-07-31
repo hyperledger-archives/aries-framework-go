@@ -174,6 +174,11 @@ const pkgs = {
             path: "/introduce/send-proposal",
             method: "POST",
         },
+        AcceptProblemReport: {
+            path: "/introduce/{piid}/accept-problem-report",
+            method: "POST",
+            pathParam:"piid"
+        },
         SendProposalWithOOBRequest: {
             path: "/introduce/send-proposal-with-oob-request",
             method: "POST",

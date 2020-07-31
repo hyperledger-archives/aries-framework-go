@@ -353,9 +353,11 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
+// nolint: funlen
 func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
-	// if code is not provided it means we do not need to notify participants about it
-	if s.Code == "" {
+	// if code is not provided it means we do not need to notify participants about it.
+	// if we received ProblemReport message no need to answer.
+	if s.Code == "" || md.Msg.Type() == ProblemReportMsgType {
 		return &done{}, zeroAction, nil
 	}
 

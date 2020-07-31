@@ -144,6 +144,11 @@ func (c *Client) DeclineRequest(piID, reason string) error {
 	return c.service.ActionStop(piID, errors.New(reason))
 }
 
+// AcceptProblemReport accepts problem report action.
+func (c *Client) AcceptProblemReport(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
 // Actions returns unfinished actions for the async usage.
 func (c *Client) Actions() ([]Action, error) {
 	actions, err := c.service.Actions()

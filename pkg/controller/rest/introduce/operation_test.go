@@ -286,6 +286,25 @@ func TestOperation_DeclineProposal(t *testing.T) {
 	})
 }
 
+func TestOperation_AcceptProblemReport(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptProblemReport),
+			nil,
+			strings.Replace(AcceptProblemReport, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
 func handlerLookup(t *testing.T, op *Operation, lookup string) rest.Handler {
 	t.Helper()
 

@@ -568,7 +568,7 @@ func stateFromName(name string) state {
 // canTriggerActionEvents checks if the incoming message can trigger an action event.
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	switch msg.Type() {
-	case ProposalMsgType, RequestMsgType:
+	case ProposalMsgType, RequestMsgType, ProblemReportMsgType:
 		return true
 	}
 
