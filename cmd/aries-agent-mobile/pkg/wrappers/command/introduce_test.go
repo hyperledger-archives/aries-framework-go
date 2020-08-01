@@ -259,3 +259,19 @@ func TestIntroduce_DeclineRequest(t *testing.T) {
 		require.Equal(t, "", string(resp.Payload))
 	})
 }
+
+func TestIntroduce_AcceptProblemReport(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		i := getIntroduceController(t)
+
+		fakeHandler := mockCommandRunner{data: []byte(``)}
+		i.handlers[cmdintroduce.AcceptProblemReport] = fakeHandler.exec
+
+		reqData := `{"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"}`
+		req := &models.RequestEnvelope{Payload: []byte(reqData)}
+		resp := i.AcceptProblemReport(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t, "", string(resp.Payload))
+	})
+}

@@ -19,16 +19,6 @@ type Introduce struct {
 	handlers map[string]command.Exec
 }
 
-// Actions returns unfinished actions for the async usage.
-func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	response, cmdErr := exec(i.handlers[cmdintroduce.Actions], request.Payload)
-	if cmdErr != nil {
-		return &models.ResponseEnvelope{Error: cmdErr}
-	}
-
-	return &models.ResponseEnvelope{Payload: response}
-}
-
 // SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
 func (i *Introduce) SendProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdintroduce.SendProposalArgs{}
@@ -38,6 +28,16 @@ func (i *Introduce) SendProposal(request *models.RequestEnvelope) *models.Respon
 	}
 
 	response, cmdErr := exec(i.handlers[cmdintroduce.SendProposal], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
+// Actions returns unfinished actions for the async usage.
+func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	response, cmdErr := exec(i.handlers[cmdintroduce.Actions], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -167,6 +167,22 @@ func (i *Introduce) DeclineRequest(request *models.RequestEnvelope) *models.Resp
 	}
 
 	response, cmdErr := exec(i.handlers[cmdintroduce.DeclineRequest], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
+// AcceptProblemReport is used for accepting problem report.
+func (i *Introduce) AcceptProblemReport(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdintroduce.AcceptProblemReportArgs{}
+
+	if err := json.Unmarshal(request.Payload, &args); err != nil {
+		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
+	}
+
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptProblemReport], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
