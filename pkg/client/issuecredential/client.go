@@ -183,6 +183,63 @@ func (c *Client) AcceptProblemReport(piID string) error {
 	return c.service.ActionContinue(piID, nil)
 }
 
+// CredentialManifest represents credential manifest
+// This struct includes the following payload filter~attach.data.json. To find out more please visit
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0511-dif-cred-manifest-attach#propose-credential-attachment-format
+type CredentialManifest struct {
+	Issuer     string `json:"issuer"`
+	Credential struct {
+		Name   string `json:"name"`
+		Schema string `json:"schema"`
+	} `json:"credential"`
+}
+
+// OfferCredentialExt represents offer credential extension
+// This struct includes the following payload offers~attach.data.json. To find out more please visit
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0511-dif-cred-manifest-attach#offer-credential-attachment-format
+type OfferCredentialExt struct {
+	Challenge string `json:"challenge"`
+	Domain    string `json:"domain"`
+	// CredentialManifest is not as the CredentialManifest structure above
+	// See https://identity.foundation/credential-manifest/#resource-definition
+	CredentialManifest struct{} `json:"credential_manifest"`
+}
+
+// RequestCredentialExt dummy request credential extension
+// This struct includes the following payload requests~attach.data.json.
+// To find out more please visit
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0511-dif-cred-manifest-attach#request-credential-attachment-format
+type RequestCredentialExt struct {
+	CredentialManifest     CredentialManifest `json:"credential-manifest"`
+	PresentationSubmission struct{}           `json:"presentation-submission"`
+}
+
+// SendProposalManifest is used by the Holder to send a proposal.
+func (c *Client) SendProposalManifest(myDID, theirDID string, _ *CredentialManifest) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+// NegotiateProposalManifest is used when the Holder wants to negotiate about an offer he received.
+// NOTE: This function can be used only after receiving OfferCredential.
+func (c *Client) NegotiateProposalManifest(piID string, _ *CredentialManifest) error {
+	return errors.New("not implemented")
+}
+
+// SendOfferExt is used by the Issuer to send an offer.
+func (c *Client) SendOfferExt(myDID, theirDID string, _ *OfferCredentialExt) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+// AcceptProposalExt is used when the Issuer is willing to accept the proposal.
+func (c *Client) AcceptProposalExt(piID string, _ *OfferCredentialExt) error {
+	return errors.New("not implemented")
+}
+
+// SendRequestExt is used by the Holder to send a request.
+func (c *Client) SendRequestExt(myDID, theirDID string, _ *RequestCredentialExt) (string, error) {
+	return "", errors.New("not implemented")
+}
+
 // WithProposeCredential allows providing ProposeCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
