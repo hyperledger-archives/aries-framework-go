@@ -148,6 +148,85 @@ func (c *Client) AcceptProblemReport(piID string) error {
 	return c.service.ActionContinue(piID, nil)
 }
 
+// InputDescriptor dummy input descriptor structure.
+// This struct includes the following payload proposal~attach.data.json.input_descriptors[0]
+// To find out more please visit
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0510-dif-pres-exch-attach#propose-presentation-attachment-format
+// e.g
+// {
+//   "id":"citizenship_input",
+//   "group":[ ... ],
+//   "schema":{ ... },
+//   "constraints":{
+//      "fields":[...]
+//   }
+// }
+type InputDescriptor struct{}
+
+// SubmissionRequirement dummy submission requirement structure
+// This struct includes the following payload
+// request_presentations~attach.data.json.presentation_definitions.submission_requirement.
+// To find out more please visit https://github.com/hyperledger/aries-rfcs/tree/master/features/0510-dif-pres-exch-attach#propose-presentation-attachment-format
+// e.g
+// {
+//   "name":"Credential issuance requirements",
+//   "purpose":"...",
+//   "rule":"all",
+//   "from":[ ... ]
+// }
+type SubmissionRequirement struct{}
+
+// RequestPresentationExt represents request presentation extension
+type RequestPresentationExt struct {
+	Challenge               string `json:"challenge"`
+	Domain                  string `json:"domain"`
+	PresentationDefinitions struct {
+		InputDescriptors      []InputDescriptor     `json:"input_descriptors"`
+		SubmissionRequirement SubmissionRequirement `json:"submission_requirement"`
+	} `json:"presentation_definitions"`
+}
+
+// PresentationExt represents presentation extension
+// This struct includes the following payload presentations~attach.data.json. To find out more please visit
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0510-dif-pres-exch-attach#presentation-attachment-format
+// e.g
+// {
+//   "@context":[ ... ],
+//   "type":[ ... ],
+//   "presentation_submission":{ ... },
+//   "verifiableCredential":[ ... ],
+//   "proof":{ ... }
+// }
+type PresentationExt struct{}
+
+// SendProposePresentationDesc is used by the Prover to send a propose presentation.
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendProposePresentationDesc(myDID, theirDID string, _ *[]InputDescriptor) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+// NegotiateRequestPresentationDesc is used by the Prover to counter a presentation
+// request they received with a proposal.
+func (c *Client) NegotiateRequestPresentationDesc(piID string, _ *[]InputDescriptor) error {
+	return errors.New("not implemented")
+}
+
+// SendRequestPresentationExt is used by the Verifier to send a request presentation.
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendRequestPresentationExt(myDID, theirDID string, _ *RequestPresentationExt) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+// AcceptProposePresentationExt is used when the Verifier is willing to accept the propose presentation.
+func (c *Client) AcceptProposePresentationExt(piID string, _ *RequestPresentationExt) error {
+	return errors.New("not implemented")
+}
+
+// AcceptRequestPresentationExt is used by the Prover is to accept a presentation request.
+func (c *Client) AcceptRequestPresentationExt(piID string, msg *PresentationExt) error {
+	return errors.New("not implemented")
+}
+
 // WithPresentation allows providing Presentation message
 // Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {
