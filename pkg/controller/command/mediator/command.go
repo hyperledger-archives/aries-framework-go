@@ -45,6 +45,18 @@ const (
 
 	// ReconnectRouterErrorCode for reconnecting router error.
 	ReconnectRouterErrorCode
+
+	// StatusRequestMissingConnIDCode for connection ID validation error.
+	StatusRequestMissingConnIDCode
+
+	// StatusRequestErrorCode for status request error.
+	StatusRequestErrorCode
+
+	// BatchPickupMissingConnIDCode for connection ID validation error.
+	BatchPickupMissingConnIDCode
+
+	// BatchPickupRequestErrorCode for batch pick up error.
+	BatchPickupRequestErrorCode
 )
 
 const (
@@ -56,6 +68,8 @@ const (
 	unregisterCommandMethod      = "Unregister"
 	getConnectionIDCommandMethod = "Connection"
 	reconnectCommandMethod       = "Reconnect"
+	statusCommandMethod          = "Status"
+	batchPickupCommandMethod     = "BatchPickup"
 
 	// log constants
 	connectionID  = "connectionID"
@@ -114,6 +128,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
 		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.Connection),
 		cmdutil.NewCommandHandler(commandName, reconnectCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(commandName, statusCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(commandName, batchPickupCommandMethod, o.Reconnect),
 	}
 }
 
@@ -208,6 +224,68 @@ func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, nil, logger)
 
 	logutil.LogDebug(logger, commandName, reconnectCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+
+	return nil
+}
+
+// Status returns details about pending messages for given connection.
+func (o *Command) Status(rw io.Writer, req io.Reader) command.Error {
+	var request StatusRequest
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogError(logger, commandName, statusCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ConnectionID == "" {
+		logutil.LogDebug(logger, commandName, statusCommandMethod, "missing connectionID",
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewValidationError(StatusRequestMissingConnIDCode, errors.New("connectionID is mandatory"))
+	}
+
+	status, err := o.messageClient.StatusRequest(request.ConnectionID)
+	if err != nil {
+		logutil.LogError(logger, commandName, statusCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewExecuteError(StatusRequestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &StatusResponse{status}, logger)
+
+	logutil.LogDebug(logger, commandName, statusCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+
+	return nil
+}
+
+// BatchPickup dispatches pending messages for given connection.
+func (o *Command) BatchPickup(rw io.Writer, req io.Reader) command.Error {
+	var request BatchPickupRequest
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, batchPickupCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ConnectionID == "" {
+		logutil.LogDebug(logger, commandName, batchPickupCommandMethod, "missing connectionID",
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewValidationError(BatchPickupMissingConnIDCode, errors.New("connectionID is mandatory"))
+	}
+
+	count, err := o.messageClient.BatchPickup(request.ConnectionID, request.Size)
+	if err != nil {
+		logutil.LogError(logger, commandName, batchPickupCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewExecuteError(BatchPickupRequestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &BatchPickupResponse{count}, logger)
+
+	logutil.LogDebug(logger, commandName, batchPickupCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil

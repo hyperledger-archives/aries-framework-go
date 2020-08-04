@@ -21,6 +21,8 @@ const (
 	unregisterPath    = routeOperationID + "/unregister"
 	getConnectionPath = routeOperationID + "/connection"
 	reconnectPath     = routeOperationID + "/reconnect"
+	statusPath        = routeOperationID + "/status"
+	batchPickupPath   = routeOperationID + "/batchpickup"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -61,6 +63,8 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
 		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.Connection),
 		cmdutil.NewHTTPHandler(reconnectPath, http.MethodPost, o.Reconnect),
+		cmdutil.NewHTTPHandler(statusPath, http.MethodPost, o.Status),
+		cmdutil.NewHTTPHandler(batchPickupPath, http.MethodPost, o.BatchPickup),
 	}
 }
 
@@ -104,4 +108,26 @@ func (o *Operation) Connection(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 func (o *Operation) Reconnect(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Reconnect, rw, req.Body)
+}
+
+// Status swagger:route POST /mediator/status mediator statusRequest
+//
+// Status returns details about pending messages for given connection.
+//
+// Responses:
+//    default: genericError
+//    200: statusResponse
+func (o *Operation) Status(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Status, rw, req.Body)
+}
+
+// BatchPickup swagger:route POST /mediator/batchpickup mediator batchPickupRequest
+//
+// BatchPickup dispatches pending messages for given connection.
+//
+// Responses:
+//    default: genericError
+//    200: batchPickupResponse
+func (o *Operation) BatchPickup(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.BatchPickup, rw, req.Body)
 }

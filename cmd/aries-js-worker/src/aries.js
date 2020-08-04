@@ -898,6 +898,26 @@ const Aries = function (opts) {
              */
             reconnect: async function (req) {
                 return invoke(aw, pending, this.pkgname, "Reconnect", req, "timeout while reconnecting to router")
+            },
+
+            /**
+             * Status returns details of pending messages from router for given connection.
+             *
+             * @param req - json document containing connection ID
+             * @returns {Promise<Object>}
+             */
+            status: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Status", req, "timeout while getting status from router")
+            },
+
+            /**
+             * batchPickup dispatches pending messages for given connection.
+             *
+             * @param req - json document containing connection ID and batch size
+             * @returns {Promise<Object>}
+             */
+            batchPickup: async function (req) {
+                return invoke(aw, pending, this.pkgname, "BatchPickup", req, "timeout while performing batch pickup from router")
             }
         },
 
