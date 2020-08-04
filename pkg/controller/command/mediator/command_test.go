@@ -22,6 +22,8 @@ import (
 )
 
 const sampleConnRequest = `{"connectionID":"123-abc"}`
+const sampleBatchPickupRequest = `{"connectionID":"123-abc", "batch_size": 100}`
+const sampleEmptyConnectionRequest = `{"connectionID":""}`
 
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
@@ -38,7 +40,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 4, len(handlers))
+		require.Equal(t, 6, len(handlers))
 	})
 
 	t.Run("test new command - client creation fail", func(t *testing.T) {
@@ -52,7 +54,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestRegisterRoute(t *testing.T) {
+func TestCommand_Register(t *testing.T) {
 	t.Run("test register - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
@@ -84,9 +86,8 @@ func TestRegisterRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		jsonReq := `{"connectionID":""}`
 		var b bytes.Buffer
-		err = cmd.Register(&b, bytes.NewBufferString(jsonReq))
+		err = cmd.Register(&b, bytes.NewBufferString(sampleEmptyConnectionRequest))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connectionID is mandatory")
 	})
@@ -134,7 +135,7 @@ func TestRegisterRoute(t *testing.T) {
 	})
 }
 
-func TestUnregisterRoute(t *testing.T) {
+func TestCommand_Unregister(t *testing.T) {
 	t.Run("test unregister - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
@@ -175,7 +176,7 @@ func TestUnregisterRoute(t *testing.T) {
 	})
 }
 
-func TestGetConnectionID(t *testing.T) {
+func TestCommand_Connection(t *testing.T) {
 	t.Run("test get connection - success", func(t *testing.T) {
 		routerConnectionID := "conn-abc"
 
@@ -225,7 +226,7 @@ func TestGetConnectionID(t *testing.T) {
 	})
 }
 
-func TestReconnect(t *testing.T) {
+func TestCommand_Reconnect(t *testing.T) {
 	t.Run("test reconnect - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
@@ -257,9 +258,8 @@ func TestReconnect(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		jsonReq := `{"connectionID":""}`
 		var b bytes.Buffer
-		err = cmd.Reconnect(&b, bytes.NewBufferString(jsonReq))
+		err = cmd.Reconnect(&b, bytes.NewBufferString(sampleEmptyConnectionRequest))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connectionID is mandatory")
 	})
@@ -302,5 +302,185 @@ func TestReconnect(t *testing.T) {
 		err = cmd.Reconnect(&b, bytes.NewBufferString(sampleConnRequest))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "reconnect error")
+	})
+}
+
+func TestCommand_Status(t *testing.T) {
+	t.Run("test status - success", func(t *testing.T) {
+		const sampleID = "sample-status-id"
+		const size = 64
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						StatusRequestFunc: func(connectionID string) (*messagepickupSvc.Status, error) {
+							return &messagepickupSvc.Status{ID: sampleID, TotalSize: size}, nil
+						},
+					},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Status(&b, bytes.NewBufferString(sampleConnRequest))
+		require.NoError(t, err)
+
+		response := StatusResponse{}
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.Equal(t, size, response.TotalSize)
+		require.Equal(t, sampleID, response.ID)
+	})
+
+	t.Run("test status - empty connectionID", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Status(&b, bytes.NewBufferString(sampleEmptyConnectionRequest))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "connectionID is mandatory")
+	})
+
+	t.Run("test status - invalid request", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Status(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test status - failure", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						StatusRequestErr: errors.New("status error"),
+					},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Status(&b, bytes.NewBufferString(sampleConnRequest))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "status error")
+	})
+}
+
+func TestCommand_BatchPickup(t *testing.T) {
+	t.Run("test batch pickup - success", func(t *testing.T) {
+		const count = 64
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						BatchPickupFunc: func(connectionID string, size int) (int, error) {
+							return count, nil
+						},
+					},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.BatchPickup(&b, bytes.NewBufferString(sampleBatchPickupRequest))
+		require.NoError(t, err)
+
+		response := BatchPickupResponse{}
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.Equal(t, count, response.MessageCount)
+	})
+
+	t.Run("test batch pickup - empty connectionID", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.BatchPickup(&b, bytes.NewBufferString(sampleEmptyConnectionRequest))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "connectionID is mandatory")
+	})
+
+	t.Run("test batch pickup - invalid request", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.BatchPickup(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test batch pickup - failure", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						BatchPickupErr: errors.New("batch pickup error"),
+					},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.BatchPickup(&b, bytes.NewBufferString(sampleConnRequest))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "batch pickup error")
 	})
 }

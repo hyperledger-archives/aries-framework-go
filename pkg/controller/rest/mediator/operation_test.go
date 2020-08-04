@@ -29,6 +29,8 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
+const connIDRequest = `{"connectionID":"abc-123"}`
+
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
 		cmd, err := New(
@@ -55,7 +57,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestGetAPIHandlers(t *testing.T) {
+func TestOperation_GetRESTHandlers(t *testing.T) {
 	svc, err := New(
 		&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
@@ -69,10 +71,10 @@ func TestGetAPIHandlers(t *testing.T) {
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
-	require.Equal(t, len(handlers), 4)
+	require.Equal(t, len(handlers), 6)
 }
 
-func TestRegisterRoute(t *testing.T) {
+func TestOperation_Register(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
@@ -86,9 +88,7 @@ func TestRegisterRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
-		"connectionID":"abc-123"
-		}`)
+		var jsonStr = []byte(connIDRequest)
 
 		handler := lookupHandler(t, svc, registerPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -128,7 +128,7 @@ func TestRegisterRoute(t *testing.T) {
 	})
 }
 
-func TestUnregisterRoute(t *testing.T) {
+func TestOperation_Unregister(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
@@ -175,7 +175,7 @@ func TestUnregisterRoute(t *testing.T) {
 	})
 }
 
-func TestGetConnection(t *testing.T) {
+func TestOperation_Connection(t *testing.T) {
 	t.Run("test get connection - success", func(t *testing.T) {
 		routerConnectionID := "conn-abc"
 		svc, err := New(
@@ -232,7 +232,7 @@ func TestGetConnection(t *testing.T) {
 	})
 }
 
-func TestReconnect(t *testing.T) {
+func TestOperation_Reconnect(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
@@ -246,9 +246,7 @@ func TestReconnect(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
-		"connectionID":"abc-123"
-		}`)
+		var jsonStr = []byte(connIDRequest)
 
 		handler := lookupHandler(t, svc, reconnectPath)
 		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -278,6 +276,115 @@ func TestReconnect(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, mediator.ReconnectMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
+	})
+}
+
+func TestOperation_Status(t *testing.T) {
+	t.Run("test status - success", func(t *testing.T) {
+		const sampleID = "sample-status-id"
+		const size = 64
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						StatusRequestFunc: func(connectionID string) (*messagepickupSvc.Status, error) {
+							return &messagepickupSvc.Status{ID: sampleID, TotalSize: size, MessageCount: size - 10}, nil
+						},
+					},
+					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		handler := lookupHandler(t, svc, statusPath)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte(connIDRequest)), handler.Path())
+		require.NoError(t, err)
+
+		response := statusResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response.Params)
+		require.NoError(t, err)
+		require.NotEmpty(t, response.Params)
+		require.Equal(t, size, response.Params.TotalSize)
+		require.Equal(t, size-10, response.Params.MessageCount)
+		require.Equal(t, sampleID, response.Params.ID)
+	})
+
+	t.Run("test status - missing connectionID", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		handler := lookupHandler(t, svc, statusPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer([]byte(`{}`)), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, mediator.StatusRequestMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
+	})
+}
+
+func TestOperation_BatchPickup(t *testing.T) {
+	t.Run("test batchpickup - success", func(t *testing.T) {
+		const count = 64
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+						BatchPickupFunc: func(connectionID string, size int) (int, error) {
+							return count, nil
+						},
+					},
+					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		handler := lookupHandler(t, svc, batchPickupPath)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte(connIDRequest)), handler.Path())
+		require.NoError(t, err)
+
+		response := batchPickupResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response.Params)
+		require.NoError(t, err)
+		require.NotEmpty(t, response.Params)
+		require.Equal(t, count, response.Params.MessageCount)
+	})
+
+	t.Run("test status - missing connectionID", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		handler := lookupHandler(t, svc, batchPickupPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer([]byte(`{}`)), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, mediator.BatchPickupMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
 	})
 }
 

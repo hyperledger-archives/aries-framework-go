@@ -114,6 +114,14 @@ const pkgs = {
             path: "/mediator/reconnect",
             method: "POST"
         },
+        Status: {
+            path: "/mediator/status",
+            method: "POST"
+        },
+        BatchPickup: {
+            path: "/mediator/batchpickup",
+            method: "POST"
+        },
     },
     verifiable: {
         ValidateCredential: {
