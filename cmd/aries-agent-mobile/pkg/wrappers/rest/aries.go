@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"net/http"
 
+	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
@@ -88,4 +90,14 @@ func (ar *Aries) GetPresentProofController() (api.PresentProofController, error)
 	}
 
 	return &PresentProof{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetVDRIController returns an VDRI instance.
+func (ar *Aries) GetVDRIController() (api.VDRIController, error) {
+	endpoints, ok := ar.endpoints[opvdri.VdriOperationID]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", opvdri.VdriOperationID)
+	}
+
+	return &VDRI{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

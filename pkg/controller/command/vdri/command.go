@@ -38,15 +38,16 @@ const (
 	ResolveDIDErrorCode
 )
 
+// constants for the VDRI controller's methods
 const (
 	// command name
-	commandName = "vdri"
+	CommandName = "vdri"
 
 	// command methods
-	saveDIDCommandMethod    = "SaveDID"
-	getDIDsCommandMethod    = "GetDIDRecords"
-	getDIDCommandMethod     = "GetDID"
-	resolveDIDCommandMethod = "ResolveDID"
+	SaveDIDCommandMethod    = "SaveDID"
+	GetDIDsCommandMethod    = "GetDIDRecords"
+	GetDIDCommandMethod     = "GetDID"
+	ResolveDIDCommandMethod = "ResolveDID"
 
 	// error messages
 	errEmptyDIDName = "name is mandatory"
@@ -85,10 +86,10 @@ func New(ctx provider) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, saveDIDCommandMethod, o.SaveDID),
-		cmdutil.NewCommandHandler(commandName, getDIDCommandMethod, o.GetDID),
-		cmdutil.NewCommandHandler(commandName, getDIDsCommandMethod, o.GetDIDRecords),
-		cmdutil.NewCommandHandler(commandName, resolveDIDCommandMethod, o.ResolveDID),
+		cmdutil.NewCommandHandler(CommandName, SaveDIDCommandMethod, o.SaveDID),
+		cmdutil.NewCommandHandler(CommandName, GetDIDCommandMethod, o.GetDID),
+		cmdutil.NewCommandHandler(CommandName, GetDIDsCommandMethod, o.GetDIDRecords),
+		cmdutil.NewCommandHandler(CommandName, ResolveDIDCommandMethod, o.ResolveDID),
 	}
 }
 
@@ -98,18 +99,18 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, resolveDIDCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, ResolveDIDCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ID == "" {
-		logutil.LogDebug(logger, commandName, resolveDIDCommandMethod, errEmptyDIDID)
+		logutil.LogDebug(logger, CommandName, ResolveDIDCommandMethod, errEmptyDIDID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDID))
 	}
 
 	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.ID)
 	if err != nil {
-		logutil.LogError(logger, commandName, resolveDIDCommandMethod, "resolve did doc: "+err.Error(),
+		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "resolve did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))
 
 		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("resolve did doc: %w", err))
@@ -117,7 +118,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 
 	docBytes, err := didDoc.JSONBytes()
 	if err != nil {
-		logutil.LogError(logger, commandName, resolveDIDCommandMethod, "unmarshal did doc: "+err.Error(),
+		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "unmarshal did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))
 
 		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("unmarshal did doc: %w", err))
@@ -127,7 +128,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 		DID: json.RawMessage(docBytes),
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, resolveDIDCommandMethod, "success",
+	logutil.LogDebug(logger, CommandName, ResolveDIDCommandMethod, "success",
 		logutil.CreateKeyValueString(didID, request.ID))
 
 	return nil
@@ -139,33 +140,33 @@ func (o *Command) SaveDID(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, saveDIDCommandMethod, "request decode : "+err.Error())
+		logutil.LogInfo(logger, CommandName, SaveDIDCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.Name == "" {
-		logutil.LogDebug(logger, commandName, saveDIDCommandMethod, errEmptyDIDName)
+		logutil.LogDebug(logger, CommandName, SaveDIDCommandMethod, errEmptyDIDName)
 		return command.NewValidationError(SaveDIDErrorCode, fmt.Errorf(errEmptyDIDName))
 	}
 
 	didDoc, err := did.ParseDocument(request.DID)
 
 	if err != nil {
-		logutil.LogError(logger, commandName, saveDIDCommandMethod, "parse did doc: "+err.Error())
+		logutil.LogError(logger, CommandName, SaveDIDCommandMethod, "parse did doc: "+err.Error())
 		return command.NewValidationError(SaveDIDErrorCode, fmt.Errorf("parse did doc: %w", err))
 	}
 
 	err = o.didStore.SaveDID(request.Name, didDoc)
 	if err != nil {
-		logutil.LogError(logger, commandName, saveDIDCommandMethod, "save did doc: "+err.Error())
+		logutil.LogError(logger, CommandName, SaveDIDCommandMethod, "save did doc: "+err.Error())
 
 		return command.NewValidationError(SaveDIDErrorCode, fmt.Errorf("save did doc: %w", err))
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, saveDIDCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, SaveDIDCommandMethod, "success")
 
 	return nil
 }
@@ -176,18 +177,18 @@ func (o *Command) GetDID(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, getDIDCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, GetDIDCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ID == "" {
-		logutil.LogDebug(logger, commandName, getDIDCommandMethod, errEmptyDIDID)
+		logutil.LogDebug(logger, CommandName, GetDIDCommandMethod, errEmptyDIDID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDID))
 	}
 
 	didDoc, err := o.didStore.GetDID(request.ID)
 	if err != nil {
-		logutil.LogError(logger, commandName, getDIDCommandMethod, "get did doc: "+err.Error(),
+		logutil.LogError(logger, CommandName, GetDIDCommandMethod, "get did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))
 
 		return command.NewValidationError(GetDIDErrorCode, fmt.Errorf("get did doc: %w", err))
@@ -195,7 +196,7 @@ func (o *Command) GetDID(rw io.Writer, req io.Reader) command.Error {
 
 	docBytes, err := didDoc.JSONBytes()
 	if err != nil {
-		logutil.LogError(logger, commandName, getDIDCommandMethod, "unmarshal did doc: "+err.Error(),
+		logutil.LogError(logger, CommandName, GetDIDCommandMethod, "unmarshal did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))
 
 		return command.NewValidationError(GetDIDErrorCode, fmt.Errorf("unmarshal did doc: %w", err))
@@ -205,7 +206,7 @@ func (o *Command) GetDID(rw io.Writer, req io.Reader) command.Error {
 		DID: json.RawMessage(docBytes),
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getDIDCommandMethod, "success",
+	logutil.LogDebug(logger, CommandName, GetDIDCommandMethod, "success",
 		logutil.CreateKeyValueString(didID, request.ID))
 
 	return nil
@@ -219,7 +220,7 @@ func (o *Command) GetDIDRecords(rw io.Writer, req io.Reader) command.Error {
 		Result: didRecords,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getDIDsCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, GetDIDsCommandMethod, "success")
 
 	return nil
 }

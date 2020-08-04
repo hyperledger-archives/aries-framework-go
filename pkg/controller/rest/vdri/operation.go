@@ -21,13 +21,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// constants for the VDRI operations
 const (
-	vdriOperationID   = "/vdri"
-	vdriDIDPath       = vdriOperationID + "/did"
-	saveDIDPath       = vdriDIDPath
-	getDIDPath        = vdriDIDPath + "/{id}"
-	resolveDIDPath    = vdriDIDPath + "/resolve/{id}"
-	getDIDRecordsPath = vdriDIDPath + "/records"
+	VdriOperationID   = "/vdri"
+	vdriDIDPath       = VdriOperationID + "/did"
+	SaveDIDPath       = vdriDIDPath
+	GetDIDPath        = vdriDIDPath + "/{id}"
+	ResolveDIDPath    = vdriDIDPath + "/resolve/{id}"
+	GetDIDRecordsPath = vdriDIDPath + "/records"
 )
 
 // provider contains dependencies for the common controller operations
@@ -65,10 +66,10 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(saveDIDPath, http.MethodPost, o.SaveDID),
-		cmdutil.NewHTTPHandler(getDIDPath, http.MethodGet, o.GetDID),
-		cmdutil.NewHTTPHandler(resolveDIDPath, http.MethodGet, o.ResolveDID),
-		cmdutil.NewHTTPHandler(getDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
+		cmdutil.NewHTTPHandler(SaveDIDPath, http.MethodPost, o.SaveDID),
+		cmdutil.NewHTTPHandler(GetDIDPath, http.MethodGet, o.GetDID),
+		cmdutil.NewHTTPHandler(ResolveDIDPath, http.MethodGet, o.ResolveDID),
+		cmdutil.NewHTTPHandler(GetDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
 	}
 }
 

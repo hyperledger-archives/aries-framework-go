@@ -19,6 +19,7 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -193,4 +194,14 @@ func (a *Aries) GetPresentProofController() (api.PresentProofController, error) 
 	}
 
 	return &PresentProof{handlers: handlers}, nil
+}
+
+// GetVDRIController returns an VDRI instance.
+func (a *Aries) GetVDRIController() (api.VDRIController, error) {
+	handlers, ok := a.handlers[cmdvdri.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdvdri.CommandName)
+	}
+
+	return &VDRI{handlers: handlers}, nil
 }

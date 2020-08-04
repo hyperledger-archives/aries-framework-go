@@ -13,12 +13,14 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -36,6 +38,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opdidexch.OperationID] = getDIDExchangeEndpoints()
 	allEndpoints[opisscred.OperationID] = getIssueCredentialEndpoints()
 	allEndpoints[oppresproof.OperationID] = getPresentProofEndpoints()
+	allEndpoints[opvdri.VdriOperationID] = getVDRIEndpoints()
 
 	return allEndpoints
 }
@@ -293,6 +296,27 @@ func getPresentProofEndpoints() map[string]*endpoint {
 		cmdpresproof.DeclinePresentation: {
 			Path:   oppresproof.DeclinePresentation,
 			Method: http.MethodPost,
+		},
+	}
+}
+
+func getVDRIEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdvdri.GetDIDCommandMethod: {
+			Path:   opvdri.GetDIDPath,
+			Method: http.MethodGet,
+		},
+		cmdvdri.GetDIDsCommandMethod: {
+			Path:   opvdri.GetDIDRecordsPath,
+			Method: http.MethodGet,
+		},
+		cmdvdri.SaveDIDCommandMethod: {
+			Path:   opvdri.SaveDIDPath,
+			Method: http.MethodPost,
+		},
+		cmdvdri.ResolveDIDCommandMethod: {
+			Path:   opvdri.ResolveDIDPath,
+			Method: http.MethodGet,
 		},
 	}
 }

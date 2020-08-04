@@ -97,7 +97,7 @@ func TestSaveDID(t *testing.T) {
 		jsonStr, err := json.Marshal(didReq)
 		require.NoError(t, err)
 
-		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		handler := lookupHandler(t, cmd, SaveDIDPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		// verify response
@@ -115,7 +115,7 @@ func TestSaveDID(t *testing.T) {
 			"name" : "sample"
 		}`)
 
-		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		handler := lookupHandler(t, cmd, SaveDIDPath, http.MethodPost)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -137,7 +137,7 @@ func TestGetDID(t *testing.T) {
 		require.NotNil(t, cmd)
 		fmt.Println(base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")))
 
-		handler := lookupHandler(t, cmd, getDIDPath, http.MethodGet)
+		handler := lookupHandler(t, cmd, GetDIDPath, http.MethodGet)
 		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
 			vdriDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
 		require.NoError(t, err)
@@ -160,7 +160,7 @@ func TestGetDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		handler := lookupHandler(t, cmd, getDIDPath, http.MethodGet)
+		handler := lookupHandler(t, cmd, GetDIDPath, http.MethodGet)
 		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, vdriDIDPath, "abc"))
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -182,7 +182,7 @@ func TestResolveDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		handler := lookupHandler(t, cmd, resolveDIDPath, http.MethodGet)
+		handler := lookupHandler(t, cmd, ResolveDIDPath, http.MethodGet)
 		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/resolve/%s`,
 			vdriDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
 		require.NoError(t, err)
@@ -202,7 +202,7 @@ func TestResolveDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		handler := lookupHandler(t, cmd, resolveDIDPath, http.MethodGet)
+		handler := lookupHandler(t, cmd, ResolveDIDPath, http.MethodGet)
 		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/resolve/%s`, vdriDIDPath, "abc"))
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -227,13 +227,13 @@ func TestGetDIDRecords(t *testing.T) {
 		jsonStr, err := json.Marshal(didReq)
 		require.NoError(t, err)
 
-		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		handler := lookupHandler(t, cmd, SaveDIDPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
-		handler = lookupHandler(t, cmd, getDIDRecordsPath, http.MethodGet)
-		buf, err = getSuccessResponseFromHandler(handler, nil, getDIDRecordsPath)
+		handler = lookupHandler(t, cmd, GetDIDRecordsPath, http.MethodGet)
+		buf, err = getSuccessResponseFromHandler(handler, nil, GetDIDRecordsPath)
 		require.NoError(t, err)
 
 		var response didRecordResult
