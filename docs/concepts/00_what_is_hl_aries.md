@@ -9,7 +9,7 @@ Hyperledger Aries is related to both Hyperledger Indy, which provides a resolver
 ## Key Characteristics
 
 - A blockchain interface layer (known as a resolver) for creating and signing blockchain transactions.
-- A resolver can be seen as part of a larger component known as the VDRI:
+- A resolver can be seen as part of a larger component known as the [VDRI](./01_terminologies.md#vdri):
   > Aries Verifiable Data Registry Interface: An interface for verifying data against an underlying ledger.
 - A cryptographic wallet that can be used for secure storage of cryptographic secrets and other information (the secure storage tech, not a UI) used to build blockchain clients.
 - An encrypted messaging system for allowing off-ledger interaction between those clients using multiple transport protocols.
@@ -48,6 +48,8 @@ This protocol enables a [verifier](./01_terminologies.md#verifier) to request a 
 It focuses on the exchange of [verifiable presentations](./01_terminologies.md#verifiable-presentation) and does not concern itself with the structure of the documents which are being exchanged. _(7)_
 
 ### 9. VDRI
+
+This controller provides functionalities for the creation, retrieval and resolution of [DID documents](./01_terminologies.md#did-document).
 
 ### 10. Verifiable
 
