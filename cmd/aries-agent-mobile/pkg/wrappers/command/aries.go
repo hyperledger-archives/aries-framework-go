@@ -15,12 +15,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
-	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
-	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
-	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
-	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
-	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
@@ -148,9 +149,9 @@ func populateHandlers(commands []command.Handler, pkgMap map[string]map[string]c
 
 // GetIntroduceController returns an Introduce instance.
 func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
-	handlers, ok := a.handlers[cmdintroduce.CommandName]
+	handlers, ok := a.handlers[introduce.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdintroduce.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", introduce.CommandName)
 	}
 
 	return &Introduce{handlers: handlers}, nil
@@ -158,9 +159,9 @@ func (a *Aries) GetIntroduceController() (api.IntroduceController, error) {
 
 // GetVerifiableController returns a Verifiable instance.
 func (a *Aries) GetVerifiableController() (api.VerifiableController, error) {
-	handlers, ok := a.handlers[cmdverifiable.CommandName]
+	handlers, ok := a.handlers[verifiable.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdverifiable.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", verifiable.CommandName)
 	}
 
 	return &Verifiable{handlers: handlers}, nil
@@ -168,9 +169,9 @@ func (a *Aries) GetVerifiableController() (api.VerifiableController, error) {
 
 // GetDIDExchangeController returns a DIDExchange instance.
 func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
-	handlers, ok := a.handlers[cmddidexch.CommandName]
+	handlers, ok := a.handlers[didexchange.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmddidexch.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", didexchange.CommandName)
 	}
 
 	return &DIDExchange{handlers: handlers}, nil
@@ -178,9 +179,9 @@ func (a *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 
 // GetIssueCredentialController returns an IssueCredential instance.
 func (a *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
-	handlers, ok := a.handlers[cmdisscred.CommandName]
+	handlers, ok := a.handlers[issuecredential.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdisscred.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", issuecredential.CommandName)
 	}
 
 	return &IssueCredential{handlers: handlers}, nil
@@ -188,20 +189,30 @@ func (a *Aries) GetIssueCredentialController() (api.IssueCredentialController, e
 
 // GetPresentProofController returns an PresentProof instance.
 func (a *Aries) GetPresentProofController() (api.PresentProofController, error) {
-	handlers, ok := a.handlers[cmdpresproof.CommandName]
+	handlers, ok := a.handlers[presentproof.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdpresproof.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", presentproof.CommandName)
 	}
 
 	return &PresentProof{handlers: handlers}, nil
 }
 
-// GetVDRIController returns an VDRI instance.
+// GetVDRIController returns a VDRI instance.
 func (a *Aries) GetVDRIController() (api.VDRIController, error) {
-	handlers, ok := a.handlers[cmdvdri.CommandName]
+	handlers, ok := a.handlers[vdri.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", cmdvdri.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", vdri.CommandName)
 	}
 
 	return &VDRI{handlers: handlers}, nil
+}
+
+// GetMediatorController returns a Mediator instance.
+func (a *Aries) GetMediatorController() (api.MediatorController, error) {
+	handlers, ok := a.handlers[mediator.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", mediator.CommandName)
+	}
+
+	return &Mediator{handlers: handlers}, nil
 }

@@ -61,7 +61,7 @@ func TestVDRI_GetDIDRecords(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		vdriController := getVDRIController(t)
 
-		reqData := emptyResponse
+		reqData := emptyJSON
 
 		mockResponse := `{"result":[{"name":"sampleDIDName","id":"did:peer:21tDAKCERh95uGgKbJNHYp"}]}`
 		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
@@ -110,7 +110,7 @@ func TestVDRI_SaveDID(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, opvdri.SaveDIDPath, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 

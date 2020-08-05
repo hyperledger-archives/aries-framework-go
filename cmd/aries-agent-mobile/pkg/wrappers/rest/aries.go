@@ -11,15 +11,15 @@ import (
 	"fmt"
 	"net/http"
 
-	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
-
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
-	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
-	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
-	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
-	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
-	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
 // Aries is an Aries implementation with endpoints to execute operations.
@@ -44,9 +44,9 @@ func NewAries(opts *config.Options) (*Aries, error) {
 
 // GetIntroduceController returns an Introduce instance.
 func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
-	endpoints, ok := ar.endpoints[opintroduce.OperationID]
+	endpoints, ok := ar.endpoints[introduce.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", opintroduce.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", introduce.OperationID)
 	}
 
 	return &Introduce{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -54,9 +54,9 @@ func (ar *Aries) GetIntroduceController() (api.IntroduceController, error) {
 
 // GetVerifiableController returns an Verifiable instance.
 func (ar *Aries) GetVerifiableController() (api.VerifiableController, error) {
-	endpoints, ok := ar.endpoints[opverifiable.VerifiableOperationID]
+	endpoints, ok := ar.endpoints[verifiable.VerifiableOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", opverifiable.VerifiableOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", verifiable.VerifiableOperationID)
 	}
 
 	return &Verifiable{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -64,9 +64,9 @@ func (ar *Aries) GetVerifiableController() (api.VerifiableController, error) {
 
 // GetDIDExchangeController returns a DIDExchange instance.
 func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
-	endpoints, ok := ar.endpoints[opdidexch.OperationID]
+	endpoints, ok := ar.endpoints[didexchange.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", opdidexch.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", didexchange.OperationID)
 	}
 
 	return &DIDExchange{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -74,30 +74,40 @@ func (ar *Aries) GetDIDExchangeController() (api.DIDExchangeController, error) {
 
 // GetIssueCredentialController returns an IssueCredential instance.
 func (ar *Aries) GetIssueCredentialController() (api.IssueCredentialController, error) {
-	endpoints, ok := ar.endpoints[opisscred.OperationID]
+	endpoints, ok := ar.endpoints[issuecredential.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", opisscred.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", issuecredential.OperationID)
 	}
 
 	return &IssueCredential{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetPresentProofController returns an PresentProof instance.
+// GetPresentProofController returns a PresentProof instance.
 func (ar *Aries) GetPresentProofController() (api.PresentProofController, error) {
-	endpoints, ok := ar.endpoints[oppresproof.OperationID]
+	endpoints, ok := ar.endpoints[presentproof.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", oppresproof.OperationID)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", presentproof.OperationID)
 	}
 
 	return &PresentProof{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetVDRIController returns an VDRI instance.
+// GetVDRIController returns a VDRI instance.
 func (ar *Aries) GetVDRIController() (api.VDRIController, error) {
-	endpoints, ok := ar.endpoints[opvdri.VdriOperationID]
+	endpoints, ok := ar.endpoints[vdri.VdriOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", opvdri.VdriOperationID)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", vdri.VdriOperationID)
 	}
 
 	return &VDRI{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetMediatorController returns a Mediator instance.
+func (ar *Aries) GetMediatorController() (api.MediatorController, error) {
+	endpoints, ok := ar.endpoints[mediator.RouteOperationID]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", mediator.RouteOperationID)
+	}
+
+	return &Mediator{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

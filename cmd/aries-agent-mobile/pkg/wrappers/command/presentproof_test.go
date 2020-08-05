@@ -94,7 +94,7 @@ func TestPresentProof_AcceptRequestPresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.AcceptRequestPresentation] = fakeHandler.exec
 
@@ -114,7 +114,7 @@ func TestPresentProof_NegotiateRequestPresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.NegotiateRequestPresentation] = fakeHandler.exec
 
@@ -134,7 +134,7 @@ func TestPresentProof_DeclineRequestPresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.DeclineRequestPresentation] = fakeHandler.exec
 
@@ -154,7 +154,7 @@ func TestPresentProof_AcceptProposePresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.AcceptProposePresentation] = fakeHandler.exec
 
@@ -174,7 +174,7 @@ func TestPresentProof_DeclineProposePresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.DeclineProposePresentation] = fakeHandler.exec
 
@@ -194,7 +194,7 @@ func TestPresentProof_AcceptPresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.AcceptPresentation] = fakeHandler.exec
 
@@ -214,7 +214,7 @@ func TestPresentProof_AcceptProblemReport(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.AcceptProblemReport] = fakeHandler.exec
 
@@ -234,7 +234,7 @@ func TestPresentProof_DeclinePresentation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		p := getPresentProofController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		p.handlers[cmdpresproof.DeclinePresentation] = fakeHandler.exec
 

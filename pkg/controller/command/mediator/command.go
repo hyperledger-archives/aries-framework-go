@@ -59,17 +59,18 @@ const (
 	BatchPickupRequestErrorCode
 )
 
+// constant for the mediator controller
 const (
 	// command name
-	commandName = "mediator"
+	CommandName = "mediator"
 
 	// command methods
-	registerCommandMethod        = "Register"
-	unregisterCommandMethod      = "Unregister"
-	getConnectionIDCommandMethod = "Connection"
-	reconnectCommandMethod       = "Reconnect"
-	statusCommandMethod          = "Status"
-	batchPickupCommandMethod     = "BatchPickup"
+	RegisterCommandMethod        = "Register"
+	UnregisterCommandMethod      = "Unregister"
+	GetConnectionIDCommandMethod = "Connection"
+	ReconnectCommandMethod       = "Reconnect"
+	StatusCommandMethod          = "Status"
+	BatchPickupCommandMethod     = "BatchPickup"
 
 	// log constants
 	connectionID  = "connectionID"
@@ -124,12 +125,12 @@ func New(ctx provider, autoAccept bool) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),
-		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
-		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.Connection),
-		cmdutil.NewCommandHandler(commandName, reconnectCommandMethod, o.Reconnect),
-		cmdutil.NewCommandHandler(commandName, statusCommandMethod, o.Reconnect),
-		cmdutil.NewCommandHandler(commandName, batchPickupCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(CommandName, RegisterCommandMethod, o.Register),
+		cmdutil.NewCommandHandler(CommandName, UnregisterCommandMethod, o.Unregister),
+		cmdutil.NewCommandHandler(CommandName, GetConnectionIDCommandMethod, o.Connection),
+		cmdutil.NewCommandHandler(CommandName, ReconnectCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(CommandName, StatusCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(CommandName, BatchPickupCommandMethod, o.Reconnect),
 	}
 }
 
@@ -140,26 +141,26 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, registerCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, RegisterCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ConnectionID == "" {
-		logutil.LogDebug(logger, commandName, registerCommandMethod, "missing connectionID",
+		logutil.LogDebug(logger, CommandName, RegisterCommandMethod, "missing connectionID",
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewValidationError(RegisterMissingConnIDCode, errors.New("connectionID is mandatory"))
 	}
 
 	err = o.routeClient.Register(request.ConnectionID)
 	if err != nil {
-		logutil.LogError(logger, commandName, registerCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, RegisterCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewExecuteError(RegisterRouterErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, registerCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, RegisterCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil
@@ -169,13 +170,13 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 	err := o.routeClient.Unregister()
 	if err != nil {
-		logutil.LogError(logger, commandName, registerCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, UnregisterCommandMethod, err.Error())
 		return command.NewExecuteError(UnregisterRouterErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, registerCommandMethod, successString)
+	logutil.LogDebug(logger, CommandName, UnregisterCommandMethod, successString)
 
 	return nil
 }
@@ -184,7 +185,7 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 func (o *Command) Connection(rw io.Writer, req io.Reader) command.Error {
 	connectionID, err := o.routeClient.GetConnection()
 	if err != nil {
-		logutil.LogError(logger, commandName, getConnectionIDCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, GetConnectionIDCommandMethod, err.Error())
 		return command.NewExecuteError(GetConnectionIDErrorCode, err)
 	}
 
@@ -192,7 +193,7 @@ func (o *Command) Connection(rw io.Writer, req io.Reader) command.Error {
 		ConnectionID: connectionID,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, getConnectionIDCommandMethod, successString)
+	logutil.LogDebug(logger, CommandName, GetConnectionIDCommandMethod, successString)
 
 	return nil
 }
@@ -204,26 +205,26 @@ func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, reconnectCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, ReconnectCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ConnectionID == "" {
-		logutil.LogDebug(logger, commandName, reconnectCommandMethod, "missing connectionID",
+		logutil.LogDebug(logger, CommandName, ReconnectCommandMethod, "missing connectionID",
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewValidationError(ReconnectMissingConnIDCode, errors.New("connectionID is mandatory"))
 	}
 
 	err = o.messageClient.Noop(request.ConnectionID)
 	if err != nil {
-		logutil.LogError(logger, commandName, reconnectCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, ReconnectCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewExecuteError(ReconnectRouterErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, reconnectCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, ReconnectCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil
@@ -235,26 +236,26 @@ func (o *Command) Status(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogError(logger, commandName, statusCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, StatusCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ConnectionID == "" {
-		logutil.LogDebug(logger, commandName, statusCommandMethod, "missing connectionID",
+		logutil.LogDebug(logger, CommandName, StatusCommandMethod, "missing connectionID",
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewValidationError(StatusRequestMissingConnIDCode, errors.New("connectionID is mandatory"))
 	}
 
 	status, err := o.messageClient.StatusRequest(request.ConnectionID)
 	if err != nil {
-		logutil.LogError(logger, commandName, statusCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, StatusCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewExecuteError(StatusRequestErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &StatusResponse{status}, logger)
 
-	logutil.LogDebug(logger, commandName, statusCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, StatusCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil
@@ -266,26 +267,26 @@ func (o *Command) BatchPickup(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, batchPickupCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, BatchPickupCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ConnectionID == "" {
-		logutil.LogDebug(logger, commandName, batchPickupCommandMethod, "missing connectionID",
+		logutil.LogDebug(logger, CommandName, BatchPickupCommandMethod, "missing connectionID",
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewValidationError(BatchPickupMissingConnIDCode, errors.New("connectionID is mandatory"))
 	}
 
 	count, err := o.messageClient.BatchPickup(request.ConnectionID, request.Size)
 	if err != nil {
-		logutil.LogError(logger, commandName, batchPickupCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, BatchPickupCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewExecuteError(BatchPickupRequestErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &BatchPickupResponse{count}, logger)
 
-	logutil.LogDebug(logger, commandName, batchPickupCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, BatchPickupCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil

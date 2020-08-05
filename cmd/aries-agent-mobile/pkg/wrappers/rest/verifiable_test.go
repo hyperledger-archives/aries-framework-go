@@ -87,7 +87,7 @@ const (
 	mockVP               = `{"verifiablePresentation":{"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"type":["VerifiablePresentation"],"id":"http://example.edu/presentations/1989","verifiableCredential":[{"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSchema":[],"credentialStatus":{"id":"http://issuer.vc.rest.example.com:8070/status/1","type":"CredentialStatusList2017"},"credentialSubject":{"degree":{"degree":"MIT","type":"BachelorDegree"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"id":"https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3","issuanceDate":"2020-03-16T22:37:26.544Z","issuer":{"id":"did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg","name":"alice_ca31684e-6cbb-40f9-b7e6-87e1ab5661ae"},"proof":{"created":"2020-04-08T21:19:02Z","jws":"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..yGHHYmRp4mWd918SDSzmBDs8eq-SX7WPl8moGB8oJeSqEMmuEiI81D4s5-BPWGmKy3VlCsKJxYrTNqrEGJpNAQ","proofPurpose":"assertionMethod","type":"Ed25519Signature2018","verificationMethod":"did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"},"type":["VerifiableCredential","UniversityDegreeCredential"]}]},"name":"sampleVpName"}`
 	mockDID              = "did:peer:123456789abcdefghi#inbox"
 	mockAgentURL         = "http://example.com"
-	emptyResponse        = `{}`
+	emptyJSON            = `{}`
 )
 
 func getAgent() (*Aries, error) {
@@ -118,7 +118,7 @@ func TestVerifiable_ValidateCredential(t *testing.T) {
 	t.Run("test it preforms a validates credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		v.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockAgentURL + opverifiable.ValidateCredentialPath}
 
@@ -136,7 +136,7 @@ func TestVerifiable_SaveCredential(t *testing.T) {
 	t.Run("test it performs a save credential request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		v.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockAgentURL + opverifiable.SaveCredentialPath}
 
@@ -155,7 +155,7 @@ func TestVerifiable_SavePresentation(t *testing.T) {
 	t.Run("test it performs a save presentation request", func(t *testing.T) {
 		v := getVerifiableController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		v.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockAgentURL + opverifiable.SavePresentationPath}
 

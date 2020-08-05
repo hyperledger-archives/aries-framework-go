@@ -15,14 +15,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
+// constants for the mediator operations
 const (
-	routeOperationID  = "/mediator"
-	registerPath      = routeOperationID + "/register"
-	unregisterPath    = routeOperationID + "/unregister"
-	getConnectionPath = routeOperationID + "/connection"
-	reconnectPath     = routeOperationID + "/reconnect"
-	statusPath        = routeOperationID + "/status"
-	batchPickupPath   = routeOperationID + "/batchpickup"
+	RouteOperationID  = "/mediator"
+	RegisterPath      = RouteOperationID + "/register"
+	UnregisterPath    = RouteOperationID + "/unregister"
+	GetConnectionPath = RouteOperationID + "/connection"
+	ReconnectPath     = RouteOperationID + "/reconnect"
+	StatusPath        = RouteOperationID + "/status"
+	BatchPickupPath   = RouteOperationID + "/batchpickup"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -59,12 +60,12 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
-		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
-		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.Connection),
-		cmdutil.NewHTTPHandler(reconnectPath, http.MethodPost, o.Reconnect),
-		cmdutil.NewHTTPHandler(statusPath, http.MethodPost, o.Status),
-		cmdutil.NewHTTPHandler(batchPickupPath, http.MethodPost, o.BatchPickup),
+		cmdutil.NewHTTPHandler(RegisterPath, http.MethodPost, o.Register),
+		cmdutil.NewHTTPHandler(UnregisterPath, http.MethodDelete, o.Unregister),
+		cmdutil.NewHTTPHandler(GetConnectionPath, http.MethodGet, o.Connection),
+		cmdutil.NewHTTPHandler(ReconnectPath, http.MethodPost, o.Reconnect),
+		cmdutil.NewHTTPHandler(StatusPath, http.MethodPost, o.Status),
+		cmdutil.NewHTTPHandler(BatchPickupPath, http.MethodPost, o.BatchPickup),
 	}
 }
 

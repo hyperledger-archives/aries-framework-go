@@ -12,6 +12,7 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
@@ -19,6 +20,7 @@ import (
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -39,6 +41,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opisscred.OperationID] = getIssueCredentialEndpoints()
 	allEndpoints[oppresproof.OperationID] = getPresentProofEndpoints()
 	allEndpoints[opvdri.VdriOperationID] = getVDRIEndpoints()
+	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
 
 	return allEndpoints
 }
@@ -317,6 +320,35 @@ func getVDRIEndpoints() map[string]*endpoint {
 		cmdvdri.ResolveDIDCommandMethod: {
 			Path:   opvdri.ResolveDIDPath,
 			Method: http.MethodGet,
+		},
+	}
+}
+
+func getMediatorEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdmediator.RegisterCommandMethod: {
+			Path:   opmediator.RegisterPath,
+			Method: http.MethodPost,
+		},
+		cmdmediator.UnregisterCommandMethod: {
+			Path:   opmediator.UnregisterPath,
+			Method: http.MethodDelete,
+		},
+		cmdmediator.GetConnectionIDCommandMethod: {
+			Path:   opmediator.GetConnectionPath,
+			Method: http.MethodGet,
+		},
+		cmdmediator.ReconnectCommandMethod: {
+			Path:   opmediator.ReconnectPath,
+			Method: http.MethodPost,
+		},
+		cmdmediator.StatusCommandMethod: {
+			Path:   opmediator.StatusPath,
+			Method: http.MethodPost,
+		},
+		cmdmediator.BatchPickupCommandMethod: {
+			Path:   opmediator.BatchPickupPath,
+			Method: http.MethodPost,
 		},
 	}
 }

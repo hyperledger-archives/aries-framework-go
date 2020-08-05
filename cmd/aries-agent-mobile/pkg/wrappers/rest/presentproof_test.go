@@ -40,7 +40,7 @@ func TestPresentProof_Actions(t *testing.T) {
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodGet, url: mockAgentURL + oppresproof.Actions}
 
-		reqData := emptyResponse
+		reqData := emptyJSON
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := p.Actions(req)
@@ -97,7 +97,7 @@ func TestPresentProof_AcceptRequestPresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.AcceptRequestPresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -118,7 +118,7 @@ func TestPresentProof_NegotiateRequestPresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.NegotiateRequestPresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -139,7 +139,7 @@ func TestPresentProof_DeclineRequestPresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.DeclineRequestPresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -160,7 +160,7 @@ func TestPresentProof_AcceptProposePresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.AcceptProposePresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -181,7 +181,7 @@ func TestPresentProof_DeclineProposePresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.DeclineProposePresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -202,7 +202,7 @@ func TestPresentProof_AcceptPresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.AcceptPresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -223,7 +223,7 @@ func TestPresentProof_AcceptProblemReport(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.AcceptProblemReport, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 
@@ -244,7 +244,7 @@ func TestPresentProof_DeclinePresentation(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, oppresproof.DeclinePresentation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		p.httpClient = &mockHTTPClient{data: mockResponse,
 			method: http.MethodPost, url: mockURL}
 

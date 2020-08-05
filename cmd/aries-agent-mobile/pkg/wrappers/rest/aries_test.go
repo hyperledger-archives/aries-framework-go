@@ -71,3 +71,39 @@ func TestAries_GetIssueCredentialController(t *testing.T) {
 		require.NotNil(t, ic)
 	})
 }
+
+func TestAries_GetPresentProofController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetPresentProofController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}
+
+func TestAries_GetVDRIController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetVDRIController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}
+
+func TestAries_GetMediatorController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetMediatorController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}

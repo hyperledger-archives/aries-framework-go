@@ -26,4 +26,7 @@ type AriesController interface {
 
 	// GetVDRIController returns an implementation of VDRIController
 	GetVDRIController() (VDRIController, error)
+
+	// GetMediatorController returns an implementation of MediatorController
+	GetMediatorController() (MediatorController, error)
 }
