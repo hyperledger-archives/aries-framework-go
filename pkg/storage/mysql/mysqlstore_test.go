@@ -12,7 +12,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 
@@ -41,12 +43,31 @@ func TestMain(m *testing.M) {
 }
 
 func checkMySQL() error {
-	db, err := sql.Open("mysql", sqlStoreDBURL)
+	const retries = 30
+
+	err := backoff.RetryNotify(
+		func() error {
+			db, openErr := sql.Open("mysql", sqlStoreDBURL)
+			if openErr != nil {
+				return openErr
+			}
+
+			return db.Ping()
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), retries),
+		func(retryErr error, t time.Duration) {
+			fmt.Printf(
+				"failed to connect to MySQL, will sleep for %s before trying again : %s\n",
+				t, retryErr)
+		},
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf(
+			"failed to connect to MySQL at %s after %s : %w",
+			sqlStoreDBURL, retries*time.Second, err)
 	}
 
-	return db.Ping()
+	return nil
 }
 
 func TestSqlDBStore(t *testing.T) {
@@ -141,7 +162,7 @@ func TestSqlDBStore(t *testing.T) {
 		require.Equal(t, data, doc)
 
 		// get in store 2 - not found
-		doc, err = store2.Get(commonKey)
+		doc, err = store2.Get("did:not:found")
 		require.Error(t, err)
 		require.Equal(t, err, storage.ErrDataNotFound)
 		require.Empty(t, doc)
