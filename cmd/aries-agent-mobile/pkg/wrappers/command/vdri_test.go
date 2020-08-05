@@ -62,7 +62,7 @@ func TestVDRI_GetDIDRecords(t *testing.T) {
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		vdriController.handlers[cmdvdri.GetDIDsCommandMethod] = fakeHandler.exec
 
-		payload := emptyResponse
+		payload := emptyJSON
 
 		req := &models.RequestEnvelope{Payload: []byte(payload)}
 		resp := vdriController.GetDIDRecords(req)
@@ -98,7 +98,7 @@ func TestVDRI_SaveDID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		vdriController := getVDRIController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		vdriController.handlers[cmdvdri.SaveDIDCommandMethod] = fakeHandler.exec
 

@@ -118,7 +118,7 @@ func TestIssueCredential_AcceptProposal(t *testing.T) {
 	t.Run("test it accepts a proposal", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.AcceptProposal] = fakeHandler.exec
 
@@ -138,7 +138,7 @@ func TestIssueCredential_NegotiateProposal(t *testing.T) {
 	t.Run("test it performs a negotiate proposal operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.NegotiateProposal] = fakeHandler.exec
 
@@ -158,7 +158,7 @@ func TestIssueCredential_DeclineProposal(t *testing.T) {
 	t.Run("test it performs a delete proposal operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.DeclineProposal] = fakeHandler.exec
 
@@ -178,7 +178,7 @@ func TestIssueCredential_AcceptOffer(t *testing.T) {
 	t.Run("test it performs an accept offer operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.AcceptOffer] = fakeHandler.exec
 
@@ -198,7 +198,7 @@ func TestIssueCredential_AcceptProblemReport(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.AcceptProblemReport] = fakeHandler.exec
 
@@ -218,7 +218,7 @@ func TestIssueCredential_DeclineOffer(t *testing.T) {
 	t.Run("test it performs an decline offer operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.DeclineOffer] = fakeHandler.exec
 
@@ -238,7 +238,7 @@ func TestIssueCredential_AcceptRequest(t *testing.T) {
 	t.Run("test it performs an accept request operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.AcceptRequest] = fakeHandler.exec
 
@@ -258,7 +258,7 @@ func TestIssueCredential_DeclineRequest(t *testing.T) {
 	t.Run("test it performs a decline request operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.DeclineRequest] = fakeHandler.exec
 
@@ -278,7 +278,7 @@ func TestIssueCredential_AcceptCredential(t *testing.T) {
 	t.Run("test it performs an accept credential operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.AcceptCredential] = fakeHandler.exec
 
@@ -298,7 +298,7 @@ func TestIssueCredential_DeclineCredential(t *testing.T) {
 	t.Run("test it performs a decline credential operation", func(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
-		mockResponse := emptyResponse
+		mockResponse := emptyJSON
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		ic.handlers[cmdisscred.DeclineCredential] = fakeHandler.exec
 

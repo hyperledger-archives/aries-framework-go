@@ -90,7 +90,7 @@ func TestOperation_Register(t *testing.T) {
 
 		var jsonStr = []byte(connIDRequest)
 
-		handler := lookupHandler(t, svc, registerPath)
+		handler := lookupHandler(t, svc, RegisterPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestOperation_Register(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, registerPath)
+		handler := lookupHandler(t, svc, RegisterPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -142,7 +142,7 @@ func TestOperation_Unregister(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, unregisterPath)
+		handler := lookupHandler(t, svc, UnregisterPath)
 		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
 		require.NoError(t, err)
 	})
@@ -165,7 +165,7 @@ func TestOperation_Unregister(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, unregisterPath)
+		handler := lookupHandler(t, svc, UnregisterPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -192,7 +192,7 @@ func TestOperation_Connection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, getConnectionPath)
+		handler := lookupHandler(t, svc, GetConnectionPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
 		require.NoError(t, err)
 
@@ -222,7 +222,7 @@ func TestOperation_Connection(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, getConnectionPath)
+		handler := lookupHandler(t, svc, GetConnectionPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -248,7 +248,7 @@ func TestOperation_Reconnect(t *testing.T) {
 
 		var jsonStr = []byte(connIDRequest)
 
-		handler := lookupHandler(t, svc, reconnectPath)
+		handler := lookupHandler(t, svc, ReconnectPath)
 		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 	})
@@ -269,7 +269,7 @@ func TestOperation_Reconnect(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, reconnectPath)
+		handler := lookupHandler(t, svc, ReconnectPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -299,7 +299,7 @@ func TestOperation_Status(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, statusPath)
+		handler := lookupHandler(t, svc, StatusPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte(connIDRequest)), handler.Path())
 		require.NoError(t, err)
 
@@ -325,7 +325,7 @@ func TestOperation_Status(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, statusPath)
+		handler := lookupHandler(t, svc, StatusPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer([]byte(`{}`)), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -354,7 +354,7 @@ func TestOperation_BatchPickup(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, batchPickupPath)
+		handler := lookupHandler(t, svc, BatchPickupPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte(connIDRequest)), handler.Path())
 		require.NoError(t, err)
 
@@ -378,7 +378,7 @@ func TestOperation_BatchPickup(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, batchPickupPath)
+		handler := lookupHandler(t, svc, BatchPickupPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer([]byte(`{}`)), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
