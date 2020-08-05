@@ -29,6 +29,12 @@ In the [PresentProof](./00_what_is_hl_aries.md#8-presentproof-protocol) flow, th
 ### Issuer
 The entity that issues a [credential](#verifiable-credential) to a holder.
 
+## VDRI
+
+An interface for verifying data against a trusted backing store such as a ledger or a database. A role a system might perform by mediating the creation and verification of relevant data which might be required to use [verifiable credentials](#verifiable-credential).
+
+_Reference: https://www.w3.org/TR/vc-data-model/#dfn-verifiable-data-registries_
+
 ### Verifiable Credential
 
 A verifiable credential can represent all of the same information that a physical credential represents. It is a tamper-evident credential that has authorship that can be cryptographically verified.
