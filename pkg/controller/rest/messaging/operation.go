@@ -20,18 +20,19 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// constants for Messaging operations
 const (
 	// http over didcomm endpoints
 	httpOverDIDComm                = "/http-over-didcomm"
-	registerHTTPOverDIDCommService = httpOverDIDComm + "/register"
+	RegisterHTTPOverDIDCommService = httpOverDIDComm + "/register"
 
 	// message service endpoints
-	msgServiceOperationID = "/message"
-	registerMsgService    = msgServiceOperationID + "/register-service"
-	unregisterMsgService  = msgServiceOperationID + "/unregister-service"
-	msgServiceList        = msgServiceOperationID + "/services"
-	sendNewMsg            = msgServiceOperationID + "/send"
-	sendReplyMsg          = msgServiceOperationID + "/reply"
+	MsgServiceOperationID = "/message"
+	RegisterMsgService    = MsgServiceOperationID + "/register-service"
+	UnregisterMsgService  = MsgServiceOperationID + "/unregister-service"
+	MsgServiceList        = MsgServiceOperationID + "/services"
+	SendNewMsg            = MsgServiceOperationID + "/send"
+	SendReplyMsg          = MsgServiceOperationID + "/reply"
 )
 
 // provider contains dependencies for the common controller operations
@@ -72,12 +73,12 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(registerMsgService, http.MethodPost, o.RegisterService),
-		cmdutil.NewHTTPHandler(unregisterMsgService, http.MethodPost, o.UnregisterService),
-		cmdutil.NewHTTPHandler(msgServiceList, http.MethodGet, o.Services),
-		cmdutil.NewHTTPHandler(sendNewMsg, http.MethodPost, o.Send),
-		cmdutil.NewHTTPHandler(sendReplyMsg, http.MethodPost, o.Reply),
-		cmdutil.NewHTTPHandler(registerHTTPOverDIDCommService, http.MethodPost, o.RegisterHTTPService),
+		cmdutil.NewHTTPHandler(RegisterMsgService, http.MethodPost, o.RegisterService),
+		cmdutil.NewHTTPHandler(UnregisterMsgService, http.MethodPost, o.UnregisterService),
+		cmdutil.NewHTTPHandler(MsgServiceList, http.MethodGet, o.Services),
+		cmdutil.NewHTTPHandler(SendNewMsg, http.MethodPost, o.Send),
+		cmdutil.NewHTTPHandler(SendReplyMsg, http.MethodPost, o.Reply),
+		cmdutil.NewHTTPHandler(RegisterHTTPOverDIDCommService, http.MethodPost, o.RegisterHTTPService),
 	}
 }
 

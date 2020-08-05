@@ -25,9 +25,10 @@ import (
 
 var logger = log.New("aries-framework/controller/common")
 
+// constants for the Messaging controller
 const (
 	// command name
-	commandName = "messaging"
+	CommandName = "messaging"
 
 	// states
 	stateNameCompleted = "completed"
@@ -43,12 +44,12 @@ const (
 	errMsgIDEmpty                       = "empty message ID"
 
 	// command methods
-	registeredServicesCommandMethod         = "Services"
-	registerMessageServiceCommandMethod     = "RegisterService"
-	unregisterMessageServiceCommandMethod   = "UnregisterService"
-	registerHTTPMessageServiceCommandMethod = "RegisterHTTPService"
-	sendNewMessageCommandMethod             = "Send"
-	sendReplyMessageCommandMethod           = "Reply"
+	RegisteredServicesCommandMethod         = "Services"
+	RegisterMessageServiceCommandMethod     = "RegisterService"
+	UnregisterMessageServiceCommandMethod   = "UnregisterService"
+	RegisterHTTPMessageServiceCommandMethod = "RegisterHTTPService"
+	SendNewMessageCommandMethod             = "Send"
+	SendReplyMessageCommandMethod           = "Reply"
 
 	// log constants
 	connectionIDString = "connectionID"
@@ -117,12 +118,12 @@ func New(ctx provider, registrar command.MessageHandler, notifier command.Notifi
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, registeredServicesCommandMethod, o.Services),
-		cmdutil.NewCommandHandler(commandName, registerMessageServiceCommandMethod, o.RegisterService),
-		cmdutil.NewCommandHandler(commandName, unregisterMessageServiceCommandMethod, o.UnregisterService),
-		cmdutil.NewCommandHandler(commandName, registerHTTPMessageServiceCommandMethod, o.RegisterHTTPService),
-		cmdutil.NewCommandHandler(commandName, sendNewMessageCommandMethod, o.Send),
-		cmdutil.NewCommandHandler(commandName, sendReplyMessageCommandMethod, o.Reply),
+		cmdutil.NewCommandHandler(CommandName, RegisteredServicesCommandMethod, o.Services),
+		cmdutil.NewCommandHandler(CommandName, RegisterMessageServiceCommandMethod, o.RegisterService),
+		cmdutil.NewCommandHandler(CommandName, UnregisterMessageServiceCommandMethod, o.UnregisterService),
+		cmdutil.NewCommandHandler(CommandName, RegisterHTTPMessageServiceCommandMethod, o.RegisterHTTPService),
+		cmdutil.NewCommandHandler(CommandName, SendNewMessageCommandMethod, o.Send),
+		cmdutil.NewCommandHandler(CommandName, SendReplyMessageCommandMethod, o.Reply),
 	}
 }
 
@@ -132,7 +133,7 @@ func (o *Command) RegisterService(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, registerMessageServiceCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, RegisterMessageServiceCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -145,24 +146,24 @@ func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, unregisterMessageServiceCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, UnregisterMessageServiceCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.Name == "" {
-		logutil.LogDebug(logger, commandName, unregisterMessageServiceCommandMethod, errMsgSvcNameRequired)
+		logutil.LogDebug(logger, CommandName, UnregisterMessageServiceCommandMethod, errMsgSvcNameRequired)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgSvcNameRequired))
 	}
 
 	err = o.msgRegistrar.Unregister(request.Name)
 	if err != nil {
-		logutil.LogError(logger, commandName, registerMessageServiceCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, UnregisterMessageServiceCommandMethod, err.Error(),
 			logutil.CreateKeyValueString("name", request.Name))
 
 		return command.NewExecuteError(UnregisterMsgSvcError, err)
 	}
 
-	logutil.LogDebug(logger, commandName, unregisterMessageServiceCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, UnregisterMessageServiceCommandMethod, successString,
 		logutil.CreateKeyValueString("name", request.Name))
 
 	return nil
@@ -177,7 +178,7 @@ func (o *Command) Services(rw io.Writer, req io.Reader) command.Error {
 
 	command.WriteNillableResponse(rw, RegisteredServicesResponse{Names: names}, logger)
 
-	logutil.LogDebug(logger, commandName, registeredServicesCommandMethod, successString)
+	logutil.LogDebug(logger, CommandName, RegisteredServicesCommandMethod, successString)
 
 	return nil
 }
@@ -188,25 +189,25 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, sendNewMessageCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, SendNewMessageCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if len(request.MessageBody) == 0 {
-		logutil.LogDebug(logger, commandName, sendNewMessageCommandMethod, errMsgBodyEmpty)
+		logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, errMsgBodyEmpty)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgBodyEmpty))
 	}
 
 	err = o.validateMessageDestination(&request)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ConnectionID != "" {
 		conn, err := o.connectionLookup.GetConnectionRecord(request.ConnectionID)
 		if err != nil {
-			logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 				logutil.CreateKeyValueString(connectionIDString, request.ConnectionID))
 
 			return command.NewExecuteError(SendMsgError, err)
@@ -218,7 +219,7 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	if request.TheirDID != "" {
 		conn, err := o.getConnectionByTheirDID(request.TheirDID)
 		if err != nil && err != errConnForDIDNotFound {
-			logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error())
+			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error())
 			return command.NewExecuteError(SendMsgError, err)
 		}
 
@@ -236,30 +237,30 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, sendReplyMessageCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, SendReplyMessageCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if len(request.MessageBody) == 0 {
-		logutil.LogDebug(logger, commandName, sendReplyMessageCommandMethod, errMsgBodyEmpty)
+		logutil.LogDebug(logger, CommandName, SendReplyMessageCommandMethod, errMsgBodyEmpty)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgBodyEmpty))
 	}
 
 	if request.MessageID == "" {
-		logutil.LogDebug(logger, commandName, sendReplyMessageCommandMethod, errMsgIDEmpty)
+		logutil.LogDebug(logger, CommandName, SendReplyMessageCommandMethod, errMsgIDEmpty)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgIDEmpty))
 	}
 
 	msg, err := service.ParseDIDCommMsgMap(request.MessageBody)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendReplyMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(replyTo, request.MessageID))
 		return command.NewExecuteError(SendMsgReplyError, err)
 	}
 
 	err = o.ctx.Messenger().ReplyTo(request.MessageID, msg)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendReplyMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(replyTo, request.MessageID))
 		return command.NewExecuteError(SendMsgReplyError, err)
 	}
@@ -273,7 +274,7 @@ func (o *Command) RegisterHTTPService(rw io.Writer, req io.Reader) command.Error
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, registerHTTPMessageServiceCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, RegisterHTTPMessageServiceCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -286,18 +287,18 @@ func (o *Command) RegisterHTTPService(rw io.Writer, req io.Reader) command.Error
 
 func (o *Command) registerMessageService(params *RegisterMsgSvcArgs) command.Error {
 	if params.Name == "" {
-		logutil.LogDebug(logger, commandName, registerMessageServiceCommandMethod, errMsgSvcNameRequired)
+		logutil.LogDebug(logger, CommandName, RegisterMessageServiceCommandMethod, errMsgSvcNameRequired)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgSvcNameRequired))
 	}
 
 	if params.Type == "" {
-		logutil.LogDebug(logger, commandName, registerMessageServiceCommandMethod, errMsgInvalidAcceptanceCrit)
+		logutil.LogDebug(logger, CommandName, RegisterMessageServiceCommandMethod, errMsgInvalidAcceptanceCrit)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgInvalidAcceptanceCrit))
 	}
 
 	err := o.msgRegistrar.Register(newMessageService(params, o.notifier))
 	if err != nil {
-		logutil.LogError(logger, commandName, registerMessageServiceCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, RegisterMessageServiceCommandMethod, err.Error(),
 			logutil.CreateKeyValueString("name", params.Name),
 			logutil.CreateKeyValueString("type", params.Type))
 
@@ -350,19 +351,19 @@ func (o *Command) getConnectionByTheirDID(theirDID string) (*connection.Record, 
 func (o *Command) sendToConnection(msg json.RawMessage, conn *connection.Record) command.Error {
 	didcommMsg, err := service.ParseDIDCommMsgMap(msg)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
 		return command.NewExecuteError(SendMsgError, err)
 	}
 
 	err = o.ctx.Messenger().Send(didcommMsg, conn.MyDID, conn.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
 		return command.NewExecuteError(SendMsgError, err)
 	}
 
-	logutil.LogDebug(logger, commandName, sendNewMessageCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
 
 	return nil
@@ -377,7 +378,7 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 
 		dest, err = service.GetDestination(rqst.TheirDID, o.ctx.VDRIRegistry())
 		if err != nil {
-			logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 				logutil.CreateKeyValueString(destinationDID, rqst.TheirDID))
 
 			return command.NewExecuteError(SendMsgError, err)
@@ -391,14 +392,14 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 	}
 
 	if dest == nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, errMsgDestinationMissing)
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, errMsgDestinationMissing)
 
 		return command.NewExecuteError(SendMsgError, fmt.Errorf(errMsgDestinationMissing))
 	}
 
 	_, sigPubKey, err := o.ctx.LegacyKMS().CreateKeySet()
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
 
 		return command.NewExecuteError(SendMsgError, err)
@@ -406,20 +407,20 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 
 	didcommMsg, err := service.ParseDIDCommMsgMap(rqst.MessageBody)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
 		return command.NewExecuteError(SendMsgError, err)
 	}
 
 	err = o.ctx.Messenger().SendToDestination(didcommMsg, sigPubKey, dest)
 	if err != nil {
-		logutil.LogError(logger, commandName, sendNewMessageCommandMethod, err.Error(),
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
 
 		return command.NewExecuteError(SendMsgError, err)
 	}
 
-	logutil.LogDebug(logger, commandName, sendNewMessageCommandMethod, successString,
+	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString,
 		logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
 
 	return nil
