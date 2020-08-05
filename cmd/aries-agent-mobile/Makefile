@@ -13,6 +13,7 @@ MOBILE_BUILD_PACKAGES := $(MOBILE_PROJECT_ROOT)/...
 
 MAKEFILE_DIR := ${CURDIR}
 BUILD_DIR = $(MAKEFILE_DIR)/build
+LDFLAGS ?= '-s -w'
 
 ANDROID_BUILD_DIR = $(BUILD_DIR)/android
 ANDROID_OUTPUT_FILE_NAME = aries-agent.aar
@@ -79,7 +80,7 @@ bindings-android:
 	@echo '   gomobile: Creating Android bindings  '
 	@echo '----------------------------------------'
 	@mkdir -p $(ANDROID_BUILD_DIR)
-	$(GOMOBILE_CMD) bind -v -target=$(ANDROID_TARGET) -javapkg=$(ANDROID_JAVA_PKG) -o=$(ANDROID_BUILD_DIR)/$(ANDROID_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
+	$(GOMOBILE_CMD) bind -v -ldflags $(LDFLAGS) -target=$(ANDROID_TARGET) -javapkg=$(ANDROID_JAVA_PKG) -o=$(ANDROID_BUILD_DIR)/$(ANDROID_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
 
 .PHONY: bindings-ios
 bindings-ios:
@@ -88,7 +89,7 @@ bindings-ios:
 	@echo '----------------------------------------'
 ifeq ($(IS_MACOS),true)
 	@mkdir -p $(IOS_BUILD_DIR)
-	$(GOMOBILE_CMD) bind -v -target=$(IOS_TARGET) -o=$(IOS_BUILD_DIR)/$(IOS_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
+	$(GOMOBILE_CMD) bind -v -ldflags $(LDFLAGS) -target=$(IOS_TARGET) -o=$(IOS_BUILD_DIR)/$(IOS_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
 else
 	@echo 'Skipping iOS bindings. Only available for Darwin operating systems.'
 endif
