@@ -43,6 +43,8 @@ The project can be used as a DIDComm [Router/Mediator](https://github.com/hyperl
 
 ### 6. Messaging
 
+This controller allows agents to (un)register message services with a message handler, send messages, reply to them and view all registered services.
+
 ### 7. OutOfBand Protocol
 
 ### 8. PresentProof Protocol
