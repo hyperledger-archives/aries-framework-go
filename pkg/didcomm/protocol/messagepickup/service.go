@@ -304,7 +304,12 @@ type inbox struct {
 // DecodeMessages Messages.
 func (r *inbox) DecodeMessages() ([]*Message, error) {
 	var out []*Message
-	err := json.Unmarshal(r.Messages, &out)
+
+	var err error
+
+	if r.Messages != nil {
+		err = json.Unmarshal(r.Messages, &out)
+	}
 
 	return out, err
 }
@@ -328,7 +333,7 @@ func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
 	s.inboxLock.Lock(theirDID)
 	defer s.inboxLock.Unlock(theirDID)
 
-	outbox, err := s.getInbox(theirDID)
+	outbox, err := s.createInbox(theirDID)
 	if err != nil {
 		return fmt.Errorf("unable to pull messages: %w", err)
 	}
@@ -351,15 +356,36 @@ func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
 
 	err = outbox.EncodeMessages(msgs)
 	if err != nil {
-		return fmt.Errorf("unable to pull messages: %w", err)
+		return fmt.Errorf("unable to encode messages: %w", err)
 	}
 
 	err = s.putInbox(theirDID, outbox)
 	if err != nil {
-		return fmt.Errorf("unable to pull messages: %w", err)
+		return fmt.Errorf("unable to put messages: %w", err)
 	}
 
 	return nil
+}
+
+func (s *Service) createInbox(theirDID string) (*inbox, error) {
+	msgs, err := s.getInbox(theirDID)
+	if err != nil && err == storage.ErrDataNotFound {
+		msgs = &inbox{DID: theirDID}
+
+		msgBytes, e := json.Marshal(msgs)
+		if e != nil {
+			return nil, e
+		}
+
+		e = s.msgStore.Put(theirDID, msgBytes)
+		if e != nil {
+			return nil, e
+		}
+
+		return msgs, nil
+	}
+
+	return msgs, err
 }
 
 func (s *Service) getInbox(theirDID string) (*inbox, error) {
@@ -423,7 +449,7 @@ func (s *Service) StatusRequest(connectionID string) (*Status, error) {
 	select {
 	case s := <-statusCh:
 		sts = &s
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
 	case <-time.After(updateTimeout):
 		return nil, errors.New("timeout waiting for status request")
 	}

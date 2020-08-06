@@ -502,6 +502,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithRouterEndpoint(routingEndpoint(frameworkOpts)),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
 		context.WithVerifiableStore(frameworkOpts.verifiableStore),
+		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 	)
 
 	if err != nil {

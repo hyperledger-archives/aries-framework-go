@@ -129,8 +129,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, UnregisterCommandMethod, o.Unregister),
 		cmdutil.NewCommandHandler(CommandName, GetConnectionIDCommandMethod, o.Connection),
 		cmdutil.NewCommandHandler(CommandName, ReconnectCommandMethod, o.Reconnect),
-		cmdutil.NewCommandHandler(CommandName, StatusCommandMethod, o.Reconnect),
-		cmdutil.NewCommandHandler(CommandName, BatchPickupCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(CommandName, StatusCommandMethod, o.Status),
+		cmdutil.NewCommandHandler(CommandName, BatchPickupCommandMethod, o.BatchPickup),
 	}
 }
 
