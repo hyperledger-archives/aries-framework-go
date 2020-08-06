@@ -18,11 +18,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
+// constants for KMS operations
 const (
-	kmseOperationID           = "/kms"
+	KmseOperationID           = "/kms"
 	legacykmseOperationID     = "/legacykms"
-	createKeySetPath          = kmseOperationID + "/keyset"
-	importKeyPath             = kmseOperationID + "/import"
+	CreateKeySetPath          = KmseOperationID + "/keyset"
+	ImportKeyPath             = KmseOperationID + "/import"
 	createKeySetLegacyKMSPath = legacykmseOperationID + "/keyset"
 )
 
@@ -62,8 +63,8 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 // registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(createKeySetPath, http.MethodPost, o.CreateKeySet),
-		cmdutil.NewHTTPHandler(importKeyPath, http.MethodPost, o.ImportKey),
+		cmdutil.NewHTTPHandler(CreateKeySetPath, http.MethodPost, o.CreateKeySet),
+		cmdutil.NewHTTPHandler(ImportKeyPath, http.MethodPost, o.ImportKey),
 		cmdutil.NewHTTPHandler(createKeySetLegacyKMSPath, http.MethodPost, o.CreateKeySetLegacyKms),
 	}
 }

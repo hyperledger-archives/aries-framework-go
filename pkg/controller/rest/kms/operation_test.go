@@ -72,8 +72,8 @@ func TestCreateKeySet(t *testing.T) {
 		})
 		cmd.command = &mockKMSCommand{}
 
-		handler := lookupHandler(t, cmd, createKeySetPath)
-		err := getSuccessResponseFromHandler(handler, createKeySetPath)
+		handler := lookupHandler(t, cmd, CreateKeySetPath)
+		err := getSuccessResponseFromHandler(handler, CreateKeySetPath)
 		require.NoError(t, err)
 	})
 
@@ -83,7 +83,7 @@ func TestCreateKeySet(t *testing.T) {
 		})
 		require.NotNil(t, cmd)
 
-		handler := lookupHandler(t, cmd, createKeySetPath)
+		handler := lookupHandler(t, cmd, CreateKeySetPath)
 
 		req := createKeySetReq{CreateKeySetRequest: kms.CreateKeySetRequest{
 			KeyType: "ED25519",
@@ -91,7 +91,7 @@ func TestCreateKeySet(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), createKeySetPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), CreateKeySetPath)
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
@@ -105,8 +105,8 @@ func TestImportKey(t *testing.T) {
 		cmd := New(&mockprovider.Provider{})
 		cmd.command = &mockKMSCommand{}
 
-		handler := lookupHandler(t, cmd, importKeyPath)
-		err := getSuccessResponseFromHandler(handler, importKeyPath)
+		handler := lookupHandler(t, cmd, ImportKeyPath)
+		err := getSuccessResponseFromHandler(handler, ImportKeyPath)
 		require.NoError(t, err)
 	})
 
@@ -117,13 +117,13 @@ func TestImportKey(t *testing.T) {
 		cmd.command = &mockKMSCommand{importKeyError: command.NewExecuteError(kms.ImportKeyError,
 			fmt.Errorf("failed to import key"))}
 
-		handler := lookupHandler(t, cmd, importKeyPath)
+		handler := lookupHandler(t, cmd, ImportKeyPath)
 
 		req := importKeyReq{JSONWebKey: kms.JSONWebKey{Kid: "k1"}}
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), importKeyPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), ImportKeyPath)
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -88,7 +89,7 @@ func (ar *Aries) GetIssueCredentialController() (api.IssueCredentialController, 
 func (ar *Aries) GetPresentProofController() (api.PresentProofController, error) {
 	endpoints, ok := ar.endpoints[presentproof.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", presentproof.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", presentproof.OperationID)
 	}
 
 	return &PresentProof{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -98,7 +99,7 @@ func (ar *Aries) GetPresentProofController() (api.PresentProofController, error)
 func (ar *Aries) GetVDRIController() (api.VDRIController, error) {
 	endpoints, ok := ar.endpoints[vdri.VdriOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", vdri.VdriOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", vdri.VdriOperationID)
 	}
 
 	return &VDRI{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -108,7 +109,7 @@ func (ar *Aries) GetVDRIController() (api.VDRIController, error) {
 func (ar *Aries) GetMediatorController() (api.MediatorController, error) {
 	endpoints, ok := ar.endpoints[mediator.RouteOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", mediator.RouteOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", mediator.RouteOperationID)
 	}
 
 	return &Mediator{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -118,7 +119,7 @@ func (ar *Aries) GetMediatorController() (api.MediatorController, error) {
 func (ar *Aries) GetMessagingController() (api.MessagingController, error) {
 	endpoints, ok := ar.endpoints[messaging.MsgServiceOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", messaging.MsgServiceOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", messaging.MsgServiceOperationID)
 	}
 
 	return &Messaging{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
@@ -128,8 +129,18 @@ func (ar *Aries) GetMessagingController() (api.MessagingController, error) {
 func (ar *Aries) GetOutOfBandController() (api.OutOfBandController, error) {
 	endpoints, ok := ar.endpoints[outofband.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", outofband.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", outofband.OperationID)
 	}
 
 	return &OutOfBand{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetKMSController returns a KMS instance.
+func (ar *Aries) GetKMSController() (api.KMSController, error) {
+	endpoints, ok := ar.endpoints[kms.KmseOperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", kms.KmseOperationID)
+	}
+
+	return &KMS{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

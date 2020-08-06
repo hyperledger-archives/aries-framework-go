@@ -12,6 +12,7 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	cmdoob "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -22,6 +23,7 @@ import (
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	opkms "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	opoob "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -48,6 +50,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
+	allEndpoints[opkms.KmseOperationID] = getKMSEndpoints()
 
 	return allEndpoints
 }
@@ -416,6 +419,19 @@ func getOutOfBandEndpoints() map[string]*endpoint {
 		},
 		cmdoob.ActionStop: {
 			Path:   opoob.ActionStop,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getKMSEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdkms.CreateKeySetCommandMethod: {
+			Path:   opkms.CreateKeySetPath,
+			Method: http.MethodPost,
+		},
+		cmdkms.ImportKeyCommandMethod: {
+			Path:   opkms.ImportKeyPath,
 			Method: http.MethodPost,
 		},
 	}
