@@ -35,6 +35,8 @@ This protocol enables an [issuer](./01_terminologies.md#issuer) to provide a [ho
 
 ### 4. KMS
 
+This controller provides access to the [key management service](./01_terminologies.md#kms) of an agent.
+
 ### 5. Mediator
 
 This controller allows an agent to (un)register itself with a [mediator](./01_terminologies.md#mediator), view connection details and statuses.
