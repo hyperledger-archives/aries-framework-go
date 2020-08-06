@@ -13,6 +13,12 @@ A DID identifies any subject (e.g., a person, organization, thing, data model, a
 
 _Reference: https://www.w3.org/TR/did-core/_
 
+### DIDComm
+
+This refers to the general idea about how [agents](#agent) communicate with each other.
+
+_Reference: https://github.com/hyperledger/aries-rfcs/tree/master/concepts/0005-didcomm#motivation_
+
 ### DID Document
 
 A set of data describing the DID subject, including mechanisms, such as public keys and pseudonymous biometrics, that the DID subject or a DID delegate can use to authenticate itself and prove its association with the DID.
