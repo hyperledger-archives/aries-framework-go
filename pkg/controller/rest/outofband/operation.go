@@ -20,15 +20,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
+// constants for the OutOfBand protocol operations
 const (
-	operationID      = "/outofband"
-	createRequest    = operationID + "/create-request"
-	createInvitation = operationID + "/create-invitation"
-	acceptRequest    = operationID + "/accept-request"
-	acceptInvitation = operationID + "/accept-invitation"
-	actions          = operationID + "/actions"
-	actionContinue   = operationID + "/{piid}/action-continue"
-	actionStop       = operationID + "/{piid}/action-stop"
+	OperationID      = "/outofband"
+	CreateRequest    = OperationID + "/create-request"
+	CreateInvitation = OperationID + "/create-invitation"
+	AcceptRequest    = OperationID + "/accept-request"
+	AcceptInvitation = OperationID + "/accept-invitation"
+	Actions          = OperationID + "/actions"
+	ActionContinue   = OperationID + "/{piid}/action-continue"
+	ActionStop       = OperationID + "/{piid}/action-stop"
 )
 
 // Operation is controller REST service controller for outofband.
@@ -59,13 +60,13 @@ func (c *Operation) GetRESTHandlers() []rest.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(createRequest, http.MethodPost, c.CreateRequest),
-		cmdutil.NewHTTPHandler(createInvitation, http.MethodPost, c.CreateInvitation),
-		cmdutil.NewHTTPHandler(acceptRequest, http.MethodPost, c.AcceptRequest),
-		cmdutil.NewHTTPHandler(acceptInvitation, http.MethodPost, c.AcceptInvitation),
-		cmdutil.NewHTTPHandler(actions, http.MethodGet, c.Actions),
-		cmdutil.NewHTTPHandler(actionContinue, http.MethodPost, c.ActionContinue),
-		cmdutil.NewHTTPHandler(actionStop, http.MethodPost, c.ActionStop),
+		cmdutil.NewHTTPHandler(CreateRequest, http.MethodPost, c.CreateRequest),
+		cmdutil.NewHTTPHandler(CreateInvitation, http.MethodPost, c.CreateInvitation),
+		cmdutil.NewHTTPHandler(AcceptRequest, http.MethodPost, c.AcceptRequest),
+		cmdutil.NewHTTPHandler(AcceptInvitation, http.MethodPost, c.AcceptInvitation),
+		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
+		cmdutil.NewHTTPHandler(ActionContinue, http.MethodPost, c.ActionContinue),
+		cmdutil.NewHTTPHandler(ActionStop, http.MethodPost, c.ActionStop),
 	}
 }
 

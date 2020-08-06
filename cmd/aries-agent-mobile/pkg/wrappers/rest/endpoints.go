@@ -14,6 +14,7 @@ import (
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
+	cmdoob "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
@@ -23,6 +24,7 @@ import (
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
+	opoob "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -45,6 +47,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opvdri.VdriOperationID] = getVDRIEndpoints()
 	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
+	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
 
 	return allEndpoints
 }
@@ -380,6 +383,39 @@ func getMessagingEndpoints() map[string]*endpoint {
 		},
 		cmdmessaging.RegisterHTTPMessageServiceCommandMethod: {
 			Path:   opmessaging.RegisterHTTPOverDIDCommService,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getOutOfBandEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdoob.Actions: {
+			Path:   opoob.Actions,
+			Method: http.MethodGet,
+		},
+		cmdoob.AcceptInvitation: {
+			Path:   opoob.AcceptInvitation,
+			Method: http.MethodPost,
+		},
+		cmdoob.CreateRequest: {
+			Path:   opoob.CreateRequest,
+			Method: http.MethodPost,
+		},
+		cmdoob.CreateInvitation: {
+			Path:   opoob.CreateInvitation,
+			Method: http.MethodPost,
+		},
+		cmdoob.AcceptRequest: {
+			Path:   opoob.AcceptRequest,
+			Method: http.MethodPost,
+		},
+		cmdoob.ActionContinue: {
+			Path:   opoob.ActionContinue,
+			Method: http.MethodPost,
+		},
+		cmdoob.ActionStop: {
+			Path:   opoob.ActionStop,
 			Method: http.MethodPost,
 		},
 	}

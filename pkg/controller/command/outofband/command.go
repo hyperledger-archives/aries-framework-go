@@ -42,16 +42,17 @@ const (
 	ActionContinueErrorCode
 )
 
+// constants for out-of-band
 const (
 	// command name
-	commandName      = "outofband"
-	createRequest    = "CreateRequest"
-	createInvitation = "CreateInvitation"
-	acceptRequest    = "AcceptRequest"
-	acceptInvitation = "AcceptInvitation"
-	actionStop       = "ActionStop"
-	actions          = "Actions"
-	actionContinue   = "ActionContinue"
+	CommandName      = "outofband"
+	CreateRequest    = "CreateRequest"
+	CreateInvitation = "CreateInvitation"
+	AcceptRequest    = "AcceptRequest"
+	AcceptInvitation = "AcceptInvitation"
+	ActionStop       = "ActionStop"
+	Actions          = "Actions"
+	ActionContinue   = "ActionContinue"
 
 	// error messages
 	errOneAttachmentMustBeProvided = "at least one attachment must be provided"
@@ -103,13 +104,13 @@ func New(ctx outofband.Provider, notifier command.Notifier) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, createRequest, c.CreateRequest),
-		cmdutil.NewCommandHandler(commandName, createInvitation, c.CreateInvitation),
-		cmdutil.NewCommandHandler(commandName, acceptRequest, c.AcceptRequest),
-		cmdutil.NewCommandHandler(commandName, acceptInvitation, c.AcceptInvitation),
-		cmdutil.NewCommandHandler(commandName, actions, c.Actions),
-		cmdutil.NewCommandHandler(commandName, actionContinue, c.ActionContinue),
-		cmdutil.NewCommandHandler(commandName, actionStop, c.ActionStop),
+		cmdutil.NewCommandHandler(CommandName, CreateRequest, c.CreateRequest),
+		cmdutil.NewCommandHandler(CommandName, CreateInvitation, c.CreateInvitation),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequest, c.AcceptRequest),
+		cmdutil.NewCommandHandler(CommandName, AcceptInvitation, c.AcceptInvitation),
+		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
+		cmdutil.NewCommandHandler(CommandName, ActionContinue, c.ActionContinue),
+		cmdutil.NewCommandHandler(CommandName, ActionStop, c.ActionStop),
 	}
 }
 
@@ -120,12 +121,12 @@ func (c *Command) GetHandlers() []command.Handler {
 func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 	var args CreateRequestArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, createRequest, err.Error())
+		logutil.LogInfo(logger, CommandName, CreateRequest, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if len(args.Attachments) == 0 {
-		logutil.LogDebug(logger, commandName, createRequest, errOneAttachmentMustBeProvided)
+		logutil.LogDebug(logger, CommandName, CreateRequest, errOneAttachmentMustBeProvided)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errOneAttachmentMustBeProvided))
 	}
 
@@ -136,7 +137,7 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 	}...)
 
 	if err != nil {
-		logutil.LogError(logger, commandName, createRequest, err.Error())
+		logutil.LogError(logger, CommandName, CreateRequest, err.Error())
 		return command.NewExecuteError(CreateRequestErrorCode, err)
 	}
 
@@ -144,7 +145,7 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 		Request: request,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, createRequest, successString)
+	logutil.LogDebug(logger, CommandName, CreateRequest, successString)
 
 	return nil
 }
@@ -155,7 +156,7 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	var args CreateInvitationArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, createInvitation, err.Error())
+		logutil.LogInfo(logger, CommandName, CreateInvitation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -166,7 +167,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	}...)
 
 	if err != nil {
-		logutil.LogError(logger, commandName, createInvitation, err.Error())
+		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
@@ -174,7 +175,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		Invitation: invitation,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, createInvitation, successString)
+	logutil.LogDebug(logger, CommandName, CreateInvitation, successString)
 
 	return nil
 }
@@ -183,23 +184,23 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
 	var args AcceptRequestArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptRequest, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.Request == nil {
-		logutil.LogDebug(logger, commandName, acceptRequest, errEmptyRequest)
+		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyRequest)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.MyLabel == "" {
-		logutil.LogDebug(logger, commandName, acceptRequest, errEmptyMyLabel)
+		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyMyLabel)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
 	connID, err := c.client.AcceptRequest(args.Request, args.MyLabel)
 	if err != nil {
-		logutil.LogError(logger, commandName, acceptRequest, err.Error())
+		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
 		return command.NewExecuteError(AcceptRequestErrorCode, err)
 	}
 
@@ -207,7 +208,7 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 		ConnectionID: connID,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptRequest, successString)
+	logutil.LogDebug(logger, CommandName, AcceptRequest, successString)
 
 	return nil
 }
@@ -216,23 +217,23 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
 	var args AcceptInvitationArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, acceptInvitation, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.Invitation == nil {
-		logutil.LogDebug(logger, commandName, acceptInvitation, errEmptyRequest)
+		logutil.LogDebug(logger, CommandName, AcceptInvitation, errEmptyRequest)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.MyLabel == "" {
-		logutil.LogDebug(logger, commandName, acceptInvitation, errEmptyMyLabel)
+		logutil.LogDebug(logger, CommandName, AcceptInvitation, errEmptyMyLabel)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
 	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel)
 	if err != nil {
-		logutil.LogError(logger, commandName, acceptInvitation, err.Error())
+		logutil.LogError(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
@@ -240,7 +241,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { 
 		ConnectionID: connID,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, acceptInvitation, successString)
+	logutil.LogDebug(logger, CommandName, AcceptInvitation, successString)
 
 	return nil
 }
@@ -249,7 +250,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { 
 func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 	result, err := c.client.Actions()
 	if err != nil {
-		logutil.LogError(logger, commandName, actions, err.Error())
+		logutil.LogError(logger, CommandName, Actions, err.Error())
 		return command.NewExecuteError(ActionsErrorCode, err)
 	}
 
@@ -257,7 +258,7 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 		Actions: result,
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, actions, successString)
+	logutil.LogDebug(logger, CommandName, Actions, successString)
 
 	return nil
 }
@@ -267,23 +268,23 @@ func (c *Command) ActionContinue(rw io.Writer, req io.Reader) command.Error {
 	var args ActionContinueArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, actionContinue, err.Error())
+		logutil.LogInfo(logger, CommandName, ActionContinue, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, actionContinue, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, ActionContinue, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.ActionContinue(args.PIID, args.Label); err != nil {
-		logutil.LogError(logger, commandName, actionContinue, err.Error())
+		logutil.LogError(logger, CommandName, ActionContinue, err.Error())
 		return command.NewExecuteError(ActionContinueErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &ActionContinueResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, actionContinue, successString)
+	logutil.LogDebug(logger, CommandName, ActionContinue, successString)
 
 	return nil
 }
@@ -293,23 +294,23 @@ func (c *Command) ActionStop(rw io.Writer, req io.Reader) command.Error {
 	var args ActionStopArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, commandName, actionStop, err.Error())
+		logutil.LogInfo(logger, CommandName, ActionStop, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, commandName, actionStop, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, ActionStop, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.ActionStop(args.PIID, errors.New(args.Reason)); err != nil {
-		logutil.LogError(logger, commandName, actionStop, err.Error())
+		logutil.LogError(logger, CommandName, ActionStop, err.Error())
 		return command.NewExecuteError(ActionStopErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &ActionStopResponse{}, logger)
 
-	logutil.LogDebug(logger, commandName, actionStop, successString)
+	logutil.LogDebug(logger, CommandName, ActionStop, successString)
 
 	return nil
 }
