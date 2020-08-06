@@ -37,6 +37,10 @@ This protocol enables an [issuer](./01_terminologies.md#issuer) to provide a [ho
 
 ### 5. Mediator
 
+This controller allows an agent to (un)register itself with a [mediator](./01_terminologies.md#mediator), view connection details and statuses.
+
+The project can be used as a DIDComm [Router/Mediator](https://github.com/hyperledger/aries-framework-go/blob/master/docs/didcomm_mediator.md).
+
 ### 6. Messaging
 
 ### 7. OutOfBand Protocol

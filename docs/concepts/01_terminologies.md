@@ -29,7 +29,13 @@ In the [PresentProof](./00_what_is_hl_aries.md#8-presentproof-protocol) flow, th
 ### Issuer
 The entity that issues a [credential](#verifiable-credential) to a holder.
 
-## VDRI
+### Mediator
+
+A mediator is a participant in agent-to-agent message delivery. It can be seen as a router with mailbox features which cannot read the encrypted contents of the routed messages.
+
+_Reference: https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0046-mediators-and-relays/README.md#summary_
+
+### VDRI
 
 An interface for verifying data against a trusted backing store such as a ledger or a database. A role a system might perform by mediating the creation and verification of relevant data which might be required to use [verifiable credentials](#verifiable-credential).
 
@@ -41,7 +47,6 @@ A verifiable credential can represent all of the same information that a physica
 Examples of verifiable credentials include digital employee identification cards, digital birth certificates, and digital educational certificates.
 
 _Reference: https://www.w3.org/TR/vc-data-model/#what-is-a-verifiable-credential_
-
 
 ### Verifiable Presentation
 
