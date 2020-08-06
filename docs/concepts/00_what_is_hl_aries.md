@@ -45,11 +45,13 @@ The project can be used as a DIDComm [Router/Mediator](https://github.com/hyperl
 
 ### 7. OutOfBand Protocol
 
+The controller for this protocol can be used when an [agent](./01_terminologies.md#agent) desires to connect with another but does not have a [DIDComm](./01_terminologies.md#didcomm) connection. _(7)_
+
 ### 8. PresentProof Protocol
 
 This protocol enables a [verifier](./01_terminologies.md#verifier) to request a presentation of a proof from a [holder/prover](./01_terminologies.md#holder).
 
-It focuses on the exchange of [verifiable presentations](./01_terminologies.md#verifiable-presentation) and does not concern itself with the structure of the documents which are being exchanged. _(7)_
+It focuses on the exchange of [verifiable presentations](./01_terminologies.md#verifiable-presentation) and does not concern itself with the structure of the documents which are being exchanged. _(8)_
 
 ### 9. VDRI
 
@@ -68,4 +70,5 @@ This controller allows for the creation, retrieval, validation and signing of [v
 4. [Aries RFCs - DIDExchange](https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange)
 5. [Aries RFCs - Introduce](https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce)
 6. [Aries RFCs - IssueCredential Choreography Diagram](https://github.com/hyperledger/aries-rfcs/tree/master/features/0453-issue-credential-v2#choreography-diagram)
-7. [Aries RFCs - Present Proof](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+7. [Aries RFCs - Out-Of-Band](https://github.com/hyperledger/aries-rfcs/tree/master/features/0434-outofband)
+8. [Aries RFCs - Present Proof](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
