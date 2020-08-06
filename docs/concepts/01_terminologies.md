@@ -33,7 +33,14 @@ Also known as a prover, a holder is the entity to whom an [issuer](#issuer) issu
 In the [PresentProof](./00_what_is_hl_aries.md#8-presentproof-protocol) flow, the prover prepares the proof and presents it to the [verifier](#verifier).
 
 ### Issuer
+
 The entity that issues a [credential](#verifiable-credential) to a holder.
+
+### KMS
+
+This stands for Key Management Service and is responsible for securely storing sensitive agent information such as private keys, secrets and other private data.
+
+_Reference: https://github.com/hyperledger/aries-rfcs/tree/master/concepts/0440-kms-architectures_
 
 ### Mediator
 
