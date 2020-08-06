@@ -71,12 +71,12 @@ func TestOperation_CreateRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, createRequest),
+		handlerLookup(t, operation, CreateRequest),
 		bytes.NewBufferString(`{
 			"attachments":[{}],
 			"service":["s1"]
 		}`),
-		createRequest,
+		CreateRequest,
 	)
 
 	require.NoError(t, err)
@@ -95,11 +95,11 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, createInvitation),
+		handlerLookup(t, operation, CreateInvitation),
 		bytes.NewBufferString(`{
 			"service":["s1"]
 		}`),
-		createInvitation,
+		CreateInvitation,
 	)
 
 	require.NoError(t, err)
@@ -118,12 +118,12 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, acceptInvitation),
+		handlerLookup(t, operation, AcceptInvitation),
 		bytes.NewBufferString(`{
 			"invitation":{},
 			"my_label":"label"
 		}`),
-		acceptInvitation,
+		AcceptInvitation,
 	)
 
 	require.NoError(t, err)
@@ -142,12 +142,12 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, acceptRequest),
+		handlerLookup(t, operation, AcceptRequest),
 		bytes.NewBufferString(`{
 			"request":{},
 			"my_label":"label"
 		}`),
-		acceptRequest,
+		AcceptRequest,
 	)
 
 	require.NoError(t, err)
@@ -166,9 +166,9 @@ func TestOperation_Actions(t *testing.T) {
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, actions),
+		handlerLookup(t, operation, Actions),
 		nil,
-		actions,
+		Actions,
 	)
 
 	require.NoError(t, err)
@@ -183,9 +183,9 @@ func TestOperation_ActionContinue(t *testing.T) {
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, actionContinue),
+		handlerLookup(t, operation, ActionContinue),
 		nil,
-		strings.Replace(actionContinue+"?label="+label, `{piid}`, piid, 1),
+		strings.Replace(ActionContinue+"?label="+label, `{piid}`, piid, 1),
 	)
 
 	require.NoError(t, err)
@@ -200,9 +200,9 @@ func TestOperation_ActionStop(t *testing.T) {
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, actionStop),
+		handlerLookup(t, operation, ActionStop),
 		nil,
-		strings.Replace(actionStop+"?reason="+reason, `{piid}`, piid, 1),
+		strings.Replace(ActionStop+"?reason="+reason, `{piid}`, piid, 1),
 	)
 
 	require.NoError(t, err)

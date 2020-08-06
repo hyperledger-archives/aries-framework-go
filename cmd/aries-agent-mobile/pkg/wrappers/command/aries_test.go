@@ -129,3 +129,16 @@ func TestAries_GetMessagingController(t *testing.T) {
 		require.NotNil(t, m)
 	})
 }
+
+func TestAries_GetOutOfBandController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		opts := &config.Options{}
+		a, err := NewAries(opts)
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetOutOfBandController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}

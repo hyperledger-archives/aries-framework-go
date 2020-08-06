@@ -32,4 +32,7 @@ type AriesController interface {
 
 	// GetMessagingController returns an implementation of MessagingController
 	GetMessagingController() (MessagingController, error)
+
+	// GetOutOfBandController returns an implementation of OutOfBandController
+	GetOutOfBandController() (OutOfBandController, error)
 }
