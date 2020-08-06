@@ -107,3 +107,15 @@ func TestAries_GetMediatorController(t *testing.T) {
 		require.NotNil(t, controller)
 	})
 }
+
+func TestAries_GetMessagingController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetMessagingController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -110,4 +111,14 @@ func (ar *Aries) GetMediatorController() (api.MediatorController, error) {
 	}
 
 	return &Mediator{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetMessagingController returns a Messaging instance.
+func (ar *Aries) GetMessagingController() (api.MessagingController, error) {
+	endpoints, ok := ar.endpoints[messaging.MsgServiceOperationID]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", messaging.MsgServiceOperationID)
+	}
+
+	return &Messaging{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

@@ -13,6 +13,7 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
+	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
@@ -21,6 +22,7 @@ import (
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
+	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -42,6 +44,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[oppresproof.OperationID] = getPresentProofEndpoints()
 	allEndpoints[opvdri.VdriOperationID] = getVDRIEndpoints()
 	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
+	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 
 	return allEndpoints
 }
@@ -348,6 +351,35 @@ func getMediatorEndpoints() map[string]*endpoint {
 		},
 		cmdmediator.BatchPickupCommandMethod: {
 			Path:   opmediator.BatchPickupPath,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getMessagingEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdmessaging.RegisterMessageServiceCommandMethod: {
+			Path:   opmessaging.RegisterMsgService,
+			Method: http.MethodPost,
+		},
+		cmdmessaging.UnregisterMessageServiceCommandMethod: {
+			Path:   opmessaging.UnregisterMsgService,
+			Method: http.MethodPost,
+		},
+		cmdmessaging.RegisteredServicesCommandMethod: {
+			Path:   opmessaging.MsgServiceList,
+			Method: http.MethodGet,
+		},
+		cmdmessaging.SendNewMessageCommandMethod: {
+			Path:   opmessaging.SendNewMsg,
+			Method: http.MethodPost,
+		},
+		cmdmessaging.SendReplyMessageCommandMethod: {
+			Path:   opmessaging.SendReplyMsg,
+			Method: http.MethodPost,
+		},
+		cmdmessaging.RegisterHTTPMessageServiceCommandMethod: {
+			Path:   opmessaging.RegisterHTTPOverDIDCommService,
 			Method: http.MethodPost,
 		},
 	}

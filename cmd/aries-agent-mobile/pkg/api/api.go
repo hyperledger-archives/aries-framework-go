@@ -29,4 +29,7 @@ type AriesController interface {
 
 	// GetMediatorController returns an implementation of MediatorController
 	GetMediatorController() (MediatorController, error)
+
+	// GetMessagingController returns an implementation of MessagingController
+	GetMessagingController() (MessagingController, error)
 }
