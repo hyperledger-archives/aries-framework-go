@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -237,4 +238,14 @@ func (a *Aries) GetOutOfBandController() (api.OutOfBandController, error) {
 	}
 
 	return &OutOfBand{handlers: handlers}, nil
+}
+
+// GetKMSController returns a KMS instance.
+func (a *Aries) GetKMSController() (api.KMSController, error) {
+	handlers, ok := a.handlers[kms.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", kms.CommandName)
+	}
+
+	return &KMS{handlers: handlers}, nil
 }

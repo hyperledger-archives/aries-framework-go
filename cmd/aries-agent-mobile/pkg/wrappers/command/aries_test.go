@@ -142,3 +142,16 @@ func TestAries_GetOutOfBandController(t *testing.T) {
 		require.NotNil(t, controller)
 	})
 }
+
+func TestAries_GetKMSController(t *testing.T) {
+	t.Run("it creates a controller", func(t *testing.T) {
+		opts := &config.Options{}
+		a, err := NewAries(opts)
+		require.NoError(t, err)
+		require.NotNil(t, a)
+
+		controller, err := a.GetKMSController()
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+}

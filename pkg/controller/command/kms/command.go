@@ -34,16 +34,17 @@ const (
 	ImportKeyError
 )
 
+// constants for KMS commands
 const (
 	// command name
-	commandName = "kms"
+	CommandName = "kms"
 
 	// command name
 	legacyKMSCommandName = "legacykms"
 
 	// command methods
-	createKeySetCommandMethod = "CreateKeySet"
-	importKeyCommandMethod    = "ImportKey"
+	CreateKeySetCommandMethod = "CreateKeySet"
+	ImportKeyCommandMethod    = "ImportKey"
 
 	// error messages
 	errEmptyKeyType = "key type is mandatory"
@@ -81,9 +82,9 @@ func New(p provider) *Command {
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, createKeySetCommandMethod, o.CreateKeySet),
-		cmdutil.NewCommandHandler(commandName, importKeyCommandMethod, o.ImportKey),
-		cmdutil.NewCommandHandler(legacyKMSCommandName, createKeySetCommandMethod, o.CreateKeySetLegacyKMS),
+		cmdutil.NewCommandHandler(CommandName, CreateKeySetCommandMethod, o.CreateKeySet),
+		cmdutil.NewCommandHandler(CommandName, ImportKeyCommandMethod, o.ImportKey),
+		cmdutil.NewCommandHandler(legacyKMSCommandName, CreateKeySetCommandMethod, o.CreateKeySetLegacyKMS),
 	}
 }
 
@@ -92,7 +93,7 @@ func (o *Command) GetHandlers() []command.Handler {
 func (o *Command) CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Error {
 	_, signaturePublicKey, err := o.ctx.LegacyKMS().CreateKeySet()
 	if err != nil {
-		logutil.LogError(logger, legacyKMSCommandName, createKeySetCommandMethod, err.Error())
+		logutil.LogError(logger, legacyKMSCommandName, CreateKeySetCommandMethod, err.Error())
 		return command.NewExecuteError(CreateKeySetError, err)
 	}
 
@@ -100,7 +101,7 @@ func (o *Command) CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Err
 		PublicKey: signaturePublicKey,
 	}, logger)
 
-	logutil.LogDebug(logger, legacyKMSCommandName, createKeySetCommandMethod, "success")
+	logutil.LogDebug(logger, legacyKMSCommandName, CreateKeySetCommandMethod, "success")
 
 	return nil
 }
@@ -111,24 +112,24 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, createKeySetCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, CreateKeySetCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
 	}
 
 	if request.KeyType == "" {
-		logutil.LogDebug(logger, commandName, createKeySetCommandMethod, errEmptyKeyType)
+		logutil.LogDebug(logger, CommandName, CreateKeySetCommandMethod, errEmptyKeyType)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyType))
 	}
 
 	keyID, _, err := o.ctx.KMS().Create(kms.KeyType(request.KeyType))
 	if err != nil {
-		logutil.LogError(logger, commandName, createKeySetCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, CreateKeySetCommandMethod, err.Error())
 		return command.NewExecuteError(CreateKeySetError, err)
 	}
 
 	pubKeyBytes, err := o.exportPubKeyBytes(keyID)
 	if err != nil {
-		logutil.LogError(logger, commandName, createKeySetCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, CreateKeySetCommandMethod, err.Error())
 		return command.NewExecuteError(CreateKeySetError, err)
 	}
 
@@ -137,7 +138,7 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 		PublicKey: base64.RawURLEncoding.EncodeToString(pubKeyBytes),
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, createKeySetCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, CreateKeySetCommandMethod, "success")
 
 	return nil
 }
@@ -148,18 +149,18 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	_, err := buf.ReadFrom(req)
 
 	if err != nil {
-		logutil.LogInfo(logger, commandName, importKeyCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
 	}
 
 	var jwk jose.JWK
 	if errUnmarshal := jwk.UnmarshalJSON(buf.Bytes()); errUnmarshal != nil {
-		logutil.LogInfo(logger, commandName, importKeyCommandMethod, errUnmarshal.Error())
+		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, errUnmarshal.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
 	}
 
 	if jwk.KeyID == "" {
-		logutil.LogDebug(logger, commandName, importKeyCommandMethod, errEmptyKeyID)
+		logutil.LogDebug(logger, CommandName, ImportKeyCommandMethod, errEmptyKeyID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyID))
 	}
 
@@ -177,13 +178,13 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 
 	_, _, err = o.importKey(jwk.Key, kType, kms.WithKeyID(jwk.KeyID))
 	if err != nil {
-		logutil.LogError(logger, commandName, importKeyCommandMethod, err.Error())
+		logutil.LogError(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewExecuteError(ImportKeyError, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
-	logutil.LogDebug(logger, commandName, importKeyCommandMethod, "success")
+	logutil.LogDebug(logger, CommandName, ImportKeyCommandMethod, "success")
 
 	return nil
 }
