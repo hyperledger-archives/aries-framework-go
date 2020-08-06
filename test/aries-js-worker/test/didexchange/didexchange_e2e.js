@@ -10,7 +10,10 @@ import {environment} from "../environment.js"
 const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
 
 const routerConnPath = "/connections"
+const mediatorPath = "/mediator"
 const routerCreateInvitationPath = `${routerControllerApiUrl}${routerConnPath}/create-invitation`
+const routerGetConnectionPath = `${routerControllerApiUrl}${mediatorPath}/connection`
+const routerRegisterPath = `${routerControllerApiUrl}${mediatorPath}/register`
 
 const statesTopic = "didexchange_states"
 const postState = "post_state"
@@ -34,7 +37,7 @@ const wasmMode = 'wasm'
 export const didExchangeClient = class {
     hasMediator = false;
 
-    constructor(agent1, agent2,mode) {
+    constructor(agent1, agent2, mode) {
         this.agent1 = agent1
         this.agent2 = agent2
         this.mode = mode
@@ -102,16 +105,18 @@ export const didExchangeClient = class {
         })
         //validate connection
         await didExchangeClient.validateRouterConnection(agent, event.Properties.connectionID)
+
+        return event.Properties.connectionID
     }
 
     async setupRouter() {
         this.hasMediator = true;
-        await didExchangeClient.addRouter(this.mode, this.agent1)
-        await didExchangeClient.addRouter(this.mode, this.agent2)
+        this.agent1RouterConnection = await didExchangeClient.addRouter(this.mode, this.agent1)
+        this.agent2RouterConnection = await didExchangeClient.addRouter(this.mode, this.agent2)
     }
 
-    async destroy(){
-        if (this.hasMediator){
+    async destroy() {
+        if (this.hasMediator) {
             await this.agent1.mediator.unregister()
             await this.agent2.mediator.unregister()
         }
@@ -206,7 +211,7 @@ export async function newDIDExchangeClient(agent1, agent2) {
         aries2 = values[1]
     };
 
-    await Promise.all([newAries(agent1,agent1), newAries(agent2,agent2)]).then(init).catch(err => new Error(err.message));
+    await Promise.all([newAries(agent1, agent1), newAries(agent2, agent2)]).then(init).catch(err => new Error(err.message));
 
     return new didExchangeClient(aries1, aries2, wasmMode)
 }

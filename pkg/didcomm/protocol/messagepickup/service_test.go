@@ -448,7 +448,39 @@ func TestAccept(t *testing.T) {
 }
 
 func TestAddMessage(t *testing.T) {
-	t.Run("test MessagePickupService.AddMessage() - success", func(t *testing.T) {
+	t.Run("test MessagePickupService.AddMessage() to new inbox - success", func(t *testing.T) {
+		mockStore := mockstore.NewMockStoreProvider()
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:              mockStore,
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
+		}, &mockTransportProvider{
+			packagerValue: &mockPackager{},
+		})
+		require.NoError(t, err)
+
+		message := &model.Envelope{
+			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
+				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
+			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
+			CipherText: "qQyzvajdvCDJbwxM",
+			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
+		}
+
+		err = svc.AddMessage(message, THEIRDID)
+		require.NoError(t, err)
+
+		b, err := mockStore.Store.Get(THEIRDID)
+		require.NoError(t, err)
+
+		ibx := &inbox{}
+		err = json.Unmarshal(b, ibx)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, ibx.MessageCount)
+	})
+
+	t.Run("test MessagePickupService.AddMessage() to existing inbox - success", func(t *testing.T) {
 		mockStore := mockstore.NewMockStoreProvider()
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:              mockStore,
@@ -472,7 +504,7 @@ func TestAddMessage(t *testing.T) {
 
 		b, err := json.Marshal(inbox{
 			DID:               "sample-their-did",
-			MessageCount:      2,
+			MessageCount:      3,
 			LastAddedTime:     tyme,
 			LastDeliveredTime: tyme,
 			LastRemovedTime:   tyme,
@@ -781,8 +813,9 @@ func TestDecodeMessages(t *testing.T) {
 	t.Run("test inbox.DecodeMessages() - success", func(t *testing.T) {
 		ibx := &inbox{}
 
-		_, err := ibx.DecodeMessages()
-		require.Error(t, err)
+		msgs, err := ibx.DecodeMessages()
+		require.NoError(t, err)
+		require.Empty(t, msgs)
 	})
 
 	t.Run("test inbox.DecodeMessages() - error", func(t *testing.T) {
