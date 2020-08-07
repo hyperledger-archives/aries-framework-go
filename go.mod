@@ -5,10 +5,12 @@
 module github.com/hyperledger/aries-framework-go
 
 require (
+	github.com/PaesslerAG/gval v1.0.0
+	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
-	github.com/cenkalti/backoff/v4 v4.0.2 // indirect
+	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/flimzy/diff v0.1.7 // indirect
 	github.com/flimzy/testy v0.1.17 // indirect
 	github.com/go-kivik/couchdb v2.0.0+incompatible
