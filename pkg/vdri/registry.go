@@ -110,7 +110,7 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 			return nil, fmt.Errorf("failed to create DID: %w", err)
 		}
 
-		id = ""
+		id = fmt.Sprintf("#%s", base58PubKey)
 	} else {
 		id, _, err = r.kms.Create(kms.ED25519Type)
 		if err != nil {
