@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
@@ -180,7 +181,7 @@ func (w *BaseKMS) Close() error {
 
 // getKeyPairSet get encryption & signature key pairs combo.
 func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
-	bytes, err := w.keystore.Get(verKey)
+	bytes, err := w.keystore.Get(strings.TrimPrefix(verKey, "#"))
 	if err != nil {
 		if errors.Is(storage.ErrDataNotFound, err) {
 			return nil, cryptoutil.ErrKeyNotFound
