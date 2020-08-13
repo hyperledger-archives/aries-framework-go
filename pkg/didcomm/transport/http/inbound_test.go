@@ -135,20 +135,20 @@ func TestInboundTransport(t *testing.T) {
 	t.Run("test inbound transport - with host/port", func(t *testing.T) {
 		port := "26601"
 		externalAddr := "http://example.com:" + port
-		inbound, err := NewInbound("localhost:"+port, externalAddr)
+		inbound, err := NewInbound("localhost:"+port, externalAddr, "", "")
 		require.NoError(t, err)
 		require.Equal(t, externalAddr, inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - with host/port, no external address", func(t *testing.T) {
 		internalAddr := "example.com:26602"
-		inbound, err := NewInbound(internalAddr, "")
+		inbound, err := NewInbound(internalAddr, "", "", "")
 		require.NoError(t, err)
 		require.Equal(t, internalAddr, inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - without host/port", func(t *testing.T) {
-		inbound, err := NewInbound(":26603", "")
+		inbound, err := NewInbound(":26603", "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}
@@ -160,7 +160,7 @@ func TestInboundTransport(t *testing.T) {
 	})
 
 	t.Run("test inbound transport - nil context", func(t *testing.T) {
-		inbound, err := NewInbound(":26604", "")
+		inbound, err := NewInbound(":26604", "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 
@@ -169,14 +169,23 @@ func TestInboundTransport(t *testing.T) {
 	})
 
 	t.Run("test inbound transport - invalid port number", func(t *testing.T) {
-		_, err := NewInbound("", "")
+		_, err := NewInbound("", "", "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "http address is mandatory")
 	})
 
+	t.Run("test inbound transport - invalid TLS", func(t *testing.T) {
+		svc, err := NewInbound(":0", "", "invalid", "invalid")
+		require.NoError(t, err)
+
+		err = svc.listenAndServe()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "open invalid: no such file or directory")
+	})
+
 	t.Run("test inbound transport - invoke endpoint", func(t *testing.T) {
 		// initiate inbound with port
-		inbound, err := NewInbound(":26605", "")
+		inbound, err := NewInbound(":26605", "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 

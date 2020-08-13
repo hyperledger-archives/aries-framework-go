@@ -93,6 +93,18 @@ const (
 		" Possible values [http] [ws]. Defaults to http if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentOutboundTransportEnvKey
 
+	agentTLSCertFileFlagName      = "tls-cert-file"
+	agentTLSCertFileEnvKey        = "TLS_CERT_FILE"
+	agentTLSCertFileFlagShorthand = "c"
+	agentTLSCertFileFlagUsage     = "tls certificate file." +
+		" Alternatively, this can be set with the following environment variable: " + agentTLSCertFileEnvKey
+
+	agentTLSKeyFileFlagName      = "tls-key-file"
+	agentTLSKeyFileEnvKey        = "TLS_KEY_FILE"
+	agentTLSKeyFileFlagShorthand = "k"
+	agentTLSKeyFileFlagUsage     = "tls key file." +
+		" Alternatively, this can be set with the following environment variable: " + agentTLSKeyFileEnvKey
+
 	// inbound host url flag
 	agentInboundHostFlagName      = "inbound-host"
 	agentInboundHostEnvKey        = "ARIESD_INBOUND_HOST"
@@ -136,6 +148,7 @@ var logger = log.New("aries-framework/agent-rest")
 type agentParameters struct {
 	server                                           server
 	host, dbPath, defaultLabel, transportReturnRoute string
+	tlsCertFile, tlsKeyFile                          string
 	token                                            string
 	webhookURLs, httpResolvers, outboundTransports   []string
 	inboundHostInternals, inboundHostExternals       []string
@@ -144,14 +157,18 @@ type agentParameters struct {
 }
 
 type server interface {
-	ListenAndServe(host string, router http.Handler) error
+	ListenAndServe(host string, router http.Handler, certFile, keyFile string) error
 }
 
 // HTTPServer represents an actual server implementation.
 type HTTPServer struct{}
 
 // ListenAndServe starts the server using the standard Go HTTP server implementation.
-func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
+func (s *HTTPServer) ListenAndServe(host string, router http.Handler, certFile, keyFile string) error {
+	if certFile != "" && keyFile != "" {
+		return http.ListenAndServeTLS(host, certFile, keyFile, router)
+	}
+
 	return http.ListenAndServe(host, router)
 }
 
@@ -239,6 +256,16 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
+			tlsCertFile, err := getUserSetVar(cmd, agentTLSCertFileFlagName, agentTLSCertFileEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			tlsKeyFile, err := getUserSetVar(cmd, agentTLSKeyFileFlagName, agentTLSKeyFileEnvKey, true)
+			if err != nil {
+				return err
+			}
+
 			parameters := &agentParameters{
 				server:               server,
 				host:                 host,
@@ -252,6 +279,8 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				outboundTransports:   outboundTransports,
 				autoAccept:           autoAccept,
 				transportReturnRoute: transportReturnRoute,
+				tlsCertFile:          tlsCertFile,
+				tlsKeyFile:           tlsKeyFile,
 			}
 
 			return startAgent(parameters)
@@ -313,6 +342,14 @@ func createFlags(startCmd *cobra.Command) {
 
 	// transport return route option flag
 	startCmd.Flags().StringP(agentTransportReturnRouteFlagName, "", "", agentTransportReturnRouteFlagUsage)
+
+	// tls cert file
+	startCmd.Flags().StringP(agentTLSCertFileFlagName,
+		agentTLSCertFileFlagShorthand, "", agentTLSCertFileFlagUsage)
+
+	// tls key file
+	startCmd.Flags().StringP(agentTLSKeyFileFlagName,
+		agentTLSKeyFileFlagShorthand, "", agentTLSKeyFileFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
@@ -415,7 +452,8 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 	return opts, nil
 }
 
-func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string) ([]aries.Option, error) {
+func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string, certFile,
+	keyFile string) ([]aries.Option, error) {
 	internalHost, err := getInboundSchemeToURLMap(inboundHostInternals)
 	if err != nil {
 		return nil, fmt.Errorf("inbound internal host : %w", err)
@@ -431,9 +469,9 @@ func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string
 	for scheme, host := range internalHost {
 		switch scheme {
 		case httpProtocol:
-			opts = append(opts, defaults.WithInboundHTTPAddr(host, externalHost[scheme]))
+			opts = append(opts, defaults.WithInboundHTTPAddr(host, externalHost[scheme], certFile, keyFile))
 		case websocketProtocol:
-			opts = append(opts, defaults.WithInboundWSAddr(host, externalHost[scheme]))
+			opts = append(opts, defaults.WithInboundWSAddr(host, externalHost[scheme], certFile, keyFile))
 		default:
 			return nil, fmt.Errorf("inbound transport [%s] not supported", scheme)
 		}
@@ -541,7 +579,7 @@ func startAgent(parameters *agentParameters) error {
 		},
 	).Handler(router)
 
-	err = parameters.server.ListenAndServe(parameters.host, handler)
+	err = parameters.server.ListenAndServe(parameters.host, handler, parameters.tlsCertFile, parameters.tlsKeyFile)
 	if err != nil {
 		return fmt.Errorf("failed to start aries agent rest on port [%s], cause:  %w", parameters.host, err)
 	}
@@ -561,7 +599,7 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	}
 
 	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundHostInternals,
-		parameters.inboundHostExternals)
+		parameters.inboundHostExternals, parameters.tlsCertFile, parameters.tlsKeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to inbound tranpsort opt : %w",
 			parameters.host, err)

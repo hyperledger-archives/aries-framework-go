@@ -22,22 +22,28 @@ var logger = log.New("aries-framework/ws")
 
 // Inbound http(ws) type.
 type Inbound struct {
-	externalAddr string
-	server       *http.Server
-	pool         *connPool
+	externalAddr      string
+	server            *http.Server
+	pool              *connPool
+	certFile, keyFile string
 }
 
 // NewInbound creates a new WebSocket inbound transport instance.
-func NewInbound(internalAddr, externalAddr string) (*Inbound, error) {
+func NewInbound(internalAddr, externalAddr, certFile, keyFile string) (*Inbound, error) {
 	if internalAddr == "" {
 		return nil, errors.New("websocket address is mandatory")
 	}
 
 	if externalAddr == "" {
-		return &Inbound{externalAddr: internalAddr, server: &http.Server{Addr: internalAddr}}, nil
+		externalAddr = internalAddr
 	}
 
-	return &Inbound{externalAddr: externalAddr, server: &http.Server{Addr: internalAddr}}, nil
+	return &Inbound{
+		certFile:     certFile,
+		keyFile:      keyFile,
+		externalAddr: externalAddr,
+		server:       &http.Server{Addr: internalAddr},
+	}, nil
 }
 
 // Start the http(ws) server.
@@ -53,12 +59,20 @@ func (i *Inbound) Start(prov transport.Provider) error {
 	i.pool = getConnPool(prov)
 
 	go func() {
-		if err := i.server.ListenAndServe(); err != http.ErrServerClosed {
+		if err := i.listenAndServe(); err != http.ErrServerClosed {
 			logger.Fatalf("websocket server start with address [%s] failed, cause:  %s", i.server.Addr, err)
 		}
 	}()
 
 	return nil
+}
+
+func (i *Inbound) listenAndServe() error {
+	if i.certFile != "" && i.keyFile != "" {
+		return i.server.ListenAndServeTLS(i.certFile, i.keyFile)
+	}
+
+	return i.server.ListenAndServe()
 }
 
 // Stop the http(ws) server.

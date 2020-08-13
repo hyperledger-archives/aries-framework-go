@@ -184,14 +184,14 @@ func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, o
 	for _, s := range scheme {
 		switch s {
 		case webSocketTransportProvider:
-			inbound, err := ws.NewInbound(schemeAddrMap[s], "ws://"+schemeAddrMap[s])
+			inbound, err := ws.NewInbound(schemeAddrMap[s], "ws://"+schemeAddrMap[s], "", "")
 			if err != nil {
 				return fmt.Errorf("failed to create websocket: %w", err)
 			}
 
 			opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
 		case httpTransportProvider:
-			opts = append(opts, defaults.WithInboundHTTPAddr(schemeAddrMap[s], "http://"+schemeAddrMap[s]))
+			opts = append(opts, defaults.WithInboundHTTPAddr(schemeAddrMap[s], "http://"+schemeAddrMap[s], "", ""))
 
 			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 			if err != nil {
