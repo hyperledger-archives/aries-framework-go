@@ -30,7 +30,7 @@ func TestConnectionStore(t *testing.T) {
 		// ------- setup the framework - with inbound transport ----- //
 		// instantiate inbound with port
 		port := ":" + strconv.Itoa(transportutil.GetRandomPort(5))
-		inbound, err := NewInbound(port, "")
+		inbound, err := NewInbound(port, "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 

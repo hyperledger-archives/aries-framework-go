@@ -7,6 +7,7 @@ package startcmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,7 +28,7 @@ type mockServer struct{}
 
 const agentUnexpectedExitErrMsg = "agent server exited unexpectedly"
 
-func (s *mockServer) ListenAndServe(host string, handler http.Handler) error {
+func (s *mockServer) ListenAndServe(host string, handler http.Handler, certFile, keyFile string) error {
 	return nil
 }
 
@@ -745,6 +746,22 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 
 		waitForServerToStart(t, testHostURL, testInboundHostURL)
 	})
+}
+
+func TestStartAriesTLS(t *testing.T) {
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	parameters := &agentParameters{
+		server:      &HTTPServer{},
+		host:        ":0",
+		dbPath:      path,
+		tlsCertFile: "invalid",
+		tlsKeyFile:  "invalid",
+	}
+
+	err := startAgent(parameters)
+	require.EqualError(t, errors.Unwrap(err), "open invalid: no such file or directory")
 }
 
 func TestStartAriesWithAuthorization(t *testing.T) {

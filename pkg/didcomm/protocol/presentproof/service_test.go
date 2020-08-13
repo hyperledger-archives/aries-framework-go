@@ -347,6 +347,8 @@ func TestService_HandleInbound(t *testing.T) {
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeRejectedError, r.Description.Code)
@@ -358,8 +360,6 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			defer close(done)
-
 			src, err := json.Marshal(&internalData{StateName: "abandoned"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -767,6 +767,8 @@ func TestService_HandleInbound(t *testing.T) {
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeInternalError, r.Description.Code)
@@ -787,8 +789,6 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			defer close(done)
-
 			src, err := json.Marshal(&internalData{StateName: "abandoned"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -828,6 +828,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &model.Ack{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, AckMsgType, r.Type)
@@ -850,8 +852,6 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			defer close(done)
-
 			src, err = json.Marshal(&internalData{AckRequired: true, StateName: "done"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -1006,10 +1006,10 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).
 			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				require.NotEmpty(t, msg.ID())
 				require.Equal(t, ProposePresentationMsgType, msg.Type())
-
-				defer close(done)
 
 				return nil
 			})

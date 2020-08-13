@@ -15,9 +15,9 @@ import (
 )
 
 // WithInboundHTTPAddr return new default http inbound transport.
-func WithInboundHTTPAddr(internalAddr, externalAddr string) aries.Option {
+func WithInboundHTTPAddr(internalAddr, externalAddr, certFile, keyFile string) aries.Option {
 	return func(opts *aries.Aries) error {
-		inbound, err := http.NewInbound(internalAddr, externalAddr)
+		inbound, err := http.NewInbound(internalAddr, externalAddr, certFile, keyFile)
 		if err != nil {
 			return fmt.Errorf("http inbound transport initialization failed : %w", err)
 		}
@@ -27,9 +27,9 @@ func WithInboundHTTPAddr(internalAddr, externalAddr string) aries.Option {
 }
 
 // WithInboundWSAddr return new default ws inbound transport.
-func WithInboundWSAddr(internalAddr, externalAddr string) aries.Option {
+func WithInboundWSAddr(internalAddr, externalAddr, certFile, keyFile string) aries.Option {
 	return func(opts *aries.Aries) error {
-		inbound, err := ws.NewInbound(internalAddr, externalAddr)
+		inbound, err := ws.NewInbound(internalAddr, externalAddr, certFile, keyFile)
 		if err != nil {
 			return fmt.Errorf("ws inbound transport initialization failed : %w", err)
 		}
