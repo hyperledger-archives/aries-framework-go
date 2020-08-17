@@ -115,11 +115,12 @@ async function proposalWithRequest(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
+        let checked = checkConnection(mode, bob, carol, request.request['@id'])
+
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
         })
 
-        let checked = checkConnection(mode, bob, carol, request.request['@id'])
         await carol.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
             label: "Bob",
@@ -181,11 +182,11 @@ async function proposal(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
+        let checked = checkConnection(mode, bob, carol, request.request['@id'])
+
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
         })
-
-        let checked = checkConnection(mode, bob, carol, request.request['@id'])
 
         await carol.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
@@ -238,11 +239,11 @@ async function skipProposalWithRequest(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
+        let checked = checkConnection(mode, carol, bob, request.request['@id'])
+
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,
         })
-
-        let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
@@ -290,11 +291,11 @@ async function skipProposal(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
+        let checked = checkConnection(mode, carol, bob, request.request['@id'])
+
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,
         })
-
-        let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],

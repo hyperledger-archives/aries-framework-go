@@ -28,7 +28,7 @@ import (
 	oobSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
 
-const timeout = 2 * time.Second
+const timeout = 5 * time.Second
 
 // BDDSteps for this feature.
 type BDDSteps struct {
