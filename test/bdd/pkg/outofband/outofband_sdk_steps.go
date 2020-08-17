@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package outofband
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -177,9 +178,32 @@ func (sdk *SDKSteps) acceptAndConnect(
 		return fmt.Errorf("failed to register agents for didexchange post msg events : %w", err)
 	}
 
+	states := make(chan service.StateMsg)
+
+	err = sdk.context.DIDExchangeClients[senderID].RegisterMsgEvent(states)
+	if err != nil {
+		return err
+	}
+
 	err = accept(receiver)
 	if err != nil {
 		return err
+	}
+
+	event := <-states
+
+	err = sdk.context.DIDExchangeClients[senderID].UnregisterMsgEvent(states)
+	if err != nil {
+		return err
+	}
+
+	conn, err := sdk.context.DIDExchangeClients[senderID].GetConnection(event.Properties.All()["connectionID"].(string))
+	if err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(conn.TheirLabel) == "" {
+		return errors.New("their label is empty")
 	}
 
 	err = sdk.bddDIDExchSDK.ApproveRequest(senderID)
