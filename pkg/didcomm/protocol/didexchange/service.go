@@ -677,6 +677,7 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 	}
 
 	connRecord := &connection.Record{
+		TheirLabel:   request.Label,
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
 		State:        stateNameNull,
