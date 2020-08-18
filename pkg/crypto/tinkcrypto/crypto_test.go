@@ -50,21 +50,21 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		_, _, err = c.Encrypt(msg, aad, badKH)
 		require.Error(t, err)
 
-		plainText, err := c.Decrypt(cipherText, nonce, aad, kh)
+		plainText, err := c.Decrypt(cipherText, aad, nonce, kh)
 		require.NoError(t, err)
 		require.Equal(t, msg, plainText)
 
 		// decrypt with bad key handle - should fail
-		_, err = c.Decrypt(cipherText, nonce, aad, badKH)
+		_, err = c.Decrypt(cipherText, aad, nonce, badKH)
 		require.Error(t, err)
 
 		// decrypt with bad nonce - should fail
-		plainText, err = c.Decrypt(cipherText, []byte("bad nonce"), aad, kh)
+		plainText, err = c.Decrypt(cipherText, aad, []byte("bad nonce"), kh)
 		require.Error(t, err)
 		require.Empty(t, plainText)
 
 		// decrypt with bad cipher - should fail
-		plainText, err = c.Decrypt([]byte("bad cipher"), nonce, aad, kh)
+		plainText, err = c.Decrypt([]byte("bad cipher"), aad, nonce, kh)
 		require.Error(t, err)
 		require.Empty(t, plainText)
 	})
@@ -86,22 +86,22 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, errBadKeyHandleFormat, err)
 
-		plainText, err := c.Decrypt(cipherText, nonce, aad, kh)
+		plainText, err := c.Decrypt(cipherText, aad, nonce, kh)
 		require.NoError(t, err)
 		require.Equal(t, msg, plainText)
 
 		// decrypt with bad nonce - should fail
-		plainText, err = c.Decrypt(cipherText, []byte("bad nonce"), aad, kh)
+		plainText, err = c.Decrypt(cipherText, aad, []byte("bad nonce"), kh)
 		require.Error(t, err)
 		require.Empty(t, plainText)
 
 		// decrypt with bad cipher - should fail
-		plainText, err = c.Decrypt([]byte("bad cipher"), nonce, aad, kh)
+		plainText, err = c.Decrypt([]byte("bad cipher"), aad, nonce, kh)
 		require.Error(t, err)
 		require.Empty(t, plainText)
 
 		// decrypt with nil key handle - should fail
-		_, err = c.Decrypt(cipherText, nonce, aad, nil)
+		_, err = c.Decrypt(cipherText, aad, nonce, nil)
 		require.Error(t, err)
 		require.Equal(t, errBadKeyHandleFormat, err)
 	})

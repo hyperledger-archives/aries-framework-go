@@ -86,7 +86,7 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 }
 
 // Decrypt will decrypt cipher using the implementation's corresponding encryption key referenced by kh.
-func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, error) {
+func (t *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
 		return nil, errBadKeyHandleFormat
