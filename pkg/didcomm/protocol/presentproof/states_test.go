@@ -201,7 +201,7 @@ func TestRequestReceived_Execute(t *testing.T) {
 			transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 		})
 		require.NoError(t, err)
-		require.Equal(t, &presentationSent{}, followup)
+		require.Equal(t, &presentationSent{WillConfirm: true}, followup)
 		require.NoError(t, action(nil))
 	})
 
@@ -213,7 +213,7 @@ func TestRequestReceived_Execute(t *testing.T) {
 			}},
 		})
 		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
+		require.Equal(t, &presentationSent{}, followup)
 		require.NoError(t, action(nil))
 	})
 
@@ -344,7 +344,24 @@ func TestPresentationSent_CanTransitionTo(t *testing.T) {
 
 func TestPresentationSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&presentationSent{}).Execute(&metaData{presentation: &Presentation{}})
+		followup, action, err := (&presentationSent{}).
+			Execute(&metaData{presentation: &Presentation{}})
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Success (WillConfirm)", func(t *testing.T) {
+		followup, action, err := (&presentationSent{WillConfirm: true}).
+			Execute(&metaData{presentation: &Presentation{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)

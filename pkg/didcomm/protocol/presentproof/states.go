@@ -175,11 +175,7 @@ func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 		return nil, nil, err
 	}
 
-	if req.WillConfirm {
-		return &presentationSent{}, zeroAction, nil
-	}
-
-	return &done{}, zeroAction, nil
+	return &presentationSent{WillConfirm: req.WillConfirm}, zeroAction, nil
 }
 
 // requestSent the Verifier's state.
@@ -227,7 +223,9 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 }
 
 // presentationSent the Prover's state.
-type presentationSent struct{}
+type presentationSent struct {
+	WillConfirm bool
+}
 
 func (s *presentationSent) Name() string {
 	return stateNamePresentationSent
@@ -248,6 +246,10 @@ func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
 		// sets message type
 		md.presentation.Type = PresentationMsgType
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.presentation))
+	}
+
+	if !s.WillConfirm {
+		return &done{}, action, nil
 	}
 
 	return &noOp{}, action, nil
