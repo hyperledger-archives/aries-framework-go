@@ -31,17 +31,17 @@ import (
 )
 
 func TestJWEEncryptRoundTrip(t *testing.T) {
-	_, err := NewJWEEncrypt("", "", nil, nil)
+	_, err := NewJWEEncrypt("", "", "", nil, nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
 	recECKeys, recKHs := createRecipients(t, 20)
 
-	_, err = NewJWEEncrypt("", "", nil, recECKeys)
+	_, err = NewJWEEncrypt("", "", "", nil, recECKeys)
 	require.EqualError(t, err, "encryption algorithm '' not supported",
 		"NewJWEEncrypt should fail with empty encAlg")
 
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -83,6 +83,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 		badJWE.ProtectedHeaders = map[string]interface{}{
 			HeaderEncryption: "badEncHeader",
+			HeaderType:       "test",
 		}
 
 		// decrypt JWE with bad Enc header value
@@ -180,7 +181,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
 	recECKeys, recKHs := createRecipients(t, 1)
 
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -209,7 +210,9 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *tes
 	recECKeys, recKHs := createRecipients(t, 1)
 	gjRecipients := convertToGoJoseRecipients(t, recECKeys)
 
-	gjEncrypter, err := jose.NewEncrypter(jose.A256GCM, gjRecipients[0], nil)
+	eo := &jose.EncrypterOptions{}
+	gjEncrypter, err := jose.NewEncrypter(jose.A256GCM, gjRecipients[0],
+		eo.WithType("didcomm-envelope-enc"))
 	require.NoError(t, err)
 
 	pt := []byte("Test secret message")
@@ -245,7 +248,9 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecrypt(t *testing.T) {
 	recECKeys, recKHs := createRecipients(t, 3)
 	gjRecipients := convertToGoJoseRecipients(t, recECKeys)
 
-	gjEncrypter, err := jose.NewMultiEncrypter(jose.A256GCM, gjRecipients, nil)
+	eo := &jose.EncrypterOptions{}
+	gjEncrypter, err := jose.NewMultiEncrypter(jose.A256GCM, gjRecipients,
+		eo.WithType("didcomm-envelope-enc"))
 	require.NoError(t, err)
 
 	pt := []byte("Test secret message")
@@ -293,7 +298,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -332,7 +337,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := NewJWEEncrypt(A256GCM, "", nil, recECKeys)
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", nil, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -446,16 +451,16 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 		},
 	}
 
-	_, err := NewJWEEncrypt(A256GCM, "", nil, recipients)
+	_, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", nil, recipients)
 	require.EqualError(t, err, "curve badCurveName not supported")
 
 	recipients, recsKH := createRecipients(t, 2)
 
-	_, err = NewJWEEncrypt(A256GCM, "", recsKH[0], recipients)
+	_, err = NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "", recsKH[0], recipients)
 	require.EqualError(t, err, "senderKID is required with senderKH")
 
 	// sender key set handle is not ECDH1PU type - should fail
-	_, err = NewJWEEncrypt(A256GCM, "1234", recsKH[0], recipients)
+	_, err = NewJWEEncrypt(A256GCM, composite.DIDCommEncType, "1234", recsKH[0], recipients)
 	require.EqualError(t, err, "AddRecipientsKeys: extract keyset failed: AddRecipientsKeys: primary "+
 		"key not found in keyset")
 }
@@ -469,7 +474,7 @@ func TestECDH1PU(t *testing.T) {
 	senderPubKey, err := json.Marshal(senders[0])
 	require.NoError(t, err)
 
-	jweEnc, err := NewJWEEncrypt(A256GCM, mockSenderID, kh, recipients)
+	jweEnc, err := NewJWEEncrypt(A256GCM, composite.DIDCommEncType, mockSenderID, kh, recipients)
 	require.NoError(t, err)
 	require.NotEmpty(t, jweEnc)
 

@@ -31,7 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -737,6 +737,9 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 		done := make(chan struct{})
 		connID := make(chan string)
 
+		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+		require.NoError(t, err)
+
 		// create the client
 		cmd, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: protocolStateStore,
@@ -745,7 +748,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
+			KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH}},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
 					if topic == "didexchange_actions" {
@@ -936,7 +939,7 @@ func mockProvider() *mockprovider.Provider {
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue:       &mockkms.CloseableKMS{},
+		KMSValue:             &mockkms.KeyManager{},
 		ServiceEndpointValue: mockSvcEndpoint,
 	}
 }

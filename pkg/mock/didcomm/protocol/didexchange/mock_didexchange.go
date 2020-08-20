@@ -12,14 +12,14 @@ package didexchange
 import (
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -199,9 +199,9 @@ func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// Signer is mock signer for DID exchange service.
-func (p *MockProvider) Signer() legacykms.Signer {
-	return &mockkms.CloseableKMS{}
+// Crypto is mock crypto service for DID exchange service.
+func (p *MockProvider) Crypto() crypto.Crypto {
+	return &mockcrypto.Crypto{}
 }
 
 // VDRIRegistry is mock vdri registry.

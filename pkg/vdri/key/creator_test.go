@@ -44,7 +44,7 @@ func TestBuild(t *testing.T) {
 
 		pubKey := &vdriapi.PubKey{
 			Type:  ed25519VerificationKey2018,
-			Value: pubKeyBase58,
+			Value: base58.Decode(pubKeyBase58),
 		}
 
 		doc, err := v.Build(pubKey)
@@ -61,7 +61,7 @@ func TestBuild(t *testing.T) {
 
 		pubKey := &vdriapi.PubKey{
 			Type:  ed25519VerificationKey2018,
-			Value: pubKeyBase58,
+			Value: base58.Decode(pubKeyBase58),
 		}
 
 		doc, err := v.Build(pubKey)

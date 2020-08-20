@@ -66,8 +66,7 @@ func TestAddKeyToRouter(t *testing.T) {
 		err := AddKeyToRouter(&mockRouteSvc{
 			AddKeyErr: errors.New("router error"),
 		}, ENDPOINT)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "add key to the router")
+		require.EqualError(t, err, "addKey: router error")
 	})
 }
 

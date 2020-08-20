@@ -34,7 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -415,7 +415,7 @@ func TestEmptyID(t *testing.T) {
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue:       &mockkms.CloseableKMS{},
+		KMSValue:             &mockkms.KeyManager{},
 		ServiceEndpointValue: "endppint",
 	}
 
@@ -496,6 +496,9 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 		store.ErrGet = f.storeGetErr
 	}
 
+	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
+	require.NoError(t, err)
+
 	svc, err := New(&mockprovider.Provider{
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
@@ -508,7 +511,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 			},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
-		LegacyKMSValue:                    &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:                          &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 		ServiceEndpointValue:              "endpoint",
 		ProtocolStateStorageProviderValue: &mockstore.MockStoreProvider{Store: &protocolStateStore},
 		StorageProviderValue:              &mockstore.MockStoreProvider{Store: &store}},

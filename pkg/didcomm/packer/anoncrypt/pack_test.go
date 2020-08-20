@@ -29,7 +29,8 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	k := createKMS(t)
 	_, recipientsKeys, keyHandles := createRecipients(t, k, 10)
 
-	anonPacker := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	anonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	require.NoError(t, err)
 
 	origMsg := []byte("secret message")
 	ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
@@ -41,7 +42,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles[0])
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 	// try with only 1 recipient
 	ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
@@ -50,16 +51,22 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	msg, err = anonPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 	require.Equal(t, encodingType, anonPacker.EncodingType())
 }
 
 func TestAnoncryptPackerFail(t *testing.T) {
+	t.Run("new Pack fail with nil kms", func(t *testing.T) {
+		_, err := New(newMockProviderWithCustomKMS(nil), jose.A256GCM)
+		require.EqualError(t, err, "anoncrypt: failed to create packer because KMS is empty")
+	})
+
 	k := createKMS(t)
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")
-	anonPacker := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	anonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	require.NoError(t, err)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
 		_, err := anonPacker.Pack(origMsg, nil, nil)
@@ -74,15 +81,19 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAnonPacker := New(newMockProviderWithCustomKMS(k), jose.EncAlg(invalidAlg))
-		_, err := invalidAnonPacker.Pack(origMsg, nil, recipientsKeys)
+		invalidAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.EncAlg(invalidAlg))
+		require.NoError(t, err)
+
+		_, err = invalidAnonPacker.Pack(origMsg, nil, recipientsKeys)
 		require.EqualError(t, err, fmt.Sprintf("anoncrypt Pack: failed to new JWEEncrypt instance: encryption"+
 			" algorithm '%s' not supported", invalidAlg))
 	})
 
 	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAnonPacker := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
-		_, err := validAnonPacker.Pack(origMsg, nil, recipientsKeys)
+		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		require.NoError(t, err)
+
+		_, err = validAnonPacker.Pack(origMsg, nil, recipientsKeys)
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Unpack([]byte("invalid jwe envelope"))
@@ -91,7 +102,9 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAnonPacker := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		require.NoError(t, err)
+
 		ct, err := validAnonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
 		require.NoError(t, err)
 
@@ -109,7 +122,9 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
 		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAnonPacker := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		require.NoError(t, err)
+
 		ct, err := validAnonPacker.Pack(origMsg, nil, newRecKeys)
 		require.NoError(t, err)
 

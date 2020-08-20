@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -18,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -87,7 +89,7 @@ type provider interface {
 	Messenger() service.Messenger
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 }
 
 // Command contains basic command operations provided by messaging controller command.
@@ -369,6 +371,7 @@ func (o *Command) sendToConnection(msg json.RawMessage, conn *connection.Record)
 	return nil
 }
 
+// nolint: funlen
 func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 	var dest *service.Destination
 
@@ -397,7 +400,15 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 		return command.NewExecuteError(SendMsgError, fmt.Errorf(errMsgDestinationMissing))
 	}
 
-	_, sigPubKey, err := o.ctx.LegacyKMS().CreateKeySet()
+	kid, _, err := o.ctx.KMS().Create(kms.ED25519Type)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
+
+		return command.NewExecuteError(SendMsgError, err)
+	}
+
+	sigPubKey, err := o.ctx.KMS().ExportPubKeyBytes(kid)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
@@ -412,7 +423,7 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 		return command.NewExecuteError(SendMsgError, err)
 	}
 
-	err = o.ctx.Messenger().SendToDestination(didcommMsg, sigPubKey, dest)
+	err = o.ctx.Messenger().SendToDestination(didcommMsg, base58.Encode(sigPubKey), dest)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))

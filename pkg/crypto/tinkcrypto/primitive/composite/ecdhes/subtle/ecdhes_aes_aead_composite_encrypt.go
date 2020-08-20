@@ -16,10 +16,6 @@ import (
 	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
-// A256GCM is the default content encryption algorithm value as per
-// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
-const A256GCM = "A256GCM"
-
 // ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption.
 type ECDHESAEADCompositeEncrypt struct {
@@ -49,16 +45,18 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 		return nil, fmt.Errorf("ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 	}
 
-	var eAlg, kwAlg string
+	var eAlg, eTyp, kwAlg string
 
 	// TODO add chacha alg support too, https://github.com/hyperledger/aries-framework-go/issues/1684
 	switch e.keyType {
 	case commonpb.KeyType_EC:
-		eAlg = A256GCM
+		eAlg = composite.A256GCM
 		kwAlg = A256KWAlg
 	default:
 		return nil, fmt.Errorf("ECDHESAEADCompositeEncrypt: bad key type: '%s'", e.keyType)
 	}
+
+	eTyp = composite.DIDCommEncType
 
 	keySize := e.encHelper.GetSymmetricKeySize()
 	cek := random.GetRandomBytes(uint32(keySize))
@@ -101,5 +99,5 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 		return nil, err
 	}
 
-	return e.encHelper.BuildEncData(eAlg, recipientsWK, ct, singleRecipientAAD)
+	return e.encHelper.BuildEncData(eAlg, eTyp, recipientsWK, ct, singleRecipientAAD)
 }

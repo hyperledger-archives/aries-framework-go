@@ -517,7 +517,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, verifiable.GeneratePresentationErrorCode,
-			"#key-1 is not found for DID did:trustbloc:testnet.trustbloc.local:", buf.Bytes())
+			"key-1 is not found for DID did:trustbloc:testnet.trustbloc.local:", buf.Bytes())
 
 		// now try by skipping verification
 		presReq.SkipVerify = true

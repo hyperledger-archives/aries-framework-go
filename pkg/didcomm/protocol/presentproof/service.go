@@ -196,7 +196,7 @@ func (s *Service) Use(items ...Middleware) {
 
 // HandleInbound handles inbound message (presentproof protocol).
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
 
 	msgMap := msg.Clone()
 

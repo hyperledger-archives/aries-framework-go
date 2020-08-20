@@ -102,7 +102,7 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 		}
 
 		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
-			d.add(base58.Encode(unpackMsg.FromVerKey), conn)
+			d.add(base58.Encode(unpackMsg.FromKey), conn)
 		}
 
 		messageHandler := d.msgHandler

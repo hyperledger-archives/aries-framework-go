@@ -145,7 +145,7 @@ func TestBuildEncDecData(t *testing.T) {
 	require.EqualValues(t, preBuiltCT, finalCT)
 
 	// test BuildEncData
-	mEncData, err := rEnc.BuildEncData(refEncData.EncAlg, refEncData.Recipients, preBuiltCT,
+	mEncData, err := rEnc.BuildEncData(refEncData.EncAlg, refEncData.EncType, refEncData.Recipients, preBuiltCT,
 		refEncData.SingleRecipientAAD)
 	require.NoError(t, err)
 
@@ -223,7 +223,7 @@ type failingMarshaller struct {
 	numTimesMarshalCalledBeforeReturnErr int
 }
 
-func (m *failingMarshaller) failingMarshal(v interface{}) ([]byte, error) {
+func (m *failingMarshaller) failingMarshal(_ interface{}) ([]byte, error) {
 	if m.numTimesMarshalCalled == m.numTimesMarshalCalledBeforeReturnErr {
 		return nil, errFailingMarshal
 	}

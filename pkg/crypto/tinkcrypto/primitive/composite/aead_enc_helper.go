@@ -27,7 +27,7 @@ type EncrypterHelper interface {
 
 	// BuildEncData will build the []byte representing the ciphertext sent to the end user as a result of the Composite
 	// Encryption primitive execution
-	BuildEncData(eAlg string, recipientsWK []*RecipientWrappedKey, ct, singleRecipientAAD []byte) ([]byte, error)
+	BuildEncData(eAlg, eTyp string, recipientsWK []*RecipientWrappedKey, ct, singleRecipientAAD []byte) ([]byte, error)
 
 	// MergeSingleRecipientHeaders for single recipient encryption, recipient header info is available in the key, this
 	// function will update AAD with this info and return the marshalled merged result

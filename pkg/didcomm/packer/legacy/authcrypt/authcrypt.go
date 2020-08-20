@@ -11,13 +11,13 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads legacy Aries envelopes.
 type Packer struct {
 	randSource io.Reader
-	legacyKMS  legacykms.KeyManager
+	kms        kms.KeyManager
 }
 
 // encodingType is the `typ` string identifier in a message that identifies the format as being legacy.
@@ -25,12 +25,12 @@ const encodingType string = "JWM/1.0"
 
 // New will create a Packer that encrypts messages using the legacy Aries format.
 // Note: legacy Packer does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P).
-func New(ctx packer.LegacyProvider) *Packer {
-	k := ctx.LegacyKMS()
+func New(ctx packer.Provider) *Packer {
+	k := ctx.KMS()
 
 	return &Packer{
 		randSource: rand.Reader,
-		legacyKMS:  k,
+		kms:        k,
 	}
 }
 

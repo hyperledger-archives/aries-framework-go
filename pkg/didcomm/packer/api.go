@@ -9,23 +9,14 @@ package packer
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
-
-// LegacyProvider interface for Packer ctx.
-type LegacyProvider interface {
-	LegacyKMS() legacykms.KeyManager
-}
 
 // Provider interface for Packer ctx.
 type Provider interface {
 	KMS() kms.KeyManager
 	StorageProvider() storage.Provider
 }
-
-// LegacyCreator method to create new legacy Packer service.
-type LegacyCreator func(prov LegacyProvider) (Packer, error)
 
 // Creator method to create new Packer service.
 type Creator func(prov Provider) (Packer, error)

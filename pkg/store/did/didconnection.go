@@ -83,7 +83,15 @@ func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
 	for i := range doc.PublicKey {
 		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+		// keeping these keys base58 encoded as long as legacyPacker exists
 		keys = append(keys, base58.Encode(doc.PublicKey[i].Value))
+	}
+
+	// assumption doc.KeyAgreement exists when separate encryption keys and verifications keys are used for this DID
+	// eg: used by Authcrypt/Anoncrypt Packer (not Legacy Packer)
+	for i := range doc.KeyAgreement {
+		// add proper crypto keys (as opposed to verification keys as doc.PublicKey above)
+		keys = append(keys, doc.KeyAgreement[i].PublicKey.ID[1:])
 	}
 
 	// save recipientKeys from didcomm-enabled service entries

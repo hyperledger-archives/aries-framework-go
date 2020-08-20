@@ -89,7 +89,7 @@ type SigKeyPair struct {
 }
 
 // MessagingKeys represents a pair of key pairs, one for encryption and one for signature
-// usually stored in a LegacyKMS, it helps prevent converting signing keys into encryption ones
+// usually stored in a KMS, it helps prevent converting signing keys into encryption ones
 // TODO refactor this structure and all KeyPair handling as per issue #596.
 type MessagingKeys struct {
 	*EncKeyPair `json:"enckeypair,omitempty"`
@@ -216,7 +216,7 @@ const NonceSize = 24
 // moved to https://github.com/teserakt-io/golang-ed25519
 func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
 	if len(pub) == 0 {
-		return nil, errors.New("key is nil")
+		return nil, errors.New("public key is nil")
 	}
 
 	if len(pub) != ed25519.PublicKeySize {
@@ -240,7 +240,7 @@ func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
 // moved to https://github.com/teserakt-io/golang-ed25519
 func SecretEd25519toCurve25519(priv []byte) ([]byte, error) {
 	if len(priv) == 0 {
-		return nil, errors.New("key is nil")
+		return nil, errors.New("private key is nil")
 	}
 
 	sKIn := new([ed25519.PrivateKeySize]byte)

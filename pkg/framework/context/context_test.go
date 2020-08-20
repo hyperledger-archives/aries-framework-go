@@ -29,7 +29,6 @@ import (
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mocklock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -261,9 +260,10 @@ func TestNewProvider(t *testing.T) {
 		}
 	})
 
-	t.Run("test new with legacyKMS and packager service", func(t *testing.T) {
+	t.Run("test new with crypto, KMS, packer and packager services", func(t *testing.T) {
 		prov, err := New(
-			WithLegacyKMS(&mocklegacykms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
+			WithKMS(&mockkms.KeyManager{CreateKeyID: "123"}),
+			WithCrypto(&mockcrypto.Crypto{SignValue: []byte("mockValue")}),
 			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
 			WithPacker(
 				&mockdidcomm.MockAuthCrypt{
@@ -280,12 +280,9 @@ func TestNewProvider(t *testing.T) {
 				}),
 		)
 		require.NoError(t, err)
-		v, err := prov.Signer().SignMessage(nil, "")
+		v, err := prov.Crypto().Sign(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		index, err := prov.LegacyKMS().FindVerKey([]string{"non-existent"})
-		require.NoError(t, err)
-		require.Equal(t, 0, index)
 		v, err = prov.Packager().PackMessage(&transport.Envelope{})
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)

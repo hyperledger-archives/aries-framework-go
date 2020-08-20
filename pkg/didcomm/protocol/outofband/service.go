@@ -561,24 +561,28 @@ func (s *Service) handleDIDEvent(e service.StateMsg) error {
 
 	props, ok := e.Properties.(didexchange.Event)
 	if !ok {
-		return fmt.Errorf("failed to cast did state msg properties")
+		return fmt.Errorf("service.handleDIDEvent: failed to cast did state msg properties")
 	}
 
 	connID := props.ConnectionID()
 
 	record, err := s.connections.GetConnectionRecord(connID)
 	if err != nil {
-		return fmt.Errorf("failed to get connection record : %w", err)
+		return fmt.Errorf("service.handleDIDEvent: failed to get connection record: %w", err)
+	}
+
+	if record.ParentThreadID == "" {
+		return fmt.Errorf("service.handleDIDEvent: ParentThreadID is empty")
 	}
 
 	state, err := s.fetchMyState(record.ParentThreadID)
 	if err != nil {
-		return fmt.Errorf("handleDIDEvent - failed to load state : %w", err)
+		return fmt.Errorf("service.handleDIDEvent: failed to load state : %w", err)
 	}
 
 	msg, err := s.extractDIDCommMsg(state)
 	if err != nil {
-		return fmt.Errorf("failed to extract DIDComm msg : %w", err)
+		return fmt.Errorf("service.handleDIDEvent: failed to extract DIDComm msg : %w", err)
 	}
 
 	state.Done = true
@@ -587,12 +591,12 @@ func (s *Service) handleDIDEvent(e service.StateMsg) error {
 	// has done its job in getting this far. The other protocol maintains its own state.
 	err = s.save(state)
 	if err != nil {
-		return fmt.Errorf("failed to update state : %w", err)
+		return fmt.Errorf("service.handleDIDEvent: failed to update state : %w", err)
 	}
 
 	_, err = s.outboundHandler.HandleOutbound(msg, record.MyDID, record.TheirDID)
 	if err != nil {
-		return fmt.Errorf("failed to dispatch message : %w", err)
+		return fmt.Errorf("service.handleDIDEvent: failed to dispatch message : %w", err)
 	}
 
 	return nil

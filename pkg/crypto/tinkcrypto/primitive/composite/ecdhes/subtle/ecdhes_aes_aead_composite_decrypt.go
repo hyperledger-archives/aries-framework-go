@@ -60,7 +60,7 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 	// TODO: add support for Chacha content encryption https://github.com/hyperledger/aries-framework-go/issues/1684
 	switch d.keyType {
 	case commonpb.KeyType_EC:
-		if encData.EncAlg != A256GCM {
+		if encData.EncAlg != composite.A256GCM {
 			return nil, fmt.Errorf("invalid content encryption algorihm '%s' for Decrypt()", encData.EncAlg)
 		}
 	default:

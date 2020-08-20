@@ -12,6 +12,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
@@ -41,6 +42,10 @@ func (s *ECDH1PUConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*composit
 	c, err := hybrid.GetCurve(s.recipientPublicKey.Curve)
 	if err != nil {
 		return nil, err
+	}
+
+	if c != s.senderPrivateKey.PublicKey.Curve {
+		return nil, fmt.Errorf("unwrapKey: recipient and sender keys are not on the same curve")
 	}
 
 	recPubKey := &ecdsa.PublicKey{

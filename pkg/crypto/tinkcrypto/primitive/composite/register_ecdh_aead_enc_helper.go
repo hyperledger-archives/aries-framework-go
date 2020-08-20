@@ -217,7 +217,7 @@ func (r *RegisterCompositeAEADEncHelper) getSerializedAESGCMKey(symmetricKeyValu
 
 // BuildEncData will build the []byte representing the ciphertext sent to the end user as a result of the Composite
 // Encryption primitive execution.
-func (r *RegisterCompositeAEADEncHelper) BuildEncData(eAlg string, recipientsWK []*RecipientWrappedKey,
+func (r *RegisterCompositeAEADEncHelper) BuildEncData(eAlg, eTyp string, recipientsWK []*RecipientWrappedKey,
 	ct, singleRecipientAAD []byte) ([]byte, error) {
 	tagSize := r.GetTagSize()
 	ivSize := r.GetIVSize()
@@ -227,6 +227,7 @@ func (r *RegisterCompositeAEADEncHelper) BuildEncData(eAlg string, recipientsWK 
 
 	encData := &EncryptedData{
 		EncAlg:             eAlg,
+		EncType:            eTyp,
 		Ciphertext:         ctAndTag[:tagOffset],
 		IV:                 iv,
 		Tag:                ctAndTag[tagOffset:],

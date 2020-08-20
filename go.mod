@@ -28,8 +28,6 @@ require (
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multibase v0.0.1
 	github.com/multiformats/go-multihash v0.0.13
-	github.com/onsi/ginkgo v1.10.1 // indirect
-	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/piprate/json-gold v0.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
@@ -41,7 +39,6 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	gitlab.com/flimzy/testy v0.2.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	nhooyr.io/websocket v1.8.3

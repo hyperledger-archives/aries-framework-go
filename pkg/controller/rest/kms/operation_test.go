@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
@@ -32,36 +31,7 @@ func TestNew(t *testing.T) {
 			KMSValue: &mockkms.KeyManager{},
 		})
 		require.NotNil(t, cmd)
-		require.Equal(t, 3, len(cmd.GetRESTHandlers()))
-	})
-}
-
-func TestCreateKeySetLegacyKMS(t *testing.T) {
-	t.Run("test create key set - success", func(t *testing.T) {
-		cmd := New(&mockprovider.Provider{
-			LegacyKMSValue: &mocklegacykms.CloseableKMS{CreateEncryptionKeyValue: "encryptionKey",
-				CreateSigningKeyValue: "signingKey"},
-		})
-		require.NotNil(t, cmd)
-
-		handler := lookupHandler(t, cmd, createKeySetLegacyKMSPath)
-		err := getSuccessResponseFromHandler(handler, createKeySetLegacyKMSPath)
-		require.NoError(t, err)
-	})
-
-	t.Run("test create key set - error", func(t *testing.T) {
-		cmd := New(&mockprovider.Provider{
-			LegacyKMSValue: &mocklegacykms.CloseableKMS{CreateKeyErr: fmt.Errorf("error create key set")},
-		})
-		require.NotNil(t, cmd)
-
-		handler := lookupHandler(t, cmd, createKeySetLegacyKMSPath)
-		buf, code, err := sendRequestToHandler(handler, nil, createKeySetLegacyKMSPath)
-		require.NoError(t, err)
-		require.NotEmpty(t, buf)
-
-		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, kms.CreateKeySetError, "error create key set", buf.Bytes())
+		require.Equal(t, 2, len(cmd.GetRESTHandlers()))
 	})
 }
 
@@ -205,10 +175,6 @@ type mockKMSCommand struct {
 }
 
 func (m *mockKMSCommand) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
-	return nil
-}
-
-func (m *mockKMSCommand) CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 

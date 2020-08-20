@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vdri_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -15,15 +16,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
@@ -41,15 +44,12 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 
 		now := time.Now()
 
+		aliceSigner := newCryptoSigner(t, verKey.ID[1:], alice.KMS(), alice.Crypto())
+
 		err := expectedVC.AddLinkedDataProof(
 			&verifiable.LinkedDataProofContext{
-				SignatureType: ed25519signature2018.SignatureType,
-				Suite: ed25519signature2018.New(suite.WithSigner(
-					&legacySigner{
-						verkey: verKey.ID,
-						ks:     alice.Signer(),
-					},
-				)),
+				SignatureType:           ed25519signature2018.SignatureType,
+				Suite:                   ed25519signature2018.New(suite.WithSigner(aliceSigner)),
 				SignatureRepresentation: verifiable.SignatureJWS,
 				Created:                 &now,
 				VerificationMethod:      fmt.Sprintf("%s%s", alicePeerDID.ID, verKey.ID),
@@ -65,13 +65,8 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		require.NoError(t, err)
 
 		err = expectedVP.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
-			SignatureType: ed25519signature2018.SignatureType,
-			Suite: ed25519signature2018.New(suite.WithSigner(
-				&legacySigner{
-					verkey: verKey.ID,
-					ks:     alice.Signer(),
-				},
-			)),
+			SignatureType:           ed25519signature2018.SignatureType,
+			Suite:                   ed25519signature2018.New(suite.WithSigner(aliceSigner)),
 			SignatureRepresentation: verifiable.SignatureJWS,
 			Created:                 &now,
 			VerificationMethod:      fmt.Sprintf("%s%s", alicePeerDID.ID, verKey.ID),
@@ -145,7 +140,26 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	)
 	require.NoError(t, err)
 
+	j, e := peerDID.JSONBytes()
+	require.NoError(t, e)
+
+	strJ, e := formatDoc(j)
+	require.NoError(t, e)
+
+	t.Log("DID Doc created: ***\n" + strJ + "\n***")
+
 	return peerDID
+}
+
+func formatDoc(msg []byte) (string, error) {
+	var buf bytes.Buffer
+
+	err := json.Indent(&buf, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
 
 func universityDegreeVC() *verifiable.Credential {
@@ -180,11 +194,38 @@ func universityDegreeVC() *verifiable.Credential {
 	}
 }
 
-type legacySigner struct {
-	verkey string
-	ks     legacykms.Signer
+func newCryptoSigner(t *testing.T, kid string, agentKMS kms.KeyManager,
+	agentCrypto crypto.Crypto) signature.Signer {
+	t.Helper()
+
+	kh, err := agentKMS.Get(kid)
+	require.NoError(t, err)
+
+	return &cryptoSigner{
+		cr: agentCrypto,
+		kh: kh,
+	}
 }
 
-func (s *legacySigner) Sign(message []byte) ([]byte, error) {
-	return s.ks.SignMessage(message, s.verkey)
+type cryptoSigner struct {
+	PubKeyBytes []byte
+	PubKey      interface{}
+
+	cr crypto.Crypto
+	kh interface{}
+}
+
+// Sign will sign document and return signature.
+func (s *cryptoSigner) Sign(msg []byte) ([]byte, error) {
+	return s.cr.Sign(msg, s.kh)
+}
+
+// PublicKey returns a public key object (e.g. ed25519.PublicKey or *ecdsa.PublicKey).
+func (s *cryptoSigner) PublicKey() interface{} {
+	return s.PubKey
+}
+
+// PublicKeyBytes returns bytes of the public key.
+func (s *cryptoSigner) PublicKeyBytes() []byte {
+	return s.PubKeyBytes
 }

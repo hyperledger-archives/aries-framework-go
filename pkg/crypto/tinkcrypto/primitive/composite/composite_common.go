@@ -16,10 +16,19 @@ import (
 
 // package composite provides the core crypto composite primitives such as ECDH-ES and ECDH-1PU to be used by JWE crypto
 
+const (
+	// A256GCM is the default content encryption algorithm value as per
+	// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
+	A256GCM = "A256GCM"
+	// DIDCommEncType representing the JWE 'Typ' protected type header
+	DIDCommEncType = "didcomm-envelope-enc"
+)
+
 // EncryptedData represents the Encryption's output data as a result of ECDHESEncrypt.Encrypt(pt, aad) call
 // The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg).
 type EncryptedData struct {
 	EncAlg     string                 `json:"encalg,omitempty"`
+	EncType    string                 `json:"enctype,omitempty"`
 	Ciphertext []byte                 `json:"ciphertext,omitempty"`
 	IV         []byte                 `json:"iv,omitempty"`
 	Tag        []byte                 `json:"tag,omitempty"`

@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 var logger = log.New("aries-framework/command/kms")
@@ -39,9 +38,6 @@ const (
 	// command name
 	CommandName = "kms"
 
-	// command name
-	legacyKMSCommandName = "legacykms"
-
 	// command methods
 	CreateKeySetCommandMethod = "CreateKeySet"
 	ImportKeyCommandMethod    = "ImportKey"
@@ -54,7 +50,6 @@ const (
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
 type provider interface {
 	KMS() kms.KeyManager
-	LegacyKMS() legacykms.KeyManager
 }
 
 // Command contains command operations provided by verifiable credential controller.
@@ -84,26 +79,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, CreateKeySetCommandMethod, o.CreateKeySet),
 		cmdutil.NewCommandHandler(CommandName, ImportKeyCommandMethod, o.ImportKey),
-		cmdutil.NewCommandHandler(legacyKMSCommandName, CreateKeySetCommandMethod, o.CreateKeySetLegacyKMS),
 	}
-}
-
-// CreateKeySetLegacyKMS create a new public/private encryption and signature key pairs set.
-// TODO Remove it after switching packer to use new kms https://github.com/hyperledger/aries-framework-go/issues/1828
-func (o *Command) CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Error {
-	_, signaturePublicKey, err := o.ctx.LegacyKMS().CreateKeySet()
-	if err != nil {
-		logutil.LogError(logger, legacyKMSCommandName, CreateKeySetCommandMethod, err.Error())
-		return command.NewExecuteError(CreateKeySetError, err)
-	}
-
-	command.WriteNillableResponse(rw, &CreateKeySetResponse{
-		PublicKey: signaturePublicKey,
-	}, logger)
-
-	logutil.LogDebug(logger, legacyKMSCommandName, CreateKeySetCommandMethod, "success")
-
-	return nil
 }
 
 // CreateKeySet create a new public/private encryption and signature key pairs set.

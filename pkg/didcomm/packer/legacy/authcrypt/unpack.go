@@ -9,6 +9,7 @@ package authcrypt
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -16,7 +17,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
 // Unpack will decode the envelope using the legacy format
@@ -50,7 +52,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 
-	keys, err := getCEK(protectedData.Recipients, p.legacyKMS)
+	keys, err := getCEK(protectedData.Recipients, p.kms)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +62,9 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	data, err := p.decodeCipherText(cek, &envelopeData)
 
 	return &transport.Envelope{
-		Message:    data,
-		FromVerKey: senderKey,
-		ToVerKey:   recKey,
+		Message: data,
+		FromKey: senderKey,
+		ToKey:   recKey,
 	}, err
 }
 
@@ -72,27 +74,22 @@ type keys struct {
 	myKey    []byte
 }
 
-func getCEK(recipients []recipient, km legacykms.KeyManager) (*keys, error) {
+func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
 	var candidateKeys []string
 
 	for _, candidate := range recipients {
 		candidateKeys = append(candidateKeys, candidate.Header.KID)
 	}
 
-	recKeyIdx, err := km.FindVerKey(candidateKeys)
+	recKeyIdx, err := findVerKey(km, candidateKeys)
 	if err != nil {
-		return nil, fmt.Errorf("no key accessible %w", err)
+		return nil, fmt.Errorf("getCEK: no key accessible %w", err)
 	}
 
 	recip := recipients[recKeyIdx]
 	recKey := base58.Decode(recip.Header.KID)
 
-	recCurvePub, err := km.ConvertToEncryptionKey(recKey)
-	if err != nil {
-		return nil, err
-	}
-
-	senderPub, senderPubCurve, err := decodeSender(recip.Header.Sender, recCurvePub, km)
+	senderPub, senderPubCurve, err := decodeSender(recip.Header.Sender, recKey, km)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +104,14 @@ func getCEK(recipients []recipient, km legacykms.KeyManager) (*keys, error) {
 		return nil, err
 	}
 
-	b, err := legacykms.NewCryptoBox(km)
+	b, err := localkms.NewCryptoBox(km)
 	if err != nil {
 		return nil, err
 	}
 
-	cekSlice, err := b.EasyOpen(encCEK, nonceSlice, senderPubCurve, recCurvePub)
+	cekSlice, err := b.EasyOpen(encCEK, nonceSlice, senderPubCurve, recKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt CEK: %s", err)
+		return nil, fmt.Errorf("failed to decrypt CEK: %w", err)
 	}
 
 	var cek [chacha.KeySize]byte
@@ -128,13 +125,29 @@ func getCEK(recipients []recipient, km legacykms.KeyManager) (*keys, error) {
 	}, nil
 }
 
-func decodeSender(b64Sender string, pk []byte, km legacykms.KeyManager) ([]byte, []byte, error) {
+func findVerKey(km kms.KeyManager, candidateKeys []string) (int, error) {
+	for i, key := range candidateKeys {
+		recKID, err := localkms.CreateKID(base58.Decode(key), kms.ED25519Type)
+		if err != nil {
+			return -1, err
+		}
+
+		_, err = km.Get(recKID)
+		if err == nil {
+			return i, nil
+		}
+	}
+
+	return -1, errors.New("none of the recipient keys were found in kms")
+}
+
+func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, []byte, error) {
 	encSender, err := base64.URLEncoding.DecodeString(b64Sender)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	b, err := legacykms.NewCryptoBox(km)
+	b, err := localkms.NewCryptoBox(km)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,6 +160,9 @@ func decodeSender(b64Sender string, pk []byte, km legacykms.KeyManager) ([]byte,
 	senderData := base58.Decode(string(senderPub))
 
 	senderPubCurve, err := cryptoutil.PublicEd25519toCurve25519(senderData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decodeSender: failed to convert ed25519 to Curve25519 pub key: %w", err)
+	}
 
 	return senderData, senderPubCurve, err
 }
@@ -158,7 +174,7 @@ func (p *Packer) decodeCipherText(cek *[chacha.KeySize]byte, envelope *legacyEnv
 
 	cipherText, err := base64.URLEncoding.DecodeString(envelope.CipherText)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decodeCipherText: failed to decode b64Sender: %w", err)
 	}
 
 	nonce, err = base64.URLEncoding.DecodeString(envelope.IV)

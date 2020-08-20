@@ -11,13 +11,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -37,7 +38,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 	ServiceEndpoint() string
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
@@ -48,7 +49,7 @@ type Client struct {
 	service.Event
 	didexchangeSvc  protocolService
 	routeSvc        mediator.ProtocolService
-	legacyKMS       legacykms.KeyManager
+	kms             kms.KeyManager
 	serviceEndpoint string
 	connectionStore *connection.Recorder
 }
@@ -103,7 +104,7 @@ func New(ctx provider) (*Client, error) {
 		Event:           didexchangeSvc,
 		didexchangeSvc:  didexchangeSvc,
 		routeSvc:        routeSvc,
-		legacyKMS:       ctx.LegacyKMS(),
+		kms:             ctx.KMS(),
 		serviceEndpoint: ctx.ServiceEndpoint(),
 		connectionStore: connectionStore,
 	}, nil
@@ -115,33 +116,40 @@ func New(ctx provider) (*Client, error) {
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
-	_, sigPubKey, err := c.legacyKMS.CreateKeySet()
+	kid, _, err := c.kms.Create(kms.ED25519Type)
 	if err != nil {
-		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
+		return nil, fmt.Errorf("createInvitation: failed to create SigningKey handle:%w", err)
 	}
+
+	sigPubKey, err := c.kms.ExportPubKeyBytes(kid)
+	if err != nil {
+		return nil, fmt.Errorf("createInvitation: failed to extract public SigningKey bytes from handle:%w", err)
+	}
+
+	sigPubKeyB58 := base58.Encode(sigPubKey)
 
 	// get the route configs
 	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(c.routeSvc, c.serviceEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
+		return nil, fmt.Errorf("createInvitation: getRouterConfig: %w", err)
 	}
 
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           label,
-		RecipientKeys:   []string{sigPubKey},
+		RecipientKeys:   []string{sigPubKeyB58},
 		ServiceEndpoint: serviceEndpoint,
 		Type:            didexchange.InvitationMsgType,
 		RoutingKeys:     routingKeys,
 	}
 
-	if err = mediator.AddKeyToRouter(c.routeSvc, sigPubKey); err != nil {
-		return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
+	if err = mediator.AddKeyToRouter(c.routeSvc, sigPubKeyB58); err != nil {
+		return nil, fmt.Errorf("createInvitation: AddKeyToRouter: %w", err)
 	}
 
 	err = c.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save invitation: %w", err)
+		return nil, fmt.Errorf("createInvitation: failed to save invitation: %w", err)
 	}
 
 	return &Invitation{invitation}, nil
@@ -159,7 +167,7 @@ func (c *Client) CreateInvitationWithDID(label, publicDID string) (*Invitation, 
 
 	err := c.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
+		return nil, fmt.Errorf("createInvitationWithDID: failed to save invitation with DID: %w", err)
 	}
 
 	return &Invitation{invitation}, nil
@@ -171,17 +179,17 @@ func (c *Client) CreateInvitationWithDID(label, publicDID string) (*Invitation, 
 func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 	payload, err := json.Marshal(invitation)
 	if err != nil {
-		return "", fmt.Errorf("failed marshal invitation: %w", err)
+		return "", fmt.Errorf("handleInvitation: failed marshal invitation: %w", err)
 	}
 
 	msg, err := service.ParseDIDCommMsgMap(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to create DIDCommMsg: %w", err)
+		return "", fmt.Errorf("handleInvitation: failed to create DIDCommMsg: %w", err)
 	}
 
 	connectionID, err := c.didexchangeSvc.HandleInbound(msg, "", "")
 	if err != nil {
-		return "", fmt.Errorf("failed from didexchange service handle: %w", err)
+		return "", fmt.Errorf("handleInvitation: failed from didexchange service handle: %w", err)
 	}
 
 	return connectionID, nil
@@ -300,15 +308,17 @@ func (c *Client) CreateConnection(myDID string, theirDID *did.Doc, options ...Co
 	}
 
 	destination, err := service.CreateDestination(theirDID)
-	if err == nil {
-		conn.ServiceEndPoint = destination.ServiceEndpoint
-		conn.RecipientKeys = destination.RecipientKeys
-		conn.RoutingKeys = destination.RoutingKeys
+	if err != nil {
+		return "", fmt.Errorf("createConnection: failed to create destination: %w", err)
 	}
+
+	conn.ServiceEndPoint = destination.ServiceEndpoint
+	conn.RecipientKeys = destination.RecipientKeys
+	conn.RoutingKeys = destination.RoutingKeys
 
 	err = c.didexchangeSvc.CreateConnection(conn.Record, theirDID)
 	if err != nil {
-		return "", fmt.Errorf("create connection: err: %w", err)
+		return "", fmt.Errorf("createConnection: err: %w", err)
 	}
 
 	return conn.ConnectionID, nil

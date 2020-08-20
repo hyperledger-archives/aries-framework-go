@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -18,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 type (
@@ -84,7 +85,7 @@ type OobService interface {
 type Provider interface {
 	ServiceEndpoint() string
 	Service(id string) (interface{}, error)
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 }
 
 // Client for the Out-Of-Band protocol:
@@ -312,38 +313,45 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 	return func() (*did.Service, error) {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 		//  with connection record
-		_, verKey, err := p.LegacyKMS().CreateKeySet()
+		verKeyID, _, err := p.KMS().Create(kms.ED25519Type)
 		if err != nil {
-			return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
+			return nil, fmt.Errorf("didServiceBlockFunc: failed to create SigningKey handle: %w", err)
 		}
 
 		s, err := p.Service(mediator.Coordination)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("didServiceBlockFunc: failed Coordinate Mediate service: %w", err)
 		}
 
 		routeSvc, ok := s.(mediator.ProtocolService)
 		if !ok {
-			return nil, errors.New("cast service to Route Service failed")
+			return nil, errors.New("didServiceBlockFunc: cast service to Route Service failed")
 		}
+
+		verKey, err := p.KMS().ExportPubKeyBytes(verKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("didServiceBlockFunc: failed to extract public SigningKey bytes from handle: %w", err)
+		}
+
+		verKeyB58 := base58.Encode(verKey)
 
 		// get the route configs
 		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(routeSvc, p.ServiceEndpoint())
 		if err != nil {
-			return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
+			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - fetch router config : %w", err)
 		}
 
 		svc := &did.Service{
 			ID:              uuid.New().String(),
 			Type:            "did-communication",
 			Priority:        0,
-			RecipientKeys:   []string{verKey},
+			RecipientKeys:   []string{verKeyB58},
 			RoutingKeys:     routingKeys,
 			ServiceEndpoint: serviceEndpoint,
 		}
 
-		if err = mediator.AddKeyToRouter(routeSvc, verKey); err != nil {
-			return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
+		if err = mediator.AddKeyToRouter(routeSvc, base58.Encode(verKey)); err != nil {
+			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - failed to add key to the router : %w", err)
 		}
 
 		return svc, nil

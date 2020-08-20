@@ -7,16 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockservice "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/service"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -27,7 +31,9 @@ type MockProvider struct {
 	CustomVDRI                 vdriapi.Registry
 	CustomOutbound             *mockdispatcher.MockOutbound
 	CustomMessenger            *mockservice.MockMessenger
-	CustomKMS                  *mockkms.CloseableKMS
+	CustomKMS                  kms.KeyManager
+	CustomLock                 secretlock.Service
+	CustomCrypto               *mockcrypto.Crypto
 	ServiceErr                 error
 	ServiceMap                 map[string]interface{}
 	InboundMsgHandler          transport.InboundMessageHandler
@@ -61,9 +67,9 @@ func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return mockstore.NewMockStoreProvider()
 }
 
-// Signer is mock signer for DID exchange service.
-func (p *MockProvider) Signer() legacykms.Signer {
-	return &mockkms.CloseableKMS{}
+// Crypto is mock crypto (including Signer) for DID exchange service.
+func (p *MockProvider) Crypto() crypto.Crypto {
+	return &mockcrypto.Crypto{}
 }
 
 // VDRIRegistry is mock vdri registry.
@@ -75,13 +81,22 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	return &mockvdri.MockVDRIRegistry{}
 }
 
-// LegacyKMS returns mock LegacyKMS.
-func (p *MockProvider) LegacyKMS() legacykms.KeyManager {
+// KMS returns mock kms instance.
+func (p *MockProvider) KMS() kms.KeyManager {
 	if p.CustomKMS != nil {
 		return p.CustomKMS
 	}
 
-	return &mockkms.CloseableKMS{}
+	return &mockkms.KeyManager{}
+}
+
+// SecretLock returns SecretLock instance.
+func (p *MockProvider) SecretLock() secretlock.Service {
+	if p.CustomLock != nil {
+		return p.CustomLock
+	}
+
+	return &mocksecretlock.MockSecretLock{}
 }
 
 // Service return service.

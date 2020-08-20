@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -104,7 +105,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		require.Empty(t, id)
 
 		// create a valid key to test Rotate()
-		id, kh, err = kmsStorage.Create("AES128GCM")
+		id, kh, err = kmsStorage.Create(kms.AES128GCMType)
 		require.NoError(t, err)
 		require.NotEmpty(t, kh)
 		require.NotEmpty(t, id)
@@ -121,10 +122,11 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("test Create() with failure to store key", func(t *testing.T) {
+		putDataErr := fmt.Errorf("failed to put data")
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
-					ErrPut: fmt.Errorf("failed to put data")},
+					ErrPut: putDataErr},
 			},
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
@@ -133,8 +135,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		id, kh, err := kmsStorage.Create("AES128GCM")
-		require.EqualError(t, err, "failed to put data")
+		id, kh, err := kmsStorage.Create(kms.AES128GCMType)
+		require.True(t, errors.Is(err, putDataErr))
 		require.Empty(t, kh)
 		require.Empty(t, id)
 	})
@@ -154,7 +156,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		id, kh, err := kmsStorage.Create("AES128GCM")
+		id, kh, err := kmsStorage.Create(kms.AES128GCMType)
 		require.NoError(t, err)
 		require.NotEmpty(t, kh)
 		require.NotEmpty(t, id)
@@ -178,7 +180,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to get data")
 		require.Empty(t, kh)
 
-		newID, kh, err := kmsStorage3.Rotate("AES128GCM", id)
+		newID, kh, err := kmsStorage3.Rotate(kms.AES128GCMType, id)
 		require.Contains(t, err.Error(), "failed to get data")
 		require.Empty(t, kh)
 		require.Empty(t, newID)
@@ -341,7 +343,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 	require.NotEmpty(t, kmsService)
 
 	// test import with nil key
-	_, _, err := kmsService.ImportPrivateKey(nil, kms.ECDSAP256DER)
+	_, _, err := kmsService.ImportPrivateKey(nil, kms.ECDSAP256TypeDER)
 	require.EqualError(t, err, "import private key does not support this key type or key is public")
 
 	var flagTests = []struct {

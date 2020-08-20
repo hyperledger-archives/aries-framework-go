@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	outofband "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
-	legacykms "github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	reflect "reflect"
 )
 
@@ -35,18 +35,18 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// LegacyKMS mocks base method
-func (m *MockProvider) LegacyKMS() legacykms.KeyManager {
+// KMS mocks base method
+func (m *MockProvider) KMS() kms.KeyManager {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LegacyKMS")
-	ret0, _ := ret[0].(legacykms.KeyManager)
+	ret := m.ctrl.Call(m, "KMS")
+	ret0, _ := ret[0].(kms.KeyManager)
 	return ret0
 }
 
-// LegacyKMS indicates an expected call of LegacyKMS
-func (mr *MockProviderMockRecorder) LegacyKMS() *gomock.Call {
+// KMS indicates an expected call of KMS
+func (mr *MockProviderMockRecorder) KMS() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyKMS", reflect.TypeOf((*MockProvider)(nil).LegacyKMS))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KMS", reflect.TypeOf((*MockProvider)(nil).KMS))
 }
 
 // Service mocks base method

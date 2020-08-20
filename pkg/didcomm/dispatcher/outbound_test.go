@@ -21,10 +21,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
@@ -42,7 +43,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no outbound transport found for serviceEndpoint: url")
+		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for serviceEndpoint: url")
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
@@ -79,7 +80,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		o := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			legacyKMS: &mockKMS{
+			kms: &mockkms.KeyManager{
 				CreateKeyErr: errors.New("create key error"),
 			},
 		})
@@ -264,7 +265,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
 		err := o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no outbound transport found for serviceEndpoint: url")
+		require.Contains(t, err.Error(), "outboundDispatcher.Forward: no transport found for serviceEndpoint: url")
 	})
 
 	t.Run("test forward - outbound send failure", func(t *testing.T) {
@@ -292,7 +293,7 @@ type mockProvider struct {
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
 	vdriRegistry            vdri.Registry
-	legacyKMS               legacykms.KMS
+	kms                     kms.KeyManager
 }
 
 func (p *mockProvider) Packager() commontransport.Packager {
@@ -311,12 +312,12 @@ func (p *mockProvider) VDRIRegistry() vdri.Registry {
 	return p.vdriRegistry
 }
 
-func (p *mockProvider) LegacyKMS() legacykms.KeyManager {
-	if p.legacyKMS != nil {
-		return p.legacyKMS
+func (p *mockProvider) KMS() kms.KeyManager {
+	if p.kms != nil {
+		return p.kms
 	}
 
-	return &mockKMS{}
+	return &mockkms.KeyManager{}
 }
 
 // mockOutboundTransport mock outbound transport
@@ -354,40 +355,5 @@ func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) 
 }
 
 func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
-	return nil, nil
-}
-
-// mockKMS mock Key Management Service (LegacyKMS)
-type mockKMS struct {
-	CreateEncryptionKeyValue string
-	CreateSigningKeyValue    string
-	CreateKeyErr             error
-}
-
-func (m *mockKMS) Close() error {
-	return nil
-}
-
-func (m *mockKMS) CreateKeySet() (string, string, error) {
-	return m.CreateEncryptionKeyValue, m.CreateSigningKeyValue, m.CreateKeyErr
-}
-
-func (m *mockKMS) FindVerKey(candidateKeys []string) (int, error) {
-	return 0, nil
-}
-
-func (m *mockKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockKMS) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockKMS) ConvertToEncryptionKey(key []byte) ([]byte, error) {
 	return nil, nil
 }

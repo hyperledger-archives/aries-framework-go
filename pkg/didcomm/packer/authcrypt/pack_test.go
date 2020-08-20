@@ -54,7 +54,7 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles[0])
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 	// try with only 1 recipient
 	ct, err = authPacker.Pack(origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
@@ -63,7 +63,7 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 	msg, err = authPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 	require.Equal(t, encodingType, authPacker.EncodingType())
 }
@@ -72,6 +72,11 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	k := createKMS(t)
 
 	skid, senderKey, _ := createAndMarshalKey(t, k)
+
+	t.Run("new Pack fail with nil store provider", func(t *testing.T) {
+		_, err := New(newMockProvider(nil, k), jose.A256GCM)
+		require.EqualError(t, err, "authcrypt: failed to create packer because StorageProvider is empty")
+	})
 
 	t.Run("new Pack fail with bad store provider", func(t *testing.T) {
 		badStoreProvider := &mockstorage.MockStoreProvider{
@@ -87,6 +92,11 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 		Store: mockStoreMap,
 	}}
+
+	t.Run("new Pack fail with nil kms", func(t *testing.T) {
+		_, err := New(newMockProvider(mockStoreProvider, nil), jose.A256GCM)
+		require.EqualError(t, err, "authcrypt: failed to create packer because KMS is empty")
+	})
 
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")

@@ -137,9 +137,9 @@ func (ar *Aries) GetOutOfBandController() (api.OutOfBandController, error) {
 
 // GetKMSController returns a KMS instance.
 func (ar *Aries) GetKMSController() (api.KMSController, error) {
-	endpoints, ok := ar.endpoints[kms.KmseOperationID]
+	endpoints, ok := ar.endpoints[kms.KmsOperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", kms.KmseOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", kms.KmsOperationID)
 	}
 
 	return &KMS{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil

@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -42,7 +42,7 @@ type provider interface {
 	Messenger() service.Messenger
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 }
 
 // Operation contains basic common operations provided by controller REST API.

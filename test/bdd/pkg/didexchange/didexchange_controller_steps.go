@@ -8,13 +8,13 @@ package didexchange
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
@@ -30,14 +30,14 @@ import (
 const (
 	connOperationID = "/connections"
 	// TODO Remove it after switching packer to use new kms https://github.com/hyperledger/aries-framework-go/issues/1828
-	legacyKMSOperationID         = "/legacykms"
+	kmsOperationID               = "/kms"
 	createInvitationPath         = connOperationID + "/create-invitation"
 	createImplicitInvitationPath = connOperationID + "/create-implicit-invitation"
 	receiveInvtiationPath        = connOperationID + "/receive-invitation"
 	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s"
 	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
 	connectionsByID              = connOperationID + "/{id}"
-	createKeySetPath             = legacyKMSOperationID + "/keyset"
+	createKeySetPath             = kmsOperationID + "/keyset"
 	timeoutWaitForDID            = 10 * time.Second
 	sideTreeURL                  = "${SIDETREE_URL}"
 )
@@ -467,7 +467,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	return nil
 }
 
-func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
+func (a *ControllerSteps) createPublicDID(agentID, _ string) error {
 	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
@@ -487,17 +487,25 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 		return err
 	}
 
-	pubKeyEd25519 := ed25519.PublicKey(base58.Decode(result.PublicKey))
+	// keys received from controller kms command are base64 RawURL encoded
+	verKey, err := base64.RawURLEncoding.DecodeString(result.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	pubKeyEd25519 := ed25519.PublicKey(verKey)
 
 	jwk, err := jose.JWKFromPublicKey(pubKeyEd25519)
 	if err != nil {
 		return err
 	}
 
+	jwk.KeyID = result.KeyID
+
 	doc, err := sidetree.CreateDID(
 		&sidetree.CreateDIDParams{
 			URL:             a.bddContext.Args[sideTreeURL] + "operations",
-			KeyID:           "key1",
+			KeyID:           result.KeyID,
 			JWK:             jwk,
 			ServiceEndpoint: a.agentServiceEndpoints[destination],
 		})

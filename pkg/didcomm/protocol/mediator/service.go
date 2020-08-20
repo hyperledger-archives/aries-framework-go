@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -23,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -91,7 +92,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	RouterEndpoint() string
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 	VDRIRegistry() vdri.Registry
 	Service(id string) (interface{}, error)
 }
@@ -132,7 +133,7 @@ type Service struct {
 	connectionLookup         connections
 	outbound                 dispatcher.Outbound
 	endpoint                 string
-	kms                      legacykms.KeyManager
+	kms                      kms.KeyManager
 	vdRegistry               vdri.Registry
 	routeRegistrationMap     map[string]chan Grant
 	routeRegistrationMapLock sync.RWMutex
@@ -168,7 +169,7 @@ func New(prov provider) (*Service, error) {
 		routeStore:           store,
 		outbound:             prov.OutboundDispatcher(),
 		endpoint:             prov.RouterEndpoint(),
-		kms:                  prov.LegacyKMS(),
+		kms:                  prov.KMS(),
 		vdRegistry:           prov.VDRIRegistry(),
 		connectionLookup:     connectionLookup,
 		routeRegistrationMap: make(map[string]chan Grant),
@@ -254,7 +255,7 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, myDID, theirDID string
 
 // HandleInbound handles inbound route coordination messages.
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
 
 	if triggersActionEvent(msg.Type()) {
 		return msg.ID(), s.sendActionEvent(msg, myDID, theirDID)
@@ -305,7 +306,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 // HandleOutbound handles outbound route coordination messages.
 func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+	logger.Debugf("service.HandleOutbound input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
 
 	if !s.Accept(msg.Type()) {
 		return "", fmt.Errorf("unsupported message type %s", msg.Type())
@@ -340,7 +341,7 @@ func (s *Service) handleInboundRequest(c *callback) error {
 
 	err := c.msg.Decode(request)
 	if err != nil {
-		return fmt.Errorf("route request message unmarshal : %w", err)
+		return fmt.Errorf("handleInboundRequest: route request message unmarshal : %w", err)
 	}
 
 	grant, err := outboundGrant(
@@ -348,12 +349,18 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
-			_, key, er := s.kms.CreateKeySet()
-			return key, er
+			kid, _, er := s.kms.Create(kms.ED25519Type)
+			if er != nil {
+				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create ED25519 "+
+					"key: %w", er)
+			}
+
+			key, er := s.kms.ExportPubKeyBytes(kid)
+			return base58.Encode(key), er
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to handle inbound request : %w", err)
+		return fmt.Errorf("handleInboundRequest: failed to handle inbound request : %w", err)
 	}
 
 	return s.outbound.SendToDID(grant, c.myDID, c.theirDID)
@@ -376,7 +383,7 @@ func outboundGrant(
 	if len(grant.RoutingKeys) == 0 {
 		keys, err := defaultKey()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create keys : %w", err)
+			return nil, fmt.Errorf("outboundGrant: failed to create keys : %w", err)
 		}
 
 		grant.RoutingKeys = []string{keys}

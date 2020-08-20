@@ -11,15 +11,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
+
+const authSuffix = "-authcrypt"
 
 // Provider contains dependencies for the base packager and is typically created by using aries.Context()
 type Provider interface {
@@ -45,7 +49,7 @@ type PackerCreator struct {
 	Creator    packer.Creator
 }
 
-// New return new instance of LegacyKMS implementation.
+// New return new instance of LegacyPackager implementation of Packager.
 func New(ctx Provider) (*Packager, error) {
 	didConnStore, err := did.NewConnectionStore(ctx)
 	if err != nil {
@@ -73,20 +77,29 @@ func New(ctx Provider) (*Packager, error) {
 }
 
 func (bp *Packager) addPacker(pack packer.Packer) {
-	if bp.packers[pack.EncodingType()] == nil {
-		bp.packers[pack.EncodingType()] = pack
+	packerID := pack.EncodingType()
+
+	_, ok := pack.(*authcrypt.Packer)
+	if ok {
+		// anoncrypt and authcrypt have the same encoding type
+		// so authcrypt will have an appended suffix
+		packerID += authSuffix
+	}
+
+	if bp.packers[packerID] == nil {
+		bp.packers[packerID] = pack
 	}
 }
 
 // PackMessage Pack a message for one or more recipients.
 func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, error) {
 	if messageEnvelope == nil {
-		return nil, errors.New("envelope argument is nil")
+		return nil, errors.New("packMessage: envelope argument is nil")
 	}
 
 	var recipients [][]byte
 
-	for _, verKey := range messageEnvelope.ToVerKeys {
+	for _, verKey := range messageEnvelope.ToKeys {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/749 It is possible to have
 		//  different key schemes in an interop situation
 		// there is no guarantee that each recipient is using the same key types
@@ -97,10 +110,12 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 		// create 32 byte key
 		recipients = append(recipients, verKeyBytes)
 	}
-	// pack message
-	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, messageEnvelope.FromVerKey, recipients)
+
+	// TODO find a way to dynamically select a packer based on FromKey, recipients and their types.
+	//      https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
+	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, messageEnvelope.FromKey, recipients)
 	if err != nil {
-		return nil, fmt.Errorf("pack: %w", err)
+		return nil, fmt.Errorf("packMessage: failed to pack: %w", err)
 	}
 
 	return bytes, nil
@@ -112,14 +127,19 @@ type envelopeStub struct {
 
 type headerStub struct {
 	Type string `json:"typ,omitempty"`
+	SKID string `json:"skid,omitempty"`
 }
 
 func getEncodingType(encMessage []byte) (string, error) {
 	env := &envelopeStub{}
 
-	err := json.Unmarshal(encMessage, env)
-	if err != nil {
-		return "", fmt.Errorf("parse envelope: %w", err)
+	if strings.HasPrefix(string(encMessage), "{") { // full serialized
+		err := json.Unmarshal(encMessage, env)
+		if err != nil {
+			return "", fmt.Errorf("parse envelope: %w", err)
+		}
+	} else { // compact serialized
+		env.Protected = strings.Split(string(encMessage), ".")[0]
 	}
 
 	var protBytes []byte
@@ -138,12 +158,20 @@ func getEncodingType(encMessage []byte) (string, error) {
 
 	prot := &headerStub{}
 
-	err = json.Unmarshal(protBytes, prot)
+	err := json.Unmarshal(protBytes, prot)
 	if err != nil {
 		return "", fmt.Errorf("parse header: %w", err)
 	}
 
-	return prot.Type, nil
+	packerID := prot.Type
+
+	if prot.SKID != "" {
+		// since Type protected header is the same for authcrypt and anoncrypt, the differentiating factor is SKID.
+		// If it is present, then it's authcrypt.
+		packerID += authSuffix
+	}
+
+	return packerID, nil
 }
 
 // UnpackMessage Unpack a message.
@@ -164,14 +192,14 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 	}
 
 	//	ignore error - agents can communicate without using DIDs - for example, in DIDExchange
-	theirDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.FromVerKey))
+	theirDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.FromKey))
 	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get their did: %w", err)
 	}
 
 	// ignore error - at beginning of DIDExchange, you might be about to generate a DID
-	myDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.ToVerKey))
+	myDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.ToKey))
 	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get my did: %w", err)

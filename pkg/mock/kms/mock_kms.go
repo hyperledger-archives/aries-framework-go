@@ -93,9 +93,7 @@ func (k *KeyManager) ImportPrivateKey(privKey interface{}, keyType kmsservice.Ke
 	return k.ImportPrivateKeyID, k.ImportPrivateKeyValue, nil
 }
 
-// CreateMockKeyHandle is a utility function that returns a mock key (for tests only. ie: not registered in Tink).
-func CreateMockKeyHandle() (*keyset.Handle, error) {
-	ks := testutil.NewTestAESGCMKeyset(tinkpb.OutputPrefixType_TINK)
+func createMockKeyHandle(ks *tinkpb.Keyset) (*keyset.Handle, error) {
 	primaryKey := ks.Key[0]
 
 	if primaryKey.OutputPrefixType == tinkpb.OutputPrefixType_RAW {
@@ -103,6 +101,20 @@ func CreateMockKeyHandle() (*keyset.Handle, error) {
 	}
 
 	return testkeyset.NewHandle(ks)
+}
+
+// CreateMockAESGCMKeyHandle is a utility function that returns a mock key (for tests only, not registered in Tink).
+func CreateMockAESGCMKeyHandle() (*keyset.Handle, error) {
+	ks := testutil.NewTestAESGCMKeyset(tinkpb.OutputPrefixType_TINK)
+
+	return createMockKeyHandle(ks)
+}
+
+// CreateMockED25519KeyHandle is a utility function that returns a mock key (for tests only, not registered in Tink).
+func CreateMockED25519KeyHandle() (*keyset.Handle, error) {
+	ks := testutil.NewTestKeyset(testutil.NewED25519PrivateKeyData(), tinkpb.OutputPrefixType_TINK)
+
+	return createMockKeyHandle(ks)
 }
 
 // Provider provides mock Provider implementation.

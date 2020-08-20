@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
+// SignFunc mocks Crypto's Sign() function, it useful for executing custom signing with the help of SignKey.
+type SignFunc func([]byte, interface{}) ([]byte, error)
+
 // Crypto mock.
 type Crypto struct {
 	EncryptValue      []byte
@@ -14,6 +17,8 @@ type Crypto struct {
 	DecryptValue      []byte
 	DecryptErr        error
 	SignValue         []byte
+	SignKey           []byte
+	SignFn            SignFunc
 	SignErr           error
 	VerifyErr         error
 	ComputeMACValue   []byte
@@ -33,6 +38,10 @@ func (c *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, err
 
 // Sign returns a mocked value and a mocked error.
 func (c *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
+	if c.SignFn != nil {
+		return c.SignFn(msg, c.SignKey)
+	}
+
 	return c.SignValue, c.SignErr
 }
 

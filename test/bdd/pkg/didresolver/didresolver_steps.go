@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
@@ -58,12 +58,15 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		pubKeyJWK, ok := ctx.PublicKeys[agentID]
 		if !ok {
-			_, publicKey, err := ctx.AgentCtx[agentID].LegacyKMS().CreateKeySet()
+			kid, _, err := ctx.AgentCtx[agentID].KMS().Create(kms.ED25519Type)
 			if err != nil {
 				return err
 			}
 
-			pubKeyBytes := base58.Decode(publicKey)
+			pubKeyBytes, err := ctx.AgentCtx[agentID].KMS().ExportPubKeyBytes(kid)
+			if err != nil {
+				return err
+			}
 
 			pubKeyJWK, err = jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyBytes))
 			if err != nil {

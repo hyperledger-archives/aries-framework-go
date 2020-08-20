@@ -107,6 +107,11 @@ func (h Headers) Encryption() (string, bool) {
 	return h.stringValue(HeaderEncryption)
 }
 
+// Type gets content encryption type from JOSE headers.
+func (h Headers) Type() (string, bool) {
+	return h.stringValue(HeaderType)
+}
+
 func (h Headers) stringValue(key string) (string, bool) {
 	kRaw, ok := h[key]
 	if !ok {

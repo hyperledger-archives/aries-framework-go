@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // provider interface for outbound ctx
@@ -29,7 +29,7 @@ type provider interface {
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
 	VDRIRegistry() vdri.Registry
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 }
 
 // OutboundDispatcher dispatch msgs to destination.
@@ -38,7 +38,7 @@ type OutboundDispatcher struct {
 	packager             commontransport.Packager
 	transportReturnRoute string
 	vdRegistry           vdri.Registry
-	kms                  legacykms.KeyManager
+	kms                  kms.KeyManager
 }
 
 // NewOutbound return new dispatcher outbound instance.
@@ -48,7 +48,7 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRIRegistry(),
-		kms:                  prov.LegacyKMS(),
+		kms:                  prov.KMS(),
 	}
 }
 
@@ -90,19 +90,19 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 
 		req, err := json.Marshal(msg)
 		if err != nil {
-			return fmt.Errorf("failed marshal to bytes: %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed marshal to bytes: %w", err)
 		}
 
 		// update the outbound message with transport return route option [all or thread]
 		req, err = o.addTransportRouteOptions(req, des)
 		if err != nil {
-			return fmt.Errorf("add transport route options : %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options : %w", err)
 		}
 
 		packedMsg, err := o.packager.PackMessage(
-			&commontransport.Envelope{Message: req, FromVerKey: base58.Decode(senderVerKey), ToVerKeys: des.RecipientKeys})
+			&commontransport.Envelope{Message: req, FromKey: base58.Decode(senderVerKey), ToKeys: des.RecipientKeys})
 		if err != nil {
-			return fmt.Errorf("failed to pack msg: %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
 		}
 
 		// set the return route option
@@ -110,18 +110,18 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 
 		packedMsg, err = o.createForwardMessage(packedMsg, des)
 		if err != nil {
-			return fmt.Errorf("create forward msg : %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to create forward msg : %w", err)
 		}
 
 		_, err = v.Send(packedMsg, des)
 		if err != nil {
-			return fmt.Errorf("failed to send msg using outbound transport: %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to send msg using outbound transport: %w", err)
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+	return fmt.Errorf("outboundDispatcher.Send: no transport found for serviceEndpoint: %s", des.ServiceEndpoint)
 }
 
 // Forward forwards the message without packing to the destination.
@@ -135,18 +135,18 @@ func (o *OutboundDispatcher) Forward(msg interface{}, des *service.Destination) 
 
 		req, err := json.Marshal(msg)
 		if err != nil {
-			return fmt.Errorf("failed marshal to bytes: %w", err)
+			return fmt.Errorf("outboundDispatcher.Forward: failed marshal to bytes: %w", err)
 		}
 
 		_, err = v.Send(req, des)
 		if err != nil {
-			return fmt.Errorf("failed to send msg using outbound transport: %w", err)
+			return fmt.Errorf("outboundDispatcher.Forward: failed to send msg using outbound transport: %w", err)
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", des.ServiceEndpoint)
 }
 
 func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
@@ -175,18 +175,23 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	}
 
 	// create key set
-	_, senderVerKey, err := o.kms.CreateKeySet()
+	kid, _, err := o.kms.Create(kms.ED25519Type)
 	if err != nil {
-		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
+		return nil, fmt.Errorf("failed Create SigningKey: %w", err)
+	}
+
+	senderVerKey, err := o.kms.ExportPubKeyBytes(kid)
+	if err != nil {
+		return nil, fmt.Errorf("failed export signing key as bytes: %w", err)
 	}
 
 	// pack above message using auth crypt
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
 	//  algorithm(auth/anon crypt) for Forward(router) message
 	packedMsg, err := o.packager.PackMessage(
-		&commontransport.Envelope{Message: req, FromVerKey: base58.Decode(senderVerKey), ToVerKeys: des.RoutingKeys})
+		&commontransport.Envelope{Message: req, FromKey: senderVerKey, ToKeys: des.RoutingKeys})
 	if err != nil {
-		return nil, fmt.Errorf("pack forward msg: %w", err)
+		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
 	}
 
 	return packedMsg, nil
