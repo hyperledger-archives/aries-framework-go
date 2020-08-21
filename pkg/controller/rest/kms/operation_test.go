@@ -49,7 +49,7 @@ func TestCreateKeySet(t *testing.T) {
 
 	t.Run("test create key set - error", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("error create key set")},
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("error create key set")},
 		})
 		require.NotNil(t, cmd)
 

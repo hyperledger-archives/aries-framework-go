@@ -176,7 +176,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
-			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)

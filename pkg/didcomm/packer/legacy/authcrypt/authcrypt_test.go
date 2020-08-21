@@ -125,10 +125,7 @@ func TestEncodingType(t *testing.T) {
 }
 
 func createKey(t *testing.T, km kms.KeyManager) []byte {
-	kid, _, err := km.Create(kms.ED25519Type)
-	require.NoError(t, err)
-
-	key, err := km.ExportPubKeyBytes(kid)
+	_, key, err := km.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
 	return key
@@ -329,14 +326,10 @@ func TestEncryptComponents(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	testingKMS, _ := newKMS(t)
-	senderKID, _, err := testingKMS.Create(kms.ED25519Type)
-	require.NoError(t, err)
-	senderKey, err := testingKMS.ExportPubKeyBytes(senderKID)
+	_, senderKey, err := testingKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
-	recKID, _, err := testingKMS.Create(kms.ED25519Type)
-	require.NoError(t, err)
-	recKey, err := testingKMS.ExportPubKeyBytes(recKID)
+	_, recKey, err := testingKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
 	t.Run("Success: pack then unpack, same packer", func(t *testing.T) {

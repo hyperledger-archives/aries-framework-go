@@ -122,14 +122,9 @@ func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string
 		return fmt.Errorf("unable to get destination from public DID `%s` : %w", publicDID.ID, err)
 	}
 
-	kid, _, err := ctx.KMS().Create(kms.ED25519Type)
+	_, sigPubKey, err := ctx.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		return fmt.Errorf("unable to create sender verkey : %w", err)
-	}
-
-	sigPubKey, err := ctx.KMS().ExportPubKeyBytes(kid)
-	if err != nil {
-		return err
 	}
 
 	// send message

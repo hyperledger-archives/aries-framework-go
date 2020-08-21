@@ -257,10 +257,7 @@ func newKMS(t *testing.T, store *mockstorage.MockStoreProvider) kms.KeyManager {
 func newED25519Key(t *testing.T, k kms.KeyManager) string {
 	t.Helper()
 
-	kid, _, err := k.Create(kms.ED25519)
-	require.NoError(t, err)
-
-	pubKey, err := k.ExportPubKeyBytes(kid)
+	_, pubKey, err := k.CreateAndExportPubKeyBytes(kms.ED25519)
 	require.NoError(t, err)
 
 	return base58.Encode(pubKey)

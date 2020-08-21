@@ -63,10 +63,7 @@ func TestNewCryptoBox(t *testing.T) {
 
 func TestBoxSeal(t *testing.T) {
 	k, _ := newKMS(t)
-	recipient1KID, _, err := k.Create(kms.ED25519)
-	require.NoError(t, err)
-
-	rec1PubKey, err := k.ExportPubKeyBytes(recipient1KID)
+	_, rec1PubKey, err := k.CreateAndExportPubKeyBytes(kms.ED25519)
 	require.NoError(t, err)
 
 	rec1EncPubKey, err := cryptoutil.PublicEd25519toCurve25519(rec1PubKey)

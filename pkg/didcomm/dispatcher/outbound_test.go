@@ -81,7 +81,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			kms: &mockkms.KeyManager{
-				CreateKeyErr: errors.New("create key error"),
+				CrAndExportPubKeyErr: errors.New("create and export key error"),
 			},
 		})
 
@@ -90,8 +90,8 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
 		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create forward msg")
+		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg : failed Create "+
+			"and export SigningKey: create and export key error")
 	})
 
 	t.Run("test send with forward message - packer error", func(t *testing.T) {

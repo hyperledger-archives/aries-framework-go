@@ -95,12 +95,7 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 		opt(docOpts)
 	}
 
-	id, _, err := r.kms.Create(kms.ED25519Type)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DID: %w", err)
-	}
-
-	pubKey, err := r.kms.ExportPubKeyBytes(id)
+	id, pubKey, err := r.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DID: %w", err)
 	}

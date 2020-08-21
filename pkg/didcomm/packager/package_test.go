@@ -128,10 +128,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
-		toKID, _, err := customKMS.Create(kms.ECDH1PU256AES256GCM)
-		require.NoError(t, err)
-
-		toKey, err := customKMS.ExportPubKeyBytes(toKID)
+		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCM)
 		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to keys
@@ -187,10 +184,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		fromKID, _, err := customKMS.Create(kms.ECDH1PU384AES256GCMType)
 		require.NoError(t, err)
 
-		toKID, _, err := customKMS.Create(kms.ECDH1PU384AES256GCMType)
-		require.NoError(t, err)
-
-		toKey, err := customKMS.ExportPubKeyBytes(toKID)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU384AES256GCMType)
 		require.NoError(t, err)
 
 		// try pack with nil envelope - should fail
@@ -257,16 +251,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, _, err := customKMS.Create(kms.ECDH1PU256AES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
 		require.NoError(t, err)
 
-		fromKey, err := customKMS.ExportPubKeyBytes(fromKID)
-		require.NoError(t, err)
-
-		toKID, _, err := customKMS.Create(kms.ECDH1PU256AES256GCMType)
-		require.NoError(t, err)
-
-		toKey, err := customKMS.ExportPubKeyBytes(toKID)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
@@ -292,16 +280,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// legacy packer uses ED25519 keys only
-		fromKID, _, err = customKMS.Create(kms.ED25519)
+		_, fromKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
-		fromKey, err = customKMS.ExportPubKeyBytes(fromKID)
-		require.NoError(t, err)
-
-		toKID, _, err = customKMS.Create(kms.ED25519)
-		require.NoError(t, err)
-
-		toKey, err = customKMS.ExportPubKeyBytes(toKID)
+		_, toKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
 		packMsg, err = packager2.PackMessage(&transport.Envelope{Message: []byte("msg2"),
@@ -340,16 +322,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, _, err := customKMS.Create(kms.ED25519Type)
+		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
-		fromKey, err := customKMS.ExportPubKeyBytes(fromKID)
-		require.NoError(t, err)
-
-		toKID, _, err := customKMS.Create(kms.ED25519Type)
-		require.NoError(t, err)
-
-		toKey, err := customKMS.ExportPubKeyBytes(toKID)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
@@ -391,16 +367,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, _, err := customKMS.Create(kms.ED25519Type)
+		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
-		fromKey, err := customKMS.ExportPubKeyBytes(fromKID)
-		require.NoError(t, err)
-
-		toKID, _, err := customKMS.Create(kms.ED25519Type)
-		require.NoError(t, err)
-
-		toKey, err := customKMS.ExportPubKeyBytes(toKID)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass

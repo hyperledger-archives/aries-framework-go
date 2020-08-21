@@ -143,7 +143,7 @@ func TestRegistry_Store(t *testing.T) {
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test error from create key", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("create key error")}})
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("create key error")}})
 		doc, err := registry.Create("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create key error")

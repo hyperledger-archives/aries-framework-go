@@ -313,9 +313,9 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 	return func() (*did.Service, error) {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 		//  with connection record
-		verKeyID, _, err := p.KMS().Create(kms.ED25519Type)
+		_, verKey, err := p.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
 		if err != nil {
-			return nil, fmt.Errorf("didServiceBlockFunc: failed to create SigningKey handle: %w", err)
+			return nil, fmt.Errorf("didServiceBlockFunc: failed to create and extract public SigningKey bytes: %w", err)
 		}
 
 		s, err := p.Service(mediator.Coordination)
@@ -326,11 +326,6 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 		routeSvc, ok := s.(mediator.ProtocolService)
 		if !ok {
 			return nil, errors.New("didServiceBlockFunc: cast service to Route Service failed")
-		}
-
-		verKey, err := p.KMS().ExportPubKeyBytes(verKeyID)
-		if err != nil {
-			return nil, fmt.Errorf("didServiceBlockFunc: failed to extract public SigningKey bytes from handle: %w", err)
 		}
 
 		verKeyB58 := base58.Encode(verKey)

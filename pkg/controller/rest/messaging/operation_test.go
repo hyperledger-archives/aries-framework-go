@@ -541,7 +541,7 @@ func TestOperation_Send(t *testing.T) {
 				name: "send message to destination",
 				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf", 
 "recipientKeys":["test"]}}`,
-				kms:         &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("sample-kmserr-01")},
+				kms:         &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("sample-kmserr-01")},
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-kmserr-01",

@@ -54,9 +54,8 @@ type provider interface {
 
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
-	ctx               provider
-	exportPubKeyBytes func(id string) ([]byte, error) // needed for unit test
-	importKey         func(privKey interface{}, kt kms.KeyType,
+	ctx       provider
+	importKey func(privKey interface{}, kt kms.KeyType,
 		opts ...kms.PrivateKeyOpts) (string, interface{}, error) // needed for unit test
 }
 
@@ -64,9 +63,6 @@ type Command struct {
 func New(p provider) *Command {
 	return &Command{
 		ctx: p,
-		exportPubKeyBytes: func(id string) ([]byte, error) {
-			return p.KMS().ExportPubKeyBytes(id)
-		},
 		importKey: func(privKey interface{}, kt kms.KeyType,
 			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 			return p.KMS().ImportPrivateKey(privKey, kt, opts...)
@@ -97,13 +93,7 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyType))
 	}
 
-	keyID, _, err := o.ctx.KMS().Create(kms.KeyType(request.KeyType))
-	if err != nil {
-		logutil.LogError(logger, CommandName, CreateKeySetCommandMethod, err.Error())
-		return command.NewExecuteError(CreateKeySetError, err)
-	}
-
-	pubKeyBytes, err := o.exportPubKeyBytes(keyID)
+	keyID, pubKeyBytes, err := o.ctx.KMS().CreateAndExportPubKeyBytes(kms.KeyType(request.KeyType))
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateKeySetCommandMethod, err.Error())
 		return command.NewExecuteError(CreateKeySetError, err)

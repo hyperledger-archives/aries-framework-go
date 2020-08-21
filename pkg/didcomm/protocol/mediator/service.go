@@ -349,13 +349,12 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
-			kid, _, er := s.kms.Create(kms.ED25519Type)
+			_, key, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if er != nil {
-				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create ED25519 "+
-					"key: %w", er)
+				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
+					"export ED25519 key: %w", er)
 			}
 
-			key, er := s.kms.ExportPubKeyBytes(kid)
 			return base58.Encode(key), er
 		},
 	)

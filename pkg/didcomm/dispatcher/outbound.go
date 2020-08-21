@@ -175,14 +175,9 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	}
 
 	// create key set
-	kid, _, err := o.kms.Create(kms.ED25519Type)
+	_, senderVerKey, err := o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
-		return nil, fmt.Errorf("failed Create SigningKey: %w", err)
-	}
-
-	senderVerKey, err := o.kms.ExportPubKeyBytes(kid)
-	if err != nil {
-		return nil, fmt.Errorf("failed export signing key as bytes: %w", err)
+		return nil, fmt.Errorf("failed Create and export SigningKey: %w", err)
 	}
 
 	// pack above message using auth crypt
