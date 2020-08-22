@@ -400,15 +400,7 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 		return command.NewExecuteError(SendMsgError, fmt.Errorf(errMsgDestinationMissing))
 	}
 
-	kid, _, err := o.ctx.KMS().Create(kms.ED25519Type)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
-
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	sigPubKey, err := o.ctx.KMS().ExportPubKeyBytes(kid)
+	_, sigPubKey, err := o.ctx.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))

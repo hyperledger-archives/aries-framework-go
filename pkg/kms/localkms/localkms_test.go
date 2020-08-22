@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -185,6 +186,50 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		require.Empty(t, kh)
 		require.Empty(t, newID)
 	})
+
+	t.Run("create valid key but not available for Export", func(t *testing.T) {
+		storeData := map[string][]byte{}
+		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
+			storage: &mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: storeData,
+				},
+			},
+			secretLock: &noop.NoLock{},
+		})
+		require.NoError(t, err)
+
+		kid, _, err := kmsStorage.Create(kms.AES128GCM)
+		require.NoError(t, err)
+
+		_, err = kmsStorage.ExportPubKeyBytes(kid)
+		require.EqualError(t, err, "exportPubKeyBytes: failed to export marshalled key: exportPubKeyBytes: "+
+			"failed to get public keyset handle: keyset.Handle: keyset.Handle: keyset contains a non-private key")
+	})
+
+	t.Run("create And Export invalid key", func(t *testing.T) {
+		storeData := map[string][]byte{}
+		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
+			storage: &mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: storeData,
+				},
+			},
+			secretLock: &noop.NoLock{},
+		})
+		require.NoError(t, err)
+
+		// try to create and export an unsupported key type.
+		_, _, err = kmsStorage.CreateAndExportPubKeyBytes("unsupported")
+		require.EqualError(t, err, "createAndExportPubKeyBytes: failed to create new key: create: failed to "+
+			"getKeyTemplate: getKeyTemplate: key type 'unsupported' unrecognized")
+
+		// try to create and export a supported key type, but does not support export.
+		_, _, err = kmsStorage.CreateAndExportPubKeyBytes(kms.HMACSHA256Tag256)
+		require.EqualError(t, err, "createAndExportPubKeyBytes: failed to export new public key bytes: "+
+			"exportPubKeyBytes: failed to export marshalled key: exportPubKeyBytes: failed to get public keyset "+
+			"handle: keyset.Handle: keyset.Handle: keyset contains a non-private key")
+	})
 }
 
 func TestLocalKMS_Success(t *testing.T) {
@@ -289,6 +334,10 @@ func TestLocalKMS_Success(t *testing.T) {
 			kh, e := kmsService.PubKeyBytesToHandle(pubKeyBytes, v)
 			require.NoError(t, e)
 			require.NotEmpty(t, kh)
+
+			// test create and export key in one function
+			_, _, e = kmsService.CreateAndExportPubKeyBytes(v)
+			require.NoError(t, e)
 		}
 	}
 }

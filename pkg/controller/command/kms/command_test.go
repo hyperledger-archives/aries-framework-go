@@ -37,16 +37,6 @@ func TestNew(t *testing.T) {
 		require.Equal(t, 2, len(handlers))
 	})
 
-	t.Run("test new command - error from export public key", func(t *testing.T) {
-		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{ExportPubKeyBytesErr: fmt.Errorf("error export pub key")},
-		})
-		require.NotNil(t, cmd)
-
-		_, err := cmd.exportPubKeyBytes("id")
-		require.EqualError(t, err, "error export pub key")
-	})
-
 	t.Run("test new command - error from import key", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
 			KMSValue: &mockkms.KeyManager{ImportPrivateKeyErr: fmt.Errorf("error import priv key")},
@@ -61,13 +51,9 @@ func TestNew(t *testing.T) {
 func TestCreateKeySet(t *testing.T) {
 	t.Run("test create key set - success", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CreateKeyID: "keyID"},
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyID: "keyID", CrAndExportPubKeyValue: []byte("publicKey")},
 		})
 		require.NotNil(t, cmd)
-
-		cmd.exportPubKeyBytes = func(id string) ([]byte, error) {
-			return []byte("publicKey"), nil
-		}
 
 		req := CreateKeySetRequest{
 			KeyType: "ED25519",
@@ -90,7 +76,7 @@ func TestCreateKeySet(t *testing.T) {
 
 	t.Run("test create key set - error", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("error create key set")},
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("error create key set")},
 		})
 		require.NotNil(t, cmd)
 
@@ -131,21 +117,17 @@ func TestCreateKeySet(t *testing.T) {
 
 	t.Run("test create key set - error from export public key", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CreateKeyID: "keyID"},
-		})
+			KMSValue: &mockkms.KeyManager{
+				CrAndExportPubKeyErr: fmt.Errorf("error export public key"),
+			}})
 		require.NotNil(t, cmd)
-
-		cmd.exportPubKeyBytes = func(id string) ([]byte, error) {
-			return nil, fmt.Errorf("error export public key")
-		}
 
 		reqBytes, err := json.Marshal(CreateKeySetRequest{KeyType: "invalid"})
 		require.NoError(t, err)
 
 		var b bytes.Buffer
 		err = cmd.CreateKeySet(&b, bytes.NewBuffer(reqBytes))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error export public key")
+		require.EqualError(t, err, "error export public key")
 	})
 }
 

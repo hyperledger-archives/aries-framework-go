@@ -177,7 +177,7 @@ func TestCreateRequest(t *testing.T) {
 	t.Run("wraps did service block creation error when KMS fails", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
-		provider.KMSValue = &mockkms.KeyManager{CreateKeyErr: expected}
+		provider.KMSValue = &mockkms.KeyManager{CrAndExportPubKeyErr: expected}
 		c, err := New(provider)
 		require.NoError(t, err)
 		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})

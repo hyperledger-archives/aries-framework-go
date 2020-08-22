@@ -58,12 +58,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		pubKeyJWK, ok := ctx.PublicKeys[agentID]
 		if !ok {
-			kid, _, err := ctx.AgentCtx[agentID].KMS().Create(kms.ED25519Type)
-			if err != nil {
-				return err
-			}
-
-			pubKeyBytes, err := ctx.AgentCtx[agentID].KMS().ExportPubKeyBytes(kid)
+			_, pubKeyBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if err != nil {
 				return err
 			}

@@ -40,6 +40,13 @@ type KeyManager interface {
 	//  - marshalled public key []byte
 	//  - error if it fails to export the public key bytes
 	ExportPubKeyBytes(keyID string) ([]byte, error)
+	// CreateAndExportPubKeyBytes will create a key of type kt and export its public key in raw bytes and returns it.
+	// The key must be an asymmetric key.
+	// Returns:
+	//  - keyID of the new handle created.
+	//  - marshalled public key []byte
+	//  - error if it fails to export the public key bytes
+	CreateAndExportPubKeyBytes(kt KeyType) (string, []byte, error)
 	// PubKeyBytesToHandle transforms pubKey raw bytes into a key handle of keyType. This function is only a utility to
 	// provide a public key handle for Tink/Crypto primitive execution, it does not persist the key handle.
 	// Returns:

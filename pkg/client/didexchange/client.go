@@ -116,12 +116,7 @@ func New(ctx provider) (*Client, error) {
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
-	kid, _, err := c.kms.Create(kms.ED25519Type)
-	if err != nil {
-		return nil, fmt.Errorf("createInvitation: failed to create SigningKey handle:%w", err)
-	}
-
-	sigPubKey, err := c.kms.ExportPubKeyBytes(kid)
+	_, sigPubKey, err := c.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("createInvitation: failed to extract public SigningKey bytes from handle:%w", err)
 	}

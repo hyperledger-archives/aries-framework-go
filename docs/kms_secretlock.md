@@ -251,6 +251,17 @@ if err != nil {
 pubKeyBytes, err := kmsInstance.ExportPubKeyBytes(ksID)
 
 ```
+### Create and Export Public signing keys []bytes from KMS
+To avoid calling the KMS's Create() then ExportPubKeyBytes() separately, a new function was created to call both in one call. It is called `CreateAndExportPubKeyBytes`, the following is an example use of this function:
+```
+// ... get/create kmsInstance as per previous sections
+
+//
+ksID, pubKeyBytes, err := kmsInstance.CreateAndExportPubKeyBytes(kms.ECDSAP256TypeIEEEP1363)
+
+```
+
+This function call creates a new keyset of type `kms.ECDSAP256TypeIEEEP1363`, stores it in the KMS and returns its correponding ksID along with the exported public key bytes in IEEE P1363 format.
 
 ### Convert Public Signing Keys []byte to Tink's keyset.Handle
 

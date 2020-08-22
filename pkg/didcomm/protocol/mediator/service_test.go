@@ -298,7 +298,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue: &mockkms.KeyManager{
-				CreateKeyErr: expected,
+				CrAndExportPubKeyErr: expected,
 			},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)

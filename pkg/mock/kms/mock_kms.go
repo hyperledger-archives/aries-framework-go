@@ -31,6 +31,9 @@ type KeyManager struct {
 	RotateKeyErr             error
 	ExportPubKeyBytesErr     error
 	ExportPubKeyBytesValue   []byte
+	CrAndExportPubKeyValue   []byte
+	CrAndExportPubKeyID      string
+	CrAndExportPubKeyErr     error
 	PubKeyBytesToHandleErr   error
 	PubKeyBytesToHandleValue *keyset.Handle
 	ImportPrivateKeyErr      error
@@ -72,6 +75,15 @@ func (k *KeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	}
 
 	return k.ExportPubKeyBytesValue, nil
+}
+
+// CreateAndExportPubKeyBytes return a mocked kid and []byte public key.
+func (k *KeyManager) CreateAndExportPubKeyBytes(kt kmsservice.KeyType) (string, []byte, error) {
+	if k.CrAndExportPubKeyErr != nil {
+		return "", nil, k.CrAndExportPubKeyErr
+	}
+
+	return k.CrAndExportPubKeyID, k.CrAndExportPubKeyValue, nil
 }
 
 // PubKeyBytesToHandle will return a mocked keyset.Handle representing a public key handle.
