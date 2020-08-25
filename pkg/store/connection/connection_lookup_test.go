@@ -305,7 +305,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 
 		for i := 0; i < storeCount+overlap; i++ {
 			val, jsonErr := json.Marshal(&Record{
-				ConnectionID: string(i),
+				ConnectionID: fmt.Sprint(i),
 			})
 			require.NoError(t, jsonErr)
 
@@ -314,7 +314,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		}
 		for i := overlap; i < protocolStateStoreCount+storeCount; i++ {
 			val, jsonErr := json.Marshal(&Record{
-				ConnectionID: string(i),
+				ConnectionID: fmt.Sprint(i),
 			})
 			require.NoError(t, jsonErr)
 

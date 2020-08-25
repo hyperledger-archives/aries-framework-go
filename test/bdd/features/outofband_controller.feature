@@ -11,8 +11,8 @@
 Feature: Out-Of-Band protocol
 
   Background:
-    Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-    And "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
 
   Scenario: New connection after Alice sends an out-of-band request to Bob
     Given "Alice" constructs an out-of-band request with no attachments (controller)

@@ -101,8 +101,8 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @didexchange_controller_public_dids_invitation
   Scenario: did exchange e2e flow using public DID in invitation
-    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-      And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
       And  "Derek" creates "sidetree" public DID through controller
@@ -120,8 +120,8 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @didexchange_controller_mixed_public_and_peer_dids
   Scenario: did exchange e2e flow using public DID in invitation
-    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-      And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
       And  "Derek" creates "sidetree" public DID through controller
@@ -137,8 +137,8 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @didexchange_controller_implicit_invitation_peer_did
   Scenario: did exchange e2e flow using public DID in invitation
-    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-      And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
       And  "Derek" creates "sidetree" public DID through controller
@@ -152,8 +152,8 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @didexchange_controller_implicit_invitation_public_did
   Scenario: did exchange e2e flow using public DID in invitation
-    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
       And  "Derek" creates "sidetree" public DID through controller

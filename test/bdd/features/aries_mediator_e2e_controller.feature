@@ -11,8 +11,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
     # DID Exchange between Carl and his Router
-    Given "Carl" agent is running with controller "http://localhost:10081" and "all" as the transport return route option
-    And   "Carl-Router" agent is running on "http://localhost:10091,ws://localhost:10092" with controller "http://localhost:10093"
+    Given "Carl" agent is running with controller "https://localhost:10081" and "all" as the transport return route option
+    And   "Carl-Router" agent is running on "https://localhost:10091,wss://localhost:10092" with controller "https://localhost:10093"
 
     When   "Carl-Router" creates invitation through controller with label "carl-router-agent"
     And   "Carl" receives invitation from "Carl-Router" through controller
@@ -28,8 +28,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     And   "Carl" saves the connectionID to variable "carl-router-connID"
 
      # DID Exchange between Dave and his Router
-    Given "Dave" agent is running with controller "http://localhost:10061" and "all" as the transport return route option
-    And   "Dave-Router" agent is running on "http://localhost:10071,ws://localhost:10092" with controller "http://localhost:10073"
+    Given "Dave" agent is running with controller "https://localhost:10061" and "all" as the transport return route option
+    And   "Dave-Router" agent is running on "https://localhost:10071,wss://localhost:10092" with controller "https://localhost:10073"
 
     When   "Dave-Router" creates invitation through controller with label "Dave-router-agent"
     And   "Dave" receives invitation from "Dave-Router" through controller
