@@ -10,7 +10,6 @@ import (
 	goctx "context"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const timeoutWebSocketDial = 5 * time.Second
@@ -109,12 +109,14 @@ func (a *ControllerSteps) checkAgentIsRunning(agentID, controllerURL, webhookURL
 		return fmt.Errorf("invalid controller URL [%s]", controllerURL)
 	}
 
-	wsURL := fmt.Sprintf("ws://%s%s/ws", u.Host, u.Path)
+	wsURL := fmt.Sprintf("wss://%s%s/ws", u.Host, u.Path)
 
 	ctx, cancel := goctx.WithTimeout(goctx.Background(), timeoutWebSocketDial)
 	defer cancel()
 
-	conn, _, err := websocket.Dial(ctx, wsURL, nil) //nolint:bodyclose
+	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
+		HTTPClient: util.DefaultClient,
+	}) //nolint:bodyclose
 	if err != nil {
 		return fmt.Errorf("failed to dial connection from '%s' : %w", wsURL, err)
 	}
@@ -144,7 +146,7 @@ func (a *ControllerSteps) checkAgentIsRunningWithHTTPInboundAndWebhook(agentID, 
 	}
 
 	// verify inbound
-	if err := a.healthCheck(fmt.Sprintf("http://%s:%s", inboundHost, inboundPort)); err != nil {
+	if err := a.healthCheck(fmt.Sprintf("https://%s:%s", inboundHost, inboundPort)); err != nil {
 		logger.Debugf("Unable to reach inbound '%s' for agent '%s', cause : %s", controllerURL, agentID, err)
 		return err
 	}
@@ -162,7 +164,7 @@ func (a *ControllerSteps) checkAgentIsRunningWithHTTPInbound(agentID, inboundHos
 
 func (a *ControllerSteps) healthCheck(endpoint string) error {
 	if strings.HasPrefix(endpoint, "http") {
-		resp, err := http.Get(endpoint) //nolint: gosec
+		resp, err := util.DefaultClient.Get(endpoint) //nolint: gosec
 		if err != nil {
 			return err
 		}
@@ -174,7 +176,9 @@ func (a *ControllerSteps) healthCheck(endpoint string) error {
 
 		return nil
 	} else if strings.HasPrefix(endpoint, "ws") {
-		_, _, err := websocket.Dial(goctx.Background(), endpoint, nil) //nolint:bodyclose
+		_, _, err := websocket.Dial(goctx.Background(), endpoint, &websocket.DialOptions{
+			HTTPClient: util.DefaultClient,
+		}) //nolint:bodyclose
 		if err != nil {
 			return err
 		}

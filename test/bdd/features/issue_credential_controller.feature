@@ -10,8 +10,8 @@
 Feature: Issue Credential using controller API
 
   Scenario: The Holder begins with a request
-    Given "Driver" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-      And "Institution" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Driver" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+      And "Institution" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
       And "Driver" has established connection with "Institution" through IssueCredential controller
 
     When  "Driver" requests credential from "Institution" through IssueCredential controller
@@ -21,8 +21,8 @@ Feature: Issue Credential using controller API
     Then  "Driver" checks that issued credential is being stored under "license" name
 
   Scenario: The Issuer begins with an offer
-    Given "Citizen" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-      And "Government" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Citizen" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+      And "Government" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
       And "Citizen" has established connection with "Government" through IssueCredential controller
 
     When  "Government" sends an offer to the "Citizen" through IssueCredential controller
@@ -33,8 +33,8 @@ Feature: Issue Credential using controller API
     Then  "Citizen" checks that issued credential is being stored under "passport" name
 
   Scenario: The Holder begins with a proposal
-    Given "Student" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-      And "University" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Student" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+      And "University" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
       And "Student" has established connection with "University" through IssueCredential controller
 
     When  "Student" sends proposal credential to the "University" through IssueCredential controller
@@ -46,8 +46,8 @@ Feature: Issue Credential using controller API
     Then  "Student" checks that issued credential is being stored under "degree" name
 
   Scenario: The Holder begins with a proposal (negotiation)
-    Given "Graduate" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-      And "Stanford University" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Graduate" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+      And "Stanford University" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
       And "Graduate" has established connection with "Stanford University" through IssueCredential controller
 
     When  "Graduate" sends proposal credential to the "Stanford University" through IssueCredential controller

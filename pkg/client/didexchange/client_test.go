@@ -897,7 +897,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		const state = "completed"
 		for i := 0; i < count; i++ {
 			val, e := json.Marshal(&connection.Record{
-				ConnectionID: string(i),
+				ConnectionID: fmt.Sprint(i),
 				State:        state,
 			})
 			require.NoError(t, e)
@@ -945,7 +945,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			}
 
 			val, e := json.Marshal(&connection.Record{
-				ConnectionID: string(i),
+				ConnectionID: fmt.Sprint(i),
 				State:        queryState,
 				MyDID:        myDID + strconv.Itoa(i),
 				TheirDID:     theirDID + strconv.Itoa(i),

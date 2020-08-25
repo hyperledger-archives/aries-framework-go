@@ -58,8 +58,8 @@ func NewDIDExchangeControllerSteps() *ControllerSteps {
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
 		agentServiceEndpoints: map[string]string{
-			"http://localhost:8082": "http://alice.aries.example.com:8081",
-			"http://localhost:9082": "http://bob.agent.example.com:9081",
+			"https://localhost:8082": "https://alice.aries.example.com:8081",
+			"https://localhost:9082": "https://bob.agent.example.com:9081",
 		},
 	}
 }

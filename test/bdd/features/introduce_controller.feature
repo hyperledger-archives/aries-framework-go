@@ -10,9 +10,9 @@
 Feature: Introduce using controller API
   @controller_skip_proposal
   Scenario: Alice has Carol's public out-of-band request
-    Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-    And "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
-    And "Carol" agent is running on "localhost" port "11011" with controller "http://localhost:11012"
+    Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Carol" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
     Then "Bob,Carol" has established connection with "Alice" through the controller
 
     And   "Alice" sends introduce proposal to the "Bob" with "Carol" out-of-band request through the controller
@@ -20,9 +20,9 @@ Feature: Introduce using controller API
     Then  "Bob" has did exchange connection with "Carol" through the controller
   @controller_skip_proposal_with_request
   Scenario: Jacob has a Carol's public out-of-band request. The protocol starts with introduce request.
-    Given "Jacob" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-    And "Emma" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
-    And "Carol" agent is running on "localhost" port "11011" with controller "http://localhost:11012"
+    Given "Jacob" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Emma" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Carol" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
     Then "Emma,Carol" has established connection with "Jacob" through the controller
 
     And   "Emma" sends introduce request to the "Jacob" asking about "Carol" through the controller
@@ -31,9 +31,9 @@ Feature: Introduce using controller API
     And  "Emma" has did exchange connection with "Carol" through the controller
   @controller_proposal
   Scenario: William sends a response with approve and an out-of-band request.
-    Given "William" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-    And "Olivia" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
-    And "Alice" agent is running on "localhost" port "11011" with controller "http://localhost:11012"
+    Given "William" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Olivia" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Alice" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
     Then "William,Olivia" has established connection with "Alice" through the controller
 
     When   "Alice" sends introduce proposal to the "William" and "Olivia" through the controller
@@ -42,9 +42,9 @@ Feature: Introduce using controller API
     Then  "Olivia" has did exchange connection with "William" through the controller
   @controller_proposal_with_request
   Scenario: Mason sends a response with approve and an out-of-band request. The protocol starts with introduce request
-    Given "Mason" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-    And "Sophia" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
-    And "Alice" agent is running on "localhost" port "11011" with controller "http://localhost:11012"
+    Given "Mason" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Sophia" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Alice" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
     Then "Mason,Sophia" has established connection with "Alice" through the controller
 
     When   "Mason" sends introduce request to the "Alice" asking about "Sophia" through the controller

@@ -10,8 +10,8 @@
 Feature: Decentralized Identifier(DID) exchange between the agents using controller API
 
   Scenario: did exchange e2e flow using controller api
-    Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
-      And   "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
+    Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+      And   "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
 
     When   "Alice" creates invitation through controller with label "alice-agent"
       And   "Bob" receives invitation from "Alice" through controller

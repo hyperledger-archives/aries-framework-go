@@ -26,5 +26,6 @@ RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make agent-rest
 
 
 FROM alpine:${ALPINE_VER} as base
+RUN apk add -U --no-cache ca-certificates
 COPY --from=aries-framework /go/src/github.com/hyperledger/aries-framework-go/build/bin/aries-agent-rest /usr/local/bin
 ENTRYPOINT ["aries-agent-rest"]

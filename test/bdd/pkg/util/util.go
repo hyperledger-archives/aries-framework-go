@@ -8,6 +8,7 @@ package util
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,6 +20,16 @@ import (
 
 	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
+
+// DefaultClient represents default http client.
+// nolint: gochecknoglobals
+var DefaultClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // nolint: gosec
+		},
+	},
+}
 
 // SendHTTP sends HTTP request.
 func SendHTTP(method, destination string, message []byte, result interface{}) error {
@@ -32,7 +43,7 @@ func SendHTTP(method, destination string, message []byte, result interface{}) er
 	req.Header.Set("Content-Type", "application/json")
 
 	// send http request
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
 	}
