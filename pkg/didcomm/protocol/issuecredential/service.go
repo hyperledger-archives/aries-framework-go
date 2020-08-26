@@ -622,6 +622,8 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 
 	defer s.sendMsgEvents(md, next.Name(), service.PostState)
 
+	md.properties = newEventProps(md).All()
+
 	if err := s.middleware.Handle(md); err != nil {
 		return nil, nil, fmt.Errorf("middleware: %w", err)
 	}

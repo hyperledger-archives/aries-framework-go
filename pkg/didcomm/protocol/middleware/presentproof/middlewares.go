@@ -19,7 +19,12 @@ import (
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
-const stateNamePresentationReceived = "presentation-received"
+const (
+	stateNamePresentationReceived = "presentation-received"
+	myDIDKey                      = "myDID"
+	theirDIDKey                   = "theirDID"
+	namesKey                      = "names"
+)
 
 // Metadata is an alias to the original Metadata.
 type Metadata presentproof.Metadata
@@ -56,28 +61,46 @@ func SavePresentation(p Provider) presentproof.Middleware {
 			}
 
 			var names []string
+			var properties = metadata.Properties()
+
+			// nolint: errcheck
+			myDID, _ := properties[myDIDKey].(string)
+			// nolint: errcheck
+			theirDID, _ := properties[theirDIDKey].(string)
+			if myDID == "" || theirDID == "" {
+				return errors.New("myDID or theirDID is absent")
+			}
+
 			for i, presentation := range presentations {
-				var name = presentation.ID
-				if len(metadata.PresentationNames()) > i {
-					name = metadata.PresentationNames()[i]
-				}
+				names = append(names, getName(i, presentation.ID, metadata))
 
-				if name == "" {
-					name = uuid.New().String()
-				}
-
-				names = append(names, name)
-
-				if err := store.SavePresentation(name, presentation); err != nil {
+				err := store.SavePresentation(names[i], presentation,
+					storeverifiable.WithMyDID(myDID),
+					storeverifiable.WithTheirDID(theirDID),
+				)
+				if err != nil {
 					return fmt.Errorf("save presentation: %w", err)
 				}
 			}
 
-			metadata.Properties()["names"] = names
+			properties[namesKey] = names
 
 			return next.Handle(metadata)
 		})
 	}
+}
+
+func getName(idx int, id string, metadata presentproof.Metadata) string {
+	var name = id
+	if len(metadata.PresentationNames()) > idx {
+		name = metadata.PresentationNames()[idx]
+	}
+
+	if name != "" {
+		return name
+	}
+
+	return uuid.New().String()
 }
 
 func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachment) ([]*verifiable.Presentation, error) {

@@ -153,29 +153,39 @@ func (mr *MockStoreMockRecorder) RemovePresentationByName(arg0 interface{}) *gom
 }
 
 // SaveCredential mocks base method
-func (m *MockStore) SaveCredential(arg0 string, arg1 *verifiable.Credential) error {
+func (m *MockStore) SaveCredential(arg0 string, arg1 *verifiable.Credential, arg2 ...verifiable0.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveCredential", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SaveCredential", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveCredential indicates an expected call of SaveCredential
-func (mr *MockStoreMockRecorder) SaveCredential(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) SaveCredential(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveCredential", reflect.TypeOf((*MockStore)(nil).SaveCredential), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveCredential", reflect.TypeOf((*MockStore)(nil).SaveCredential), varargs...)
 }
 
 // SavePresentation mocks base method
-func (m *MockStore) SavePresentation(arg0 string, arg1 *verifiable.Presentation) error {
+func (m *MockStore) SavePresentation(arg0 string, arg1 *verifiable.Presentation, arg2 ...verifiable0.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SavePresentation", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SavePresentation", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SavePresentation indicates an expected call of SavePresentation
-func (mr *MockStoreMockRecorder) SavePresentation(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) SavePresentation(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePresentation", reflect.TypeOf((*MockStore)(nil).SavePresentation), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePresentation", reflect.TypeOf((*MockStore)(nil).SavePresentation), varargs...)
 }

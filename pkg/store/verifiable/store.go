@@ -30,13 +30,32 @@ const (
 	limitPattern = "%s" + storage.EndKeySuffix
 )
 
-// ErrNotFound signals that the entry for the given DID and key is not present in the store.
-var ErrNotFound = errors.New("did not found under given key")
+// Opt represents option function
+type Opt func(o *options)
+
+type options struct {
+	MyDID    string
+	TheirDID string
+}
+
+// WithMyDID allows specifying MyDID for credential or presentation that is being issued.
+func WithMyDID(val string) Opt {
+	return func(o *options) {
+		o.MyDID = val
+	}
+}
+
+// WithTheirDID allows specifying TheirDID for credential or presentation that is being issued.
+func WithTheirDID(val string) Opt {
+	return func(o *options) {
+		o.TheirDID = val
+	}
+}
 
 // Store provides interface for storing and managing verifiable credentials.
 type Store interface {
-	SaveCredential(name string, vc *verifiable.Credential) error
-	SavePresentation(name string, vp *verifiable.Presentation) error
+	SaveCredential(name string, vc *verifiable.Credential, opts ...Opt) error
+	SavePresentation(name string, vp *verifiable.Presentation, opts ...Opt) error
 	GetCredential(id string) (*verifiable.Credential, error)
 	GetPresentation(id string) (*verifiable.Presentation, error)
 	GetCredentialIDByName(name string) (string, error)
@@ -45,13 +64,6 @@ type Store interface {
 	GetPresentations() ([]*Record, error)
 	RemoveCredentialByName(name string) error
 	RemovePresentationByName(name string) error
-}
-
-type record struct {
-	ID        string   `json:"id,omitempty"`
-	Context   []string `json:"context,omitempty"`
-	Type      []string `json:"type,omitempty"`
-	SubjectID string   `json:"subjectId,omitempty"`
 }
 
 // StoreImplementation stores vc.
@@ -74,7 +86,7 @@ func New(ctx provider) (*StoreImplementation, error) {
 }
 
 // SaveCredential saves a verifiable credential.
-func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credential) error {
+func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credential, opts ...Opt) error {
 	if name == "" {
 		return errors.New("credential name is mandatory")
 	}
@@ -103,20 +115,30 @@ func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credent
 		return fmt.Errorf("failed to put vc: %w", e)
 	}
 
-	recordBytes, err := getRecord(id, getVCSubjectID(vc), vc.Context, vc.Types)
+	o := &options{}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	recordBytes, err := json.Marshal(&Record{
+		ID:        id,
+		Name:      name,
+		Context:   vc.Context,
+		Type:      vc.Types,
+		MyDID:     o.MyDID,
+		TheirDID:  o.TheirDID,
+		SubjectID: getVCSubjectID(vc),
+	})
 	if err != nil {
-		return fmt.Errorf("failed to prepare record: %w", err)
+		return fmt.Errorf("failed to marshal record: %w", err)
 	}
 
-	if err := s.store.Put(credentialNameDataKey(name), recordBytes); err != nil {
-		return fmt.Errorf("store vc name to id map : %w", err)
-	}
-
-	return nil
+	return s.store.Put(credentialNameDataKey(name), recordBytes)
 }
 
 // SavePresentation saves a verifiable presentation.
-func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Presentation) error {
+func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Presentation, opts ...Opt) error {
 	if name == "" {
 		return errors.New("presentation name is mandatory")
 	}
@@ -141,20 +163,30 @@ func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Prese
 		id = uuid.New().String()
 	}
 
-	recordBytes, err := getRecord(id, vp.Holder, vp.Context, vp.Type)
+	o := &options{}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	recordBytes, err := json.Marshal(&Record{
+		ID:        id,
+		Name:      name,
+		Context:   vp.Context,
+		Type:      vp.Type,
+		MyDID:     o.MyDID,
+		TheirDID:  o.TheirDID,
+		SubjectID: vp.Holder,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to prepare record: %w", err)
+		return fmt.Errorf("failed to marshal record: %w", err)
 	}
 
 	if err := s.store.Put(id, vpBytes); err != nil {
 		return fmt.Errorf("failed to put vp: %w", err)
 	}
 
-	if err := s.store.Put(presentationNameDataKey(name), recordBytes); err != nil {
-		return fmt.Errorf("store vp name to id map : %w", err)
-	}
-
-	return nil
+	return s.store.Put(presentationNameDataKey(name), recordBytes)
 }
 
 // GetCredential retrieves a verifiable credential based on ID.
@@ -194,7 +226,7 @@ func (s *StoreImplementation) GetCredentialIDByName(name string) (string, error)
 		return "", fmt.Errorf("fetch credential id based on name : %w", err)
 	}
 
-	var r record
+	var r Record
 
 	err = json.Unmarshal(recordBytes, &r)
 	if err != nil {
@@ -211,7 +243,7 @@ func (s *StoreImplementation) GetPresentationIDByName(name string) (string, erro
 		return "", fmt.Errorf("fetch presentation id based on name : %w", err)
 	}
 
-	var r record
+	var r Record
 
 	err = json.Unmarshal(recordBytes, &r)
 	if err != nil {
@@ -223,12 +255,12 @@ func (s *StoreImplementation) GetPresentationIDByName(name string) (string, erro
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
 func (s *StoreImplementation) GetCredentials() ([]*Record, error) {
-	return s.getAllRecords(credentialNameDataKey(""), getCredentialName)
+	return s.getAllRecords(credentialNameDataKey(""))
 }
 
 // GetPresentations retrieves the verifiable presenations records containing name and fields of interest.
 func (s *StoreImplementation) GetPresentations() ([]*Record, error) {
-	return s.getAllRecords(presentationNameDataKey(""), getPresentationName)
+	return s.getAllRecords(presentationNameDataKey(""))
 }
 
 // RemoveCredentialByName removes the verifiable credential and its records containing given name.
@@ -283,29 +315,21 @@ func (s *StoreImplementation) remove(id, recordKey string) error {
 	return nil
 }
 
-func (s *StoreImplementation) getAllRecords(searchKey string, keyPrefix func(string) string) ([]*Record, error) {
+func (s *StoreImplementation) getAllRecords(searchKey string) ([]*Record, error) {
 	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
 	defer itr.Release()
 
 	var records []*Record
 
 	for itr.Next() {
-		var r record
+		var r *Record
 
 		err := json.Unmarshal(itr.Value(), &r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal record : %w", err)
 		}
 
-		record := &Record{
-			Name:      keyPrefix(string(itr.Key())),
-			ID:        r.ID,
-			Context:   r.Context,
-			Type:      r.Type,
-			SubjectID: r.SubjectID,
-		}
-
-		records = append(records, record)
+		records = append(records, r)
 	}
 
 	return records, nil
@@ -319,27 +343,10 @@ func getVCSubjectID(vc *verifiable.Credential) string {
 	return ""
 }
 
-func getRecord(id, subjectID string, contexts, types []string) ([]byte, error) {
-	recordBytes, err := json.Marshal(&record{id, contexts, types, subjectID})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal vc record: %w", err)
-	}
-
-	return recordBytes, nil
-}
-
 func credentialNameDataKey(name string) string {
 	return fmt.Sprintf(credentialNameDataKeyPattern, name)
 }
 
 func presentationNameDataKey(name string) string {
 	return fmt.Sprintf(presentationNameDataKeyPattern, name)
-}
-
-func getCredentialName(dataKey string) string {
-	return dataKey[len(credentialNameKey):]
-}
-
-func getPresentationName(dataKey string) string {
-	return dataKey[len(presentationNameKey):]
 }
