@@ -7,17 +7,17 @@
 package localkms
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/subtle/random"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-const maxKeyIDLen = 36
+const maxKeyIDLen = 50
 
 // newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI.
 func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter {
@@ -84,11 +84,12 @@ func (l *storeWriter) verifyRequestedID() (string, error) {
 }
 
 func (l *storeWriter) newKeysetID() (string, error) {
+	keySetIDLength := base64.RawURLEncoding.DecodedLen(maxKeyIDLen)
 	ksID := ""
 
 	for {
-		// generate random ID, maxKeyIDLen of 36 bytes gives 48 to 50 bytes encoded ID (the closest length to max 50)
-		ksID = base58.Encode(random.GetRandomBytes(uint32(maxKeyIDLen)))
+		// generate random ID
+		ksID = base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(uint32(keySetIDLength)))
 
 		// ensure ksID is not already used
 		_, err := l.storage.Get(ksID)

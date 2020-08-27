@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/base58wrapper"
 )
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
@@ -103,6 +104,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			Store: storeMap,
 		}
 
+		thirdPartyKeysStoreMap := make(map[string][]byte)
+		thirdPartyStore := &mockstorage.MockStore{
+			Store: thirdPartyKeysStoreMap,
+		}
+
 		// create a customKMS with a custom storage provider using the above store to access the store map.
 		customKMS, err := localkms.New(localKeyURI,
 			newMockKMSProvider(mockstorage.NewCustomMockStoreProvider(customStore)))
@@ -110,7 +116,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NotEmpty(t, customKMS)
 
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewMockStoreProvider(),
+			storage:       mockstorage.NewCustomMockStoreProvider(thirdPartyStore),
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
@@ -124,7 +130,12 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// fromKey is stored in the KMS
-		fromKID, _, err := customKMS.Create(kms.ECDH1PU256AES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
+		require.NoError(t, err)
+
+		// for authcrypt, sender key should be in third party store, must use base58 wrapped store to match kms store.
+		wThirdPartyStore := base58wrapper.NewBase58StoreWrapper(thirdPartyStore)
+		err = wThirdPartyStore.Put(fromKID, fromKey)
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
@@ -138,7 +149,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// mock KMS without ToKey then try UnpackMessage
-		delete(storeMap, toKID)
+		toKIDB58 := base58.Encode([]byte(toKID)) // convert toKID since the store key IDs are base58 encoded
+		delete(storeMap, toKIDB58)
 
 		// It should fail since Recipient keys are not found in the KMS
 		_, err = packager.UnpackMessage(packMsg)
@@ -265,7 +277,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
 		// adding the key in the thirdPartyKeyStore of the recipient
-		thirdPartyKeyStore[fromKID] = fromKey
+		fromKIDB58 := base58.Encode([]byte(fromKID))
+		thirdPartyKeyStore[fromKIDB58] = fromKey
 
 		// unpack the packed message above - should pass and match the same payload (msg1)
 		unpackedMsg, err := packager.UnpackMessage(packMsg)
