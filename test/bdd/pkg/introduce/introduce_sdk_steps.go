@@ -33,7 +33,7 @@ import (
 	outofbandbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
 
-const timeout = time.Second * 2
+const timeout = time.Second * 10
 
 // SDKSteps is steps for introduce using client SDK.
 type SDKSteps struct {
