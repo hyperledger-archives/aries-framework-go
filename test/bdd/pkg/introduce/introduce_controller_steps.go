@@ -8,9 +8,11 @@ package introduce
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 
@@ -330,12 +332,21 @@ func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
 
 	url := controllerURL + strings.Replace(acceptProposal, "{piid}", action.PIID, 1)
 
+	errChan := make(chan error)
+
+	go func() { errChan <- s.tryOutofbandContinue(agentID) }()
+
 	err = util.SendHTTP(http.MethodPost, url, nil, nil)
 	if err != nil {
 		return fmt.Errorf("accept proposal: %w", err)
 	}
 
-	return s.tryOutofbandContinue(agentID)
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(timeout):
+		return errors.New("timeout: check and continue")
+	}
 }
 
 func (s *ControllerSteps) tryOutofbandContinue(agent string) error {
