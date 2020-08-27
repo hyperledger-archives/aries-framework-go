@@ -12,11 +12,11 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
+	"github.com/btcsuite/btcutil/base58"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
@@ -26,6 +26,9 @@ import (
 
 // CreateKID creates a KID value based on the marshalled keyBytes of type kt. This function should be called for
 // asymmetric public keys only (ECDSA DER or IEEE1363, ED25519).
+// returns:
+//  - base58 encoded KID
+//  - error in case of error
 func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 	jwk, err := buildJWK(keyBytes, kt)
 	if err != nil {
@@ -37,7 +40,7 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		return "", fmt.Errorf("createKID: failed to get jwk Thumbprint: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(tp), nil
+	return base58.Encode(tp), nil
 }
 
 func buildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {

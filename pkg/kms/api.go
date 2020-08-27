@@ -30,7 +30,7 @@ type KeyManager interface {
 	// Rotate a key referenced by keyID and return a new handle of a keyset including old key and
 	// new key with type kt. It also returns the updated keyID as the first return value
 	// Returns:
-	//  - new KeyID // TODO remove creation of new keyID from Rotate() - #1837
+	//  - new KeyID
 	//  - handle instance (to private key)
 	//  - error if failure
 	Rotate(kt KeyType, keyID string) (string, interface{}, error)
