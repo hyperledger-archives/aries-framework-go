@@ -27,6 +27,30 @@ import (
 	mocksstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 )
 
+func getCredential() *verifiable.Credential {
+	return &verifiable.Credential{
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"},
+		ID: "http://example.edu/credentials/1872",
+		Types: []string{
+			"VerifiableCredential",
+			"UniversityDegreeCredential"},
+		Subject: struct {
+			ID string
+		}{ID: "SubjectID"},
+		Issuer: verifiable.Issuer{
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
+		},
+		Issued:  util.NewTime(time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)),
+		Schemas: []verifiable.TypedID{},
+		CustomFields: map[string]interface{}{
+			"referenceNumber": 83294847,
+		},
+	}
+}
+
 func TestSaveCredentials(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -101,40 +125,23 @@ func TestSaveCredentials(t *testing.T) {
 			errMsg = "error message"
 		)
 
-		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
-
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		})
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
-				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://www.w3.org/2018/credentials/examples/v1"},
-					ID: "http://example.edu/credentials/1872",
-					Types: []string{
-						"VerifiableCredential",
-						"UniversityDegreeCredential"},
-					Subject: struct {
-						ID string
-					}{ID: "SubjectID"},
-					Issuer: verifiable.Issuer{
-						ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						CustomFields: verifiable.CustomFields{"name": "Example University"},
-					},
-					Issued:  util.NewTime(issued),
-					Schemas: []verifiable.TypedID{},
-					CustomFields: map[string]interface{}{
-						"referenceNumber": 83294847,
-					},
-				}}},
+				{Data: decorator.AttachmentData{JSON: getCredential()}},
 			},
 		}))
 
 		verifiableStore := mocksstore.NewMockStore(ctrl)
-		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New(errMsg))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
@@ -143,11 +150,31 @@ func TestSaveCredentials(t *testing.T) {
 		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "save credential: "+errMsg)
 	})
 
+	t.Run("No DIDs", func(t *testing.T) {
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
+		metadata.EXPECT().Properties().Return(map[string]interface{}{})
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+			Type: issuecredential.IssueCredentialMsgType,
+			CredentialsAttach: []decorator.Attachment{
+				{Data: decorator.AttachmentData{JSON: getCredential()}},
+			},
+		}))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(mocksstore.NewMockStore(ctrl))
+
+		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "myDID or theirDID is absent")
+	})
+
 	t.Run("Success", func(t *testing.T) {
 		const vcName = "vc-name"
-		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 
-		props := map[string]interface{}{}
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
 
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
@@ -156,32 +183,13 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
-				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://www.w3.org/2018/credentials/examples/v1"},
-					ID: "http://example.edu/credentials/1872",
-					Types: []string{
-						"VerifiableCredential",
-						"UniversityDegreeCredential"},
-					Subject: struct {
-						ID string
-					}{ID: "SubjectID"},
-					Issuer: verifiable.Issuer{
-						ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						CustomFields: verifiable.CustomFields{"name": "Example University"},
-					},
-					Issued:  util.NewTime(issued),
-					Schemas: []verifiable.TypedID{},
-					CustomFields: map[string]interface{}{
-						"referenceNumber": 83294847,
-					},
-				}}},
+				{Data: decorator.AttachmentData{JSON: getCredential()}},
 			},
 		}))
 
 		verifiableStore := mocksstore.NewMockStore(ctrl)
-		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(nil)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
@@ -192,9 +200,13 @@ func TestSaveCredentials(t *testing.T) {
 	})
 
 	t.Run("Success (no ID)", func(t *testing.T) {
-		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
 
-		props := map[string]interface{}{}
+		cred := getCredential()
+		cred.ID = ""
 
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
@@ -203,31 +215,13 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
-				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
-					Context: []string{
-						"https://www.w3.org/2018/credentials/v1",
-						"https://www.w3.org/2018/credentials/examples/v1"},
-					Types: []string{
-						"VerifiableCredential",
-						"UniversityDegreeCredential"},
-					Subject: struct {
-						ID string
-					}{ID: "SubjectID"},
-					Issuer: verifiable.Issuer{
-						ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						CustomFields: verifiable.CustomFields{"name": "Example University"},
-					},
-					Issued:  util.NewTime(issued),
-					Schemas: []verifiable.TypedID{},
-					CustomFields: map[string]interface{}{
-						"referenceNumber": 83294847,
-					},
-				}}},
+				{Data: decorator.AttachmentData{JSON: cred}},
 			},
 		}))
 
 		verifiableStore := mocksstore.NewMockStore(ctrl)
-		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(nil)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
@@ -278,7 +272,10 @@ func TestSaveCredentials(t *testing.T) {
 				]
 			}`), &credential))
 
-		props := map[string]interface{}{}
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
 
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
@@ -292,7 +289,8 @@ func TestSaveCredentials(t *testing.T) {
 		}))
 
 		verifiableStore := mocksstore.NewMockStore(ctrl)
-		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(nil)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
 
 		registry := mocksvdri.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:123456").Return(&did.Doc{

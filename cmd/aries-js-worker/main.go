@@ -78,7 +78,10 @@ type ariesStartOpts struct {
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
 // results are posted back to the 'handleResult' JS function.
 func main() {
-	input := make(chan *command)
+	// TODO: capacity was added due to deadlock. Looks like js worker are not able to pick up 'output chan *result'.
+	//  Another fix for that is to wrap 'in <- cmd' in a goroutine. e.g go func() { in <- cmd }()
+	//  We need to figure out what is the root cause of deadlock and fix it properly.
+	input := make(chan *command, 10)
 	output := make(chan *result)
 
 	go pipe(input, output)

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"testing"
@@ -290,6 +291,26 @@ func TestSaveVC(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential name already exists")
 	})
+
+	t.Run("test save vc - with options", func(t *testing.T) {
+		const (
+			MyDID    = "MyDID"
+			TheirDID = "TheirDID"
+		)
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NoError(t, s.SaveCredential(sampleCredentialName, &verifiable.Credential{ID: "vc1"},
+			WithMyDID(MyDID), WithTheirDID(TheirDID)))
+
+		records, err := s.GetCredentials()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(records))
+
+		require.Equal(t, MyDID, records[0].MyDID)
+		require.Equal(t, TheirDID, records[0].TheirDID)
+	})
 }
 
 func TestGetVC(t *testing.T) {
@@ -364,7 +385,13 @@ func TestGetVC(t *testing.T) {
 
 func TestGetCredentialIDBasedOnName(t *testing.T) {
 	t.Run("test get credential based on name - success", func(t *testing.T) {
-		rbytes, err := getRecord(sampleCredentialID, "", nil, nil)
+		rbytes, err := json.Marshal(&Record{
+			ID:        sampleCredentialID,
+			Name:      "",
+			Context:   nil,
+			Type:      nil,
+			SubjectID: ""},
+		)
 		require.NoError(t, err)
 
 		store := make(map[string][]byte)
@@ -501,6 +528,26 @@ func TestSaveVP(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "presentation name already exists")
 	})
+
+	t.Run("test save vp - with options", func(t *testing.T) {
+		const (
+			MyDID    = "MyDID"
+			TheirDID = "TheirDID"
+		)
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NoError(t, s.SavePresentation(samplePresentationName, &verifiable.Presentation{ID: "vp1"},
+			WithMyDID(MyDID), WithTheirDID(TheirDID)))
+
+		records, err := s.GetPresentations()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(records))
+
+		require.Equal(t, MyDID, records[0].MyDID)
+		require.Equal(t, TheirDID, records[0].TheirDID)
+	})
 }
 
 func TestGetVP(t *testing.T) {
@@ -579,7 +626,13 @@ func TestGetVP(t *testing.T) {
 
 func TestGetPresentationIDBasedOnName(t *testing.T) {
 	t.Run("test get presentation based on name - success", func(t *testing.T) {
-		rbytes, err := getRecord(samplePresentationID, "", nil, nil)
+		rbytes, err := json.Marshal(&Record{
+			ID:        samplePresentationID,
+			Name:      "",
+			Context:   nil,
+			Type:      nil,
+			SubjectID: ""},
+		)
 		require.NoError(t, err)
 
 		store := make(map[string][]byte)

@@ -19,7 +19,12 @@ import (
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
-const stateNameCredentialReceived = "credential-received"
+const (
+	stateNameCredentialReceived = "credential-received"
+	myDIDKey                    = "myDID"
+	theirDIDKey                 = "theirDID"
+	namesKey                    = "names"
+)
 
 // Metadata is an alias to the original Metadata.
 type Metadata issuecredential.Metadata
@@ -58,28 +63,46 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 			}
 
 			var names []string
+			var properties = metadata.Properties()
+
+			// nolint: errcheck
+			myDID, _ := properties[myDIDKey].(string)
+			// nolint: errcheck
+			theirDID, _ := properties[theirDIDKey].(string)
+			if myDID == "" || theirDID == "" {
+				return errors.New("myDID or theirDID is absent")
+			}
+
 			for i, credential := range credentials {
-				var name = credential.ID
-				if len(metadata.CredentialNames()) > i {
-					name = metadata.CredentialNames()[i]
-				}
+				names = append(names, getName(i, credential.ID, metadata))
 
-				if name == "" {
-					name = uuid.New().String()
-				}
-
-				names = append(names, name)
-
-				if err := store.SaveCredential(name, credential); err != nil {
+				err := store.SaveCredential(names[i], credential,
+					storeverifiable.WithMyDID(myDID),
+					storeverifiable.WithTheirDID(theirDID),
+				)
+				if err != nil {
 					return fmt.Errorf("save credential: %w", err)
 				}
 			}
 
-			metadata.Properties()["names"] = names
+			properties[namesKey] = names
 
 			return next.Handle(metadata)
 		})
 	}
+}
+
+func getName(idx int, id string, metadata issuecredential.Metadata) string {
+	var name = id
+	if len(metadata.CredentialNames()) > idx {
+		name = metadata.CredentialNames()[idx]
+	}
+
+	if name != "" {
+		return name
+	}
+
+	return uuid.New().String()
 }
 
 func toVerifiableCredentials(vReg vdri.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {

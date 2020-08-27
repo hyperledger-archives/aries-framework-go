@@ -13,4 +13,8 @@ type Record struct {
 	Context   []string `json:"context,omitempty"`
 	Type      []string `json:"type,omitempty"`
 	SubjectID string   `json:"subjectId,omitempty"`
+	// MyDID and TheirDID contains information about participants who were involved in the process
+	// of issuing a credential or presentation.
+	MyDID    string `json:"my_did,omitempty"`
+	TheirDID string `json:"their_did,omitempty"`
 }

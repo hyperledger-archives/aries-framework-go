@@ -78,12 +78,14 @@ async function issueCredential (mode) {
     })
 
     let issuerAction;
+    let holderConn;
+
     it("Holder requests credential from the Issuer", async function () {
-        let conn = await connection(holder, connections[0])
+        holderConn = await connection(holder, connections[0])
         issuerAction = getAction(issuer)
         return holder.issuecredential.sendRequest({
-            my_did: conn.MyDID,
-            their_did: conn.TheirDID,
+            my_did: holderConn.MyDID,
+            their_did: holderConn.TheirDID,
             request_credential: {},
         })
     })
@@ -107,7 +109,25 @@ async function issueCredential (mode) {
     })
 
     it("Checks credential", async function () {
-        await getCredential(holder, credentialName)
+        let credential = await getCredential(holder, credentialName)
+        let credentials = await holder.verifiable.getCredentials()
+
+        const check = (cred) =>{
+            if (cred.id !== credential.id){
+                return false
+            }
+
+            assert.equal(cred.my_did, holderConn.MyDID)
+            assert.equal(cred.their_did, holderConn.TheirDID)
+
+            return true
+        }
+
+        if (credentials.result.some(check)){
+            return
+        }
+
+        throw new Error("credential is not as expected")
     })
 }
 

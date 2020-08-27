@@ -63,12 +63,14 @@ async function presentProof(mode) {
     })
 
     let proverAction;
+    let verifierConn;
+
     it("Verifier sends a request presentation to the Prover", async function() {
         proverAction = getAction(prover)
-        let conn = await connection(verifier, connections[0])
+        verifierConn = await connection(verifier, connections[0])
         return verifier.presentproof.sendRequestPresentation({
-            my_did: conn.MyDID,
-            their_did: conn.TheirDID,
+            my_did: verifierConn.MyDID,
+            their_did: verifierConn.TheirDID,
             request_presentation: {will_confirm:true},
         })
     })
@@ -92,7 +94,10 @@ async function presentProof(mode) {
     })
 
     it("Verifier checks presentation", async function () {
-        await getPresentation(verifier, name)
+        let presentation = await getPresentation(verifier, name)
+
+        assert.equal(presentation.my_did, verifierConn.MyDID)
+        assert.equal(presentation.their_did, verifierConn.TheirDID)
     })
 }
 
@@ -106,7 +111,7 @@ async function getPresentation(agent, name) {
     if (res.result) {
         for (let j = 0; j < res.result.length; j++) {
             if (res.result[j].name === name) {
-                return
+                return res.result[j]
             }
         }
     }
