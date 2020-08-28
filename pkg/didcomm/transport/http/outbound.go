@@ -101,11 +101,6 @@ func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination
 	var respData string
 
 	if resp != nil {
-		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
-		if !isStatusSuccess {
-			return "", fmt.Errorf("received unsuccessful POST HTTP status from agent "+
-				"[%s, %v]", destination.ServiceEndpoint, resp.Status)
-		}
 		// handle response
 		defer func() {
 			e := resp.Body.Close()
@@ -122,6 +117,15 @@ func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination
 		}
 
 		respData = buf.String()
+
+		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
+		if !isStatusSuccess {
+			logger.Errorf("didcomm failed : transport=http serviceEndpoint=%s status=%v errMsg=%s",
+				destination.ServiceEndpoint, resp.Status, respData)
+
+			return "", fmt.Errorf("received unsuccessful POST HTTP status from agent "+
+				"[%s, %v %s]", destination.ServiceEndpoint, resp.Status, respData)
+		}
 	}
 
 	return respData, nil

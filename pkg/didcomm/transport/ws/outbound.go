@@ -50,6 +50,9 @@ func (cs *OutboundClient) Send(data []byte, destination *service.Destination) (s
 
 	err = conn.Write(context.Background(), websocket.MessageText, data)
 	if err != nil {
+		logger.Errorf("didcomm failed : transport=ws serviceEndpoint=%s errMsg=%s",
+			destination.ServiceEndpoint, err.Error())
+
 		return "", fmt.Errorf("websocket write message : %w", err)
 	}
 

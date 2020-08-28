@@ -87,6 +87,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	r, e = ot.Send([]byte("bad"), prepareDestination(serverURL))
 	require.Error(t, e)
 	require.Empty(t, r)
+	require.Contains(t, e.Error(), "received unsuccessful POST HTTP status from agent")
 
 	// finally using a valid url
 	r, e = ot.Send([]byte("Hello World"), prepareDestination(serverURL))
