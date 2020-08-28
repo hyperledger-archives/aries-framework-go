@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,8 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// add sender key in store (prep step before Authcrypt.Pack()/Unpack())
-	mockStoreMap[skid] = senderKey
+	b58SKID := base58.Encode([]byte(skid))
+	mockStoreMap[b58SKID] = senderKey
 
 	origMsg := []byte("secret message")
 	ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)

@@ -50,6 +50,8 @@ func WithDBPrefix(dbPrefix string) Option {
 }
 
 // NewProvider instantiates Provider.
+// Certain stores like couchdb cannot accept key IDs with '_' prefix, to avoid getting errors with such values, key ID
+// need to be base58 encoded for these stores. In order to do so, the store must be wrapped using base58wrapper.
 func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 	if hostURL == "" {
 		return nil, errors.New(blankHostErrMsg)
