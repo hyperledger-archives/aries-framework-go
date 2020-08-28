@@ -32,6 +32,8 @@ We implement demonstrations and test cases, that require a ledger system, using 
 ## Documentation
 Aries Framework Go documentation can be viewed at [GoDoc](https://pkg.go.dev/github.com/hyperledger/aries-framework-go). The project structure is described [here](docs/project_structure.md).
 
+The project structure for the mobile bindings can be found [here](cmd/aries-agent-mobile/doc/project_structure.md).
+
 The packages intended for end developer usage are within the [pkg/client](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client) folder along with the main agent package ([pkg/framework/aries](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries)).
 
 The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediator.md).
