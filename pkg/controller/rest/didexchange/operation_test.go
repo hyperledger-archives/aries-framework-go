@@ -9,8 +9,6 @@ package didexchange
 import (
 	"bytes"
 	"crypto"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +17,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
@@ -32,11 +29,14 @@ import (
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
@@ -556,34 +556,23 @@ func verifyRESTError(t *testing.T, code command.Code, data []byte) {
 func newPeerDID(t *testing.T) *did.Doc {
 	t.Helper()
 
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	key := did.PublicKey{
-		ID:         uuid.New().String(),
-		Type:       "Ed25519VerificationKey2018",
-		Controller: "did:example:123",
-		Value:      pubKey,
-	}
-	doc, err := peer.NewDoc(
-		[]did.PublicKey{key},
-		[]did.VerificationMethod{{
-			PublicKey:    key,
-			Relationship: 0,
-			Embedded:     true,
-			RelativeURL:  false,
-		}},
-		did.WithService([]did.Service{{
-			ID:              "didcomm",
-			Type:            "did-communication",
-			Priority:        0,
-			RecipientKeys:   []string{base58.Encode(pubKey)},
-			ServiceEndpoint: "http://example.com",
-		}}),
+	a, err := aries.New(
+		aries.WithStoreProvider(mem.NewProvider()),
+		aries.WithProtocolStateStoreProvider(mem.NewProvider()),
 	)
 	require.NoError(t, err)
 
-	return doc
+	ctx, err := a.Context()
+	require.NoError(t, err)
+
+	d, err := ctx.VDRIRegistry().Create(
+		peer.DIDMethod,
+		vdri.WithServiceType(vdri.DIDCommServiceType),
+		vdri.WithServiceEndpoint("http://agent.example.com/didcomm"),
+	)
+	require.NoError(t, err)
+
+	return d
 }
 
 func marshalDoc(t *testing.T, d *did.Doc) []byte {

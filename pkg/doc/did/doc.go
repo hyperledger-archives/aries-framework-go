@@ -989,10 +989,17 @@ func WithPublicKey(pubKey []PublicKey) DocOption {
 	}
 }
 
-// WithAuthentication DID doc Authentication.
+// WithAuthentication sets the verification methods for authentication: https://w3c.github.io/did-core/#authentication.
 func WithAuthentication(auth []VerificationMethod) DocOption {
 	return func(opts *Doc) {
 		opts.Authentication = auth
+	}
+}
+
+// WithAssertion sets the verification methods for assertion: https://w3c.github.io/did-core/#assertionmethod.
+func WithAssertion(assertion []VerificationMethod) DocOption {
+	return func(opts *Doc) {
+		opts.AssertionMethod = assertion
 	}
 }
 

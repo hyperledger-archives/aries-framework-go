@@ -28,6 +28,8 @@ import (
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -35,6 +37,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
@@ -954,31 +957,25 @@ func generateKeyPair() (string, []byte) {
 }
 
 func newPeerDID(t *testing.T) *did.Doc {
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
+	t.Helper()
 
-	key := did.PublicKey{
-		ID:         uuid.New().String(),
-		Type:       "Ed25519VerificationKey2018",
-		Controller: "did:example:123",
-		Value:      pubKey,
-	}
-	doc, err := peer.NewDoc(
-		[]did.PublicKey{key},
-		[]did.VerificationMethod{{
-			PublicKey: key,
-			Embedded:  true,
-		}},
-		did.WithService([]did.Service{{
-			ID:              "didcomm",
-			Type:            "did-communication",
-			RecipientKeys:   []string{base58.Encode(pubKey)},
-			ServiceEndpoint: "http://example.com",
-		}}),
+	a, err := aries.New(
+		aries.WithStoreProvider(mem.NewProvider()),
+		aries.WithProtocolStateStoreProvider(mem.NewProvider()),
 	)
 	require.NoError(t, err)
 
-	return doc
+	ctx, err := a.Context()
+	require.NoError(t, err)
+
+	d, err := ctx.VDRIRegistry().Create(
+		peer.DIDMethod,
+		vdri.WithServiceType(vdri.DIDCommServiceType),
+		vdri.WithServiceEndpoint("http://agent.example.com/didcomm"),
+	)
+	require.NoError(t, err)
+
+	return d
 }
 
 func toBytes(t *testing.T, v interface{}) []byte {

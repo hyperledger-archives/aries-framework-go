@@ -1974,12 +1974,12 @@ func newPeerDID(t *testing.T) *did.Doc {
 	}
 	doc, err := peer.NewDoc(
 		[]did.PublicKey{key},
-		[]did.VerificationMethod{{
+		did.WithAuthentication([]did.VerificationMethod{{
 			PublicKey:    key,
 			Relationship: 0,
 			Embedded:     true,
 			RelativeURL:  false,
-		}},
+		}}),
 		did.WithService([]did.Service{{
 			ID:              "didcomm",
 			Type:            "did-communication",

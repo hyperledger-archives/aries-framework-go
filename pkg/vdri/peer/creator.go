@@ -35,10 +35,7 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 }
 
 func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, error) {
-	var (
-		publicKey did.PublicKey
-		didKey    string
-	)
+	var publicKey did.PublicKey
 
 	switch pubKey.Type {
 	case ed25519VerificationKey2018:
@@ -53,10 +50,6 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
 
-	verificationMethods := []did.VerificationMethod{
-		{PublicKey: publicKey},
-	}
-
 	if docOpts.ServiceType != "" {
 		s := did.Service{
 			ID:              "#agent",
@@ -70,17 +63,6 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 			s.Priority = 0
 		}
 
-		if docOpts.EncryptionKey != nil {
-			encKey, err := vdriapi.RetrieveEncryptionKey(didKey, docOpts.EncryptionKey)
-			if err != nil {
-				return nil, fmt.Errorf("invalid encryption key: %w", err)
-			}
-
-			keyAgreementMethod := *did.NewEmbeddedVerificationMethod(encKey, did.KeyAgreement)
-
-			verificationMethods = append(verificationMethods, keyAgreementMethod)
-		}
-
 		service = append(service, s)
 	}
 
@@ -89,9 +71,16 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 
 	return NewDoc(
 		[]did.PublicKey{publicKey},
-		verificationMethods,
 		did.WithService(service),
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
+		did.WithAuthentication([]did.VerificationMethod{{
+			PublicKey:    publicKey,
+			Relationship: did.Authentication,
+		}}),
+		did.WithAssertion([]did.VerificationMethod{{
+			PublicKey:    publicKey,
+			Relationship: did.AssertionMethod,
+		}}),
 	)
 }
