@@ -34,5 +34,5 @@ func New(s storage.Provider) (*VDRI, error) {
 
 // Accept did method.
 func (v *VDRI) Accept(method string) bool {
-	return method == didMethod
+	return method == DIDMethod
 }

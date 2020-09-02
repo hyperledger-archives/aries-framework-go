@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jinzhu/copier"
 	"github.com/multiformats/go-multibase"
 	"github.com/multiformats/go-multihash"
 
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	// Reference: https://openssi.github.io/peer-did-method-spec/index.html#method-specific-identifier
+	// Reference: https://identity.foundation/peer-did-method-spec/#method-specific-identifier
 	// numAlgo is the algorithm for choosing a numeric basis.
 	numAlgo = "1"
 	// The transform is base58, represented by the multibase prefix z as per spec.
@@ -27,7 +28,8 @@ const (
 
 	peerPrefix = "did:peer:"
 
-	didMethod = "peer"
+	// DIDMethod is the peer did method name: https://identity.foundation/peer-did-method-spec/#method-name.
+	DIDMethod = "peer"
 )
 
 // nolint:gochecknoglobals
@@ -36,16 +38,20 @@ var (
 )
 
 // NewDoc returns the resolved variant of the genesis version of the peer DID document.
-func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
-	opts ...did.DocOption) (*did.Doc, error) {
+func NewDoc(publicKey []did.PublicKey, opts ...did.DocOption) (*did.Doc, error) {
+	if len(publicKey) == 0 {
+		return nil, fmt.Errorf("the did:peer genesis version must include public keys and authentication")
+	}
+
 	// build DID Doc
-	doc := did.BuildDoc(opts...)
+	doc := did.BuildDoc(append([]did.DocOption{did.WithPublicKey(publicKey)}, opts...)...)
 
 	// Create a did doc based on the mandatory value: publicKeys & authentication
-	doc.PublicKey = publicKey
-	doc.Authentication = authentication
+	if len(doc.Authentication) == 0 || len(doc.PublicKey) == 0 {
+		return nil, fmt.Errorf("the did:peer genesis version must include public keys and authentication")
+	}
 
-	id, err := computeDid(doc)
+	id, err := computeDidMethod1(doc)
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +61,10 @@ func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
 	return doc, nil
 }
 
-// computeDid creates the peer DID.
+// computeDidMethod1 creates the peer DID.
 // For example: did:peer:1zQmZMygzYqNwU6Uhmewx5Xepf2VLp5S4HLSwwgf2aiKZuwa.
-func computeDid(doc *did.Doc) (string, error) {
+// Reference: https://identity.foundation/peer-did-method-spec/#generation-method
+func computeDidMethod1(doc *did.Doc) (string, error) {
 	if doc.PublicKey == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")
 	}
@@ -74,7 +81,7 @@ func computeDid(doc *did.Doc) (string, error) {
 
 // validateDID checks the format of the doc's DID and checks that the DID's 'namestring' matches against its enc numeric
 // basis as per the Namestring Generation Method.
-// Reference: https://openssi.github.io/peer-did-method-spec/index.html#method-specific-identifier
+// Reference: https://identity.foundation/peer-did-method-spec/#method-specific-identifier
 //
 // Note: this check should be done only on the resolved variant of the genesis version of Peer DID documents.
 func validateDID(doc *did.Doc) error {
@@ -89,17 +96,16 @@ func validateDID(doc *did.Doc) error {
 	splitDid := strings.FieldsFunc(peerDid, func(r rune) bool { return r == ':' })
 	encnumbasis := splitDid[2]
 
-	// genesis version(no did) of the peer DID doc
-	genesisDoc := &did.Doc{
-		Context:        doc.Context,
-		ID:             "",
-		PublicKey:      doc.PublicKey,
-		Service:        doc.Service,
-		Authentication: doc.Authentication,
-		Created:        doc.Created,
-		Updated:        doc.Updated,
-		Proof:          doc.Proof,
+	genesisDoc := &did.Doc{}
+
+	err := copier.Copy(genesisDoc, doc)
+	if err != nil {
+		return fmt.Errorf("failed to copy did doc for methodID calculation: %w", err)
 	}
+
+	// calculate the encnumbasis of the genesis version of the peer DID doc
+	// TODO the ID is not being removed from other places in the did doc
+	genesisDoc.ID = ""
 
 	// calculate the encnumbasis of the genesis version of the peer DID doc
 	numBas, err := calculateEncNumBasis(genesisDoc)
@@ -115,7 +121,7 @@ func validateDID(doc *did.Doc) error {
 }
 
 // calculateEncNumBasis is multicodec numeric basis.
-// Reference : https://openssi.github.io/peer-did-method-spec/index.html#dfn-multicodec-descriptor
+// Reference : https://identity.foundation/peer-did-method-spec/#dfn-multicodec-descriptor
 func calculateEncNumBasis(doc *did.Doc) (string, error) {
 	docBytes, err := json.Marshal(doc)
 	if err != nil {

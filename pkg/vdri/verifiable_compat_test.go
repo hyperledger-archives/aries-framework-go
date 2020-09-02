@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 func Test_LDProofs_Compatibility(t *testing.T) {
@@ -135,31 +136,28 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	t.Helper()
 
 	peerDID, err := a.VDRIRegistry().Create(
-		"peer",
+		peer.DIDMethod,
 		vdri.WithServiceEndpoint("http://example.com/didcomm"),
 	)
 	require.NoError(t, err)
 
-	j, e := peerDID.JSONBytes()
-	require.NoError(t, e)
-
-	strJ, e := formatDoc(j)
-	require.NoError(t, e)
+	strJ := formatDoc(t, peerDID)
 
 	t.Log("DID Doc created: ***\n" + strJ + "\n***")
 
 	return peerDID
 }
 
-func formatDoc(msg []byte) (string, error) {
+func formatDoc(t *testing.T, d *did.Doc) string {
+	bits, err := d.JSONBytes()
+	require.NoError(t, err)
+
 	var buf bytes.Buffer
 
-	err := json.Indent(&buf, msg, "", "\t")
-	if err != nil {
-		return "", err
-	}
+	err = json.Indent(&buf, bits, "", "\t")
+	require.NoError(t, err)
 
-	return buf.String(), nil
+	return buf.String()
 }
 
 func universityDegreeVC() *verifiable.Credential {

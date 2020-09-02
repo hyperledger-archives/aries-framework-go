@@ -18,7 +18,7 @@ import (
 func TestComputeDID(t *testing.T) {
 	storedDoc := genesisDoc()
 	require.NotNil(t, storedDoc)
-	peerDID, err := computeDid(storedDoc)
+	peerDID, err := computeDidMethod1(storedDoc)
 	require.NoError(t, err)
 	require.Len(t, peerDID, 57)
 	require.Equal(t, "did:peer:1zQmPm3QtmoaidrLT6hBKR7wcepq4u6385ENbddYXLN3c2vx", peerDID)
@@ -26,7 +26,7 @@ func TestComputeDID(t *testing.T) {
 
 func TestComputeDIDError(t *testing.T) {
 	storedDoc := &did.Doc{ID: "did:peer:11"}
-	_, err := computeDid(storedDoc)
+	_, err := computeDidMethod1(storedDoc)
 	require.Error(t, err)
 	assert.Equal(t, err.Error(), "the genesis version must include public keys and authentication")
 }
@@ -69,38 +69,29 @@ func TestValidateDIDRegex(t *testing.T) {
 }
 
 func TestNewDoc(t *testing.T) {
-	publicKey := []did.PublicKey{
-		{
-			ID:         "did:example:123456789abcdefghi#keys-1",
-			Type:       "Secp256k1VerificationKey2018",
-			Controller: "did:example:123456789abcdefghi",
-			Value:      []byte(`"publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"`),
-		},
-	}
-	auth := []did.VerificationMethod{
-		{
-			PublicKey: did.PublicKey{
-				ID:         "did:example:123456789abcdefghs#key3",
-				Type:       "RsaVerificationKey2018",
-				Controller: "did:example:123456789abcdefghs",
-				Value:      []byte(`"publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"`),
-			},
-		},
+	publicKey := did.PublicKey{
+		ID:         "did:example:123456789abcdefghi#keys-1",
+		Type:       "Secp256k1VerificationKey2018",
+		Controller: "did:example:123456789abcdefghi",
+		Value:      []byte("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
 	}
 
-	doc, err := NewDoc(publicKey, auth)
-	assert.Nil(t, err)
+	doc, err := NewDoc(
+		[]did.PublicKey{publicKey},
+		did.WithAuthentication([]did.VerificationMethod{{PublicKey: publicKey}}))
+	require.NoError(t, err)
+	require.NotNil(t, doc)
 
 	// validate function validates the DID as well
 	err = validateDID(doc)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestNewDocError(t *testing.T) {
 	doc, err := NewDoc(nil, nil)
-	assert.NotNil(t, err)
-	assert.Equal(t, "the genesis version must include public keys and authentication", err.Error())
-	assert.Nil(t, doc)
+	require.Error(t, err)
+	require.Equal(t, "the did:peer genesis version must include public keys and authentication", err.Error())
+	require.Nil(t, doc)
 }
 
 // genesisDoc creates the doc without an id.
@@ -145,7 +136,7 @@ func genesisDoc() *did.Doc {
 func peerDidDoc() (*did.Doc, error) {
 	doc := genesisDoc()
 
-	id, err := computeDid(doc)
+	id, err := computeDidMethod1(doc)
 	if err != nil {
 		return nil, err
 	}
