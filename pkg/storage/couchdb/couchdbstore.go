@@ -64,6 +64,11 @@ func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 
 	p := &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}
 
+	_, err = client.Ping(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failure while pinging couchdb at url %s : %w", hostURL, err)
+	}
+
 	for _, opt := range opts {
 		opt(p)
 	}

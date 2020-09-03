@@ -13,7 +13,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
@@ -28,6 +30,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	couchdbstore "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
@@ -46,12 +53,25 @@ const (
 	agentTokenFlagUsage     = "Check for bearer token in the authorization header (optional)." +
 		" Alternatively, this can be set with the following environment variable: " + agentTokenEnvKey
 
-	// db path flag
-	agentDBPathFlagName      = "db-path"
-	agentDBPathEnvKey        = "ARIESD_DB_PATH"
-	agentDBPathFlagShorthand = "d"
-	agentDBPathFlagUsage     = "Path to database." +
-		" Alternatively, this can be set with the following environment variable: " + agentDBPathEnvKey
+	databaseTypeFlagName      = "database-type"
+	databaseTypeEnvKey        = "ARIESD_DATABASE_TYPE"
+	databaseTypeFlagShorthand = "q"
+	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
+		"Supported options: mem, couchdb, mysql, leveldb. " +
+		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
+
+	databaseURLFlagName      = "database-url"
+	databaseURLEnvKey        = "ARIESD_DATABASE_URL"
+	databaseURLFlagShorthand = "v"
+	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
+		" For CouchDB, include the username:password@ text if required. " +
+		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+
+	databasePrefixFlagName      = "database-prefix"
+	databasePrefixEnvKey        = "ARIESD_DATABASE_PREFIX"
+	databasePrefixFlagShorthand = "u"
+	databasePrefixFlagUsage     = "An optional prefix to be used when creating and retrieving underlying databases. " +
+		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
 
 	// webhook url flag
 	agentWebhookFlagName      = "webhook-url"
@@ -138,22 +158,42 @@ const (
 		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint lll
 		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
 
+	dbTimeoutFlagName  = "db-timeout"
+	dbTimeoutFlagUsage = "Total time in seconds to wait until the db is available before giving up." +
+		" Default: " + dbTimeoutDefault + " seconds." +
+		" Alternatively, this can be set with the following environment variable: " + dbTimeoutEnvKey
+	dbTimeoutEnvKey  = "ADAPTER_REST_DSN_TIMEOUT"
+	dbTimeoutDefault = "30"
+
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
+
+	databaseTypeMemOption     = "mem"
+	databaseTypeCouchDBOption = "couchdb"
+	databaseTypeMYSQLDBOption = "mysql"
+	databaseTypeLevelDBOption = "leveldb"
 )
 
 var errMissingHost = errors.New("host not provided")
 var logger = log.New("aries-framework/agent-rest")
 
 type agentParameters struct {
-	server                                           server
-	host, dbPath, defaultLabel, transportReturnRoute string
-	tlsCertFile, tlsKeyFile                          string
-	token                                            string
-	webhookURLs, httpResolvers, outboundTransports   []string
-	inboundHostInternals, inboundHostExternals       []string
-	autoAccept                                       bool
-	msgHandler                                       command.MessageHandler
+	server                                         server
+	host, defaultLabel, transportReturnRoute       string
+	tlsCertFile, tlsKeyFile                        string
+	token                                          string
+	webhookURLs, httpResolvers, outboundTransports []string
+	inboundHostInternals, inboundHostExternals     []string
+	autoAccept                                     bool
+	msgHandler                                     command.MessageHandler
+	dbParam                                        *dbParam
+}
+
+type dbParam struct {
+	dbType  string
+	url     string
+	prefix  string
+	timeout uint64
 }
 
 type server interface {
@@ -219,7 +259,7 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
-			dbPath, err := getUserSetVar(cmd, agentDBPathFlagName, agentDBPathEnvKey, false)
+			dbParam, err := getDBParam(cmd)
 			if err != nil {
 				return err
 			}
@@ -272,7 +312,7 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				token:                token,
 				inboundHostInternals: inboundHosts,
 				inboundHostExternals: inboundHostExternals,
-				dbPath:               dbPath,
+				dbParam:              dbParam,
 				defaultLabel:         defaultLabel,
 				webhookURLs:          webhookURLs,
 				httpResolvers:        httpResolvers,
@@ -286,6 +326,45 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 			return startAgent(parameters)
 		},
 	}
+}
+
+func getDBParam(cmd *cobra.Command) (*dbParam, error) {
+	dbParam := &dbParam{}
+
+	var err error
+
+	dbParam.dbType, err = getUserSetVar(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	dbParam.url, err = getUserSetVar(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	dbParam.prefix, err = getUserSetVar(cmd, databasePrefixFlagName, databasePrefixEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	dbTimeout, err := getUserSetVar(cmd, dbTimeoutFlagName, dbTimeoutEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if dbTimeout == "" || dbTimeout == "0" {
+		dbTimeout = dbTimeoutDefault
+	}
+
+	t, err := strconv.Atoi(dbTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse db timeout %s: %w", dbTimeout, err)
+	}
+
+	dbParam.timeout = uint64(t)
+
+	return dbParam, nil
 }
 
 func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
@@ -316,8 +395,14 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringSliceP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		[]string{}, agentInboundHostExternalFlagUsage)
 
-	// db path flag
-	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
+	// db type
+	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
+
+	// db url
+	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
+
+	// db prefix
+	startCmd.Flags().StringP(databasePrefixFlagName, databasePrefixFlagShorthand, "", databasePrefixFlagUsage)
 
 	// webhook url flag
 	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{}, agentWebhookFlagUsage)
@@ -350,6 +435,9 @@ func createFlags(startCmd *cobra.Command) {
 	// tls key file
 	startCmd.Flags().StringP(agentTLSKeyFileFlagName,
 		agentTLSKeyFileFlagShorthand, "", agentTLSKeyFileFlagUsage)
+
+	// db timeout
+	startCmd.Flags().StringP(dbTimeoutFlagName, "", "", dbTimeoutFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
@@ -590,9 +678,12 @@ func startAgent(parameters *agentParameters) error {
 func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	var opts []aries.Option
 
-	if parameters.dbPath != "" {
-		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
+	storePro, err := createStoreProviders(parameters)
+	if err != nil {
+		return nil, err
 	}
+
+	opts = append(opts, aries.WithStoreProvider(storePro))
 
 	if parameters.transportReturnRoute != "" {
 		opts = append(opts, aries.WithTransportReturnRoute(parameters.transportReturnRoute))
@@ -637,4 +728,66 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	}
 
 	return ctx, nil
+}
+
+func createStoreProviders(parameters *agentParameters) (storage.Provider, error) {
+	const (
+		sleep = 1 * time.Second
+	)
+
+	switch {
+	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMemOption):
+		return mem.NewProvider(), nil
+	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeLevelDBOption):
+		return leveldb.NewProvider(parameters.dbParam.url), nil
+	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeCouchDBOption):
+		var store storage.Provider
+
+		err := backoff.RetryNotify(
+			func() error {
+				var openErr error
+				store, openErr = couchdbstore.NewProvider(parameters.dbParam.url,
+					couchdbstore.WithDBPrefix(parameters.dbParam.prefix))
+
+				return openErr
+			},
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
+			func(retryErr error, t time.Duration) {
+				logger.Warnf(
+					"failed to connect to storage, will sleep for %s before trying again : %s\n",
+					t, retryErr)
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
+		}
+
+		return store, nil
+
+	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMYSQLDBOption):
+		var store storage.Provider
+
+		err := backoff.RetryNotify(
+			func() error {
+				var openErr error
+				store, openErr = mysql.NewProvider(parameters.dbParam.url,
+					mysql.WithDBPrefix(parameters.dbParam.prefix))
+				return openErr
+			},
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
+			func(retryErr error, t time.Duration) {
+				logger.Warnf(
+					"failed to connect to storage, will sleep for %s before trying again : %s\n",
+					t, retryErr)
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
+		}
+
+		return store, nil
+	}
+
+	return nil, fmt.Errorf("key database type not set to a valid type." +
+		" run start --help to see the available options")
 }

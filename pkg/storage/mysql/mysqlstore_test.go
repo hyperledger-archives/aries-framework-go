@@ -190,33 +190,10 @@ func TestSqlDBStore(t *testing.T) {
 		// store length
 		require.Len(t, prov.dbs, 2)
 	})
-	t.Run("Test put, get, delete, iterator error", func(t *testing.T) {
-		prov, err := NewProvider("root:@tcp(127.0.0.1:45454)/")
-		require.NoError(t, err)
-
-		storeErr := &sqlDBStore{
-			db: prov.db,
-		}
-		const commonKey = "did:example:1"
-		data := []byte("value1")
-		// put err
-		err = storeErr.Put(commonKey, data)
+	t.Run("Test wrong url", func(t *testing.T) {
+		_, err := NewProvider("root:@tcp(127.0.0.1:45454)/")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to insert key and value record")
-
-		// get err
-		rows, err := storeErr.Get(commonKey)
-		require.Error(t, err)
-		require.Nil(t, rows)
-		require.Contains(t, err.Error(), "failed to get row")
-
-		err = storeErr.Delete(commonKey)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to delete row")
-
-		itr := storeErr.Iterator(commonKey, "test")
-		require.Error(t, itr.Error())
-		require.Contains(t, itr.Error().Error(), "failed to query rows")
+		require.Contains(t, err.Error(), "failure while pinging MySQL")
 	})
 	t.Run("Test sql db store failures", func(t *testing.T) {
 		prov, err := NewProvider("")
@@ -229,13 +206,9 @@ func TestSqlDBStore(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open connection")
 
-		prov, err = NewProvider("root:@tcp(127.0.0.1:45454)/")
-		require.NoError(t, err)
-
-		store, err := prov.OpenStore("sample")
+		_, err = NewProvider("root:@tcp(127.0.0.1:45454)/")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create db")
-		require.Nil(t, store)
+		require.Contains(t, err.Error(), "failure while pinging MySQL")
 	})
 
 	t.Run("Test the open new connection error", func(t *testing.T) {
