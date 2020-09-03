@@ -207,7 +207,7 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 			if rt2 == reflect.TypeOf(did.Doc{}) {
 				didDoc, err := json.Marshal(v)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("error remarshaling to json: %w", err)
 				}
 				return did.ParseDocument(didDoc)
 			}
