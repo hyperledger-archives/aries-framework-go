@@ -80,7 +80,7 @@ func TestStartCmdContents(t *testing.T) {
 	checkFlagPropertiesCorrect(t, startCmd, agentHostFlagName, agentHostFlagShorthand, agentHostFlagUsage, "")
 	checkFlagPropertiesCorrect(t, startCmd, agentInboundHostFlagName,
 		agentInboundHostFlagShorthand, agentInboundHostFlagUsage, "[]")
-	checkFlagPropertiesCorrect(t, startCmd, agentDBPathFlagName, agentDBPathFlagShorthand, agentDBPathFlagUsage, "")
+	checkFlagPropertiesCorrect(t, startCmd, databaseTypeFlagName, databaseTypeFlagShorthand, databaseTypeFlagUsage, "")
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName,
@@ -98,9 +98,6 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName,
 }
 
 func TestStartAriesDRequests(t *testing.T) {
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
 	testHostURL := randomURL()
 	testInboundHostURL := randomURL()
 
@@ -109,7 +106,7 @@ func TestStartAriesDRequests(t *testing.T) {
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 			httpResolvers:        []string{"sample@http://sample.com"},
 			transportReturnRoute: "all",
@@ -269,7 +266,7 @@ func TestStartCmdWithBlankHostArg(t *testing.T) {
 	require.NoError(t, err)
 
 	args := []string{"--" + agentHostFlagName, "", "--" + agentInboundHostFlagName, randomURL(),
-		"--" + agentDBPathFlagName, "", "--" + agentWebhookFlagName, ""}
+		"--" + databaseTypeFlagName, databaseTypeMemOption, "--" + agentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -281,7 +278,7 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentInboundHostFlagName, randomURL(), "--" + agentDBPathFlagName, "",
+	args := []string{"--" + agentInboundHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + agentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
@@ -307,7 +304,7 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentDBPathFlagName, "",
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + agentWebhookFlagName, ""}
 
 	startCmd.SetArgs(args)
@@ -316,7 +313,7 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestStartCmdWithoutDBPath(t *testing.T) {
+func TestStartCmdWithoutDBType(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
@@ -332,16 +329,13 @@ func TestStartCmdWithoutDBPath(t *testing.T) {
 
 	err = startCmd.Execute()
 	require.Equal(t,
-		"Neither db-path (command line flag) nor ARIESD_DB_PATH (environment variable) have been set.",
+		"Neither database-type (command line flag) nor ARIESD_DATABASE_TYPE (environment variable) have been set.",
 		err.Error())
 }
 
 func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
-
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
 
 	args := []string{
 		"--" + agentHostFlagName,
@@ -350,8 +344,8 @@ func TestStartCmdWithoutWebhookURL(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
-		"--" + agentDBPathFlagName,
-		path,
+		"--" + databaseTypeFlagName,
+		databaseTypeMemOption,
 	}
 	startCmd.SetArgs(args)
 
@@ -365,9 +359,6 @@ func TestStartCmdWithLogLevel(t *testing.T) {
 		startCmd, err := Cmd(&mockServer{})
 		require.NoError(t, err)
 
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		args := []string{
 			"--" + agentHostFlagName,
 			randomURL(),
@@ -375,8 +366,8 @@ func TestStartCmdWithLogLevel(t *testing.T) {
 			httpProtocol + "@" + randomURL(),
 			"--" + agentInboundHostExternalFlagName,
 			httpProtocol + "@" + randomURL(),
-			"--" + agentDBPathFlagName,
-			path,
+			"--" + databaseTypeFlagName,
+			databaseTypeMemOption,
 			"--" + agentAutoAcceptFlagName,
 			"true",
 			"--" + agentLogLevelFlagName,
@@ -438,9 +429,6 @@ func TestStartCmdWithoutWebhookURLAndAutoAccept(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
 	args := []string{
 		"--" + agentHostFlagName,
 		randomURL(),
@@ -448,8 +436,8 @@ func TestStartCmdWithoutWebhookURLAndAutoAccept(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
-		"--" + agentDBPathFlagName,
-		path,
+		"--" + databaseTypeFlagName,
+		databaseTypeMemOption,
 		"--" + agentAutoAcceptFlagName,
 		"true",
 	}
@@ -463,9 +451,6 @@ func TestStartCmdValidArgs(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
 	args := []string{
 		"--" + agentHostFlagName,
 		randomURL(),
@@ -473,8 +458,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
-		"--" + agentDBPathFlagName,
-		path,
+		"--" + databaseTypeFlagName,
+		databaseTypeMemOption,
 		"--" + agentDefaultLabelFlagName,
 		"agent",
 		"--" + agentWebhookFlagName,
@@ -496,10 +481,7 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	err = os.Setenv(agentInboundHostEnvKey, httpProtocol+"@"+randomURL())
 	require.Nil(t, err)
 
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
-	err = os.Setenv(agentDBPathEnvKey, path)
+	err = os.Setenv(databaseTypeEnvKey, databaseTypeMemOption)
 	require.Nil(t, err)
 	err = os.Setenv(agentWebhookEnvKey, "")
 	require.Nil(t, err)
@@ -516,15 +498,12 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	inboundHost := "localhost:8096"
 	inboundHost2 := "localhost:8097"
 
-	path1, cleanup1 := generateTempDir(t)
-	defer cleanup1()
-
 	go func() {
 		parameters := &agentParameters{
 			server:               &HTTPServer{},
 			host:                 host,
 			inboundHostInternals: []string{httpProtocol + "@" + inboundHost},
-			dbPath:               path1,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "",
 		}
 		err := startAgent(parameters)
@@ -533,14 +512,11 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	waitForServerToStart(t, host, inboundHost)
 
-	path2, cleanup2 := generateTempDir(t)
-	defer cleanup2()
-
 	parameters := &agentParameters{
 		server:               &HTTPServer{},
 		host:                 host,
 		inboundHostInternals: []string{httpProtocol + "@" + inboundHost2},
-		dbPath:               path2,
+		dbParam:              &dbParam{dbType: databaseTypeMemOption},
 	}
 
 	addressAlreadyInUseErrorMessage := "failed to start aries agent rest on port [" + host +
@@ -551,46 +527,8 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	require.Equal(t, addressAlreadyInUseErrorMessage, err.Error())
 }
 
-func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
-	host1 := "localhost:8088"
-	host2 := "localhost:8090"
-	inboundHost1 := "localhost:8089"
-	inboundHost2 := "localhost:8091"
-
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
-	go func() {
-		parameters := &agentParameters{
-			server:               &HTTPServer{},
-			host:                 host1,
-			inboundHostInternals: []string{httpProtocol + "@" + inboundHost1},
-			dbPath:               path,
-		}
-
-		err := startAgent(parameters)
-		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
-	}()
-
-	waitForServerToStart(t, host1, inboundHost1)
-
-	parameters := &agentParameters{
-		server:               &HTTPServer{},
-		host:                 host2,
-		inboundHostInternals: []string{httpProtocol + "@" + inboundHost2},
-		dbPath:               path,
-	}
-	err := startAgent(parameters)
-
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to open vc store")
-}
-
 func TestStartAriesErrorWithResolvers(t *testing.T) {
 	t.Run("start aries with resolver - invalid resolver error", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -598,7 +536,7 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 			httpResolvers:        []string{"http://sample.com"},
 		}
@@ -609,9 +547,6 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 	})
 
 	t.Run("start aries with resolver - url invalid error", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -619,7 +554,7 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 			httpResolvers:        []string{"@h"},
 		}
@@ -631,9 +566,6 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 
 func TestStartAriesWithOutboundTransports(t *testing.T) {
 	t.Run("start aries with outbound transports success", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -642,7 +574,7 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-				dbPath:               path,
+				dbParam:              &dbParam{dbType: databaseTypeMemOption},
 				defaultLabel:         "x",
 				outboundTransports:   []string{"http", "ws"},
 			}
@@ -656,9 +588,6 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 	})
 
 	t.Run("start aries with outbound transport wrong flag", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -666,7 +595,7 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 			outboundTransports:   []string{"http", "wss"},
 		}
@@ -678,9 +607,6 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 
 func TestStartAriesWithInboundTransport(t *testing.T) {
 	t.Run("start aries with inbound transports success", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -689,7 +615,7 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{websocketProtocol + "@" + testInboundHostURL},
-				dbPath:               path,
+				dbParam:              &dbParam{dbType: databaseTypeMemOption},
 				defaultLabel:         "x",
 			}
 
@@ -702,9 +628,6 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 	})
 
 	t.Run("start aries with inbound transport wrong flag", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -712,7 +635,7 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{"wss" + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 		}
 		err := startAgent(parameters)
@@ -723,9 +646,6 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 
 func TestStartAriesWithAutoAccept(t *testing.T) {
 	t.Run("start aries with auto accept success", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
@@ -734,7 +654,7 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-				dbPath:               path,
+				dbParam:              &dbParam{dbType: databaseTypeMemOption},
 				defaultLabel:         "x",
 				autoAccept:           true,
 			}
@@ -749,13 +669,10 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 }
 
 func TestStartAriesTLS(t *testing.T) {
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
 	parameters := &agentParameters{
 		server:      &HTTPServer{},
 		host:        ":0",
-		dbPath:      path,
+		dbParam:     &dbParam{dbType: databaseTypeMemOption},
 		tlsCertFile: "invalid",
 		tlsKeyFile:  "invalid",
 	}
@@ -770,9 +687,6 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 		badToken  = "BCDE"
 	)
 
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
-
 	testHostURL := randomURL()
 	testInboundHostURL := randomURL()
 
@@ -782,7 +696,7 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 			host:                 testHostURL,
 			token:                goodToken,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
-			dbPath:               path,
+			dbParam:              &dbParam{dbType: databaseTypeMemOption},
 			defaultLabel:         "x",
 		}
 
@@ -814,6 +728,24 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 	})
 }
 
+func TestStoreProvider(t *testing.T) {
+	t.Run("test error from create new couchdb", func(t *testing.T) {
+		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: databaseTypeCouchDBOption}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+	})
+	t.Run("test error from create new mysql", func(t *testing.T) {
+		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: databaseTypeMYSQLDBOption}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
+	})
+	t.Run("test invalid database type", func(t *testing.T) {
+		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: "data1"}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "database type not set to a valid type")
+	})
+}
+
 func waitForServerToStart(t *testing.T, host, inboundHost string) {
 	if err := listenFor(host); err != nil {
 		t.Fatal(err)
@@ -821,19 +753,5 @@ func waitForServerToStart(t *testing.T, host, inboundHost string) {
 
 	if err := listenFor(inboundHost); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func generateTempDir(t testing.TB) (string, func()) {
-	path, err := ioutil.TempDir("", "db")
-	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
-	}
-
-	return path, func() {
-		err := os.RemoveAll(path)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
-		}
 	}
 }

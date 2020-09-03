@@ -178,11 +178,8 @@ func TestCouchDBStore(t *testing.T) {
 		require.Contains(t, err.Error(), blankHostErrMsg)
 		require.Nil(t, prov)
 
-		prov, err = NewProvider("wrongURL")
-		require.NoError(t, err)
-		store, err := prov.OpenStore("sample")
+		_, err = NewProvider("wrongURL")
 		require.Error(t, err)
-		require.Nil(t, store)
 	})
 
 	t.Run("Test couchdb multi store close by name", func(t *testing.T) {

@@ -30,6 +30,7 @@ type Provider struct {
 type sqlDBStore struct {
 	db        *sql.DB
 	tableName string
+	dbName    string
 }
 
 type result struct {
@@ -68,6 +69,11 @@ func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 		return nil, fmt.Errorf("failed to open connection: %w", err)
 	}
 
+	err = db.Ping()
+	if err != nil {
+		return nil, fmt.Errorf("failure while pinging MySQL at url %s : %w", dbPath, err)
+	}
+
 	p := &Provider{
 		dbURL: dbPath,
 		db:    db,
@@ -92,6 +98,13 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	if p.dbPrefix != "" {
 		name = p.dbPrefix + "_" + name
 	}
+
+	// Check cache first
+	cachedStore, existsInCache := p.dbs[name]
+	if existsInCache {
+		return cachedStore, nil
+	}
+
 	// creating the database
 	_, err := p.db.Exec(fmt.Sprintf(createDBQuery, name))
 	if err != nil {
@@ -123,7 +136,8 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 
 	store := &sqlDBStore{
 		db:        newDBConn,
-		tableName: tableName}
+		tableName: tableName,
+		dbName:    name}
 
 	p.dbs[name] = store
 
@@ -176,11 +190,17 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 		return errors.New("key and value are mandatory")
 	}
 
+	// Use query is used to select the created database without this DDL operations are not permitted
+	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
+	if err != nil {
+		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
+	}
+
 	//nolint: gosec
 	// create upsert query to insert the record, checking whether the key is already mapped to a value in the store.
 	createStmt := "INSERT INTO `" + s.tableName + "` VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
 	// executing the prepared insert statement
-	_, err := s.db.Exec(createStmt, k, v, v)
+	_, err = s.db.Exec(createStmt, k, v, v)
 	if err != nil {
 		return fmt.Errorf("failed to insert key and value record into %s %w ", s.tableName, err)
 	}
@@ -194,10 +214,16 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 		return nil, storage.ErrKeyRequired
 	}
 
+	// Use query is used to select the created database without this DDL operations are not permitted
+	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to use db %s: %w", s.dbName, err)
+	}
+
 	var value []byte
 	//nolint: gosec
 	// select query to fetch the record by key
-	err := s.db.QueryRow("SELECT `value` FROM `"+s.tableName+"` "+
+	err = s.db.QueryRow("SELECT `value` FROM `"+s.tableName+"` "+
 		" WHERE `key` = ?", k).Scan(&value)
 	if err != nil {
 		if strings.Contains(err.Error(), sqlDBNotFound) {
@@ -215,9 +241,16 @@ func (s *sqlDBStore) Delete(k string) error {
 	if k == "" {
 		return storage.ErrKeyRequired
 	}
+
+	// Use query is used to select the created database without this DDL operations are not permitted
+	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
+	if err != nil {
+		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
+	}
+
 	//nolint: gosec
 	// delete query to delete the record by key
-	_, err := s.db.Exec("DELETE FROM `"+s.tableName+"` WHERE `key`= ?", k)
+	_, err = s.db.Exec("DELETE FROM `"+s.tableName+"` WHERE `key`= ?", k)
 
 	if err != nil {
 		return fmt.Errorf("failed to delete row %w", err)
@@ -238,6 +271,14 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 		endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "*")
 		endKey = strings.ReplaceAll(endKey, "_", `\_`)
 	}
+
+	// Use query is used to select the created database without this DDL operations are not permitted
+	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
+	if err != nil {
+		return &sqlDBResultsIterator{
+			err: fmt.Errorf("failed to use db %s: %w", s.dbName, err)}
+	}
+
 	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
 	queryStmt := "SELECT * FROM `" + s.tableName + "` WHERE `key` >= ? AND `key` < ? order by `key`"
@@ -257,6 +298,7 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 }
 
 func (i *sqlDBResultsIterator) Next() bool {
+	fmt.Printf("resultRows %v\v", i.resultRows)
 	return i.resultRows.Next()
 }
 
