@@ -247,9 +247,11 @@ type Proof struct {
 	ProofPurpose string
 }
 
+// UnmarshalJSON unmarshals a DID Document.
 func (doc *Doc) UnmarshalJSON(data []byte) error {
 	_doc, err := ParseDocument(data)
 	*doc = *_doc
+
 	return err
 }
 
@@ -768,6 +770,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	return byteDoc, nil
 }
 
+// MarshalJSON marshals the DID Document.
 func (doc *Doc) MarshalJSON() ([]byte, error) {
 	return doc.JSONBytes()
 }
