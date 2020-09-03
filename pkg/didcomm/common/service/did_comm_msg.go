@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -201,6 +202,14 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 
 			if rt1.Kind() == reflect.String && rt2.Kind() == reflect.Slice {
 				return base64.StdEncoding.DecodeString(v.(string))
+			}
+
+			if rt2 == reflect.TypeOf(did.Doc{}) {
+				didDoc, err := json.Marshal(v)
+				if err != nil {
+					return nil, err
+				}
+				return did.ParseDocument(didDoc)
 			}
 
 			return v, nil

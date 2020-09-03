@@ -247,6 +247,12 @@ type Proof struct {
 	ProofPurpose string
 }
 
+func (doc *Doc) UnmarshalJSON(data []byte) error {
+	_doc, err := ParseDocument(data)
+	*doc = *_doc
+	return err
+}
+
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
 func ParseDocument(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
@@ -760,6 +766,10 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	}
 
 	return byteDoc, nil
+}
+
+func (doc *Doc) MarshalJSON() ([]byte, error) {
+	return doc.JSONBytes()
 }
 
 // VerifyProof verifies document proofs.
