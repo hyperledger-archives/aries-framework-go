@@ -16,8 +16,8 @@ services:
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://alice.aries.example.com:${ALICE_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=alice-agent
-      - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_TYPE=couchdb
+      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=alice
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
@@ -41,8 +41,8 @@ services:
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://erin.aries.example.com:${ERIN_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${ERIN_WEBHOOK_CONTAINER_NAME}:${ERIN_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=erin-agent
-      - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_TYPE=couchdb
+      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=erin
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
@@ -65,8 +65,8 @@ services:
       - ARIESD_INBOUND_HOST=${HTTP_SCHEME}@${BOB_HOST}:${BOB_INBOUND_PORT}
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://bob.aries.example.com:${BOB_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
-      - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_TYPE=couchdb
+      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=bob
       - ARIESD_DEFAULT_LABEL=bob-agent
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
@@ -262,6 +262,18 @@ services:
       MYSQL_ROOT_PASSWORD: secret
     volumes:
       - ./mysql-config/:/docker-entrypoint-initdb.d
+    networks:
+      - bdd_net
+
+
+  couchdb.example.com:
+    container_name: couchdb.example.com
+    image: ${COUCHDB_IMAGE}:${COUCHDB_IMAGE_TAG}
+    ports:
+      - ${COUCHDB_PORT}:${COUCHDB_PORT}
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
     networks:
       - bdd_net
 

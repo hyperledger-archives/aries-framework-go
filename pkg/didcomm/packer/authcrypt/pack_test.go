@@ -87,7 +87,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		}
 
 		_, err := New(newMockProvider(badStoreProvider, k), jose.A256GCM)
-		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdPartyKeysDB")
+		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdpartykeysdb")
 	})
 
 	mockStoreMap := make(map[string][]byte)
