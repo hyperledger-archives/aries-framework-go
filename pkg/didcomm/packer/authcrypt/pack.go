@@ -33,7 +33,7 @@ import (
 const (
 	encodingType = "didcomm-envelope-enc"
 	// ThirdPartyKeysDB is a store name containing keys of third party agents.
-	ThirdPartyKeysDB = "thirdPartyKeysDB"
+	ThirdPartyKeysDB = "thirdpartykeysdb"
 )
 
 var logger = log.New("aries-framework/pkg/didcomm/packer/authcrypt")
