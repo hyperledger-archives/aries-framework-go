@@ -7,6 +7,7 @@ module github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest
 replace github.com/hyperledger/aries-framework-go => ../..
 
 require (
+	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go v0.0.0
 	github.com/rs/cors v1.7.0
