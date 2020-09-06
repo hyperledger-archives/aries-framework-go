@@ -12,6 +12,6 @@ package model
 type Forward struct {
 	Type string    `json:"@type,omitempty"`
 	ID   string    `json:"@id,omitempty"`
-	To   string    `json:"@to,omitempty"`
-	Msg  *Envelope `json:"@msg,omitempty"`
+	To   string    `json:"to,omitempty"`
+	Msg  *Envelope `json:"msg,omitempty"`
 }
