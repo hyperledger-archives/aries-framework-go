@@ -73,6 +73,13 @@ const (
 	databasePrefixFlagUsage     = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
 
+	databaseTimeoutFlagName  = "database-timeout"
+	databaseTimeoutFlagUsage = "Total time in seconds to wait until the db is available before giving up." +
+		" Default: " + databaseTimeoutDefault + " seconds." +
+		" Alternatively, this can be set with the following environment variable: " + databaseTimeoutEnvKey
+	databaseTimeoutEnvKey  = "ARIESD_DATABASE_TIMEOUT"
+	databaseTimeoutDefault = "30"
+
 	// webhook url flag
 	agentWebhookFlagName      = "webhook-url"
 	agentWebhookEnvKey        = "ARIESD_WEBHOOK_URL"
@@ -158,13 +165,6 @@ const (
 		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint lll
 		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
 
-	dbTimeoutFlagName  = "db-timeout"
-	dbTimeoutFlagUsage = "Total time in seconds to wait until the db is available before giving up." +
-		" Default: " + dbTimeoutDefault + " seconds." +
-		" Alternatively, this can be set with the following environment variable: " + dbTimeoutEnvKey
-	dbTimeoutEnvKey  = "ADAPTER_REST_DSN_TIMEOUT"
-	dbTimeoutDefault = "30"
-
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
@@ -194,6 +194,22 @@ type dbParam struct {
 	url     string
 	prefix  string
 	timeout uint64
+}
+
+// nolint:gochecknoglobals
+var supportedStorageProviders = map[string]func(url, prefix string) (storage.Provider, error){
+	databaseTypeMemOption: func(_, _ string) (storage.Provider, error) { // nolint:unparam
+		return mem.NewProvider(), nil
+	},
+	databaseTypeLevelDBOption: func(path, _ string) (storage.Provider, error) { // nolint:unparam
+		return leveldb.NewProvider(path), nil
+	},
+	databaseTypeCouchDBOption: func(url, prefix string) (storage.Provider, error) {
+		return couchdbstore.NewProvider(url, couchdbstore.WithDBPrefix(prefix))
+	},
+	databaseTypeMYSQLDBOption: func(url, prefix string) (storage.Provider, error) {
+		return mysql.NewProvider(url, mysql.WithDBPrefix(prefix))
+	},
 }
 
 type server interface {
@@ -348,13 +364,13 @@ func getDBParam(cmd *cobra.Command) (*dbParam, error) {
 		return nil, err
 	}
 
-	dbTimeout, err := getUserSetVar(cmd, dbTimeoutFlagName, dbTimeoutEnvKey, true)
+	dbTimeout, err := getUserSetVar(cmd, databaseTimeoutFlagName, databaseTimeoutEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if dbTimeout == "" || dbTimeout == "0" {
-		dbTimeout = dbTimeoutDefault
+		dbTimeout = databaseTimeoutDefault
 	}
 
 	t, err := strconv.Atoi(dbTimeout)
@@ -437,7 +453,7 @@ func createFlags(startCmd *cobra.Command) {
 		agentTLSKeyFileFlagShorthand, "", agentTLSKeyFileFlagUsage)
 
 	// db timeout
-	startCmd.Flags().StringP(dbTimeoutFlagName, "", "", dbTimeoutFlagUsage)
+	startCmd.Flags().StringP(databaseTimeoutFlagName, "", "", databaseTimeoutFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
@@ -731,63 +747,30 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 }
 
 func createStoreProviders(parameters *agentParameters) (storage.Provider, error) {
-	const (
-		sleep = 1 * time.Second
-	)
-
-	switch {
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMemOption):
-		return mem.NewProvider(), nil
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeLevelDBOption):
-		return leveldb.NewProvider(parameters.dbParam.url), nil
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeCouchDBOption):
-		var store storage.Provider
-
-		err := backoff.RetryNotify(
-			func() error {
-				var openErr error
-				store, openErr = couchdbstore.NewProvider(parameters.dbParam.url,
-					couchdbstore.WithDBPrefix(parameters.dbParam.prefix))
-
-				return openErr
-			},
-			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
-			func(retryErr error, t time.Duration) {
-				logger.Warnf(
-					"failed to connect to storage, will sleep for %s before trying again : %s\n",
-					t, retryErr)
-			},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
-		}
-
-		return store, nil
-
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMYSQLDBOption):
-		var store storage.Provider
-
-		err := backoff.RetryNotify(
-			func() error {
-				var openErr error
-				store, openErr = mysql.NewProvider(parameters.dbParam.url,
-					mysql.WithDBPrefix(parameters.dbParam.prefix))
-				return openErr
-			},
-			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
-			func(retryErr error, t time.Duration) {
-				logger.Warnf(
-					"failed to connect to storage, will sleep for %s before trying again : %s\n",
-					t, retryErr)
-			},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
-		}
-
-		return store, nil
+	provider, supported := supportedStorageProviders[parameters.dbParam.dbType]
+	if !supported {
+		return nil, fmt.Errorf("key database type not set to a valid type." +
+			" run start --help to see the available options")
 	}
 
-	return nil, fmt.Errorf("key database type not set to a valid type." +
-		" run start --help to see the available options")
+	var store storage.Provider
+
+	err := backoff.RetryNotify(
+		func() error {
+			var openErr error
+			store, openErr = provider(parameters.dbParam.url, parameters.dbParam.prefix)
+			return openErr
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), parameters.dbParam.timeout),
+		func(retryErr error, t time.Duration) {
+			logger.Warnf(
+				"failed to connect to storage, will sleep for %s before trying again : %s\n",
+				t, retryErr)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.url, err)
+	}
+
+	return store, nil
 }
