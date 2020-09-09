@@ -42,7 +42,9 @@ const docTemplate = `{
 }`
 
 const (
-	sha2_256       = 18
+	sha2_256 = 18 // multihash
+	sha256   = 5  // hash
+
 	defaultKeyType = "JwsVerificationKey2020"
 )
 
@@ -135,7 +137,7 @@ func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
 		return nil, err
 	}
 
-	c, err := commitment.Calculate(pubKey, sha2_256)
+	c, err := commitment.Calculate(pubKey, sha2_256, sha256)
 	if err != nil {
 		return nil, err
 	}
