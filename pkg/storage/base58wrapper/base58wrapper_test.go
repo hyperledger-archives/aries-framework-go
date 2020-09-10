@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/go-kivik/kivik"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -66,7 +67,7 @@ func TestCouchDBStore(t *testing.T) {
 	t.Run("Test couchdb store put and get", func(t *testing.T) {
 		prov, err := couchdbstore.NewProvider(couchDBURL, couchdbstore.WithDBPrefix("dbprefix"))
 		require.NoError(t, err)
-		couchdbStore, err := prov.OpenStore("test")
+		couchdbStore, err := prov.OpenStore(randomKey())
 		require.NoError(t, err)
 
 		store := NewBase58StoreWrapper(couchdbStore)
@@ -130,8 +131,8 @@ func TestCouchDBStore(t *testing.T) {
 
 		data := []byte("value1")
 
-		storeNames := []string{"store_1", "store_2", "store_3", "store_4", "store_5"}
-		storesToClose := []string{"store_1", "store_3", "store_5"}
+		storeNames := []string{randomKey(), randomKey(), randomKey(), randomKey(), randomKey()}
+		storesToClose := []string{storeNames[0], storeNames[2], storeNames[4]}
 
 		for _, name := range storeNames {
 			couchdbStore, e := prov.OpenStore(name)
@@ -199,7 +200,7 @@ func TestCouchDBStore_Delete(t *testing.T) {
 	data := []byte("value1")
 
 	// create store 1 & store 2
-	couchdbStore, err := prov.OpenStore("store1")
+	couchdbStore, err := prov.OpenStore(randomKey())
 	require.NoError(t, err)
 
 	store1 := NewBase58StoreWrapper(couchdbStore)
@@ -228,4 +229,11 @@ func TestCouchDBStore_Delete(t *testing.T) {
 	doc, err = store1.Get(commonKey)
 	require.EqualError(t, err, storage.ErrDataNotFound.Error())
 	require.Empty(t, doc)
+}
+
+func randomKey() string {
+	// prefix `key` is needed for couchdb due to error e.g Name: '7c80bdcd-b0e3-405a-bb82-fae75f9f2470'.
+	// Only lowercase characters (a-z), digits (0-9), and any of the characters _, $, (, ), +, -, and / are allowed.
+	// Must begin with a letter.
+	return "key" + uuid.New().String()
 }

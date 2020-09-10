@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -30,7 +31,7 @@ func TestStore(t *testing.T) {
 		t.Run("Store put and get "+provider.Name, func(t *testing.T) {
 			t.Parallel()
 
-			store, err := provider.OpenStore("test")
+			store, err := provider.OpenStore(randomKey())
 			require.NoError(t, err)
 
 			const key = "did:example:123"
@@ -87,10 +88,11 @@ func TestStore(t *testing.T) {
 			const commonKey = "did:example:1"
 			data := []byte("value1")
 			// create store 1 & store 2
-			store1, err := provider.OpenStore("store-1")
+			store1name := randomKey()
+			store1, err := provider.OpenStore(store1name)
 			require.NoError(t, err)
 
-			store2, err := provider.OpenStore("store-2")
+			store2, err := provider.OpenStore(randomKey())
 			require.NoError(t, err)
 
 			// put in store 1
@@ -120,7 +122,7 @@ func TestStore(t *testing.T) {
 			require.Equal(t, data, doc)
 
 			// create new store 3 with same name as store1
-			store3, err := provider.OpenStore("store-1")
+			store3, err := provider.OpenStore(store1name)
 			require.NoError(t, err)
 
 			// get in store 3 - found
@@ -133,7 +135,7 @@ func TestStore(t *testing.T) {
 		t.Run("Iterator "+provider.Name, func(t *testing.T) {
 			t.Parallel()
 
-			store, err := provider.OpenStore("test-iterator")
+			store, err := provider.OpenStore(randomKey())
 			require.NoError(t, err)
 
 			const valPrefix = "val-for-%s"
@@ -171,7 +173,7 @@ func TestStore(t *testing.T) {
 			data := []byte("value1")
 
 			// create store 1 & store 2
-			store, err := provider.OpenStore("test-store")
+			store, err := provider.OpenStore(randomKey())
 			require.NoError(t, err)
 
 			// put in store 1
@@ -221,4 +223,11 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 	require.Empty(t, itr.Key())
 	require.Empty(t, itr.Value())
 	require.Error(t, itr.Error())
+}
+
+func randomKey() string {
+	// prefix `key` is needed for couchdb due to error e.g Name: '7c80bdcd-b0e3-405a-bb82-fae75f9f2470'.
+	// Only lowercase characters (a-z), digits (0-9), and any of the characters _, $, (, ), +, -, and / are allowed.
+	// Must begin with a letter.
+	return "key" + uuid.New().String()
 }
