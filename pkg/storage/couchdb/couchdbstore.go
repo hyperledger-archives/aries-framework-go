@@ -17,12 +17,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	_ "github.com/go-kivik/couchdb" // The CouchDB driver
 	"github.com/go-kivik/kivik"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
+
+const maxRetries = 3
 
 // Provider represents an CouchDB implementation of the storage.Provider interface.
 type Provider struct {
@@ -91,11 +95,20 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return cachedStore, nil
 	}
 
-	err := p.couchDBClient.CreateDB(context.Background(), name)
-	if err != nil {
-		if err.Error() != "Precondition Failed: The database could not be created, the file already exists." {
-			return nil, fmt.Errorf("failed to create db: %w", err)
+	err := backoff.Retry(func() error {
+		createErr := p.couchDBClient.CreateDB(context.Background(), name)
+		if createErr == nil {
+			return nil
 		}
+
+		if createErr.Error() == "Precondition Failed: The database could not be created, the file already exists." {
+			return nil
+		}
+
+		return createErr
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), maxRetries))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create db: %w", err)
 	}
 
 	db := p.couchDBClient.DB(context.Background(), name)
