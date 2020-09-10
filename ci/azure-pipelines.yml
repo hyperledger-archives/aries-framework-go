@@ -6,7 +6,7 @@ name: $(SourceBranchName)-$(Date:yyyyMMdd).$(Rev:r)
 trigger: none
 pr: none
 variables:
-  GO_VERSION: 1.14
+  GO_VERSION: 1.15
   GOPATH: $(Agent.BuildDirectory)/go
 
 jobs:
