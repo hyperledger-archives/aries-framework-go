@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 
-	err = prepareCouchDB()
+	err = checkCouchDB()
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a sqlStoreDB instance using" +
@@ -59,24 +59,15 @@ func checkMySQL() error {
 	return db.Ping()
 }
 
-func prepareCouchDB() error {
+func checkCouchDB() error {
 	client, err := kivik.New("couch", couchDBURL)
 	if err != nil {
 		return err
 	}
 
-	dbs, err := client.AllDBs(context.Background())
-	if err != nil {
-		return err
-	}
+	_, err = client.Ping(context.Background())
 
-	for _, v := range dbs {
-		if err := client.DestroyDB(context.Background(), v); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }
 
 func setUpProviders(t *testing.T) []Provider {

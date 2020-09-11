@@ -32,7 +32,7 @@ const (
 // To run the tests manually, start an instance by running docker run -p 5984:5984 couchdb:2.3.1 from a terminal.
 
 func TestMain(m *testing.M) {
-	err := prepareCouchDB()
+	err := checkCouchDB()
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a couchDB instance using" +
@@ -43,24 +43,15 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func prepareCouchDB() error {
+func checkCouchDB() error {
 	client, err := kivik.New("couch", couchDBURL)
 	if err != nil {
 		return err
 	}
 
-	dbs, err := client.AllDBs(context.Background())
-	if err != nil {
-		return err
-	}
+	_, err = client.Ping(context.Background())
 
-	for _, v := range dbs {
-		if err := client.DestroyDB(context.Background(), v); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }
 
 func TestCouchDBStore(t *testing.T) {
