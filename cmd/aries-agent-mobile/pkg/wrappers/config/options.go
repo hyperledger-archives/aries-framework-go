@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
+import "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+
 // Options represents configurations for Aries.
 type Options struct {
 	UseLocalAgent bool
@@ -23,6 +25,8 @@ type Options struct {
 	// not intended to be used by golang code
 	HTTPResolvers     []string
 	OutboundTransport []string
+
+	Notifier api.Notifier
 }
 
 // New returns an instance of Options which can be used to configure an aries controller instance.

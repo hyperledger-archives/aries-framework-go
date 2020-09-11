@@ -38,6 +38,7 @@ import (
 type Aries struct {
 	framework *aries.Aries
 	handlers  map[string]map[string]command.Exec
+	notifiers map[string]api.Notifier
 }
 
 // NewAries returns a new Aries instance that contains handlers and an Aries framework instance.
@@ -57,7 +58,12 @@ func NewAries(opts *config.Options) (*Aries, error) {
 		return nil, fmt.Errorf("failed to get Framework context: %w", err)
 	}
 
-	commandHandlers, err := controller.GetCommandHandlers(context)
+	var controllerOpts []controller.Opt
+	if opts.Notifier != nil {
+		controllerOpts = append(controllerOpts, controller.WithNotifier(opts.Notifier))
+	}
+
+	commandHandlers, err := controller.GetCommandHandlers(context, controllerOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get command handlers: %w", err)
 	}
@@ -65,7 +71,9 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	handlers := make(map[string]map[string]command.Exec)
 	populateHandlers(commandHandlers, handlers)
 
-	return &Aries{framework, handlers}, nil
+	notifiers := make(map[string]api.Notifier)
+
+	return &Aries{framework, handlers, notifiers}, nil
 }
 
 func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
@@ -148,6 +156,23 @@ func populateHandlers(commands []command.Handler, pkgMap map[string]map[string]c
 		fnMap[cmd.Method()] = cmd.Handle()
 		pkgMap[cmd.Name()] = fnMap
 	}
+}
+
+// RegisterNotifier associates a notifier to relevant topics.
+// This is implemented by mobile apps and leverages notifiers from the SDK.
+func (a *Aries) RegisterNotifier(n api.Notifier, topics string) error {
+	/* ... */
+
+	for _, topic := range strings.Split(topics, ",") {
+		a.notifiers[topic] = n
+		if err := n.Notify(topic, n.GetPayload()); err != nil {
+			return fmt.Errorf("failed to register notifier to topic [%s]: %w", topic, err)
+		}
+	}
+
+	/* ... */
+
+	return nil
 }
 
 // GetIntroduceController returns an Introduce instance.

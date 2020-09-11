@@ -157,10 +157,9 @@ $ make unit-test
 ```
 
 
-## 5. Release
+## 5. Project Structure
 
-TODO
-
+The project structure for the mobile bindings can be found [here](doc/project_structure.md).
 
 ## 6. Contribute
 

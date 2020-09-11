@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
@@ -28,6 +29,7 @@ import (
 // Aries is an Aries implementation with endpoints to execute operations.
 type Aries struct {
 	endpoints map[string]map[string]*endpoint
+	notifiers map[string]api.Notifier
 
 	URL   string
 	Token string
@@ -43,6 +45,23 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	endpoints := getControllerEndpoints()
 
 	return &Aries{endpoints: endpoints, URL: opts.AgentURL, Token: opts.APIToken}, nil
+}
+
+// RegisterNotifier associates a notifier to relevant topics.
+// This is implemented by mobile apps and uses WebSockets.
+func (ar *Aries) RegisterNotifier(n api.Notifier, topics string) error {
+	/* ... */
+
+	for _, topic := range strings.Split(topics, ",") {
+		ar.notifiers[topic] = n
+		if err := n.Notify(topic, n.GetPayload()); err != nil {
+			return fmt.Errorf("failed to register notifier to topic [%s]: %w", topic, err)
+		}
+	}
+
+	/* ... */
+
+	return nil
 }
 
 // GetIntroduceController returns an Introduce instance.

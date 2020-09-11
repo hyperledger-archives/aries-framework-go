@@ -38,4 +38,7 @@ type AriesController interface {
 
 	// GetKMSController returns an implementation of KMSController
 	GetKMSController() (KMSController, error)
+
+	// RegisterNotifier associates a notifier to relevant topics
+	RegisterNotifier(n Notifier, topics string) error
 }

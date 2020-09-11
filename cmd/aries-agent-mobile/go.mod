@@ -9,6 +9,7 @@ go 1.15
 require (
 	github.com/hyperledger/aries-framework-go v0.0.0
 	github.com/stretchr/testify v1.6.1
+	golang.org/x/mobile v0.0.0-20200801112145-973feb4309de // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 )
 
