@@ -100,6 +100,12 @@ run-openapi-demo: generate-test-keys generate-openapi-demo-specs
 	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
         scripts/run-openapi-demo.sh
 
+.PHONY: stop-openapi-demo
+stop-openapi-demo: generate-test-keys generate-openapi-demo-specs
+	@echo "Starting demo agent rest containers ..."
+	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
+        DEMO_COMPOSE_OP=down scripts/run-openapi-demo.sh
+
 .PHONY: agent-rest
 agent-rest:
 	@echo "Building aries-agent-rest"
