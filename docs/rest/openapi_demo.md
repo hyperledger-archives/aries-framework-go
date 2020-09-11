@@ -92,6 +92,56 @@ For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST 
     header : {"alg":"","kid":"","operation":"create"}
 ```
 
+## How to create a did-connection through the out-of-band protocol?
+1. Create an invitation (Alice).
+    ```
+    curl -X POST "https://localhost:8082/outofband/create-invitation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{  \"label\": \"Alice\"}"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"invitation":{"@id":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","@type":"https://didcomm.org/oob-invitation/1.0/invitation","label":"Alice","service":[{"ID":"aad685bb-81aa-4c2f-bbd1-403814b8df9a","Type":"did-communication","Priority":0,"RecipientKeys":["9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2"],"RoutingKeys":null,"ServiceEndpoint":"https://alice.aries.example.com:8081","Properties":null}],"protocols":["https://didcomm.org/didexchange/1.0"]}}
+    ```
+2. Accept an invitation (Bob).
+    ```
+    curl -X POST "https://localhost:9082/outofband/accept-invitation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{  \"invitation\": {\"@id\":\"ac0b7436-ce9e-4972-853c-6f434a2f76c0\",\"@type\":\"https://didcomm.org/oob-invitation/1.0/invitation\",\"label\":\"Alice\",\"service\":[{\"ID\":\"aad685bb-81aa-4c2f-bbd1-403814b8df9a\",\"Type\":\"did-communication\",\"Priority\":0,\"RecipientKeys\":[\"9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2\"],\"RoutingKeys\":null,\"ServiceEndpoint\":\"https://alice.aries.example.com:8081\",\"Properties\":null}],\"protocols\":[\"https://didcomm.org/didexchange/1.0\"]},  \"my_label\": \"Bob\"}"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"connection_id":"3ff80ad6-cfe8-4321-8a79-35da25437b48"}
+    ```
+3. Get connections with state equal to requested (Alice).
+    ```
+    curl -X GET "https://localhost:8082/connections?state=requested" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"results":[{"ConnectionID":"ea0a0545-d223-4ab0-9fdb-c01172a334f6","State":"requested","ThreadID":"7fa6e1d0-7d63-46cf-981c-729f937b1325","ParentThreadID":"","TheirLabel":"Bob","TheirDID":"did:peer:1zQmYHfqzguZfDPyTbF7UJyPndJn3XmeZ8hHzH7BTeC9DZG9","MyDID":"","ServiceEndPoint":"","RecipientKeys":null,"RoutingKeys":null,"InvitationID":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","InvitationDID":"","Implicit":false,"Namespace":"their"}]}
+    ```
+4. Accept a request (Alice).
+    ```
+    curl -X POST "https://localhost:8082/connections/ea0a0545-d223-4ab0-9fdb-c01172a334f6/accept-request" -H  "accept: application/json" -d ""
+    ```
+    The response should be similar to the following:
+    ```json
+    {"their_did":"","request_id":"","connection_id":"ea0a0545-d223-4ab0-9fdb-c01172a334f6","updated_at":"0001-01-01T00:00:00Z","created_at":"0001-01-01T00:00:00Z","state":""}
+    ```
+5. Check whether the connection state is equal to completed (Alice).
+    ```
+    curl -X GET "https://localhost:8082/connections/ea0a0545-d223-4ab0-9fdb-c01172a334f6" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"result":{"ConnectionID":"ea0a0545-d223-4ab0-9fdb-c01172a334f6","State":"completed","ThreadID":"7fa6e1d0-7d63-46cf-981c-729f937b1325","ParentThreadID":"","TheirLabel":"Bob","TheirDID":"did:peer:1zQmYHfqzguZfDPyTbF7UJyPndJn3XmeZ8hHzH7BTeC9DZG9","MyDID":"did:peer:1zQmd2e1XhViEQ1DLJYKwgA9VDp8v5yuR38aAUs9GwjuKTsh","ServiceEndPoint":"","RecipientKeys":null,"RoutingKeys":null,"InvitationID":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","InvitationDID":"","Implicit":false,"Namespace":"their"}}
+    ```
+6. Check whether the connection state is equal to completed (Bob).
+    ```
+    curl -X GET "https://localhost:9082/connections/3ff80ad6-cfe8-4321-8a79-35da25437b48" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"result":{"ConnectionID":"3ff80ad6-cfe8-4321-8a79-35da25437b48","State":"completed","ThreadID":"7fa6e1d0-7d63-46cf-981c-729f937b1325","ParentThreadID":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","TheirLabel":"Alice","TheirDID":"did:peer:1zQmd2e1XhViEQ1DLJYKwgA9VDp8v5yuR38aAUs9GwjuKTsh","MyDID":"did:peer:1zQmYHfqzguZfDPyTbF7UJyPndJn3XmeZ8hHzH7BTeC9DZG9","ServiceEndPoint":"https://alice.aries.example.com:8081","RecipientKeys":["9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2"],"RoutingKeys":null,"InvitationID":"7fa6e1d0-7d63-46cf-981c-729f937b1325","InvitationDID":"","Implicit":false,"Namespace":"my"}}
+    ```
+   
 ## Notes 
 Following features are not supported at the moment in RestAPI.
 1. Connection search using different criterion.
