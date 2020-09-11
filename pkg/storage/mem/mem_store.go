@@ -146,7 +146,7 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	sort.Strings(keys)
 
 	var (
-		sIDx, eIDx = 0, len(keys)
+		sIDx, eIDx = -1, len(keys)
 		skip       bool
 	)
 
@@ -165,6 +165,10 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 
 			eIDx++
 		}
+	}
+
+	if sIDx == -1 {
+		return newMemIterator(nil)
 	}
 
 	for _, k := range keys[sIDx:eIDx] {

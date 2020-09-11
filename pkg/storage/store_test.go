@@ -163,6 +163,9 @@ func TestStore(t *testing.T) {
 
 			itr = store.Iterator("abc_", "mno_123")
 			verifyItr(t, itr, 6, "")
+
+			itr = store.Iterator("t_", "t_"+storage.EndKeySuffix)
+			verifyItr(t, itr, 0, "")
 		})
 
 		t.Run("Delete "+provider.Name, func(t *testing.T) {
