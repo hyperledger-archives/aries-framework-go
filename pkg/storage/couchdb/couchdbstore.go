@@ -37,6 +37,7 @@ const (
 	blankHostErrMsg           = "hostURL for new CouchDB provider can't be blank"
 	failToCloseProviderErrMsg = "failed to close provider"
 	couchDBNotFoundErr        = "Not Found:"
+	couchDBUsersTable         = "_users"
 )
 
 // Option configures the couchdb provider.
@@ -64,9 +65,14 @@ func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 
 	p := &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}
 
-	_, err = client.Ping(context.Background())
+	exists, err := client.DBExists(context.Background(), "_users")
 	if err != nil {
-		return nil, fmt.Errorf("failure while pinging couchdb at url %s : %w", hostURL, err)
+		return nil, fmt.Errorf("failed to probe couchdb for '%s' DB at %s: %w", couchDBUsersTable, hostURL, err)
+	}
+
+	if !exists {
+		return nil, fmt.Errorf(
+			"couchDB '%s' DB does not yet exist - CouchDB might not be fully initialized", couchDBUsersTable)
 	}
 
 	for _, opt := range opts {
