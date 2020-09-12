@@ -510,10 +510,8 @@ func TestGetVC(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
-
 		var b bytes.Buffer
-		err = cmd.GetCredential(&b, bytes.NewBufferString(jsoStr))
+		err = cmd.GetCredential(&b, bytes.NewBufferString("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential id is mandatory")
 	})

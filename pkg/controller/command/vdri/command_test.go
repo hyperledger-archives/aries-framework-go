@@ -214,10 +214,8 @@ func TestResolveDID(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
-
 		var b bytes.Buffer
-		err = cmd.ResolveDID(&b, bytes.NewBufferString(jsoStr))
+		err = cmd.ResolveDID(&b, bytes.NewBufferString("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did is mandatory")
 	})
@@ -284,10 +282,8 @@ func TestGetDID(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
-
 		var b bytes.Buffer
-		err = cmd.GetDID(&b, bytes.NewBufferString(jsoStr))
+		err = cmd.GetDID(&b, bytes.NewBufferString("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did is mandatory")
 	})
