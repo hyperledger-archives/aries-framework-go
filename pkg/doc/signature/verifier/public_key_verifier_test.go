@@ -380,6 +380,7 @@ func (v testSignatureVerifier) Verify(*PublicKey, []byte, []byte) error {
 
 func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
 	localKMS, err := localkms.New("local-lock://custom/main/key/", p)
 	if err != nil {
 		return nil, err

@@ -1514,8 +1514,8 @@ func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Re
 		InvitationID:  request.Thread.PID,
 		RecipientKeys: []string{pubKey},
 	}
-	err = ctx.connectionStore.saveConnectionRecord(connRec)
 
+	err = ctx.connectionStore.saveConnectionRecord(connRec)
 	if err != nil {
 		return nil, err
 	}
@@ -1537,6 +1537,7 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
+
 	err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
 		return nil, err

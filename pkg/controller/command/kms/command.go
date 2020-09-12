@@ -112,6 +112,7 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 // ImportKey import key.
 func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	buf := new(bytes.Buffer)
+
 	_, err := buf.ReadFrom(req)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, err.Error())

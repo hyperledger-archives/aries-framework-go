@@ -129,6 +129,7 @@ func getSignatureContext() *Context {
 
 func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
 	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
 	if err != nil {
 		return nil, err

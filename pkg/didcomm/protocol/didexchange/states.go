@@ -595,6 +595,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 			ID: response.Thread.ID,
 		},
 	}
+
 	nsThID, err := connectionstore.CreateNamespaceKey(myNSPrefix, ack.Thread.ID)
 	if err != nil {
 		return nil, nil, err
