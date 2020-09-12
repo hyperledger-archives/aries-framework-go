@@ -79,8 +79,6 @@ linters-settings:
     allow-multiline-assign: true
     allow-case-traling-whitespace: true
     allow-cuddle-declarations: false
-  godot:
-    check-all: false
 
 linters:
   enable-all: true
@@ -88,6 +86,7 @@ linters:
     - testpackage
     - maligned
     - prealloc
+    - godot
     - goerr113 # TODO enable
 
 issues:

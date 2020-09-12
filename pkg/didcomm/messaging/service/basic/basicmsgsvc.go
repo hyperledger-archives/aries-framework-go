@@ -30,7 +30,7 @@ const (
 	// MessageRequestType is basic message DIDComm message type.
 	MessageRequestType = "https://didcomm.org/basicmessage/1.0/message"
 
-	// error messages
+	// error messages.
 	errNameAndHandleMandatory = "service name and basic message handle is mandatory"
 	errFailedToDecodeMsg      = "unable to decode incoming DID comm message: %w"
 
