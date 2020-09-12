@@ -92,7 +92,6 @@ linters:
     - goerr113 # TODO enable
     - nlreturn # TODO enable
     - noctx # TODO enable
-    - nolintlint # TODO enable
 
 issues:
   exclude-use-default: false
