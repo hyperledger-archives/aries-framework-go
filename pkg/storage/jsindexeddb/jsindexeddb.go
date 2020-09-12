@@ -31,7 +31,7 @@ import (
 
 const (
 	dbName    = "aries-%s"
-	defDbName = "aries"
+	defDBName = "aries"
 )
 
 var dbVersion = 1 //nolint:gochecknoglobals
@@ -46,7 +46,7 @@ type Provider struct {
 func NewProvider(name string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
-	db := defDbName
+	db := defDBName
 	if name != "" {
 		db = fmt.Sprintf(dbName, name)
 	}

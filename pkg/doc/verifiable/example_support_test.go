@@ -67,7 +67,7 @@ func getJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 }
 
 func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
-	contextContent, err := ioutil.ReadFile(filepath.Clean("testdata/context" + contextFile))
+	contextContent, err := ioutil.ReadFile(filepath.Clean("testdata/context/" + contextFile))
 	if err != nil {
 		panic(err)
 	}
