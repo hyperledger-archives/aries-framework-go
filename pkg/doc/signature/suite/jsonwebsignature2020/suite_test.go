@@ -60,7 +60,7 @@ func getDefaultDoc() map[string]interface{} {
 
 // taken from test 28 report https://json-ld.org/test-suite/reports/#test_30bc80ba056257df8a196e8f65c097fc
 
-// nolint.
+// nolint
 const test28Result = `<http://example.org/fact1> <http://purl.org/dc/terms/title> "Hello World!" <http://example.org/sig1> .
 <http://example.org/sig1> <http://purl.org/dc/terms/created> "2011-09-23T20:21:34Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
 <http://example.org/sig1> <http://purl.org/security#signatureValue> "OGQzNGVkMzVm4NTIyZTkZDYMmMzQzNmExMgoYzI43Q3ODIyOWM32NjI=" .
