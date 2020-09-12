@@ -306,6 +306,7 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateImplicitInvitationCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateImplicitInvitationErrorCode, err)
 	}
 
@@ -325,6 +326,7 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptExchangeRequestCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -336,6 +338,7 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptExchangeRequestCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(AcceptExchangeRequestErrorCode, err)
 	}
 

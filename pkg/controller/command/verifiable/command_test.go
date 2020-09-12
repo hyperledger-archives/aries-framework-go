@@ -1553,7 +1553,7 @@ func TestGetVP(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
@@ -1572,7 +1572,7 @@ func TestGetVP(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+		jsoStr := `{"id":"http://example.edu/presentations/1989"}`
 
 		var b bytes.Buffer
 		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
