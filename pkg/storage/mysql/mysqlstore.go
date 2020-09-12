@@ -297,8 +297,6 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 		}
 	}
 
-	defer resultRows.Close() //nolint:errcheck
-
 	return &sqlDBResultsIterator{
 		resultRows: resultRows,
 	}
