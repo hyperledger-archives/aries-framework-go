@@ -284,6 +284,9 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
 	queryStmt := "SELECT * FROM `" + s.tableName + "` WHERE `key` >= ? AND `key` < ? order by `key`"
 
+	// TODO Find a way to close Rows `defer resultRows.Close()`
+	// unless unclosed rows and statements may cause DB connection pool exhaustion
+	//nolint:sqlclosecheck
 	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
 	if err != nil {
 		return &sqlDBResultsIterator{
