@@ -393,6 +393,7 @@ func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) e
 
 	return d.sendMessage(fromAgentID, toAgentID, basicMsg)
 }
+
 func (d *ControllerSteps) sendBasicMessageToDID(fromAgentID, msg, toAgentID string) error {
 	basicMsg := &basic.Message{
 		ID:      uuid.New().String(),

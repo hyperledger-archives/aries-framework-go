@@ -101,7 +101,7 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 		return &noOp{}, zeroAction, nil
 	}
 
-	var code = model.Code{Code: s.Code}
+	code := model.Code{Code: s.Code}
 
 	// if the protocol was stopped by the user we will set the rejected error code
 	if errors.As(md.err, &customError{}) {

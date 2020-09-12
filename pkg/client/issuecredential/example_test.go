@@ -346,7 +346,7 @@ func waitForFn(c *Client) func() {
 		panic(err)
 	}
 
-	var done = make(chan struct{})
+	done := make(chan struct{})
 
 	return func() {
 		go func() {

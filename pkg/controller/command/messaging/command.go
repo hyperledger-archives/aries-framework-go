@@ -311,7 +311,7 @@ func (o *Command) registerMessageService(params *RegisterMsgSvcArgs) command.Err
 }
 
 func (o *Command) validateMessageDestination(dest *SendNewMessageArgs) error {
-	var didMissing, connIDMissing, svcEPMissing = dest.TheirDID == "",
+	didMissing, connIDMissing, svcEPMissing := dest.TheirDID == "",
 		dest.ConnectionID == "",
 		dest.ServiceEndpointDestination == nil
 

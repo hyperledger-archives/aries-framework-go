@@ -77,7 +77,8 @@ func ExamplePresentationDefinitions_Match() {
 		receivedVP,
 		WithJSONLDDocumentLoader(cachedJSONLDContextLoader(map[string]string{
 			"https://example.context.jsonld/account": exampleJSONLDContext,
-			"https://example.context.jsonld/address": exampleJSONLDContext})),
+			"https://example.context.jsonld/address": exampleJSONLDContext,
+		})),
 	)
 	if err != nil {
 		panic(fmt.Errorf("presentation submission did not match definitions: %w", err))

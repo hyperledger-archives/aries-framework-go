@@ -41,7 +41,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test new service name - store error", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("error opening the store")},
+				ErrOpenStoreHandle: fmt.Errorf("error opening the store"),
+			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
@@ -158,7 +159,8 @@ func TestHandleInbound(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -246,7 +248,8 @@ func TestHandleInbound(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -598,11 +601,13 @@ func TestStatusRequest(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -666,11 +671,13 @@ func TestStatusRequest(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -712,11 +719,13 @@ func TestBatchPickup(t *testing.T) {
 					msgID <- batchpickup.ID
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -783,11 +792,13 @@ func TestBatchPickup(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -847,6 +858,7 @@ func TestHandleOutbound(t *testing.T) {
 		require.Contains(t, err.Error(), "not implemented")
 	})
 }
+
 func TestNoop(t *testing.T) {
 	t.Run("test MessagePickupService.Noop() - success", func(t *testing.T) {
 		s := make(map[string][]byte)
@@ -863,11 +875,13 @@ func TestNoop(t *testing.T) {
 					require.True(t, ok)
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -896,11 +910,13 @@ func TestNoop(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 

@@ -122,8 +122,10 @@ func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[stri
 	return svc
 }
 
-type checkEvent func(service.StateMsg)
-type checkAction func(service.DIDCommAction)
+type (
+	checkEvent  func(service.StateMsg)
+	checkAction func(service.DIDCommAction)
+)
 
 func handle(t *testing.T, agent string, done chan struct{}, svc *introduce.Service, ce checkEvent, ca checkAction) {
 	t.Helper()

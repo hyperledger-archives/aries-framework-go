@@ -236,7 +236,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Stop", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -296,7 +296,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -352,7 +352,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Continue (async)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
@@ -401,7 +401,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Stop (async)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
@@ -452,7 +452,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential Stop", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -510,7 +510,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential Continue", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -566,8 +566,8 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential", func(t *testing.T) {
-		var done = make(chan struct{})
-		var attachment = []decorator.Attachment{{ID: "ID1"}, {ID: "ID2"}}
+		done := make(chan struct{})
+		attachment := []decorator.Attachment{{ID: "ID1"}, {ID: "ID2"}}
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -625,7 +625,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Credential Stop", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -683,7 +683,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Credential Continue", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -739,7 +739,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
@@ -786,7 +786,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
@@ -833,7 +833,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Issue Credential Continue", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -860,18 +860,20 @@ func TestService_HandleInbound(t *testing.T) {
 
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+		issued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 		msg := service.NewDIDCommMsgMap(IssueCredential{
 			Type: IssueCredentialMsgType,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
 					Context: []string{
 						"https://www.w3.org/2018/credentials/v1",
-						"https://www.w3.org/2018/credentials/examples/v1"},
+						"https://www.w3.org/2018/credentials/examples/v1",
+					},
 					ID: "http://example.edu/credentials/1872",
 					Types: []string{
 						"VerifiableCredential",
-						"UniversityDegreeCredential"},
+						"UniversityDegreeCredential",
+					},
 					Subject: struct {
 						ID string
 					}{ID: "SubjectID"},
@@ -912,7 +914,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Issue Credential Stop", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
@@ -969,7 +971,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Ack message", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("credential-issued"), nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
@@ -1062,7 +1064,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Propose Credential", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
@@ -1114,7 +1116,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Offer Credential", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "offer-sent", string(name))
@@ -1166,7 +1168,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Request Credential", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "request-sent", string(name))

@@ -221,8 +221,9 @@ func TestResolveDID(t *testing.T) {
 	})
 
 	t.Run("test get did - resolve error", func(t *testing.T) {
-		cmd, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("failed to resolve")},
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRIRegistryValue:    &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("failed to resolve")},
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, err)

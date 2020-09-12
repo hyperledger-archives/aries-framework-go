@@ -39,7 +39,7 @@ func TestDIDCommMsgMap_ID(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.ID())
@@ -52,7 +52,7 @@ func TestDIDCommMsgMap_SetID(t *testing.T) {
 
 	require.EqualError(t, DIDCommMsgMap.SetID(nil, ID), ErrNilMessage.Error())
 
-	var m = DIDCommMsgMap{}
+	m := DIDCommMsgMap{}
 
 	require.NoError(t, m.SetID(ID))
 	require.Equal(t, ID, m.ID())
@@ -82,7 +82,7 @@ func TestDIDCommMsgMap_MetaData(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Metadata())
@@ -115,7 +115,7 @@ func TestDIDCommMsgMap_Type(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Type())
@@ -150,7 +150,7 @@ func TestDIDCommMsgMap_Clone(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Clone())
@@ -183,7 +183,7 @@ func TestDIDCommMsgMap_ParentThreadID(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.ParentThreadID())

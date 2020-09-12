@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	verifiable0 "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	reflect "reflect"
 )
 
 // MockStore is a mock of Store interface

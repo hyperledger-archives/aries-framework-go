@@ -67,7 +67,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		_, err := New(
 			&protocol.MockProvider{StoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+			}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
@@ -75,7 +76,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test error from open protocol state store", func(t *testing.T) {
 		_, err := New(
 			&protocol.MockProvider{ProtocolStateStoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store")}})
+				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store"),
+			}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open protocol state store")
 	})
@@ -268,7 +270,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 	protocolStateStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, store)
-	prov := &protocol.MockProvider{StoreProvider: store,
+	prov := &protocol.MockProvider{
+		StoreProvider:              store,
 		ProtocolStateStoreProvider: protocolStateStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -584,8 +587,10 @@ func TestService_CurrentState(t *testing.T) {
 func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
-	connRec := &connection.Record{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
-		Namespace: findNamespace(RequestMsgType)}
+	connRec := &connection.Record{
+		ThreadID: "123", ConnectionID: "123456", State: s.Name(),
+		Namespace: findNamespace(RequestMsgType),
+	}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 
@@ -882,8 +887,10 @@ func TestEventsUserError(t *testing.T) {
 	}()
 
 	id := randomString()
-	connRec := &connection.Record{ConnectionID: randomString(), ThreadID: id,
-		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name()}
+	connRec := &connection.Record{
+		ConnectionID: randomString(), ThreadID: id,
+		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name(),
+	}
 
 	err = svc.connectionStore.saveConnectionRecordWithMapping(connRec)
 	require.NoError(t, err)
@@ -1712,9 +1719,11 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 	require.NoError(t, err)
 	require.NotNil(t, connStore)
 
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
-		connectionStore: connStore}
+	ctx := context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+		connectionStore:    connStore,
+	}
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 

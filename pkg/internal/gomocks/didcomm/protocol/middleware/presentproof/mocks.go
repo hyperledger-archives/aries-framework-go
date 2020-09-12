@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	reflect "reflect"
 )
 
 // MockProvider is a mock of Provider interface

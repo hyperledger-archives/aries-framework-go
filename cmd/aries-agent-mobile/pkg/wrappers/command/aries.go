@@ -126,7 +126,6 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 
 			httpVDRI, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}

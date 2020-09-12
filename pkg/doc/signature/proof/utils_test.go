@@ -22,10 +22,12 @@ func TestAddManyProofs(t *testing.T) {
 	require.Nil(t, proofs)
 
 	now := time.Now()
-	proof1 := Proof{Creator: "creator-1",
+	proof1 := Proof{
+		Creator:    "creator-1",
 		Created:    util.NewTime(now),
 		ProofValue: []byte("proof"),
-		Type:       "Ed25519Signature2018"}
+		Type:       "Ed25519Signature2018",
+	}
 
 	err = AddProof(doc, &proof1)
 	require.NoError(t, err)
@@ -34,10 +36,12 @@ func TestAddManyProofs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(proofs))
 
-	proof2 := Proof{Creator: "creator-2",
+	proof2 := Proof{
+		Creator:    "creator-2",
 		Created:    util.NewTime(now),
 		ProofValue: []byte("proof"),
-		Type:       "Ed25519Signature2018"}
+		Type:       "Ed25519Signature2018",
+	}
 	err = AddProof(doc, &proof2)
 	require.NoError(t, err)
 
@@ -80,10 +84,12 @@ func TestAddSingleProof(t *testing.T) {
 	require.Equal(t, "creator", proofs[0].Creator)
 
 	now := time.Now()
-	proof := Proof{Creator: "creator-2",
+	proof := Proof{
+		Creator:    "creator-2",
 		Created:    util.NewTime(now),
 		ProofValue: []byte("proof #2"),
-		Type:       "Ed25519Signature2018"}
+		Type:       "Ed25519Signature2018",
+	}
 
 	err = AddProof(doc, &proof)
 	require.NoError(t, err)

@@ -44,8 +44,10 @@ var logger = log.New("aries-js-worker")
 
 // TODO Signal JS when WASM is loaded and ready.
 //      This is being used in tests for now.
-var ready = make(chan struct{}) //nolint:gochecknoglobals
-var isTest = false              //nolint:gochecknoglobals
+var (
+	ready  = make(chan struct{}) //nolint:gochecknoglobals
+	isTest = false               //nolint:gochecknoglobals
+)
 
 // command is received from JS.
 type command struct {
@@ -408,7 +410,6 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 
 			httpVDRI, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}
@@ -450,7 +451,6 @@ func (n *jsNotifier) Notify(topic string, message []byte) error {
 		Topic:   topic,
 		Payload: payload,
 	})
-
 	if err != nil {
 		return err
 	}
@@ -469,7 +469,6 @@ func postInitMsg() {
 		ID:    uuid.New().String(),
 		Topic: wasmStartupTopic,
 	})
-
 	if err != nil {
 		panic(err)
 	}

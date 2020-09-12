@@ -58,10 +58,12 @@ func NewVerifier(resolver KeyResolver) *BasicVerifier {
 	compositeVerifier := jose.NewCompositeAlgSigVerifier(
 		jose.AlgSignatureVerifier{
 			Alg:      signatureEdDSA,
-			Verifier: getVerifier(resolver, VerifyEdDSA)},
+			Verifier: getVerifier(resolver, VerifyEdDSA),
+		},
 		jose.AlgSignatureVerifier{
 			Alg:      signatureRS256,
-			Verifier: getVerifier(resolver, VerifyRS256)},
+			Verifier: getVerifier(resolver, VerifyRS256),
+		},
 	)
 	// TODO ECDSA to support NIST P256 curve
 	//  https://github.com/hyperledger/aries-framework-go/issues/1266

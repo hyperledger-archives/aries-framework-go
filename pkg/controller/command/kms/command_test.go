@@ -119,7 +119,8 @@ func TestCreateKeySet(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
 			KMSValue: &mockkms.KeyManager{
 				CrAndExportPubKeyErr: fmt.Errorf("error export public key"),
-			}})
+			},
+		})
 		require.NotNil(t, cmd)
 
 		reqBytes, err := json.Marshal(CreateKeySetRequest{KeyType: "invalid"})

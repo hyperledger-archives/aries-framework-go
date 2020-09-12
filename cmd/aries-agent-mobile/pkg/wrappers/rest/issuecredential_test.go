@@ -37,8 +37,10 @@ func TestIssueCredential_Actions(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
 		mockResponse := `{"actions":[{"PIID":"ID1"},{"PIID":"ID2"},{"PIID":"ID3"}]}`
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockAgentURL + opisscred.Actions}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockAgentURL + opisscred.Actions,
+		}
 
 		reqData := emptyJSON
 
@@ -56,8 +58,10 @@ func TestIssueCredential_SendOffer(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
 		mockResponse := fmt.Sprintf(`{"piid": "%s"}`, mockPIID)
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + opisscred.SendOffer}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + opisscred.SendOffer,
+		}
 
 		reqData := `{"my_did":"id","their_did":"id","offer_credential":{}}`
 
@@ -75,8 +79,10 @@ func TestIssueCredential_SendProposal(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
 		mockResponse := fmt.Sprintf(`{"piid": "%s"}`, mockPIID)
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + opisscred.SendProposal}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + opisscred.SendProposal,
+		}
 
 		reqData := `{"my_did":"id","their_did":"id","propose_credential":{}}`
 
@@ -94,8 +100,10 @@ func TestIssueCredential_SendRequest(t *testing.T) {
 		ic := getIssueCredentialController(t)
 
 		mockResponse := fmt.Sprintf(`{"piid": "%s"}`, mockPIID)
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + opisscred.SendRequest}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + opisscred.SendRequest,
+		}
 
 		reqData := `{"my_did":"id","their_did":"id","request_credential":{}}`
 
@@ -117,8 +125,10 @@ func TestIssueCredential_AcceptProposal(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.AcceptProposal(req)
@@ -138,8 +148,10 @@ func TestIssueCredential_NegotiateProposal(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.NegotiateProposal(req)
@@ -159,8 +171,10 @@ func TestIssueCredential_DeclineProposal(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.DeclineProposal(req)
@@ -180,8 +194,10 @@ func TestIssueCredential_AcceptOffer(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.AcceptOffer(req)
@@ -201,8 +217,10 @@ func TestIssueCredential_AcceptProblemReport(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.AcceptProblemReport(req)
@@ -222,8 +240,10 @@ func TestIssueCredential_DeclineOffer(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.DeclineOffer(req)
@@ -243,8 +263,10 @@ func TestIssueCredential_AcceptRequest(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.AcceptRequest(req)
@@ -264,8 +286,10 @@ func TestIssueCredential_DeclineRequest(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.DeclineRequest(req)
@@ -285,8 +309,10 @@ func TestIssueCredential_AcceptCredential(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.AcceptCredential(req)
@@ -306,8 +332,10 @@ func TestIssueCredential_DeclineCredential(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		ic.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		ic.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := ic.DeclineCredential(req)

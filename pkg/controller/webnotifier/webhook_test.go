@@ -20,9 +20,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
 
-const topic = "basicmessages"
-const topicWithLeadingSlash = "/" + topic
-const localhost8080URL = "http://localhost:8080"
+const (
+	topic                 = "basicmessages"
+	topicWithLeadingSlash = "/" + topic
+	localhost8080URL      = "http://localhost:8080"
+)
 
 type clientData struct {
 	clientHost                     string
@@ -92,8 +94,10 @@ func TestNotifyMultipleWebhooks(t *testing.T) {
 		}
 	}
 
-	testNotifier := NewHTTPNotifier([]string{fmt.Sprintf("http://%s", allTestClientData[0].clientHost),
-		fmt.Sprintf("http://%s", allTestClientData[1].clientHost)})
+	testNotifier := NewHTTPNotifier([]string{
+		fmt.Sprintf("http://%s", allTestClientData[0].clientHost),
+		fmt.Sprintf("http://%s", allTestClientData[1].clientHost),
+	})
 
 	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
 

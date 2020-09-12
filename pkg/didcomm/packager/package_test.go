@@ -143,9 +143,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to keys
-		packMsg, err := packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 
 		// mock KMS without ToKey then try UnpackMessage
@@ -184,8 +186,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// Type must match the packer ID since this is a mock packer. Since EncryptValue calls Authcrypt, tweak the type
 		// to match the packerID of authcrypt (encType + "-authcrypt")
-		mockPacker := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
-			EncryptValue: e, Type: "didcomm-envelope-enc-authcrypt"}
+		mockPacker := &didcomm.MockAuthCrypt{
+			DecryptValue: decryptValue,
+			EncryptValue: e, Type: "didcomm-envelope-enc-authcrypt",
+		}
 
 		mockedProviders.primaryPacker = mockPacker
 
@@ -205,9 +209,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.Empty(t, packMsg)
 
 		// now try to pack with non empty envelope - should pass
-		packMsg, err = packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err = packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 		require.NotEmpty(t, packMsg)
 
@@ -225,9 +231,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		mockedProviders.primaryPacker = mockPacker
 		packager, err = New(mockedProviders)
 		require.NoError(t, err)
-		packMsg, err = packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err = packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.Error(t, err)
 		require.Empty(t, packMsg)
 		require.EqualError(t, err, "packMessage: failed to pack: pack error")
@@ -270,9 +278,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 
 		// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
@@ -299,9 +309,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
-		packMsg, err = packager2.PackMessage(&transport.Envelope{Message: []byte("msg2"),
+		packMsg, err = packager2.PackMessage(&transport.Envelope{
+			Message: []byte("msg2"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 
 		// unpack the packed message above - should pass and match the same payload (msg2)
@@ -342,9 +354,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 
 		// unpack the packed message above - should pass and match the same payload (msg1)
@@ -387,9 +401,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&transport.Envelope{
+			Message: []byte("msg1"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)}})
+			ToKeys:  []string{base58.Encode(toKey)},
+		})
 		require.NoError(t, err)
 
 		// unpack the packed message above - should pass and match the same payload (msg1)

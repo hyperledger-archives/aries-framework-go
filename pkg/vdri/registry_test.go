@@ -70,7 +70,8 @@ func TestRegistry_Resolve(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDRI(&mockvdri.MockVDRI{
 			AcceptValue: true, ReadFunc: func(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
 				return nil, vdriapi.ErrNotFound
-			}}))
+			},
+		}))
 		doc, err := registry.Resolve("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), vdriapi.ErrNotFound.Error())
@@ -81,7 +82,8 @@ func TestRegistry_Resolve(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDRI(&mockvdri.MockVDRI{
 			AcceptValue: true, ReadFunc: func(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
 				return nil, fmt.Errorf("read error")
-			}}))
+			},
+		}))
 		doc, err := registry.Resolve("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "read error")
@@ -106,7 +108,8 @@ func TestRegistry_Resolve(t *testing.T) {
 				}
 				require.Equal(t, "1", resolveOpts.VersionID)
 				return nil, nil
-			}}))
+			},
+		}))
 		_, err := registry.Resolve("1:id:123", vdriapi.WithVersionID("1"))
 		require.NoError(t, err)
 	})
@@ -143,7 +146,8 @@ func TestRegistry_Store(t *testing.T) {
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test error from create key", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("create key error")}})
+			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("create key error")},
+		})
 		doc, err := registry.Create("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create key error")
@@ -165,7 +169,8 @@ func TestRegistry_Create(t *testing.T) {
 			CreateKeyID:    "123",
 			CreateKeyValue: kh,
 		}},
-			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
+			WithVDRI(&mockvdri.MockVDRI{
+				AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					docOpts := &vdriapi.CreateDIDOpts{}
 					// Apply options
@@ -174,13 +179,15 @@ func TestRegistry_Create(t *testing.T) {
 					}
 					require.Equal(t, "key1", docOpts.KeyType)
 					return &did.Doc{ID: "1:id:123"}, nil
-				}}))
+				},
+			}))
 		_, err = registry.Create("id", vdriapi.WithKeyType("key1"))
 		require.NoError(t, err)
 	})
 	t.Run("with KMS opts - test opts is passed ", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
-			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
+			WithVDRI(&mockvdri.MockVDRI{
+				AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					docOpts := &vdriapi.CreateDIDOpts{}
 					// Apply options
@@ -189,16 +196,19 @@ func TestRegistry_Create(t *testing.T) {
 					}
 					require.Equal(t, "key1", docOpts.KeyType)
 					return &did.Doc{ID: "1:id:123"}, nil
-				}}))
+				},
+			}))
 		_, err := registry.Create("id", vdriapi.WithKeyType("key1"))
 		require.NoError(t, err)
 	})
 	t.Run("test error from build doc", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
-			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
+			WithVDRI(&mockvdri.MockVDRI{
+				AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return nil, fmt.Errorf("build did error")
-				}}))
+				},
+			}))
 		doc, err := registry.Create("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build did error")
@@ -206,10 +216,12 @@ func TestRegistry_Create(t *testing.T) {
 	})
 	t.Run("test error from store doc", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
-			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true, StoreErr: fmt.Errorf("store error"),
+			WithVDRI(&mockvdri.MockVDRI{
+				AcceptValue: true, StoreErr: fmt.Errorf("store error"),
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
-				}}))
+				},
+			}))
 		doc, err := registry.Create("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store error")
@@ -217,10 +229,12 @@ func TestRegistry_Create(t *testing.T) {
 	})
 	t.Run("test success", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
-			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
+			WithVDRI(&mockvdri.MockVDRI{
+				AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
-				}}))
+				},
+			}))
 		_, err := registry.Create("id")
 		require.NoError(t, err)
 	})

@@ -171,18 +171,19 @@ func (s *ControllerSteps) sendProposal(introducer, introducee1, introducee2 stri
 	}
 
 	req, err := json.Marshal(introduce.SendProposalArgs{
-		Recipients: []*client.Recipient{{
-			To:       &protocol.To{Name: conn2.TheirLabel},
-			MyDID:    conn1.MyDID,
-			TheirDID: conn1.TheirDID,
-		},
+		Recipients: []*client.Recipient{
+			{
+				To:       &protocol.To{Name: conn2.TheirLabel},
+				MyDID:    conn1.MyDID,
+				TheirDID: conn1.TheirDID,
+			},
 			{
 				To:       &protocol.To{Name: conn1.TheirLabel},
 				MyDID:    conn2.MyDID,
 				TheirDID: conn2.TheirDID,
-			}},
+			},
+		},
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
@@ -254,7 +255,6 @@ func (s *ControllerSteps) sendRequest(introducee1, introducer, introducee2 strin
 		MyDID:             conn.MyDID,
 		TheirDID:          conn.TheirDID,
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
@@ -286,7 +286,6 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 			TheirDID: conn.TheirDID,
 		},
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}

@@ -776,7 +776,8 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		ID:    uuid.New().String(),
 		Label: inviterLabel,
 		DID:   inviterDID,
-		Type:  InvitationMsgType}
+		Type:  InvitationMsgType,
+	}
 
 	msg, err := createDIDCommMsg(invitation)
 	if err != nil {

@@ -21,8 +21,10 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
-const sampleDIDName = "sampleDIDName"
-const sampleDIDID = "sampleDIDID"
+const (
+	sampleDIDName = "sampleDIDName"
+	sampleDIDID   = "sampleDIDID"
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new store", func(t *testing.T) {
@@ -36,7 +38,8 @@ func TestNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+			},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")

@@ -58,7 +58,9 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test new service name - failure", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("error opening the store")}})
+				ErrOpenStoreHandle: fmt.Errorf("error opening the store"),
+			},
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "open route coordination store")
 		require.Nil(t, svc)
@@ -117,9 +119,12 @@ func TestServiceHandleOutbound(t *testing.T) {
 
 					msgID <- request.ID
 					return nil
-				}}}
+				},
+			},
+		}
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -215,7 +220,8 @@ func TestServiceRequestMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
@@ -236,7 +242,8 @@ func TestServiceRequestMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -300,7 +307,8 @@ func TestServiceRequestMsg(t *testing.T) {
 			KMSValue: &mockkms.KeyManager{
 				CrAndExportPubKeyErr: expected,
 			},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		err = svc.handleInboundRequest(&callback{
@@ -324,7 +332,8 @@ func TestEvents(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		events := make(chan service.DIDCommAction)
@@ -361,7 +370,8 @@ func TestEvents(t *testing.T) {
 					dispatched <- struct{}{}
 					return nil
 				},
-			}})
+			},
+		})
 		require.NoError(t, err)
 
 		events := make(chan service.DIDCommAction)
@@ -400,7 +410,8 @@ func TestEvents(t *testing.T) {
 					dispatched <- struct{}{}
 					return nil
 				},
-			}})
+			},
+		})
 		require.NoError(t, err)
 
 		events := make(chan service.DIDCommAction)
@@ -433,7 +444,8 @@ func TestEvents(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
@@ -529,7 +541,8 @@ func TestServiceGrantMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -547,7 +560,8 @@ func TestServiceGrantMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -567,7 +581,8 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -588,7 +603,8 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -657,7 +673,8 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -679,7 +696,8 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -700,7 +718,8 @@ func TestServiceForwardMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		err = svc.routeStore.Put(to, []byte("did:example:123"))
@@ -721,7 +740,8 @@ func TestServiceForwardMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
@@ -742,7 +762,8 @@ func TestServiceForwardMsg(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		err = svc.handleForward(generateForwardMsgPayload(t, msgID, to, nil))
@@ -824,7 +845,9 @@ func TestMessagePickup(t *testing.T) {
 						AddMessageFunc: func(message *model.Envelope, theirDID string) error {
 							require.Equal(t, content, message)
 							return nil
-						}}},
+						},
+					},
+				},
 				StorageProviderValue:              mockstore.NewMockStoreProvider(),
 				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 				KMSValue:                          &mockkms.KeyManager{},
@@ -866,7 +889,8 @@ func TestMessagePickup(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
 					AddMessageErr: errors.New("add error"),
-				}},
+				},
+			},
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
@@ -917,11 +941,14 @@ func TestRegister(t *testing.T) {
 
 					msgID <- request.ID
 					return nil
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn1"] = connBytes
@@ -959,11 +986,14 @@ func TestRegister(t *testing.T) {
 
 					msgID <- request.ID
 					return nil
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn1"] = connBytes
@@ -987,11 +1017,13 @@ func TestRegister(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn2"] = connBytes
@@ -1010,11 +1042,13 @@ func TestRegister(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn2"] = connBytes
@@ -1038,7 +1072,9 @@ func TestRegister(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		err = svc.Register("conn1")
@@ -1052,13 +1088,16 @@ func TestRegister(t *testing.T) {
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
+				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")},
+			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		err = svc.Register("conn1")
@@ -1151,7 +1190,9 @@ func TestKeylistUpdate(t *testing.T) {
 
 					keyUpdateMsg <- *request
 					return nil
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		// save router connID
@@ -1159,7 +1200,8 @@ func TestKeylistUpdate(t *testing.T) {
 
 		// save connections
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn1"] = connBytes
@@ -1204,7 +1246,9 @@ func TestKeylistUpdate(t *testing.T) {
 
 					keyUpdateMsg <- *request
 					return nil
-				}}})
+				},
+			},
+		})
 		require.NoError(t, err)
 
 		// no router registered
@@ -1222,7 +1266,8 @@ func TestKeylistUpdate(t *testing.T) {
 
 		// save connections
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn1"] = connBytes
@@ -1255,11 +1300,13 @@ func TestKeylistUpdate(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn2"] = connBytes
@@ -1281,7 +1328,8 @@ func TestKeylistUpdate(t *testing.T) {
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		err = svc.AddKey("recKey")
@@ -1291,7 +1339,7 @@ func TestKeylistUpdate(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	var routingKeys = []string{"abc", "xyz"}
+	routingKeys := []string{"abc", "xyz"}
 
 	t.Run("test config - success", func(t *testing.T) {
 		s := make(map[string][]byte)
@@ -1302,7 +1350,8 @@ func TestConfig(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1326,7 +1375,8 @@ func TestConfig(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		conf, err := svc.Config()
@@ -1344,7 +1394,8 @@ func TestConfig(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1364,7 +1415,8 @@ func TestConfig(t *testing.T) {
 			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
@@ -1387,7 +1439,8 @@ func TestConfig(t *testing.T) {
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{}})
+			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))

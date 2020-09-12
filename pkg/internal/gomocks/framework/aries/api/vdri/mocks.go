@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	did "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	reflect "reflect"
 )
 
 // MockRegistry is a mock of Registry interface

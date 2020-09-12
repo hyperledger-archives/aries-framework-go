@@ -135,7 +135,6 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 		outofband.WithLabel(args.Label),
 		outofband.WithServices(args.Service...),
 	}...)
-
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateRequest, err.Error())
 		return command.NewExecuteError(CreateRequestErrorCode, err)
@@ -165,7 +164,6 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		outofband.WithLabel(args.Label),
 		outofband.WithServices(args.Service...),
 	}...)
-
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
 		return command.NewExecuteError(CreateInvitationErrorCode, err)

@@ -128,7 +128,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
-					ErrPut: putDataErr},
+					ErrPut: putDataErr,
+				},
 			},
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
@@ -555,7 +556,8 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(masterKeyContent)})
+		Plaintext: string(masterKeyContent),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, masterLockEnc)
 

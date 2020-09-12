@@ -16,7 +16,7 @@ import (
 
 // MasterKeyFromPath creates a new instance of a local secret lock Reader to read a master key stored in `path`.
 func MasterKeyFromPath(path string) (io.Reader, error) {
-	masterKeyFile, err := os.OpenFile(filepath.Clean(path), os.O_RDONLY, 0600)
+	masterKeyFile, err := os.OpenFile(filepath.Clean(path), os.O_RDONLY, 0o600)
 	if err != nil {
 		return nil, err
 	}

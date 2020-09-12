@@ -596,7 +596,6 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		},
 	}
 	nsThID, err := connectionstore.CreateNamespaceKey(myNSPrefix, ack.Thread.ID)
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -607,7 +606,6 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 	}
 
 	conn, err := verifySignature(response.ConnectionSignature, connRecord.RecipientKeys[0])
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -664,7 +662,8 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 
 	err = signatureSuite.Verify(&verifier.PublicKey{
 		Type:  kms.ED25519,
-		Value: pubKey},
+		Value: pubKey,
+	},
 		sigData, signature)
 	if err != nil {
 		return nil, fmt.Errorf("verify signature: %w", err)

@@ -375,7 +375,6 @@ func (s *Service) AcceptInvitation(i *Invitation, myLabel string) (string, error
 		msg:     service.NewDIDCommMsgMap(i),
 		options: &userOptions{myLabel: myLabel},
 	})
-
 	if err != nil {
 		return "", fmt.Errorf("failed to accept invitation : %w", err)
 	}

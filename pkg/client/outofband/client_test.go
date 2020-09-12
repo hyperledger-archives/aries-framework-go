@@ -393,7 +393,7 @@ func TestClient_Actions(t *testing.T) {
 		require.Nil(t, actions)
 	})
 	t.Run("Success", func(t *testing.T) {
-		var expected = []outofband.Action{{}, {}}
+		expected := []outofband.Action{{}, {}}
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{

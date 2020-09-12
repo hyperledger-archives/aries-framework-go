@@ -62,7 +62,8 @@ func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, err
 
 	return &DocumentVerifier{
 		signatureSuites: suites,
-		pkResolver:      resolver}, nil
+		pkResolver:      resolver,
+	}, nil
 }
 
 // Verify will verify document proofs.

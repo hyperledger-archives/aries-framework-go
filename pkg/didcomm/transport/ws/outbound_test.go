@@ -81,7 +81,8 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+		},
 		))
 
 		addr := startWebSocketServer(t, echo)
@@ -113,7 +114,8 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+		},
 		))
 
 		addr := startWebSocketServer(t, echo)
@@ -132,7 +134,8 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+		},
 		))
 
 		addr := startWebSocketServer(t, echo)
@@ -148,7 +151,8 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+		},
 		))
 
 		addr := startWebSocketServer(t, echo)

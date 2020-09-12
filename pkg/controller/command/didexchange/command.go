@@ -196,7 +196,8 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 
 	command.WriteNillableResponse(rw, &CreateInvitationResponse{
 		Invitation: invitation,
-		Alias:      request.Alias},
+		Alias:      request.Alias,
+	},
 		logger)
 
 	logutil.LogDebug(logger, CommandName, CreateInvitationCommandMethod, successString,

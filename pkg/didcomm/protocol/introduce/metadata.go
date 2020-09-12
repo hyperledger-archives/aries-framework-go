@@ -65,7 +65,7 @@ func WithRecipients(to *To, recipient *Recipient) Opt {
 // The function is used by the introduce client to define that a few messages are related to each other.
 // e.g When two proposals are sent simultaneously piID helps the protocol to determine that messages are related.
 func WrapWithMetadataPIID(msgMap ...service.DIDCommMsg) {
-	var piID = uuid.New().String()
+	piID := uuid.New().String()
 
 	for _, msg := range msgMap {
 		msg.Metadata()[metaPIID] = piID

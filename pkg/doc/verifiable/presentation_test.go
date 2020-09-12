@@ -108,7 +108,8 @@ func TestParsePresentation(t *testing.T) {
 		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}, vp.Context)
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+		}, vp.Context)
 
 		// check id
 		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
@@ -257,7 +258,8 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
 		raw.Context = []string{
 			"https://www.w3.org/2018/credentials/v2",
-			"https://www.w3.org/2018/credentials/examples/v1"}
+			"https://www.w3.org/2018/credentials/examples/v1",
+		}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(bytes)

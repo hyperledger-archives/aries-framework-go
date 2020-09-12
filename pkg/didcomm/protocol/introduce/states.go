@@ -164,7 +164,7 @@ func getMetaRecipients(md *metaData) []*Recipient {
 		return nil
 	}
 
-	var recipients = make([]*Recipient, len(_recipients))
+	recipients := make([]*Recipient, len(_recipients))
 
 	for i, _recipient := range _recipients {
 		recipient, ok := _recipient.(*Recipient)
@@ -380,7 +380,8 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (
 				Type: ProblemReportMsgType,
 				Description: model.Code{
 					Code: codeRequestDeclined,
-				}},
+				},
+			},
 			), md.MyDID, md.TheirDID)
 		}, nil
 	}

@@ -56,9 +56,11 @@ const (
 	jsonldPublicKeyjwk    = "publicKeyJwk"
 )
 
-var schemaLoaderV1 = gojsonschema.NewStringLoader(schemaV1)         //nolint:gochecknoglobals
-var schemaLoaderV011 = gojsonschema.NewStringLoader(schemaV011)     //nolint:gochecknoglobals
-var schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
+var (
+	schemaLoaderV1     = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
+	schemaLoaderV011   = gojsonschema.NewStringLoader(schemaV011)   //nolint:gochecknoglobals
+	schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
+)
 
 // DID is parsed according to the generic syntax: https://w3c.github.io/did-core/#generic-did-syntax
 type DID struct {
@@ -385,12 +387,14 @@ func populateServices(rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
 	for _, rawService := range rawServices {
-		service := Service{ID: stringEntry(rawService[jsonldID]),
+		service := Service{
+			ID:              stringEntry(rawService[jsonldID]),
 			Type:            stringEntry(rawService[jsonldType]),
 			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]),
 			RecipientKeys:   stringArray(rawService[jsonldRecipientKeys]),
 			RoutingKeys:     stringArray(rawService[jsonldRoutingKeys]),
-			Priority:        uintEntry(rawService[jsonldPriority])}
+			Priority:        uintEntry(rawService[jsonldPriority]),
+		}
 
 		delete(rawService, jsonldID)
 		delete(rawService, jsonldType)
@@ -513,8 +517,10 @@ func populatePublicKeys(context string, rawPKs []map[string]interface{}) ([]Publ
 			controllerKey = jsonldOwner
 		}
 
-		publicKey := PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
-			Controller: stringEntry(rawPK[controllerKey])}
+		publicKey := PublicKey{
+			ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
+			Controller: stringEntry(rawPK[controllerKey]),
+		}
 
 		err := decodePK(&publicKey, rawPK)
 		if err != nil {

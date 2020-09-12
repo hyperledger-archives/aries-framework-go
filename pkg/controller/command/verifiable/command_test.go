@@ -305,8 +305,10 @@ const noPublicKeyDoc = `{
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp"
 }`
 
-const invalidDID = "did:error:123"
-const jwsDID = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
+const (
+	invalidDID = "did:error:123"
+	jwsDID     = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
@@ -1035,7 +1037,8 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018}}
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -1054,7 +1057,8 @@ func TestGeneratePresentation(t *testing.T) {
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
-			DID:                   "did:error:123"}
+			DID:                   "did:error:123",
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -1095,7 +1099,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 		presIDArgs := PresentationRequestByID{
 			ID:            "http://example.edu/credentials/1989",
 			DID:           "did:peer:21tDAKCERh95uGgKbJNHYp",
-			SignatureType: Ed25519Signature2018}
+			SignatureType: Ed25519Signature2018,
+		}
 		presReqBytes, e := json.Marshal(presIDArgs)
 		require.NoError(t, e)
 
@@ -2083,7 +2088,8 @@ func TestCommand_SignCredential(t *testing.T) {
 		presReq := SignCredentialRequest{
 			Credential:   []byte("{}"),
 			DID:          "did:peer:123456789abcdefghi#inbox",
-			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018}}
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
 		reqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -2097,7 +2103,8 @@ func TestCommand_SignCredential(t *testing.T) {
 	t.Run("test sign credential - failed to sign credential", func(t *testing.T) {
 		presReq := SignCredentialRequest{
 			Credential: []byte(vc),
-			DID:        "did:error:123"}
+			DID:        "did:error:123",
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 

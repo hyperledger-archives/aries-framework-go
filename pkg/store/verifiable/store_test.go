@@ -19,10 +19,12 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
-const sampleCredentialName = "sampleVCName"
-const sampleCredentialID = "sampleVCID"
-const samplePresentationName = "sampleVPName"
-const samplePresentationID = "sampleVPID"
+const (
+	sampleCredentialName   = "sampleVCName"
+	sampleCredentialID     = "sampleVCID"
+	samplePresentationName = "sampleVPName"
+	samplePresentationID   = "sampleVPID"
+)
 
 //nolint:gochecknoglobals,lll
 var udCredential = `
@@ -224,7 +226,8 @@ func TestNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+			},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
@@ -390,7 +393,8 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 			Name:      "",
 			Context:   nil,
 			Type:      nil,
-			SubjectID: ""},
+			SubjectID: "",
+		},
 		)
 		require.NoError(t, err)
 
@@ -631,7 +635,8 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 			Name:      "",
 			Context:   nil,
 			Type:      nil,
-			SubjectID: ""},
+			SubjectID: "",
+		},
 		)
 		require.NoError(t, err)
 

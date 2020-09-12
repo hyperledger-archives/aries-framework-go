@@ -124,7 +124,7 @@ func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
 		return &done{}, zeroAction, nil
 	}
 
-	var code = model.Code{Code: s.Code}
+	code := model.Code{Code: s.Code}
 
 	// if the protocol was stopped by the user we will set the rejected error code
 	if errors.As(md.err, &customError{}) {
@@ -326,7 +326,7 @@ func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error)
 		return &proposalSent{}, zeroAction, nil
 	}
 
-	var offer = OfferCredential{}
+	offer := OfferCredential{}
 	if err := md.Msg.Decode(&offer); err != nil {
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}

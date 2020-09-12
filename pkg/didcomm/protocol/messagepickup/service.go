@@ -51,8 +51,10 @@ const (
 )
 
 // ErrConnectionNotFound connection not found error.
-var ErrConnectionNotFound = errors.New("connection not found")
-var logger = log.New("aries-framework/messagepickup")
+var (
+	ErrConnectionNotFound = errors.New("connection not found")
+	logger                = log.New("aries-framework/messagepickup")
+)
 
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound

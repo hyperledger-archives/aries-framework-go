@@ -28,16 +28,18 @@ const timeout = time.Second * 5
 func getVCredential() *verifiable.Credential {
 	const referenceNumber = 83294847
 
-	var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+	issued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 
 	return &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 		ID: "http://example.edu/credentials/1872",
 		Types: []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"},
+			"UniversityDegreeCredential",
+		},
 		Subject: struct {
 			ID string
 		}{ID: "SubjectID"},

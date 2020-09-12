@@ -35,11 +35,13 @@ import (
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
-const sampleCredentialName = "sampleVCName"
-const samplePresentationName = "sampleVPName"
-const sampleVCID = "http://example.edu/credentials/1989"
-const sampleVPID = "http://example.edu/presentations/1989"
-const invalidDID = "did:error:1234"
+const (
+	sampleCredentialName   = "sampleVCName"
+	samplePresentationName = "sampleVPName"
+	sampleVCID             = "http://example.edu/credentials/1989"
+	sampleVPID             = "http://example.edu/presentations/1989"
+	invalidDID             = "did:error:1234"
+)
 
 const vc = `
 { 
@@ -253,7 +255,7 @@ func TestValidateVC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 		}`)
 
 		handler := lookupHandler(t, cmd, ValidateCredentialPath, http.MethodPost)
@@ -300,7 +302,7 @@ func TestSaveVC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "sample"
 		}`)
 
@@ -625,7 +627,7 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - error", func(t *testing.T) {
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "sample",
 			"signatureType":"Ed25519Signature2018",
             "did"  : "did:peer:21tDAKCERh95uGgKbJNHYp"
@@ -691,7 +693,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 
 	t.Run("test generate presentation by id - invalid data", func(t *testing.T) {
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"id" : "sample", 
      		"did": "testDID"
 		}`)
@@ -706,7 +708,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 
 	t.Run("test generate presentation by id - invalid did", func(t *testing.T) {
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "http://example.edu/credentials/1989", 
      		"dids": "testDID"
 		}`)
@@ -759,7 +761,7 @@ func TestSaveVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "sample"
 		}`)
 
@@ -1014,7 +1016,7 @@ func TestSignCredential(t *testing.T) {
 	})
 
 	t.Run("test sign credential - error", func(t *testing.T) {
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "sample",
             "did"  : "did:peer:21tDAKCERh95uGgKbJNHYp"
 		}`)

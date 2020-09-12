@@ -323,7 +323,7 @@ func isNoOp(s state) bool {
 }
 
 func (s *Service) handle(md *metaData) error {
-	var current = md.state
+	current := md.state
 
 	for !isNoOp(current) {
 		next, action, err := s.execute(current, md)

@@ -113,7 +113,6 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(req)
-
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))

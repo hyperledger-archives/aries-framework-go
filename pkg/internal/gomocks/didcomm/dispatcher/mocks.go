@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	reflect "reflect"
 )
 
 // MockOutbound is a mock of Outbound interface

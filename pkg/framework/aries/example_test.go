@@ -53,6 +53,7 @@ func (c *mockInTransport) Start(prov transport.Provider) error {
 func (c *mockInTransport) Stop() error {
 	return nil
 }
+
 func (c *mockInTransport) Endpoint() string {
 	return "http://server"
 }

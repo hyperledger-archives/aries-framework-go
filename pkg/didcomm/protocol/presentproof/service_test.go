@@ -342,7 +342,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Presentation (Stop)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -398,7 +398,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Presentation (continue with presentation)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -460,7 +460,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Presentation (continue with presentation) async", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		newProvider := presentproofMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger)
@@ -506,7 +506,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Presentation (Stop) async", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		newProvider := presentproofMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger)
@@ -551,7 +551,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Request Presentation (continue with proposal)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -610,7 +610,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Presentation (continue)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -670,7 +670,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		src, err := json.Marshal(&internalData{StateName: "request-sent"})
 		require.NoError(t, err)
@@ -716,7 +716,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		src, err := json.Marshal(&internalData{StateName: "request-sent"})
 		require.NoError(t, err)
@@ -762,7 +762,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Presentation (continue without request)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -824,7 +824,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Presentation (continue)", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -898,7 +898,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Receive Ack", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		src, err := json.Marshal(&internalData{StateName: "presentation-sent"})
 		require.NoError(t, err)
@@ -932,7 +932,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Send Request Presentation", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "request-sent"})
@@ -987,7 +987,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Send Proposal", func(t *testing.T) {
-		var done = make(chan struct{})
+		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "proposal-sent"})

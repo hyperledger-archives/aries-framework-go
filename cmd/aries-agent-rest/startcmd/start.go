@@ -174,8 +174,10 @@ const (
 	databaseTypeLevelDBOption = "leveldb"
 )
 
-var errMissingHost = errors.New("host not provided")
-var logger = log.New("aries-framework/agent-rest")
+var (
+	errMissingHost = errors.New("host not provided")
+	logger         = log.New("aries-framework/agent-rest")
+)
 
 type agentParameters struct {
 	server                                         server
@@ -516,7 +518,6 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 
 			httpVDRI, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}

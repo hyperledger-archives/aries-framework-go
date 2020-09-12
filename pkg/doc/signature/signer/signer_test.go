@@ -121,14 +121,15 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 }
 
 func getSignatureContext() *Context {
-	return &Context{Creator: "creator",
-		SignatureType: signatureType}
+	return &Context{
+		Creator:       "creator",
+		SignatureType: signatureType,
+	}
 }
 
 func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
 	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
-
 	if err != nil {
 		return nil, err
 	}

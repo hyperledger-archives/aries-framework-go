@@ -46,7 +46,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 				return next.Handle(metadata)
 			}
 
-			var presentation = presentproof.Presentation{}
+			presentation := presentproof.Presentation{}
 			if err := metadata.Message().Decode(&presentation); err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
@@ -61,7 +61,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 			}
 
 			var names []string
-			var properties = metadata.Properties()
+			properties := metadata.Properties()
 
 			// nolint: errcheck
 			myDID, _ := properties[myDIDKey].(string)
@@ -91,7 +91,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 }
 
 func getName(idx int, id string, metadata presentproof.Metadata) string {
-	var name = id
+	name := id
 	if len(metadata.PresentationNames()) > idx {
 		name = metadata.PresentationNames()[idx]
 	}
@@ -115,7 +115,6 @@ func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachmen
 		presentation, err := verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(registry).PublicKeyFetcher(),
 		))
-
 		if err != nil {
 			return nil, fmt.Errorf("parse presentation: %w", err)
 		}

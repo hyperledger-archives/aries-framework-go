@@ -5,17 +5,20 @@ package ecdh1pu_aead_go_proto
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
-	common_composite_go_proto "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	common_go_proto "github.com/google/tink/go/proto/common_go_proto"
 	tink_go_proto "github.com/google/tink/go/proto/tink_go_proto"
-	math "math"
+	common_composite_go_proto "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
+var (
+	_ = proto.Marshal
+	_ = fmt.Errorf
+	_ = math.Inf
+)
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -43,15 +46,19 @@ func (*Ecdh1PuKwParams) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuKwParams) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuKwParams.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuKwParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuKwParams.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuKwParams) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuKwParams.Merge(m, src)
 }
+
 func (m *Ecdh1PuKwParams) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuKwParams.Size(m)
 }
+
 func (m *Ecdh1PuKwParams) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuKwParams.DiscardUnknown(m)
 }
@@ -103,15 +110,19 @@ func (*Ecdh1PuAeadEncParams) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuAeadEncParams) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuAeadEncParams.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuAeadEncParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuAeadEncParams.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuAeadEncParams) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuAeadEncParams.Merge(m, src)
 }
+
 func (m *Ecdh1PuAeadEncParams) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuAeadEncParams.Size(m)
 }
+
 func (m *Ecdh1PuAeadEncParams) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuAeadEncParams.DiscardUnknown(m)
 }
@@ -144,15 +155,19 @@ func (*Ecdh1PuAeadParams) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuAeadParams) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuAeadParams.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuAeadParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuAeadParams.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuAeadParams) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuAeadParams.Merge(m, src)
 }
+
 func (m *Ecdh1PuAeadParams) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuAeadParams.Size(m)
 }
+
 func (m *Ecdh1PuAeadParams) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuAeadParams.DiscardUnknown(m)
 }
@@ -202,15 +217,19 @@ func (*Ecdh1PuAeadPublicKey) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuAeadPublicKey) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuAeadPublicKey.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuAeadPublicKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuAeadPublicKey.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuAeadPublicKey) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuAeadPublicKey.Merge(m, src)
 }
+
 func (m *Ecdh1PuAeadPublicKey) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuAeadPublicKey.Size(m)
 }
+
 func (m *Ecdh1PuAeadPublicKey) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuAeadPublicKey.DiscardUnknown(m)
 }
@@ -278,15 +297,19 @@ func (*Ecdh1PuAeadPrivateKey) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuAeadPrivateKey) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuAeadPrivateKey.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuAeadPrivateKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuAeadPrivateKey.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuAeadPrivateKey) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuAeadPrivateKey.Merge(m, src)
 }
+
 func (m *Ecdh1PuAeadPrivateKey) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuAeadPrivateKey.Size(m)
 }
+
 func (m *Ecdh1PuAeadPrivateKey) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuAeadPrivateKey.DiscardUnknown(m)
 }
@@ -331,15 +354,19 @@ func (*Ecdh1PuAeadKeyFormat) Descriptor() ([]byte, []int) {
 func (m *Ecdh1PuAeadKeyFormat) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ecdh1PuAeadKeyFormat.Unmarshal(m, b)
 }
+
 func (m *Ecdh1PuAeadKeyFormat) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ecdh1PuAeadKeyFormat.Marshal(b, m, deterministic)
 }
+
 func (m *Ecdh1PuAeadKeyFormat) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Ecdh1PuAeadKeyFormat.Merge(m, src)
 }
+
 func (m *Ecdh1PuAeadKeyFormat) XXX_Size() int {
 	return xxx_messageInfo_Ecdh1PuAeadKeyFormat.Size(m)
 }
+
 func (m *Ecdh1PuAeadKeyFormat) XXX_DiscardUnknown() {
 	xxx_messageInfo_Ecdh1PuAeadKeyFormat.DiscardUnknown(m)
 }

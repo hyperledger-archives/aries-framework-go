@@ -151,7 +151,6 @@ func (o *Command) SaveDID(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	didDoc, err := did.ParseDocument(request.DID)
-
 	if err != nil {
 		logutil.LogError(logger, CommandName, SaveDIDCommandMethod, "parse did doc: "+err.Error())
 		return command.NewValidationError(SaveDIDErrorCode, fmt.Errorf("parse did doc: %w", err))

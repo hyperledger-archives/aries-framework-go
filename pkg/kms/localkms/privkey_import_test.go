@@ -166,14 +166,16 @@ func TestValidECPrivateKey(t *testing.T) {
 	err = validECPrivateKey(&ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			X: new(big.Int),
-		}})
+		},
+	})
 	require.EqualError(t, err, "private key's public key is missing y coordinate")
 
 	err = validECPrivateKey(&ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			X: new(big.Int),
 			Y: new(big.Int),
-		}})
+		},
+	})
 	require.EqualError(t, err, "private key data is missing")
 
 	err = validECPrivateKey(&ecdsa.PrivateKey{
@@ -181,7 +183,8 @@ func TestValidECPrivateKey(t *testing.T) {
 			X: new(big.Int),
 			Y: new(big.Int),
 		},
-		D: new(big.Int)},
+		D: new(big.Int),
+	},
 	)
 	require.NoError(t, err)
 }

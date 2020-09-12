@@ -62,8 +62,10 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 
 	saveInStore := func(store storage.Store, ids []string) {
 		for _, id := range ids {
-			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
-				ThreadID: fmt.Sprintf(threadIDFmt, id)})
+			connRecBytes, err := json.Marshal(&Record{
+				ConnectionID: id,
+				ThreadID:     fmt.Sprintf(threadIDFmt, id),
+			})
 			require.NoError(t, err)
 			err = store.Put(getConnectionKeyPrefix()(id), connRecBytes)
 			require.NoError(t, err)
@@ -130,8 +132,10 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 
 	t.Run("get connection record - error scenario", func(t *testing.T) {
 		provider := &mockProvider{}
-		provider.store = &mockstorage.MockStore{ErrGet: fmt.Errorf(sampleErrMsg),
-			Store: make(map[string][]byte)}
+		provider.store = &mockstorage.MockStore{
+			ErrGet: fmt.Errorf(sampleErrMsg),
+			Store:  make(map[string][]byte),
+		}
 		lookup, err := NewLookup(provider)
 		require.NoError(t, err)
 		require.NotNil(t, lookup)
@@ -161,8 +165,10 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 
 	saveInStore := func(store storage.Store, ids []string) {
 		for _, id := range ids {
-			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
-				ThreadID: fmt.Sprintf(threadIDFmt, id)})
+			connRecBytes, err := json.Marshal(&Record{
+				ConnectionID: id,
+				ThreadID:     fmt.Sprintf(threadIDFmt, id),
+			})
 			require.NoError(t, err)
 			err = store.Put(getConnectionStateKeyPrefix()(id, state), connRecBytes)
 			require.NoError(t, err)
@@ -228,8 +234,10 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 	saveInStore := func(store storage.Store, ids []string, skipConnection bool) {
 		for _, id := range ids {
 			connID := fmt.Sprintf(connIDFmt, id)
-			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
-				ThreadID: id})
+			connRecBytes, err := json.Marshal(&Record{
+				ConnectionID: id,
+				ThreadID:     id,
+			})
 			require.NoError(t, err)
 			err = store.Put(id, []byte(connID))
 			require.NoError(t, err)
