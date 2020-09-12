@@ -251,6 +251,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, AcceptInvitationCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -258,6 +259,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitationCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
@@ -278,11 +280,13 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateImplicitInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.InviterDID == "" {
 		logutil.LogDebug(logger, CommandName, CreateImplicitInvitationCommandMethod, errEmptyInviterDID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyInviterDID))
 	}
 
