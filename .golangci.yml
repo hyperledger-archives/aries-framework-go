@@ -96,7 +96,6 @@ linters:
     - exhaustive # TODO enable
     - nlreturn # TODO enable
     - noctx # TODO enable
-    - gofumpt # TODO enable
     - nolintlint # TODO enable
 
 issues:
