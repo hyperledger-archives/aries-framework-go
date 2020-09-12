@@ -51,17 +51,17 @@ var (
 	errProtocolStopped = errors.New("protocol was stopped")
 )
 
-// customError is a wrapper to determine custom error against internal error
+// customError is a wrapper to determine custom error against internal error.
 type customError struct{ error }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 	StateName   string
 	AckRequired bool
 }
 
-// metaData type to store data for internal usage
+// metaData type to store data for internal usage.
 type metaData struct {
 	transitionalPayload
 	state               state
