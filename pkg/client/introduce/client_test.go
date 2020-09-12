@@ -196,6 +196,7 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 			func(piid string, opt introduce.Opt) error {
 				require.Equal(t, expectedPIID, piid)
 				require.NotNil(t, opt)
+
 				return nil
 			},
 		)
@@ -244,6 +245,7 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 			func(piid string, opt introduce.Opt) error {
 				require.Equal(t, expectedPIID, piid)
 				require.NotNil(t, opt)
+
 				return nil
 			},
 		)

@@ -191,5 +191,6 @@ func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
 // USAGE: event.Continue(WithOOBRequest(inv)).
 func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
 	_req := outofbandsvc.Request(*req)
+
 	return introduce.WithOOBRequest(&_req, a...)
 }
