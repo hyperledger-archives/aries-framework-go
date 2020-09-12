@@ -176,6 +176,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 

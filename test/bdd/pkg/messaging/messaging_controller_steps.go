@@ -104,6 +104,7 @@ func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose str
 	for _, svcName := range svcNames {
 		if svcName == name {
 			found = true
+
 			break
 		}
 	}

@@ -189,6 +189,7 @@ func (s *Service) listenForCallbacks() {
 
 		if c.err != nil {
 			go s.handleUserRejection(c)
+
 			continue
 		}
 

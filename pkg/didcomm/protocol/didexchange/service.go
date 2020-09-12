@@ -327,6 +327,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 
 		if haltExecution {
 			logger.Debugf("halted execution before state=%s", msg.NextStateName)
+
 			break
 		}
 	}

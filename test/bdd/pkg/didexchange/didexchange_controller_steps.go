@@ -455,6 +455,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 
 		if connection.State == queryState && connection.ConnectionID == verifyID {
 			found = true
+
 			break
 		}
 	}

@@ -62,6 +62,7 @@ func (m *msgService) Accept(msgType string, purpose []string) bool {
 		for _, msgPurpose := range purpose {
 			if purposeCriteria == msgPurpose {
 				purposeMatched = true
+
 				break
 			}
 		}

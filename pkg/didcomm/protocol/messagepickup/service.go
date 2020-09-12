@@ -494,6 +494,7 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 			err := s.handle(msg)
 			if err != nil {
 				logger.Errorf("error handling batch message %s: %w", msg.ID, err)
+
 				continue
 			}
 			processed++

@@ -881,6 +881,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 			// if verification method is provided as an option, then validate if it belongs to given method
 			if opts.VerificationMethod == vm.PublicKey.ID {
 				vmMatched = true
+
 				break
 			}
 
@@ -888,6 +889,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 		} else {
 			// by default first authentication public key
 			opts.VerificationMethod = vm.PublicKey.ID
+
 			break
 		}
 	}
@@ -921,6 +923,7 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 		for _, k := range didDoc.PublicKey {
 			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
 				publicKeyID = k.ID
+
 				break
 			}
 		}

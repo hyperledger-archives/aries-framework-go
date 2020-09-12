@@ -168,6 +168,7 @@ func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 // Use this option to respond to ProposePresentation.
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
 	origin := presentproof.RequestPresentation(*msg)
+
 	return presentproof.WithRequestPresentation(&origin)
 }
 

@@ -124,6 +124,7 @@ func extractKeySet(kh *keyset.Handle, w keyset.Writer, lock tink.AEAD, fnName st
 		if ks.PrimaryKeyId == k.KeyId && k.Status == tinkpb.KeyStatusType_ENABLED && k.KeyData.TypeUrl ==
 			ecdh1puAESPrivateKeyTypeURL {
 			idx = i
+
 			break
 		}
 	}
