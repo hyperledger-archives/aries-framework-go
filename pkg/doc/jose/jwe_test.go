@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/square/go-jose/v3"
-
 	"github.com/stretchr/testify/require"
 )
 

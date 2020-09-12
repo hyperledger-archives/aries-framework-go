@@ -29,7 +29,7 @@ const (
 	ecdh1puAESPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAesAeadPrivateKey"
 )
 
-// common errors
+// common errors.
 var errInvalidECDH1PUAESPrivateKey = errors.New("ecdh1pu_aes_private_key_manager: invalid key")
 var errInvalidECDH1PUAESPrivateKeyFormat = errors.New("ecdh1pu_aes_private_key_manager: invalid key format")
 

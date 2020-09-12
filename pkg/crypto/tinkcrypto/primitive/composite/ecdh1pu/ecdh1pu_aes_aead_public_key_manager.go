@@ -28,7 +28,7 @@ const (
 	ecdh1puAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAesAeadPublicKey"
 )
 
-// common errors
+// common errors.
 var errInvalidECDH1PUAESPublicKey = errors.New("ecdh1pu_aes_public_key_manager: invalid key")
 
 // ecdh1puPublicKeyManager is an implementation of KeyManager interface.
