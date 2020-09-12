@@ -332,9 +332,9 @@ func ExampleClient_SendRequest() {
 	waitForBob()
 
 	// Output:
-	// Alice received https://didcomm.org/issue-credential/2.0/request-credential from Bob.
-	// Bob received https://didcomm.org/issue-credential/2.0/issue-credential from Alice.
-	// Alice received https://didcomm.org/issue-credential/2.0/ack from Bob.
+	// Alice received https://didcomm.org/issue-credential/2.0/request-credential from Bob
+	// Bob received https://didcomm.org/issue-credential/2.0/issue-credential from Alice
+	// Alice received https://didcomm.org/issue-credential/2.0/ack from Bob
 }
 
 func waitForFn(c *Client) func() {
