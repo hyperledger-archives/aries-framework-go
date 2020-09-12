@@ -289,7 +289,12 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 			err: fmt.Errorf("failed to query rows %w", err)}
 	}
 
-	defer resultRows.Close()
+	defer func() {
+		err := resultRows.Close()
+		if err != nil {
+			fmt.Errorf("failed to close rows %w", err)
+		}
+	}()
 
 	if err = resultRows.Err(); err != nil {
 		return &sqlDBResultsIterator{
