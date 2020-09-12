@@ -239,7 +239,7 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
-func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
+func createStartCMD(server server) *cobra.Command { //nolint: funlen, gocyclo
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",

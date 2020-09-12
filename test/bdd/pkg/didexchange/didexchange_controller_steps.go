@@ -70,7 +70,7 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers agent steps.
-func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)

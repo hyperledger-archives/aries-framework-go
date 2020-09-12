@@ -498,7 +498,7 @@ func (d *ControllerSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers messaging steps.
-func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (d *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	// generic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for type "([^"]*)"`+
 		` and purpose "([^"]*)"$`, d.registerMsgService)
