@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
+	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 )
 
 const (

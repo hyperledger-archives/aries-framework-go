@@ -162,7 +162,7 @@ const (
 	agentTransportReturnRouteFlagName  = "transport-return-route"
 	agentTransportReturnRouteEnvKey    = "ARIESD_TRANSPORT_RETURN_ROUTE"
 	agentTransportReturnRouteFlagUsage = "Transport Return Route option." +
-		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint lll
+		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint: lll
 		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
 
 	httpProtocol      = "http"
