@@ -42,7 +42,7 @@ func TestLevels(t *testing.T) {
 }
 
 func TestCallerInfos(t *testing.T) {
-	module := fmt.Sprintf("sample-module-caller-info-%d-%d", rand.Intn(1000), rand.Intn(1000))
+	module := fmt.Sprintf("sample-module-caller-info-%d-%d", rand.Intn(1000), rand.Intn(1000)) //nolint:gosec
 
 	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
 	require.True(t, IsCallerInfoEnabled(module, DEBUG))

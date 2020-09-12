@@ -190,6 +190,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitationCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
@@ -211,6 +212,7 @@ func (c *Command) ReceiveInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request.Invitation)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ReceiveInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -243,6 +245,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 

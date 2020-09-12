@@ -81,8 +81,6 @@ linters-settings:
     allow-cuddle-declarations: false
   godot:
     check-all: false
-  nolintlint:
-    allow-unused: true
 
 linters:
   enable-all: true

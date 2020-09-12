@@ -25,7 +25,7 @@ import (
 
 const authSuffix = "-authcrypt"
 
-// Provider contains dependencies for the base packager and is typically created by using aries.Context()
+// Provider contains dependencies for the base packager and is typically created by using aries.Context().
 type Provider interface {
 	Packers() []packer.Packer
 	PrimaryPacker() packer.Packer

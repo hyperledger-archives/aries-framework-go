@@ -58,7 +58,8 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	require.NoError(t, err)
 
 	// build a tls.Config instance to be used by the outbound transport
-	tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{ //nolint:gosec
+
 		RootCAs:      cp,
 		Certificates: nil,
 	}

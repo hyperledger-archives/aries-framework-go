@@ -204,7 +204,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, persistKey(t, recipientPub, recipientPriv, kms2))
 
 		source := insecurerand.NewSource(5937493) // constant fixed to ensure constant output
-		constRand := insecurerand.New(source)
+		constRand := insecurerand.New(source)     //nolint:gosec
 
 		packer := newWithKMS(kms2)
 		require.NotEmpty(t, packer)
@@ -229,7 +229,7 @@ func TestEncrypt(t *testing.T) {
 		rec4Pub := base58.Decode("GSRovbnQy8HRjVjvzGbbfN387EX9NFfLj89C1ScXYfrF")
 
 		source := insecurerand.NewSource(6572692) // constant fixed to ensure constant output
-		constRand := insecurerand.New(source)
+		constRand := insecurerand.New(source)     //nolint:gosec
 
 		packer := newWithKMS(senderKMS)
 		require.NotEmpty(t, packer)
