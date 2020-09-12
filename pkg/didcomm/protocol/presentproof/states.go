@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// common states
+	// common states.
 	stateNameStart     = "start"
 	stateNameAbandoned = "abandoned"
 	stateNameDone      = "done"
@@ -40,7 +40,7 @@ const (
 	jsonThread = "~thread"
 )
 
-// state action for network call
+// state action for network call.
 type stateAction func(messenger service.Messenger) error
 
 // the protocol's state.
@@ -57,7 +57,7 @@ type state interface {
 // represents zero state's action.
 func zeroAction(service.Messenger) error { return nil }
 
-// start state
+// start state.
 type start struct{}
 
 func (s *start) Name() string {
@@ -66,10 +66,10 @@ func (s *start) Name() string {
 
 func (s *start) CanTransitionTo(st state) bool {
 	switch st.Name() {
-	// Verifier
+	// Verifier.
 	case stateNameRequestSent, stateNameProposalReceived:
 		return true
-	// Prover
+	// Prover.
 	case stateNameProposalSent, stateNameRequestReceived:
 		return true
 	}
@@ -81,7 +81,7 @@ func (s *start) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: is not implemented yet", s.Name())
 }
 
-// abandoned state
+// abandoned state.
 type abandoned struct {
 	Code string
 }
@@ -121,7 +121,7 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
-// done state
+// done state.
 type done struct{}
 
 func (s *done) Name() string {
@@ -136,7 +136,7 @@ func (s *done) Execute(_ *metaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
 }
 
-// noOp state
+// noOp state.
 type noOp struct{}
 
 func (s *noOp) Name() string {

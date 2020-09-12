@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// protocol instance ID
+	// protocol instance ID.
 	metaPIID         = Introduce + "_pi_id"
 	metaSkipProposal = Introduce + "_skip_proposal"
 	metaOOBMessage   = Introduce + "_oobmessage"

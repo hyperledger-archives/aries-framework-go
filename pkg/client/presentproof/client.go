@@ -31,7 +31,7 @@ var (
 	errEmptyProposePresentation = errors.New("propose presentation message is empty")
 )
 
-// Provider contains dependencies for the protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }

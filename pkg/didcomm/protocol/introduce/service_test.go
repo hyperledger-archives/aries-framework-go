@@ -47,7 +47,7 @@ type props interface {
 	TheirDID() string
 }
 
-// payload represents a transport message structure
+// payload represents a transport message structure.
 type payload struct {
 	msg      []byte
 	myDID    string

@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for the OutOfBand protocol operations
+// constants for the OutOfBand protocol operations.
 const (
 	OperationID      = "/outofband"
 	CreateRequest    = OperationID + "/create-request"

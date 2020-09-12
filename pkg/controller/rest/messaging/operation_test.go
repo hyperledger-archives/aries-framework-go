@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	// error messages
+	// error messages.
 	errMsgSvcNameRequired            = "service name is required"
 	errMsgInvalidAcceptanceCrit      = "invalid acceptance criteria"
 	errMsgBodyEmpty                  = "empty message body"

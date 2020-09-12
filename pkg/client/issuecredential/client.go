@@ -40,7 +40,7 @@ type (
 	Action issuecredential.Action
 )
 
-// Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }

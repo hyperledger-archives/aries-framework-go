@@ -35,7 +35,7 @@ const (
 // ErrConnectionNotFound is returned when connection not found.
 var ErrConnectionNotFound = errors.New("connection not found")
 
-// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager

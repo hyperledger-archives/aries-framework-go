@@ -15,19 +15,19 @@ import (
 )
 
 const (
-	// common states
+	// common states.
 	stateNameStart      = "start"
 	stateNameAbandoning = "abandoning"
 	stateNameDone       = "done"
 	stateNameNoop       = "noop"
 
-	// states for Issuer
+	// states for Issuer.
 	stateNameProposalReceived = "proposal-received"
 	stateNameOfferSent        = "offer-sent"
 	stateNameRequestReceived  = "request-received"
 	stateNameCredentialIssued = "credential-issued"
 
-	// states for Holder
+	// states for Holder.
 	stateNameProposalSent       = "proposal-sent"
 	stateNameOfferReceived      = "offer-received"
 	stateNameRequestSent        = "request-sent"
@@ -39,7 +39,7 @@ const (
 	codeInternalError = "internal"
 )
 
-// state action for network call
+// state action for network call.
 type stateAction func(messenger service.Messenger) error
 
 // the protocol's state.
@@ -57,7 +57,7 @@ type state interface {
 // represents zero state's action.
 func zeroAction(service.Messenger) error { return nil }
 
-// noOp state
+// noOp state.
 type noOp struct{}
 
 func (s *noOp) Name() string {
@@ -76,7 +76,7 @@ func (s *noOp) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
-// start state
+// start state.
 type start struct{}
 
 func (s *start) Name() string {
@@ -85,10 +85,10 @@ func (s *start) Name() string {
 
 func (s *start) CanTransitionTo(st state) bool {
 	switch st.Name() {
-	// Issuer
+	// Issuer.
 	case stateNameProposalReceived, stateNameOfferSent, stateNameRequestReceived:
 		return true
-	// Holder
+	// Holder.
 	case stateNameProposalSent, stateNameOfferReceived, stateNameRequestSent:
 		return true
 	}
@@ -104,7 +104,7 @@ func (s *start) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// abandoning state
+// abandoning state.
 type abandoning struct {
 	Code string
 }
@@ -126,7 +126,7 @@ func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
 
 	code := model.Code{Code: s.Code}
 
-	// if the protocol was stopped by the user we will set the rejected error code
+	// if the protocol was stopped by the user we will set the rejected error code.
 	if errors.As(md.err, &customError{}) {
 		code = model.Code{Code: codeRejectedError}
 	}
@@ -148,7 +148,7 @@ func (s *abandoning) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// done state
+// done state.
 type done struct{}
 
 func (s *done) Name() string {
@@ -167,7 +167,7 @@ func (s *done) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposalReceived the Issuer's state
+// proposalReceived the Issuer's state.
 type proposalReceived struct{}
 
 func (s *proposalReceived) Name() string {
@@ -186,7 +186,7 @@ func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// offerSent the Issuer's state
+// offerSent the Issuer's state.
 type offerSent struct{}
 
 func (s *offerSent) Name() string {
@@ -204,9 +204,9 @@ func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
 		return nil, nil, errors.New("offer credential was not provided")
 	}
 
-	// creates the state's action
+	// creates the state's action.
 	action := func(messenger service.Messenger) error {
-		// sets message type
+		// sets message type.
 		md.offerCredential.Type = OfferCredentialMsgType
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.offerCredential))
 	}
@@ -215,7 +215,7 @@ func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
 }
 
 func (s *offerSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
-	// creates the state's action
+	// creates the state's action.
 	action := func(messenger service.Messenger) error {
 		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
 	}
@@ -223,7 +223,7 @@ func (s *offerSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
 	return &noOp{}, action, nil
 }
 
-// requestReceived the Issuer's state
+// requestReceived the Issuer's state.
 type requestReceived struct{}
 
 func (s *requestReceived) Name() string {
@@ -253,7 +253,7 @@ func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, erro
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// credentialIssued the Issuer's state
+// credentialIssued the Issuer's state.
 type credentialIssued struct{}
 
 func (s *credentialIssued) Name() string {
@@ -272,7 +272,7 @@ func (s *credentialIssued) ExecuteOutbound(_ *metaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposalSent the Holder's state
+// proposalSent the Holder's state.
 type proposalSent struct{}
 
 func (s *proposalSent) Name() string {
@@ -307,7 +307,7 @@ func (s *proposalSent) ExecuteOutbound(md *metaData) (state, stateAction, error)
 	return &noOp{}, action, nil
 }
 
-// offerReceived the Holder's state
+// offerReceived the Holder's state.
 type offerReceived struct{}
 
 func (s *offerReceived) Name() string {
@@ -346,7 +346,7 @@ func (s *offerReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error)
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// requestSent the Holder's state
+// requestSent the Holder's state.
 type requestSent struct{}
 
 func (s *requestSent) Name() string {
@@ -370,7 +370,7 @@ func (s *requestSent) ExecuteOutbound(md *metaData) (state, stateAction, error) 
 	return &noOp{}, action, nil
 }
 
-// credentialReceived state
+// credentialReceived state.
 type credentialReceived struct{}
 
 func (s *credentialReceived) Name() string {

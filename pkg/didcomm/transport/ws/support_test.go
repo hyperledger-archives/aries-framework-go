@@ -138,7 +138,7 @@ func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// mockPackager mock packager
+// mockPackager mock packager.
 type mockPackager struct {
 	verKey string
 }

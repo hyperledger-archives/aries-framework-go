@@ -31,7 +31,7 @@ type (
 	Action introduce.Action
 )
 
-// Provider contains dependencies for the introduce protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the introduce protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }

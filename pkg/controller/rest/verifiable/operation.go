@@ -23,14 +23,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for the Verifiable protocol
+// constants for the Verifiable protocol.
 const (
-	// roots
+	// roots.
 	VerifiableOperationID      = "/verifiable"
 	verifiableCredentialPath   = VerifiableOperationID + "/credential"
 	verifiablePresentationPath = VerifiableOperationID + "/presentation"
 
-	// credential paths
+	// credential paths.
 	ValidateCredentialPath     = verifiableCredentialPath + "/validate"
 	SaveCredentialPath         = verifiableCredentialPath
 	GetCredentialPath          = verifiableCredentialPath + "/{id}"
@@ -39,7 +39,7 @@ const (
 	SignCredentialsPath        = VerifiableOperationID + "/signcredential"
 	RemoveCredentialByNamePath = verifiableCredentialPath + "/remove/name" + "/{name}"
 
-	// presentation paths
+	// presentation paths.
 	GeneratePresentationPath     = verifiablePresentationPath + "/generate"
 	GeneratePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
 	SavePresentationPath         = verifiablePresentationPath

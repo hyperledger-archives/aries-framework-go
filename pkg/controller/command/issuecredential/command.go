@@ -58,9 +58,9 @@ const (
 	ActionsErrorCode
 )
 
-// constants for issue credential commands
+// constants for issue credential commands.
 const (
-	// command name
+	// command name.
 	CommandName = "issuecredential"
 
 	Actions             = "Actions"
@@ -80,7 +80,7 @@ const (
 )
 
 const (
-	// error messages
+	// error messages.
 	errEmptyPIID              = "empty PIID"
 	errEmptyMyDID             = "empty MyDID"
 	errEmptyTheirDID          = "empty TheirDID"
@@ -88,7 +88,7 @@ const (
 	errEmptyIssueCredential   = "empty IssueCredential"
 	errEmptyProposeCredential = "empty ProposeCredential"
 	errEmptyRequestCredential = "empty RequestCredential"
-	// log constants
+	// log constants.
 	successString = "success"
 
 	_actions = "_actions"

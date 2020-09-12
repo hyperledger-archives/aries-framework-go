@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// messagingSDKSteps is steps for messaging using client SDK
+// messagingSDKSteps is steps for messaging using client SDK.
 type messagingSDKSteps struct {
 	bddContext *context.BDDContext
 }

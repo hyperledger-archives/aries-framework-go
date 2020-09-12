@@ -305,7 +305,7 @@ func createPackedMsgForForward(t *testing.T) []byte {
 	return msg
 }
 
-// mockProvider mock provider
+// mockProvider mock provider.
 type mockProvider struct {
 	packagerValue           commontransport.Packager
 	outboundTransportsValue []transport.OutboundTransport
@@ -338,7 +338,7 @@ func (p *mockProvider) KMS() kms.KeyManager {
 	return &mockkms.KeyManager{}
 }
 
-// mockOutboundTransport mock outbound transport
+// mockOutboundTransport mock outbound transport.
 type mockOutboundTransport struct {
 	expectedRequest string
 	acceptRecipient bool
@@ -364,7 +364,7 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 	return true
 }
 
-// mockPackager mock packager
+// mockPackager mock packager.
 type mockPackager struct {
 }
 

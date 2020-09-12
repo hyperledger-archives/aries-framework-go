@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// provider interface for outbound ctx
+// provider interface for outbound ctx.
 type provider interface {
 	Packager() commontransport.Packager
 	OutboundTransports() []transport.OutboundTransport

@@ -34,7 +34,7 @@ import (
 
 var logger = log.New("aries-framework/command/verifiable")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VC)
@@ -79,11 +79,11 @@ const (
 	RemovePresentationByNameErrorCode
 )
 
-// constants for the Verifiable protocol
+// constants for the Verifiable protocol.
 const (
 	CommandName = "verifiable"
 
-	// command methods
+	// command methods.
 	ValidateCredentialCommandMethod       = "ValidateCredential"
 	SaveCredentialCommandMethod           = "SaveCredential"
 	GetCredentialCommandMethod            = "GetCredential"
@@ -98,14 +98,14 @@ const (
 	RemoveCredentialByNameCommandMethod   = "RemoveCredentialByName"
 	RemovePresentationByNameCommandMethod = "RemovePresentationByName"
 
-	// error messages
+	// error messages.
 	errEmptyCredentialName   = "credential name is mandatory"
 	errEmptyPresentationName = "presentation name is mandatory"
 	errEmptyCredentialID     = "credential id is mandatory"
 	errEmptyPresentationID   = "presentation id is mandatory"
 	errEmptyDID              = "did is mandatory"
 
-	// log constants
+	// log constants.
 	vcID   = "vcID"
 	vcName = "vcName"
 	vpID   = "vpID"

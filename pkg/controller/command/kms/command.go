@@ -23,7 +23,7 @@ import (
 
 var logger = log.New("aries-framework/command/kms")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.KMS)
@@ -33,16 +33,16 @@ const (
 	ImportKeyError
 )
 
-// constants for KMS commands
+// constants for KMS commands.
 const (
-	// command name
+	// command name.
 	CommandName = "kms"
 
-	// command methods
+	// command methods.
 	CreateKeySetCommandMethod = "CreateKeySet"
 	ImportKeyCommandMethod    = "ImportKey"
 
-	// error messages
+	// error messages.
 	errEmptyKeyType = "key type is mandatory"
 	errEmptyKeyID   = "key id is mandatory"
 )

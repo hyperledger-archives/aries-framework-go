@@ -39,14 +39,14 @@ import (
 )
 
 const (
-	// api host flag
+	// api host flag.
 	agentHostFlagName      = "api-host"
 	agentHostEnvKey        = "ARIESD_API_HOST"
 	agentHostFlagShorthand = "a"
 	agentHostFlagUsage     = "Host Name:Port." +
 		" Alternatively, this can be set with the following environment variable: " + agentHostEnvKey
 
-	// api token flag
+	// api token flag.
 	agentTokenFlagName      = "api-token"
 	agentTokenEnvKey        = "ARIESD_API_TOKEN" // nolint:gosec
 	agentTokenFlagShorthand = "t"
@@ -80,7 +80,7 @@ const (
 	databaseTimeoutEnvKey  = "ARIESD_DATABASE_TIMEOUT"
 	databaseTimeoutDefault = "30"
 
-	// webhook url flag
+	// webhook url flag.
 	agentWebhookFlagName      = "webhook-url"
 	agentWebhookEnvKey        = "ARIESD_WEBHOOK_URL"
 	agentWebhookFlagShorthand = "w"
@@ -88,21 +88,21 @@ const (
 		" This flag can be repeated, allowing for multiple listeners." +
 		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentWebhookEnvKey
 
-	// default label flag
+	// default label flag.
 	agentDefaultLabelFlagName      = "agent-default-label"
 	agentDefaultLabelEnvKey        = "ARIESD_DEFAULT_LABEL"
 	agentDefaultLabelFlagShorthand = "l"
 	agentDefaultLabelFlagUsage     = "Default Label for this agent. Defaults to blank if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentDefaultLabelEnvKey
 
-	// log level
+	// log level.
 	agentLogLevelFlagName  = "log-level"
 	agentLogLevelEnvKey    = "ARIESD_LOG_LEVEL"
 	agentLogLevelFlagUsage = "Log level." +
 		" Possible values [INFO] [DEBUG] [ERROR] [WARNING] [CRITICAL] . Defaults to INFO if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentLogLevelEnvKey
 
-	// http resolver url flag
+	// http resolver url flag.
 	agentHTTPResolverFlagName      = "http-resolver-url"
 	agentHTTPResolverEnvKey        = "ARIESD_HTTP_RESOLVER"
 	agentHTTPResolverFlagShorthand = "r"
@@ -111,7 +111,7 @@ const (
 		" Alternatively, this can be set with the following environment variable (in CSV format): " +
 		agentHTTPResolverEnvKey
 
-	// outbound transport flag
+	// outbound transport flag.
 	agentOutboundTransportFlagName      = "outbound-transport"
 	agentOutboundTransportEnvKey        = "ARIESD_OUTBOUND_TRANSPORT"
 	agentOutboundTransportFlagShorthand = "o"
@@ -132,7 +132,7 @@ const (
 	agentTLSKeyFileFlagUsage     = "tls key file." +
 		" Alternatively, this can be set with the following environment variable: " + agentTLSKeyFileEnvKey
 
-	// inbound host url flag
+	// inbound host url flag.
 	agentInboundHostFlagName      = "inbound-host"
 	agentInboundHostEnvKey        = "ARIESD_INBOUND_HOST"
 	agentInboundHostFlagShorthand = "i"
@@ -141,7 +141,7 @@ const (
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
 
-	// inbound host external url flag
+	// inbound host external url flag.
 	agentInboundHostExternalFlagName      = "inbound-host-external"
 	agentInboundHostExternalEnvKey        = "ARIESD_INBOUND_HOST_EXTERNAL"
 	agentInboundHostExternalFlagShorthand = "e"
@@ -151,14 +151,14 @@ const (
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
 
-	// auto accept flag
+	// auto accept flag.
 	agentAutoAcceptFlagName  = "auto-accept"
 	agentAutoAcceptEnvKey    = "ARIESD_AUTO_ACCEPT"
 	agentAutoAcceptFlagUsage = "Auto accept requests." +
 		" Possible values [true] [false]. Defaults to false if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentAutoAcceptEnvKey
 
-	// transport return route option flag
+	// transport return route option flag.
 	agentTransportReturnRouteFlagName  = "transport-return-route"
 	agentTransportReturnRouteEnvKey    = "ARIESD_TRANSPORT_RETURN_ROUTE"
 	agentTransportReturnRouteFlagUsage = "Transport Return Route option." +

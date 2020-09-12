@@ -26,11 +26,11 @@ const (
 	credentialNameDataKeyPattern   = credentialNameKey + "%s"
 	presentationNameDataKeyPattern = presentationNameKey + "%s"
 
-	// limitPattern for the iterator
+	// limitPattern for the iterator.
 	limitPattern = "%s" + storage.EndKeySuffix
 )
 
-// Opt represents option function
+// Opt represents option function.
 type Opt func(o *options)
 
 type options struct {
@@ -107,7 +107,7 @@ func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credent
 
 	id = vc.ID
 	if id == "" {
-		// ID in VCs are not mandatory, use uuid to save in DB if id missing
+		// ID in VCs are not mandatory, use uuid to save in DB if id missing.
 		id = uuid.New().String()
 	}
 
@@ -159,7 +159,7 @@ func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Prese
 
 	id = vp.ID
 	if id == "" {
-		// ID in VPs are not mandatory, use uuid to save in DB
+		// ID in VPs are not mandatory, use uuid to save in DB.
 		id = uuid.New().String()
 	}
 

@@ -26,11 +26,11 @@ import (
 
 var logger = log.New("aries-framework/controller/did-exchange")
 
-// constants for endpoints of DIDExchange
+// constants for endpoints of DIDExchange.
 const (
 	CommandName = "didexchange"
 
-	// error messages
+	// error messages.
 	errEmptyInviterDID = "empty inviter DID"
 	errEmptyConnID     = "empty connection ID"
 
@@ -44,7 +44,7 @@ const (
 	CreateConnectionCommandMethod         = "CreateConnection"
 	RemoveConnectionCommandMethod         = "RemoveConnection"
 
-	// log constants
+	// log constants.
 	connectionIDString = "connectionID"
 	successString      = "success"
 	invitationIDString = "invitationID"
@@ -83,7 +83,7 @@ const (
 	_states  = "_states"
 )
 
-// provider contains dependencies for the DID Exchange command and is typically created by using aries.Context()
+// provider contains dependencies for the DID Exchange command and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager

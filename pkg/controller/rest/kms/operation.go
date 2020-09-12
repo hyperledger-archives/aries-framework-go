@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// constants for KMS operations
+// constants for KMS operations.
 const (
 	KmsOperationID   = "/kms"
 	CreateKeySetPath = KmsOperationID + "/keyset"

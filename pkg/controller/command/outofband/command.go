@@ -42,9 +42,9 @@ const (
 	ActionContinueErrorCode
 )
 
-// constants for out-of-band
+// constants for out-of-band.
 const (
-	// command name
+	// command name.
 	CommandName      = "outofband"
 	CreateRequest    = "CreateRequest"
 	CreateInvitation = "CreateInvitation"
@@ -54,12 +54,12 @@ const (
 	Actions          = "Actions"
 	ActionContinue   = "ActionContinue"
 
-	// error messages
+	// error messages.
 	errOneAttachmentMustBeProvided = "at least one attachment must be provided"
 	errEmptyRequest                = "request was not provided"
 	errEmptyMyLabel                = "my_label was not provided"
 	errEmptyPIID                   = "piid was not provided"
-	// log constants
+	// log constants.
 	successString = "success"
 
 	_actions = "_actions"

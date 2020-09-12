@@ -388,7 +388,7 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 	})
 }
 
-// mockProvider for connection recorder
+// mockProvider for connection recorder.
 type mockProvider struct {
 	protocolStateStoreError error
 	storeError              error

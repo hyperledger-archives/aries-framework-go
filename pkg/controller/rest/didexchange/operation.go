@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for endpoints of DIDExchange
+// constants for endpoints of DIDExchange.
 const (
 	OperationID                  = "/connections"
 	CreateInvitationPath         = OperationID + "/create-invitation"
@@ -37,7 +37,7 @@ const (
 	RemoveConnection             = OperationID + "/{id}/remove"
 )
 
-// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager

@@ -99,7 +99,7 @@ type Action struct {
 	TheirDID     string
 }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 }

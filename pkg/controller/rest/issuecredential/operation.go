@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for issue credential endpoints
+// constants for issue credential endpoints.
 const (
 	OperationID         = "/issuecredential"
 	Actions             = OperationID + "/actions"

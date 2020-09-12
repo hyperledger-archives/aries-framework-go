@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
-// payload represents a transport message structure
+// payload represents a transport message structure.
 type payload struct {
 	msg      []byte
 	myDID    string

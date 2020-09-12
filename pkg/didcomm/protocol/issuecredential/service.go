@@ -53,16 +53,16 @@ var (
 	errProtocolStopped = errors.New("protocol was stopped")
 )
 
-// customError is a wrapper to determine custom error against internal error
+// customError is a wrapper to determine custom error against internal error.
 type customError struct{ error }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 	StateName string
 }
 
-// metaData type to store data for internal usage
+// metaData type to store data for internal usage.
 type metaData struct {
 	transitionalPayload
 	state           state
@@ -71,13 +71,13 @@ type metaData struct {
 	properties      map[string]interface{}
 	credentialNames []string
 	// keeps offer credential payload,
-	// allows filling the message by providing an option function
+	// allows filling the message by providing an option function.
 	offerCredential   *OfferCredential
 	proposeCredential *ProposeCredential
 	issueCredential   *IssueCredential
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
-	// in that case `err` is equal to `err` which was passing to Stop function
+	// in that case `err` is equal to `err` which was passing to Stop function.
 	err error
 }
 
@@ -153,7 +153,7 @@ func WithFriendlyNames(names ...string) Opt {
 	}
 }
 
-// Provider contains dependencies for the protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider

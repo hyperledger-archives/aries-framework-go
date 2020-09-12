@@ -52,7 +52,7 @@ const (
 	AcceptProblemReportErrorCode
 )
 
-// constants for command introduce
+// constants for command introduce.
 const (
 	maxRecipients = 2
 
@@ -69,7 +69,7 @@ const (
 	DeclineProposal                   = "DeclineProposal"
 	DeclineRequest                    = "DeclineRequest"
 	AcceptProblemReport               = "AcceptProblemReport"
-	// error messages
+	// error messages.
 	errTwoRecipients          = "two recipients must be specified"
 	errEmptyRequest           = "empty request"
 	errEmptyRecipient         = "empty recipient"
@@ -78,7 +78,7 @@ const (
 	errEmptyPleaseIntroduceTo = "empty please_introduce_to"
 	errEmptyPIID              = "empty piid"
 	errEmptyTo                = "empty to"
-	// log constants
+	// log constants.
 	successString = "success"
 
 	_actions = "_actions"

@@ -27,15 +27,15 @@ import (
 
 var logger = log.New("aries-framework/controller/common")
 
-// constants for the Messaging controller
+// constants for the Messaging controller.
 const (
-	// command name
+	// command name.
 	CommandName = "messaging"
 
-	// states
+	// states.
 	stateNameCompleted = "completed"
 
-	// error messages
+	// error messages.
 	errMsgSvcNameRequired               = "service name is required"
 	errMsgInvalidAcceptanceCrit         = "invalid acceptance criteria"
 	errMsgBodyEmpty                     = "empty message body"
@@ -45,7 +45,7 @@ const (
 	errMsgConnectionMatchingDIDNotFound = "unable to find connection matching DID"
 	errMsgIDEmpty                       = "empty message ID"
 
-	// command methods
+	// command methods.
 	RegisteredServicesCommandMethod         = "Services"
 	RegisterMessageServiceCommandMethod     = "RegisterService"
 	UnregisterMessageServiceCommandMethod   = "UnregisterService"
@@ -53,7 +53,7 @@ const (
 	SendNewMessageCommandMethod             = "Send"
 	SendReplyMessageCommandMethod           = "Reply"
 
-	// log constants
+	// log constants.
 	connectionIDString = "connectionID"
 	destinationString  = "destination"
 	destinationDID     = "destinationDID"
@@ -61,7 +61,7 @@ const (
 	successString      = "success"
 )
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.Messaging)
@@ -83,7 +83,7 @@ const (
 var errConnForDIDNotFound = fmt.Errorf(errMsgConnectionMatchingDIDNotFound)
 
 // provider contains dependencies for the messaging controller command operations
-// and is typically created by using aries.Context()
+// and is typically created by using aries.Context().
 type provider interface {
 	VDRIRegistry() vdri.Registry
 	Messenger() service.Messenger

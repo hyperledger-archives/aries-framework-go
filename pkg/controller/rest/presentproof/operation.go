@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for PresentProof operations
+// constants for PresentProof operations.
 const (
 	OperationID                  = "/presentproof"
 	Actions                      = OperationID + "/actions"

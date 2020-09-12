@@ -420,7 +420,7 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 	return &mockProvider{storagePvdr, nil, &noop.NoLock{}, nil, nil, nil}
 }
 
-// mockProvider mocks provider for KMS
+// mockProvider mocks provider for KMS.
 type mockProvider struct {
 	storage       *mockstorage.MockStoreProvider
 	kms           kms.KeyManager

@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for the mediator operations
+// constants for the mediator operations.
 const (
 	RouteOperationID  = "/mediator"
 	RegisterPath      = RouteOperationID + "/register"

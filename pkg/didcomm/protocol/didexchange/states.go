@@ -55,7 +55,7 @@ const (
 
 var errVerKeyNotFound = errors.New("verkey not found")
 
-// state action for network call
+// state action for network call.
 type stateAction func() error
 
 // The did-exchange protocol's state.
@@ -126,7 +126,7 @@ func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*c
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
 
-// null state
+// null state.
 type null struct {
 }
 
@@ -143,7 +143,7 @@ func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (
 	return &connectionstore.Record{}, &noOp{}, nil, nil
 }
 
-// invited state
+// invited state.
 type invited struct {
 }
 
@@ -164,7 +164,7 @@ func (s *invited) ExecuteInbound(msg *stateMachineMsg, _ string, _ *context) (*c
 	return msg.connRecord, &requested{}, func() error { return nil }, nil
 }
 
-// requested state
+// requested state.
 type requested struct {
 }
 
@@ -207,7 +207,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// responded state
+// responded state.
 type responded struct {
 }
 
@@ -243,7 +243,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// completed state
+// completed state.
 type completed struct {
 }
 
@@ -280,7 +280,7 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// abandoned state
+// abandoned state.
 type abandoned struct {
 }
 

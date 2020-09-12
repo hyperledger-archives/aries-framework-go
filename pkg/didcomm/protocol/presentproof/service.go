@@ -148,7 +148,7 @@ func WithFriendlyNames(names ...string) Opt {
 	}
 }
 
-// Provider contains dependencies for the protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider

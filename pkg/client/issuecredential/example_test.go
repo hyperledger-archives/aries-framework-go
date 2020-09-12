@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
-// payload represents a transport message structure
+// payload represents a transport message structure.
 type payload struct {
 	msg      []byte
 	myDID    string
@@ -114,7 +114,7 @@ func ExampleClient_SendOffer() {
 		panic(err)
 	}
 
-	// Alice registers channel for actions
+	// Alice registers channel for actions.
 	actionsAlice := make(chan service.DIDCommAction)
 
 	err = clientAlice.RegisterActionEvent(actionsAlice)
@@ -122,13 +122,13 @@ func ExampleClient_SendOffer() {
 		panic(err)
 	}
 
-	// Bob creates client
+	// Bob creates client.
 	clientBob, err := New(mockContext(Bob, transport))
 	if err != nil {
 		panic(err)
 	}
 
-	// Bob registers channel for actions
+	// Bob registers channel for actions.
 	actionsBob := make(chan service.DIDCommAction)
 
 	err = clientBob.RegisterActionEvent(actionsBob)
@@ -153,9 +153,9 @@ func ExampleClient_SendOffer() {
 		}
 	}()
 
-	// Alice
+	// Alice.
 	waitForAlice := waitForFn(clientAlice)
-	// Bob
+	// Bob.
 	waitForBob := waitForFn(clientBob)
 
 	_, err = clientAlice.SendOffer(&OfferCredential{}, Alice, Bob)
@@ -180,13 +180,13 @@ func ExampleClient_SendProposal() {
 		Bob:   make(chan payload),
 	}
 
-	// Alice creates client
+	// Alice creates client.
 	clientAlice, err := New(mockContext(Alice, transport))
 	if err != nil {
 		panic(err)
 	}
 
-	// Alice registers channel for actions
+	// Alice registers channel for actions.
 	actionsAlice := make(chan service.DIDCommAction)
 
 	err = clientAlice.RegisterActionEvent(actionsAlice)
@@ -194,13 +194,13 @@ func ExampleClient_SendProposal() {
 		panic(err)
 	}
 
-	// Bob creates client
+	// Bob creates client.
 	clientBob, err := New(mockContext(Bob, transport))
 	if err != nil {
 		panic(err)
 	}
 
-	// Bob registers channel for actions
+	// Bob registers channel for actions.
 	actionsBob := make(chan service.DIDCommAction)
 
 	err = clientBob.RegisterActionEvent(actionsBob)
@@ -246,9 +246,9 @@ func ExampleClient_SendProposal() {
 		}
 	}()
 
-	// Alice
+	// Alice.
 	waitForAlice := waitForFn(clientAlice)
-	// Bob
+	// Bob.
 	waitForBob := waitForFn(clientBob)
 
 	_, err = clientBob.SendProposal(&ProposeCredential{}, Bob, Alice)
@@ -273,13 +273,13 @@ func ExampleClient_SendRequest() {
 		Bob:   make(chan payload),
 	}
 
-	// Alice creates client
+	// Alice creates client.
 	clientAlice, err := New(mockContext(Alice, transport))
 	if err != nil {
 		panic(err)
 	}
 
-	// Alice registers channel for actions
+	// Alice registers channel for actions.
 	actionsAlice := make(chan service.DIDCommAction)
 
 	err = clientAlice.RegisterActionEvent(actionsAlice)
@@ -287,13 +287,13 @@ func ExampleClient_SendRequest() {
 		panic(err)
 	}
 
-	// Bob creates client
+	// Bob creates client.
 	clientBob, err := New(mockContext(Bob, transport))
 	if err != nil {
 		panic(err)
 	}
 
-	// Bob registers channel for actions
+	// Bob registers channel for actions.
 	actionsBob := make(chan service.DIDCommAction)
 
 	err = clientBob.RegisterActionEvent(actionsBob)
@@ -318,9 +318,9 @@ func ExampleClient_SendRequest() {
 		}
 	}()
 
-	// Alice
+	// Alice.
 	waitForAlice := waitForFn(clientAlice)
-	// Bob
+	// Bob.
 	waitForBob := waitForFn(clientBob)
 
 	_, err = clientBob.SendRequest(&RequestCredential{}, Bob, Alice)
@@ -332,9 +332,9 @@ func ExampleClient_SendRequest() {
 	waitForBob()
 
 	// Output:
-	// Alice received https://didcomm.org/issue-credential/2.0/request-credential from Bob
-	// Bob received https://didcomm.org/issue-credential/2.0/issue-credential from Alice
-	// Alice received https://didcomm.org/issue-credential/2.0/ack from Bob
+	// Alice received https://didcomm.org/issue-credential/2.0/request-credential from Bob.
+	// Bob received https://didcomm.org/issue-credential/2.0/issue-credential from Alice.
+	// Alice received https://didcomm.org/issue-credential/2.0/ack from Bob.
 }
 
 func waitForFn(c *Client) func() {

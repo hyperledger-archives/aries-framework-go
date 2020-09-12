@@ -30,23 +30,23 @@ import (
 )
 
 const (
-	// message service endpoints
+	// message service endpoints.
 	msgServiceOperationID = "/message"
 	registerMsgService    = msgServiceOperationID + "/register-service"
 	unregisterMsgService  = msgServiceOperationID + "/unregister-service"
 	msgServiceList        = msgServiceOperationID + "/services"
 	sendNewMsg            = msgServiceOperationID + "/send"
 	sendReplyMsg          = msgServiceOperationID + "/reply"
-	// query connections endpoint
+	// query connections endpoint.
 	queryConnections = "/connections"
-	// webhook checktopics
+	// webhook checktopics.
 	checkForTopics    = "/checktopics"
 	timeoutPullTopics = 5 * time.Second
 	// retry options to pull topics from webhook
-	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
+	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry.
 	pullTopicsWaitInMilliSec = 200
 	// pullTopicsAttemptsBeforeFail total number of retries where
-	// total time shouldn't exceed 5 seconds
+	// total time shouldn't exceed 5 seconds.
 	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 

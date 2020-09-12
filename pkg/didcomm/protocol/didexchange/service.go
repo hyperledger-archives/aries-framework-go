@@ -59,7 +59,7 @@ type message struct {
 	err error
 }
 
-// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider

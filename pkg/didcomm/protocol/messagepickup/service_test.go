@@ -983,7 +983,7 @@ func getService() (*Service, error) {
 	return svc, err
 }
 
-// mockProvider mock provider
+// mockProvider mock provider.
 type mockTransportProvider struct {
 	packagerValue commontransport.Packager
 }
@@ -1003,7 +1003,7 @@ func (p *mockTransportProvider) AriesFrameworkID() string {
 	return "aries-framework-instance-1"
 }
 
-// mockPackager mock packager
+// mockPackager mock packager.
 type mockPackager struct {
 }
 

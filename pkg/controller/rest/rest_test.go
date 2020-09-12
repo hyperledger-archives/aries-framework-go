@@ -124,7 +124,7 @@ func TestExecute(t *testing.T) {
 	require.Contains(t, rw.Body.String(), `{"code":1,"message":"sample"}`)
 }
 
-// mockRWriter to recreate response writer error scenario
+// mockRWriter to recreate response writer error scenario.
 type mockRWriter struct {
 }
 

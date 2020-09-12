@@ -36,12 +36,12 @@ type Format struct {
 
 // OfferCredential is a message sent by the Issuer to the potential Holder,
 // describing the credential they intend to offer and possibly the price they expect to be paid.
-// TODO: Need to add ~payment_request and ~timing.expires_time decorators [Issue #1297]
+// TODO: Need to add ~payment_request and ~timing.expires_time decorators [Issue #1297].
 type OfferCredential struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
-	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300].
 	Comment string `json:"comment,omitempty"`
 	// CredentialPreview is a JSON-LD object that represents the credential data that Issuer is willing to issue.
 	CredentialPreview PreviewCredential `json:"credential_preview,omitempty"`
@@ -58,12 +58,12 @@ type OfferCredential struct {
 // a preceding Offer Credential message (e.g., there is no cost to issuance
 // that the Issuer needs to explain in advance, and there is no need for cryptographic negotiation),
 // this message initiates the protocol.
-// TODO: Need to add ~payment-receipt decorator [Issue #1298]
+// TODO: Need to add ~payment-receipt decorator [Issue #1298].
 type RequestCredential struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
-	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300].
 	Comment string `json:"comment,omitempty"`
 	// Formats contains an entry for each requests~attach array entry, providing the the value
 	// of the attachment @id and the verifiable credential format and version of the attachment.
@@ -74,12 +74,12 @@ type RequestCredential struct {
 
 // IssueCredential contains as attached payload the credentials being issued and is
 // sent in response to a valid Request Credential message.
-// TODO: Need to add ~please-ack decorator [Issue #1299]
+// TODO: Need to add ~please-ack decorator [Issue #1299].
 type IssueCredential struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
-	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300].
 	Comment string `json:"comment,omitempty"`
 	// Formats contains an entry for each credentials~attach array entry, providing the the value
 	// of the attachment @id and the verifiable credential format and version of the attachment.

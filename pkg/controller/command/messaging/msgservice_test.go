@@ -234,7 +234,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 	})
 }
 
-// mockTopic mock topic from message service handler
+// mockTopic mock topic from message service handler.
 type mockTopic struct {
 	Message  service.DIDCommMsgMap `json:"message"`
 	MyDID    string                `json:"mydid"`

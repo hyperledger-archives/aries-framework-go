@@ -23,7 +23,7 @@ import (
 
 var logger = log.New("aries-framework/command/vdri")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VDRI)
@@ -38,27 +38,27 @@ const (
 	ResolveDIDErrorCode
 )
 
-// constants for the VDRI controller's methods
+// constants for the VDRI controller's methods.
 const (
-	// command name
+	// command name.
 	CommandName = "vdri"
 
-	// command methods
+	// command methods.
 	SaveDIDCommandMethod    = "SaveDID"
 	GetDIDsCommandMethod    = "GetDIDRecords"
 	GetDIDCommandMethod     = "GetDID"
 	ResolveDIDCommandMethod = "ResolveDID"
 
-	// error messages
+	// error messages.
 	errEmptyDIDName = "name is mandatory"
 	errEmptyDIDID   = "did is mandatory"
 
-	// log constants
+	// log constants.
 	didID = "did"
 )
 
 // provider contains dependencies for the vdri controller command operations
-// and is typically created by using aries.Context()
+// and is typically created by using aries.Context().
 type provider interface {
 	VDRIRegistry() vdriapi.Registry
 	StorageProvider() storage.Provider

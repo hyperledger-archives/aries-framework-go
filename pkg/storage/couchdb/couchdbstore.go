@@ -18,7 +18,7 @@ import (
 	"strings"
 	"sync"
 
-	// The CouchDB driver
+	// The CouchDB driver.
 	_ "github.com/go-kivik/couchdb"
 	"github.com/go-kivik/kivik"
 
