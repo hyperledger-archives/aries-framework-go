@@ -54,8 +54,6 @@ func SendError(rw http.ResponseWriter, err command.Error) {
 	switch err.Type() {
 	case command.ValidationError:
 		status = http.StatusBadRequest
-	case command.ExecuteError:
-		status = http.StatusInternalServerError
 	default:
 		status = http.StatusInternalServerError
 	}
