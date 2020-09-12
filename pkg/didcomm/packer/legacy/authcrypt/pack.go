@@ -100,7 +100,7 @@ func (p *Packer) buildEnvelope(nonce, payload, cek []byte, header *protected) ([
 }
 
 func (p *Packer) buildRecipients(cek *[chacha.KeySize]byte, senderKey []byte, recPubKeys [][]byte) ([]recipient, error) { // nolint: lll
-	var encodedRecipients = make([]recipient, len(recPubKeys))
+	encodedRecipients := make([]recipient, len(recPubKeys))
 
 	for i, recKey := range recPubKeys {
 		rec, err := p.buildRecipient(cek, senderKey, recKey)
