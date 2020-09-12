@@ -359,12 +359,14 @@ func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, QueryConnectionsCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	results, err := c.client.QueryConnections(&request.QueryConnectionsParams)
 	if err != nil {
 		logutil.LogError(logger, CommandName, QueryConnectionsCommandMethod, err.Error())
+
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
@@ -384,11 +386,13 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, QueryConnectionByIDCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, QueryConnectionByIDCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -396,6 +400,7 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 	if err != nil {
 		logutil.LogError(logger, CommandName, QueryConnectionByIDCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
@@ -416,12 +421,14 @@ func (c *Command) CreateConnection(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	theirDID, err := did.ParseDocument(request.TheirDID.Contents)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -434,6 +441,7 @@ func (c *Command) CreateConnection(rw io.Writer, req io.Reader) command.Error {
 		didexchange.WithThreadID(request.ThreadID))
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateConnectionErrorCode, err)
 	}
 
@@ -454,11 +462,13 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, RemoveConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, RemoveConnectionCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -468,6 +478,7 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 	if err != nil {
 		logutil.LogError(logger, CommandName, RemoveConnectionCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(RemoveConnectionErrorCode, err)
 	}
 
