@@ -197,7 +197,7 @@ type acceptExchangeResult struct { // nolint: unused,deadcode
 // This is used for removing connection request
 //
 // swagger:parameters removeConnection
-type RemoveConnectionRequest struct { // nolint: unused,deadcode
+type RemoveConnectionRequest struct {
 	// The ID of the connection record to remove
 	//
 	// in: path
@@ -210,7 +210,7 @@ type RemoveConnectionRequest struct { // nolint: unused,deadcode
 // response of remove connection action
 //
 // swagger:response removeConnectionResponse
-type RemoveConnectionResponse struct { // nolint: unused,deadcode
+type RemoveConnectionResponse struct {
 	// in: body
 	Body struct{}
 }

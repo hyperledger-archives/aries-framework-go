@@ -107,15 +107,15 @@ func setUpProviders(t *testing.T) []Provider {
 	})
 
 	providers = append(providers, Provider{
-		Provider: leveldb.NewProvider(dbPath), Name: "LevelDB"},
-	)
+		Provider: leveldb.NewProvider(dbPath), Name: "LevelDB",
+	})
 
 	mysqlProvider, err := mysql.NewProvider(sqlStoreDBURL, mysql.WithDBPrefix("db_prefix"))
 	require.NoError(t, err)
 
 	providers = append(providers, Provider{
-		Provider: mysqlProvider, Name: "MySql with prefix"},
-	)
+		Provider: mysqlProvider, Name: "MySql with prefix",
+	})
 
 	return providers
 }

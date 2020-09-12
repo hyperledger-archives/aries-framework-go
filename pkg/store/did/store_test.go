@@ -10,12 +10,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strconv"
+	"testing"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
-
-	"testing"
-	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"

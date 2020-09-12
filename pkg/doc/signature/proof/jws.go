@@ -64,7 +64,7 @@ func GetJWTSignature(jwt string) ([]byte, error) {
 
 func getJWTHeader(jwt string) (string, error) {
 	jwtParts := strings.Split(jwt, ".")
-	if len(jwtParts) != jwtPartsNumber { // nolint:gomnd
+	if len(jwtParts) != jwtPartsNumber {
 		return "", errors.New("invalid JWT")
 	}
 

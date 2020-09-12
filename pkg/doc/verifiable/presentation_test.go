@@ -9,12 +9,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -53,7 +52,6 @@ const validPresentation = `
 }
 `
 
-// nolint:lll
 const validPresentationWithCustomFields = `
 {
   "@context": [

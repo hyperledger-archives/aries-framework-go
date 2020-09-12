@@ -300,7 +300,6 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx := getContext(t, &prov)
 		msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
 		require.NoError(t, err)
-		// nolint: govet
 		thid, err := msg.ThreadID()
 		require.NoError(t, err)
 		connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{

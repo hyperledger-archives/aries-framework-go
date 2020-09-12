@@ -943,7 +943,7 @@ func CreateCustomCredential(vcData []byte, producers []CustomCredentialProducer,
 	return vcBase, nil
 }
 
-//nolint: gocyclo,funlen
+//nolint: funlen
 func newCredential(raw *rawCredential) (*Credential, error) {
 	var schemas []TypedID
 

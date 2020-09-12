@@ -77,7 +77,8 @@ func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 	p := &Provider{
 		dbURL: dbPath,
 		db:    db,
-		dbs:   map[string]*sqlDBStore{}}
+		dbs:   map[string]*sqlDBStore{},
+	}
 
 	for _, opt := range opts {
 		opt(p)
@@ -137,7 +138,8 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	store := &sqlDBStore{
 		db:        newDBConn,
 		tableName: tableName,
-		dbName:    name}
+		dbName:    name,
+	}
 
 	p.dbs[name] = store
 
@@ -196,7 +198,6 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
 	}
 
-	//nolint: gosec
 	// create upsert query to insert the record, checking whether the key is already mapped to a value in the store.
 	createStmt := "INSERT INTO `" + s.tableName + "` VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
 	// executing the prepared insert statement
@@ -221,7 +222,7 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	}
 
 	var value []byte
-	//nolint: gosec
+
 	// select query to fetch the record by key
 	err = s.db.QueryRow("SELECT `value` FROM `"+s.tableName+"` "+
 		" WHERE `key` = ?", k).Scan(&value)
@@ -248,7 +249,6 @@ func (s *sqlDBStore) Delete(k string) error {
 		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
 	}
 
-	//nolint: gosec
 	// delete query to delete the record by key
 	_, err = s.db.Exec("DELETE FROM `"+s.tableName+"` WHERE `key`= ?", k)
 
@@ -276,7 +276,8 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
 	if err != nil {
 		return &sqlDBResultsIterator{
-			err: fmt.Errorf("failed to use db %s: %w", s.dbName, err)}
+			err: fmt.Errorf("failed to use db %s: %w", s.dbName, err),
+		}
 	}
 
 	//nolint:gosec
@@ -286,22 +287,21 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
 	if err != nil {
 		return &sqlDBResultsIterator{
-			err: fmt.Errorf("failed to query rows %w", err)}
-	}
-
-	defer func() {
-		err := resultRows.Close()
-		if err != nil {
-			fmt.Errorf("failed to close rows %w", err)
+			err: fmt.Errorf("failed to query rows %w", err),
 		}
-	}()
+	}
 
 	if err = resultRows.Err(); err != nil {
 		return &sqlDBResultsIterator{
-			err: fmt.Errorf("failed to get resulted rows %w", err)}
+			err: fmt.Errorf("failed to get resulted rows %w", err),
+		}
 	}
 
-	return &sqlDBResultsIterator{resultRows: resultRows}
+	defer resultRows.Close() //nolint:errcheck
+
+	return &sqlDBResultsIterator{
+		resultRows: resultRows,
+	}
 }
 
 func (i *sqlDBResultsIterator) Next() bool {

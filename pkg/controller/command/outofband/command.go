@@ -181,7 +181,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
+func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptRequestArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
@@ -214,7 +214,7 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
+func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptInvitationArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptInvitation, err.Error())

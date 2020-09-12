@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestMapECCurveToKeyType(t *testing.T) {

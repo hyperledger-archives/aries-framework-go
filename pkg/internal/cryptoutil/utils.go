@@ -144,7 +144,7 @@ func IsMessagingKeysValid(kpb *MessagingKeys) bool {
 
 // Derive25519KEK is a utility function that will derive an ephemeral
 // symmetric key (kek) using fromPrivKey and toPubKey.
-func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) { // nolint:lll
+func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
 	if fromPrivKey == nil || toPubKey == nil {
 		return nil, ErrInvalidKey
 	}

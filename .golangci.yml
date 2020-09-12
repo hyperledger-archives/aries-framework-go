@@ -79,6 +79,11 @@ linters-settings:
     allow-multiline-assign: true
     allow-case-traling-whitespace: true
     allow-cuddle-declarations: false
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: true
+    require-explanation: false
+    require-specific: false
 
 linters:
   enable-all: true
@@ -89,6 +94,8 @@ linters:
     - godot
     - goerr113 # TODO enable
     - exhaustive # TODO enable
+    - nlreturn # TODO enable
+    - noctx # TODO enable
 
 issues:
   exclude-use-default: false

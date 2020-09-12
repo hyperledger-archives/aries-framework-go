@@ -29,8 +29,10 @@ const (
 )
 
 // common errors.
-var errInvalidECDHESAESPrivateKey = errors.New("ecdhes_aes_private_key_manager: invalid key")
-var errInvalidECDHESAESPrivateKeyFormat = errors.New("ecdhes_aes_private_key_manager: invalid key format")
+var (
+	errInvalidECDHESAESPrivateKey       = errors.New("ecdhes_aes_private_key_manager: invalid key")
+	errInvalidECDHESAESPrivateKeyFormat = errors.New("ecdhes_aes_private_key_manager: invalid key format")
+)
 
 // ecdhesAESPrivateKeyManager is an implementation of PrivateKeyManager interface.
 // It generates new ECDHESPrivateKey (AES) keys and produces new instances of ECDHESAEADCompositeDecrypt subtle.

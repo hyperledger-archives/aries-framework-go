@@ -45,7 +45,7 @@ func AddRecipientsKeys(senderKH *keyset.Handle, recKeys []*composite.PublicKey) 
 // can be used to perform ECDH1PUDecrypt.Decrypt() calls using the recipient key and the added sender key.
 // recipientKH must contain a keyset of private keys. It will return an error if it points to a public key.
 func AddSenderKey(recipientKH *keyset.Handle, senderKey *composite.PublicKey) (*keyset.Handle, error) {
-	var fnName = "AddSenderKey"
+	fnName := "AddSenderKey"
 
 	senderKeyPb, err := convertPublicKeyToProto(senderKey)
 	if err != nil {

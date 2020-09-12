@@ -97,8 +97,10 @@ func TestDeriveKEK_Util(t *testing.T) {
 
 	// lowOrderPoint from golang.org/x/crypto/curve25519.
 	// https://github.com/golang/crypto/blob/f4817d981/curve25519/vectors_test.go#L10
-	lowOrderPoint := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	lowOrderPoint := []byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
 	chachaKey2 = new([chacha.KeySize]byte)
 	copy(chachaKey2[:], lowOrderPoint)
 	// test error from curve25519.X25519() call in Derive25519KEK()
@@ -109,16 +111,26 @@ func TestDeriveKEK_Util(t *testing.T) {
 func TestNonceGeneration(t *testing.T) {
 	t.Run("Verify nonce against libsodium generated data", func(t *testing.T) {
 		data := [][]string{
-			{"6Gy2UWZCvYcTnpNvQX6ZNhz8FEofrhVxLCEPrjNTTZui", "9mGybrrDfGPdnGXA4BXbzJXnbg2w27bZ1ok6whbJrhF9",
-				"EWqT43jjhcy4wJHamH2RFthdLAQhits8F"},
-			{"GJBA64X9GReJrUttG4xQ1dLm726Sn3XQE5hAQeiCZtBV", "kRU8Ef7NTmhijeqKyWzZaZmVAq5UhnpfMfzsBYgBGrV",
-				"Kr7Wi5EGyTVNQy44oeFcBJtJJ7dVvXEAL"},
-			{"CYx2Jtgti3Rc45ZCgHMWxSCVYgivwcy2PKcXDpadJz5M", "2gWhujzcfRtpeZhiXeXoARqzCzBESdKUG5DoAzLCzhSY",
-				"MZ53sJMYDDtA9JUTFSqmXmD7s7m6hVW2m"},
-			{"At8qPKFRTPzTBjvEUxWzQ3Sc7B3Ywk5G2tEmrzcMWo8C", "2GBiu2FEtSpxDJ4C8bdCUfTfsqW8eb39M985uB85NbC8",
-				"6UU5xChzZFsBHgzFMDga8jnLwSqcS46Ln"},
-			{"7rRY74rDVcjghFP9y8fR15xxmZaHBuZnFrYTXwnmwrnE", "CCs3kZHuXSM7mcH5yrXp5bCzMqDsBztqcHsRvgmJBN7D",
-				"MPEnkeoVe8X67yBK9k2AZdXHw4e2udx2X"},
+			{
+				"6Gy2UWZCvYcTnpNvQX6ZNhz8FEofrhVxLCEPrjNTTZui", "9mGybrrDfGPdnGXA4BXbzJXnbg2w27bZ1ok6whbJrhF9",
+				"EWqT43jjhcy4wJHamH2RFthdLAQhits8F",
+			},
+			{
+				"GJBA64X9GReJrUttG4xQ1dLm726Sn3XQE5hAQeiCZtBV", "kRU8Ef7NTmhijeqKyWzZaZmVAq5UhnpfMfzsBYgBGrV",
+				"Kr7Wi5EGyTVNQy44oeFcBJtJJ7dVvXEAL",
+			},
+			{
+				"CYx2Jtgti3Rc45ZCgHMWxSCVYgivwcy2PKcXDpadJz5M", "2gWhujzcfRtpeZhiXeXoARqzCzBESdKUG5DoAzLCzhSY",
+				"MZ53sJMYDDtA9JUTFSqmXmD7s7m6hVW2m",
+			},
+			{
+				"At8qPKFRTPzTBjvEUxWzQ3Sc7B3Ywk5G2tEmrzcMWo8C", "2GBiu2FEtSpxDJ4C8bdCUfTfsqW8eb39M985uB85NbC8",
+				"6UU5xChzZFsBHgzFMDga8jnLwSqcS46Ln",
+			},
+			{
+				"7rRY74rDVcjghFP9y8fR15xxmZaHBuZnFrYTXwnmwrnE", "CCs3kZHuXSM7mcH5yrXp5bCzMqDsBztqcHsRvgmJBN7D",
+				"MPEnkeoVe8X67yBK9k2AZdXHw4e2udx2X",
+			},
 		}
 
 		for _, datum := range data {

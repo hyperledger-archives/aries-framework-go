@@ -418,7 +418,6 @@ func stateFromName(name string) state {
 	}
 }
 
-// nolint: gocyclo
 func nextState(msg service.DIDCommMsgMap) (state, error) {
 	canReply := canReplyTo(msg)
 

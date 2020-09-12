@@ -30,8 +30,10 @@ var (
 
 var errNotOnlyOneRecipient = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization only supports JWE with exactly one single recipient")
+
 var errUnprotectedHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a shared unprotected header")
+
 var errPerRecipientHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a per-recipient unprotected header")
 

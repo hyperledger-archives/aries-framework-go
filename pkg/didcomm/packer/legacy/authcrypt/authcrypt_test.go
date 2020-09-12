@@ -425,10 +425,7 @@ func TestDecrypt(t *testing.T) {
 
 		recPacker := newWithKMS(recKMS)
 
-		var (
-			envOut *transport.Envelope
-		)
-
+		var envOut *transport.Envelope
 		envOut, err = recPacker.Unpack([]byte(env))
 		require.NoError(t, err)
 		require.ElementsMatch(t, []byte(msg), envOut.Message)

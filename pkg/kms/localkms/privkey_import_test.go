@@ -73,7 +73,7 @@ func TestImportKeySetInvalid(t *testing.T) {
 	storeProvider := storageGoMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Namespace).Return(store, nil).AnyTimes()
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName        string
 		kmsProvider   kms.Provider
 		ks            *tinkpb.Keyset

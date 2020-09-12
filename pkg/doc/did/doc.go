@@ -17,9 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/piprate/json-gold/ld"
-
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"

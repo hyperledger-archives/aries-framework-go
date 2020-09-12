@@ -30,7 +30,6 @@ type payload struct {
 	theirDID string
 }
 
-// nolint: gocyclo, gocognit
 func mockContext(agent string, tr map[string]chan payload) Provider {
 	ctrl := gomock.NewController(nil)
 
@@ -103,7 +102,6 @@ func mockContext(agent string, tr map[string]chan payload) Provider {
 	return mockProvider
 }
 
-// nolint: gocyclo
 func ExampleClient_SendOffer() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
@@ -269,7 +267,6 @@ func ExampleClient_SendProposal() {
 	// Alice received https://didcomm.org/issue-credential/2.0/ack from Bob
 }
 
-// nolint: gocyclo
 func ExampleClient_SendRequest() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),

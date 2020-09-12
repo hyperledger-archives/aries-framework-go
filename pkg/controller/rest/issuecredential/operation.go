@@ -139,7 +139,7 @@ func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 //        200: issueCredentialAcceptProposalResponse
-func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptProposal, rw, r)
 	}
@@ -206,7 +206,7 @@ func (c *Operation) DeclineOffer(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 //        200: issueCredentialNegotiateProposalResponse
-func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.NegotiateProposal, rw, r)
 	}
@@ -219,7 +219,7 @@ func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request)
 // Responses:
 //    default: genericError
 //        200: issueCredentialAcceptRequestResponse
-func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptRequest, rw, r)
 	}
@@ -246,7 +246,7 @@ func (c *Operation) DeclineRequest(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 //        200: issueCredentialAcceptCredentialResponse
-func (c *Operation) AcceptCredential(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptCredential(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptCredential, rw, r)
 	}

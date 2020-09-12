@@ -59,7 +59,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 
 	badRecipients := generateBadRecipients(t)
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName     string
 		version    uint32
 		curveType  commonpb.EllipticCurveType

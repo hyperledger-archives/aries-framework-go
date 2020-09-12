@@ -371,7 +371,6 @@ func (o *Command) sendToConnection(msg json.RawMessage, conn *connection.Record)
 	return nil
 }
 
-// nolint: funlen
 func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 	var dest *service.Destination
 

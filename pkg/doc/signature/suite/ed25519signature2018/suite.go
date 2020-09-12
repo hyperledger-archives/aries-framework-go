@@ -15,7 +15,6 @@ import (
 	"crypto/sha256"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 )
 

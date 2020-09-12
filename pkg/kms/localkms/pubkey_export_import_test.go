@@ -22,7 +22,7 @@ import (
 )
 
 func TestPubKeyExportAndRead(t *testing.T) {
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName      string
 		keyType     kms.KeyType
 		keyTemplate *tinkpb.KeyTemplate
