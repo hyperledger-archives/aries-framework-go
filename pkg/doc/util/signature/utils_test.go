@@ -4,11 +4,9 @@ import (
 	"crypto/elliptic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/btcsuite/btcd/btcec"
-
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMapECCurveToKeyType(t *testing.T) {
