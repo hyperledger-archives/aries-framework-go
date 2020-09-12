@@ -56,7 +56,7 @@ func websocketClient(t *testing.T, port string) (*websocket.Conn, func()) {
 	require.NoError(t, transportutil.VerifyListener("localhost"+port, time.Second))
 
 	u := url.URL{Scheme: "ws", Host: "localhost" + port, Path: ""}
-	c, resp, err := websocket.Dial(context.Background(), u.String(), nil) // nolint - bodyclose (library closes the body)
+	c, resp, err := websocket.Dial(context.Background(), u.String(), nil) // nolint: bodyclose (library closes the body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 

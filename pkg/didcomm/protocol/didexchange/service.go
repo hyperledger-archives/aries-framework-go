@@ -250,7 +250,7 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 	return next, nil
 }
 
-func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint funlen
+func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint: funlen
 	logger.Debugf("handling msg: %+v", msg)
 
 	next, err := stateFromName(msg.NextStateName)
