@@ -320,7 +320,8 @@ func convert(val reflect.Value) interface{} {
 		}
 
 		return val.Interface()
-	}
 
-	return val.Interface()
+	default:
+		return val.Interface()
+	}
 }

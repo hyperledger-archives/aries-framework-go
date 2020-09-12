@@ -126,8 +126,8 @@ func getCurve(kt kms.KeyType) elliptic.Curve {
 		return elliptic.P384()
 	case kms.ECDSAP521TypeIEEEP1363:
 		return elliptic.P521()
+	default:
+		// should never be called but added for linting
+		return elliptic.P256()
 	}
-
-	// should never be called but added for linting
-	return elliptic.P256()
 }

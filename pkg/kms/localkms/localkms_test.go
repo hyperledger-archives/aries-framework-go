@@ -513,6 +513,8 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
 				pubKey := elliptic.Marshal(tt.curve, privKey.X, privKey.Y)
 				require.EqualValues(t, pubKey, pubKeyBytes)
+			default:
+				// added for linter
 			}
 		})
 	}
