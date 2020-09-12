@@ -592,7 +592,7 @@ func TestGetCredentialByName(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err = cmd.GetCredentialByName(&b, bytes.NewBufferString(jsoStr))
@@ -1134,7 +1134,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - no id in the request", func(t *testing.T) {
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err := cmd.GeneratePresentationByID(&b, bytes.NewBufferString(jsoStr))
@@ -1518,7 +1518,7 @@ func TestGetVP(t *testing.T) {
 		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+		jsoStr := `{"id":"http://example.edu/presentations/1989"}`
 
 		var getRW bytes.Buffer
 		cmdErr := cmd.GetPresentation(&getRW, bytes.NewBufferString(jsoStr))
