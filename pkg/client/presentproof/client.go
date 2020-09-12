@@ -152,6 +152,7 @@ func (c *Client) AcceptProblemReport(piID string) error {
 // Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {
 	origin := presentproof.Presentation(*msg)
+
 	return presentproof.WithPresentation(&origin)
 }
 
@@ -159,6 +160,7 @@ func WithPresentation(msg *Presentation) presentproof.Opt {
 // Use this option to respond to RequestPresentation.
 func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 	origin := presentproof.ProposePresentation(*msg)
+
 	return presentproof.WithProposePresentation(&origin)
 }
 
