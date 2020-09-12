@@ -51,12 +51,37 @@ func WithDBPrefix(dbPrefix string) Option {
 	}
 }
 
+// PingCouchDB performs a readiness check on the CouchDB url.
+func PingCouchDB(url string) error {
+	if url == "" {
+		return errors.New(blankHostErrMsg)
+	}
+
+	client, err := kivik.New("couch", url)
+	if err != nil {
+		return err
+	}
+
+	exists, err := client.DBExists(context.Background(), couchDBUsersTable)
+	if err != nil {
+		return fmt.Errorf("failed to probe couchdb for '%s' DB at %s: %w", couchDBUsersTable, url, err)
+	}
+
+	if !exists {
+		return fmt.Errorf(
+			"'%s' DB does not yet exist - CouchDB might not be fully initialized", couchDBUsersTable)
+	}
+
+	return nil
+}
+
 // NewProvider instantiates Provider.
 // Certain stores like couchdb cannot accept key IDs with '_' prefix, to avoid getting errors with such values, key ID
 // need to be base58 encoded for these stores. In order to do so, the store must be wrapped using base58wrapper.
 func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
-	if hostURL == "" {
-		return nil, errors.New(blankHostErrMsg)
+	err := PingCouchDB(hostURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ping couchDB: %w", err)
 	}
 
 	client, err := kivik.New("couch", hostURL)
@@ -65,16 +90,6 @@ func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 	}
 
 	p := &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}
-
-	exists, err := client.DBExists(context.Background(), "_users")
-	if err != nil {
-		return nil, fmt.Errorf("failed to probe couchdb for '%s' DB at %s: %w", couchDBUsersTable, hostURL, err)
-	}
-
-	if !exists {
-		return nil, fmt.Errorf(
-			"couchDB '%s' DB does not yet exist - CouchDB might not be fully initialized", couchDBUsersTable)
-	}
 
 	for _, opt := range opts {
 		opt(p)
