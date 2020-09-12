@@ -25,15 +25,12 @@ import (
 	"golang.org/x/crypto/poly1305"
 )
 
-var (
-	// nolint:gochecknoglobals
-	keyTemplates = map[*tinkpb.KeyTemplate]int{
-		aead.ChaCha20Poly1305KeyTemplate():  32,
-		aead.XChaCha20Poly1305KeyTemplate(): 32,
-		aead.AES256GCMKeyTemplate():         32,
-		aead.AES128GCMKeyTemplate():         16,
-	}
-)
+var keyTemplates = map[*tinkpb.KeyTemplate]int{
+	aead.ChaCha20Poly1305KeyTemplate():  32,
+	aead.XChaCha20Poly1305KeyTemplate(): 32,
+	aead.AES256GCMKeyTemplate():         32,
+	aead.AES128GCMKeyTemplate():         16,
+}
 
 func TestCipherGetters(t *testing.T) {
 	for c, l := range keyTemplates {
@@ -57,7 +54,7 @@ func TestCipherGetters(t *testing.T) {
 }
 
 func TestUnsupportedKeyTemplates(t *testing.T) {
-	var uTemplates = []*tinkpb.KeyTemplate{
+	uTemplates := []*tinkpb.KeyTemplate{
 		signature.ECDSAP256KeyTemplate(),
 		mac.HMACSHA256Tag256KeyTemplate(),
 		{TypeUrl: "some url", Value: []byte{0}},

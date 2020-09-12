@@ -142,8 +142,10 @@ func (s *leveldbStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
-	return s.db.NewIterator(&util.Range{Start: []byte(start),
-		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~"))}, nil)
+	return s.db.NewIterator(&util.Range{
+		Start: []byte(start),
+		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~")),
+	}, nil)
 }
 
 // Delete will delete record with k key.
