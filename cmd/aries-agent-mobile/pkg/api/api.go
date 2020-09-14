@@ -38,4 +38,10 @@ type AriesController interface {
 
 	// GetKMSController returns an implementation of KMSController
 	GetKMSController() (KMSController, error)
+
+	// RegisterHandler registers handler for handling notifications
+	RegisterHandler(h Handler, topics string) string
+
+	// UnregisterHandler unregisters handler
+	UnregisterHandler(id string)
 }

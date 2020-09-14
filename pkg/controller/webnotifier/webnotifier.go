@@ -72,7 +72,8 @@ func appendError(errToAppendTo, err error) error {
 	return fmt.Errorf("%v;%v", errToAppendTo, err)
 }
 
-func prepareTopicMessage(topic string, message []byte) ([]byte, error) {
+// PrepareTopicMessage prepares topic message.
+func PrepareTopicMessage(topic string, message []byte) ([]byte, error) {
 	topicMsg := struct {
 		ID      string          `json:"id"`
 		Topic   string          `json:"topic"`

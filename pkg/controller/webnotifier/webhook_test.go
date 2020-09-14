@@ -138,7 +138,7 @@ func TestNotifyCorrectJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg, err := prepareTopicMessage("test-topic", getTestBasicMessageJSON())
+	msg, err := PrepareTopicMessage("test-topic", getTestBasicMessageJSON())
 	require.NoError(t, err)
 
 	err = notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), msg)

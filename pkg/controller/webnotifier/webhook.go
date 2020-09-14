@@ -36,7 +36,7 @@ func (n *HTTPNotifier) Notify(topic string, message []byte) error {
 		return fmt.Errorf(emptyMessageErrMsg)
 	}
 
-	topicMsg, err := prepareTopicMessage(topic, message)
+	topicMsg, err := PrepareTopicMessage(topic, message)
 	if err != nil {
 		return fmt.Errorf(failedToCreateErrMsg, err)
 	}

@@ -52,7 +52,7 @@ func (n *WSNotifier) Notify(topic string, message []byte) error {
 	copy(conns, n.conns)
 	n.connsLock.RUnlock()
 
-	topicMsg, err := prepareTopicMessage(topic, message)
+	topicMsg, err := PrepareTopicMessage(topic, message)
 	if err != nil {
 		return fmt.Errorf(failedToCreateErrMsg, err)
 	}
