@@ -63,7 +63,7 @@ func newDecryptPrimitiveSet(ps *primitiveset.PrimitiveSet) (*decryptPrimitiveSet
 }
 
 func (a *decryptPrimitiveSet) entries(ct []byte) map[string][]*primitiveset.Entry {
-	var cipherEntries = make(map[string][]*primitiveset.Entry)
+	cipherEntries := make(map[string][]*primitiveset.Entry)
 
 	prefixSize := cryptofmt.NonRawPrefixSize
 	if len(ct) > prefixSize {

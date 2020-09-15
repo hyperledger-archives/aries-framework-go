@@ -20,7 +20,7 @@ const (
 	didNameKey        = "didname_"
 	didNameKeyPattern = didNameKey + "%s"
 
-	// limitPattern for the iterator
+	// limitPattern for the iterator.
 	limitPattern = "%s" + storage.EndKeySuffix
 )
 

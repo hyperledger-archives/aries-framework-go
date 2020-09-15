@@ -9,12 +9,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -53,7 +52,6 @@ const validPresentation = `
 }
 `
 
-// nolint:lll
 const validPresentationWithCustomFields = `
 {
   "@context": [
@@ -110,7 +108,8 @@ func TestParsePresentation(t *testing.T) {
 		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}, vp.Context)
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+		}, vp.Context)
 
 		// check id
 		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
@@ -259,7 +258,8 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
 		raw.Context = []string{
 			"https://www.w3.org/2018/credentials/v2",
-			"https://www.w3.org/2018/credentials/examples/v1"}
+			"https://www.w3.org/2018/credentials/examples/v1",
+		}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(bytes)

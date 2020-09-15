@@ -26,7 +26,8 @@ var _ service.Event = (*Client)(nil)
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockMediatorSvc{}},
+			ServiceValue: &mockroute.MockMediatorSvc{},
+		},
 		)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
@@ -60,7 +61,8 @@ func TestRegister(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error { // nolint: lll
 				return nil
-			}}})
+			}},
+		})
 		require.NoError(t, err)
 
 		err = c.Register("conn1")
@@ -71,7 +73,8 @@ func TestRegister(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error { // nolint: lll
 				return errors.New("register error")
-			}}})
+			}},
+		})
 		require.NoError(t, err)
 
 		err = c.Register("conn1")

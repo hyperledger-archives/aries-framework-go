@@ -135,6 +135,7 @@ func (l *DefLog) getCallerInfo(level metadata.Level) string {
 
 		if strings.HasPrefix(fnName, DEFAULTLOGPREFIX) {
 			loggerFrameFound = true
+
 			continue
 		}
 

@@ -20,9 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
-var (
-	mockPIID = "f749b739-1f3d-4213-9c33-c3878cdb6e24" //nolint:gochecknoglobals
-)
+var mockPIID = "f749b739-1f3d-4213-9c33-c3878cdb6e24" //nolint:gochecknoglobals
 
 type mockHTTPClient struct {
 	data   string
@@ -84,8 +82,10 @@ func TestIntroduce_SendProposal(t *testing.T) {
 	t.Run("test it performs a send proposal request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
-		i.httpClient = &mockHTTPClient{data: mockPIID,
-			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposal}
+		i.httpClient = &mockHTTPClient{
+			data:   mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposal,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(`{
 	"recipients": [
@@ -117,8 +117,10 @@ func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
-		i.httpClient = &mockHTTPClient{data: mockPIID,
-			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposalWithOOBRequest}
+		i.httpClient = &mockHTTPClient{
+			data:   mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposalWithOOBRequest,
+		}
 
 		reqData := fmt.Sprintf(`{
 	"recipient": {
@@ -142,8 +144,10 @@ func TestIntroduce_SendRequest(t *testing.T) {
 	t.Run("test it performs a send request", func(t *testing.T) {
 		i := getIntroduceController(t)
 
-		i.httpClient = &mockHTTPClient{data: mockPIID,
-			method: http.MethodPost, url: mockAgentURL + opintroduce.SendRequest}
+		i.httpClient = &mockHTTPClient{
+			data:   mockPIID,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendRequest,
+		}
 
 		reqData := `{
 	"my_did": "did:mydid:123",

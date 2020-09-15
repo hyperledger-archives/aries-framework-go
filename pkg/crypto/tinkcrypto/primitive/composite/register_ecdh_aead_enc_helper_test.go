@@ -25,17 +25,18 @@ import (
 	"golang.org/x/crypto/poly1305"
 )
 
-var (
-	// nolint:gochecknoglobals
-	keyTemplates = map[*tinkpb.KeyTemplate]int{
+func newKeyTemplates() map[*tinkpb.KeyTemplate]int {
+	return map[*tinkpb.KeyTemplate]int{
 		aead.ChaCha20Poly1305KeyTemplate():  32,
 		aead.XChaCha20Poly1305KeyTemplate(): 32,
 		aead.AES256GCMKeyTemplate():         32,
 		aead.AES128GCMKeyTemplate():         16,
 	}
-)
+}
 
 func TestCipherGetters(t *testing.T) {
+	keyTemplates := newKeyTemplates()
+
 	for c, l := range keyTemplates {
 		rDem, err := NewRegisterCompositeAEADEncHelper(c)
 		require.NoError(t, err, "error generating a content encryption helper")
@@ -57,7 +58,7 @@ func TestCipherGetters(t *testing.T) {
 }
 
 func TestUnsupportedKeyTemplates(t *testing.T) {
-	var uTemplates = []*tinkpb.KeyTemplate{
+	uTemplates := []*tinkpb.KeyTemplate{
 		signature.ECDSAP256KeyTemplate(),
 		mac.HMACSHA256Tag256KeyTemplate(),
 		{TypeUrl: "some url", Value: []byte{0}},
@@ -72,6 +73,8 @@ func TestUnsupportedKeyTemplates(t *testing.T) {
 }
 
 func TestAead(t *testing.T) {
+	keyTemplates := newKeyTemplates()
+
 	for c := range keyTemplates {
 		pt := random.GetRandomBytes(20)
 		ad := random.GetRandomBytes(20)
@@ -159,6 +162,8 @@ func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
 
 	mAAD, e := json.Marshal(aad)
 	require.NoError(t, e)
+
+	keyTemplates := newKeyTemplates()
 
 	for c := range keyTemplates {
 		cEnc, err := NewRegisterCompositeAEADEncHelper(c)

@@ -434,7 +434,7 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers did exchange steps.
-func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)

@@ -118,6 +118,7 @@ func IsEnabledFor(module string, level Level) bool {
 //  logging level
 func ParseLevel(level string) (Level, error) {
 	l, err := metadata.ParseLevel(level)
+
 	return Level(l), err
 }
 

@@ -56,7 +56,7 @@ type resolveDIDReq struct { // nolint: unused,deadcode
 // This is used for returning query connection result for single record search
 //
 // swagger:response documentRes
-type documentRes struct { // nolint: unused,deadcode
+type documentRes struct {
 
 	// in: body
 	DID json.RawMessage `json:"did,omitempty"`

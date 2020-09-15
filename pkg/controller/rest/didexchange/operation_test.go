@@ -48,7 +48,8 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
-		}},
+		},
+	},
 		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -128,7 +129,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {
-	var jsonStr = []byte(`{
+	jsonStr := []byte(`{
 		"serviceEndpoint":"http://alice.agent.example.com:8081",
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
@@ -177,7 +178,7 @@ func TestOperation_QueryConnectionByID(t *testing.T) {
 
 func TestOperation_QueryConnectionByParams(t *testing.T) {
 	// perform receive invitation to insert record into store
-	var jsonStr = []byte(`{
+	jsonStr := []byte(`{
 		"serviceEndpoint":"http://alice.agent.example.com:8081",
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
@@ -231,7 +232,7 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 
 func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 	// Failure in service
-	var jsonStr = []byte(`{
+	jsonStr := []byte(`{
     	"@type": "https://didcomm.org/connections/1.0/invitation",
     	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
     	"serviceEndpoint": "http://ip10-0-46-4-blikjbs9psqg8vrg4p10-8020.direct.play-with-von.vonx.io",
@@ -514,7 +515,8 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 		KMSValue:                          &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 		ServiceEndpointValue:              "endpoint",
 		ProtocolStateStorageProviderValue: &mockstore.MockStoreProvider{Store: &protocolStateStore},
-		StorageProviderValue:              &mockstore.MockStoreProvider{Store: &store}},
+		StorageProviderValue:              &mockstore.MockStoreProvider{Store: &store},
+	},
 		webnotifier.NewHTTPNotifier(nil),
 		"", true,
 	)

@@ -59,7 +59,7 @@ type message struct {
 	err error
 }
 
-// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
@@ -250,7 +250,7 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 	return next, nil
 }
 
-func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint funlen
+func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint: funlen
 	logger.Debugf("handling msg: %+v", msg)
 
 	next, err := stateFromName(msg.NextStateName)
@@ -327,6 +327,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 
 		if haltExecution {
 			logger.Debugf("halted execution before state=%s", msg.NextStateName)
+
 			break
 		}
 	}
@@ -775,7 +776,8 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		ID:    uuid.New().String(),
 		Label: inviterLabel,
 		DID:   inviterDID,
-		Type:  InvitationMsgType}
+		Type:  InvitationMsgType,
+	}
 
 	msg, err := createDIDCommMsg(invitation)
 	if err != nil {

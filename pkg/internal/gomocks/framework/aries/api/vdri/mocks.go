@@ -5,36 +5,37 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	did "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	reflect "reflect"
 )
 
-// MockRegistry is a mock of Registry interface
+// MockRegistry is a mock of Registry interface.
 type MockRegistry struct {
 	ctrl     *gomock.Controller
 	recorder *MockRegistryMockRecorder
 }
 
-// MockRegistryMockRecorder is the mock recorder for MockRegistry
+// MockRegistryMockRecorder is the mock recorder for MockRegistry.
 type MockRegistryMockRecorder struct {
 	mock *MockRegistry
 }
 
-// NewMockRegistry creates a new mock instance
+// NewMockRegistry creates a new mock instance.
 func NewMockRegistry(ctrl *gomock.Controller) *MockRegistry {
 	mock := &MockRegistry{ctrl: ctrl}
 	mock.recorder = &MockRegistryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockRegistry) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -42,13 +43,13 @@ func (m *MockRegistry) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockRegistryMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockRegistry)(nil).Close))
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockRegistry) Create(arg0 string, arg1 ...vdri.DocOpts) (*did.Doc, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -61,14 +62,14 @@ func (m *MockRegistry) Create(arg0 string, arg1 ...vdri.DocOpts) (*did.Doc, erro
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockRegistryMockRecorder) Create(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRegistry)(nil).Create), varargs...)
 }
 
-// Resolve mocks base method
+// Resolve mocks base method.
 func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdri.ResolveOpts) (*did.Doc, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -81,14 +82,14 @@ func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdri.ResolveOpts) (*did.Doc,
 	return ret0, ret1
 }
 
-// Resolve indicates an expected call of Resolve
+// Resolve indicates an expected call of Resolve.
 func (mr *MockRegistryMockRecorder) Resolve(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockRegistry)(nil).Resolve), varargs...)
 }
 
-// Store mocks base method
+// Store mocks base method.
 func (m *MockRegistry) Store(arg0 *did.Doc) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0)
@@ -96,7 +97,7 @@ func (m *MockRegistry) Store(arg0 *did.Doc) error {
 	return ret0
 }
 
-// Store indicates an expected call of Store
+// Store indicates an expected call of Store.
 func (mr *MockRegistryMockRecorder) Store(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockRegistry)(nil).Store), arg0)

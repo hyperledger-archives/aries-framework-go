@@ -46,8 +46,10 @@ func TestOutOfBand_AcceptInvitation(t *testing.T) {
 		reqData := `{"invitation":{},"my_label":"label"}`
 		mockResponse := mockConnectionIDJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.AcceptInvitation}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + outofband.AcceptInvitation,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.AcceptInvitation(req)
@@ -65,8 +67,10 @@ func TestOutOfBand_AcceptRequest(t *testing.T) {
 		reqData := `{"request":{},"my_label":"label"}`
 		mockResponse := mockConnectionIDJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.AcceptRequest}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + outofband.AcceptRequest,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.AcceptRequest(req)
@@ -87,8 +91,10 @@ func TestOutOfBand_ActionContinue(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, outofband.ActionContinue, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.ActionContinue(req)
@@ -109,8 +115,10 @@ func TestOutOfBand_ActionStop(t *testing.T) {
 		mockURL, err := parseURL(mockAgentURL, outofband.ActionStop, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.ActionStop(req)
@@ -128,8 +136,10 @@ func TestOutOfBand_Actions(t *testing.T) {
 		reqData := `{"actions":[{"PIID":"ID1","Msg":null,"MyDID":"","TheirDID":""}]}`
 		mockResponse := mockConnectionIDJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockAgentURL + outofband.Actions}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockAgentURL + outofband.Actions,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Actions(req)
@@ -150,8 +160,10 @@ func TestOutOfBand_CreateInvitation(t *testing.T) {
 "goal-code":"goal_code","service":["s1"],"protocols":["s1"]}}
 `
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.CreateInvitation}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + outofband.CreateInvitation,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.CreateInvitation(req)
@@ -172,8 +184,10 @@ func TestOutOfBand_CreateRequest(t *testing.T) {
 "@type":"https://didcomm.org/oob-request/1.0/request","label":"label","goal":"goal","goal-code":"goal_code",
 "request~attach":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}],"service":["s1"]}}`
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.CreateRequest}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + outofband.CreateRequest,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.CreateRequest(req)

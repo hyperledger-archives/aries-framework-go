@@ -164,7 +164,7 @@ func (a *ControllerSteps) checkAgentIsRunningWithHTTPInbound(agentID, inboundHos
 
 func (a *ControllerSteps) healthCheck(endpoint string) error {
 	if strings.HasPrefix(endpoint, "http") {
-		resp, err := util.DefaultClient.Get(endpoint) //nolint: gosec
+		resp, err := util.DefaultClient.Get(endpoint)
 		if err != nil {
 			return err
 		}

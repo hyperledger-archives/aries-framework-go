@@ -29,7 +29,7 @@ const (
 	errMsg   = "test error"
 )
 
-// makes sure it satisfies the interface
+// makes sure it satisfies the interface.
 var _ service.MessengerHandler = (*Messenger)(nil)
 
 func TestNewMessenger(t *testing.T) {

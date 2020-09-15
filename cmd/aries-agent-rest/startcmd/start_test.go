@@ -265,8 +265,10 @@ func TestStartCmdWithBlankHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentHostFlagName, "", "--" + agentInboundHostFlagName, randomURL(),
-		"--" + databaseTypeFlagName, databaseTypeMemOption, "--" + agentWebhookFlagName, ""}
+	args := []string{
+		"--" + agentHostFlagName, "", "--" + agentInboundHostFlagName, randomURL(),
+		"--" + databaseTypeFlagName, databaseTypeMemOption, "--" + agentWebhookFlagName, "",
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -278,8 +280,10 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentInboundHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + agentWebhookFlagName, ""}
+	args := []string{
+		"--" + agentInboundHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + agentWebhookFlagName, "",
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -304,8 +308,10 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + agentWebhookFlagName, ""}
+	args := []string{
+		"--" + agentHostFlagName, randomURL(), "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + agentWebhookFlagName, "",
+	}
 
 	startCmd.SetArgs(args)
 

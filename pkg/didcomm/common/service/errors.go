@@ -16,7 +16,7 @@ const (
 	ErrNilMessage        = serviceError("message is nil")
 )
 
-// serviceError defines service error
+// serviceError defines service error.
 type serviceError string
 
 // Error satisfies build-in error interface.

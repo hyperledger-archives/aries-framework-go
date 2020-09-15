@@ -30,6 +30,7 @@ func TestComputeDIDError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, err.Error(), "the genesis version must include public keys and authentication")
 }
+
 func TestValidateDid(t *testing.T) {
 	peerDoc, err := peerDidDoc()
 	require.NoError(t, err)
@@ -37,6 +38,7 @@ func TestValidateDid(t *testing.T) {
 	err = validateDID(peerDoc)
 	require.NoError(t, err)
 }
+
 func TestValidateDIDError(t *testing.T) {
 	peerDoc := invalidPeerDIDDoc()
 	require.NotNil(t, peerDoc)
@@ -44,6 +46,7 @@ func TestValidateDIDError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "did doesnt follow matching regex")
 }
+
 func TestValidateErrorHashString(t *testing.T) {
 	peerDoc := &did.Doc{ID: "did:peer:1zQmVP6iorWky5rP9f6qxCyhRJ4tkEkvXWkbCpVXnbzFu4ay"}
 	err := validateDID(peerDoc)
@@ -129,8 +132,10 @@ func genesisDoc() *did.Doc {
 		Created:        &time.Time{},
 	}
 
-	return &did.Doc{Context: doc.Context, PublicKey: doc.PublicKey, Authentication: doc.Authentication,
-		Created: doc.Created}
+	return &did.Doc{
+		Context: doc.Context, PublicKey: doc.PublicKey, Authentication: doc.Authentication,
+		Created: doc.Created,
+	}
 }
 
 func peerDidDoc() (*did.Doc, error) {

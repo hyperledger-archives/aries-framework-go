@@ -19,7 +19,7 @@ import (
 )
 
 func TestECDHESKeyTemplateSuccess(t *testing.T) {
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName    string
 		curveType string
 		tmplFunc  func(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error)
@@ -126,7 +126,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 	badCurve := "BadCurve"
 	badKeyType := "BadKeyType"
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName     string
 		recPubKeys []*composite.PublicKey
 		curve      string

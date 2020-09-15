@@ -331,7 +331,8 @@ func TestFramework(t *testing.T) {
 		// with custom crypto
 		aries, err := New(WithCrypto(&mockcrypto.Crypto{
 			EncryptValue:      []byte("mockValue"),
-			EncryptNonceValue: []byte("mockNonce")}))
+			EncryptNonceValue: []byte("mockNonce"),
+		}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -349,7 +350,8 @@ func TestFramework(t *testing.T) {
 	t.Run("test crypto svc - with user provided crypto - Encrypt fail", func(t *testing.T) {
 		// with custom crypto
 		aries, err := New(WithCrypto(&mockcrypto.Crypto{
-			EncryptErr: fmt.Errorf("error encrypting from crypto")}))
+			EncryptErr: fmt.Errorf("error encrypting from crypto"),
+		}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -381,7 +383,8 @@ func TestFramework(t *testing.T) {
 	t.Run("test crypto svc - with user provided crypto - Sign fail", func(t *testing.T) {
 		// with custom crypto
 		aries, err := New(WithCrypto(&mockcrypto.Crypto{
-			SignErr: fmt.Errorf("error signing from crypto")}))
+			SignErr: fmt.Errorf("error signing from crypto"),
+		}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -494,7 +497,8 @@ func TestFramework(t *testing.T) {
 
 		// encrypt it
 		masterKeyEnc, err := masterLock.Encrypt("", &secretlock.EncryptRequest{
-			Plaintext: string(masterKeyContent)})
+			Plaintext: string(masterKeyContent),
+		})
 		require.NoError(t, err)
 		require.NotEmpty(t, masterKeyEnc)
 

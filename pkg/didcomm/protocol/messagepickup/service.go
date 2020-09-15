@@ -51,8 +51,10 @@ const (
 )
 
 // ErrConnectionNotFound connection not found error.
-var ErrConnectionNotFound = errors.New("connection not found")
-var logger = log.New("aries-framework/messagepickup")
+var (
+	ErrConnectionNotFound = errors.New("connection not found")
+	logger                = log.New("aries-framework/messagepickup")
+)
 
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
@@ -494,6 +496,7 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 			err := s.handle(msg)
 			if err != nil {
 				logger.Errorf("error handling batch message %s: %w", msg.ID, err)
+
 				continue
 			}
 			processed++

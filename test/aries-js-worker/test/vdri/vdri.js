@@ -48,6 +48,7 @@ describe("VDRI", function () {
                     }
 
                     resp = await agents[i].vdri.resolveDID({id: id})
+
                     break
                 } catch (e) {
                     if (!e.message.includes("DID does not exist")) {

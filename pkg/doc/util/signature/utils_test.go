@@ -4,9 +4,8 @@ import (
 	"crypto/elliptic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )

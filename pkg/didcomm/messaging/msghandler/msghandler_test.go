@@ -24,16 +24,18 @@ func TestRegistrar_Register(t *testing.T) {
 		testName string
 		svcs     []dispatcher.MessageService
 		err      string
-	}{{
-		testName: "empty msg services",
-	}, {
-		testName: "add multiple msg services on empty list- test success",
-		svcs: []dispatcher.MessageService{
-			generic.NewCustomMockMessageSvc("test1", "sample-name-01"),
-			generic.NewCustomMockMessageSvc("test2", "sample-name-02"),
-			generic.NewCustomMockMessageSvc("test3", "sample-name-03"),
+	}{
+		{
+			testName: "empty msg services",
 		},
-	},
+		{
+			testName: "add multiple msg services on empty list- test success",
+			svcs: []dispatcher.MessageService{
+				generic.NewCustomMockMessageSvc("test1", "sample-name-01"),
+				generic.NewCustomMockMessageSvc("test2", "sample-name-02"),
+				generic.NewCustomMockMessageSvc("test3", "sample-name-03"),
+			},
+		},
 		{
 			testName: "add multiple msg services on non empty list- test success",
 			svcs: []dispatcher.MessageService{
@@ -99,20 +101,22 @@ func TestRegistrar_Unregister(t *testing.T) {
 		unregister    []string
 		err           string
 		expectedCount int
-	}{{
-		testName:   "unregister on empty msg services",
-		unregister: []string{"sample-name-01"},
-		err:        fmt.Sprintf(errNeverRegistered, "sample-name-01"),
-	}, {
-		testName: "add multiple msg services on empty list- test success",
-		register: []dispatcher.MessageService{
-			generic.NewCustomMockMessageSvc("test1", "sample-name-01"),
-			generic.NewCustomMockMessageSvc("test2", "sample-name-02"),
-			generic.NewCustomMockMessageSvc("test3", "sample-name-03"),
+	}{
+		{
+			testName:   "unregister on empty msg services",
+			unregister: []string{"sample-name-01"},
+			err:        fmt.Sprintf(errNeverRegistered, "sample-name-01"),
 		},
-		unregister:    []string{"sample-name-01", "sample-name-02"},
-		expectedCount: 1,
-	},
+		{
+			testName: "add multiple msg services on empty list- test success",
+			register: []dispatcher.MessageService{
+				generic.NewCustomMockMessageSvc("test1", "sample-name-01"),
+				generic.NewCustomMockMessageSvc("test2", "sample-name-02"),
+				generic.NewCustomMockMessageSvc("test3", "sample-name-03"),
+			},
+			unregister:    []string{"sample-name-01", "sample-name-02"},
+			expectedCount: 1,
+		},
 		{
 			testName:   "unregister on empty msg services",
 			unregister: []string{"sample-name-01"},

@@ -99,7 +99,7 @@ type Action struct {
 	TheirDID     string
 }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 }
@@ -375,7 +375,6 @@ func (s *Service) AcceptInvitation(i *Invitation, myLabel string) (string, error
 		msg:     service.NewDIDCommMsgMap(i),
 		options: &userOptions{myLabel: myLabel},
 	})
-
 	if err != nil {
 		return "", fmt.Errorf("failed to accept invitation : %w", err)
 	}

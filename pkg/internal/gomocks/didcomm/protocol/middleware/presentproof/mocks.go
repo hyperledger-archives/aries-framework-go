@@ -5,38 +5,39 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	reflect "reflect"
 )
 
-// MockProvider is a mock of Provider interface
+// MockProvider is a mock of Provider interface.
 type MockProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderMockRecorder
 }
 
-// MockProviderMockRecorder is the mock recorder for MockProvider
+// MockProviderMockRecorder is the mock recorder for MockProvider.
 type MockProviderMockRecorder struct {
 	mock *MockProvider
 }
 
-// NewMockProvider creates a new mock instance
+// NewMockProvider creates a new mock instance.
 func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 	mock := &MockProvider{ctrl: ctrl}
 	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// VDRIRegistry mocks base method
+// VDRIRegistry mocks base method.
 func (m *MockProvider) VDRIRegistry() vdri.Registry {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VDRIRegistry")
@@ -44,13 +45,13 @@ func (m *MockProvider) VDRIRegistry() vdri.Registry {
 	return ret0
 }
 
-// VDRIRegistry indicates an expected call of VDRIRegistry
+// VDRIRegistry indicates an expected call of VDRIRegistry.
 func (mr *MockProviderMockRecorder) VDRIRegistry() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VDRIRegistry", reflect.TypeOf((*MockProvider)(nil).VDRIRegistry))
 }
 
-// VerifiableStore mocks base method
+// VerifiableStore mocks base method.
 func (m *MockProvider) VerifiableStore() verifiable.Store {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifiableStore")
@@ -58,36 +59,36 @@ func (m *MockProvider) VerifiableStore() verifiable.Store {
 	return ret0
 }
 
-// VerifiableStore indicates an expected call of VerifiableStore
+// VerifiableStore indicates an expected call of VerifiableStore.
 func (mr *MockProviderMockRecorder) VerifiableStore() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifiableStore", reflect.TypeOf((*MockProvider)(nil).VerifiableStore))
 }
 
-// MockMetadata is a mock of Metadata interface
+// MockMetadata is a mock of Metadata interface.
 type MockMetadata struct {
 	ctrl     *gomock.Controller
 	recorder *MockMetadataMockRecorder
 }
 
-// MockMetadataMockRecorder is the mock recorder for MockMetadata
+// MockMetadataMockRecorder is the mock recorder for MockMetadata.
 type MockMetadataMockRecorder struct {
 	mock *MockMetadata
 }
 
-// NewMockMetadata creates a new mock instance
+// NewMockMetadata creates a new mock instance.
 func NewMockMetadata(ctrl *gomock.Controller) *MockMetadata {
 	mock := &MockMetadata{ctrl: ctrl}
 	mock.recorder = &MockMetadataMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMetadata) EXPECT() *MockMetadataMockRecorder {
 	return m.recorder
 }
 
-// Message mocks base method
+// Message mocks base method.
 func (m *MockMetadata) Message() service.DIDCommMsg {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Message")
@@ -95,13 +96,13 @@ func (m *MockMetadata) Message() service.DIDCommMsg {
 	return ret0
 }
 
-// Message indicates an expected call of Message
+// Message indicates an expected call of Message.
 func (mr *MockMetadataMockRecorder) Message() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Message", reflect.TypeOf((*MockMetadata)(nil).Message))
 }
 
-// Presentation mocks base method
+// Presentation mocks base method.
 func (m *MockMetadata) Presentation() *presentproof.Presentation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Presentation")
@@ -109,13 +110,13 @@ func (m *MockMetadata) Presentation() *presentproof.Presentation {
 	return ret0
 }
 
-// Presentation indicates an expected call of Presentation
+// Presentation indicates an expected call of Presentation.
 func (mr *MockMetadataMockRecorder) Presentation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Presentation", reflect.TypeOf((*MockMetadata)(nil).Presentation))
 }
 
-// PresentationNames mocks base method
+// PresentationNames mocks base method.
 func (m *MockMetadata) PresentationNames() []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PresentationNames")
@@ -123,13 +124,13 @@ func (m *MockMetadata) PresentationNames() []string {
 	return ret0
 }
 
-// PresentationNames indicates an expected call of PresentationNames
+// PresentationNames indicates an expected call of PresentationNames.
 func (mr *MockMetadataMockRecorder) PresentationNames() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentationNames", reflect.TypeOf((*MockMetadata)(nil).PresentationNames))
 }
 
-// Properties mocks base method
+// Properties mocks base method.
 func (m *MockMetadata) Properties() map[string]interface{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Properties")
@@ -137,13 +138,13 @@ func (m *MockMetadata) Properties() map[string]interface{} {
 	return ret0
 }
 
-// Properties indicates an expected call of Properties
+// Properties indicates an expected call of Properties.
 func (mr *MockMetadataMockRecorder) Properties() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Properties", reflect.TypeOf((*MockMetadata)(nil).Properties))
 }
 
-// ProposePresentation mocks base method
+// ProposePresentation mocks base method.
 func (m *MockMetadata) ProposePresentation() *presentproof.ProposePresentation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProposePresentation")
@@ -151,13 +152,13 @@ func (m *MockMetadata) ProposePresentation() *presentproof.ProposePresentation {
 	return ret0
 }
 
-// ProposePresentation indicates an expected call of ProposePresentation
+// ProposePresentation indicates an expected call of ProposePresentation.
 func (mr *MockMetadataMockRecorder) ProposePresentation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposePresentation", reflect.TypeOf((*MockMetadata)(nil).ProposePresentation))
 }
 
-// RequestPresentation mocks base method
+// RequestPresentation mocks base method.
 func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RequestPresentation")
@@ -165,13 +166,13 @@ func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentation {
 	return ret0
 }
 
-// RequestPresentation indicates an expected call of RequestPresentation
+// RequestPresentation indicates an expected call of RequestPresentation.
 func (mr *MockMetadataMockRecorder) RequestPresentation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestPresentation", reflect.TypeOf((*MockMetadata)(nil).RequestPresentation))
 }
 
-// StateName mocks base method
+// StateName mocks base method.
 func (m *MockMetadata) StateName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateName")
@@ -179,7 +180,7 @@ func (m *MockMetadata) StateName() string {
 	return ret0
 }
 
-// StateName indicates an expected call of StateName
+// StateName indicates an expected call of StateName.
 func (mr *MockMetadataMockRecorder) StateName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateName", reflect.TypeOf((*MockMetadata)(nil).StateName))

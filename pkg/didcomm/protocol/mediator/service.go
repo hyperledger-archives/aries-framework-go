@@ -31,7 +31,7 @@ import (
 
 var logger = log.New("aries-framework/route/service")
 
-// constants for route coordination spec types
+// constants for route coordination spec types.
 const (
 	// Coordination route coordination protocol.
 	Coordination = "coordinatemediation"
@@ -55,24 +55,24 @@ const (
 // constants for key list update processing
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update
 const (
-	// add key to the store
+	// add key to the store.
 	add = "add"
 
-	// remove key from the store
+	// remove key from the store.
 	remove = "remove"
 
-	// server error while storing the key
+	// server error while storing the key.
 	serverError = "server_error"
 
-	// key save success
+	// key save success.
 	success = "success"
 )
 
 const (
-	// data key to store router connection ID
+	// data key to store router connection ID.
 	routeConnIDDataKey = "route-connID"
 
-	// data key to store router config
+	// data key to store router config.
 	routeConfigDataKey = "route-config"
 )
 
@@ -86,7 +86,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // ErrRouterNotRegistered router not registered error.
 var ErrRouterNotRegistered = errors.New("router not registered")
 
-// provider contains dependencies for the Routing protocol and is typically created by using aries.Context()
+// provider contains dependencies for the Routing protocol and is typically created by using aries.Context().
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
@@ -189,6 +189,7 @@ func (s *Service) listenForCallbacks() {
 
 		if c.err != nil {
 			go s.handleUserRejection(c)
+
 			continue
 		}
 

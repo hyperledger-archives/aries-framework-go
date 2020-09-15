@@ -102,11 +102,13 @@ func (s *SDKSteps) createVC(issuedAt, subject, issuer string) (*verifiable.Crede
 	vcToIssue := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 		ID: "http://example.edu/credentials/1872",
 		Types: []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"},
+			"UniversityDegreeCredential",
+		},
 		Subject: subject,
 		Issuer: verifiable.Issuer{
 			ID:           s.getPublicDID(issuer).ID,

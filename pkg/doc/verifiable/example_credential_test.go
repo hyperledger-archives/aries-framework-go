@@ -41,11 +41,13 @@ func ExampleCredential_embedding() {
 		Credential: &verifiable.Credential{
 			Context: []string{
 				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1"},
+				"https://www.w3.org/2018/credentials/examples/v1",
+			},
 			ID: "http://example.edu/credentials/1872",
 			Types: []string{
 				"VerifiableCredential",
-				"UniversityDegreeCredential"},
+				"UniversityDegreeCredential",
+			},
 			Subject: UniversityDegreeSubject{
 				ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				Name:   "Jayden Doe",
@@ -117,11 +119,13 @@ func ExampleCredential_extraFields() {
 	vc := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 		ID: "http://example.edu/credentials/1872",
 		Types: []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"},
+			"UniversityDegreeCredential",
+		},
 		Subject: UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",
@@ -194,11 +198,13 @@ func ExampleParseCredential() {
 	vcEncoded := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 		ID: "http://example.edu/credentials/1872",
 		Types: []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"},
+			"UniversityDegreeCredential",
+		},
 		Subject: UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",

@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for the VDRI operations
+// constants for the VDRI operations.
 const (
 	VdriOperationID   = "/vdri"
 	vdriDIDPath       = VdriOperationID + "/did"
@@ -32,7 +32,7 @@ const (
 )
 
 // provider contains dependencies for the common controller operations
-// and is typically created by using aries.Context()
+// and is typically created by using aries.Context().
 type provider interface {
 	VDRIRegistry() vdriapi.Registry
 	StorageProvider() storage.Provider

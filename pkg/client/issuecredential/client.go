@@ -40,7 +40,7 @@ type (
 	Action issuecredential.Action
 )
 
-// Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }
@@ -187,6 +187,7 @@ func (c *Client) AcceptProblemReport(piID string) error {
 // USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
 	origin := issuecredential.ProposeCredential(*msg)
+
 	return issuecredential.WithProposeCredential(&origin)
 }
 
@@ -194,6 +195,7 @@ func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
 // USAGE: This message should be provided after receiving a ProposeCredential message.
 func WithOfferCredential(msg *OfferCredential) issuecredential.Opt {
 	origin := issuecredential.OfferCredential(*msg)
+
 	return issuecredential.WithOfferCredential(&origin)
 }
 
@@ -201,6 +203,7 @@ func WithOfferCredential(msg *OfferCredential) issuecredential.Opt {
 // USAGE: This message should be provided after receiving a RequestCredential message.
 func WithIssueCredential(msg *IssueCredential) issuecredential.Opt {
 	origin := issuecredential.IssueCredential(*msg)
+
 	return issuecredential.WithIssueCredential(&origin)
 }
 

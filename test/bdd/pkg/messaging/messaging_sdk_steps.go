@@ -185,7 +185,7 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers messaging steps.
-func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	// generic message
 	s.Step(`^"([^"]*)" registers a message service with name "([^"]*)" for type "([^"]*)" and purpose "([^"]*)"$`,
 		d.registerGenericMsgService)

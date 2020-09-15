@@ -305,8 +305,10 @@ const noPublicKeyDoc = `{
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp"
 }`
 
-const invalidDID = "did:error:123"
-const jwsDID = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
+const (
+	invalidDID = "did:error:123"
+	jwsDID     = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
@@ -510,10 +512,8 @@ func TestGetVC(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
-
 		var b bytes.Buffer
-		err = cmd.GetCredential(&b, bytes.NewBufferString(jsoStr))
+		err = cmd.GetCredential(&b, bytes.NewBufferString("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential id is mandatory")
 	})
@@ -594,7 +594,7 @@ func TestGetCredentialByName(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err = cmd.GetCredentialByName(&b, bytes.NewBufferString(jsoStr))
@@ -1037,7 +1037,8 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018}}
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -1056,7 +1057,8 @@ func TestGeneratePresentation(t *testing.T) {
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
-			DID:                   "did:error:123"}
+			DID:                   "did:error:123",
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -1097,7 +1099,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 		presIDArgs := PresentationRequestByID{
 			ID:            "http://example.edu/credentials/1989",
 			DID:           "did:peer:21tDAKCERh95uGgKbJNHYp",
-			SignatureType: Ed25519Signature2018}
+			SignatureType: Ed25519Signature2018,
+		}
 		presReqBytes, e := json.Marshal(presIDArgs)
 		require.NoError(t, e)
 
@@ -1136,7 +1139,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - no id in the request", func(t *testing.T) {
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err := cmd.GeneratePresentationByID(&b, bytes.NewBufferString(jsoStr))
@@ -1520,7 +1523,7 @@ func TestGetVP(t *testing.T) {
 		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+		jsoStr := `{"id":"http://example.edu/presentations/1989"}`
 
 		var getRW bytes.Buffer
 		cmdErr := cmd.GetPresentation(&getRW, bytes.NewBufferString(jsoStr))
@@ -1555,7 +1558,7 @@ func TestGetVP(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{}`)
+		jsoStr := "{}"
 
 		var b bytes.Buffer
 		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
@@ -1574,7 +1577,7 @@ func TestGetVP(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+		jsoStr := `{"id":"http://example.edu/presentations/1989"}`
 
 		var b bytes.Buffer
 		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
@@ -2085,7 +2088,8 @@ func TestCommand_SignCredential(t *testing.T) {
 		presReq := SignCredentialRequest{
 			Credential:   []byte("{}"),
 			DID:          "did:peer:123456789abcdefghi#inbox",
-			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018}}
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
 		reqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -2099,7 +2103,8 @@ func TestCommand_SignCredential(t *testing.T) {
 	t.Run("test sign credential - failed to sign credential", func(t *testing.T) {
 		presReq := SignCredentialRequest{
 			Credential: []byte(vc),
-			DID:        "did:error:123"}
+			DID:        "did:error:123",
+		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 

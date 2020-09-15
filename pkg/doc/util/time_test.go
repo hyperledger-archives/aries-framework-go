@@ -15,7 +15,7 @@ import (
 )
 
 func TestTimeWithTrailingZeroMsec(t *testing.T) {
-	var timeTests = []struct {
+	timeTests := []struct {
 		in  string
 		out string
 	}{

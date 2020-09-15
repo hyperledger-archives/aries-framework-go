@@ -51,17 +51,17 @@ var (
 	errProtocolStopped = errors.New("protocol was stopped")
 )
 
-// customError is a wrapper to determine custom error against internal error
+// customError is a wrapper to determine custom error against internal error.
 type customError struct{ error }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 	StateName   string
 	AckRequired bool
 }
 
-// metaData type to store data for internal usage
+// metaData type to store data for internal usage.
 type metaData struct {
 	transitionalPayload
 	state               state
@@ -148,7 +148,7 @@ func WithFriendlyNames(names ...string) Opt {
 	}
 }
 
-// Provider contains dependencies for the protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
@@ -323,7 +323,7 @@ func isNoOp(s state) bool {
 }
 
 func (s *Service) handle(md *metaData) error {
-	var current = md.state
+	current := md.state
 
 	for !isNoOp(current) {
 		next, action, err := s.execute(current, md)
@@ -418,7 +418,6 @@ func stateFromName(name string) state {
 	}
 }
 
-// nolint: gocyclo
 func nextState(msg service.DIDCommMsgMap) (state, error) {
 	canReply := canReplyTo(msg)
 

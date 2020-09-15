@@ -88,7 +88,7 @@ func TestOperation_Register(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(connIDRequest)
+		jsonStr := []byte(connIDRequest)
 
 		handler := lookupHandler(t, svc, RegisterPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -115,7 +115,7 @@ func TestOperation_Register(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 		}`)
 
 		handler := lookupHandler(t, svc, RegisterPath)
@@ -162,7 +162,7 @@ func TestOperation_Unregister(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 		}`)
 
 		handler := lookupHandler(t, svc, UnregisterPath)
@@ -219,7 +219,7 @@ func TestOperation_Connection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 		}`)
 
 		handler := lookupHandler(t, svc, GetConnectionPath)
@@ -246,7 +246,7 @@ func TestOperation_Reconnect(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(connIDRequest)
+		jsonStr := []byte(connIDRequest)
 
 		handler := lookupHandler(t, svc, ReconnectPath)
 		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -266,7 +266,7 @@ func TestOperation_Reconnect(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 		}`)
 
 		handler := lookupHandler(t, svc, ReconnectPath)

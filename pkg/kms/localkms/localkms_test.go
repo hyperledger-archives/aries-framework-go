@@ -128,7 +128,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
-					ErrPut: putDataErr},
+					ErrPut: putDataErr,
+				},
 			},
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
@@ -398,7 +399,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 	_, _, err := kmsService.ImportPrivateKey(nil, kms.ECDSAP256TypeDER)
 	require.EqualError(t, err, "import private key does not support this key type or key is public")
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName  string
 		keyType kms.KeyType
 		curve   elliptic.Curve
@@ -555,7 +556,8 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(masterKeyContent)})
+		Plaintext: string(masterKeyContent),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, masterLockEnc)
 

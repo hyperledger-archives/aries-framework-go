@@ -111,7 +111,7 @@ func TestSaveDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = []byte(`{
+		jsonStr := []byte(`{
 			"name" : "sample"
 		}`)
 

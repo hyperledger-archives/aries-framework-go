@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
+	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 )
 
 const (
@@ -45,8 +44,10 @@ func TestVDRI_GetDID(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := mockDocument
-		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockURL}
+		vdriController.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := vdriController.GetDID(req)
@@ -64,8 +65,10 @@ func TestVDRI_GetDIDRecords(t *testing.T) {
 		reqData := emptyJSON
 
 		mockResponse := `{"result":[{"name":"sampleDIDName","id":"did:peer:21tDAKCERh95uGgKbJNHYp"}]}`
-		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockAgentURL + opvdri.GetDIDRecordsPath}
+		vdriController.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockAgentURL + opvdri.GetDIDRecordsPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := vdriController.GetDIDRecords(req)
@@ -85,8 +88,10 @@ func TestVDRI_ResolveDID(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := mockDocument
-		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockURL}
+		vdriController.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := vdriController.ResolveDID(req)
@@ -111,8 +116,10 @@ func TestVDRI_SaveDID(t *testing.T) {
 		require.NoError(t, err, "failed to parse test url")
 
 		mockResponse := emptyJSON
-		vdriController.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockURL}
+		vdriController.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := vdriController.SaveDID(req)

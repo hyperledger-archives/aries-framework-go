@@ -18,7 +18,8 @@ import (
 	"strings"
 	"sync"
 
-	_ "github.com/go-kivik/couchdb" // The CouchDB driver
+	// The CouchDB driver.
+	_ "github.com/go-kivik/couchdb"
 	"github.com/go-kivik/kivik"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -277,8 +278,10 @@ func (c *CouchDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 		"include_docs":  "true",
 	})
 	if err != nil {
-		return &couchDBResultsIterator{store: c, resultRows: &kivik.Rows{},
-			err: fmt.Errorf("failed to query docs: %w", err)}
+		return &couchDBResultsIterator{
+			store: c, resultRows: &kivik.Rows{},
+			err: fmt.Errorf("failed to query docs: %w", err),
+		}
 	}
 
 	return &couchDBResultsIterator{store: c, resultRows: resultRows}
@@ -329,9 +332,7 @@ func (i *couchDBResultsIterator) Key() []byte {
 func (i *couchDBResultsIterator) Value() []byte {
 	rawDoc := make(map[string]interface{})
 
-	err := i.resultRows.ScanDoc(&rawDoc)
-
-	if err != nil {
+	if err := i.resultRows.ScanDoc(&rawDoc); err != nil {
 		i.err = err
 		return nil
 	}

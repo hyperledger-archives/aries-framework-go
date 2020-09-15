@@ -21,14 +21,19 @@ const (
 	errCompactSerializationCommonText = "unable to compact serialize: "
 )
 
-var errWrongNumberOfCompactJWEParts = errors.New("invalid compact JWE: it must have five parts")
-var errEmptyCiphertext = errors.New("ciphertext cannot be empty")
-var errProtectedHeaderMissing = errors.New(errCompactSerializationCommonText +
-	"no protected header found")
+var (
+	errWrongNumberOfCompactJWEParts = errors.New("invalid compact JWE: it must have five parts")
+	errEmptyCiphertext              = errors.New("ciphertext cannot be empty")
+	errProtectedHeaderMissing       = errors.New(errCompactSerializationCommonText +
+		"no protected header found")
+)
+
 var errNotOnlyOneRecipient = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization only supports JWE with exactly one single recipient")
+
 var errUnprotectedHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a shared unprotected header")
+
 var errPerRecipientHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a per-recipient unprotected header")
 

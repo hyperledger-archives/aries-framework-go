@@ -55,7 +55,7 @@ func TestECDHESPrivateKeyManager_Primitive(t *testing.T) {
 	badSerializedFormat, err := proto.Marshal(format)
 	require.NoError(t, err)
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName    string
 		version   uint32
 		curveType commonpb.EllipticCurveType
@@ -209,7 +209,7 @@ func TestEcdhesPrivateKeyManager_NewKey(t *testing.T) {
 	badSerializedFormat, err := proto.Marshal(format)
 	require.NoError(t, err)
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName    string
 		curveType commonpb.EllipticCurveType
 		ecPtFmt   commonpb.EcPointFormat

@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/square/go-jose/v3"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -107,10 +106,14 @@ var errFailingMarshal = errors.New("i failed to marshal")
 func TestJSONWebEncryption_Serialize(t *testing.T) {
 	t.Run("Success cases", func(t *testing.T) {
 		t.Run("All fields filled, multiple recipients", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -148,10 +151,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEAllFields, serializedJWE)
 		})
 		t.Run("All fields filled, one recipient - serialized JWE uses flattened syntax", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 1)
 
 			recipients[0] = &Recipient{
@@ -179,8 +186,10 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEAllFieldsOneRecipient, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, protected header value is empty", func(t *testing.T) {
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -217,8 +226,10 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEProtectedFieldAbsent, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, unprotected header value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -255,10 +266,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEUnprotectedFieldAbsent, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, recipients value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 
 			jwe := JSONWebEncryption{
 				ProtectedHeaders:   protectedHeaders,
@@ -273,10 +288,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWERecipientsFieldAbsent, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, IV value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -314,10 +333,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEIVFieldAbsent, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, AAD value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -354,10 +377,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			require.Equal(t, exampleMockJWEAADFieldAbsent, serializedJWE)
 		})
 		t.Run("Successfully serialize JWE, tag value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 			recipients := make([]*Recipient, 2)
 
 			recipients[0] = &Recipient{
@@ -396,10 +423,14 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 	})
 	t.Run("Error cases", func(t *testing.T) {
 		t.Run("Fail to serialize JWE, ciphertext value is empty", func(t *testing.T) {
-			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-				"protectedheader2": "protectedtestvalue2"}
-			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-				"unprotectedheader2": "unprotectedtestvalue2"}
+			protectedHeaders := Headers{
+				"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2",
+			}
+			unprotectedHeaders := Headers{
+				"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2",
+			}
 
 			jwe := JSONWebEncryption{
 				ProtectedHeaders:   protectedHeaders,
@@ -480,8 +511,10 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 
 func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
 		recipients := make([]*Recipient, 1)
 
 		recipients[0] = &Recipient{
@@ -509,23 +542,30 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 		require.Empty(t, compactJWE)
 	})
 	t.Run("Unable to compact serialize - too many recipients", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
 		recipients := make([]*Recipient, 2)
 
 		jwe := JSONWebEncryption{
 			ProtectedHeaders: protectedHeaders,
-			Recipients:       recipients}
+			Recipients:       recipients,
+		}
 
 		compactJWE, err := jwe.CompactSerialize(json.Marshal)
 		require.Equal(t, errNotOnlyOneRecipient, err)
 		require.Empty(t, compactJWE)
 	})
 	t.Run("Unable to compact serialize - JWE contains an unprotected header", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
+		unprotectedHeaders := Headers{
+			"unprotectedheader1": "unprotectedtestvalue1",
+			"unprotectedheader2": "unprotectedtestvalue2",
+		}
 		recipients := make([]*Recipient, 1)
 
 		jwe := JSONWebEncryption{
@@ -543,8 +583,10 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 		require.Empty(t, compactJWE)
 	})
 	t.Run("Unable to compact serialize - recipient contains a header", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
 		recipients := make([]*Recipient, 1)
 
 		recipients[0] = &Recipient{
@@ -569,8 +611,10 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 		require.Empty(t, compactJWE)
 	})
 	t.Run("Fail to marshal protected headers", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
 		recipients := make([]*Recipient, 1)
 
 		recipients[0] = &Recipient{

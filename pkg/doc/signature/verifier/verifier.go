@@ -10,9 +10,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
@@ -63,7 +62,8 @@ func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, err
 
 	return &DocumentVerifier{
 		signatureSuites: suites,
-		pkResolver:      resolver}, nil
+		pkResolver:      resolver,
+	}, nil
 }
 
 // Verify will verify document proofs.

@@ -39,25 +39,32 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
+		})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for serviceEndpoint: url")
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+		})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
 	})
 
 	t.Run("test outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
+		o := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
-				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")},
+			},
+		})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
@@ -179,8 +186,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 		o := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{
-				expectedRequest: string(expectedRequest)},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockOutboundTransport{
+					expectedRequest: string(expectedRequest),
+				},
 			},
 			transportReturnRoute: transportReturnRoute,
 		})
@@ -207,8 +216,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 		o := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{
-				expectedRequest: string(expectedRequest)},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockOutboundTransport{
+					expectedRequest: string(expectedRequest),
+				},
 			},
 			transportReturnRoute: transportReturnRoute,
 		})
@@ -227,8 +238,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 		o := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{
-				expectedRequest: string(expectedRequest)},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockOutboundTransport{
+					expectedRequest: string(expectedRequest),
+				},
 			},
 			transportReturnRoute: "",
 		})
@@ -261,17 +274,22 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 	})
 
 	t.Run("test forward - no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
+		})
 		err := o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Forward: no transport found for serviceEndpoint: url")
 	})
 
 	t.Run("test forward - outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
+		o := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
-				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")},
+			},
+		})
 		err := o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
@@ -287,7 +305,7 @@ func createPackedMsgForForward(t *testing.T) []byte {
 	return msg
 }
 
-// mockProvider mock provider
+// mockProvider mock provider.
 type mockProvider struct {
 	packagerValue           commontransport.Packager
 	outboundTransportsValue []transport.OutboundTransport
@@ -320,7 +338,7 @@ func (p *mockProvider) KMS() kms.KeyManager {
 	return &mockkms.KeyManager{}
 }
 
-// mockOutboundTransport mock outbound transport
+// mockOutboundTransport mock outbound transport.
 type mockOutboundTransport struct {
 	expectedRequest string
 	acceptRecipient bool
@@ -346,7 +364,7 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 	return true
 }
 
-// mockPackager mock packager
+// mockPackager mock packager.
 type mockPackager struct {
 }
 

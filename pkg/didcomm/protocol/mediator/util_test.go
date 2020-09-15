@@ -22,7 +22,7 @@ func TestGetRouterConfig(t *testing.T) {
 	})
 
 	t.Run("test get router config - router configured", func(t *testing.T) {
-		var routeKeys = []string{"abc", "xyz"}
+		routeKeys := []string{"abc", "xyz"}
 		endpoint, routingKeys, err := GetRouterConfig(
 			&mockRouteSvc{
 				RouterEndpoint: ENDPOINT,

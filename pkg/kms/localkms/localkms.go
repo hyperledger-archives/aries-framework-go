@@ -40,9 +40,7 @@ const (
 	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
 
-var (
-	errInvalidKeyType = errors.New("key type is not supported")
-)
+var errInvalidKeyType = errors.New("key type is not supported")
 
 // package localkms is the default KMS service implementation of pkg/kms.KeyManager. It uses Tink keys to support the
 // default Crypto implementation, pkg/crypto/tinkcrypto, and stores these keys in the format understood by Tink. It also

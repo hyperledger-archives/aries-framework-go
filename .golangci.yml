@@ -88,6 +88,10 @@ linters:
     - testpackage
     - maligned
     - prealloc
+    - exhaustive #TODO enable
+    - goerr113 # TODO enable
+    - nlreturn # TODO enable
+    - noctx # TODO enable
 
 issues:
   exclude-use-default: false

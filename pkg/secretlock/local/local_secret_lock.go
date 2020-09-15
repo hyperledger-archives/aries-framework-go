@@ -79,7 +79,8 @@ func NewService(masterKeyReader io.Reader, secLock secretlock.Service) (secretlo
 	// if secLock not empty, then masterKeyData is encrypted (protected), let's decrypt it first.
 	if secLock != nil {
 		decResponse, e := secLock.Decrypt("", &secretlock.DecryptRequest{
-			Ciphertext: string(masterKeyData[:n])})
+			Ciphertext: string(masterKeyData[:n]),
+		})
 		if e != nil {
 			return nil, e
 		}

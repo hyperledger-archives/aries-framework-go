@@ -21,9 +21,11 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
-const sampleConnRequest = `{"connectionID":"123-abc"}`
-const sampleBatchPickupRequest = `{"connectionID":"123-abc", "batch_size": 100}`
-const sampleEmptyConnectionRequest = `{"connectionID":""}`
+const (
+	sampleConnRequest            = `{"connectionID":"123-abc"}`
+	sampleBatchPickupRequest     = `{"connectionID":"123-abc", "batch_size": 100}`
+	sampleEmptyConnectionRequest = `{"connectionID":""}`
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {

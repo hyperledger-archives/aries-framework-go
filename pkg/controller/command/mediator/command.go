@@ -23,7 +23,7 @@ import (
 
 var logger = log.New("aries-framework/command/route")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.ROUTE)
@@ -59,12 +59,12 @@ const (
 	BatchPickupRequestErrorCode
 )
 
-// constant for the mediator controller
+// constant for the mediator controller.
 const (
-	// command name
+	// command name.
 	CommandName = "mediator"
 
-	// command methods
+	// command methods.
 	RegisterCommandMethod        = "Register"
 	UnregisterCommandMethod      = "Unregister"
 	GetConnectionIDCommandMethod = "Connection"
@@ -72,7 +72,7 @@ const (
 	StatusCommandMethod          = "Status"
 	BatchPickupCommandMethod     = "BatchPickup"
 
-	// log constants
+	// log constants.
 	connectionID  = "connectionID"
 	successString = "success"
 )

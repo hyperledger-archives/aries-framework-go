@@ -87,7 +87,6 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 		}
 
 		unpackMsg, err := d.packager.UnpackMessage(message)
-
 		if err != nil {
 			logger.Errorf("failed to unpack msg: %v", err)
 

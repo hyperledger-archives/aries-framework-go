@@ -38,8 +38,10 @@ func TestMessaging_RegisterHTTPService(t *testing.T) {
 		reqData := `{"name":"json-msg-01", "purpose": ["prp-01","prp-02"]}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + messaging.RegisterHTTPOverDIDCommService}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + messaging.RegisterHTTPOverDIDCommService,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.RegisterHTTPService(req)
@@ -58,8 +60,10 @@ func TestMessaging_RegisterService(t *testing.T) {
 						"purpose": ["prp-01","prp-02"]}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + messaging.RegisterMsgService}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + messaging.RegisterMsgService,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.RegisterService(req)
@@ -77,8 +81,10 @@ func TestMessaging_Reply(t *testing.T) {
 		reqData := `{"message_ID": "1234","message_body": {"msg":"Hello !!"}}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + messaging.SendReplyMsg}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + messaging.SendReplyMsg,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Reply(req)
@@ -96,8 +102,10 @@ func TestMessaging_Send(t *testing.T) {
 		reqData := `{"message_body": {"text":"sample"}, "connection_id": "sample-conn-ID-001"}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + messaging.SendNewMsg}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + messaging.SendNewMsg,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Send(req)
@@ -115,8 +123,10 @@ func TestMessaging_Services(t *testing.T) {
 		reqData := emptyJSON
 		mockResponse := `{"names":["svc-name-01","svc-name-02","svc-name-03","svc-name-04","svc-name-05"]}`
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockAgentURL + messaging.MsgServiceList}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockAgentURL + messaging.MsgServiceList,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Services(req)
@@ -134,8 +144,10 @@ func TestMessaging_UnregisterService(t *testing.T) {
 		reqData := `{"name":"svc-01"}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + messaging.UnregisterMsgService}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + messaging.UnregisterMsgService,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.UnregisterService(req)

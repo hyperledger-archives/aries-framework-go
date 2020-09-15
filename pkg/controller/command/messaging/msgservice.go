@@ -43,7 +43,7 @@ func newCustomMessageService(name, msgType string, purpose []string, notifier co
 }
 
 // msgService is basic message service implementation
-// which delegates handling to registered webhook notifier
+// which delegates handling to registered webhook notifier.
 type msgService struct {
 	name        string
 	purpose     []string
@@ -57,7 +57,7 @@ func (m *msgService) Name() string {
 }
 
 func (m *msgService) Accept(msgType string, purpose []string) bool {
-	var purposeMatched, typeMatched = len(m.purpose) == 0, m.msgType == ""
+	purposeMatched, typeMatched := len(m.purpose) == 0, m.msgType == ""
 
 	if purposeMatched && typeMatched {
 		return false
@@ -67,6 +67,7 @@ func (m *msgService) Accept(msgType string, purpose []string) bool {
 		for _, msgPurpose := range purpose {
 			if purposeCriteria == msgPurpose {
 				purposeMatched = true
+
 				break
 			}
 		}

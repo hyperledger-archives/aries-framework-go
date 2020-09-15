@@ -46,7 +46,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 				return next.Handle(metadata)
 			}
 
-			var credential = issuecredential.IssueCredential{}
+			credential := issuecredential.IssueCredential{}
 
 			err := metadata.Message().Decode(&credential)
 			if err != nil {
@@ -63,7 +63,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 			}
 
 			var names []string
-			var properties = metadata.Properties()
+			properties := metadata.Properties()
 
 			// nolint: errcheck
 			myDID, _ := properties[myDIDKey].(string)
@@ -93,7 +93,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 }
 
 func getName(idx int, id string, metadata issuecredential.Metadata) string {
-	var name = id
+	name := id
 	if len(metadata.CredentialNames()) > idx {
 		name = metadata.CredentialNames()[idx]
 	}

@@ -41,6 +41,7 @@ type genericError struct { // nolint:unused,deadcode
 	// in: body
 	Body genericErrorBody
 }
+
 type genericErrorBody struct {
 	Code    command.Code `json:"code"`
 	Message string       `json:"message"`

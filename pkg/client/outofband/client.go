@@ -265,6 +265,7 @@ func (c *Client) AcceptInvitation(i *Invitation, myLabel string) (string, error)
 func WithLabel(l string) MessageOption {
 	return func(m *message) error {
 		m.Label = l
+
 		return nil
 	}
 }

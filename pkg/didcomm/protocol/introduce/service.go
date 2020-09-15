@@ -38,7 +38,7 @@ const (
 	AckMsgType = IntroduceSpec + "ack"
 	// ProblemReportMsgType defines the introduce problem-report message type.
 	ProblemReportMsgType = IntroduceSpec + "problem-report"
-	// stateOOBRequested the outofband protocol state name to determine specific event
+	// stateOOBRequested the outofband protocol state name to determine specific event.
 	stateOOBRequested = "requested"
 )
 
@@ -55,7 +55,7 @@ var (
 	errProtocolStopped = errors.New("protocol was stopped")
 )
 
-// customError is a wrapper to determine custom error against internal error
+// customError is a wrapper to determine custom error against internal error.
 type customError struct{ error }
 
 // Recipient keeps information needed for the service
@@ -78,13 +78,13 @@ type Action struct {
 	TheirDID string
 }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 	StateName string
 }
 
-// metaData type to store data for internal usage
+// metaData type to store data for internal usage.
 type metaData struct {
 	transitionalPayload
 	state        state
@@ -108,7 +108,7 @@ type Service struct {
 	messenger service.Messenger
 }
 
-// Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider

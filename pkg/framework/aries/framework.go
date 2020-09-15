@@ -466,7 +466,6 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithVerifiableStore(frameworkOpts.verifiableStore),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 	)
-
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}

@@ -159,7 +159,8 @@ func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 	return a.createFramework(agentID, opts...)
 }
 
-func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, opts ...aries.Option) error { // nolint gocyclo
+//nolint: gocyclo
+func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, opts ...aries.Option) error {
 	const (
 		portAttempts  = 5
 		listenTimeout = 2 * time.Second

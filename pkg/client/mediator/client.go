@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
-// provider contains dependencies for the route protocol and is typically created by using aries.Context()
+// provider contains dependencies for the route protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 }
@@ -93,7 +93,6 @@ func (c *Client) Unregister() error {
 // GetConnection returns the connectionID of the router.
 func (c *Client) GetConnection() (string, error) {
 	connectionID, err := c.routeSvc.GetConnection()
-
 	if err != nil {
 		return "", fmt.Errorf("get router connectionID : %w", err)
 	}

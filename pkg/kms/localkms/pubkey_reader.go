@@ -61,7 +61,8 @@ func newKeySet(tURL string, marshalledKey []byte, keyMaterialType tinkpb.KeyData
 				KeyId:   1,
 				// since we're building the key from raw key bytes, then must use raw key prefix type
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
-			}},
+			},
+		},
 		PrimaryKeyId: 1,
 	}
 }

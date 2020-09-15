@@ -61,7 +61,7 @@ func TestCommand_RegisterService(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = `{
+		jsonStr := `{
 		"name":"json-msg-01",
     	"type": "https://didcomm.org/json/1.0/msg",
     	"purpose": ["prp-01","prp-02"]
@@ -137,7 +137,7 @@ func TestCommand_RegisterService(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = `{
+		jsonStr := `{
 			"name":"json-msg-01",
 	    	"type": "https://didcomm.org/json/1.0/msg",
 	    	"purpose": ["prp-01","prp-02"]
@@ -160,7 +160,7 @@ func TestCommand_RegisterHTTPService(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = `{
+		jsonStr := `{
 			"name":"json-msg-01",
 	    	"purpose": ["prp-01","prp-02"]
 	  	}`
@@ -228,7 +228,7 @@ func TestCommand_RegisterHTTPService(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = `{
+		jsonStr := `{
 			"name":"json-msg-01",
 	    	"purpose": ["prp-01","prp-02"]
 	  	}`
@@ -249,7 +249,7 @@ func TestCommand_UnregisterService(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var jsonStr = `{"name":"json-msg-01"}`
+		jsonStr := `{"name":"json-msg-01"}`
 
 		var b bytes.Buffer
 		cmdErr := cmd.UnregisterService(&b, bytes.NewBufferString(jsonStr))
@@ -424,14 +424,18 @@ func TestCommand_Send(t *testing.T) {
 		}{
 			{
 				name: "send message to connection ID",
-				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
-					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
 				requestJSON: `{"message_body": {"text":"sample"}, "connection_id": "sample-conn-ID-001"}`,
 			},
 			{
 				name: "send message to their DID",
-				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
-					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
 			},
 			{
@@ -486,8 +490,10 @@ func TestCommand_Send(t *testing.T) {
 			},
 			{
 				name: "send message to connection ID send error",
-				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
-					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
 				requestJSON: `{"message_body": {"text":"sample"}, "connection_id": "sample-conn-ID-001"}`,
 				messenger:   &mocksvc.MockMessenger{ErrSend: fmt.Errorf("sample-err-01")},
 				errorCode:   SendMsgError,
@@ -495,8 +501,10 @@ func TestCommand_Send(t *testing.T) {
 			},
 			{
 				name: "send message to their DID data not found error",
-				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
-					State: "completed", MyDID: "mydid", TheirDID: "theirDID-z"},
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-z",
+				},
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
 				errorCode:   SendMsgError,
 				errorMsg:    "DID not found",
@@ -537,8 +545,10 @@ func TestCommand_Send(t *testing.T) {
 			},
 			{
 				name: "invalid message body - scenario 2",
-				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
-					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
 				requestJSON: `{"message_body": "sample-input", "connection_id": "sample-conn-ID-001"}`,
 				errorCode:   SendMsgError,
 				errorMsg:    "invalid payload data format",

@@ -80,7 +80,7 @@ type getCredentialReq struct { // nolint: unused,deadcode
 // This is used for returning query connection result for single record search
 //
 // swagger:response credentialRes
-type credentialRes struct { // nolint: unused,deadcode
+type credentialRes struct {
 
 	// in: body
 	verifiable.Credential
