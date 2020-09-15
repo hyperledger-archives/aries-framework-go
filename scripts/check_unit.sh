@@ -30,8 +30,11 @@ docker rm MYSQLStoreTest >/dev/null 2>&1 || true
 
 remove_docker_container
 
-docker run -p 5984:5984 -d --name CouchDBStoreTest couchdb:2.3.1 >/dev/null || true
-docker run -p 3306:3306 --name MYSQLStoreTest -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:8.0.20 >/dev/null || true
+docker run -p 5984:5984 -d --name CouchDBStoreTest \
+           -v $(pwd)/couchdb-config/10-single-node.ini:/opt/couchdb/etc/local.d/10-single-node.ini \
+           -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:3.1.0 >/dev/null || true
+docker run -p 3306:3306 -d --name MYSQLStoreTest \
+           -e MYSQL_ROOT_PASSWORD=my-secret-pw mysql:8.0.20 >/dev/null || true
 
 # Running aries-framework-go unit test
 PKGS=`go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | \

@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	couchDBURL    = "localhost:5984"
+	couchDBURL    = "admin:password@localhost:5984"
 	sqlStoreDBURL = "root:my-secret-pw@tcp(127.0.0.1:3306)/"
 )
 
@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a couchDB instance using" +
-			" 'docker run -p 5984:5984 couchdb:2.3.1' before running the unit tests")
+			" 'docker run -p 5984:5984 couchdb:<tag>' before running the unit tests")
 		os.Exit(0)
 	}
 
@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Printf(err.Error() +
 			". Make sure you start a sqlStoreDB instance using" +
-			" 'docker run -p 3306:3306 mysql:8.0.20' before running the unit tests")
+			" 'docker run -p 3306:3306 mysql:<tag>' before running the unit tests")
 		os.Exit(0)
 	}
 

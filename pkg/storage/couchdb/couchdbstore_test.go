@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	couchDBURL = "localhost:5984"
+	couchDBURL = "admin:password@localhost:5984"
 )
 
 // For these unit tests to run, you must ensure you have a CouchDB instance running at the URL specified in couchDBURL.
