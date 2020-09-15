@@ -1,4 +1,4 @@
-// +build !js,!wasm
+// +build !js,!wasm,!ISSUE2183
 
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
@@ -9,14 +9,12 @@ SPDX-License-Identifier: Apache-2.0
 package couchdbstore
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/go-kivik/kivik"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -32,26 +30,13 @@ const (
 // To run the tests manually, start an instance by running docker run -p 5984:5984 couchdb:2.3.1 from a terminal.
 
 func TestMain(m *testing.M) {
-	err := checkCouchDB()
+	err := PingCouchDB(couchDBURL)
 	if err != nil {
-		fmt.Printf(err.Error() +
-			". Make sure you start a couchDB instance using" +
-			" 'docker run -p 5984:5984 couchdb:2.3.1' before running the unit tests")
-		os.Exit(0)
+		fmt.Printf(err.Error() + ". Make sure CouchDB is running.\n")
+		os.Exit(1)
 	}
 
 	os.Exit(m.Run())
-}
-
-func checkCouchDB() error {
-	client, err := kivik.New("couch", couchDBURL)
-	if err != nil {
-		return err
-	}
-
-	_, err = client.Ping(context.Background())
-
-	return err
 }
 
 func TestCouchDBStore(t *testing.T) {

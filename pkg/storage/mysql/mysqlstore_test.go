@@ -1,3 +1,5 @@
+// +build !ISSUE2183
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
@@ -33,10 +35,8 @@ const (
 func TestMain(m *testing.M) {
 	err := checkMySQL()
 	if err != nil {
-		fmt.Printf(err.Error() +
-			". Make sure you start a sqlStoreDB instance using" +
-			" 'docker run -p 3306:3306 mysql:8.0.20' before running the unit tests")
-		os.Exit(0)
+		fmt.Printf(err.Error() + " . Make sure MySQL is running.\n")
+		os.Exit(1)
 	}
 
 	os.Exit(m.Run())
