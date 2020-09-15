@@ -5,36 +5,35 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	reflect "reflect"
 )
 
-// MockProvider is a mock of Provider interface.
+// MockProvider is a mock of Provider interface
 type MockProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderMockRecorder
 }
 
-// MockProviderMockRecorder is the mock recorder for MockProvider.
+// MockProviderMockRecorder is the mock recorder for MockProvider
 type MockProviderMockRecorder struct {
 	mock *MockProvider
 }
 
-// NewMockProvider creates a new mock instance.
+// NewMockProvider creates a new mock instance
 func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 	mock := &MockProvider{ctrl: ctrl}
 	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method.
+// Close mocks base method
 func (m *MockProvider) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -42,13 +41,13 @@ func (m *MockProvider) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close.
+// Close indicates an expected call of Close
 func (mr *MockProviderMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockProvider)(nil).Close))
 }
 
-// CloseStore mocks base method.
+// CloseStore mocks base method
 func (m *MockProvider) CloseStore(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloseStore", arg0)
@@ -56,13 +55,13 @@ func (m *MockProvider) CloseStore(arg0 string) error {
 	return ret0
 }
 
-// CloseStore indicates an expected call of CloseStore.
+// CloseStore indicates an expected call of CloseStore
 func (mr *MockProviderMockRecorder) CloseStore(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseStore", reflect.TypeOf((*MockProvider)(nil).CloseStore), arg0)
 }
 
-// OpenStore mocks base method.
+// OpenStore mocks base method
 func (m *MockProvider) OpenStore(arg0 string) (storage.Store, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenStore", arg0)
@@ -71,36 +70,36 @@ func (m *MockProvider) OpenStore(arg0 string) (storage.Store, error) {
 	return ret0, ret1
 }
 
-// OpenStore indicates an expected call of OpenStore.
+// OpenStore indicates an expected call of OpenStore
 func (mr *MockProviderMockRecorder) OpenStore(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenStore", reflect.TypeOf((*MockProvider)(nil).OpenStore), arg0)
 }
 
-// MockStore is a mock of Store interface.
+// MockStore is a mock of Store interface
 type MockStore struct {
 	ctrl     *gomock.Controller
 	recorder *MockStoreMockRecorder
 }
 
-// MockStoreMockRecorder is the mock recorder for MockStore.
+// MockStoreMockRecorder is the mock recorder for MockStore
 type MockStoreMockRecorder struct {
 	mock *MockStore
 }
 
-// NewMockStore creates a new mock instance.
+// NewMockStore creates a new mock instance
 func NewMockStore(ctrl *gomock.Controller) *MockStore {
 	mock := &MockStore{ctrl: ctrl}
 	mock.recorder = &MockStoreMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method.
+// Delete mocks base method
 func (m *MockStore) Delete(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0)
@@ -108,13 +107,13 @@ func (m *MockStore) Delete(arg0 string) error {
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
+// Delete indicates an expected call of Delete
 func (mr *MockStoreMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), arg0)
 }
 
-// Get mocks base method.
+// Get mocks base method
 func (m *MockStore) Get(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -123,13 +122,13 @@ func (m *MockStore) Get(arg0 string) ([]byte, error) {
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get.
+// Get indicates an expected call of Get
 func (mr *MockStoreMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStore)(nil).Get), arg0)
 }
 
-// Iterator mocks base method.
+// Iterator mocks base method
 func (m *MockStore) Iterator(arg0, arg1 string) storage.StoreIterator {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Iterator", arg0, arg1)
@@ -137,13 +136,13 @@ func (m *MockStore) Iterator(arg0, arg1 string) storage.StoreIterator {
 	return ret0
 }
 
-// Iterator indicates an expected call of Iterator.
+// Iterator indicates an expected call of Iterator
 func (mr *MockStoreMockRecorder) Iterator(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Iterator", reflect.TypeOf((*MockStore)(nil).Iterator), arg0, arg1)
 }
 
-// Put mocks base method.
+// Put mocks base method
 func (m *MockStore) Put(arg0 string, arg1 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1)
@@ -151,7 +150,7 @@ func (m *MockStore) Put(arg0 string, arg1 []byte) error {
 	return ret0
 }
 
-// Put indicates an expected call of Put.
+// Put indicates an expected call of Put
 func (mr *MockStoreMockRecorder) Put(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), arg0, arg1)

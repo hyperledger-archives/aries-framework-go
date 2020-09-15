@@ -5,38 +5,37 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	outofband "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
+	reflect "reflect"
 )
 
-// MockProvider is a mock of Provider interface.
+// MockProvider is a mock of Provider interface
 type MockProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderMockRecorder
 }
 
-// MockProviderMockRecorder is the mock recorder for MockProvider.
+// MockProviderMockRecorder is the mock recorder for MockProvider
 type MockProviderMockRecorder struct {
 	mock *MockProvider
 }
 
-// NewMockProvider creates a new mock instance.
+// NewMockProvider creates a new mock instance
 func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 	mock := &MockProvider{ctrl: ctrl}
 	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// KMS mocks base method.
+// KMS mocks base method
 func (m *MockProvider) KMS() kms.KeyManager {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KMS")
@@ -44,13 +43,13 @@ func (m *MockProvider) KMS() kms.KeyManager {
 	return ret0
 }
 
-// KMS indicates an expected call of KMS.
+// KMS indicates an expected call of KMS
 func (mr *MockProviderMockRecorder) KMS() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KMS", reflect.TypeOf((*MockProvider)(nil).KMS))
 }
 
-// Service mocks base method.
+// Service mocks base method
 func (m *MockProvider) Service(arg0 string) (interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Service", arg0)
@@ -59,13 +58,13 @@ func (m *MockProvider) Service(arg0 string) (interface{}, error) {
 	return ret0, ret1
 }
 
-// Service indicates an expected call of Service.
+// Service indicates an expected call of Service
 func (mr *MockProviderMockRecorder) Service(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Service", reflect.TypeOf((*MockProvider)(nil).Service), arg0)
 }
 
-// ServiceEndpoint mocks base method.
+// ServiceEndpoint mocks base method
 func (m *MockProvider) ServiceEndpoint() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServiceEndpoint")
@@ -73,36 +72,36 @@ func (m *MockProvider) ServiceEndpoint() string {
 	return ret0
 }
 
-// ServiceEndpoint indicates an expected call of ServiceEndpoint.
+// ServiceEndpoint indicates an expected call of ServiceEndpoint
 func (mr *MockProviderMockRecorder) ServiceEndpoint() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceEndpoint", reflect.TypeOf((*MockProvider)(nil).ServiceEndpoint))
 }
 
-// MockOobService is a mock of OobService interface.
+// MockOobService is a mock of OobService interface
 type MockOobService struct {
 	ctrl     *gomock.Controller
 	recorder *MockOobServiceMockRecorder
 }
 
-// MockOobServiceMockRecorder is the mock recorder for MockOobService.
+// MockOobServiceMockRecorder is the mock recorder for MockOobService
 type MockOobServiceMockRecorder struct {
 	mock *MockOobService
 }
 
-// NewMockOobService creates a new mock instance.
+// NewMockOobService creates a new mock instance
 func NewMockOobService(ctrl *gomock.Controller) *MockOobService {
 	mock := &MockOobService{ctrl: ctrl}
 	mock.recorder = &MockOobServiceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockOobService) EXPECT() *MockOobServiceMockRecorder {
 	return m.recorder
 }
 
-// AcceptInvitation mocks base method.
+// AcceptInvitation mocks base method
 func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptInvitation", arg0, arg1)
@@ -111,13 +110,13 @@ func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 strin
 	return ret0, ret1
 }
 
-// AcceptInvitation indicates an expected call of AcceptInvitation.
+// AcceptInvitation indicates an expected call of AcceptInvitation
 func (mr *MockOobServiceMockRecorder) AcceptInvitation(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInvitation", reflect.TypeOf((*MockOobService)(nil).AcceptInvitation), arg0, arg1)
 }
 
-// AcceptRequest mocks base method.
+// AcceptRequest mocks base method
 func (m *MockOobService) AcceptRequest(arg0 *outofband.Request, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptRequest", arg0, arg1)
@@ -126,13 +125,13 @@ func (m *MockOobService) AcceptRequest(arg0 *outofband.Request, arg1 string) (st
 	return ret0, ret1
 }
 
-// AcceptRequest indicates an expected call of AcceptRequest.
+// AcceptRequest indicates an expected call of AcceptRequest
 func (mr *MockOobServiceMockRecorder) AcceptRequest(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptRequest", reflect.TypeOf((*MockOobService)(nil).AcceptRequest), arg0, arg1)
 }
 
-// ActionContinue mocks base method.
+// ActionContinue mocks base method
 func (m *MockOobService) ActionContinue(arg0 string, arg1 outofband.Options) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionContinue", arg0, arg1)
@@ -140,13 +139,13 @@ func (m *MockOobService) ActionContinue(arg0 string, arg1 outofband.Options) err
 	return ret0
 }
 
-// ActionContinue indicates an expected call of ActionContinue.
+// ActionContinue indicates an expected call of ActionContinue
 func (mr *MockOobServiceMockRecorder) ActionContinue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionContinue", reflect.TypeOf((*MockOobService)(nil).ActionContinue), arg0, arg1)
 }
 
-// ActionStop mocks base method.
+// ActionStop mocks base method
 func (m *MockOobService) ActionStop(arg0 string, arg1 error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionStop", arg0, arg1)
@@ -154,13 +153,13 @@ func (m *MockOobService) ActionStop(arg0 string, arg1 error) error {
 	return ret0
 }
 
-// ActionStop indicates an expected call of ActionStop.
+// ActionStop indicates an expected call of ActionStop
 func (mr *MockOobServiceMockRecorder) ActionStop(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStop", reflect.TypeOf((*MockOobService)(nil).ActionStop), arg0, arg1)
 }
 
-// Actions mocks base method.
+// Actions mocks base method
 func (m *MockOobService) Actions() ([]outofband.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
@@ -169,13 +168,13 @@ func (m *MockOobService) Actions() ([]outofband.Action, error) {
 	return ret0, ret1
 }
 
-// Actions indicates an expected call of Actions.
+// Actions indicates an expected call of Actions
 func (mr *MockOobServiceMockRecorder) Actions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockOobService)(nil).Actions))
 }
 
-// RegisterActionEvent mocks base method.
+// RegisterActionEvent mocks base method
 func (m *MockOobService) RegisterActionEvent(arg0 chan<- service.DIDCommAction) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterActionEvent", arg0)
@@ -183,13 +182,13 @@ func (m *MockOobService) RegisterActionEvent(arg0 chan<- service.DIDCommAction) 
 	return ret0
 }
 
-// RegisterActionEvent indicates an expected call of RegisterActionEvent.
+// RegisterActionEvent indicates an expected call of RegisterActionEvent
 func (mr *MockOobServiceMockRecorder) RegisterActionEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterActionEvent", reflect.TypeOf((*MockOobService)(nil).RegisterActionEvent), arg0)
 }
 
-// RegisterMsgEvent mocks base method.
+// RegisterMsgEvent mocks base method
 func (m *MockOobService) RegisterMsgEvent(arg0 chan<- service.StateMsg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterMsgEvent", arg0)
@@ -197,13 +196,13 @@ func (m *MockOobService) RegisterMsgEvent(arg0 chan<- service.StateMsg) error {
 	return ret0
 }
 
-// RegisterMsgEvent indicates an expected call of RegisterMsgEvent.
+// RegisterMsgEvent indicates an expected call of RegisterMsgEvent
 func (mr *MockOobServiceMockRecorder) RegisterMsgEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterMsgEvent", reflect.TypeOf((*MockOobService)(nil).RegisterMsgEvent), arg0)
 }
 
-// SaveInvitation mocks base method.
+// SaveInvitation mocks base method
 func (m *MockOobService) SaveInvitation(arg0 *outofband.Invitation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveInvitation", arg0)
@@ -211,13 +210,13 @@ func (m *MockOobService) SaveInvitation(arg0 *outofband.Invitation) error {
 	return ret0
 }
 
-// SaveInvitation indicates an expected call of SaveInvitation.
+// SaveInvitation indicates an expected call of SaveInvitation
 func (mr *MockOobServiceMockRecorder) SaveInvitation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveInvitation", reflect.TypeOf((*MockOobService)(nil).SaveInvitation), arg0)
 }
 
-// SaveRequest mocks base method.
+// SaveRequest mocks base method
 func (m *MockOobService) SaveRequest(arg0 *outofband.Request) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveRequest", arg0)
@@ -225,13 +224,13 @@ func (m *MockOobService) SaveRequest(arg0 *outofband.Request) error {
 	return ret0
 }
 
-// SaveRequest indicates an expected call of SaveRequest.
+// SaveRequest indicates an expected call of SaveRequest
 func (mr *MockOobServiceMockRecorder) SaveRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRequest", reflect.TypeOf((*MockOobService)(nil).SaveRequest), arg0)
 }
 
-// UnregisterActionEvent mocks base method.
+// UnregisterActionEvent mocks base method
 func (m *MockOobService) UnregisterActionEvent(arg0 chan<- service.DIDCommAction) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnregisterActionEvent", arg0)
@@ -239,13 +238,13 @@ func (m *MockOobService) UnregisterActionEvent(arg0 chan<- service.DIDCommAction
 	return ret0
 }
 
-// UnregisterActionEvent indicates an expected call of UnregisterActionEvent.
+// UnregisterActionEvent indicates an expected call of UnregisterActionEvent
 func (mr *MockOobServiceMockRecorder) UnregisterActionEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnregisterActionEvent", reflect.TypeOf((*MockOobService)(nil).UnregisterActionEvent), arg0)
 }
 
-// UnregisterMsgEvent mocks base method.
+// UnregisterMsgEvent mocks base method
 func (m *MockOobService) UnregisterMsgEvent(arg0 chan<- service.StateMsg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnregisterMsgEvent", arg0)
@@ -253,7 +252,7 @@ func (m *MockOobService) UnregisterMsgEvent(arg0 chan<- service.StateMsg) error 
 	return ret0
 }
 
-// UnregisterMsgEvent indicates an expected call of UnregisterMsgEvent.
+// UnregisterMsgEvent indicates an expected call of UnregisterMsgEvent
 func (mr *MockOobServiceMockRecorder) UnregisterMsgEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnregisterMsgEvent", reflect.TypeOf((*MockOobService)(nil).UnregisterMsgEvent), arg0)
