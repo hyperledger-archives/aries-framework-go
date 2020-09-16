@@ -10,9 +10,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/notifier"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
@@ -34,10 +39,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
+var logger = log.New("aries-agent-mobile/wrappers/command")
+
 // Aries is an implementation of AriesController which handles requests locally.
 type Aries struct {
-	framework *aries.Aries
-	handlers  map[string]map[string]command.Exec
+	framework     *aries.Aries
+	handlers      map[string]map[string]command.Exec
+	notifications <-chan notifier.NotificationPayload
+	mutex         sync.RWMutex
+	subscribers   map[string]map[string][]api.Handler
 }
 
 // NewAries returns a new Aries instance that contains handlers and an Aries framework instance.
@@ -57,7 +67,10 @@ func NewAries(opts *config.Options) (*Aries, error) {
 		return nil, fmt.Errorf("failed to get Framework context: %w", err)
 	}
 
-	commandHandlers, err := controller.GetCommandHandlers(context)
+	notifications := make(chan notifier.NotificationPayload)
+
+	commandHandlers, err := controller.GetCommandHandlers(context,
+		controller.WithNotifier(notifier.NewNotifier(notifications)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get command handlers: %w", err)
 	}
@@ -65,7 +78,16 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	handlers := make(map[string]map[string]command.Exec)
 	populateHandlers(commandHandlers, handlers)
 
-	return &Aries{framework, handlers}, nil
+	a := &Aries{
+		framework:     framework,
+		handlers:      handlers,
+		notifications: notifications,
+		subscribers:   make(map[string]map[string][]api.Handler),
+	}
+
+	go a.startNotificationListener()
+
+	return a, nil
 }
 
 func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
@@ -146,6 +168,56 @@ func populateHandlers(commands []command.Handler, pkgMap map[string]map[string]c
 
 		fnMap[cmd.Method()] = cmd.Handle()
 		pkgMap[cmd.Name()] = fnMap
+	}
+}
+
+func (a *Aries) startNotificationListener() {
+	// listens for notifications
+	for notification := range a.notifications {
+		a.mutex.RLock()
+		// gets all handlers that were subscribed for the topic
+		for _, handlers := range a.subscribers[notification.Topic] {
+			// send the payload to the subscribers
+			for _, handler := range handlers {
+				if err := handler.Handle(notification.Topic, notification.Raw); err != nil {
+					logger.Errorf("notification listener: %v", err)
+				}
+			}
+		}
+		a.mutex.RUnlock()
+	}
+}
+
+// RegisterHandler registers a handler to process incoming notifications from the framework.
+// Handler is implemented by mobile apps.
+func (a *Aries) RegisterHandler(h api.Handler, topics string) string {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	id := uuid.New().String()
+
+	for _, topic := range strings.Split(topics, ",") {
+		if a.subscribers[topic] == nil {
+			a.subscribers[topic] = map[string][]api.Handler{}
+		}
+
+		a.subscribers[topic][id] = append(a.subscribers[topic][id], h)
+	}
+
+	return id
+}
+
+// UnregisterHandler unregisters a handler by given id.
+func (a *Aries) UnregisterHandler(id string) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	for topic := range a.subscribers {
+		for key := range a.subscribers[topic] {
+			if key == id {
+				delete(a.subscribers[topic], id)
+			}
+		}
 	}
 }
 
