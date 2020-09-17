@@ -99,6 +99,45 @@ import java.nio.charset.StandardCharsets;
         System.out.println(actionsResponse);
 ```
 
+To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/Handler.go) interface and use as follows:
+
+```java
+import java.nio.charset.StandardCharsets;
+
+import org.hyperledger.aries.api.Handler;
+
+class MyHandler implements Handler {
+
+    @Override
+    public void handle(String topic, byte[] message) {
+        System.out.println("received notification topic: ", topic);
+        System.out.println("received notification message: ", new String(message, StandardCharsets.UTF_8));
+    }
+}
+
+class AriesService {
+    AriesController ariesAgent;
+
+    public void newAgentWithHandler(String url, String websocketURL, bool useLocalAgent) {
+        Options opts = new Options();
+        opts.setAgentURL(url);
+        opts.setWebsocketURL(websocketURL);
+        opts.setUseLocalAgent(useLocalAgent);
+
+        try {
+            ariesAgent = Ariesagent.new_(opts);
+
+            // register handler
+            Handler handler = new MyHandler();
+            String registrationID = ariesAgent.registerHandler(handler, "didexchange_states");
+            System.out.println("handler registration id: ", registrationID);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
 
 ### 3.2. iOS
 
