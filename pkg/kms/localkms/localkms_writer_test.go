@@ -101,8 +101,6 @@ func TestLocalKMSWriter(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(someKey), n)
 		require.Equal(t, maxKeyIDLen, len(l.KeysetID))
-		// keysetID must not start with _
-		require.NotEqual(t, uint8('_'), l.KeysetID[0])
 		retrievedKey, ok := storeMap[l.KeysetID]
 		require.True(t, ok)
 		require.Equal(t, retrievedKey, someKey)
