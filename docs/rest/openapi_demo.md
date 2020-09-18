@@ -210,7 +210,212 @@ of [how to establish a did-connection](https://github.com/hyperledger/aries-fram
     ```json
     {"result":[{"name":"demo-presentation","id":"urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5","context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"type":["VerifiablePresentation","CredentialManagerPresentation"],"subjectId":"did:example:ebfeb1f712ebc6f1c276e12ec21","my_did":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT","their_did":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"}]}
     ```
-   
+
+## How to issue credentials through the Issue Credential protocol?
+
+NOTE: Before using Issue Credential protocol you need to establish did-connection.
+If you already have established a did-connection you can use it, if not then see the instruction
+of [how to establish a did-connection](https://github.com/hyperledger/aries-framework-go/blob/master/docs/rest/openapi_demo.md#how-to-create-a-did-connection-through-the-out-of-band-protocol).
+
+1. Send an offer (Alice).
+
+    Make sure that did-connection is established and you have the following values:
+    ```
+    MyDID: did:peer:1zQmdGgqqKVsLDs8579Udfg1DS3ZsbZrRLpywAeF5w7DuqQa
+    TheirDID: did:peer:1zQmeLaYBc1skp4cxxFPyZYwkrKprCXcneQuRWKNmVXjF7Sg
+    ```
+    Then perform `/issuecredential/send-offer` API call.
+    ```
+    curl -k -X POST "https://localhost:8082/issuecredential/send-offer" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+        "my_did": "did:peer:1zQmdGgqqKVsLDs8579Udfg1DS3ZsbZrRLpywAeF5w7DuqQa",
+        "their_did": "did:peer:1zQmeLaYBc1skp4cxxFPyZYwkrKprCXcneQuRWKNmVXjF7Sg",
+        "offer_credential": {}
+    }'
+    ```
+    The response should be similar to the following:
+    ```json
+     {"piid":"4cd06dba-fff2-4f41-a999-4d659fde1a4d"}
+    ```
+2. Accept an offer (Bob).
+
+    To accept an offer you need to know `PIID`.
+    You can achieve that by performing `/issuecredential/actions` API call.
+    ```
+    curl -k -X GET "https://localhost:9082/issuecredential/actions" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {
+       "actions":[
+          {
+             "PIID":"4cd06dba-fff2-4f41-a999-4d659fde1a4d",
+             "Msg":{
+                "@id":"4cd06dba-fff2-4f41-a999-4d659fde1a4d",
+                "@type":"https://didcomm.org/issue-credential/2.0/offer-credential",
+                "~thread":{
+                   "thid":"4cd06dba-fff2-4f41-a999-4d659fde1a4d"
+                }
+             },
+             "MyDID":"did:peer:1zQmeLaYBc1skp4cxxFPyZYwkrKprCXcneQuRWKNmVXjF7Sg",
+             "TheirDID":"did:peer:1zQmdGgqqKVsLDs8579Udfg1DS3ZsbZrRLpywAeF5w7DuqQa"
+          }
+       ]
+    }
+    ```
+    Then you need to perform `/issuecredential/{piid}/accept-offer` API call.
+    ```
+    curl -k -X POST "https://localhost:9082/issuecredential/4cd06dba-fff2-4f41-a999-4d659fde1a4d/accept-offer" -H  "accept: application/json"
+    ```
+    The response should be the following:
+    ```json
+    {}
+    ```
+3. Accept a request (Alice).
+
+    To accept a request you need to know `PIID`.
+    You can achieve that by performing `/issuecredential/actions` API call.
+    ```
+    curl -k -X GET "https://localhost:8082/issuecredential/actions" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {
+       "actions":[
+          {
+             "PIID":"4cd06dba-fff2-4f41-a999-4d659fde1a4d",
+             "Msg":{
+                "@id":"9a089779-1ef8-4b1a-933e-6091b09f39f8",
+                "@type":"https://didcomm.org/issue-credential/2.0/request-credential",
+                "~thread":{
+                   "thid":"4cd06dba-fff2-4f41-a999-4d659fde1a4d"
+                }
+             },
+             "MyDID":"did:peer:1zQmdGgqqKVsLDs8579Udfg1DS3ZsbZrRLpywAeF5w7DuqQa",
+             "TheirDID":"did:peer:1zQmeLaYBc1skp4cxxFPyZYwkrKprCXcneQuRWKNmVXjF7Sg"
+          }
+       ]
+    }
+    ```
+    Then you need to perform `/issuecredential/{piid}/accept-request` API call.
+    ```
+    curl -k -X POST "https://localhost:8082/issuecredential/4cd06dba-fff2-4f41-a999-4d659fde1a4d/accept-request" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+       "issue_credential":{
+          "credentials~attach":[
+             {
+                "lastmod_time":"0001-01-01T00:00:00Z",
+                "data":{
+                   "json":{
+                      "@context":[
+                         "https://www.w3.org/2018/credentials/v1",
+                         "https://www.w3.org/2018/credentials/examples/v1"
+                      ],
+                      "credentialSubject":{
+                         "id":"sample-credential-subject-id"
+                      },
+                      "id":"http://example.edu/credentials/1872",
+                      "issuanceDate":"2010-01-01T19:23:24Z",
+                      "issuer":{
+                         "id":"did:example:76e12ec712ebc6f1c221ebfeb1f",
+                         "name":"Example University"
+                      },
+                      "referenceNumber":83294847,
+                      "type":[
+                         "VerifiableCredential",
+                         "UniversityDegreeCredential"
+                      ]
+                   }
+                }
+             }
+          ]
+       }
+    }'
+    ```
+    The response should be the following:
+    ```json
+    {}
+    ```
+4. Accept a credential (Bob).
+
+    To accept a credential you need to know `PIID`.
+    You can achieve that by performing `/issuecredential/actions` API call.
+    ```
+    curl -k -X GET "https://localhost:9082/issuecredential/actions" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {
+       "actions":[
+          {
+             "PIID":"4cd06dba-fff2-4f41-a999-4d659fde1a4d",
+             "Msg":{
+                "@id":"62e2e959-8017-4a3a-8c78-50a8c8c6328c",
+                "@type":"https://didcomm.org/issue-credential/2.0/issue-credential",
+                "credentials~attach":[
+                   {
+                      "data":{
+                         "json":{
+                            "@context":[
+                               "https://www.w3.org/2018/credentials/v1",
+                               "https://www.w3.org/2018/credentials/examples/v1"
+                            ],
+                            "credentialSubject":{
+                               "id":"sample-credential-subject-id"
+                            },
+                            "id":"http://example.edu/credentials/1872",
+                            "issuanceDate":"2010-01-01T19:23:24Z",
+                            "issuer":{
+                               "id":"did:example:76e12ec712ebc6f1c221ebfeb1f",
+                               "name":"Example University"
+                            },
+                            "referenceNumber":83294847,
+                            "type":[
+                               "VerifiableCredential",
+                               "UniversityDegreeCredential"
+                            ]
+                         }
+                      }
+                   }
+                ],
+                "~thread":{
+                   "thid":"4cd06dba-fff2-4f41-a999-4d659fde1a4d"
+                }
+             },
+             "MyDID":"did:peer:1zQmeLaYBc1skp4cxxFPyZYwkrKprCXcneQuRWKNmVXjF7Sg",
+             "TheirDID":"did:peer:1zQmdGgqqKVsLDs8579Udfg1DS3ZsbZrRLpywAeF5w7DuqQa"
+          }
+       ]
+    }
+    ```
+    Then you need to perform `/issuecredential/{piid}/accept-credential` API call.
+    ```
+    curl -k -X POST "https://localhost:9082/issuecredential/4cd06dba-fff2-4f41-a999-4d659fde1a4d/accept-credential" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+       "names":[
+          "demo-credential"
+       ]
+    }'
+    ```
+    The response should be the following:
+    ```json
+    {}
+    ```
+4. Check that `demo-credential` was saved.
+    ```
+    curl -k -X GET "https://localhost:9082/verifiable/credential/name/demo-credential" -H  "accept: application/json"
+    ```
+    The response should be similar to the following:
+    ```json
+    {"name":"demo-credential","id":"http://example.edu/credentials/1872"}
+    ```
+
 ## Notes 
 Following features are not supported at the moment in RestAPI.
 1. Connection search using different criterion.
