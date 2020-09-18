@@ -119,7 +119,7 @@ For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST 
     ```
 4. Accept a request (Alice).
     ```
-    curl -X POST "https://localhost:8082/connections/ea0a0545-d223-4ab0-9fdb-c01172a334f6/accept-request" -H  "accept: application/json" -d ""
+    curl -X POST "https://localhost:8082/connections/ea0a0545-d223-4ab0-9fdb-c01172a334f6/accept-request" -H  "accept: application/json"
     ```
     The response should be similar to the following:
     ```json
@@ -157,7 +157,14 @@ of [how to establish a did-connection](https://github.com/hyperledger/aries-fram
     ```
     Then perform `/presentproof/send-request-presentation` API call.
     ```
-    curl -X POST "https://localhost:8082/presentproof/send-request-presentation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"my_did\":\"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT\",\"request_presentation\":{},\"their_did\":\"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG\"}"
+    curl -k -X POST "https://localhost:8082/presentproof/send-request-presentation" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+       "my_did":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT",
+       "their_did":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG",
+       "request_presentation":{}
+    }'
     ```
    The response should be similar to the following:
    ```json
@@ -168,15 +175,65 @@ of [how to establish a did-connection](https://github.com/hyperledger/aries-fram
     To accept a request presentation you need to know `PIID`.
     You can achieve that by performing `/presentproof/actions` API call.
     ```
-    curl -X GET "https://localhost:9082/presentproof/actions" -H  "accept: application/json"
+    curl -k -X GET "https://localhost:9082/presentproof/actions" -H  "accept: application/json"
     ```
     The response should be similar to the following:
     ```json
-    {"actions":[{"PIID":"80f8b418-4818-4af6-8915-f299b974f5c2","Msg":{"@id":"80f8b418-4818-4af6-8915-f299b974f5c2","@type":"https://didcomm.org/present-proof/2.0/request-presentation","~thread":{"thid":"80f8b418-4818-4af6-8915-f299b974f5c2"}},"MyDID":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG","TheirDID":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT"}]}
+    {
+       "actions":[
+          {
+             "PIID":"80f8b418-4818-4af6-8915-f299b974f5c2",
+             "Msg":{
+                "@id":"80f8b418-4818-4af6-8915-f299b974f5c2",
+                "@type":"https://didcomm.org/present-proof/2.0/request-presentation",
+                "~thread":{
+                   "thid":"80f8b418-4818-4af6-8915-f299b974f5c2"
+                }
+             },
+             "MyDID":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG",
+             "TheirDID":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT"
+          }
+       ]
+    }
     ```
     Then you need to perform `/presentproof/{piid}/accept-request-presentation` API call.
+    The encoded presentation payload is:
+    ```json
+    {
+       "@context":[
+          "https://www.w3.org/2018/credentials/v1",
+          "https://www.w3.org/2018/credentials/examples/v1"
+       ],
+       "holder":"did:example:ebfeb1f712ebc6f1c276e12ec21",
+       "id":"urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+       "type":[
+          "VerifiablePresentation",
+          "CredentialManagerPresentation"
+       ],
+       "verifiableCredential":null
+    }
     ```
-    curl -X POST "https://localhost:9082/presentproof/80f8b418-4818-4af6-8915-f299b974f5c2/accept-request-presentation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"presentation\":{\"presentations~attach\":[{\"lastmod_time\":\"0001-01-01T00:00:00Z\",\"data\":{\"base64\":\"ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=\"}}]}}"
+    JWT info:
+    ```json
+    {"alg":"none","typ":"JWT"}
+    ```
+    The curl request should be the following:
+    ```
+    curl -k -X POST "https://localhost:9082/presentproof/80f8b418-4818-4af6-8915-f299b974f5c2/accept-request-presentation" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+       "presentation":{
+          "presentations~attach":[
+             {
+                "lastmod_time":"0001-01-01T00:00:00Z",
+                "data":{
+                   "base64":"ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4="
+                }
+             }
+          ]
+       }
+    }'
     ```
     The response should be the following:
     ```json
@@ -187,16 +244,45 @@ of [how to establish a did-connection](https://github.com/hyperledger/aries-fram
     To accept a presentation you need to know `PIID`.
     You can achieve that by performing `/presentproof/actions` API call.
     ```
-    curl -X GET "https://localhost:9082/presentproof/actions" -H  "accept: application/json"
+    curl -k -X GET "https://localhost:9082/presentproof/actions" -H  "accept: application/json"
     ```
     The response should be similar to the following:
     ```json
-    {"actions":[{"PIID":"80f8b418-4818-4af6-8915-f299b974f5c2","Msg":{"@id":"bad7cffc-ee7f-4755-8b20-7d70104c4034","@type":"https://didcomm.org/present-proof/2.0/presentation","presentations~attach":[{"data":{"base64":"ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4="}}],"~thread":{"thid":"80f8b418-4818-4af6-8915-f299b974f5c2"}},"MyDID":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT","TheirDID":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"},{"PIID":"824577e2-94df-4e77-9122-3d72238a65b8","Msg":{"@id":"b0c86f29-050a-4602-8914-338b24560e2e","@type":"https://didcomm.org/present-proof/2.0/presentation","comment":"string","formats":[{"attach_id":"string","format":"string"}],"presentations~attach":[{"@id":"string","data":{"base64":"string","json":{},"links":["string"],"sha256":"string"},"description":"string","filename":"string","lastmod_time":"2020-09-17T09:21:07.243Z","mime-type":"string"}],"~thread":{"thid":"824577e2-94df-4e77-9122-3d72238a65b8"}},"MyDID":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT","TheirDID":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"}]}
+    {
+       "actions":[
+          {
+             "PIID":"80f8b418-4818-4af6-8915-f299b974f5c2",
+             "Msg":{
+                "@id":"bad7cffc-ee7f-4755-8b20-7d70104c4034",
+                "@type":"https://didcomm.org/present-proof/2.0/presentation",
+                "presentations~attach":[
+                   {
+                      "data":{
+                         "base64":"ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4="
+                      }
+                   }
+                ],
+                "~thread":{
+                   "thid":"80f8b418-4818-4af6-8915-f299b974f5c2"
+                }
+             },
+             "MyDID":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT",
+             "TheirDID":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"
+          }
+       ]
+    }
     ```
     Then you need to perform `/presentproof/{piid}/accept-presentation` API call.
     Do not forget to provide a user-friendly name for the presentation. e.g `demo-presentation`
     ```
-    curl -X POST "https://localhost:8082/presentproof/80f8b418-4818-4af6-8915-f299b974f5c2/accept-presentation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{\"names\":[\"demo-presentation\"]}"
+    curl -k -X POST "https://localhost:8082/presentproof/80f8b418-4818-4af6-8915-f299b974f5c2/accept-presentation" \
+    -H  "accept: application/json" \
+    -H  "Content-Type: application/json" \
+    -d '{
+       "names":[
+          "demo-presentation"
+       ]
+    }'
     ```
     The response should be the following:
     ```json
@@ -204,11 +290,29 @@ of [how to establish a did-connection](https://github.com/hyperledger/aries-fram
     ```
 4. Check that `demo-presentation` was saved.
     ```
-    curl -X GET "https://localhost:8082/verifiable/presentations" -H  "accept: application/json"
+    curl -k -X GET "https://localhost:8082/verifiable/presentations" -H  "accept: application/json"
     ```
     The response should be similar to the following:
     ```json
-    {"result":[{"name":"demo-presentation","id":"urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5","context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"type":["VerifiablePresentation","CredentialManagerPresentation"],"subjectId":"did:example:ebfeb1f712ebc6f1c276e12ec21","my_did":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT","their_did":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"}]}
+    {
+       "result":[
+          {
+             "name":"demo-presentation",
+             "id":"urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+             "context":[
+                "https://www.w3.org/2018/credentials/v1",
+                "https://www.w3.org/2018/credentials/examples/v1"
+             ],
+             "type":[
+                "VerifiablePresentation",
+                "CredentialManagerPresentation"
+             ],
+             "subjectId":"did:example:ebfeb1f712ebc6f1c276e12ec21",
+             "my_did":"did:peer:1zQmRmFgG6PUX8d9Zrrkdh9akh3uijnoTMfx8XiRhMDSFJwT",
+             "their_did":"did:peer:1zQmQSLFWySB3LACeSrUpvM48QN9frMayNHypnsQjk4GhQKG"
+          }
+       ]
+    }
     ```
 
 ## How to issue credentials through the Issue Credential protocol?
