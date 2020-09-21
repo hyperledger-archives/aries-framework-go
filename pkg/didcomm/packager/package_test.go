@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/base58wrapper"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
@@ -134,7 +134,9 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// for authcrypt, sender key should be in third party store, must use base58 wrapped store to match kms store.
-		wThirdPartyStore := base58wrapper.NewBase58StoreWrapper(thirdPartyStore)
+		wThirdPartyStore, err := prefix.NewPrefixStoreWrapper(thirdPartyStore, prefix.StorageKIDPrefix)
+		require.NoError(t, err)
+
 		err = wThirdPartyStore.Put(fromKID, fromKey)
 		require.NoError(t, err)
 
@@ -151,8 +153,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// mock KMS without ToKey then try UnpackMessage
-		toKIDB58 := base58.Encode([]byte(toKID)) // convert toKID since the store key IDs are base58 encoded
-		delete(storeMap, toKIDB58)
+		delete(storeMap, prefix.StorageKIDPrefix+toKID) // keys in storeMap are prefixed
 
 		// It should fail since Recipient keys are not found in the KMS
 		_, err = packager.UnpackMessage(packMsg)
@@ -286,9 +287,9 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
-		// adding the key in the thirdPartyKeyStore of the recipient
-		fromKIDB58 := base58.Encode([]byte(fromKID))
-		thirdPartyKeyStore[fromKIDB58] = fromKey
+		// adding the key in the thirdPartyKeyStore of the recipient, stored using StorePrefixWrapper
+		fromWrappedKID := prefix.StorageKIDPrefix + fromKID
+		thirdPartyKeyStore[fromWrappedKID] = fromKey
 
 		// unpack the packed message above - should pass and match the same payload (msg1)
 		unpackedMsg, err := packager.UnpackMessage(packMsg)

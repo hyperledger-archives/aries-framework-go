@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
@@ -38,6 +37,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 const testMasterKeyURI = keywrapper.LocalKeyURIPrefix + "test/key/uri"
@@ -278,8 +278,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
 
-		b58KID := base58.Encode([]byte(keyID))
-		ks, ok := storeDB[b58KID]
+		ks, ok := storeDB[prefix.StorageKIDPrefix+keyID]
 		require.True(t, ok)
 		require.NotEmpty(t, ks)
 

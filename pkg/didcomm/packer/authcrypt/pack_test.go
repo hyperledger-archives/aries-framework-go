@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
@@ -26,6 +25,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 func TestAuthryptPackerSuccess(t *testing.T) {
@@ -34,17 +34,17 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
-	mockStoreMap := make(map[string][]byte)
+	thirdPartyKeyStore := make(map[string][]byte)
 	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-		Store: mockStoreMap,
+		Store: thirdPartyKeyStore,
 	}}
 
 	authPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
 	require.NoError(t, err)
 
-	// add sender key in store (prep step before Authcrypt.Pack()/Unpack())
-	b58SKID := base58.Encode([]byte(skid))
-	mockStoreMap[b58SKID] = senderKey
+	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
+	fromWrappedKID := prefix.StorageKIDPrefix + skid
+	thirdPartyKeyStore[fromWrappedKID] = senderKey
 
 	origMsg := []byte("secret message")
 	ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
@@ -75,14 +75,14 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
-	t.Run("new Pack fail with nil store provider", func(t *testing.T) {
+	t.Run("new Pack fail with nil thirdPartyKS provider", func(t *testing.T) {
 		_, err := New(newMockProvider(nil, k), jose.A256GCM)
 		require.EqualError(t, err, "authcrypt: failed to create packer because StorageProvider is empty")
 	})
 
-	t.Run("new Pack fail with bad store provider", func(t *testing.T) {
+	t.Run("new Pack fail with bad thirdPartyKS provider", func(t *testing.T) {
 		badStoreProvider := &mockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: errors.New("failed to open store"),
+			ErrOpenStoreHandle: errors.New("failed to open thirdPartyKS"),
 			FailNamespace:      ThirdPartyKeysDB,
 		}
 
