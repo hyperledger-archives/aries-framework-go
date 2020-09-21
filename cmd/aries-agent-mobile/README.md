@@ -99,9 +99,12 @@ import java.nio.charset.StandardCharsets;
         System.out.println(actionsResponse);
 ```
 
-To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/Handler.go) interface and use as follows:
+To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/handler.go) interface and use as follows:
 
 ```java
+
+// Java
+
 import java.nio.charset.StandardCharsets;
 
 import org.hyperledger.aries.api.Handler;
@@ -134,6 +137,44 @@ class AriesService {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+}
+```
+
+```kotlin
+
+// Kotlin
+
+import org.hyperledger.aries.api.AriesController
+import org.hyperledger.aries.api.Handler
+import org.hyperledger.aries.ariesagent.Ariesagent
+import org.hyperledger.aries.config.Options
+import java.nio.charset.StandardCharsets
+
+class MyHandler : Handler {
+    override fun handle(topic: String, message: ByteArray) {
+        println("received notification topic: $topic")
+        println("received notification message: " + String(message, StandardCharsets.UTF_8))
+    }
+}
+
+class AriesService {
+    var ariesAgent: AriesController? = null
+    fun newAgentWithHandler(url: String?, websocketURL: String?, useLocalAgent: Boolean) {
+        val opts = Options()
+        opts.agentURL = url
+        opts.websocketURL = websocketURL
+        opts.useLocalAgent = useLocalAgent
+        try {
+            ariesAgent = Ariesagent.new_(opts)
+
+            // register handler
+            val handler: Handler = MyHandler()
+            val registrationID = ariesAgent.registerHandler(handler, "didexchange_states")
+            println("handler registration id: $registrationID")
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
@@ -183,6 +224,117 @@ This is an example of how the imported framework can be used:
     }
 ```
 
+To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/handler.go) interface and use as follows:
+
+```objc
+// Objective-C
+
+#import <AriesAgent/Ariesagent.h>
+
+@interface MyHandler: NSObject<ApiHandler>{
+
+}
+@end
+
+@implementation MyHandler
+    
+NSString *lastTopic, *lastMessage;
+
+- (BOOL) handle: (NSString *)topic message:(NSData *)message
+          error:(NSError * _Nullable __autoreleasing *)error {
+    
+    lastTopic = topic;
+    lastMessage = [[NSString alloc] initWithData:message encoding:NSUTF8StringEncoding];
+        
+    return true;
+}
+
+@end
+
+@interface AriesService()
+
+@property NSString *urlToUse;
+@property NSString *wsURLToUse;
+@property BOOL useLocalAgent;
+@property ApiAriesController* ariesAgent;
+
+@end
+
+@implementation AriesService
+
+- (void) newAgentWithHandler {
+    ConfigOptions *opts = ConfigNew();
+    [opts setAgentURL:_urlToUse];
+    [opts setUseLocalAgent:_useLocalAgent];
+    [opts setWebsocketURL:_wsURLToUse];
+    
+    NSError *error = nil;
+    
+    _ariesAgent = (ApiAriesController*) AriesagentNew(opts, &error);
+    if(error) {
+        NSLog(@"error creating an aries agent: %@", error);
+    }
+    
+    // register handler
+    MyHandler *handler = [[MyHandler alloc] init];
+    NSString *regID = [_ariesAgent registerHandler:handler topics:@"didexchange_states"];
+    NSLog(@"handler registration id: %@", regID);
+}
+
+@end
+
+```
+
+```swift
+// Swift
+
+import AriesAgent
+
+var lastTopic: String?
+    var lastMessage: String?
+
+class MyHandler: NSObject, ApiHandler {
+    func handle(
+        _ topic: String?,
+        message: Data?
+    ) throws {
+
+        lastTopic = topic
+        if let message = message {
+            lastMessage = String(data: message, encoding: .utf8)
+        }
+
+        return true
+    }
+}
+
+class AriesService {
+    private var urlToUse: String?
+    private var wsURLToUse: String?
+    private var useLocalAgent = false
+    private var ariesAgent: ApiAriesController?
+
+    func newAgentWithHandler() {
+        let opts = ConfigNew()
+        opts?.agentURL = urlToUse
+        opts?.useLocalAgent = useLocalAgent
+        opts?.websocketURL = wsURLToUse
+
+        var error: Error? = nil
+
+        ariesAgent = AriesagentNew(opts, &error) as? ApiAriesController
+        if let error = error {
+            print("error creating an aries agent: \(error)")
+        }
+
+        // register handler
+        let handler = MyHandler()
+        let regID = ariesAgent?.register(handler, topics: "didexchange_states")
+        print("handler registration id: \(regID ?? "")")
+    }
+}
+
+```
 
 ### 3.3. Demo apps
 

@@ -23,8 +23,8 @@ A remote agent will forward all operations to an Aries agent deployed on an exte
 
 Here are examples for:
 
-- [Android](https://github.com/trustbloc/aries-examples/blob/master/android/AriesDemo/app/src/main/java/com/github/trustbloc/ariesdemo/FirstFragment.java#L41)
-- [iOS](https://github.com/trustbloc/aries-examples/blob/master/ios/AriesDemo/AriesDemo/ViewController.m#L96)
+- [Android](https://github.com/trustbloc/aries-examples/blob/master/android/AriesDemo/app/src/main/java/com/github/trustbloc/ariesdemo/FirstFragment.java)
+- [iOS](https://github.com/trustbloc/aries-examples/blob/master/ios/AriesDemo/AriesDemo/ViewController.m)
 
 ## Interfaces
 
