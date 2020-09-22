@@ -123,12 +123,12 @@ func TestServiceHandleOutbound(t *testing.T) {
 			},
 		}
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
-		s["conn_conn1"] = connBytes
+		s["conn_conn"] = connBytes
 
 		r, err := connection.NewRecorder(provider)
 		require.NoError(t, err)
@@ -947,21 +947,21 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn1"] = connBytes
+		s["conn_conn"] = connBytes
 
 		go func() {
 			id := <-msgID
 			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
 		}()
 
-		err = svc.Register("conn1")
+		err = svc.Register("conn")
 		require.NoError(t, err)
 
-		err = svc.Register("conn1")
+		err = svc.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router is already registered")
 	})
@@ -992,18 +992,18 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn1"] = connBytes
+		s["conn_conn"] = connBytes
 
 		go func() {
 			id := <-msgID
 			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
 		}()
 
-		err = svc.Register("conn1")
+		err = svc.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save route config")
 	})
@@ -1077,7 +1077,7 @@ func TestRegister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Register("conn1")
+		err = svc.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), ErrConnectionNotFound.Error())
 	})
@@ -1100,13 +1100,15 @@ func TestRegister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Register("conn1")
+		err = svc.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "fetch connection record from store")
 	})
 }
 
 func TestUnregister(t *testing.T) {
+	const connID = "conn-id"
+
 	t.Run("test unregister route - success", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(
@@ -1120,9 +1122,9 @@ func TestUnregister(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		s[routeConnIDDataKey] = []byte("conn-abc-xyz")
+		s[fmt.Sprintf(routeConnIDDataKey, connID)] = []byte("conn-abc-xyz")
 
-		err = svc.Unregister()
+		err = svc.Unregister(connID)
 		require.NoError(t, err)
 	})
 
@@ -1141,7 +1143,7 @@ func TestUnregister(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = svc.Unregister()
+		err = svc.Unregister(connID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router not registered")
 	})
@@ -1161,13 +1163,15 @@ func TestUnregister(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = svc.Unregister()
+		err = svc.Unregister(connID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch router connection id")
+		require.EqualError(t, err, "ensure connection exists: get error")
 	})
 }
 
 func TestKeylistUpdate(t *testing.T) {
+	const connID = "conn-id"
+
 	t.Run("test keylist update - success", func(t *testing.T) {
 		keyUpdateMsg := make(chan KeylistUpdate)
 		recKey := "ojaosdjoajs123jkas"
@@ -1196,15 +1200,15 @@ func TestKeylistUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		// save router connID
-		require.NoError(t, svc.saveRouterConnectionID("conn1"))
+		require.NoError(t, svc.saveRouterConnectionID("conn"))
 
 		// save connections
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn1"] = connBytes
+		s["conn_conn"] = connBytes
 
 		go func() {
 			updateMsg := <-keyUpdateMsg
@@ -1220,7 +1224,7 @@ func TestKeylistUpdate(t *testing.T) {
 				t, updateMsg.ID, updates)))
 		}()
 
-		err = svc.AddKey(recKey)
+		err = svc.AddKey("conn", recKey)
 		require.NoError(t, err)
 	})
 
@@ -1252,25 +1256,25 @@ func TestKeylistUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		// no router registered
-		err = svc.AddKey(recKey)
+		err = svc.AddKey(connID, recKey)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router not registered")
 
 		// save router connID
-		require.NoError(t, svc.saveRouterConnectionID("conn1"))
+		require.NoError(t, svc.saveRouterConnectionID("conn"))
 
 		// no connections saved
-		err = svc.AddKey(recKey)
+		err = svc.AddKey("conn", recKey)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connection not found")
 
 		// save connections
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn1"] = connBytes
+		s["conn_conn"] = connBytes
 
 		go func() {
 			updateMsg := <-keyUpdateMsg
@@ -1286,7 +1290,7 @@ func TestKeylistUpdate(t *testing.T) {
 				t, updateMsg.ID, updates)))
 		}()
 
-		err = svc.AddKey(recKey)
+		err = svc.AddKey("conn", recKey)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to update the recipient key with the router")
 	})
@@ -1312,7 +1316,7 @@ func TestKeylistUpdate(t *testing.T) {
 		s["conn_conn2"] = connBytes
 		require.NoError(t, svc.saveRouterConnectionID("conn2"))
 
-		err = svc.AddKey("recKey")
+		err = svc.AddKey("conn2", "recKey")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for keylist update response from the router")
 	})
@@ -1332,9 +1336,9 @@ func TestKeylistUpdate(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AddKey("recKey")
+		err = svc.AddKey("conn", "recKey")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch router connection id")
+		require.EqualError(t, err, "ensure connection exists: get error")
 	})
 }
 
@@ -1355,12 +1359,12 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
-		require.NoError(t, svc.saveRouterConfig(&config{
+		require.NoError(t, svc.saveRouterConfig("connID-123", &config{
 			RouterEndpoint: ENDPOINT,
 			RoutingKeys:    routingKeys,
 		}))
 
-		conf, err := svc.Config()
+		conf, err := svc.Config("connID-123")
 		require.NoError(t, err)
 		require.Equal(t, ENDPOINT, conf.Endpoint())
 		require.Equal(t, routingKeys, conf.Keys())
@@ -1379,9 +1383,9 @@ func TestConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		conf, err := svc.Config()
+		conf, err := svc.Config("conn")
 		require.Error(t, err)
-		require.Equal(t, err, ErrRouterNotRegistered)
+		require.True(t, errors.Is(err, ErrRouterNotRegistered))
 		require.Nil(t, conf)
 	})
 
@@ -1400,7 +1404,7 @@ func TestConfig(t *testing.T) {
 
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
 
-		conf, err := svc.Config()
+		conf, err := svc.Config("connID-123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get router config data")
 		require.Nil(t, conf)
@@ -1419,10 +1423,12 @@ func TestConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
-		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
+		const conn = "connID-123"
 
-		conf, err := svc.Config()
+		require.NoError(t, svc.saveRouterConnectionID(conn))
+		require.NoError(t, svc.routeStore.Put(fmt.Sprintf(routeConfigDataKey, conn), []byte("invalid data")))
+
+		conf, err := svc.Config(conn)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal router config data")
 		require.Nil(t, conf)
@@ -1446,14 +1452,14 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
 		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
 
-		conf, err := svc.Config()
+		conf, err := svc.Config("connID-123")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch router connection id")
+		require.EqualError(t, err, "ensure connection exists: get error")
 		require.Nil(t, conf)
 	})
 }
 
-func TestGetConnection(t *testing.T) {
+func TestGetConnections(t *testing.T) {
 	routerConnectionID := "conn-abc-xyz"
 
 	t.Run("test get connection - success", func(t *testing.T) {
@@ -1469,11 +1475,11 @@ func TestGetConnection(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		s[routeConnIDDataKey] = []byte(routerConnectionID)
+		s[fmt.Sprintf(routeConnIDDataKey, routerConnectionID)] = []byte(routerConnectionID)
 
-		connID, err := svc.GetConnection()
+		connID, err := svc.GetConnections()
 		require.NoError(t, err)
-		require.Equal(t, routerConnectionID, connID)
+		require.Equal(t, routerConnectionID, connID[0])
 	})
 
 	t.Run("test get connection - no data found", func(t *testing.T) {
@@ -1489,30 +1495,8 @@ func TestGetConnection(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		connID, err := svc.GetConnection()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "router not registered")
-		require.Empty(t, connID)
-	})
-
-	t.Run("test get connection - empty data", func(t *testing.T) {
-		s := make(map[string][]byte)
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
-				},
-				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			},
-		)
+		connID, err := svc.GetConnections()
 		require.NoError(t, err)
-
-		s[routeConnIDDataKey] = []byte("")
-
-		connID, err := svc.GetConnection()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "router not registered")
 		require.Empty(t, connID)
 	})
 
@@ -1524,18 +1508,18 @@ func TestGetConnection(t *testing.T) {
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
 				StorageProviderValue: &mockstore.MockStoreProvider{
-					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
+					Store: &mockstore.MockStore{Store: s, ErrItr: errors.New("itr error")},
 				},
 				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			},
 		)
 		require.NoError(t, err)
 
-		s[routeConnIDDataKey] = []byte(routerConnectionID)
+		s[fmt.Sprintf(routeConnIDDataKey, "conn")] = []byte(routerConnectionID)
 
-		connID, err := svc.GetConnection()
+		connID, err := svc.GetConnections()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch router connection id")
+		require.EqualError(t, err, "itr error")
 		require.Empty(t, connID)
 	})
 }

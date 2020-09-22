@@ -34,7 +34,7 @@ const (
 	createInvitationPath         = connOperationID + "/create-invitation"
 	createImplicitInvitationPath = connOperationID + "/create-implicit-invitation"
 	receiveInvtiationPath        = connOperationID + "/receive-invitation"
-	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s"
+	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s" // router_connections
 	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
 	connectionsByID              = connOperationID + "/{id}"
 	createKeySetPath             = kmsOperationID + "/keyset"
@@ -152,12 +152,26 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 	logger.Debugf("Creating invitation from controller for agent[%s], label[%s], did[%s]",
 		inviterAgentID, publicDID, label)
 
+	connections := struct{ Connections []string }{}
+
+	err := util.SendHTTP(http.MethodGet, destination+"/mediator/connections", nil, &connections)
+	if err != nil {
+		return fmt.Errorf("mediator connections: %w", err)
+	}
+
+	var connection string
+
+	if len(connections.Connections) > 0 {
+		connection = connections.Connections[0]
+	}
+
 	// call controller
-	path := fmt.Sprintf("%s%s?alias=%s&public=%s", destination, createInvitationPath, label, publicDID)
+	path := fmt.Sprintf("%s%s?alias=%s&public=%s&router_connection_id=%s",
+		destination, createInvitationPath, label, publicDID, connection)
 
 	var result didexcmd.CreateInvitationResponse
 
-	err := util.SendHTTP(http.MethodPost, path, nil, &result)
+	err = util.SendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
 		logger.Errorf("Failed to create invitation, cause : %s", err)
 		return err
@@ -343,12 +357,20 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 		}
 	}
 
+	connections := struct{ Connections []string }{}
+
+	err := util.SendHTTP(http.MethodGet, controllerURL+"/mediator/connections", nil, &connections)
+	if err != nil {
+		return fmt.Errorf("mediator connections: %w", err)
+	}
+
 	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
 		agentID, publicDID)
 
 	path := controllerURL + fmt.Sprintf(operationPath, connectionID, publicDID)
+	path += "&router_connections=" + strings.Join(connections.Connections, ",")
 
-	err := util.SendHTTP(http.MethodPost, path, nil, &response)
+	err = util.SendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
 		return fmt.Errorf("failed to perform approve request : %w", err)

@@ -25,7 +25,7 @@ import (
 // SDKSteps is steps for didexchange using client SDK.
 type SDKSteps struct {
 	bddContext     *context.BDDContext
-	nextAction     map[string]chan struct{}
+	nextAction     map[string]chan struct{ connections []string }
 	connectionID   map[string]string
 	invitations    map[string]*didexchange.Invitation
 	postStatesFlag map[string]map[string]chan bool
@@ -34,7 +34,7 @@ type SDKSteps struct {
 // NewDIDExchangeSDKSteps return new steps for didexchange using client SDK.
 func NewDIDExchangeSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		nextAction:     make(map[string]chan struct{}),
+		nextAction:     make(map[string]chan struct{ connections []string }),
 		connectionID:   make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
 		postStatesFlag: make(map[string]map[string]chan bool),
@@ -42,7 +42,25 @@ func NewDIDExchangeSDKSteps() *SDKSteps {
 }
 
 func (d *SDKSteps) createInvitation(inviterAgentID string) error {
-	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID)
+	var connections []string
+
+	if _, ok := d.bddContext.RouteClients[inviterAgentID]; ok {
+		var err error
+
+		connections, err = d.bddContext.RouteClients[inviterAgentID].GetConnections()
+		if err != nil {
+			return err
+		}
+	}
+
+	var connection string
+
+	if len(connections) > 0 {
+		connection = connections[0]
+	}
+
+	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID,
+		didexchange.WithRouterConnectionID(connection))
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
@@ -209,14 +227,25 @@ func (d *SDKSteps) ApproveRequest(agentID string) error {
 		return fmt.Errorf("%s is not registered for request approval", agentID)
 	}
 
+	var connections []string
+
+	if _, ok := d.bddContext.RouteClients[agentID]; ok {
+		var err error
+
+		connections, err = d.bddContext.RouteClients[agentID].GetConnections()
+		if err != nil {
+			return err
+		}
+	}
+
 	// sends the signal which automatically handles events
-	c <- struct{}{}
+	c <- struct{ connections []string }{connections: connections}
 
 	return nil
 }
 
-func (d *SDKSteps) getClientOptions(agentID string) interface{} {
-	clientOpts := &clientOptions{label: agentID}
+func (d *SDKSteps) getClientOptions(agentID string, connections []string) interface{} {
+	clientOpts := &clientOptions{label: agentID, routerConnections: connections}
 
 	pubDID, ok := d.bddContext.PublicDIDDocs[agentID]
 	if ok {
@@ -229,8 +258,9 @@ func (d *SDKSteps) getClientOptions(agentID string) interface{} {
 }
 
 type clientOptions struct {
-	publicDID string
-	label     string
+	publicDID         string
+	label             string
+	routerConnections []string
 }
 
 func (copts *clientOptions) PublicDID() string {
@@ -239,6 +269,10 @@ func (copts *clientOptions) PublicDID() string {
 
 func (copts *clientOptions) Label() string {
 	return copts.label
+}
+
+func (copts *clientOptions) RouterConnections() []string {
+	return copts.routerConnections
 }
 
 // CreateDIDExchangeClient creates DIDExchangeClient.
@@ -261,7 +295,7 @@ func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 
 		d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
 		// initializes the channel for the agent
-		d.nextAction[agentID] = make(chan struct{})
+		d.nextAction[agentID] = make(chan struct{ connections []string })
 
 		go d.autoExecuteActionEvent(agentID, actionCh)
 	}
@@ -272,7 +306,7 @@ func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDCommAction) {
 	for e := range ch {
 		// waits for the signal to allows this code to be executed
-		<-d.nextAction[agentID]
+		res := <-d.nextAction[agentID]
 
 		switch v := e.Properties.(type) {
 		case didexchange.Event:
@@ -281,7 +315,7 @@ func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDC
 			panic(fmt.Sprintf("Service processing failed: %s", v))
 		}
 
-		clientOpts := d.getClientOptions(agentID)
+		clientOpts := d.getClientOptions(agentID, res.connections)
 		e.Continue(clientOpts)
 	}
 }

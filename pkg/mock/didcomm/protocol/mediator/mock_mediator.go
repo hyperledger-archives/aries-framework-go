@@ -27,8 +27,8 @@ type MockMediatorSvc struct {
 	ConfigErr          error
 	AddKeyErr          error
 	UnregisterErr      error
-	ConnectionID       string
-	GetConnectionIDErr error
+	Connections        []string
+	GetConnectionsErr  error
 	AddKeyFunc         func(string) error
 }
 
@@ -78,12 +78,12 @@ func (m *MockMediatorSvc) Register(connectionID string, options ...mediator.Clie
 }
 
 // Unregister unregisters the router.
-func (m *MockMediatorSvc) Unregister() error {
+func (m *MockMediatorSvc) Unregister(connID string) error {
 	return m.UnregisterErr
 }
 
 // AddKey adds agents recKey to the router.
-func (m *MockMediatorSvc) AddKey(recKey string) error {
+func (m *MockMediatorSvc) AddKey(connID, recKey string) error {
 	if m.AddKeyErr != nil {
 		return m.AddKeyErr
 	}
@@ -96,7 +96,7 @@ func (m *MockMediatorSvc) AddKey(recKey string) error {
 }
 
 // Config gives back the router configuration.
-func (m *MockMediatorSvc) Config() (*mediator.Config, error) {
+func (m *MockMediatorSvc) Config(connID string) (*mediator.Config, error) {
 	if m.ConfigErr != nil {
 		return nil, m.ConfigErr
 	}
@@ -109,11 +109,11 @@ func (m *MockMediatorSvc) Config() (*mediator.Config, error) {
 	return mediator.NewConfig(m.RouterEndpoint, m.RoutingKeys), nil
 }
 
-// GetConnection returns the connectionID of the router.
-func (m *MockMediatorSvc) GetConnection() (string, error) {
-	if m.GetConnectionIDErr != nil {
-		return "", m.GetConnectionIDErr
+// GetConnections returns router`s connections.
+func (m *MockMediatorSvc) GetConnections() ([]string, error) {
+	if m.GetConnectionsErr != nil {
+		return nil, m.GetConnectionsErr
 	}
 
-	return m.ConnectionID, nil
+	return m.Connections, nil
 }

@@ -106,8 +106,8 @@ const pkgs = {
             path: "/mediator/unregister",
             method: "DELETE"
         },
-        GetConnection: {
-            path: "/mediator/connection",
+        GetConnections: {
+            path: "/mediator/connections",
             method: "GET"
         },
         Reconnect: {

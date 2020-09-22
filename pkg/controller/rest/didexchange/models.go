@@ -78,6 +78,9 @@ type acceptInvitationRequest struct { // nolint: unused,deadcode
 
 	// Optional Public DID to be used for this request
 	Public string `json:"public"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // acceptInvitationResponse model
@@ -98,7 +101,20 @@ type acceptInvitationResponse struct { // nolint: unused,deadcode
 //
 // swagger:parameters implicitInvitation
 type implicitInvitationRequest struct { // nolint: unused,deadcode
-	didexchange.ImplicitInvitationArgs
+	// InviterDID
+	InviterDID string `json:"their_did"`
+
+	// Optional inviter label
+	InviterLabel string `json:"their_label"`
+
+	// Optional invitee did
+	InviteeDID string `json:"my_did"`
+
+	// Optional invitee label
+	InviteeLabel string `json:"my_label"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // implicitInvitationResponse model
@@ -179,6 +195,9 @@ type acceptExchangeRequestParams struct { // nolint: unused,deadcode
 	// Optional Public DID to be used for this invitation
 	// request
 	Public string `json:"public"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // acceptExchangeResult model

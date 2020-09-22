@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 import {healthCheck, newAries} from "../common.js"
 import {environment} from "../environment.js"
-import {didExchangeClient} from "../didexchange/didexchange_e2e.js";
+import {didExchangeClient, getMediatorConnection} from "../didexchange/didexchange_e2e.js";
 
 const routerHttpUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_HTTP_INBOUND_PORT}`
 const routerWsUrl = `${environment.WS_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_WS_INBOUND_PORT}`
@@ -45,10 +45,10 @@ function routeRegister(agent, connectionID, done) {
 }
 
 function validateRouterConnection(agent, connectionID, done) {
-    agent.mediator.getConnection().then(
+    agent.mediator.getConnections().then(
         resp => {
             try {
-                assert.equal(resp.connectionID, connectionID)
+                assert.isTrue(resp.connections.includes(connectionID))
             } catch (err) {
                 done(err)
             }
@@ -178,15 +178,16 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
     })
 
     it("Alice Edge Agent receives an invitation from Bob Edge agent", function (done) {
-        bobAgent.didexchange.createInvitation().then(
-            resp => {
-                invitation = resp.invitation
-                validateInvitation(invitation)
-
-                done()
-            },
-            err => done(err)
-        )
+        getMediatorConnection(bobAgent).then((conn)=>{
+            bobAgent.didexchange.createInvitation({router_connection_id: conn }).then(
+                resp => {
+                    invitation = resp.invitation
+                    validateInvitation(invitation)
+                    done()
+                },
+                err => done(err)
+            )
+        })
 
         didExchangeClient.acceptExchangeRequest(bobAgent)
     })

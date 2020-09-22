@@ -10,10 +10,7 @@ import {environment} from "../environment.js"
 const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
 
 const routerConnPath = "/connections"
-const mediatorPath = "/mediator"
 const routerCreateInvitationPath = `${routerControllerApiUrl}${routerConnPath}/create-invitation`
-const routerGetConnectionPath = `${routerControllerApiUrl}${mediatorPath}/connection`
-const routerRegisterPath = `${routerControllerApiUrl}${mediatorPath}/register`
 
 const statesTopic = "didexchange_states"
 const postState = "post_state"
@@ -50,7 +47,9 @@ export const didExchangeClient = class {
 
         // perform did exchange between agent 1 and agent 2
         // create invitation from agent1
-        let response = await this.agent1.didexchange.createInvitation()
+        let response = await this.agent1.didexchange.createInvitation({
+            router_connection_id: await getMediatorConnection(this.agent1)
+        })
         didExchangeClient.validateInvitation(response.invitation)
 
         // wait for connection 'completed' in both the agents
@@ -80,11 +79,13 @@ export const didExchangeClient = class {
     }
 
     static async addRouter(mode, agent) {
-        await agent.mediator.unregister().catch((err) => {
-            if (!err.message.includes("router not registered")) {
-                throw new Error(err)
+        let resp = await agent.mediator.getConnections()
+        if (resp.connections){
+            for (let i = 0; i < resp.connections.length; i++) {
+                await agent.mediator.unregister({"connectionID": resp.connections[i]})
             }
-        })
+        }
+
         // receive an invitation from the router via the controller API
         let invitation = await didExchangeClient.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
@@ -117,8 +118,8 @@ export const didExchangeClient = class {
 
     async destroy() {
         if (this.hasMediator) {
-            await this.agent1.mediator.unregister()
-            await this.agent2.mediator.unregister()
+            await this.agent1.mediator.unregister({"connectionID": this.agent1RouterConnection})
+            await this.agent2.mediator.unregister({"connectionID": this.agent2RouterConnection})
         }
 
         this.agent1.destroy()
@@ -159,7 +160,8 @@ export const didExchangeClient = class {
         await agent.didexchange.receiveInvitation(invitation)
 
         return agent.didexchange.acceptInvitation({
-            id: (await event).Properties.connectionID
+            id: (await event).Properties.connectionID,
+            router_connections: await getMediatorConnection(agent),
         })
     }
 
@@ -174,9 +176,10 @@ export const didExchangeClient = class {
             options.messageID = messageID
         }
 
-        return watchForEvent(agent, options).then((e) => {
+        return watchForEvent(agent, options).then(async (e) => {
             return agent.didexchange.acceptExchangeRequest({
-                id: e.Properties.connectionID
+                id: e.Properties.connectionID,
+                router_connections: await getMediatorConnection(agent),
             })
         })
     }
@@ -198,8 +201,8 @@ export const didExchangeClient = class {
     }
 
     static async validateRouterConnection(agent, connectionID) {
-        let resp = await agent.mediator.getConnection()
-        assert.equal(resp.connectionID, connectionID)
+        let resp = await agent.mediator.getConnections()
+        assert.isTrue(resp.connections.includes(connectionID))
     }
 }
 
@@ -228,4 +231,14 @@ export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
     await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
 
     return new didExchangeClient(aries1, aries2, restMode)
+}
+
+export async function getMediatorConnection(agent){
+    let connection = ""
+    let conns = await agent.mediator.getConnections()
+    if (conns.connections){
+        connection = conns.connections[0]
+    }
+
+    return connection
 }

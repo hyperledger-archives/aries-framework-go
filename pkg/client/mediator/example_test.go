@@ -46,7 +46,7 @@ func Example() {
 	fmt.Println("successfully registered with router")
 
 	// generate invitation after route has been registered
-	invitation, err := didExClient.CreateInvitation("alice-agent")
+	invitation, err := didExClient.CreateInvitation("alice-agent", didexClient.WithRouterConnectionID("xyz"))
 	if err != nil {
 		fmt.Println("failed to create invitation after route registration")
 	}
@@ -149,6 +149,7 @@ func routeService() *mockroute.MockMediatorSvc {
 
 			return nil
 		},
+		Connections:    []string{"xyz"},
 		RouterEndpoint: "http://router.example.com",
 		RoutingKeys:    []string{"abc", "xyz"},
 	}

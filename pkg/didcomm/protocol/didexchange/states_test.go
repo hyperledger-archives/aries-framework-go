@@ -372,6 +372,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			CreateValue: doc,
 		}
 		ctx.routeSvc = &mockroute.MockMediatorSvc{
+			Connections:    []string{"xyz"},
 			RoutingKeys:    []string{expected},
 			RouterEndpoint: "http://blah.com",
 			AddKeyFunc: func(result string) error {
@@ -381,6 +382,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			},
 		}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			options:    &options{routerConnections: []string{"xyz"}},
 			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
 			connRecord: &connection.Record{},
 		}, "", ctx)
@@ -392,6 +394,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		created := false
 		ctx := getContext(t, &prov)
 		ctx.routeSvc = &mockroute.MockMediatorSvc{
+			Connections:    []string{"xyz"},
 			RouterEndpoint: expected.Endpoint(),
 			RoutingKeys:    expected.Keys(),
 		}
@@ -404,12 +407,13 @@ func TestRequestedState_Execute(t *testing.T) {
 					opt(result)
 				}
 
-				require.Equal(t, expected.Keys(), result.RoutingKeys)
-				require.Equal(t, expected.Endpoint(), result.ServiceEndpoint)
+				require.Equal(t, expected.Keys(), result.Services[0].RoutingKeys)
+				require.Equal(t, expected.Endpoint(), result.Services[0].ServiceEndpoint)
 				return createDIDDoc(t, prov.CustomKMS), nil
 			},
 		}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			options:    &options{routerConnections: []string{"xyz"}},
 			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
 			connRecord: &connection.Record{},
 		}, "", ctx)
@@ -1139,7 +1143,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
 			connectionStore: cStore,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID)
+		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 		require.NotNil(t, conn)
@@ -1149,7 +1153,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		ctx := context{
 			vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolver error")},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 		require.Nil(t, didDoc)
@@ -1173,7 +1177,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
 			connectionStore: cStore,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID)
+		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did error")
 		require.Nil(t, didDoc)
@@ -1184,7 +1188,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: errors.New("creator error")},
 			routeSvc:     &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "creator error")
 		require.Nil(t, didDoc)
@@ -1198,7 +1202,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 		require.NotNil(t, conn)
@@ -1221,7 +1225,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did error")
 		require.Nil(t, didDoc)
@@ -1234,9 +1238,12 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		ctx := context{
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
+			routeSvc: &mockroute.MockMediatorSvc{
+				Connections: []string{"xyz"},
+				ConfigErr:   errors.New("router config error"),
+			},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - fetch router config")
 		require.Nil(t, didDoc)
@@ -1249,9 +1256,12 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		ctx := context{
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{AddKeyErr: errors.New("router add key error")},
+			routeSvc: &mockroute.MockMediatorSvc{
+				Connections: []string{"xyz"},
+				AddKeyErr:   errors.New("router add key error"),
+			},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)

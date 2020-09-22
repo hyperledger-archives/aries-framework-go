@@ -45,9 +45,9 @@ func (m *Mediator) Unregister(request *models.RequestEnvelope) *models.ResponseE
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// Connection returns the connectionID of the router.
-func (m *Mediator) Connection(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	response, cmdErr := exec(m.handlers[mediator.GetConnectionIDCommandMethod], request.Payload)
+// Connections returns router`s connections.
+func (m *Mediator) Connections(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	response, cmdErr := exec(m.handlers[mediator.GetConnectionsCommandMethod], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

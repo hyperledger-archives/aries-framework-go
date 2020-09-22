@@ -94,21 +94,28 @@ func WithNoCache(noCache bool) ResolveOpts {
 
 // CreateDIDOpts holds the options for creating DID.
 type CreateDIDOpts struct {
-	ServiceType     string
-	KeyType         string
-	ServiceEndpoint string
-	RoutingKeys     []string
-	RequestBuilder  func([]byte) (io.Reader, error)
-	EncryptionKey   *PubKey
+	DefaultServiceType     string
+	DefaultServiceEndpoint string
+	Services               []did.Service
+	KeyType                string
+	RequestBuilder         func([]byte) (io.Reader, error)
+	EncryptionKey          *PubKey
 }
 
 // DocOpts is a create DID option.
 type DocOpts func(opts *CreateDIDOpts)
 
-// WithServiceType service type of DID document to be created.
-func WithServiceType(serviceType string) DocOpts {
+// WithDefaultServiceType service type of DID document to be created.
+func WithDefaultServiceType(serviceType string) DocOpts {
 	return func(opts *CreateDIDOpts) {
-		opts.ServiceType = serviceType
+		opts.DefaultServiceType = serviceType
+	}
+}
+
+// WithDefaultServiceEndpoint service ...
+func WithDefaultServiceEndpoint(endpoint string) DocOpts {
+	return func(opts *CreateDIDOpts) {
+		opts.DefaultServiceEndpoint = endpoint
 	}
 }
 
@@ -119,17 +126,10 @@ func WithKeyType(keyType string) DocOpts {
 	}
 }
 
-// WithServiceEndpoint allows for setting service endpoint.
-func WithServiceEndpoint(serviceEndpoint string) DocOpts {
+// WithServices allows adding services.
+func WithServices(services ...did.Service) DocOpts {
 	return func(opts *CreateDIDOpts) {
-		opts.ServiceEndpoint = serviceEndpoint
-	}
-}
-
-// WithRoutingKeys allows for setting routing keys.
-func WithRoutingKeys(routingKeys []string) DocOpts {
-	return func(opts *CreateDIDOpts) {
-		opts.RoutingKeys = routingKeys
+		opts.Services = services
 	}
 }
 

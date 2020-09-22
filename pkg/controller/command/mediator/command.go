@@ -37,8 +37,8 @@ const (
 	// UnregisterRouterErrorCode for unregister router error.
 	UnregisterRouterErrorCode
 
-	// Connection for get connection id error.
-	GetConnectionIDErrorCode
+	// GetConnectionsErrorCode for get connections error.
+	GetConnectionsErrorCode
 
 	// ReconnectMissingConnIDCode for connection ID validation error.
 	ReconnectMissingConnIDCode
@@ -65,12 +65,12 @@ const (
 	CommandName = "mediator"
 
 	// command methods.
-	RegisterCommandMethod        = "Register"
-	UnregisterCommandMethod      = "Unregister"
-	GetConnectionIDCommandMethod = "Connection"
-	ReconnectCommandMethod       = "Reconnect"
-	StatusCommandMethod          = "Status"
-	BatchPickupCommandMethod     = "BatchPickup"
+	RegisterCommandMethod       = "Register"
+	UnregisterCommandMethod     = "Unregister"
+	GetConnectionsCommandMethod = "Connections"
+	ReconnectCommandMethod      = "Reconnect"
+	StatusCommandMethod         = "Status"
+	BatchPickupCommandMethod    = "BatchPickup"
 
 	// log constants.
 	connectionID  = "connectionID"
@@ -127,7 +127,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, RegisterCommandMethod, o.Register),
 		cmdutil.NewCommandHandler(CommandName, UnregisterCommandMethod, o.Unregister),
-		cmdutil.NewCommandHandler(CommandName, GetConnectionIDCommandMethod, o.Connection),
+		cmdutil.NewCommandHandler(CommandName, GetConnectionsCommandMethod, o.Connections),
 		cmdutil.NewCommandHandler(CommandName, ReconnectCommandMethod, o.Reconnect),
 		cmdutil.NewCommandHandler(CommandName, StatusCommandMethod, o.Status),
 		cmdutil.NewCommandHandler(CommandName, BatchPickupCommandMethod, o.BatchPickup),
@@ -168,7 +168,21 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 
 // Unregister unregisters the agent with the router.
 func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
-	err := o.routeClient.Unregister()
+	var request RegisterRoute
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, UnregisterCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ConnectionID == "" {
+		logutil.LogDebug(logger, CommandName, UnregisterCommandMethod, "missing connectionID",
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+		return command.NewValidationError(UnregisterRouterErrorCode, errors.New("connectionID is mandatory"))
+	}
+
+	err = o.routeClient.Unregister(request.ConnectionID)
 	if err != nil {
 		logutil.LogError(logger, CommandName, UnregisterCommandMethod, err.Error())
 		return command.NewExecuteError(UnregisterRouterErrorCode, err)
@@ -181,19 +195,19 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// Connection returns the connectionID of the router.
-func (o *Command) Connection(rw io.Writer, req io.Reader) command.Error {
-	connectionID, err := o.routeClient.GetConnection()
+// Connections returns the connections of the router.
+func (o *Command) Connections(rw io.Writer, req io.Reader) command.Error {
+	connections, err := o.routeClient.GetConnections()
 	if err != nil {
-		logutil.LogError(logger, CommandName, GetConnectionIDCommandMethod, err.Error())
-		return command.NewExecuteError(GetConnectionIDErrorCode, err)
+		logutil.LogError(logger, CommandName, GetConnectionsCommandMethod, err.Error())
+		return command.NewExecuteError(GetConnectionsErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &RegisterRoute{
-		ConnectionID: connectionID,
+	command.WriteNillableResponse(rw, &ConnectionsResponse{
+		Connections: connections,
 	}, logger)
 
-	logutil.LogDebug(logger, CommandName, GetConnectionIDCommandMethod, successString)
+	logutil.LogDebug(logger, CommandName, GetConnectionsCommandMethod, successString)
 
 	return nil
 }

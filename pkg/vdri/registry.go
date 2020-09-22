@@ -122,12 +122,12 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 
 // applyDefaultDocOpts applies default creator options to doc options.
 func (r *Registry) applyDefaultDocOpts(docOpts *vdriapi.CreateDIDOpts, opts ...vdriapi.DocOpts) []vdriapi.DocOpts {
-	if docOpts.ServiceType == "" {
-		opts = append(opts, vdriapi.WithServiceType(r.defServiceType))
+	if docOpts.DefaultServiceType == "" {
+		opts = append(opts, vdriapi.WithDefaultServiceType(r.defServiceType))
 	}
 
-	if docOpts.ServiceEndpoint == "" {
-		opts = append(opts, vdriapi.WithServiceEndpoint(r.defServiceEndpoint))
+	if docOpts.DefaultServiceEndpoint == "" {
+		opts = append(opts, vdriapi.WithDefaultServiceEndpoint(r.defServiceEndpoint))
 	}
 
 	return opts

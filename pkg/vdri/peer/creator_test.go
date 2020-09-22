@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
@@ -44,9 +45,11 @@ func TestDIDCreator(t *testing.T) {
 		routingKeys := []string{"abc", "xyz"}
 		didDoc, err := c.Build(
 			getSigningKey(),
-			api.WithServiceEndpoint("request-endpoint"),
-			api.WithServiceType("request-type"),
-			api.WithRoutingKeys(routingKeys),
+			api.WithServices(did.Service{
+				ServiceEndpoint: "request-endpoint",
+				Type:            "request-type",
+				RoutingKeys:     routingKeys,
+			}),
 		)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
@@ -79,7 +82,9 @@ func TestBuild(t *testing.T) {
 
 		result, err := c.Build(
 			expected,
-			api.WithServiceType("did-communication"),
+			api.WithServices(did.Service{
+				Type: "did-communication",
+			}),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Service)

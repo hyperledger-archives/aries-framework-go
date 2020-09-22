@@ -45,12 +45,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     And   "Dave" saves the connectionID to variable "dave-router-connID"
 
        # Carl registers her Router
-    And   "Carl" unregisters the router
+    And   "Carl" unregisters the router with connection "carl-router-connID"
     And   "Carl" sets connection "carl-router-connID" as the router
     And   "Carl" verifies that the router connection is set to "carl-router-connID"
 
        # Dave registers his Router
-    And   "Dave" unregisters the router
+    And   "Dave" unregisters the router with connection "dave-router-connID"
     And   "Dave" sets connection "dave-router-connID" as the router
     And   "Dave" verifies that the router connection is set to "dave-router-connID"
 

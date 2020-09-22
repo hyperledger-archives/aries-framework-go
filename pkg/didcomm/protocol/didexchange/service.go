@@ -43,7 +43,8 @@ const (
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = PIURI + "/ack"
 	// oobMsgType is the internal message type for the oob invitation that the didexchange service receives.
-	oobMsgType = "oob-invitation"
+	oobMsgType             = "oob-invitation"
+	routerConnsMetadataKey = "routerConnections"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -102,6 +103,9 @@ type opts interface {
 
 	// Label allows for setting label
 	Label() string
+
+	// RouterConnections allows for setting router connections
+	RouterConnections() []string
 }
 
 // New return didexchange service.
@@ -143,6 +147,20 @@ func New(prov provider) (*Service, error) {
 	return svc, nil
 }
 
+func retrievingRouterConnections(msg service.DIDCommMsg) []string {
+	raw, found := msg.Metadata()[routerConnsMetadataKey]
+	if !found {
+		return nil
+	}
+
+	connections, ok := raw.([]string)
+	if !ok {
+		return nil
+	}
+
+	return connections
+}
+
 // HandleInbound handles inbound didexchange messages.
 func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, error) {
 	logger.Debugf("receive inbound message : %s", msg)
@@ -166,6 +184,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 	}
 
 	internalMsg := &message{
+		Options:       &options{routerConnections: retrievingRouterConnections(msg)},
 		Msg:           msg.Clone(),
 		ThreadID:      thID,
 		NextStateName: next.Name(),
@@ -372,7 +391,11 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 			Continue: func(args interface{}) {
 				switch v := args.(type) {
 				case opts:
-					internalMsg.Options = &options{publicDID: v.PublicDID(), label: v.Label()}
+					internalMsg.Options = &options{
+						publicDID:         v.PublicDID(),
+						label:             v.Label(),
+						routerConnections: v.RouterConnections(),
+					}
 				default:
 					// nothing to do
 				}
@@ -420,20 +443,25 @@ func (s *Service) startInternalListener() {
 }
 
 // AcceptInvitation accepts/approves connection invitation.
-func (s *Service) AcceptInvitation(connectionID, publicDID, label string) error {
-	return s.accept(connectionID, publicDID, label, StateIDInvited, "accept exchange invitation")
+func (s *Service) AcceptInvitation(connectionID, publicDID, label string, routerConnections []string) error {
+	return s.accept(connectionID, publicDID, label, StateIDInvited,
+		"accept exchange invitation", routerConnections)
 }
 
 // AcceptExchangeRequest accepts/approves connection request.
-func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) error {
-	return s.accept(connectionID, publicDID, label, StateIDRequested, "accept exchange request")
+func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string, routerConnections []string) error {
+	return s.accept(connectionID, publicDID, label, StateIDRequested,
+		"accept exchange request", routerConnections)
 }
 
 // RespondTo this inbound invitation and return with the new connection record's ID.
-func (s *Service) RespondTo(i *OOBInvitation) (string, error) {
+func (s *Service) RespondTo(i *OOBInvitation, routerConnections []string) (string, error) {
 	i.Type = oobMsgType
 
-	return s.HandleInbound(service.NewDIDCommMsgMap(i), "", "")
+	msg := service.NewDIDCommMsgMap(i)
+	msg.Metadata()[routerConnsMetadataKey] = routerConnections
+
+	return s.HandleInbound(msg, "", "")
 }
 
 // SaveInvitation saves this invitation created by you.
@@ -448,7 +476,7 @@ func (s *Service) SaveInvitation(i *OOBInvitation) error {
 	return nil
 }
 
-func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {
+func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string, routerConnections []string) error {
 	msg, err := s.getEventProtocolStateData(connectionID)
 	if err != nil {
 		return fmt.Errorf("failed to accept invitation for connectionID=%s : %s : %w", connectionID, errMsg, err)
@@ -464,7 +492,7 @@ func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string)
 			"expected state (%s)", connRecord.State, stateID)
 	}
 
-	msg.Options = &options{publicDID: publicDID, label: label}
+	msg.Options = &options{publicDID: publicDID, label: label, routerConnections: routerConnections}
 
 	return s.handleWithoutAction(msg)
 }
@@ -736,13 +764,15 @@ func canTriggerActionEvents(stateID, ns string) bool {
 }
 
 type options struct {
-	publicDID string
-	label     string
+	publicDID         string
+	routerConnections []string
+	label             string
 }
 
 // CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 // If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
-func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) {
+func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
+	inviteeLabel, inviteeDID string, routerConnections []string) (string, error) {
 	logger.Debugf("implicit invitation requested inviterDID[%s] inviteeDID[%s]", inviterDID, inviteeDID)
 
 	didDoc, err := s.ctx.vdriRegistry.Resolve(inviterDID)
@@ -791,7 +821,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		NextStateName: next.Name(),
 		ConnRecord:    connRecord,
 	}
-	internalMsg.Options = &options{publicDID: inviteeDID, label: inviteeLabel}
+	internalMsg.Options = &options{publicDID: inviteeDID, label: inviteeLabel, routerConnections: routerConnections}
 
 	go func(msg *message, aEvent chan<- service.DIDCommAction) {
 		if err = s.handle(msg, aEvent); err != nil {

@@ -114,20 +114,35 @@ func (d *SDKSteps) GetRoutingConfig(agent string, timeout time.Duration) (*route
 		return nil, fmt.Errorf("%s does not have a registered routing client", agent)
 	}
 
-	var config *routesvc.Config
+	var (
+		config      *routesvc.Config
+		connections []string
+	)
 
-	err := errors.New("dummy")
 	deadline := time.Now().Add(timeout)
 
-	for err != nil && time.Now().Before(deadline) {
-		config, err = client.GetConfig()
+	for time.Now().Before(deadline) {
+		var err error
+
+		connections, err = client.GetConnections()
 		if err != nil {
+			return nil, err
+		}
+
+		if len(connections) == 0 {
 			time.Sleep(sleepDuration)
+
+			continue
+		}
+
+		config, err = client.GetConfig(connections[0])
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("%s failed to fetch their routing config : %w", agent, err)
+	if len(connections) == 0 {
+		return nil, fmt.Errorf("%s no connections", agent)
 	}
 
 	return config, nil
@@ -158,17 +173,22 @@ func (d *SDKSteps) RegisterRoute(agentID, varName, routerID string) error {
 
 // VerifyConnection verifies the router connection id has been set to the provided connection id.
 func (d *SDKSteps) VerifyConnection(agentID, varName string) error {
-	connectionID, err := d.bddContext.RouteClients[agentID].GetConnection()
+	connections, err := d.bddContext.RouteClients[agentID].GetConnections()
 	if err != nil {
 		return fmt.Errorf("fetch router connection id : %w", err)
 	}
 
-	if connectionID != d.bddContext.Args[varName] {
-		return fmt.Errorf("router connection id does not match : routerConnID=%s newConnID=%s",
-			connectionID, d.bddContext.Args[varName])
+	if len(connections) == 0 {
+		return errors.New("router does not have any connections")
 	}
 
-	return nil
+	for _, conn := range connections {
+		if conn == d.bddContext.Args[varName] {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("router connection id does not exist: routerConnID=%s", d.bddContext.Args[varName])
 }
 
 // SetContext is called before every scenario is run with a fresh new context.

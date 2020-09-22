@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -185,7 +186,8 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	if request.Public != "" {
 		invitation, err = c.client.CreateInvitationWithDID(c.defaultLabel, request.Public)
 	} else {
-		invitation, err = c.client.CreateInvitation(c.defaultLabel)
+		invitation, err = c.client.CreateInvitation(c.defaultLabel,
+			didexchange.WithRouterConnectionID(request.RouterConnectionID))
 	}
 
 	if err != nil {
@@ -256,7 +258,8 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	err = c.client.AcceptInvitation(request.ID, request.Public, c.defaultLabel)
+	err = c.client.AcceptInvitation(request.ID, request.Public, c.defaultLabel,
+		didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitationCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
@@ -302,7 +305,8 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 		invitee := &didexchange.DIDInfo{DID: request.InviteeDID, Label: request.InviteeLabel}
 		id, err = c.client.CreateImplicitInvitationWithDID(inviter, invitee)
 	} else {
-		id, err = c.client.CreateImplicitInvitation(inviter.Label, inviter.DID)
+		id, err = c.client.CreateImplicitInvitation(inviter.Label, inviter.DID,
+			didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	}
 
 	if err != nil {
@@ -335,7 +339,8 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	err = c.client.AcceptExchangeRequest(request.ID, request.Public, c.defaultLabel)
+	err = c.client.AcceptExchangeRequest(request.ID, request.Public,
+		c.defaultLabel, didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptExchangeRequestCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
