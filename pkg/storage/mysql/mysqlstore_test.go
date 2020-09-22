@@ -164,7 +164,7 @@ func TestSqlDBStore(t *testing.T) {
 		// get in store 2 - not found
 		doc, err = store2.Get("did:not:found")
 		require.Error(t, err)
-		require.Equal(t, err, storage.ErrDataNotFound)
+		require.Contains(t, err.Error(), storage.ErrDataNotFound.Error())
 		require.Empty(t, doc)
 
 		// put in store 2
@@ -198,13 +198,13 @@ func TestSqlDBStore(t *testing.T) {
 	t.Run("Test sql db store failures", func(t *testing.T) {
 		prov, err := NewProvider("")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), blankDBPathErrMsg)
+		require.Contains(t, err.Error(), errBlankDBPath.Error())
 		require.Nil(t, prov)
 
 		// Invalid db path
 		_, err = NewProvider("root:@tcp(127.0.0.1:45454)")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open connection")
+		require.Contains(t, err.Error(), "failure while opening MySQL connection")
 
 		_, err = NewProvider("root:@tcp(127.0.0.1:45454)/")
 		require.Error(t, err)
@@ -220,14 +220,10 @@ func TestSqlDBStore(t *testing.T) {
 
 		_, err = prov.OpenStore("testErr")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create new connection fake-url")
+		require.Contains(t, err.Error(), "failure while opening MySQL connection using url fake-url")
 
 		//  valid but not available db url
 		prov.dbURL = "root:my-secret-pw@tcp(127.0.0.1:3307)/"
-
-		_, err = prov.OpenStore("testErr")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to use db testErr")
 	})
 
 	t.Run("Test sqlDB multi store close by name", func(t *testing.T) {
@@ -275,7 +271,7 @@ func TestSqlDBStore(t *testing.T) {
 
 		// try to close non existing db
 		err = prov.CloseStore("store_x")
-		require.NoError(t, err)
+		require.EqualError(t, err, storage.ErrStoreNotFound.Error())
 
 		// verify store length
 		require.Len(t, prov.dbs, 2)
@@ -294,7 +290,7 @@ func TestSqlDBStore(t *testing.T) {
 	t.Run("Test sql db store iterator", func(t *testing.T) {
 		prov, err := NewProvider(sqlStoreDBURL)
 		require.NoError(t, err)
-		store, err := prov.OpenStore("test-iterator")
+		store, err := prov.OpenStore("iterator")
 		require.NoError(t, err)
 
 		const valPrefix = "val-for-%s"

@@ -14,6 +14,9 @@ const EndKeySuffix = "!!"
 // ErrDataNotFound is returned when data not found.
 var ErrDataNotFound = errors.New("data not found")
 
+// ErrStoreNotFound is used when a given store was not found in a provider.
+var ErrStoreNotFound = errors.New("store not found")
+
 // ErrKeyRequired is returned when key is mandatory.
 var ErrKeyRequired = errors.New("key is mandatory")
 

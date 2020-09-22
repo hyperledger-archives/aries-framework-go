@@ -30,7 +30,6 @@ type Provider struct {
 type sqlDBStore struct {
 	db        *sql.DB
 	tableName string
-	dbName    string
 }
 
 type result struct {
@@ -39,12 +38,7 @@ type result struct {
 }
 
 const (
-	blankDBPathErrMsg         = "DB URL for new mySQL DB provider can't be blank"
-	failToCloseProviderErrMsg = "failed to close provider"
-	tablePrefix               = "t_"
-	sqlDBNotFound             = "no rows"
-	createDBQuery             = "CREATE DATABASE IF NOT EXISTS `%s`"
-	useDBQuery                = "USE `%s`"
+	createDBQuery = "CREATE DATABASE IF NOT EXISTS `%s`"
 )
 
 // Option configures the couchdb provider.
@@ -58,20 +52,23 @@ func WithDBPrefix(dbPrefix string) Option {
 }
 
 // NewProvider instantiates Provider.
+// Example DB Path root:my-secret-pw@tcp(127.0.0.1:3306)/
+// This provider's CreateStore(name) implementation creates stores that are backed by a table under a schema
+// with the same name as the table. The fully qualified name of the table is thus `name.name`. The fully qualified
+// name of the table needs to be used with the store's `Query()` method.
 func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 	if dbPath == "" {
-		return nil, errors.New(blankDBPathErrMsg)
+		return nil, errBlankDBPath
 	}
 
-	// Example DB Path root:my-secret-pw@tcp(127.0.0.1:3306)/
 	db, err := sql.Open("mysql", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open connection: %w", err)
+		return nil, fmt.Errorf(failureWhileOpeningMySQLConnectionErrMsg, dbPath, err)
 	}
 
 	err = db.Ping()
 	if err != nil {
-		return nil, fmt.Errorf("failure while pinging MySQL at url %s : %w", dbPath, err)
+		return nil, fmt.Errorf(failureWhilePingingMySQLErrMsg, dbPath, err)
 	}
 
 	p := &Provider{
@@ -88,12 +85,12 @@ func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 }
 
 // OpenStore opens and returns new db for given name space.
-func (p *Provider) OpenStore(name string) (storage.Store, error) {
+func (p *Provider) OpenStore(name string) (s storage.Store, openErr error) {
 	p.Lock()
 	defer p.Unlock()
 
 	if name == "" {
-		return nil, errors.New("store name is required")
+		return nil, errBlankStoreName
 	}
 
 	if p.dbPrefix != "" {
@@ -109,36 +106,29 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	// creating the database
 	_, err := p.db.Exec(fmt.Sprintf(createDBQuery, name))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create db %s: %w", name, err)
+		return nil, fmt.Errorf(failureWhileCreatingDBErrMsg, name, err)
+	}
+
+	// TODO: Issue-1940 Store the hashed key to control the width of the key varchar column
+	createTableStmt := fmt.Sprintf(
+		"CREATE Table IF NOT EXISTS `%s`.`%s` (`key` varchar(255) NOT NULL ,`value` BLOB, PRIMARY KEY (`key`))",
+		name, name)
+
+	// creating key-value table inside the database
+	_, err = p.db.Exec(createTableStmt)
+	if err != nil {
+		return nil, fmt.Errorf(failureWhileCreatingTableErrMsg, name, err)
 	}
 
 	// Opening new db connection
-	newDBConn, err := sql.Open("mysql", p.dbURL)
+	storeDB, err := sql.Open("mysql", p.dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new connection %s: %w", p.dbURL, err)
-	}
-
-	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err = newDBConn.Exec(fmt.Sprintf(useDBQuery, name))
-	if err != nil {
-		return nil, fmt.Errorf("failed to use db %s: %w", name, err)
-	}
-
-	tableName := tablePrefix + name
-	// TODO: Issue-1940 Store the hashed key to control the width of the key varchar column
-	createTableStmt := "CREATE Table IF NOT EXISTS `" + tableName +
-		"` (`key` varchar(255) NOT NULL ,`value` BLOB, PRIMARY KEY (`key`));"
-
-	// creating key-value table inside the database
-	_, err = newDBConn.Exec(createTableStmt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create table %s: %w", tableName, err)
+		return nil, fmt.Errorf(failureWhileOpeningMySQLConnectionErrMsg, p.dbURL, err)
 	}
 
 	store := &sqlDBStore{
-		db:        newDBConn,
-		tableName: tableName,
-		dbName:    name,
+		db:        storeDB,
+		tableName: fmt.Sprintf("`%s`.`%s`", name, name),
 	}
 
 	p.dbs[name] = store
@@ -154,7 +144,7 @@ func (p *Provider) Close() error {
 	for _, store := range p.dbs {
 		err := store.db.Close()
 		if err != nil {
-			return fmt.Errorf(failToCloseProviderErrMsg+": %w", err)
+			return fmt.Errorf(failureWhileClosingMySQLConnection, err)
 		}
 	}
 
@@ -178,12 +168,17 @@ func (p *Provider) CloseStore(name string) error {
 
 	store, exists := p.dbs[name]
 	if !exists {
-		return nil
+		return storage.ErrStoreNotFound
 	}
 
 	delete(p.dbs, name)
 
-	return store.db.Close()
+	err := store.db.Close()
+	if err != nil {
+		return fmt.Errorf(failureWhileClosingMySQLConnection, err)
+	}
+
+	return nil
 }
 
 // Put stores the key and the value.
@@ -192,18 +187,12 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 		return errors.New("key and value are mandatory")
 	}
 
-	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
-	if err != nil {
-		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
-	}
-
 	// create upsert query to insert the record, checking whether the key is already mapped to a value in the store.
-	createStmt := "INSERT INTO `" + s.tableName + "` VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
+	insertStmt := "INSERT INTO " + s.tableName + " VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
 	// executing the prepared insert statement
-	_, err = s.db.Exec(createStmt, k, v, v)
+	_, err := s.db.Exec(insertStmt, k, v, v)
 	if err != nil {
-		return fmt.Errorf("failed to insert key and value record into %s %w ", s.tableName, err)
+		return fmt.Errorf(failureWhileExecutingInsertStatementErrMsg, s.tableName, err)
 	}
 
 	return nil
@@ -215,23 +204,17 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 		return nil, storage.ErrKeyRequired
 	}
 
-	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
-	if err != nil {
-		return nil, fmt.Errorf("failed to use db %s: %w", s.dbName, err)
-	}
-
 	var value []byte
 
 	// select query to fetch the record by key
-	err = s.db.QueryRow("SELECT `value` FROM `"+s.tableName+"` "+
+	err := s.db.QueryRow("SELECT `value` FROM "+s.tableName+" "+
 		" WHERE `key` = ?", k).Scan(&value)
 	if err != nil {
-		if strings.Contains(err.Error(), sqlDBNotFound) {
+		if strings.Contains(err.Error(), valueNotFoundErrMsgFromMySQL) {
 			return nil, storage.ErrDataNotFound
 		}
 
-		return nil, fmt.Errorf("failed to get row %w", err)
+		return nil, fmt.Errorf(failureWhileQueryingRowErrMsg, err)
 	}
 
 	return value, nil
@@ -243,17 +226,10 @@ func (s *sqlDBStore) Delete(k string) error {
 		return storage.ErrKeyRequired
 	}
 
-	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
-	if err != nil {
-		return fmt.Errorf("failed to use db %s: %w", s.dbName, err)
-	}
-
 	// delete query to delete the record by key
-	_, err = s.db.Exec("DELETE FROM `"+s.tableName+"` WHERE `key`= ?", k)
-
+	_, err := s.db.Exec("DELETE FROM "+s.tableName+" WHERE `key`= ?", k)
 	if err != nil {
-		return fmt.Errorf("failed to delete row %w", err)
+		return fmt.Errorf(storage.ErrDataNotFound.Error(), err)
 	}
 
 	return nil
@@ -272,17 +248,9 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 		endKey = strings.ReplaceAll(endKey, "_", `\_`)
 	}
 
-	// Use query is used to select the created database without this DDL operations are not permitted
-	_, err := s.db.Exec(fmt.Sprintf(useDBQuery, s.dbName))
-	if err != nil {
-		return &sqlDBResultsIterator{
-			err: fmt.Errorf("failed to use db %s: %w", s.dbName, err),
-		}
-	}
-
 	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
-	queryStmt := "SELECT * FROM `" + s.tableName + "` WHERE `key` >= ? AND `key` < ? order by `key`"
+	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` < ? order by `key`"
 
 	// TODO Find a way to close Rows `defer resultRows.Close()`
 	// unless unclosed rows and statements may cause DB connection pool exhaustion
