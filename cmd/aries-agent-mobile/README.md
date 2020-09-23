@@ -63,6 +63,10 @@ $ make bindings-ios
 
 #### b. Code sample
 This is an example of how the imported module can be used:
+
+<details><summary>Java</summary>
+<p>
+
 ```java
 import org.hyperledger.aries.api.AriesController;
 import org.hyperledger.aries.api.IntroduceController;
@@ -99,11 +103,53 @@ import java.nio.charset.StandardCharsets;
         System.out.println(actionsResponse);
 ```
 
+</p>
+</details>
+
+
+<details><summary>Kotlin</summary>
+<p>
+    
+```kotlin
+import org.hyperledger.aries.ariesagent.Ariesagent
+import org.hyperledger.aries.config.Options
+import org.hyperledger.aries.models.RequestEnvelope
+import org.hyperledger.aries.models.ResponseEnvelope
+import java.nio.charset.StandardCharsets
+/*
+...
+*/
+        // create options
+        val opts = Options()
+        opts.agentURL = "http://example.com"
+        opts.useLocalAgent = false
+        var res = ResponseEnvelope()
+        try {
+            // create an aries agent instance
+            val a = Ariesagent.new_(opts)
+
+            // create a controller
+            val i = a.introduceController
+
+            // perform an operation
+            val data = "{}".toByteArray(StandardCharsets.UTF_8)
+            res = i.actions(RequestEnvelope(data))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        val actionsResponse = String(res.payload, StandardCharsets.UTF_8)
+        println(actionsResponse)
+```
+
+</p>
+</details>
+
 To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/handler.go) interface and use as follows:
 
+<details><summary>Java</summary>
+<p>
+    
 ```java
-
-// Java
 
 import java.nio.charset.StandardCharsets;
 
@@ -142,9 +188,14 @@ class AriesService {
 }
 ```
 
-```kotlin
+</p>
+</details>
 
-// Kotlin
+
+<details><summary>Kotlin</summary>
+<p>
+    
+```kotlin
 
 import org.hyperledger.aries.api.AriesController
 import org.hyperledger.aries.api.Handler
@@ -180,6 +231,9 @@ class AriesService {
 }
 ```
 
+</p>
+</details>
+
 ### 3.2. iOS
 
 #### a. Importing the generated binding as a framework in Xcode
@@ -188,6 +242,11 @@ class AriesService {
 
 #### b. Code sample
 This is an example of how the imported framework can be used:
+
+
+<details><summary>Objective-C</summary>
+<p>
+    
 ```objc
 #import <AriesAgent/Ariesagent.h>
 /*
@@ -224,10 +283,66 @@ This is an example of how the imported framework can be used:
     }
 ```
 
+</p>
+</details>
+
+
+<details><summary>Swift</summary>
+<p>
+    
+```swift
+import AriesAgent
+
+/*
+...
+*/
+var error: Error? = nil
+
+// create options
+let opts = ConfigNew()
+// [opts setAgentURL:@"http://example.com"];
+opts?.useLocalAgent = true
+
+// create an aries agent instance
+let ac = AriesagentNew(opts, &error) as? ApiAriesController
+if let error = error {
+    print("error creating an aries agent: \(error)")
+}
+
+// create a controller
+let ic = ac?.getVerifiableController(&error) as? ApiVerifiableController
+if let error = error {
+    print("error creating an verifiable controller instance: \(error)")
+}
+
+// perform an operation
+let data = "".data(using: .utf8)
+let req = ModelsNewRequestEnvelope(data)
+let resp = ic.getCredentials(req)
+if resp?.error != nil {
+    if let message = resp?.error.message {
+        print("error getting credentials: \(message)")
+    }
+} else {
+    var credResp: String? = nil
+    if let payload = resp?.payload {
+        credResp = String(data: payload, encoding: .utf8)
+    }
+    print("credentials response: \(credResp ?? "")")
+}
+```
+
+</p>
+</details>
+
+
 To subscribe to events on an Aries agent, implement the [`Handler`](./pkg/api/handler.go) interface and use as follows:
 
+
+<details><summary>Objective-C</summary>
+<p>
+    
 ```objc
-// Objective-C
 
 #import <AriesAgent/Ariesagent.h>
 
@@ -285,8 +400,14 @@ NSString *lastTopic, *lastMessage;
 
 ```
 
+</p>
+</details>
+
+
+<details><summary>Swift</summary>
+<p>
+    
 ```swift
-// Swift
 
 import AriesAgent
 
@@ -335,6 +456,9 @@ class AriesService {
 }
 
 ```
+
+</p>
+</details>
 
 ### 3.3. Demo apps
 
