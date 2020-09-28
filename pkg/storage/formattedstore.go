@@ -15,17 +15,16 @@ const (
 	failCloseUnderlyingStore     = "failed to close underlying store: %w"
 	failCloseAllUnderlyingStores = "failed to close all underlying stores: %w"
 
-	failFormatKeyValuePair      = "failed to format key-value pair: %w"
+	failFormat                  = "failed to format value: %w"
 	failPutInUnderlyingStore    = "failed to put encrypted document in underlying store: %w"
 	failGetFromUnderlyingStore  = "failed to get formatted value from underlying store: %w"
 	failParseFormattedValue     = "failed to parse formatted value: %w"
 	failDeleteInUnderlyingStore = "failed to delete key-value pair in underlying store: %w"
 )
 
-// Formatter represents a type that can encrypt and decrypt between
-// Structured Documents and Encrypted Documents.
+// Formatter represents a type that can convert data between two formats.
 type Formatter interface {
-	FormatPair(k string, v []byte) ([]byte, error)
+	Format([]byte) ([]byte, error)
 	ParseValue([]byte) ([]byte, error)
 }
 
@@ -86,9 +85,9 @@ type formatStore struct {
 }
 
 func (s *formatStore) Put(k string, v []byte) error {
-	formattedValue, err := s.formatter.FormatPair(k, v)
+	formattedValue, err := s.formatter.Format(v)
 	if err != nil {
-		return fmt.Errorf(failFormatKeyValuePair, err)
+		return fmt.Errorf(failFormat, err)
 	}
 
 	err = s.store.Put(k, formattedValue)
