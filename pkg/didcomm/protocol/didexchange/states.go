@@ -299,7 +299,7 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 
 func (ctx *context) handleInboundOOBInvitation(
 	msg *stateMachineMsg, thid string, options *options) (stateAction, *connectionstore.Record, error) {
-	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, fmt.Errorf("handleInboundOOBInvitation - failed to get diddoc and connection: %w", err)
 	}
@@ -356,7 +356,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 	}
 
 	// get did document that will be used in exchange request
-	didDoc, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	didDoc, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -396,7 +396,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	// get did document that will be used in exchange response
 	// (my did doc)
-	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -445,6 +445,14 @@ func getPublicDID(options *options) string {
 	return options.publicDID
 }
 
+func getRouterConnections(options *options) []string {
+	if options == nil {
+		return nil
+	}
+
+	return options.routerConnections
+}
+
 // returns the label given in the options, otherwise an empty string.
 func getLabel(options *options) string {
 	if options == nil {
@@ -466,7 +474,8 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}, nil
 }
 
-func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection, error) {
+// nolint: funlen,gocyclo
+func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []string) (*did.Doc, *Connection, error) {
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
@@ -485,29 +494,42 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
-	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
-	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
+	var services []did.Service
+
+	for _, connID := range routerConnections {
+		// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
+		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, connID, "")
+		if err != nil {
+			return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
+		}
+
+		services = append(services, did.Service{ServiceEndpoint: serviceEndpoint, RoutingKeys: routingKeys})
+	}
+
+	if len(services) == 0 {
+		services = append(services, did.Service{})
 	}
 
 	// by default use peer did
 	newDidDoc, err := ctx.vdriRegistry.Create(
 		didMethod,
-		vdri.WithServiceEndpoint(serviceEndpoint),
-		vdri.WithRoutingKeys(routingKeys),
+		vdri.WithServices(services...),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	svc, ok := did.LookupService(newDidDoc, didCommServiceType)
-	if ok {
-		for _, recKey := range svc.RecipientKeys {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
-			//  recKeys to the Router
-			if err = mediator.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {
-				return nil, nil, fmt.Errorf("did doc - add key to the router: %w", err)
+	if len(routerConnections) != 0 {
+		svc, ok := did.LookupService(newDidDoc, didCommServiceType)
+		if ok {
+			for _, recKey := range svc.RecipientKeys {
+				for _, connID := range routerConnections {
+					// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+					//  recKeys to the Router
+					if err = mediator.AddKeyToRouter(ctx.routeSvc, connID, recKey); err != nil {
+						return nil, nil, fmt.Errorf("did doc - add key to the router: %w", err)
+					}
+				}
 			}
 		}
 	}

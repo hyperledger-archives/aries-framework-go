@@ -143,7 +143,8 @@ func TestOperation_Unregister(t *testing.T) {
 		require.NotNil(t, svc)
 
 		handler := lookupHandler(t, svc, UnregisterPath)
-		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
+		_, err = getSuccessResponseFromHandler(handler,
+			bytes.NewBuffer([]byte(`{"connectionID":"xyz"}`)), handler.Path())
 		require.NoError(t, err)
 	})
 
@@ -162,8 +163,7 @@ func TestOperation_Unregister(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		jsonStr := []byte(`{
-		}`)
+		jsonStr := []byte(`{"connectionID":"xyz"}`)
 
 		handler := lookupHandler(t, svc, UnregisterPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -183,7 +183,7 @@ func TestOperation_Connection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
 					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
-						ConnectionID: routerConnectionID,
+						Connections: []string{routerConnectionID},
 					},
 				},
 			},
@@ -192,16 +192,16 @@ func TestOperation_Connection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupHandler(t, svc, GetConnectionPath)
+		handler := lookupHandler(t, svc, GetConnectionsPath)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
 		require.NoError(t, err)
 
-		response := ConnectionRes{}
-		err = json.Unmarshal(buf.Bytes(), &response.Params)
+		response := mediator.ConnectionsResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
 		require.NoError(t, err)
 
 		// verify response
-		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Connections)
 	})
 
 	t.Run("test get connection - missing connectionID", func(t *testing.T) {
@@ -210,7 +210,7 @@ func TestOperation_Connection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
 					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
-						GetConnectionIDErr: errors.New("get connection ID error"),
+						GetConnectionsErr: errors.New("get connections error"),
 					},
 				},
 			},
@@ -222,13 +222,13 @@ func TestOperation_Connection(t *testing.T) {
 		jsonStr := []byte(`{
 		}`)
 
-		handler := lookupHandler(t, svc, GetConnectionPath)
+		handler := lookupHandler(t, svc, GetConnectionsPath)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, mediator.GetConnectionIDErrorCode, "get connection ID error", buf.Bytes())
+		verifyError(t, mediator.GetConnectionsErrorCode, "get connections error", buf.Bytes())
 	})
 }
 

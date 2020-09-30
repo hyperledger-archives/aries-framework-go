@@ -166,7 +166,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 		panic(err)
 	}
 
-	config, err := bobRoutes.GetConfig()
+	config, err := bobRoutes.GetConfig("xyz")
 	if err != nil {
 		panic(err)
 	}
@@ -299,7 +299,7 @@ func getContext(agent string) *mockprovider.Provider {
 		ServiceMap: map[string]interface{}{
 			outofband.Name: &stubOOBService{
 				Event: nil,
-				acceptReqFunc: func(r *outofband.Request, myLabel string) (string, error) {
+				acceptReqFunc: func(r *outofband.Request, myLabel string, _ []string) (string, error) {
 					agentActions[r.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{
@@ -318,7 +318,7 @@ func getContext(agent string) *mockprovider.Provider {
 
 					return "xyz", nil
 				},
-				acceptInvFunc: func(i *outofband.Invitation, myLabel string) (string, error) {
+				acceptInvFunc: func(i *outofband.Invitation, myLabel string, _ []string) (string, error) {
 					agentActions[i.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{

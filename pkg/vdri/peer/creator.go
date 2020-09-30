@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -50,20 +51,25 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
 
-	if docOpts.ServiceType != "" {
-		s := did.Service{
-			ID:              "#agent",
-			Type:            docOpts.ServiceType,
-			ServiceEndpoint: docOpts.ServiceEndpoint,
-			RoutingKeys:     docOpts.RoutingKeys,
+	for i := range docOpts.Services {
+		if docOpts.Services[i].ID == "" {
+			docOpts.Services[i].ID = uuid.New().String()
 		}
 
-		if docOpts.ServiceType == vdriapi.DIDCommServiceType {
-			s.RecipientKeys = []string{base58.Encode(pubKey.Value)}
-			s.Priority = 0
+		if docOpts.Services[i].Type == "" {
+			docOpts.Services[i].Type = docOpts.DefaultServiceType
 		}
 
-		service = append(service, s)
+		if docOpts.Services[i].ServiceEndpoint == "" {
+			docOpts.Services[i].ServiceEndpoint = docOpts.DefaultServiceEndpoint
+		}
+
+		if docOpts.Services[i].Type == vdriapi.DIDCommServiceType {
+			docOpts.Services[i].RecipientKeys = []string{base58.Encode(pubKey.Value)}
+			docOpts.Services[i].Priority = 0
+		}
+
+		service = append(service, docOpts.Services[i])
 	}
 
 	// Created/Updated time

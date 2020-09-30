@@ -342,8 +342,8 @@ func getMediatorEndpoints() map[string]*endpoint {
 			Path:   opmediator.UnregisterPath,
 			Method: http.MethodDelete,
 		},
-		cmdmediator.GetConnectionIDCommandMethod: {
-			Path:   opmediator.GetConnectionPath,
+		cmdmediator.GetConnectionsCommandMethod: {
+			Path:   opmediator.GetConnectionsPath,
 			Method: http.MethodGet,
 		},
 		cmdmediator.ReconnectCommandMethod: {

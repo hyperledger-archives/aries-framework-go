@@ -16,10 +16,11 @@ import (
 // This is used for creating a request
 //
 type CreateRequestArgs struct {
-	Label    string        `json:"label"`
-	Goal     string        `json:"goal"`
-	GoalCode string        `json:"goal_code"`
-	Service  []interface{} `json:"service"`
+	Label              string        `json:"label"`
+	Goal               string        `json:"goal"`
+	GoalCode           string        `json:"goal_code"`
+	Service            []interface{} `json:"service"`
+	RouterConnectionID string        `json:"router_connection_id"`
 
 	// Attachments is intended to provide the possibility to include files, links or even JSON payload to the message.
 	Attachments []*decorator.Attachment `json:"attachments"`
@@ -38,11 +39,12 @@ type CreateRequestResponse struct {
 // This is used for creating an invitation
 //
 type CreateInvitationArgs struct {
-	Label     string        `json:"label"`
-	Goal      string        `json:"goal"`
-	GoalCode  string        `json:"goal_code"`
-	Service   []interface{} `json:"service"`
-	Protocols []string      `json:"protocols"`
+	Label              string        `json:"label"`
+	Goal               string        `json:"goal"`
+	GoalCode           string        `json:"goal_code"`
+	Service            []interface{} `json:"service"`
+	Protocols          []string      `json:"protocols"`
+	RouterConnectionID string        `json:"router_connection_id"`
 }
 
 // CreateInvitationResponse model
@@ -58,8 +60,9 @@ type CreateInvitationResponse struct {
 // This is used for accepting a request
 //
 type AcceptRequestArgs struct {
-	Request *outofband.Request `json:"request"`
-	MyLabel string             `json:"my_label"`
+	Request           *outofband.Request `json:"request"`
+	MyLabel           string             `json:"my_label"`
+	RouterConnections string             `json:"router_connections"`
 }
 
 // AcceptRequestResponse model
@@ -75,8 +78,9 @@ type AcceptRequestResponse struct {
 // This is used for accepting an invitation
 //
 type AcceptInvitationArgs struct {
-	Invitation *outofband.Invitation `json:"invitation"`
-	MyLabel    string                `json:"my_label"`
+	Invitation        *outofband.Invitation `json:"invitation"`
+	MyLabel           string                `json:"my_label"`
+	RouterConnections string                `json:"router_connections"`
 }
 
 // AcceptInvitationResponse model
@@ -118,8 +122,9 @@ type ActionsResponse struct {
 //
 type ActionContinueArgs struct {
 	// PIID Protocol instance ID
-	PIID  string `json:"piid"`
-	Label string `json:"label"`
+	PIID              string `json:"piid"`
+	Label             string `json:"label"`
+	RouterConnections string `json:"router_connections"`
 }
 
 // ActionContinueResponse model

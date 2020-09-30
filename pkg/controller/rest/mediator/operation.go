@@ -17,13 +17,13 @@ import (
 
 // constants for the mediator operations.
 const (
-	RouteOperationID  = "/mediator"
-	RegisterPath      = RouteOperationID + "/register"
-	UnregisterPath    = RouteOperationID + "/unregister"
-	GetConnectionPath = RouteOperationID + "/connection"
-	ReconnectPath     = RouteOperationID + "/reconnect"
-	StatusPath        = RouteOperationID + "/status"
-	BatchPickupPath   = RouteOperationID + "/batchpickup"
+	RouteOperationID   = "/mediator"
+	RegisterPath       = RouteOperationID + "/register"
+	UnregisterPath     = RouteOperationID + "/unregister"
+	GetConnectionsPath = RouteOperationID + "/connections"
+	ReconnectPath      = RouteOperationID + "/reconnect"
+	StatusPath         = RouteOperationID + "/status"
+	BatchPickupPath    = RouteOperationID + "/batchpickup"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -62,7 +62,7 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(RegisterPath, http.MethodPost, o.Register),
 		cmdutil.NewHTTPHandler(UnregisterPath, http.MethodDelete, o.Unregister),
-		cmdutil.NewHTTPHandler(GetConnectionPath, http.MethodGet, o.Connection),
+		cmdutil.NewHTTPHandler(GetConnectionsPath, http.MethodGet, o.Connections),
 		cmdutil.NewHTTPHandler(ReconnectPath, http.MethodPost, o.Reconnect),
 		cmdutil.NewHTTPHandler(StatusPath, http.MethodPost, o.Status),
 		cmdutil.NewHTTPHandler(BatchPickupPath, http.MethodPost, o.BatchPickup),
@@ -86,19 +86,20 @@ func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 //
 // Responses:
 //    default: genericError
+//    200: unregisterRouteRes
 func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Unregister, rw, req.Body)
 }
 
-// Connection swagger:route GET /mediator/connection mediator routerConnection
+// Connections swagger:route GET /mediator/connections mediator connectionsRequest
 //
-// Retrieves the router connection id.
+// Retrieves the router`s connections.
 //
 // Responses:
 //    default: genericError
-//    200: getConnectionResponse
-func (o *Operation) Connection(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.Connection, rw, req.Body)
+//    200: getConnectionsResponse
+func (o *Operation) Connections(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Connections, rw, req.Body)
 }
 
 // Reconnect swagger:route POST /mediator/reconnect mediator reconnectRouteRequest

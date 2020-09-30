@@ -15,7 +15,7 @@ import (
 
 func TestGetRouterConfig(t *testing.T) {
 	t.Run("test get router config - ro router configured", func(t *testing.T) {
-		endpoint, routingKeys, err := GetRouterConfig(&mockRouteSvc{}, ENDPOINT)
+		endpoint, routingKeys, err := GetRouterConfig(&mockRouteSvc{}, "conn", ENDPOINT)
 		require.NoError(t, err)
 		require.Equal(t, ENDPOINT, endpoint)
 		require.Equal(t, 0, len(routingKeys))
@@ -28,6 +28,7 @@ func TestGetRouterConfig(t *testing.T) {
 				RouterEndpoint: ENDPOINT,
 				RoutingKeys:    routeKeys,
 			},
+			"conn",
 			"http://override-url.com",
 		)
 		require.NoError(t, err)
@@ -40,6 +41,7 @@ func TestGetRouterConfig(t *testing.T) {
 			&mockRouteSvc{
 				ConfigErr: errors.New("router error"),
 			},
+			"conn",
 			ENDPOINT,
 		)
 		require.Error(t, err)
@@ -51,26 +53,28 @@ func TestGetRouterConfig(t *testing.T) {
 
 func TestAddKeyToRouter(t *testing.T) {
 	t.Run("test add key to router - success", func(t *testing.T) {
-		err := AddKeyToRouter(&mockRouteSvc{}, ENDPOINT)
+		err := AddKeyToRouter(&mockRouteSvc{}, "conn", ENDPOINT)
 		require.NoError(t, err)
 	})
 
 	t.Run("test add key to router - router not registered", func(t *testing.T) {
 		err := AddKeyToRouter(&mockRouteSvc{
 			AddKeyErr: ErrRouterNotRegistered,
-		}, ENDPOINT)
+		}, "conn", ENDPOINT)
 		require.NoError(t, err)
 	})
 
 	t.Run("test add key to router - router error", func(t *testing.T) {
 		err := AddKeyToRouter(&mockRouteSvc{
 			AddKeyErr: errors.New("router error"),
-		}, ENDPOINT)
+		}, "conn", ENDPOINT)
 		require.EqualError(t, err, "addKey: router error")
 	})
 }
 
 type mockRouteSvc struct {
+	Connections    []string
+	ConnectionsErr error
 	RouterEndpoint string
 	RoutingKeys    []string
 	ConfigErr      error
@@ -78,12 +82,17 @@ type mockRouteSvc struct {
 }
 
 // AddKey adds agents recKey to the router.
-func (m *mockRouteSvc) AddKey(recKey string) error {
+func (m *mockRouteSvc) AddKey(connID, recKey string) error {
 	return m.AddKeyErr
 }
 
+// AddKey adds agents recKey to the router.
+func (m *mockRouteSvc) GetConnections() ([]string, error) {
+	return m.Connections, m.ConnectionsErr
+}
+
 // Config gives back the router configuration.
-func (m *mockRouteSvc) Config() (*Config, error) {
+func (m *mockRouteSvc) Config(connID string) (*Config, error) {
 	if m.ConfigErr != nil {
 		return nil, m.ConfigErr
 	}

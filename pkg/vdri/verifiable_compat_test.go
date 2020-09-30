@@ -137,7 +137,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 
 	peerDID, err := a.VDRIRegistry().Create(
 		peer.DIDMethod,
-		vdri.WithServiceEndpoint("http://example.com/didcomm"),
+		vdri.WithServices(did.Service{ServiceEndpoint: "http://example.com/didcomm"}),
 	)
 	require.NoError(t, err)
 

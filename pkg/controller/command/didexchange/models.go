@@ -24,6 +24,9 @@ type CreateInvitationArgs struct {
 
 	// Optional public DID to be used in invitation
 	Public string `json:"public,omitempty"`
+
+	// Optional specifies router connection id
+	RouterConnectionID string `json:"router_connection_id"`
 }
 
 // CreateInvitationResponse model
@@ -90,6 +93,9 @@ type AcceptInvitationArgs struct {
 
 	// Optional Public DID to be used for this request
 	Public string `json:"public"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // AcceptInvitationResponse model
@@ -166,6 +172,9 @@ type ImplicitInvitationArgs struct {
 
 	// Optional invitee label
 	InviteeLabel string `json:"my_label"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // ImplicitInvitationResponse model
@@ -222,6 +231,9 @@ type AcceptExchangeRequestArgs struct {
 	// Optional Public DID to be used for this invitation
 	// request
 	Public string `json:"public"`
+
+	// Optional specifies router connections (comma-separated values)
+	RouterConnections string `json:"router_connections"`
 }
 
 // ExchangeResponse model

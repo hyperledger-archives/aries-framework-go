@@ -13,6 +13,11 @@ type RegisterRoute struct {
 	ConnectionID string `json:"connectionID"`
 }
 
+// ConnectionsResponse is response for router`s connections.
+type ConnectionsResponse struct {
+	Connections []string `json:"connections"`
+}
+
 // StatusRequest is request for getting details about pending messages.
 type StatusRequest struct {
 	ConnectionID string `json:"connectionID"`

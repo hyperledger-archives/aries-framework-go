@@ -20,18 +20,40 @@ type registerRouteReq struct { // nolint: unused,deadcode
 	Params mediator.RegisterRoute
 }
 
+// unregisterRouteRes model
+//
+// swagger:response unregisterRouteRes
+type unregisterRouteRes struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
+
 // registerRouteRes model
 //
 // swagger:response registerRouteRes
 type registerRouteRes struct {
+	// in: body
+	Body struct{}
 }
 
-// ConnectionRes model
+// ConnectionsResponse model
 //
-// response of get connection action
+// Represents a Connections response message
 //
-// swagger:response getConnectionResponse
-type ConnectionRes struct {
+// swagger:response getConnectionsResponse
+type ConnectionsResponse struct {
+	// in: body
+	Params mediator.ConnectionsResponse
+}
+
+// unregisterRouterReq model
+//
+// This is used for unregister a router for the agent.
+//
+// swagger:parameters unregisterRouter
+type unregisterRouterReq struct { // nolint: unused,deadcode
+	// Params for unregister the router
+	//
 	// in: body
 	Params mediator.RegisterRoute
 }

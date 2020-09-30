@@ -9,8 +9,11 @@ package mediator
 // ProtocolService service interface for router.
 type ProtocolService interface {
 	// AddKey adds agents recKey to the router
-	AddKey(recKey string) error
+	AddKey(connID, recKey string) error
 
 	// Config gives back the router configuration
-	Config() (*Config, error)
+	Config(connID string) (*Config, error)
+
+	// GetConnections returns all router connections
+	GetConnections() ([]string, error)
 }

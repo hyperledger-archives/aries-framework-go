@@ -274,7 +274,6 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 }
 
 func (i *sqlDBResultsIterator) Next() bool {
-	fmt.Printf("resultRows %v\v", i.resultRows)
 	return i.resultRows.Next()
 }
 

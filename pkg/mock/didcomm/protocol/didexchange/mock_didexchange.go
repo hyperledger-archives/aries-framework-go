@@ -38,7 +38,7 @@ type MockDIDExchangeSvc struct {
 	UnregisterMsgEventErr    error
 	AcceptError              error
 	ImplicitInvitationErr    error
-	RespondToFunc            func(*didexchange.OOBInvitation) (string, error)
+	RespondToFunc            func(*didexchange.OOBInvitation, []string) (string, error)
 	SaveFunc                 func(invitation *didexchange.OOBInvitation) error
 	CreateConnRecordFunc     func(*connection.Record, *did.Doc) error
 }
@@ -116,7 +116,7 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) erro
 }
 
 // AcceptExchangeRequest accepts/approves exchange request.
-func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID, publicDID, label string) error {
+func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID, publicDID, label string, conns []string) error {
 	if m.AcceptError != nil {
 		return m.AcceptError
 	}
@@ -125,7 +125,7 @@ func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID, publicDID, labe
 }
 
 // AcceptInvitation accepts/approves exchange invitation.
-func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label string) error {
+func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label string, conns []string) error {
 	if m.AcceptError != nil {
 		return m.AcceptError
 	}
@@ -134,7 +134,7 @@ func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label str
 }
 
 // CreateImplicitInvitation creates implicit invitation using public DID(s).
-func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) { //nolint: lll
+func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string, conns []string) (string, error) { //nolint: lll
 	if m.ImplicitInvitationErr != nil {
 		return "", m.ImplicitInvitationErr
 	}
@@ -143,9 +143,9 @@ func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, 
 }
 
 // RespondTo this invitation.
-func (m *MockDIDExchangeSvc) RespondTo(i *didexchange.OOBInvitation) (string, error) {
+func (m *MockDIDExchangeSvc) RespondTo(i *didexchange.OOBInvitation, conns []string) (string, error) {
 	if m.RespondToFunc != nil {
-		return m.RespondToFunc(i)
+		return m.RespondToFunc(i, conns)
 	}
 
 	return "", nil

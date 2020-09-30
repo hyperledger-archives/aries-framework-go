@@ -843,8 +843,9 @@ func continueWithPublicDID(ch chan service.DIDCommAction, pubDID string) {
 }
 
 type testOptions struct {
-	publicDID string
-	label     string
+	publicDID         string
+	label             string
+	routerConnections []string
 }
 
 func (to *testOptions) PublicDID() string {
@@ -853,6 +854,10 @@ func (to *testOptions) PublicDID() string {
 
 func (to *testOptions) Label() string {
 	return to.label
+}
+
+func (to *testOptions) RouterConnections() []string {
+	return to.routerConnections
 }
 
 func TestEventsUserError(t *testing.T) {
@@ -1222,7 +1227,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), "", ""))
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), "", "", nil))
 		}
 	}()
 
@@ -1290,7 +1295,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), publicDID, "sample-label"))
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), publicDID, "sample-label", nil))
 		}
 	}()
 
@@ -1358,7 +1363,7 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDInvited {
-					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", ""))
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", "", nil))
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDRequested {
@@ -1396,7 +1401,7 @@ func TestAcceptInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(generateRandomID(), "", "")
+		err = svc.AcceptInvitation(generateRandomID(), "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
@@ -1420,7 +1425,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "", "")
+		err = svc.AcceptInvitation(id, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
 	})
@@ -1442,7 +1447,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "", "")
+		err = svc.AcceptInvitation(id, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
 	})
@@ -1492,7 +1497,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDInvited {
-					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label"))
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label", nil))
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDRequested {
@@ -1530,7 +1535,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
@@ -1554,7 +1559,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
 	})
@@ -1576,7 +1581,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
 	})
@@ -1612,11 +1617,11 @@ func TestEventProtocolStateData(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptExchangeRequest(generateRandomID(), "", "")
+		err = svc.AcceptExchangeRequest(generateRandomID(), "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 
-		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label")
+		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 	})
@@ -1774,7 +1779,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		s.ctx = ctx
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1806,7 +1811,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 		require.Empty(t, connID)
@@ -1842,7 +1847,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)
@@ -1860,7 +1865,7 @@ func TestRespondTo(t *testing.T) {
 			Type:            "did-communication",
 			RecipientKeys:   []string{"did:key:1234567"},
 			ServiceEndpoint: "http://example.com",
-		}))
+		}), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1870,7 +1875,7 @@ func TestRespondTo(t *testing.T) {
 		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDID}
 		s, err := New(provider)
 		require.NoError(t, err)
-		connID, err := s.RespondTo(newInvitation(publicDID.ID))
+		connID, err := s.RespondTo(newInvitation(publicDID.ID), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1882,7 +1887,7 @@ func TestRespondTo(t *testing.T) {
 			ThreadID:   "",
 			TheirLabel: "test",
 			Target:     "did:example:123",
-		})
+		}, nil)
 		require.Error(t, err)
 	})
 	t.Run("fails if invitation is missing a target", func(t *testing.T) {
@@ -1893,14 +1898,14 @@ func TestRespondTo(t *testing.T) {
 			ThreadID:   uuid.New().String(),
 			TheirLabel: "test",
 			Target:     nil,
-		})
+		}, nil)
 		require.Error(t, err)
 	})
 	t.Run("fails if invitation has an invalid target type", func(t *testing.T) {
 		invalid := &struct{}{}
 		s, err := New(testProvider())
 		require.NoError(t, err)
-		_, err = s.RespondTo(newInvitation(invalid))
+		_, err = s.RespondTo(newInvitation(invalid), nil)
 		require.Error(t, err)
 	})
 	t.Run("wraps error from vdri registry when resolving DID", func(t *testing.T) {
@@ -1911,7 +1916,7 @@ func TestRespondTo(t *testing.T) {
 		}
 		s, err := New(provider)
 		require.NoError(t, err)
-		_, err = s.RespondTo(newInvitation("did:example:123"))
+		_, err = s.RespondTo(newInvitation("did:example:123"), nil)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})

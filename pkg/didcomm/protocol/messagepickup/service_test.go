@@ -606,7 +606,7 @@ func TestStatusRequest(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -624,7 +624,7 @@ func TestStatusRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		go func() {
-			status, err := svc.StatusRequest("conn1")
+			status, err := svc.StatusRequest("conn")
 			require.NoError(t, err)
 
 			require.Equal(t, 6, status.MessageCount)
@@ -657,7 +657,7 @@ func TestStatusRequest(t *testing.T) {
 			},
 		}
 
-		_, err = svc.StatusRequest("conn1")
+		_, err = svc.StatusRequest("conn")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -676,7 +676,7 @@ func TestStatusRequest(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -693,7 +693,7 @@ func TestStatusRequest(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.StatusRequest("conn1")
+		_, err = svc.StatusRequest("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send route request")
 	})
@@ -724,7 +724,7 @@ func TestBatchPickup(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -760,7 +760,7 @@ func TestBatchPickup(t *testing.T) {
 			ch <- s
 		}()
 
-		p, err := svc.BatchPickup("conn1", 1)
+		p, err := svc.BatchPickup("conn", 1)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, p)
@@ -777,7 +777,7 @@ func TestBatchPickup(t *testing.T) {
 			},
 		}
 
-		p, err := svc.BatchPickup("conn1", 4)
+		p, err := svc.BatchPickup("conn", 4)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 		require.Equal(t, -1, p)
@@ -797,7 +797,7 @@ func TestBatchPickup(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -814,7 +814,7 @@ func TestBatchPickup(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.BatchPickup("conn1", 4)
+		_, err = svc.BatchPickup("conn", 4)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send batch pickup request")
 	})
@@ -880,7 +880,7 @@ func TestNoop(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -897,7 +897,7 @@ func TestNoop(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.NoError(t, err)
 	})
 
@@ -915,7 +915,7 @@ func TestNoop(t *testing.T) {
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -932,7 +932,7 @@ func TestNoop(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send noop request")
 	})
@@ -948,7 +948,7 @@ func TestNoop(t *testing.T) {
 			},
 		}
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})

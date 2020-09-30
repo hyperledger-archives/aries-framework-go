@@ -65,7 +65,7 @@ func TestRegister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = c.Register("conn1")
+		err = c.Register("conn")
 		require.NoError(t, err)
 	})
 
@@ -77,7 +77,7 @@ func TestRegister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = c.Register("conn1")
+		err = c.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router registration")
 	})
@@ -90,7 +90,7 @@ func TestUnregister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = c.Unregister()
+		err = c.Unregister("conn")
 		require.NoError(t, err)
 	})
 
@@ -102,7 +102,7 @@ func TestUnregister(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = c.Unregister()
+		err = c.Unregister("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router unregister")
 	})
@@ -114,28 +114,29 @@ func TestGetConnection(t *testing.T) {
 
 		c, err := New(&mockprovider.Provider{
 			ServiceValue: &mockroute.MockMediatorSvc{
-				ConnectionID: routerConnectionID,
+				Connections: []string{routerConnectionID},
 			},
 		})
 		require.NoError(t, err)
 
-		connID, err := c.GetConnection()
+		conns, err := c.GetConnections()
+		require.Equal(t, 1, len(conns))
 		require.NoError(t, err)
-		require.Equal(t, routerConnectionID, connID)
+		require.Equal(t, routerConnectionID, conns[0])
 	})
 
 	t.Run("test get connection - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			ServiceValue: &mockroute.MockMediatorSvc{
-				GetConnectionIDErr: errors.New("get connection id error"),
+				GetConnectionsErr: errors.New("get connections error"),
 			},
 		})
 		require.NoError(t, err)
 
-		connID, err := c.GetConnection()
+		conns, err := c.GetConnections()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get router connectionID")
-		require.Empty(t, connID)
+		require.Contains(t, err.Error(), "get router connections")
+		require.Empty(t, conns)
 	})
 }
 
@@ -150,7 +151,7 @@ func TestClient_GetConfig(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		result, err := c.GetConfig()
+		result, err := c.GetConfig("conn")
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.Equal(t, endpoint, result.Endpoint())
@@ -164,7 +165,7 @@ func TestClient_GetConfig(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		_, err = c.GetConfig()
+		_, err = c.GetConfig("conn")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})

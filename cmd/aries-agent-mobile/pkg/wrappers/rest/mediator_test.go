@@ -57,20 +57,20 @@ func TestMediator_BatchPickup(t *testing.T) {
 	})
 }
 
-func TestMediator_Connection(t *testing.T) {
+func TestMediator_Connections(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		controller := getMediatorController(t)
 
 		reqData := emptyJSON
 
-		mockResponse := `{"connectionID":"conn-abc"}`
+		mockResponse := `{"connections":["conn-abc"]}`
 		controller.httpClient = &mockHTTPClient{
 			data:   mockResponse,
-			method: http.MethodGet, url: mockAgentURL + mediator.GetConnectionPath,
+			method: http.MethodGet, url: mockAgentURL + mediator.GetConnectionsPath,
 		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := controller.Connection(req)
+		resp := controller.Connections(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)

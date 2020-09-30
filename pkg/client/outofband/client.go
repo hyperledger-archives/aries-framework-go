@@ -43,6 +43,13 @@ const (
 type EventOptions struct {
 	// Label will be shared with the other agent during the subsequent did-exchange.
 	Label string
+	// Connections allows specifying router connections.
+	Connections []string
+}
+
+// RouterConnections return router connections.
+func (e *EventOptions) RouterConnections() []string {
+	return e.Connections
 }
 
 // MyLabel will be shared with the other agent during the subsequent did-exchange.
@@ -63,17 +70,26 @@ type Event interface {
 type MessageOption func(*message) error
 
 type message struct {
-	Label    string
-	Goal     string
-	GoalCode string
-	Service  []interface{}
+	Label             string
+	Goal              string
+	GoalCode          string
+	RouterConnections []string
+	Service           []interface{}
+}
+
+func (m *message) RouterConnection() string {
+	if len(m.RouterConnections) == 0 {
+		return ""
+	}
+
+	return m.RouterConnections[0]
 }
 
 // OobService defines the outofband service.
 type OobService interface {
 	service.Event
-	AcceptRequest(*outofband.Request, string) (string, error)
-	AcceptInvitation(*outofband.Invitation, string) (string, error)
+	AcceptRequest(*outofband.Request, string, []string) (string, error)
+	AcceptInvitation(*outofband.Invitation, string, []string) (string, error)
 	SaveRequest(*outofband.Request) error
 	SaveInvitation(*outofband.Invitation) error
 	Actions() ([]outofband.Action, error)
@@ -92,7 +108,7 @@ type Provider interface {
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
 	service.Event
-	didDocSvcFunc func() (*did.Service, error)
+	didDocSvcFunc func(routerConnID string) (*did.Service, error)
 	oobService    OobService
 }
 
@@ -145,7 +161,7 @@ func (c *Client) CreateRequest(attchmnts []*decorator.Attachment, opts ...Messag
 	}
 
 	if len(req.Service) == 0 {
-		svc, err := c.didDocSvcFunc()
+		svc, err := c.didDocSvcFunc(msg.RouterConnection())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a new inlined did doc service block : %w", err)
 		}
@@ -186,7 +202,7 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 	}
 
 	if len(inv.Service) == 0 {
-		svc, err := c.didDocSvcFunc()
+		svc, err := c.didDocSvcFunc(msg.RouterConnection())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a new inlined did doc service block : %w", err)
 		}
@@ -226,9 +242,18 @@ func (c *Client) Actions() ([]Action, error) {
 }
 
 // ActionContinue allows continuing with the protocol after an action event was triggered.
-func (c *Client) ActionContinue(piID, label string) error {
+func (c *Client) ActionContinue(piID, label string, opts ...MessageOption) error {
+	msg := &message{}
+
+	for _, opt := range opts {
+		if err := opt(msg); err != nil {
+			return fmt.Errorf("accept request: %w", err)
+		}
+	}
+
 	return c.oobService.ActionContinue(piID, &EventOptions{
-		Label: label,
+		Label:       label,
+		Connections: msg.RouterConnections,
 	})
 }
 
@@ -238,10 +263,18 @@ func (c *Client) ActionStop(piID string, err error) error {
 }
 
 // AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Client) AcceptRequest(r *Request, myLabel string) (string, error) {
+func (c *Client) AcceptRequest(r *Request, myLabel string, opts ...MessageOption) (string, error) {
+	msg := &message{}
+
+	for _, opt := range opts {
+		if err := opt(msg); err != nil {
+			return "", fmt.Errorf("accept request: %w", err)
+		}
+	}
+
 	cast := outofband.Request(*r)
 
-	connID, err := c.oobService.AcceptRequest(&cast, myLabel)
+	connID, err := c.oobService.AcceptRequest(&cast, myLabel, msg.RouterConnections)
 	if err != nil {
 		return "", fmt.Errorf("out-of-band service failed to accept request : %w", err)
 	}
@@ -250,10 +283,18 @@ func (c *Client) AcceptRequest(r *Request, myLabel string) (string, error) {
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Client) AcceptInvitation(i *Invitation, myLabel string) (string, error) {
+func (c *Client) AcceptInvitation(i *Invitation, myLabel string, opts ...MessageOption) (string, error) {
+	msg := &message{}
+
+	for _, opt := range opts {
+		if err := opt(msg); err != nil {
+			return "", fmt.Errorf("accept invitation: %w", err)
+		}
+	}
+
 	cast := outofband.Invitation(*i)
 
-	connID, err := c.oobService.AcceptInvitation(&cast, myLabel)
+	connID, err := c.oobService.AcceptInvitation(&cast, myLabel, msg.RouterConnections)
 	if err != nil {
 		return "", fmt.Errorf("out-of-band service failed to accept invitation : %w", err)
 	}
@@ -275,6 +316,20 @@ func WithGoal(goal, goalCode string) MessageOption {
 	return func(m *message) error {
 		m.Goal = goal
 		m.GoalCode = goalCode
+
+		return nil
+	}
+}
+
+// WithRouterConnections allows you to specify the router connections.
+func WithRouterConnections(conn ...string) MessageOption {
+	return func(m *message) error {
+		for _, conn := range conn {
+			// filters out empty connections
+			if conn != "" {
+				m.RouterConnections = append(m.RouterConnections, conn)
+			}
+		}
 
 		return nil
 	}
@@ -310,8 +365,8 @@ func WithServices(svcs ...interface{}) MessageOption {
 
 // DidDocServiceFunc returns a function that returns a DID doc `service` entry.
 // Used when no service entries are specified when creating messages.
-func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
-	return func() (*did.Service, error) {
+func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, error) {
+	return func(routerConnID string) (*did.Service, error) {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 		//  with connection record
 		_, verKey, err := p.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
@@ -331,25 +386,31 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 
 		verKeyB58 := base58.Encode(verKey)
 
+		if routerConnID == "" {
+			return &did.Service{
+				ID:              uuid.New().String(),
+				Type:            "did-communication",
+				RecipientKeys:   []string{verKeyB58},
+				ServiceEndpoint: p.ServiceEndpoint(),
+			}, nil
+		}
+
 		// get the route configs
-		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(routeSvc, p.ServiceEndpoint())
+		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(routeSvc, routerConnID, p.ServiceEndpoint())
 		if err != nil {
 			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - fetch router config : %w", err)
 		}
 
-		svc := &did.Service{
-			ID:              uuid.New().String(),
-			Type:            "did-communication",
-			Priority:        0,
-			RecipientKeys:   []string{verKeyB58},
-			RoutingKeys:     routingKeys,
-			ServiceEndpoint: serviceEndpoint,
-		}
-
-		if err = mediator.AddKeyToRouter(routeSvc, base58.Encode(verKey)); err != nil {
+		if err = mediator.AddKeyToRouter(routeSvc, routerConnID, base58.Encode(verKey)); err != nil {
 			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - failed to add key to the router : %w", err)
 		}
 
-		return svc, nil
+		return &did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			RecipientKeys:   []string{verKeyB58},
+			RoutingKeys:     routingKeys,
+			ServiceEndpoint: serviceEndpoint,
+		}, nil
 	}
 }

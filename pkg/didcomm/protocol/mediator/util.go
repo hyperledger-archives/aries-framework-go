@@ -13,8 +13,8 @@ import (
 
 // GetRouterConfig util to get the router configuration. The endpoint is overridden with routers endpoint,
 // if router is registered. Returns endpoint, routingKeys and error.
-func GetRouterConfig(routeSvc ProtocolService, endpoint string) (string, []string, error) {
-	routeConf, err := routeSvc.Config()
+func GetRouterConfig(routeSvc ProtocolService, connID, endpoint string) (string, []string, error) {
+	routeConf, err := routeSvc.Config(connID)
 	if err != nil && !errors.Is(err, ErrRouterNotRegistered) {
 		return "", nil, fmt.Errorf("fetch router config: %w", err)
 	}
@@ -27,8 +27,8 @@ func GetRouterConfig(routeSvc ProtocolService, endpoint string) (string, []strin
 }
 
 // AddKeyToRouter util to add the recipient keys to the router.
-func AddKeyToRouter(routeSvc ProtocolService, recKey string) error {
-	if err := routeSvc.AddKey(recKey); err != nil && !errors.Is(err, ErrRouterNotRegistered) {
+func AddKeyToRouter(routeSvc ProtocolService, connID, recKey string) error {
+	if err := routeSvc.AddKey(connID, recKey); err != nil && !errors.Is(err, ErrRouterNotRegistered) {
 		return fmt.Errorf("addKey: %w", err)
 	}
 

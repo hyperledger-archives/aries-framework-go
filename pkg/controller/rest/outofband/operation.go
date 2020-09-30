@@ -91,8 +91,9 @@ func (c *Operation) Actions(rw http.ResponseWriter, _ *http.Request) {
 func (c *Operation) ActionContinue(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.ActionContinue, rw, bytes.NewBufferString(fmt.Sprintf(`{
 		"piid":%q,
-		"label": %q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("label"))))
+		"label": %q,
+		"router_connections": %q
+	}`, mux.Vars(req)["piid"], req.URL.Query().Get("label"), req.URL.Query().Get("router_connections"))))
 }
 
 // ActionStop swagger:route POST /outofband/{piid}/action-stop outofband outofbandActionStop

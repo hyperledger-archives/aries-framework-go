@@ -242,14 +242,18 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				mediator.Coordination:   &mockroute.MockMediatorSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
+				mediator.Coordination: &mockroute.MockMediatorSvc{
+					Connections:    []string{"xyz"},
+					RoutingKeys:    routingKeys,
+					RouterEndpoint: endpoint,
+				},
 			},
 			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
-		inviteReq, err := c.CreateInvitation("agent")
+		inviteReq, err := c.CreateInvitation("agent", WithRouterConnectionID("xyz"))
 		require.NoError(t, err)
 		require.NotNil(t, inviteReq)
 		require.NotEmpty(t, inviteReq.Label)
@@ -275,14 +279,17 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				mediator.Coordination:   &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
+				mediator.Coordination: &mockroute.MockMediatorSvc{
+					Connections: []string{"xyz"},
+					ConfigErr:   errors.New("router config error"),
+				},
 			},
 			KMSValue:             &mockkms.KeyManager{CreateKeyValue: ed25519KH},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
-		inviteReq, err := c.CreateInvitation("agent")
+		inviteReq, err := c.CreateInvitation("agent", WithRouterConnectionID("xyz"))
 		require.EqualError(t, err, "createInvitation: getRouterConfig: fetch router config: router config error")
 		require.Nil(t, inviteReq)
 	})
@@ -308,6 +315,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{
+					Connections:    []string{"xyz"},
 					RoutingKeys:    routingKeys,
 					RouterEndpoint: endpoint,
 					AddKeyErr:      errors.New("failed to add key to the router"),
@@ -318,7 +326,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		inviteReq, err := c.CreateInvitation("agent")
+		inviteReq, err := c.CreateInvitation("agent", WithRouterConnectionID("xyz"))
 		require.EqualError(t, err, "createInvitation: AddKeyToRouter: addKey: failed to add key to the router")
 		require.Nil(t, inviteReq)
 	})
@@ -1361,8 +1369,10 @@ func newPeerDID(t *testing.T) *did.Doc {
 
 	d, err := ctx.VDRIRegistry().Create(
 		peer.DIDMethod,
-		vdri.WithServiceType("did-communication"),
-		vdri.WithServiceEndpoint("http://agent.example.com/didcomm"),
+		vdri.WithServices(did.Service{
+			Type:            "did-communication",
+			ServiceEndpoint: "http://agent.example.com/didcomm",
+		}),
 	)
 	require.NoError(t, err)
 

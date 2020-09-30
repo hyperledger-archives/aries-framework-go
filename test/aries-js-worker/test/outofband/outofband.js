@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
-import {didExchangeClient, newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {didExchangeClient, newDIDExchangeClient, newDIDExchangeRESTClient, getMediatorConnection} from "../didexchange/didexchange_e2e.js";
 import {watchForEvent} from "../common.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
@@ -45,7 +45,7 @@ async function outofbandRequest(mode) {
 
     let request;
     it("Alice constructs an out-of-band request with no attachments", async function () {
-        request = await didexClient.agent1.outofband.createRequest(createRequest("Alice"))
+        request = await didexClient.agent1.outofband.createRequest(await createRequest(didexClient.agent1,"Alice"))
     })
 
     it("Bob accepts the request and connects with Alice", async function () {
@@ -54,15 +54,17 @@ async function outofbandRequest(mode) {
         await didexClient.agent2.outofband.acceptRequest({
             my_label: "Bob",
             request: request.request,
+            router_connections: await getMediatorConnection(didexClient.agent2),
         })
 
         await checked
     })
 }
 
-export function createRequest(label) {
+export async function createRequest(agent, label) {
     return {
         label: label,
+        router_connection_id: await getMediatorConnection(agent),
         attachments: [
             {
                 "@id": getRandom(1, 9) + "955adee-bdb4-437f-884a-b466e38d5884",
@@ -89,7 +91,8 @@ async function outofbandInvitation(mode) {
     let invitation;
     it("Alice constructs an out-of-band invitation", async function () {
         invitation = await didexClient.agent1.outofband.createInvitation({
-            label: "Alice"
+            label: "Alice",
+            router_connection_id: await getMediatorConnection(didexClient.agent1)
         })
     })
 
@@ -99,6 +102,7 @@ async function outofbandInvitation(mode) {
         await didexClient.agent2.outofband.acceptInvitation({
             my_label: "Bob",
             invitation: invitation.invitation,
+            router_connections: await getMediatorConnection(didexClient.agent2),
         })
 
         await checked
@@ -139,6 +143,7 @@ export async function checkConnection(mode, inviter, invitee, expected) {
 export async function connectAgents(mode, inviter, invitee) {
     let invitation = await inviter.outofband.createInvitation({
         label: getRandom(1, 10) + "_" + getRandom(1, 10),
+        router_connection_id: await getMediatorConnection(inviter)
     })
 
     let checked = checkConnection(mode, inviter, invitee, invitation.invitation['@id'])
@@ -146,6 +151,7 @@ export async function connectAgents(mode, inviter, invitee) {
     await invitee.outofband.acceptInvitation({
         my_label: getRandom(1, 10) + "_" + getRandom(1, 10),
         invitation: invitation.invitation,
+        router_connections: await getMediatorConnection(invitee),
     })
 
     return await checked
