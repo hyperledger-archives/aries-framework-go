@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -74,10 +75,12 @@ const (
 
 	// data key to store router config.
 	routeConfigDataKey = "route_config_%s"
+
+	routeGrantKey = "grant_%s"
 )
 
 const (
-	updateTimeout = 5 * time.Second
+	updateTimeout = 10 * time.Second
 )
 
 // ErrConnectionNotFound connection not found error.
@@ -129,18 +132,16 @@ type connections interface {
 type Service struct {
 	service.Action
 	service.Message
-	routeStore               storage.Store
-	connectionLookup         connections
-	outbound                 dispatcher.Outbound
-	endpoint                 string
-	kms                      kms.KeyManager
-	vdRegistry               vdri.Registry
-	routeRegistrationMap     map[string]chan Grant
-	routeRegistrationMapLock sync.RWMutex
-	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
-	keylistUpdateMapLock     sync.RWMutex
-	callbacks                chan *callback
-	messagePickupSvc         messagepickup.ProtocolService
+	routeStore           storage.Store
+	connectionLookup     connections
+	outbound             dispatcher.Outbound
+	endpoint             string
+	kms                  kms.KeyManager
+	vdRegistry           vdri.Registry
+	keylistUpdateMap     map[string]chan *KeylistUpdateResponse
+	keylistUpdateMapLock sync.RWMutex
+	callbacks            chan *callback
+	messagePickupSvc     messagepickup.ProtocolService
 }
 
 // New return route coordination service.
@@ -166,16 +167,15 @@ func New(prov provider) (*Service, error) {
 	}
 
 	s := &Service{
-		routeStore:           store,
-		outbound:             prov.OutboundDispatcher(),
-		endpoint:             prov.RouterEndpoint(),
-		kms:                  prov.KMS(),
-		vdRegistry:           prov.VDRIRegistry(),
-		connectionLookup:     connectionLookup,
-		routeRegistrationMap: make(map[string]chan Grant),
-		keylistUpdateMap:     make(map[string]chan *KeylistUpdateResponse),
-		callbacks:            make(chan *callback),
-		messagePickupSvc:     messagePickupSvc,
+		routeStore:       store,
+		outbound:         prov.OutboundDispatcher(),
+		endpoint:         prov.RouterEndpoint(),
+		kms:              prov.KMS(),
+		vdRegistry:       prov.VDRIRegistry(),
+		connectionLookup: connectionLookup,
+		keylistUpdateMap: make(map[string]chan *KeylistUpdateResponse),
+		callbacks:        make(chan *callback),
+		messagePickupSvc: messagePickupSvc,
 	}
 
 	go s.listenForCallbacks()
@@ -263,12 +263,12 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}
 
 	// perform action on inbound message asynchronously
-	go func() {
+	go func(msg service.DIDCommMsg) {
 		var err error
 
 		switch msg.Type() {
 		case GrantMsgType:
-			err = s.handleGrant(msg)
+			err = s.saveGrant(msg)
 		case KeylistUpdateMsgType:
 			err = s.handleKeylistUpdate(msg, myDID, theirDID)
 		case KeylistUpdateResponseMsgType:
@@ -300,7 +300,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 				logutil.CreateKeyValueString("msgID", msg.ID()),
 				connectionIDLog)
 		}
-	}()
+	}(msg.Clone())
 
 	return msg.ID(), nil
 }
@@ -390,28 +390,6 @@ func outboundGrant(
 	}
 
 	return grant, nil
-}
-
-func (s *Service) handleGrant(msg service.DIDCommMsg) error {
-	// unmarshal the payload
-	grantMsg := &Grant{}
-
-	err := msg.Decode(grantMsg)
-	if err != nil {
-		return fmt.Errorf("route grant message unmarshal : %w", err)
-	}
-
-	// check if there are any channels registered for the message ID
-	grantCh := s.getRouteRegistrationCh(grantMsg.ID)
-
-	if grantCh == nil {
-		logger.Warnf("no channels awaiting grant with msgID=%s", grantMsg.ID)
-		return nil
-	}
-
-	grantCh <- *grantMsg
-
-	return nil
 }
 
 func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID string) error {
@@ -549,39 +527,67 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 		return fmt.Errorf("ensure connection exists: %w", err)
 	}
 
-	// register chan for callback processing
-	grantCh := make(chan Grant)
-	s.setRouteRegistrationCh(req.ID, grantCh)
-
 	// TODO: would this be better served as time.Now().Add(timeout).Unix() as pkg/doc/verifiable/credential.go
 	// demonstrates? additionally `ExpiresTime` would need to be migrated to int64
 	req.ExpiresTime = time.Now().UTC().Add(timeout)
 
 	// send message to the router
-	if err := s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
+	if err = s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
 		return fmt.Errorf("send route request: %w", err)
 	}
 
-	// callback processing (to make this function look like a sync function)
-	select {
-	case grantResp := <-grantCh:
-		conf := &config{
-			RouterEndpoint: grantResp.Endpoint,
-			RoutingKeys:    grantResp.RoutingKeys,
-		}
-
-		if err := s.saveRouterConfig(record.ConnectionID, conf); err != nil {
-			return fmt.Errorf("save route config : %w", err)
-		}
-	case <-time.After(timeout):
-		return errors.New("timeout waiting for grant from the router")
+	var grant *Grant
+	// waits until the mediate-grant message is received or timeout was exceeded
+	grant, err = s.getGrant(req.ID, timeout)
+	if err != nil {
+		return fmt.Errorf("get grant: %w", err)
 	}
 
-	// remove the channel once its been processed
-	s.setRouteRegistrationCh(req.ID, nil)
+	err = s.saveRouterConfig(record.ConnectionID, &config{
+		RouterEndpoint: grant.Endpoint,
+		RoutingKeys:    grant.RoutingKeys,
+	})
+	if err != nil {
+		return fmt.Errorf("save route config : %w", err)
+	}
 
 	// save the connectionID of the router
 	return s.saveRouterConnectionID(record.ConnectionID)
+}
+
+func (s *Service) getGrant(id string, timeout time.Duration) (*Grant, error) {
+	var (
+		src []byte
+		err error
+	)
+
+	err = backoff.Retry(func() error {
+		src, err = s.routeStore.Get(fmt.Sprintf(routeGrantKey, id))
+
+		return err
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), uint64(timeout/time.Second)))
+
+	if err != nil {
+		return nil, fmt.Errorf("store: %w", err)
+	}
+
+	var grant *Grant
+
+	err = json.Unmarshal(src, &grant)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal grant: %w", err)
+	}
+
+	return grant, nil
+}
+
+func (s *Service) saveGrant(grant service.DIDCommMsg) error {
+	src, err := json.Marshal(grant)
+	if err != nil {
+		return fmt.Errorf("marshal grant: %w", err)
+	}
+
+	return s.routeStore.Put(fmt.Sprintf(routeGrantKey, grant.ID()), src)
 }
 
 // Unregister unregisters the agent with the router.
@@ -693,24 +699,6 @@ func processKeylistUpdateResp(recKey string, keyUpdateResp *KeylistUpdateRespons
 	}
 
 	return nil
-}
-
-func (s *Service) getRouteRegistrationCh(msgID string) chan Grant {
-	s.routeRegistrationMapLock.RLock()
-	defer s.routeRegistrationMapLock.RUnlock()
-
-	return s.routeRegistrationMap[msgID]
-}
-
-func (s *Service) setRouteRegistrationCh(msgID string, grantCh chan Grant) {
-	s.routeRegistrationMapLock.Lock()
-	defer s.routeRegistrationMapLock.Unlock()
-
-	if grantCh == nil {
-		delete(s.routeRegistrationMap, msgID)
-	} else {
-		s.routeRegistrationMap[msgID] = grantCh
-	}
 }
 
 func (s *Service) getKeyUpdateResponseCh(msgID string) chan *KeylistUpdateResponse {

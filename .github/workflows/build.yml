@@ -63,7 +63,7 @@ jobs:
   bddTest:
     name: BDD test
     runs-on: ubuntu-18.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
 
       - name: Setup Go 1.15
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run BDD test
-        timeout-minutes: 20
+        timeout-minutes: 25
         run: |
           function logout {
             docker logout docker.pkg.github.com

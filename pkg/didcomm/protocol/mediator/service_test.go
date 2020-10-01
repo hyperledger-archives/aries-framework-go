@@ -140,7 +140,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 
 		go func() {
 			id := <-msgID
-			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
+			require.NoError(t, svc.saveGrant(generateGrantMsgPayload(t, id)))
 		}()
 
 		_, err = svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
@@ -552,7 +552,7 @@ func TestServiceGrantMsg(t *testing.T) {
 		require.Equal(t, msgID, id)
 	})
 
-	t.Run("test service handle grant msg - success", func(t *testing.T) {
+	t.Run("service handle grant msg - marshal error", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -564,11 +564,11 @@ func TestServiceGrantMsg(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
+		msg := &service.DIDCommMsgMap{"@id": make(chan int64)}
 
-		err = svc.handleGrant(msg)
+		err = svc.saveGrant(msg)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "route grant message unmarshal")
+		require.Contains(t, err.Error(), "marshal grant: json")
 	})
 }
 
@@ -955,7 +955,7 @@ func TestRegister(t *testing.T) {
 
 		go func() {
 			id := <-msgID
-			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
+			require.NoError(t, svc.saveGrant(generateGrantMsgPayload(t, id)))
 		}()
 
 		err = svc.Register("conn")
@@ -964,73 +964,6 @@ func TestRegister(t *testing.T) {
 		err = svc.Register("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router is already registered")
-	})
-
-	t.Run("test register route - save config error", func(t *testing.T) {
-		msgID := make(chan string)
-
-		s := make(map[string][]byte)
-		svc, err := New(&mockprovider.Provider{
-			ServiceMap: map[string]interface{}{
-				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
-			},
-			StorageProviderValue: &mockstore.MockStoreProvider{
-				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
-			},
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
-				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
-					request, ok := msg.(*Request)
-					require.True(t, ok)
-
-					msgID <- request.ID
-					return nil
-				},
-			},
-		})
-		require.NoError(t, err)
-
-		connRec := &connection.Record{
-			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
-		}
-		connBytes, err := json.Marshal(connRec)
-		require.NoError(t, err)
-		s["conn_conn"] = connBytes
-
-		go func() {
-			id := <-msgID
-			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
-		}()
-
-		err = svc.Register("conn")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "save route config")
-	})
-
-	t.Run("test register route - timeout error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		svc, err := New(&mockprovider.Provider{
-			ServiceMap: map[string]interface{}{
-				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
-			},
-			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                          &mockkms.KeyManager{},
-			OutboundDispatcherValue:           &mockdispatcher.MockOutbound{},
-		})
-		require.NoError(t, err)
-
-		connRec := &connection.Record{
-			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete",
-		}
-		connBytes, err := json.Marshal(connRec)
-		require.NoError(t, err)
-		s["conn_conn2"] = connBytes
-
-		err = svc.Register("conn2")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "timeout waiting for grant from the router")
 	})
 
 	t.Run("test register route - with client timeout error", func(t *testing.T) {
@@ -1058,7 +991,7 @@ func TestRegister(t *testing.T) {
 		})
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "timeout waiting for grant from the router")
+		require.Contains(t, err.Error(), "get grant: store: data not found")
 	})
 
 	t.Run("test register route - router connection not found", func(t *testing.T) {
