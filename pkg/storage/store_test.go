@@ -141,7 +141,11 @@ func TestStore(t *testing.T) {
 			require.NoError(t, err)
 
 			const valPrefix = "val-for-%s"
-			keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
+			keys := []string{
+				"abc_123", "abc_124",
+				"abc_125", "abc_126", "jkl_123", "mno_123", "dab_123",
+				"route_connID_1", "route_connID_2", "route_grant_1", "route_grant_2",
+			}
 
 			for _, key := range keys {
 				err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
@@ -150,6 +154,9 @@ func TestStore(t *testing.T) {
 
 			itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
 			verifyItr(t, itr, 4, "abc_")
+
+			itr = store.Iterator("route_connID_", "route_connID_"+storage.EndKeySuffix)
+			verifyItr(t, itr, 2, "route_connID_")
 
 			itr = store.Iterator("", "dab_123")
 			verifyItr(t, itr, 4, "")
