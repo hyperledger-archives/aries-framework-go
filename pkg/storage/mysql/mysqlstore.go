@@ -243,14 +243,18 @@ type sqlDBResultsIterator struct {
 
 func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	// reference : https://dev.mysql.com/doc/refman/8.0/en/fulltext-boolean.html
-	if strings.Contains(endKey, storage.EndKeySuffix) {
-		endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "*")
-		endKey = strings.ReplaceAll(endKey, "_", `\_`)
+	equal := ""
+
+	if strings.HasSuffix(endKey, storage.EndKeySuffix) {
+		endKey = strings.TrimSuffix(endKey, storage.EndKeySuffix) + "%"
+		equal = "="
 	}
 
+	// finds the last endKey key
+	subQ := "(SELECT `key` FROM " + s.tableName + " WHERE `key` LIKE ? order by `key` DESC LIMIT 1)"
 	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
-	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` < ? order by `key`"
+	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` <" + equal + subQ + "  order by `key`"
 
 	// TODO Find a way to close Rows `defer resultRows.Close()`
 	// unless unclosed rows and statements may cause DB connection pool exhaustion
