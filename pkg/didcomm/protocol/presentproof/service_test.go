@@ -828,8 +828,6 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
-				defer close(done)
-
 				r := &model.Ack{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, AckMsgType, r.Type)
@@ -852,6 +850,8 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			defer close(done)
+
 			src, err = json.Marshal(&internalData{AckRequired: true, StateName: "done"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
