@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/base58wrapper"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 // Package authcrypt includes a Packer implementation to build and parse JWE messages using Authcrypt. It allows sending
@@ -40,15 +40,15 @@ var logger = log.New("aries-framework/pkg/didcomm/packer/authcrypt")
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
-	kms    kms.KeyManager
-	encAlg jose.EncAlg
-	store  storage.Store
+	kms          kms.KeyManager
+	encAlg       jose.EncAlg
+	thirdPartyKS storage.Store
 }
 
 // New will create an Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys.
-// It will open a store (fetch cached one) that will contain third party keys. This store must be pre-populated with
-// the sender key required by a recipient to Unpack a JWE envelope. It is not needed by the sender (as the sender packs
-// the envelope with its own key).
+// It opens thirdPartyKS store (or fetch cached one) that contains third party keys. This store must be
+// pre-populated with the sender key required by a recipient to Unpack a JWE envelope. It is not needed by the sender
+// (as the sender packs the envelope with its own key).
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	k := ctx.KMS()
@@ -66,10 +66,15 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		return nil, fmt.Errorf("authcrypt: %w", err)
 	}
 
+	store, err = prefix.NewPrefixStoreWrapper(store, prefix.StorageKIDPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("authcrypt: failed to wrap key store: %w", err)
+	}
+
 	return &Packer{
-		kms:    k,
-		encAlg: encAlg,
-		store:  base58wrapper.NewBase58StoreWrapper(store),
+		kms:          k,
+		encAlg:       encAlg,
+		thirdPartyKS: store,
 	}, nil
 }
 
@@ -177,7 +182,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("authcrypt Unpack: invalid keyset handle")
 		}
 
-		jweDecrypter := jose.NewJWEDecrypt(p.store, keyHandle)
+		jweDecrypter := jose.NewJWEDecrypt(p.thirdPartyKS, keyHandle)
 
 		pt, err = jweDecrypter.Decrypt(jwe)
 		if err != nil {

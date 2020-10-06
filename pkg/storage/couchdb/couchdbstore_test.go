@@ -27,7 +27,9 @@ const (
 
 // For these unit tests to run, you must ensure you have a CouchDB instance running at the URL specified in couchDBURL.
 // 'make unit-test' from the terminal will take care of this for you.
-// To run the tests manually, start an instance by running docker run -p 5984:5984 couchdb:2.3.1 from a terminal.
+// To run the tests manually, start a couchdb docker container in a separate terminal using "docker" command
+// similar to the one found in aries-framework-go/scripts/check_unit.sh (replace $ROOT with $(pwd) and run the command
+// from aries-framework-go folder, remove -d and --name arguments to run the container in interactive mode).
 
 func TestMain(m *testing.M) {
 	err := PingCouchDB(couchDBURL)

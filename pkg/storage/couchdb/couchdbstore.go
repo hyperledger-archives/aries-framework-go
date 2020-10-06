@@ -77,7 +77,8 @@ func PingCouchDB(url string) error {
 
 // NewProvider instantiates Provider.
 // Certain stores like couchdb cannot accept key IDs with '_' prefix, to avoid getting errors with such values, key ID
-// need to be base58 encoded for these stores. In order to do so, the store must be wrapped using base58wrapper.
+// need to be base58 encoded for these stores. In order to do so, the store must be wrapped (using base58 or
+// prefix wrapper).
 func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 	err := PingCouchDB(hostURL)
 	if err != nil {

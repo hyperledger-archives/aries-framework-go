@@ -30,7 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/base58wrapper"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 const (
@@ -62,7 +62,7 @@ func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
 		return nil, err
 	}
 
-	return base58wrapper.NewBase58StoreWrapper(s), nil
+	return prefix.NewPrefixStoreWrapper(s, prefix.StorageKIDPrefix)
 }
 
 // New will create a new (local) KMS service.
