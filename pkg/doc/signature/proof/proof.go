@@ -68,7 +68,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	if generalProof, ok := emap[jsonldProofValue]; ok {
 		proofValue, err = base64.RawURLEncoding.DecodeString(stringEntry(generalProof))
 		if err != nil {
-			return nil, err
+			proofValue = []byte(stringEntry(generalProof))
 		}
 
 		proofHolder = SignatureProofValue

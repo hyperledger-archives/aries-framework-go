@@ -84,9 +84,9 @@ func TestInvalidProofValue(t *testing.T) {
 		"created":    "2011-09-23T20:21:34Z",
 		"proofValue": "hello",
 	})
-	require.Error(t, err)
-	require.Nil(t, p)
-	require.Contains(t, err.Error(), "illegal base64 data")
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	require.Equal(t, []byte("hello"), p.ProofValue)
 
 	// proof is not defined (neither "proofValue" nor "jws" is defined)
 	p, err = NewProof(map[string]interface{}{

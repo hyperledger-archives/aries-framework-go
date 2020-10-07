@@ -1,4 +1,4 @@
-package bbssignature2020
+package bbsblssignature2020
 
 const ldpBBS2020JSONLD = `
 {
