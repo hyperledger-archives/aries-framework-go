@@ -192,12 +192,71 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
         didExchangeClient.acceptExchangeRequest(bobAgent)
     })
 
-    it("Alice Edge Agent accepts the invitation from the Bob",async function () {
+    it("Alice Edge Agent accepts the invitation from the Bob", async function () {
         await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
     })
 
     it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
         await didExchangeClient.watchForConnection(aliceAgent, completedState)
+    })
+})
+
+describe("Registers multiple routers", function () {
+    let aliceAgent
+    let invitation1, connectionID1, invitation2, connectionID2
+
+    before(async () => {
+        await newAries('alice')
+            .then(a => {
+                aliceAgent = a
+            })
+            .catch(err => new Error(err.message));
+    })
+
+    after(() => {
+        aliceAgent.destroy()
+    })
+
+    it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
+        await routerHealthCheck(routerHttpUrl, routerWsUrl, routerControllerApiUrl)
+    })
+
+    it("Alice Edge Agent receives invitations from the router via the controller API", async function () {
+        const inv1 = await axios.post(routerCreateInvitationPath)
+        invitation1 = inv1.data.invitation
+        validateInvitation(invitation1)
+
+        const inv2 = await axios.post(routerCreateInvitationPath)
+        invitation2 = inv2.data.invitation
+
+        validateInvitation(invitation2)
+    })
+
+    it("Alice Edge Agent accepts the invitation(first) from the router", async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation1)
+        let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
+        connectionID1 = res.connection_id
+        assert.equal(connectionID1, connID)
+    })
+
+    it("Alice Edge Agent accepts the invitation(second) from the router", async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation2)
+        let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
+        connectionID2 = res.connection_id
+        assert.equal(connectionID2, connID)
+    })
+
+    it("Alice Edge Agent registers connections", async function () {
+        await aliceAgent.mediator.register({"connectionID": connectionID1})
+        await aliceAgent.mediator.register({"connectionID": connectionID2})
+    })
+
+    it("Alice Edge Agent validates router`s connections", async function () {
+        let resp = await aliceAgent.mediator.getConnections()
+        assert.notEqual(connectionID1, connectionID2)
+
+        assert.isTrue(resp.connections.includes(connectionID1))
+        assert.isTrue(resp.connections.includes(connectionID2))
     })
 })
 
