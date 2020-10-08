@@ -11,5 +11,5 @@ type Bls interface {
 	// Verify will verify each signature against a public key
 	// returns:
 	// 		error in case of errors or nil if signature verification was successful
-	Verify(signatures [][]byte, msg, pubKey []byte) error
+	Verify(messages [][]byte, signature, pubKey []byte) error
 }
