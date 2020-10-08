@@ -21,6 +21,10 @@ import (
 type BlsG2Pub struct {
 }
 
+func NewBlsG2Pub() *BlsG2Pub {
+	return &BlsG2Pub{}
+}
+
 // Verify makes BLS BBS12-381 signature verification.
 func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
 	// todo remove magic numbers

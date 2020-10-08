@@ -50,14 +50,14 @@ _:c14n0 <https://w3id.org/security#verificationMethod> <did:example:489398593#te
 <https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#issuer> <did:example:489398593> .`
 	messagesStr := strings.Split(vcVerifyData, "\n")
 
-	messages := make([][]byte, len(messagesStr))
+	messagesBytes := make([][]byte, len(messagesStr))
 
-	for i := range messages {
-		messages[i] = []byte(messagesStr[i])
+	for i := range messagesBytes {
+		messagesBytes[i] = []byte(messagesStr[i])
 	}
 
 	bls := &BlsG2Pub{}
 
-	err = bls.Verify(messages, sigBytes, pkBytes)
+	err = bls.Verify(messagesBytes, sigBytes, pkBytes)
 	require.NoError(t, err)
 }

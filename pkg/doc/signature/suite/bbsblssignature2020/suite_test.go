@@ -2,11 +2,11 @@ package bbsblssignature2020
 
 import (
 	"encoding/base64"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/bls/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -58,7 +58,8 @@ func TestSuite(t *testing.T) {
 }
 `
 
-	blsVerifier := &blsBBSVerifier{}
+	//blsVerifier := &blsBBSVerifier{}
+	blsVerifier := NewVerifier(bbs12381g2pub.NewBlsG2Pub())
 
 	blsSuite := New(suite.WithCompactProof(), suite.WithVerifier(blsVerifier))
 
@@ -80,14 +81,14 @@ func TestSuite(t *testing.T) {
 	require.NoError(t, err)
 }
 
-type blsBBSVerifier struct {
-}
-
-// Verify will verify a signature.
-func (v *blsBBSVerifier) Verify(pubKeyValue *sigverifier.PublicKey, doc, signature []byte) error {
-	fmt.Printf("doc: %s\n", string(doc))
-	return nil
-}
+//type blsBBSVerifier struct {
+//}
+//
+//// Verify will verify a signature.
+//func (v *blsBBSVerifier) Verify(pubKeyValue *sigverifier.PublicKey, doc, signature []byte) error {
+//	fmt.Printf("doc: %s\n", string(doc))
+//	return nil
+//}
 
 type testKeyResolver struct {
 	publicKey *sigverifier.PublicKey
