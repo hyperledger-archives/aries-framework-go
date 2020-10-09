@@ -14,7 +14,6 @@ import (
 
 	bls12381 "github.com/kilic/bls12-381"
 	"github.com/phoreproject/bls"
-	"github.com/phoreproject/bls/g2pubs"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -47,85 +46,36 @@ const (
 
 // Verify makes BLS BBS12-381 signature verification.
 func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
-	// todo remove magic numbers
-	if len(pubKeyBytes) != bls12381G2PublicKeyLen {
-		return errors.New("invalid size of public key")
-	}
-
-	if len(sigBytes) != bls12381SignatureLen {
-		return errors.New("invalid size of signature")
-	}
-
-	var pkBytesArr [bls12381G2PublicKeyLen]byte
-	copy(pkBytesArr[:], pubKeyBytes[:bls12381G2PublicKeyLen])
-
-	publicKey, err := g2pubs.DeserializePublicKey(pkBytesArr)
+	signature, err := ParseSignature(sigBytes)
 	if err != nil {
-		return fmt.Errorf("deserialize public key: %w", err)
+		return fmt.Errorf("parse signature: %w", err)
 	}
 
-	var sigBytesArr [g1CompressedSize]byte
-	copy(sigBytesArr[:], sigBytes[:g1CompressedSize])
-
-	signature, err := g2pubs.DeserializeSignature(sigBytesArr)
+	publicKey, err := ParsePublicKey(pubKeyBytes)
 	if err != nil {
-		return fmt.Errorf("deserialize signature: %w", err)
+		return fmt.Errorf("parse public key: %w", err)
 	}
 
-	e := parseFr(sigBytes[g1CompressedSize : g1CompressedSize+frCompressedSize])
-	s := parseFr(sigBytes[g1CompressedSize+frCompressedSize:])
-
-	messagesFr := make([]*bls.FR, len(messages))
+	messagesFr := make([]*SignatureMessage, len(messages))
 	for i := range messages {
-		messagesFr[i] = messageToFr(messages[i])
+		messagesFr[i] = NewSignatureMessage(messages[i])
 	}
 
 	p1 := signature.GetPoint().ToAffine()
 
 	q1 := bls.G2ProjectiveOne
-	q1 = q1.MulFR(e.ToRepr())
+	q1 = q1.MulFR(signature.E.ToRepr())
 	q1 = q1.Add(publicKey.GetPoint())
-	p2 := getB(s, messagesFr, publicKey)
+	p2 := getB(signature.S, messagesFr, publicKey)
 
-	if CompareTwoPairings(p1.ToProjective(), q1, p2.ToProjective(), bls.G2ProjectiveOne) {
+	if compareTwoPairings(p1.ToProjective(), q1, p2.ToProjective(), bls.G2ProjectiveOne) {
 		return nil
 	}
 
 	return errors.New("BLS12-381: invalid signature")
 }
 
-func parseFr(data []byte) *bls.FR {
-	var arr [32]byte
-	copy(arr[:], data)
-
-	return bls.FRReprToFR(bls.FRReprFromBytes(arr))
-}
-
-func messageToFr(message []byte) *bls.FR {
-	const (
-		eightBytes = 8
-		okmMiddle  = 24
-	)
-	h, _ := blake2b.New384(nil)
-	_, _ = h.Write(message)
-	okm := h.Sum(nil)
-
-	elm := parseFr(append(make([]byte, eightBytes, eightBytes), okm[:okmMiddle]...))
-	elm.MulAssign(f2192())
-	elm.AddAssign(parseFr(append(make([]byte, eightBytes, eightBytes), okm[okmMiddle:]...)))
-
-	return elm
-}
-
-func f2192() *bls.FR {
-	return bls.NewFr(&bls.FRRepr{
-		0x59476ebc41b4528f,
-		0xc5a30cb243fcc152,
-		0x2b34e63940ccbd72,
-		0x1e179025ca247088})
-}
-
-func getB(s *bls.FR, messages []*bls.FR, key *g2pubs.PublicKey) *bls.G1Affine {
+func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) *bls.G1Affine {
 	messagesCount := len(messages)
 
 	bases := make([]*bls.G1Projective, messagesCount+2)
@@ -165,7 +115,7 @@ func getB(s *bls.FR, messages []*bls.FR, key *g2pubs.PublicKey) *bls.G1Affine {
 
 	for i := 0; i < len(messages); i++ {
 		bases[i+2] = h[i]
-		scalars[i+2] = messages[i]
+		scalars[i+2] = messages[i].FR
 	}
 
 	res := bls.G1ProjectiveZero
@@ -182,7 +132,7 @@ func getB(s *bls.FR, messages []*bls.FR, key *g2pubs.PublicKey) *bls.G1Affine {
 	return res.ToAffine()
 }
 
-func calcData(key *g2pubs.PublicKey, messagesCount int) []byte {
+func calcData(key *PublicKey, messagesCount int) []byte {
 	keyBytes := key.GetPoint().ToAffine().SerializeBytes()
 	data := keyBytes[:]
 
@@ -225,7 +175,7 @@ func hashToG1(data []byte) (*bls.G1Projective, error) {
 	return p0Bls.ToProjective(), nil
 }
 
-func CompareTwoPairings(p1 *bls.G1Projective, q1 *bls.G2Projective, p2 *bls.G1Projective, q2 *bls.G2Projective) bool {
+func compareTwoPairings(p1 *bls.G1Projective, q1 *bls.G2Projective, p2 *bls.G1Projective, q2 *bls.G2Projective) bool {
 	engine := bls12381.NewEngine()
 
 	bytesG1 := p1.ToAffine().SerializeBytes()
