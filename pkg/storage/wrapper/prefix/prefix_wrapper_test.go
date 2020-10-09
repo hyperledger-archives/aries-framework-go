@@ -12,10 +12,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/google/uuid"
+	dctest "github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -23,23 +28,59 @@ import (
 )
 
 const (
-	couchDBURL = "admin:password@localhost:5984"
+	couchDBURL          = "admin:password@localhost:5981"
+	dockerCouchdbImage  = "couchdb"
+	dockerCouchdbTag    = "3.1.0"
+	dockerCouchdbVolume = "%s/scripts/couchdb-config/10-single-node.ini:/opt/couchdb/etc/local.d/10-single-node.ini"
 )
 
-// For these unit tests to run, you must ensure you have a CouchDB instance running at the URL specified in couchDBURL.
-// 'make unit-test' from the terminal will take care of this for you.
-// To run the tests manually, start a couchdb docker container in a separate terminal using "docker" command
-// similar to the one found in aries-framework-go/scripts/check_unit.sh (replace $ROOT with $(pwd) and run the command
-// from aries-framework-go folder, remove -d and --name arguments to run the container in interactive mode).
-
 func TestMain(m *testing.M) {
-	err := couchdbstore.PingCouchDB(couchDBURL)
+	code := 1
+
+	defer func() { os.Exit(code) }()
+
+	pool, err := dctest.NewPool("")
 	if err != nil {
-		fmt.Printf(err.Error() + ". Make sure CouchDB is running.\n")
-		os.Exit(1)
+		panic(fmt.Sprintf("pool: %v", err))
 	}
 
-	os.Exit(m.Run())
+	path, err := filepath.Abs("./../../../../")
+	if err != nil {
+		panic(fmt.Sprintf("filepath: %v", err))
+	}
+
+	couchdbResource, err := pool.RunWithOptions(&dctest.RunOptions{
+		Repository: dockerCouchdbImage,
+		Tag:        dockerCouchdbTag,
+		Env:        []string{"COUCHDB_USER=admin", "COUCHDB_PASSWORD=password"},
+		Mounts:     []string{fmt.Sprintf(dockerCouchdbVolume, path)},
+		PortBindings: map[dc.Port][]dc.PortBinding{
+			"5984/tcp": {{HostIP: "", HostPort: "5981"}},
+		},
+	})
+	if err != nil {
+		panic(fmt.Sprintf("run with options: %v", err))
+	}
+
+	defer func() {
+		if err := pool.Purge(couchdbResource); err != nil {
+			panic(fmt.Sprintf("purge: %v", err))
+		}
+	}()
+
+	if err := checkCouchDB(); err != nil {
+		panic(fmt.Sprintf("check CouchDB: %v", err))
+	}
+
+	code = m.Run()
+}
+
+const retries = 30
+
+func checkCouchDB() error {
+	return backoff.Retry(func() error {
+		return couchdbstore.PingCouchDB(couchDBURL)
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), retries))
 }
 
 func TestCouchDBStore(t *testing.T) {

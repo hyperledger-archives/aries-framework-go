@@ -199,11 +199,11 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 				return time.Parse(time.RFC3339, v.(string))
 			}
 
-			if rt1.Kind() == reflect.String && rt2.Kind() == reflect.Slice {
+			if rt1.Kind() == reflect.String && rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
 				return base64.StdEncoding.DecodeString(v.(string))
 			}
 
-			if rt1.Kind() == reflect.Map && rt2.Kind() == reflect.Slice {
+			if rt1.Kind() == reflect.Map && rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
 				return json.Marshal(v)
 			}
 
