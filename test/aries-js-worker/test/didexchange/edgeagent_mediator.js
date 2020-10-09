@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 import {healthCheck, newAries} from "../common.js"
 import {environment} from "../environment.js"
-import {didExchangeClient, getMediatorConnection} from "../didexchange/didexchange_e2e.js";
+import {didExchangeClient} from "../didexchange/didexchange_e2e.js";
 
 const routerHttpUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_HTTP_INBOUND_PORT}`
 const routerWsUrl = `${environment.WS_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_WS_INBOUND_PORT}`
@@ -102,7 +102,7 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
 
 describe("DID-Exchange between two Edge Agents using the router", function () {
     let aliceAgent, bobAgent
-    let invitation, connectionID
+    let invitation, aliceConnectionID, bobConnectionID
 
     before(async () => {
         await newAries('alice')
@@ -136,20 +136,20 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
 
     it("Alice Edge Agent accepts the invitation from the router", async function () {
         let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
-        connectionID = res.connection_id
+        aliceConnectionID = res.connection_id
     })
 
     it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
         let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
-        assert.equal(connectionID, connID)
+        assert.equal(aliceConnectionID, connID)
     })
 
     it("Alice Edge Agent sets previous connection as the router", function (done) {
-        routeRegister(aliceAgent, connectionID, done)
+        routeRegister(aliceAgent, aliceConnectionID, done)
     })
 
     it("Alice Edge Agent validates that the router connection is set previous connection", function (done) {
-        validateRouterConnection(aliceAgent, connectionID, done)
+        validateRouterConnection(aliceAgent, aliceConnectionID, done)
     })
 
     it("Bob Edge Agent receives an invitation from the router via the controller API", async function () {
@@ -161,39 +161,37 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
 
     it("Bob Edge Agent accepts the invitation from the router",async function () {
         let res = await didExchangeClient.acceptInvitation('wasm', bobAgent, invitation)
-        connectionID = res.connection_id
+        bobConnectionID = res.connection_id
     })
 
     it("Bob Edge Agent validates that the connection's state is 'completed'",async function () {
         let connID = await didExchangeClient.watchForConnection(bobAgent, completedState)
-        assert.equal(connectionID, connID)
+        assert.equal(bobConnectionID, connID)
     })
 
     it("Bob Edge Agent sets previous connection as the router", function (done) {
-        routeRegister(bobAgent, connectionID, done)
+        routeRegister(bobAgent, bobConnectionID, done)
     })
 
     it("Bob Edge Agent validates that the router connection is set previous connection", function (done) {
-        validateRouterConnection(bobAgent, connectionID, done)
+        validateRouterConnection(bobAgent, bobConnectionID, done)
     })
 
     it("Alice Edge Agent receives an invitation from Bob Edge agent", function (done) {
-        getMediatorConnection(bobAgent).then((conn)=>{
-            bobAgent.didexchange.createInvitation({router_connection_id: conn }).then(
-                resp => {
-                    invitation = resp.invitation
-                    validateInvitation(invitation)
-                    done()
-                },
-                err => done(err)
-            )
-        })
+        didExchangeClient.acceptExchangeRequest(bobAgent, "", bobConnectionID)
 
-        didExchangeClient.acceptExchangeRequest(bobAgent)
+        bobAgent.didexchange.createInvitation({router_connection_id: bobConnectionID}).then(
+            resp => {
+                invitation = resp.invitation
+                validateInvitation(invitation)
+                done()
+            },
+            err => done(err)
+        )
     })
 
     it("Alice Edge Agent accepts the invitation from the Bob", async function () {
-        await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
+        await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation, aliceConnectionID)
     })
 
     it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {

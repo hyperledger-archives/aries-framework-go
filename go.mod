@@ -10,7 +10,10 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
+	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.0.2
+	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
 	github.com/flimzy/diff v0.1.7 // indirect
 	github.com/flimzy/testy v0.1.17 // indirect
 	github.com/go-kivik/couchdb v2.0.0+incompatible
@@ -29,9 +32,11 @@ require (
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multibase v0.0.1
 	github.com/multiformats/go-multihash v0.0.13
+	github.com/ory/dockertest/v3 v3.6.0
 	github.com/piprate/json-gold v0.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
+	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.6.1
 	github.com/syndtr/goleveldb v1.0.0
@@ -40,11 +45,16 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	gitlab.com/flimzy/testy v0.2.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89 // indirect
+	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	nhooyr.io/websocket v1.8.3
 )
 
-replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
+replace (
+	github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
+	golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
+)
 
 go 1.15

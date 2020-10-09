@@ -1,4 +1,4 @@
-// +build !ISSUE2183
+// +build !js,!wasm,!ISSUE2183
 
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
@@ -17,57 +17,77 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
+	dctest "github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+var logger = log.New("aries-framework/mysql/test")
+
+type mysqlLogger struct{}
+
+func (*mysqlLogger) Print(v ...interface{}) {
+	logger.Debugf(fmt.Sprint(v...))
+}
+
 const (
-	sqlStoreDBURL = "root:my-secret-pw@tcp(127.0.0.1:3306)/"
+	dockerMySQLImage = "mysql"
+	dockerMySQLTag   = "8.0.20"
+	sqlStoreDBURL    = "root:my-secret-pw@tcp(127.0.0.1:3301)/"
 )
 
-// For these unit tests to run, you must ensure you have a SQL DB instance running at the URL specified in
-// sqlStoreDBURL. 'make unit-test' from the terminal will take care of this for you.
-// To run the tests manually, start an instance by running the following command in the terminal
-// docker run -p 3306:3306 --name MYSQLStoreTest -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:8.0.20
-
 func TestMain(m *testing.M) {
-	err := checkMySQL()
+	code := 1
+
+	defer func() { os.Exit(code) }()
+
+	pool, err := dctest.NewPool("")
 	if err != nil {
-		fmt.Printf(err.Error() + " . Make sure MySQL is running.\n")
-		os.Exit(1)
+		panic(fmt.Sprintf("pool: %v", err))
 	}
 
-	os.Exit(m.Run())
+	mysqlResource, err := pool.RunWithOptions(&dctest.RunOptions{
+		Repository: dockerMySQLImage, Tag: dockerMySQLTag, Env: []string{"MYSQL_ROOT_PASSWORD=my-secret-pw"},
+		PortBindings: map[dc.Port][]dc.PortBinding{
+			"3306/tcp": {{HostIP: "", HostPort: "3301"}},
+		},
+	})
+	if err != nil {
+		panic(fmt.Sprintf("run with options: %v", err))
+	}
+
+	defer func() {
+		if err = pool.Purge(mysqlResource); err != nil {
+			panic(fmt.Sprintf("purge: %v", err))
+		}
+	}()
+
+	if err := checkMySQL(); err != nil {
+		panic(fmt.Sprintf("check MySQL: %v", err))
+	}
+
+	code = m.Run()
 }
 
 func checkMySQL() error {
-	const retries = 30
+	const retries = 60
 
-	err := backoff.RetryNotify(
-		func() error {
-			db, openErr := sql.Open("mysql", sqlStoreDBURL)
-			if openErr != nil {
-				return openErr
-			}
-
-			return db.Ping()
-		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), retries),
-		func(retryErr error, t time.Duration) {
-			fmt.Printf(
-				"failed to connect to MySQL, will sleep for %s before trying again : %s\n",
-				t, retryErr)
-		},
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to connect to MySQL at %s after %s : %w",
-			sqlStoreDBURL, retries*time.Second, err)
+	if err := mysql.SetLogger((*mysqlLogger)(nil)); err != nil {
+		return fmt.Errorf("set logger: %w", err)
 	}
 
-	return nil
+	return backoff.Retry(func() error {
+		db, err := sql.Open("mysql", sqlStoreDBURL)
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+
+		return db.Ping()
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), retries))
 }
 
 func TestSqlDBStore(t *testing.T) {

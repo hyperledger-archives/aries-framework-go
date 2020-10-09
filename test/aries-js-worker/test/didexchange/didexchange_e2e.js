@@ -38,6 +38,8 @@ export const didExchangeClient = class {
         this.agent1 = agent1
         this.agent2 = agent2
         this.mode = mode
+        this.agent1RouterConnection = ""
+        this.agent2RouterConnection = ""
     }
 
     async performDIDExchangeE2E() {
@@ -48,7 +50,7 @@ export const didExchangeClient = class {
         // perform did exchange between agent 1 and agent 2
         // create invitation from agent1
         let response = await this.agent1.didexchange.createInvitation({
-            router_connection_id: await getMediatorConnection(this.agent1)
+            router_connection_id: this.agent1RouterConnection
         })
         didExchangeClient.validateInvitation(response.invitation)
 
@@ -69,11 +71,12 @@ export const didExchangeClient = class {
         ])
 
         if (this.mode === wasmMode) {
-            didExchangeClient.acceptExchangeRequest(this.agent1, response.invitation['@id'])
+            didExchangeClient.acceptExchangeRequest(this.agent1, response.invitation['@id'], this.agent1RouterConnection)
         }
 
         // accept invitation in agent 2 and accept exchange request in agent 1
-        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2,
+            response.invitation, this.agent2RouterConnection)
 
         return await connections
     }
@@ -145,7 +148,7 @@ export const didExchangeClient = class {
         assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
     }
 
-    static async acceptInvitation(mode, agent, invitation) {
+    static async acceptInvitation(mode, agent, invitation, router = "") {
         if (mode === restMode) {
             return agent.didexchange.receiveInvitation(invitation)
         }
@@ -161,11 +164,11 @@ export const didExchangeClient = class {
 
         return agent.didexchange.acceptInvitation({
             id: (await event).Properties.connectionID,
-            router_connections: await getMediatorConnection(agent),
+            router_connections: router,
         })
     }
 
-    static acceptExchangeRequest(agent, messageID) {
+    static acceptExchangeRequest(agent, messageID, router = "") {
         let options = {
             stateID: states.requested,
             type: postState,
@@ -179,7 +182,7 @@ export const didExchangeClient = class {
         return watchForEvent(agent, options).then(async (e) => {
             return agent.didexchange.acceptExchangeRequest({
                 id: e.Properties.connectionID,
-                router_connections: await getMediatorConnection(agent),
+                router_connections: router,
             })
         })
     }
@@ -207,14 +210,8 @@ export const didExchangeClient = class {
 }
 
 export async function newDIDExchangeClient(agent1, agent2) {
-    let aries1, aries2;
-
-    const init = (values) => {
-        aries1 = values[0]
-        aries2 = values[1]
-    };
-
-    await Promise.all([newAries(agent1, agent1), newAries(agent2, agent2)]).then(init).catch(err => new Error(err.message));
+    let aries1 = await newAries(agent1, agent1)
+    let aries2 = await newAries(agent2, agent2)
 
     return new didExchangeClient(aries1, aries2, wasmMode)
 }
@@ -231,14 +228,4 @@ export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
     await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
 
     return new didExchangeClient(aries1, aries2, restMode)
-}
-
-export async function getMediatorConnection(agent){
-    let connection = ""
-    let conns = await agent.mediator.getConnections()
-    if (conns.connections){
-        connection = conns.connections[0]
-    }
-
-    return connection
 }

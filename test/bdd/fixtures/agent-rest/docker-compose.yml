@@ -17,7 +17,7 @@ services:
       - ARIESD_WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=alice-agent
       - ARIESD_DATABASE_TYPE=couchdb
-      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
+      - ARIESD_DATABASE_URL=admin:password@aries.couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=alice
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
@@ -31,7 +31,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - couchdb.example.com
+      - aries.couchdb.example.com
     networks:
       - bdd_net
 
@@ -45,7 +45,7 @@ services:
       - ARIESD_WEBHOOK_URL=http://${ERIN_WEBHOOK_CONTAINER_NAME}:${ERIN_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=erin-agent
       - ARIESD_DATABASE_TYPE=couchdb
-      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
+      - ARIESD_DATABASE_URL=admin:password@aries.couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=erin
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
@@ -59,7 +59,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - couchdb.example.com
+      - aries.couchdb.example.com
     networks:
       - bdd_net
 
@@ -72,7 +72,7 @@ services:
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://bob.aries.example.com:${BOB_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
       - ARIESD_DATABASE_TYPE=couchdb
-      - ARIESD_DATABASE_URL=admin:password@couchdb.example.com:5984
+      - ARIESD_DATABASE_URL=admin:password@aries.couchdb.example.com:5984
       - ARIESD_DATABASE_PREFIX=bob
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_DEFAULT_LABEL=bob-agent
@@ -87,7 +87,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - couchdb.example.com
+      - aries.couchdb.example.com
     networks:
       - bdd_net
 
@@ -129,7 +129,7 @@ services:
       - ARIESD_WEBHOOK_URL=http://${CARL_WEBHOOK_CONTAINER_NAME}:${CARL_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=carl-agent
       - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(aries.mysql:3306)/
       - ARIESD_DATABASE_PREFIX=carl
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
@@ -143,7 +143,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - mysql
+      - aries.mysql
     networks:
       - bdd_net
 
@@ -166,7 +166,7 @@ services:
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://carl.router.aries.example.com:${CARL_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@wss://carl.router.aries.example.com:${CARL_ROUTER_WS_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${CARL_ROUTER_WEBHOOK_CONTAINER_NAME}:${CARL_ROUTER_WEBHOOK_PORT}
       - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(aries.mysql:3306)/
       - ARIESD_DATABASE_PREFIX=carl_router
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_DEFAULT_LABEL=carl-router-agent
@@ -183,7 +183,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - mysql
+      - aries.mysql
     networks:
       - bdd_net
 
@@ -205,7 +205,7 @@ services:
       - ARIESD_WEBHOOK_URL=http://${DAVE_WEBHOOK_CONTAINER_NAME}:${DAVE_WEBHOOK_PORT}
       - ARIESD_DEFAULT_LABEL=dave-agent
       - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(aries.mysql:3306)/
       - ARIESD_DATABASE_PREFIX=dave
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
@@ -219,7 +219,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - mysql
+      - aries.mysql
     networks:
       - bdd_net
 
@@ -242,7 +242,7 @@ services:
       - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@https://dave.router.aries.example.com:${DAVE_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@wss://dave.router.aries.example.com:${DAVE_ROUTER_WS_INBOUND_PORT}
       - ARIESD_WEBHOOK_URL=http://${DAVE_ROUTER_WEBHOOK_CONTAINER_NAME}:${DAVE_ROUTER_WEBHOOK_PORT}
       - ARIESD_DATABASE_TYPE=mysql
-      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(mysql:3306)/
+      - ARIESD_DATABASE_URL=aries:aries-secret-pw@tcp(aries.mysql:3306)/
       - ARIESD_DATABASE_PREFIX=dave_router
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_DEFAULT_LABEL=dave-router-agent
@@ -259,7 +259,7 @@ services:
     entrypoint: ""
     command:  /bin/sh -c "cp /etc/tls/* /usr/local/share/ca-certificates/;update-ca-certificates; aries-agent-rest start"
     depends_on:
-      - mysql
+      - aries.mysql
     networks:
       - bdd_net
 
@@ -274,8 +274,8 @@ services:
       - bdd_net
 
 
-  mysql:
-    container_name: mysql
+  aries.mysql:
+    container_name: aries.mysql
     image: mysql:${MYSQL_IMAGE_TAG}
     restart: always
     command: --default-authentication-plugin=mysql_native_password --max_connections=10000
@@ -287,8 +287,8 @@ services:
       - bdd_net
 
 
-  couchdb.example.com:
-    container_name: couchdb.example.com
+  aries.couchdb.example.com:
+    container_name: aries.couchdb.example.com
     image: ${COUCHDB_IMAGE}:${COUCHDB_IMAGE_TAG}
     ports:
       - ${COUCHDB_PORT}:${COUCHDB_PORT}

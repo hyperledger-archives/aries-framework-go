@@ -21,33 +21,7 @@ if [ -f profile.out ]; then
 fi
 }
 
-# docker rm returns 1 if the image isn't found. This is OK and expected, so we suppress it.
-remove_docker_container () {
-  echo "Removing CouchDBStoreTest docker image..."
-  docker kill CouchDBStoreTest >/dev/null 2>&1 || true
-  docker rm CouchDBStoreTest >/dev/null 2>&1 || true
-  echo "Removing MYSQLStoreTest docker image..."
-  docker kill MYSQLStoreTest >/dev/null 2>&1 || true
-  docker rm MYSQLStoreTest >/dev/null 2>&1 || true
-}
-
-cleanup() {
-  remove_docker_container
-}
-
-trap cleanup EXIT
-
-if [ -z ${SKIP_DOCKER+x} ]; then
-  remove_docker_container
-
-  echo "Starting CouchDBStoreTest docker image..."
-  docker run -p 5984:5984 -d --name CouchDBStoreTest \
-             -v $ROOT/scripts/couchdb-config/10-single-node.ini:/opt/couchdb/etc/local.d/10-single-node.ini \
-             -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:3.1.0 >/dev/null
-  echo "Starting MYSQLStoreTest docker image..."
-  docker run -p 3306:3306 -d --name MYSQLStoreTest \
-             -e MYSQL_ROOT_PASSWORD=my-secret-pw mysql:8.0.20 >/dev/null
-else
+if [[ -n ${SKIP_DOCKER+x} ]]; then
   GO_TEST_CMD="$GO_TEST_CMD --tags=ISSUE2183"
 fi
 
