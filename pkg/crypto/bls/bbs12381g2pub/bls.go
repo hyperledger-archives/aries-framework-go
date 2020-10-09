@@ -25,35 +25,55 @@ func NewBlsG2Pub() *BlsG2Pub {
 	return &BlsG2Pub{}
 }
 
+const (
+	// Signature length.
+	bls12381SignatureLen = 112
+
+	// Default BLS 12-381 public key length in G2 field.
+	bls12381G2PublicKeyLen = 96
+
+	// Number of bytes in G1 X coordinate.
+	g1CompressedSize = 48
+
+	// Number of bytes in G1 X and Y coordinates
+	g1UncompressedSize = 96
+
+	// Number of bytes in G2 X(a, b) and Y(a, b) coordinates
+	g2UncompressedSize = 192
+
+	// Number of bytes in scalar compressed form.
+	frCompressedSize = 32
+)
+
 // Verify makes BLS BBS12-381 signature verification.
 func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
 	// todo remove magic numbers
-	if len(pubKeyBytes) != 96 {
+	if len(pubKeyBytes) != bls12381G2PublicKeyLen {
 		return errors.New("invalid size of public key")
 	}
 
-	if len(sigBytes) != 112 {
+	if len(sigBytes) != bls12381SignatureLen {
 		return errors.New("invalid size of signature")
 	}
 
-	var pkBytesArr [96]byte
-	copy(pkBytesArr[:], pubKeyBytes[:96])
+	var pkBytesArr [bls12381G2PublicKeyLen]byte
+	copy(pkBytesArr[:], pubKeyBytes[:bls12381G2PublicKeyLen])
 
 	publicKey, err := g2pubs.DeserializePublicKey(pkBytesArr)
 	if err != nil {
 		return fmt.Errorf("deserialize public key: %w", err)
 	}
 
-	var sigBytesArr [48]byte
-	copy(sigBytesArr[:], sigBytes[:48])
+	var sigBytesArr [g1CompressedSize]byte
+	copy(sigBytesArr[:], sigBytes[:g1CompressedSize])
 
 	signature, err := g2pubs.DeserializeSignature(sigBytesArr)
 	if err != nil {
 		return fmt.Errorf("deserialize signature: %w", err)
 	}
 
-	e := parseFr(sigBytes[48 : 48+32])
-	s := parseFr(sigBytes[48+32:])
+	e := parseFr(sigBytes[g1CompressedSize : g1CompressedSize+frCompressedSize])
+	s := parseFr(sigBytes[g1CompressedSize+frCompressedSize:])
 
 	messagesFr := make([]*bls.FR, len(messages))
 	for i := range messages {
@@ -63,7 +83,7 @@ func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error 
 	p1 := signature.GetPoint().ToAffine()
 
 	q1 := bls.G2ProjectiveOne
-	q1 = Mul(q1, *e.ToRepr())
+	q1 = q1.MulFR(e.ToRepr())
 	q1 = q1.Add(publicKey.GetPoint())
 	p2 := getB(s, messagesFr, publicKey)
 
@@ -82,37 +102,27 @@ func parseFr(data []byte) *bls.FR {
 }
 
 func messageToFr(message []byte) *bls.FR {
+	const (
+		eightBytes = 8
+		okmMiddle  = 24
+	)
 	h, _ := blake2b.New384(nil)
 	_, _ = h.Write(message)
 	okm := h.Sum(nil)
 
-	elm := parseFr(append(make([]byte, 8, 8), okm[:24]...))
-	elm.MulAssign(f2_192())
-	elm.AddAssign(parseFr(append(make([]byte, 8, 8), okm[24:]...)))
+	elm := parseFr(append(make([]byte, eightBytes, eightBytes), okm[:okmMiddle]...))
+	elm.MulAssign(f2192())
+	elm.AddAssign(parseFr(append(make([]byte, eightBytes, eightBytes), okm[okmMiddle:]...)))
 
 	return elm
 }
 
-func f2_192() *bls.FR {
+func f2192() *bls.FR {
 	return bls.NewFr(&bls.FRRepr{
 		0x59476ebc41b4528f,
 		0xc5a30cb243fcc152,
 		0x2b34e63940ccbd72,
 		0x1e179025ca247088})
-}
-
-// Mul performs a EC multiply operation on the point.
-// todo move to bls library
-func Mul(g *bls.G2Projective, b bls.FRRepr) *bls.G2Projective {
-	res := bls.G2ProjectiveZero.Copy()
-	for i := uint(0); i < b.BitLen(); i++ {
-		o := b.Bit(b.BitLen() - i - 1)
-		res = res.Double()
-		if o {
-			res = res.Add(g)
-		}
-	}
-	return res
 }
 
 func getB(s *bls.FR, messages []*bls.FR, key *g2pubs.PublicKey) *bls.G1Affine {
@@ -124,7 +134,7 @@ func getB(s *bls.FR, messages []*bls.FR, key *g2pubs.PublicKey) *bls.G1Affine {
 	bases[0] = bls.G1AffineOne.ToProjective()
 	scalars[0] = bls.FRReprToFR(bls.NewFRRepr(1))
 
-	offset := 192 + 1
+	offset := g2UncompressedSize + 1
 
 	data := calcData(key, messagesCount)
 
@@ -206,7 +216,7 @@ func hashToG1(data []byte) (*bls.G1Projective, error) {
 	}
 
 	p0Bytes := g1.ToUncompressed(p0)
-	var p0BytesArr [96]byte
+	var p0BytesArr [g1UncompressedSize]byte
 	copy(p0BytesArr[:], p0Bytes)
 
 	var p0Bls bls.G1Affine
