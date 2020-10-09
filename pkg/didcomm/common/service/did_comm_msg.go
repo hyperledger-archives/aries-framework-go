@@ -203,6 +203,10 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 				return base64.StdEncoding.DecodeString(v.(string))
 			}
 
+			if rt1.Kind() == reflect.Map && rt2.Kind() == reflect.Slice {
+				return json.Marshal(v)
+			}
+
 			return v, nil
 		},
 		WeaklyTypedInput: true,

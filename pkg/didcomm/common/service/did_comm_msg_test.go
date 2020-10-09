@@ -213,6 +213,41 @@ func TestDIDCommMsgMap_ToStruct(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
+func TestDIDCommMsgMap_ToJsonRawStruct(t *testing.T) {
+	const sample = `{
+    "@id": "ac881ac9-47b1-485f-8509-cd1e382bfe59",
+    "@type": "https://sampleorg.io/sample-type/1.0/sample-request",
+    "data": {
+        "doc": {
+			"@id": "fh770bd8-58c2-596g-9610-de2f493cgf60",
+            "created": "2020-10-08T16:22:23.2967447Z",
+            "updated": "2020-10-08T16:22:23.2967447Z"
+        }
+    },
+    "~purpose": ["sample-purpose"],
+    "~thread": {"thid": "ac881ac9-47b1-485f-8509-cd1e382bfe59"},
+    "~transport": {"~return_route": "all"}
+	}`
+
+	msg := DIDCommMsgMap{}
+
+	err := msg.UnmarshalJSON([]byte(sample))
+	require.NoError(t, err)
+
+	req := struct {
+		ID      string   `json:"@id"`
+		Type    string   `json:"@type"`
+		Purpose []string `json:"~purpose"`
+		Data    *struct {
+			Doc json.RawMessage `json:"doc"`
+		} `json:"data"`
+	}{}
+
+	err = msg.Decode(&req)
+	require.NoError(t, err)
+	require.NotEmpty(t, req.Data.Doc)
+}
+
 func TestDIDCommMsgMap_MarshalJSON(t *testing.T) {
 	const expected = `{"Name":"test"}`
 
