@@ -17,9 +17,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+// BlsG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.
 type BlsG2Pub struct {
 }
 
+// NewBlsG2Pub creates a new BlsG2Pub.
 func NewBlsG2Pub() *BlsG2Pub {
 	return &BlsG2Pub{}
 }
@@ -66,7 +68,11 @@ func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error 
 	q1 := bls.G2ProjectiveOne
 	q1 = q1.MulFR(signature.E.ToRepr())
 	q1 = q1.Add(publicKey.GetPoint())
-	p2 := getB(signature.S, messagesFr, publicKey)
+
+	p2, err := getB(signature.S, messagesFr, publicKey)
+	if err != nil {
+		return fmt.Errorf("get B point: %w", err)
+	}
 
 	if compareTwoPairings(p1.ToProjective(), q1, p2.ToProjective(), bls.G2ProjectiveOne) {
 		return nil
@@ -75,7 +81,7 @@ func (b BlsG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error 
 	return errors.New("BLS12-381: invalid signature")
 }
 
-func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) *bls.G1Affine {
+func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Affine, error) {
 	messagesCount := len(messages)
 
 	bases := make([]*bls.G1Projective, messagesCount+2)
@@ -90,7 +96,7 @@ func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) *bls.G1Affine
 
 	h0, err := hashToG1(data)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("create G1 point from hash")
 	}
 
 	h := make([]*bls.G1Projective, messagesCount)
@@ -106,7 +112,7 @@ func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) *bls.G1Affine
 
 		h[i-1], err = hashToG1(dataCopy)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("create G1 point from hash")
 		}
 	}
 
@@ -127,9 +133,10 @@ func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) *bls.G1Affine
 		g := b.MulFR(s)
 		res = res.Add(g)
 	}
+
 	res.NegAssign()
 
-	return res.ToAffine()
+	return res.ToAffine(), nil
 }
 
 func calcData(key *PublicKey, messagesCount int) []byte {
@@ -147,7 +154,9 @@ func calcData(key *PublicKey, messagesCount int) []byte {
 
 func uint32ToBytes(value uint32) []byte {
 	bytes := make([]byte, 4)
+
 	binary.BigEndian.PutUint32(bytes, value)
+
 	return bytes
 }
 
@@ -160,12 +169,14 @@ func hashToG1(data []byte) (*bls.G1Projective, error) {
 	}
 
 	g1 := bls12381.NewG1()
+
 	p0, err := g1.HashToCurve(newBlake2b, data, dstG1)
 	if err != nil {
 		return nil, fmt.Errorf("hash to curve: %w", err)
 	}
 
 	p0Bytes := g1.ToUncompressed(p0)
+
 	var p0BytesArr [g1UncompressedSize]byte
 	copy(p0BytesArr[:], p0Bytes)
 
@@ -179,28 +190,16 @@ func compareTwoPairings(p1 *bls.G1Projective, q1 *bls.G2Projective, p2 *bls.G1Pr
 	engine := bls12381.NewEngine()
 
 	bytesG1 := p1.ToAffine().SerializeBytes()
-	a1, err := engine.G1.FromUncompressed(bytesG1[:])
-	if err != nil {
-		panic(err)
-	}
+	a1, _ := engine.G1.FromUncompressed(bytesG1[:])
 
 	bytesG2 := q1.ToAffine().SerializeBytes()
-	a2, err := engine.G2.FromUncompressed(bytesG2[:])
-	if err != nil {
-		panic(err)
-	}
+	a2, _ := engine.G2.FromUncompressed(bytesG2[:])
 
 	bytesG1 = p2.ToAffine().SerializeBytes()
-	b, err := engine.G1.FromUncompressed(bytesG1[:])
-	if err != nil {
-		panic(err)
-	}
+	b, _ := engine.G1.FromUncompressed(bytesG1[:])
 
 	bytesG2 = q2.ToAffine().SerializeBytes()
-	g2, err := engine.G2.FromUncompressed(bytesG2[:])
-	if err != nil {
-		panic(err)
-	}
+	g2, _ := engine.G2.FromUncompressed(bytesG2[:])
 
 	engine.AddPair(a1, a2)
 	engine.AddPair(b, g2)

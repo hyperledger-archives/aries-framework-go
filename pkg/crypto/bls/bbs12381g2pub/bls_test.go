@@ -8,56 +8,60 @@ package bbs12381g2pub
 
 import (
 	"encoding/base64"
-	"strings"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestBlsG2Pub_Verify(t *testing.T) {
-	pkBase64 := "h/rkcTKXXzRbOPr9UxSfegCbid2U/cVNXQUaKeGF7UhwrMJFP70uMH0VQ9+3+/2zDPAAjflsdeLkOXW3+ShktLxuPy8UlXSNgKNmkfb+rrj+FRwbs13pv/WsIf+eV66+"
+	pkBase64 := "lOpN7uGZWivVIjs0325N/V0dAhoPomrgfXVpg7pZNdRWwFwJDVxoE7TvRyOx/Qr7GMtShNuS2Px/oScD+SMf08t8eAO78QRNErPzwNpfkP4ppcSTShStFDfFbsv9L9yb"
 	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
 	require.NoError(t, err)
 
-	sigBase64 := "g0j/GDxXkBTazGC18VpR/jfqebByufhKWtzMXI9OrxFQlZoGRmDreAv8Rl+lhNQzPjA1Yn9WjcuucOF6f2VMkFUFB2FUzYfegJ77Q+X/JIxHpy1MSQFHi4dtPtAxJpmrJ1Y65aHdkSI8icmnl6gAIA=="
+	sigBase64 := "hPbLkeMZZ6KKzkjWoTVHeMeuLJfYWjmdAU1Vg5fZ/VZnIXxxeXBB+q0/EL8XQmWkOMMwEGA/D2dCb4MDuntKZpvHEHlvaFR6l1A4bYj0t2Jd6bYwGwCwirNbmSeIoEmJeRzJ1cSvsL+jxvLixdDPnw=="
 	sigBytes, err := base64.StdEncoding.DecodeString(sigBase64)
 	require.NoError(t, err)
 
-	vcVerifyData := `_:c14n0 <http://purl.org/dc/terms/created> "2020-10-05T15:37:27Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020> .
-_:c14n0 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> .
-_:c14n0 <https://w3id.org/security#verificationMethod> <did:example:489398593#test> .
-<did:example:b34ca6cd37bbf23> <http://schema.org/birthDate> "1958-07-17"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<did:example:b34ca6cd37bbf23> <http://schema.org/familyName> "SMITH" .
-<did:example:b34ca6cd37bbf23> <http://schema.org/gender> "Male" .
-<did:example:b34ca6cd37bbf23> <http://schema.org/givenName> "JOHN" .
-<did:example:b34ca6cd37bbf23> <http://schema.org/image> <data:image/png;base64,iVBORw0KGgokJggg==> .
-<did:example:b34ca6cd37bbf23> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
-<did:example:b34ca6cd37bbf23> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#PermanentResident> .
-<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#birthCountry> "Bahamas" .
-<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#commuterClassification> "C1" .
-<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#lprCategory> "C09" .
-<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#lprNumber> "999-999-999" .
-<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#residentSince> "2015-01-01"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/description> "Government of Example Permanent Resident Card." .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/identifier> "83627465" .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/name> "Permanent Resident Card" .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#PermanentResidentCard> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:b34ca6cd37bbf23> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#expirationDate> "2029-12-03T12:19:52Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#issuanceDate> "2019-12-03T12:19:52Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#issuer> <did:example:489398593> .`
-	messagesStr := strings.Split(vcVerifyData, "\n")
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
 
-	messagesBytes := make([][]byte, len(messagesStr))
+	bls := NewBlsG2Pub()
 
-	for i := range messagesBytes {
-		messagesBytes[i] = []byte(messagesStr[i])
-	}
+	t.Run("valid signature", func(t *testing.T) {
+		err = bls.Verify(messagesBytes, sigBytes, pkBytes)
+		require.NoError(t, err)
+	})
 
-	bls := &BlsG2Pub{}
+	t.Run("invalid signature", func(t *testing.T) {
+		// swap messages order
+		invalidMessagesBytes := [][]byte{[]byte("message2"), []byte("message1")}
 
-	err = bls.Verify(messagesBytes, sigBytes, pkBytes)
-	require.NoError(t, err)
+		err = bls.Verify(invalidMessagesBytes, sigBytes, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "BLS12-381: invalid signature")
+	})
+
+	t.Run("invalid input public key", func(t *testing.T) {
+		err = bls.Verify(messagesBytes, sigBytes, []byte("invalid"))
+		require.Error(t, err)
+		require.EqualError(t, err, "parse public key: invalid size of public key")
+
+		pkBytesInvalid := make([]byte, len(pkBytes))
+		rand.Read(pkBytesInvalid)
+		err = bls.Verify(messagesBytes, sigBytes, pkBytesInvalid)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse public key: deserialize public key: unexpected compression mode")
+	})
+
+	t.Run("invalid input signature", func(t *testing.T) {
+		err = bls.Verify(messagesBytes, []byte("invalid"), pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse signature: invalid size of signature")
+
+		sigBytesInvalid := make([]byte, len(sigBytes))
+		rand.Read(sigBytesInvalid)
+		err = bls.Verify(messagesBytes, sigBytesInvalid, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse signature: deserialize G1 compressed signature: unexpected compression mode")
+	})
 }
