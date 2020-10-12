@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package couchdbstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/go-kivik/kivik"
 	"github.com/google/uuid"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
@@ -83,6 +85,20 @@ func checkCouchDB() error {
 }
 
 func TestCouchDBStore(t *testing.T) {
+	t.Run("Couchdb connection refused", func(t *testing.T) {
+		const (
+			driverName     = "couch"
+			dataSourceName = "admin:password@localhost:1111"
+			dbName         = "db_name"
+		)
+
+		client, err := kivik.New(driverName, dataSourceName)
+		require.NoError(t, err)
+
+		db := &CouchDBStore{db: client.DB(context.Background(), dbName)}
+		require.Error(t, db.Put("key", []byte("val")))
+	})
+
 	t.Run("Test couchdb store put and get", func(t *testing.T) {
 		prov, err := NewProvider(couchDBURL, WithDBPrefix("dbprefix"))
 		require.NoError(t, err)

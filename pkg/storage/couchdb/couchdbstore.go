@@ -17,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/cenkalti/backoff"
 
 	// The CouchDB driver.
 	_ "github.com/go-kivik/couchdb"
@@ -192,21 +195,33 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 		valueToPut = wrapTextAsCouchDBAttachment(v)
 	}
 
-	revID, err := c.getRevID(k)
-	if err != nil {
-		return err
-	}
+	return c.put(k, valueToPut)
+}
 
-	if revID != "" {
-		valueToPut = []byte(`{"_rev":"` + revID + `",` + string(valueToPut[1:]))
-	}
+func (c *CouchDBStore) put(k string, value []byte) error {
+	const maxRetries = 3
 
-	_, err = c.db.Put(context.Background(), k, valueToPut)
-	if err != nil {
-		return fmt.Errorf("failed to store data: %w", err)
-	}
+	return backoff.Retry(func() error {
+		revID, err := c.getRevID(k)
+		if err != nil {
+			return err
+		}
 
-	return nil
+		valueToPut := value
+
+		if revID != "" {
+			valueToPut = []byte(`{"_rev":"` + revID + `",` + string(valueToPut[1:]))
+		}
+
+		_, err = c.db.Put(context.Background(), k, valueToPut)
+		if err != nil && strings.Contains(err.Error(), "Document update conflict") {
+			return err
+		}
+
+		// if an error is not `Document update conflict` it will be marked as permanent.
+		// It means that retry logic will not be applicable.
+		return backoff.Permanent(err)
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Millisecond), maxRetries))
 }
 
 func isJSON(textToCheck []byte) bool {
