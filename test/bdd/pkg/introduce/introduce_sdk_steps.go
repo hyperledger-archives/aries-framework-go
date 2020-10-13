@@ -547,20 +547,7 @@ func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outo
 		}
 	}
 
-	var connections []string
-
-	if _, ok := a.bddContext.RouteClients[agentID]; ok {
-		connections, err = a.bddContext.RouteClients[agentID].GetConnections()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	r, err := client.CreateRequest(
-		attachments,
-		outofband.WithLabel(agentID),
-		outofband.WithRouterConnections(connections...),
-	)
+	r, err := client.CreateRequest(attachments, outofband.WithLabel(agentID))
 	if err != nil {
 		return nil, err
 	}
@@ -601,32 +588,27 @@ func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
 		return err
 	}
 
-	var connectionID string
+	var connections []string
 
 	deadline := time.Now().Add(timeout)
 
 	// TODO add protocol state msg event capability to routing service
 	//  https://github.com/hyperledger/aries-framework-go/issues/1718
 	for time.Now().Before(deadline) {
-		result, err := client.GetConnections()
+		connections, err = client.GetConnections()
 		if err != nil {
 			return err
 		}
 
-		if len(result) != 0 {
-			connectionID = result[0]
-
-			break
+		for i := range connections {
+			if expected.ConnectionID == connections[i] {
+				return nil
+			}
 		}
 
 		time.Sleep(250 * time.Millisecond) //nolint:gomnd
 	}
 
-	if expected.ConnectionID != connectionID {
-		return fmt.Errorf(
-			"mismatch: %s has connectionID=%s with router %s but its routing ID is %s",
-			agentID, expected.ConnectionID, router, connectionID)
-	}
-
-	return nil
+	return fmt.Errorf("mismatch: %s has connectionID=%s with router %s but its routing IDs are %v",
+		agentID, expected.ConnectionID, router, connections)
 }

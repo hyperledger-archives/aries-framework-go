@@ -10,7 +10,6 @@
 package messaging
 
 import (
-	rqCtx "context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,13 +18,12 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
-	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
@@ -40,8 +38,7 @@ const (
 	// query connections endpoint.
 	queryConnections = "/connections"
 	// webhook checktopics.
-	checkForTopics    = "/checktopics"
-	timeoutPullTopics = 5 * time.Second
+	checkForTopics = "/checktopics"
 	// retry options to pull topics from webhook
 	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry.
 	pullTopicsWaitInMilliSec = 200
@@ -52,7 +49,7 @@ const (
 
 // ControllerSteps is steps for messaging using controller/REST binding.
 type ControllerSteps struct {
-	bddContext     *context.BDDContext
+	bddContext     *bddcontext.BDDContext
 	msgIDsBySender map[string]string
 }
 
@@ -270,35 +267,16 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	return "", fmt.Errorf("no connection found, for agents '%s'", agentID)
 }
 
-func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (*service.DIDCommMsgMap, error) {
-	conn, ok := d.bddContext.GetWebSocketConn(agentID)
-	if !ok {
-		return nil, fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
+func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (service.DIDCommMsgMap, error) {
+	msg, err := util.PullEventsFromWebSocket(d.bddContext, agentID,
+		util.FilterTopic(topic),
+		util.NotEmptyMessage(),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	ctx, cancel := rqCtx.WithTimeout(rqCtx.Background(), timeoutPullTopics)
-	defer cancel()
-
-	var incoming struct {
-		ID      string                `json:"id"`
-		Topic   string                `json:"topic"`
-		Message service.DIDCommMsgMap `json:"message"`
-	}
-
-	for {
-		err := wsjson.Read(ctx, conn, &incoming)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
-		}
-
-		if topic != incoming.Topic {
-			continue
-		}
-
-		if len(incoming.Message) > 0 {
-			return &incoming.Message, nil
-		}
-	}
+	return msg.Message.Message, nil
 }
 
 func postToURL(url string, payload interface{}) error {
@@ -493,7 +471,7 @@ func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, topic, from 
 }
 
 // SetContext is called before every scenario is run with a fresh new context.
-func (d *ControllerSteps) SetContext(ctx *context.BDDContext) {
+func (d *ControllerSteps) SetContext(ctx *bddcontext.BDDContext) {
 	d.bddContext = ctx
 }
 

@@ -18,7 +18,6 @@ import (
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddoutofband "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
@@ -359,7 +358,7 @@ func (s *ControllerSteps) tryOutofbandContinue(agent string) error {
 		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	piid, err := service.DIDCommMsgMap(msg.Message.Message).ThreadID()
+	piid, err := msg.Message.Message.ThreadID()
 	if err != nil {
 		return fmt.Errorf("thread id: %w", err)
 	}
