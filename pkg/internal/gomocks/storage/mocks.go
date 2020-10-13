@@ -155,3 +155,18 @@ func (mr *MockStoreMockRecorder) Put(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), arg0, arg1)
 }
+
+// Query mocks base method
+func (m *MockStore) Query(arg0 string) (storage.StoreIterator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Query", arg0)
+	ret0, _ := ret[0].(storage.StoreIterator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Query indicates an expected call of Query
+func (mr *MockStoreMockRecorder) Query(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockStore)(nil).Query), arg0)
+}

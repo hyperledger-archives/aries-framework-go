@@ -285,6 +285,7 @@ func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...kms.PrivateKey
 
 func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 	localDBReader := newReader(l.store, id)
+
 	jsonKeysetReader := keyset.NewJSONReader(localDBReader)
 
 	// Read reads the encrypted keyset handle back from the io.reader implementation

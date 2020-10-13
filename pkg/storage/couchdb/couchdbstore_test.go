@@ -25,6 +25,8 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log/mocklogger"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -34,6 +36,8 @@ const (
 	dockerCouchdbTag    = "3.1.0"
 	dockerCouchdbVolume = "%s/scripts/couchdb-config/10-single-node.ini:/opt/couchdb/etc/local.d/10-single-node.ini"
 )
+
+var mockLoggerProvider = mocklogger.Provider{MockLogger: &mocklogger.MockLogger{}} //nolint: gochecknoglobals
 
 func TestMain(m *testing.M) {
 	code := 1
@@ -72,6 +76,8 @@ func TestMain(m *testing.M) {
 	if err := checkCouchDB(); err != nil {
 		panic(fmt.Sprintf("check CouchDB: %v", err))
 	}
+
+	log.Initialize(&mockLoggerProvider)
 
 	code = m.Run()
 }
@@ -306,6 +312,79 @@ func TestCouchDBStore(t *testing.T) {
 		itr = store.Iterator("abc_", "mno_123")
 		verifyItr(t, itr, 6, "")
 	})
+
+	t.Run("Test CouchDB store query", func(t *testing.T) {
+		t.Run("Successfully query using index", func(t *testing.T) {
+			queryTest(t, "payload.employeeID")
+		})
+		t.Run("Successful query, but the specified index isn't valid for the query", func(t *testing.T) {
+			// Despite the selected index ("name") not being applicable to our query ("payload.employeeID"),
+			// CouchDB doesn't throw an error. Instead, it just ignores the chosen index and still does the search,
+			// albeit slowly. When this happens, we log the warning message returned from CouchDB.
+			queryTest(t, "name")
+
+			require.Contains(t, mockLoggerProvider.MockLogger.WarnLogContents,
+				`_design/TestDesignDoc, TestIndex was not used because it is not a valid index for this query.
+No matching index found, create an index to optimize query time.`)
+		})
+		t.Run("Fail to query - invalid query JSON", func(t *testing.T) {
+			prov, err := NewProvider(couchDBURL)
+			require.NoError(t, err)
+			store, err := prov.OpenStore(randomKey())
+			require.NoError(t, err)
+
+			itr, err := store.Query(``)
+			require.EqualError(t,
+				err, "failed to query CouchDB using the find endpoint: Bad Request: invalid UTF-8 JSON")
+			require.Nil(t, itr)
+		})
+	})
+}
+
+func queryTest(t *testing.T, fieldToIndex string) {
+	prov, err := NewProvider(couchDBURL)
+	require.NoError(t, err)
+	store, err := prov.OpenStore(randomKey())
+	require.NoError(t, err)
+
+	couchDBStore, ok := store.(*CouchDBStore)
+	require.True(t, ok, "failed to assert store as a CouchDBStore")
+
+	testJSONPayload := []byte(`{"employeeID":1234,"name":"Mr. Aries"}`)
+
+	err = store.Put("sampleDBKey", testJSONPayload)
+	require.NoError(t, err)
+
+	const designDocName = "TestDesignDoc"
+
+	const indexName = "TestIndex"
+
+	err = couchDBStore.db.CreateIndex(context.Background(), designDocName, indexName,
+		`{"fields": ["`+fieldToIndex+`"]}`)
+	require.NoError(t, err)
+
+	itr, err := store.Query(`{
+		   "selector": {
+		       "payload.employeeID": 1234
+		   },
+			"use_index": ["` + designDocName + `", "` + indexName + `"]
+		}`)
+	require.NoError(t, err)
+
+	ok = itr.Next()
+	require.True(t, ok)
+	require.NoError(t, itr.Error())
+
+	value := itr.Value()
+	require.Equal(t, testJSONPayload, value)
+	require.NoError(t, itr.Error())
+
+	ok = itr.Next()
+	require.False(t, ok)
+	require.NoError(t, itr.Error())
+
+	itr.Release()
+	require.NoError(t, itr.Error())
 }
 
 func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {

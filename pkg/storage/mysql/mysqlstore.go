@@ -37,9 +37,7 @@ type result struct {
 	value []byte
 }
 
-const (
-	createDBQuery = "CREATE DATABASE IF NOT EXISTS `%s`"
-)
+const createDBQuery = "CREATE DATABASE IF NOT EXISTS `%s`"
 
 // Option configures the couchdb provider.
 type Option func(opts *Provider)
@@ -233,6 +231,11 @@ func (s *sqlDBStore) Delete(k string) error {
 	}
 
 	return nil
+}
+
+// TODO #2230 - implement query method.
+func (s *sqlDBStore) Query(_ string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
 }
 
 type sqlDBResultsIterator struct {

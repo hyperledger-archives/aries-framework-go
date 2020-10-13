@@ -80,3 +80,8 @@ func (b *StorePrefixWrapper) Delete(k string) error {
 
 	return b.store.Delete(updatedKey)
 }
+
+// Query is currently not implemented.
+func (b *StorePrefixWrapper) Query(_ string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
+}

@@ -191,6 +191,11 @@ func (s *memStore) Delete(k string) error {
 	return nil
 }
 
+// TODO #2228 - implement query method.
+func (s *memStore) Query(_ string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
+}
+
 type memIterator struct {
 	currentIndex int
 	currentItem  []string
