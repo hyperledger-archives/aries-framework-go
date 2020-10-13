@@ -29,7 +29,7 @@ jobs:
 
     - name: Skip tests using docker on macOS (issue-2183)
       if: matrix.os == 'macOS-10.15'
-      run: echo '::set-env name=SKIP_DOCKER::true'
+      run: echo "SKIP_DOCKER=true" >> $GITHUB_ENV
 
     - name: Run unit test
       timeout-minutes: 15
@@ -73,7 +73,7 @@ jobs:
         id: go
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1.4.0
+        uses: actions/setup-node@v1.4.4
         with:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
