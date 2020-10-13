@@ -66,7 +66,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	)
 
 	if generalProof, ok := emap[jsonldProofValue]; ok {
-		proofValue, err = base64.RawURLEncoding.DecodeString(stringEntry(generalProof))
+		proofValue, err = decodeProofValue(stringEntry(generalProof))
 		if err != nil {
 			return nil, err
 		}
@@ -99,6 +99,21 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		Nonce:                   nonce,
 		Challenge:               stringEntry(emap[jsonldChallenge]),
 	}, nil
+}
+
+func decodeProofValue(proofStr string) ([]byte, error) {
+	allEncodings := []*base64.Encoding{
+		base64.RawURLEncoding, base64.StdEncoding,
+	}
+
+	for _, encoding := range allEncodings {
+		proofValue, err := encoding.DecodeString(proofStr)
+		if err == nil {
+			return proofValue, nil
+		}
+	}
+
+	return nil, errors.New("unsupported proof encoding")
 }
 
 // stringEntry.
