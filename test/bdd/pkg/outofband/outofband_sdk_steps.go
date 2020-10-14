@@ -221,7 +221,7 @@ func (sdk *SDKSteps) ConfirmConnections(senderID, receiverID, status string) err
 		return fmt.Errorf("failed to wait for post events : %w", err)
 	}
 
-	connSender, err := sdk.getConnection(senderID, receiverID)
+	connSender, err := sdk.GetConnection(senderID, receiverID)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (sdk *SDKSteps) ConfirmConnections(senderID, receiverID, status string) err
 		)
 	}
 
-	connReceiver, err := sdk.getConnection(receiverID, senderID)
+	connReceiver, err := sdk.GetConnection(receiverID, senderID)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,8 @@ func (sdk *SDKSteps) ConfirmConnections(senderID, receiverID, status string) err
 	return nil
 }
 
-func (sdk *SDKSteps) getConnection(from, to string) (*didexClient.Connection, error) {
+// GetConnection returns connection between agents.
+func (sdk *SDKSteps) GetConnection(from, to string) (*didexClient.Connection, error) {
 	connections, err := sdk.context.DIDExchangeClients[from].QueryConnections(&didexClient.QueryConnectionsParams{})
 	if err != nil {
 		return nil, fmt.Errorf("%s failed to fetch their connections : %w", from, err)

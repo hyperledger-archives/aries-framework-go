@@ -108,44 +108,31 @@ func (d *SDKSteps) GetEventReceived(msgID string, timeout time.Duration) (*servi
 }
 
 // GetRoutingConfig blocks until it fetches the agent's routing configuration or until the timeout is reached.
-func (d *SDKSteps) GetRoutingConfig(agent string, timeout time.Duration) (*routesvc.Config, error) {
+func (d *SDKSteps) GetRoutingConfig(agent, connectionID string, timeout time.Duration) (*routesvc.Config, error) {
 	client, found := d.bddContext.RouteClients[agent]
 	if !found {
 		return nil, fmt.Errorf("%s does not have a registered routing client", agent)
 	}
 
 	var (
-		config      *routesvc.Config
-		connections []string
+		config *routesvc.Config
+		err    error
 	)
 
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		var err error
-
-		connections, err = client.GetConnections()
+		config, err = client.GetConfig(connectionID)
 		if err != nil {
-			return nil, err
-		}
-
-		if len(connections) == 0 {
 			time.Sleep(sleepDuration)
 
 			continue
 		}
 
-		config, err = client.GetConfig(connections[0])
-		if err != nil {
-			return nil, err
-		}
+		return config, nil
 	}
 
-	if len(connections) == 0 {
-		return nil, fmt.Errorf("%s no connections", agent)
-	}
-
-	return config, nil
+	return nil, err
 }
 
 // ApproveRequest approves a routing protocol request with the given args.

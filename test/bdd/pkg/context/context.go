@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"context"
+	"strings"
 	"sync"
 
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
@@ -20,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	bddcontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
 
 var logger = log.New("aries-framework/tests/context")
@@ -36,13 +39,14 @@ type BDDContext struct {
 	KeyHandles         map[string]interface{}
 	PublicDIDs         map[string]string
 	Agents             map[string]*aries.Aries
-	AgentCtx           map[string]*context.Provider
+	AgentCtx           map[string]*bddcontext.Provider
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
 	Args               map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
 	webSocketConns     map[string]*websocket.Conn
+	webSocketData      sync.Map
 	lock               sync.RWMutex
 }
 
@@ -58,7 +62,7 @@ func NewBDDContext() *BDDContext {
 		KeyHandles:         make(map[string]interface{}),
 		PublicDIDs:         make(map[string]string),
 		Agents:             make(map[string]*aries.Aries),
-		AgentCtx:           make(map[string]*context.Provider),
+		AgentCtx:           make(map[string]*bddcontext.Provider),
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),
 		Args:               make(map[string]string),
@@ -121,12 +125,53 @@ func (b *BDDContext) GetControllerURL(agentID string) (string, bool) {
 	return url, ok
 }
 
+// Incoming represents WebSocket event message.
+type Incoming struct {
+	ID      string                `json:"id"`
+	Topic   string                `json:"topic"`
+	Message service.DIDCommMsgMap `json:"message"`
+}
+
 // RegisterWebSocketConn registers given websocket connection to agent id for web notifications.
 func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
+	const maxCapacity = 100
+
 	b.webSocketConns[agentID] = conn
+
+	stream := make(chan *Incoming, maxCapacity)
+	b.webSocketData.LoadOrStore(agentID, stream)
+
+	go func() {
+		for {
+			var incoming *Incoming
+
+			err := wsjson.Read(context.Background(), conn, &incoming)
+			if err == nil {
+				stream <- incoming
+
+				continue
+			}
+
+			if strings.Contains(err.Error(), "WebSocket closed") {
+				return
+			}
+
+			logger.Errorf("failed to get topics for agent '%s' : %v", agentID, err)
+		}
+	}()
+}
+
+// ReadFromWebSocket reads from WebSocket.
+func (b *BDDContext) ReadFromWebSocket(agentID string) <-chan *Incoming {
+	stream, ok := b.webSocketData.Load(agentID)
+	if !ok {
+		return nil
+	}
+
+	return stream.(chan *Incoming)
 }
 
 // GetWebSocketConn returns websocket connection for given agent ID for web notifications.

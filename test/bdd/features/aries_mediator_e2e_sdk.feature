@@ -61,11 +61,11 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
-    When   "Alice" creates invitation
+    When   "Alice" creates invitation with router "alice-router-connID"
       And   "Alice" validates that invitation service endpoint of type "ws"
       And   "Bob" receives invitation from "Alice"
-      And   "Bob" approves invitation request
-      And   "Alice" approves did exchange request
+      And   "Bob" approves invitation request with router "bob-router-connID"
+      And   "Alice" approves did exchange request with router "alice-router-connID"
       And   "Alice,Bob" waits for post state event "completed"
 
     Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
@@ -122,11 +122,11 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
-    When   "Alice" creates invitation
+    When   "Alice" creates invitation with router "alice-router-connID"
       And   "Alice" validates that invitation service endpoint of type "http"
       And   "Bob" receives invitation from "Alice"
-      And   "Bob" approves invitation request
-      And   "Alice" approves did exchange request
+      And   "Bob" approves invitation request with router "bob-router-connID"
+      And   "Alice" approves did exchange request with router "alice-router-connID"
       And   "Alice,Bob" waits for post state event "completed"
 
     Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"

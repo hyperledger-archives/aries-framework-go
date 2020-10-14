@@ -50,25 +50,8 @@ func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) err
 	return d.createInvitation(inviterAgentID, connection)
 }
 
-func (d *SDKSteps) createInvitationDefaultRouter(inviterAgentID string) error {
-	var connections []string
-
-	if _, ok := d.bddContext.RouteClients[inviterAgentID]; ok {
-		var err error
-
-		connections, err = d.bddContext.RouteClients[inviterAgentID].GetConnections()
-		if err != nil {
-			return err
-		}
-	}
-
-	var connection string
-
-	if len(connections) > 0 {
-		connection = connections[0]
-	}
-
-	return d.createInvitation(inviterAgentID, connection)
+func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
+	return d.createInvitation(inviterAgentID, "")
 }
 
 func (d *SDKSteps) createInvitation(inviterAgentID, connection string) error {
@@ -262,19 +245,8 @@ func (d *SDKSteps) ApproveRequest(agentID string) error {
 		return fmt.Errorf("%s is not registered for request approval", agentID)
 	}
 
-	var connections []string
-
-	if _, ok := d.bddContext.RouteClients[agentID]; ok {
-		var err error
-
-		connections, err = d.bddContext.RouteClients[agentID].GetConnections()
-		if err != nil {
-			return err
-		}
-	}
-
 	// sends the signal which automatically handles events
-	c <- struct{ connections []string }{connections: connections}
+	c <- struct{ connections []string }{connections: nil}
 
 	return nil
 }
@@ -385,7 +357,7 @@ func (d *SDKSteps) performDIDExchange(inviter, invitee string) error {
 	}
 
 	// create invitation
-	err := d.createInvitationDefaultRouter(inviter)
+	err := d.createInvitationWithoutRouter(inviter)
 	if err != nil {
 		return err
 	}
@@ -504,7 +476,7 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 
 // RegisterSteps registers did exchange steps.
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitationDefaultRouter)
+	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitationWithoutRouter)
 	s.Step(`^"([^"]*)" creates invitation with router "([^"]*)"$`, d.createInvitationWithRouter)
 	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)
@@ -517,8 +489,8 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.ValidateConnection)
 	s.Step(`^"([^"]*)" creates did exchange client$`, d.CreateDIDExchangeClient)
-	s.Step(`^"([^"]*)" approves did exchange request`, d.ApproveRequest)
-	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves did exchange request$`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves invitation request$`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" approves invitation request with router "([^"]*)"$`, d.ApproveRequestWithRouter)
 	s.Step(`^"([^"]*)" approves did exchange request with router "([^"]*)"$`, d.ApproveRequestWithRouter)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.RegisterPostMsgEvent)
