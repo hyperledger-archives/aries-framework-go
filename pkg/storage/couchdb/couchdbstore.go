@@ -25,6 +25,7 @@ import (
 	_ "github.com/go-kivik/couchdb"
 	"github.com/go-kivik/kivik"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -38,11 +39,15 @@ type Provider struct {
 }
 
 const (
+	logModuleName = "Aries-Framework-CouchDBStore"
+
 	blankHostErrMsg           = "hostURL for new CouchDB provider can't be blank"
 	failToCloseProviderErrMsg = "failed to close provider"
 	couchDBNotFoundErr        = "Not Found:"
 	couchDBUsersTable         = "_users"
 )
+
+var logger = log.New(logModuleName)
 
 // Option configures the couchdb provider.
 type Option func(opts *Provider)
@@ -318,14 +323,35 @@ func (c *CouchDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	return &couchDBResultsIterator{store: c, resultRows: resultRows}
 }
 
+// Query executes a query using the CouchDB _find endpoint.
+func (c *CouchDBStore) Query(findQuery string) (storage.StoreIterator, error) {
+	resultRows, err := c.db.Find(context.Background(), findQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query CouchDB using the find endpoint: %w", err)
+	}
+
+	return &couchDBResultsIterator{store: c, resultRows: resultRows}, nil
+}
+
 type couchDBResultsIterator struct {
 	store      *CouchDBStore
 	resultRows *kivik.Rows
 	err        error
 }
 
+// Next moves the pointer to the next value in the iterator. It returns false if the iterator is exhausted.
+// Note that the Kivik library automatically closes the kivik.Rows iterator if the iterator is exhausted.
 func (i *couchDBResultsIterator) Next() bool {
-	return i.resultRows.Next()
+	nextCallResult := i.resultRows.Next()
+
+	// Kivik only guarantees that this value will be set after all the rows have been iterated through.
+	warningMsg := i.resultRows.Warning()
+
+	if warningMsg != "" {
+		logger.Warnf(warningMsg)
+	}
+
+	return nextCallResult
 }
 
 func (i *couchDBResultsIterator) Release() {
