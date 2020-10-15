@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -167,7 +167,7 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 	Crypto() ariescrypto.Crypto
 }
@@ -195,7 +195,7 @@ func New(p provider) (*Command, error) {
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
-		kResolver:       verifiable.NewDIDKeyResolver(p.VDRIRegistry()),
+		kResolver:       verifiable.NewDIDKeyResolver(p.VDRegistry()),
 		ctx:             p,
 	}, nil
 }
@@ -374,16 +374,16 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
-	//  if did not found in VDRI, look through in local storage
+	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, SignCredentialCommandMethod,
-				"failed to get did doc from store or vdri: "+err.Error())
+				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(SignCredentialErrorCode,
-				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
 	}
 
@@ -539,16 +539,16 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
-	//  if did not found in VDRI, look through in local storage
+	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
-				"failed to get did doc from store or vdri: "+err.Error())
+				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(GeneratePresentationErrorCode,
-				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
 	}
 
@@ -800,7 +800,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 			credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
 		} else {
 			credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(o.ctx.VDRIRegistry()).PublicKeyFetcher(),
+				verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
 			))
 		}
 

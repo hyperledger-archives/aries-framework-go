@@ -165,7 +165,7 @@ depend:
 
 .PHONY: mocks
 mocks: depend clean-mocks
-	$(call create_mock,pkg/framework/aries/api/vdri,Registry)
+	$(call create_mock,pkg/framework/aries/api/vdr,Registry)
 	$(call create_mock,pkg/didcomm/protocol/issuecredential,Provider)
 	$(call create_mock,pkg/didcomm/protocol/middleware/issuecredential,Provider;Metadata)
 	$(call create_mock,pkg/didcomm/protocol/middleware/presentproof,Provider;Metadata)

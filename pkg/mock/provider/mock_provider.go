@@ -9,7 +9,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -26,7 +26,7 @@ type Provider struct {
 	PackerList                        []packer.Packer
 	PackerValue                       packer.Packer
 	OutboundDispatcherValue           dispatcher.Outbound
-	VDRIRegistryValue                 vdriapi.Registry
+	VDRegistryValue                   vdrapi.Registry
 	CryptoValue                       crypto.Crypto
 }
 
@@ -88,7 +88,7 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 	return p.OutboundDispatcherValue
 }
 
-// VDRIRegistry return vdri registry.
-func (p *Provider) VDRIRegistry() vdriapi.Registry {
-	return p.VDRIRegistryValue
+// VDRegistry return vdr registry.
+func (p *Provider) VDRegistry() vdrapi.Registry {
+	return p.VDRegistryValue
 }

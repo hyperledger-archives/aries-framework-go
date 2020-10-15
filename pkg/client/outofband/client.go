@@ -347,7 +347,7 @@ func WithServices(svcs ...interface{}) MessageOption {
 				all[i] = svc
 
 				// TODO uncomment this after fixing the sidetree implementation in BDD tests.
-				//  That sidetree vdri is producing invalid DID IDs.
+				//  That sidetree vdr is producing invalid DID IDs.
 				//  https://github.com/hyperledger/aries-framework-go/issues/1642
 				// _, err := did.Parse(svc)
 			case *did.Service:

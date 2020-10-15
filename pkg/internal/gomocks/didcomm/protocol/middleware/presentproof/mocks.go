@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	reflect "reflect"
 )
@@ -36,18 +36,18 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// VDRIRegistry mocks base method
-func (m *MockProvider) VDRIRegistry() vdri.Registry {
+// VDRegistry mocks base method
+func (m *MockProvider) VDRegistry() vdr.Registry {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VDRIRegistry")
-	ret0, _ := ret[0].(vdri.Registry)
+	ret := m.ctrl.Call(m, "VDRegistry")
+	ret0, _ := ret[0].(vdr.Registry)
 	return ret0
 }
 
-// VDRIRegistry indicates an expected call of VDRIRegistry
-func (mr *MockProviderMockRecorder) VDRIRegistry() *gomock.Call {
+// VDRegistry indicates an expected call of VDRegistry
+func (mr *MockProviderMockRecorder) VDRegistry() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VDRIRegistry", reflect.TypeOf((*MockProvider)(nil).VDRIRegistry))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VDRegistry", reflect.TypeOf((*MockProvider)(nil).VDRegistry))
 }
 
 // VerifiableStore mocks base method

@@ -29,7 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -217,14 +217,14 @@ func (ar *Aries) GetPresentProofController() (api.PresentProofController, error)
 	return &PresentProof{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetVDRIController returns a VDRI instance.
-func (ar *Aries) GetVDRIController() (api.VDRIController, error) {
-	endpoints, ok := ar.endpoints[vdri.VdriOperationID]
+// GetVDRController returns a VDR instance.
+func (ar *Aries) GetVDRController() (api.VDRController, error) {
+	endpoints, ok := ar.endpoints[vdr.VDROperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", vdri.VdriOperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", vdr.VDROperationID)
 	}
 
-	return &VDRI{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+	return &VDR{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
 // GetMediatorController returns a Mediator instance.

@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (

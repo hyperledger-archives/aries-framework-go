@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint for an outbound message.
@@ -27,7 +27,7 @@ const (
 
 // GetDestination constructs a Destination struct based on the given DID and parameters
 // It resolves the DID using the given VDR, and uses CreateDestination under the hood.
-func GetDestination(did string, vdr vdri.Registry) (*Destination, error) {
+func GetDestination(did string, vdr vdrapi.Registry) (*Destination, error) {
 	didDoc, err := vdr.Resolve(did)
 	if err != nil {
 		return nil, fmt.Errorf("getDestination: failed to resolve did [%s] : %w", did, err)

@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -85,7 +85,7 @@ var errConnForDIDNotFound = fmt.Errorf(errMsgConnectionMatchingDIDNotFound)
 // provider contains dependencies for the messaging controller command operations
 // and is typically created by using aries.Context().
 type provider interface {
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	Messenger() service.Messenger
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
@@ -378,7 +378,7 @@ func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
 	if rqst.TheirDID != "" {
 		var err error
 
-		dest, err = service.GetDestination(rqst.TheirDID, o.ctx.VDRIRegistry())
+		dest, err = service.GetDestination(rqst.TheirDID, o.ctx.VDRegistry())
 		if err != nil {
 			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
 				logutil.CreateKeyValueString(destinationDID, rqst.TheirDID))

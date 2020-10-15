@@ -18,7 +18,7 @@ import (
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
-	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
@@ -29,7 +29,7 @@ import (
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
-	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+	vdrrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -103,8 +103,8 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, err
 	}
 
-	// VDRI REST operation
-	vdriOp, err := vdrirest.New(ctx)
+	// VDR REST operation
+	vdrOp, err := vdrrest.New(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
-	allHandlers = append(allHandlers, vdriOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, vdrOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
@@ -199,8 +199,8 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("failed initialized didexchange command: %w", err)
 	}
 
-	// VDRI command operation
-	vcmd, err := vdricmd.New(ctx)
+	// VDR command operation
+	vcmd, err := vdrcmd.New(ctx)
 	if err != nil {
 		return nil, err
 	}

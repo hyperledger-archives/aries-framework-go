@@ -44,13 +44,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	locallock "github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 //nolint:lll
@@ -134,46 +134,46 @@ func TestFramework(t *testing.T) {
 	})
 
 	// framework new - success
-	t.Run("test vdri - with user provided", func(t *testing.T) {
+	t.Run("test vdr - with user provided", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		vdri := &mockvdri.MockVDRI{}
-		aries, err := New(WithVDRI(vdri), WithInboundTransport(&mockInboundTransport{}))
+		vdr := &mockvdr.MockVDR{}
+		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
-		require.Equal(t, len(aries.vdri), 1)
-		require.Equal(t, vdri, aries.vdri[0])
+		require.Equal(t, len(aries.vdr), 1)
+		require.Equal(t, vdr, aries.vdr[0])
 		err = aries.Close()
 		require.NoError(t, err)
 	})
 
-	t.Run("test error create vdri", func(t *testing.T) {
+	t.Run("test error create vdr", func(t *testing.T) {
 		_, err := New(
 			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: peer.StoreNamespace}),
 			WithInboundTransport(&mockInboundTransport{}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "create new vdri peer failed")
+		require.Contains(t, err.Error(), "create new vdr peer failed")
 	})
 
-	t.Run("test vdri - close error", func(t *testing.T) {
+	t.Run("test vdr - close error", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		vdri := &mockvdri.MockVDRI{CloseErr: fmt.Errorf("close vdri error")}
-		aries, err := New(WithVDRI(vdri), WithInboundTransport(&mockInboundTransport{}))
+		vdr := &mockvdr.MockVDR{CloseErr: fmt.Errorf("close vdr error")}
+		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
 		err = aries.Close()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "close vdri error")
+		require.Contains(t, err.Error(), "close vdr error")
 	})
 
-	t.Run("test vdri - with default vdri", func(t *testing.T) {
+	t.Run("test vdr - with default vdr", func(t *testing.T) {
 		// store peer DID in the store
 		dbprov := leveldb.NewProvider(dbPath)
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
@@ -192,7 +192,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
-		resolvedDoc, err := aries.vdriRegistry.Resolve(peerDID)
+		resolvedDoc, err := aries.vdrRegistry.Resolve(peerDID)
 		require.NoError(t, err)
 		require.Equal(t, originalDoc, resolvedDoc)
 		err = aries.Close()

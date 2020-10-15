@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
@@ -428,7 +428,7 @@ type mockProvider struct {
 	secretLock    secretlock.Service
 	packers       []packer.Packer
 	primaryPacker packer.Packer
-	vdriRegistry  vdriapi.Registry
+	vdr           vdrapi.Registry
 }
 
 func (m *mockProvider) Packers() []packer.Packer {
@@ -451,7 +451,7 @@ func (m *mockProvider) PrimaryPacker() packer.Packer {
 	return m.primaryPacker
 }
 
-// VDRIRegistry returns a vdri registry.
-func (m *mockProvider) VDRIRegistry() vdriapi.Registry {
-	return m.vdriRegistry
+// VDRegistry returns a vdr registry.
+func (m *mockProvider) VDRegistry() vdrapi.Registry {
+	return m.vdr
 }

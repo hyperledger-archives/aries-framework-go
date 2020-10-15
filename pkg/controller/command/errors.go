@@ -41,8 +41,8 @@ const (
 	// Messaging error group for messaging service errors.
 	Messaging Group = 3000
 
-	// VDRI error group for VDRI command errors.
-	VDRI Group = 4000
+	// VDR error group for VDR command errors.
+	VDR Group = 4000
 
 	// ROUTE error group for Route command errors.
 	ROUTE Group = 5000

@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
@@ -88,7 +88,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 }
 
 func (d *Steps) resolveDID(agentID string) error {
-	doc, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(),
+	doc, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRegistry(),
 		d.bddContext.PublicDIDDocs[agentID].ID, maxRetry)
 	if err != nil {
 		return err
@@ -101,12 +101,12 @@ func (d *Steps) resolveDID(agentID string) error {
 	return nil
 }
 
-func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
+func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
-		doc, err = vdriRegistry.Resolve(did)
+		doc, err = vdr.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
 			return doc, err
 		}

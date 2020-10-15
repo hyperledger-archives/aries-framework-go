@@ -17,7 +17,7 @@ import (
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	cmdoob "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
-	cmdvdri "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	cmdvdr "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
@@ -27,7 +27,7 @@ import (
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	opoob "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
-	opvdri "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+	opvdr "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
 
@@ -45,7 +45,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opdidexch.OperationID] = getDIDExchangeEndpoints()
 	allEndpoints[opisscred.OperationID] = getIssueCredentialEndpoints()
 	allEndpoints[oppresproof.OperationID] = getPresentProofEndpoints()
-	allEndpoints[opvdri.VdriOperationID] = getVDRIEndpoints()
+	allEndpoints[opvdr.VDROperationID] = getVDREndpoints()
 	allEndpoints[opmediator.RouteOperationID] = getMediatorEndpoints()
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
@@ -311,22 +311,22 @@ func getPresentProofEndpoints() map[string]*endpoint {
 	}
 }
 
-func getVDRIEndpoints() map[string]*endpoint {
+func getVDREndpoints() map[string]*endpoint {
 	return map[string]*endpoint{
-		cmdvdri.GetDIDCommandMethod: {
-			Path:   opvdri.GetDIDPath,
+		cmdvdr.GetDIDCommandMethod: {
+			Path:   opvdr.GetDIDPath,
 			Method: http.MethodGet,
 		},
-		cmdvdri.GetDIDsCommandMethod: {
-			Path:   opvdri.GetDIDRecordsPath,
+		cmdvdr.GetDIDsCommandMethod: {
+			Path:   opvdr.GetDIDRecordsPath,
 			Method: http.MethodGet,
 		},
-		cmdvdri.SaveDIDCommandMethod: {
-			Path:   opvdri.SaveDIDPath,
+		cmdvdr.SaveDIDCommandMethod: {
+			Path:   opvdr.SaveDIDPath,
 			Method: http.MethodPost,
 		},
-		cmdvdri.ResolveDIDCommandMethod: {
-			Path:   opvdri.ResolveDIDPath,
+		cmdvdr.ResolveDIDCommandMethod: {
+			Path:   opvdr.ResolveDIDPath,
 			Method: http.MethodGet,
 		},
 	}

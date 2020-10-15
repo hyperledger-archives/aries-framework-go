@@ -26,17 +26,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 func TestNew(t *testing.T) {
@@ -1116,7 +1116,7 @@ func TestServiceEvents(t *testing.T) {
 
 	// send connection request message
 	id := "valid-thread-id"
-	newDidDoc, err := (&mockvdri.MockVDRIRegistry{}).Create("test")
+	newDidDoc, err := (&mockvdr.MockVDRegistry{}).Create("test")
 	require.NoError(t, err)
 
 	invitation, err := c.CreateInvitation("alice")
@@ -1221,7 +1221,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 	// send connection request message
 	id := "valid-thread-id"
-	newDidDoc, err := (&mockvdri.MockVDRIRegistry{}).Create("test")
+	newDidDoc, err := (&mockvdr.MockVDRegistry{}).Create("test")
 	require.NoError(t, err)
 
 	request, err := json.Marshal(
@@ -1367,9 +1367,9 @@ func newPeerDID(t *testing.T) *did.Doc {
 	ctx, err := a.Context()
 	require.NoError(t, err)
 
-	d, err := ctx.VDRIRegistry().Create(
+	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod,
-		vdri.WithServices(did.Service{
+		vdr.WithServices(did.Service{
 			Type:            "did-communication",
 			ServiceEndpoint: "http://agent.example.com/didcomm",
 		}),

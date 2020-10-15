@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -43,7 +43,7 @@ type Provider struct {
 	outboundDispatcher         dispatcher.Outbound
 	messenger                  service.MessengerHandler
 	outboundTransports         []transport.OutboundTransport
-	vdriRegistry               vdriapi.Registry
+	vdr                        vdrapi.Registry
 	verifiableStore            verifiable.Store
 	transportReturnRoute       string
 	frameworkID                string
@@ -211,9 +211,9 @@ func (p *Provider) ProtocolStateStorageProvider() storage.Provider {
 	return p.protocolStateStoreProvider
 }
 
-// VDRIRegistry returns a vdri registry.
-func (p *Provider) VDRIRegistry() vdriapi.Registry {
-	return p.vdriRegistry
+// VDRegistry returns a vdr registry.
+func (p *Provider) VDRegistry() vdrapi.Registry {
+	return p.vdr
 }
 
 // TransportReturnRoute returns transport return route.
@@ -298,10 +298,10 @@ func WithCrypto(c crypto.Crypto) ProviderOption {
 	}
 }
 
-// WithVDRIRegistry injects a vdri service into the context.
-func WithVDRIRegistry(vdri vdriapi.Registry) ProviderOption {
+// WithVDRegistry injects a vdr service into the context.
+func WithVDRegistry(vdr vdrapi.Registry) ProviderOption {
 	return func(opts *Provider) error {
-		opts.vdriRegistry = vdri
+		opts.vdr = vdr
 		return nil
 	}
 }

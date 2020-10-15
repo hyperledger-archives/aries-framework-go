@@ -27,12 +27,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 const (
@@ -454,8 +454,8 @@ func TestGeneratePresentation(t *testing.T) {
 	s := make(map[string][]byte)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+		VDRegistryValue: &mockvdr.MockVDRegistry{
+			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -648,8 +648,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 	s := make(map[string][]byte)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+		VDRegistryValue: &mockvdr.MockVDRegistry{
+			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -889,8 +889,8 @@ func TestSignCredential(t *testing.T) {
 	s := make(map[string][]byte)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+		VDRegistryValue: &mockvdr.MockVDRegistry{
+			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}

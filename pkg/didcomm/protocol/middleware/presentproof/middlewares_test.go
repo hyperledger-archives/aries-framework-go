@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/presentproof"
-	mocksvdri "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdri"
+	mocksvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	mocksstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 )
 
@@ -41,7 +41,7 @@ func TestSavePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
 
 	next := presentproof.HandlerFunc(func(metadata presentproof.Metadata) error {
@@ -128,13 +128,13 @@ func TestSavePresentation(t *testing.T) {
 		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New(errMsg))
 
-		registry := mocksvdri.NewMockRegistry(ctrl)
+		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
 			PublicKey: []did.PublicKey{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.EqualError(t, SavePresentation(provider)(next).Handle(metadata), "save presentation: "+errMsg)
@@ -151,13 +151,13 @@ func TestSavePresentation(t *testing.T) {
 			},
 		}))
 
-		registry := mocksvdri.NewMockRegistry(ctrl)
+		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
 			PublicKey: []did.PublicKey{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(mocksstore.NewMockStore(ctrl))
 
 		require.EqualError(t, SavePresentation(provider)(next).Handle(metadata), "myDID or theirDID is absent")
@@ -186,13 +186,13 @@ func TestSavePresentation(t *testing.T) {
 		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		registry := mocksvdri.NewMockRegistry(ctrl)
+		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
 			PublicKey: []did.PublicKey{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SavePresentation(provider)(next).Handle(metadata))
@@ -223,13 +223,13 @@ func TestSavePresentation(t *testing.T) {
 		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		registry := mocksvdri.NewMockRegistry(ctrl)
+		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
 			PublicKey: []did.PublicKey{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SavePresentation(provider)(next).Handle(metadata))

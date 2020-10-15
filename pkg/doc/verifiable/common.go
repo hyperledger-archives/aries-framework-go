@@ -23,7 +23,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -72,20 +72,20 @@ func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
 	}
 }
 
-// DIDKeyResolver resolves DID in order to find public keys for VC verification using vdri.Registry.
+// DIDKeyResolver resolves DID in order to find public keys for VC verification using vdr.Registry.
 // A source of DID could be issuer of VC or holder of VP. It can be also obtained from
 // JWS "issuer" claim or "verificationMethod" of Linked Data Proof.
 type DIDKeyResolver struct {
-	vdriRegistry vdri.Registry
+	vdr vdrapi.Registry
 }
 
 // NewDIDKeyResolver creates DIDKeyResolver.
-func NewDIDKeyResolver(vdriRegistry vdri.Registry) *DIDKeyResolver {
-	return &DIDKeyResolver{vdriRegistry: vdriRegistry}
+func NewDIDKeyResolver(vdr vdrapi.Registry) *DIDKeyResolver {
+	return &DIDKeyResolver{vdr: vdr}
 }
 
 func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
-	doc, err := r.vdriRegistry.Resolve(issuerDID)
+	doc, err := r.vdr.Resolve(issuerDID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
 	}

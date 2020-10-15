@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 const jwtTestCredential = `
@@ -254,7 +254,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 		Updated:   &createdTime,
 	}
 
-	v := &mockvdri.MockVDRIRegistry{
+	v := &mockvdr.MockVDRegistry{
 		ResolveValue: didDoc,
 	}
 

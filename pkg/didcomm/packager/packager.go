@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
@@ -30,7 +30,7 @@ type Provider interface {
 	Packers() []packer.Packer
 	PrimaryPacker() packer.Packer
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 }
 
 // Creator method to create new packager service.

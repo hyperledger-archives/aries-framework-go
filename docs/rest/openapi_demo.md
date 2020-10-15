@@ -84,9 +84,9 @@ Prerequisite - There should be a [connection](#Steps-for-DIDExchange) between Al
 ## Steps for HTTP over DIDComm message handling
 Steps http over did comm message handling is same as [above](#steps-for-custom-message-handling), but you can use `HTTP POST /http-over-didcomm/register` to register http-over-didcomm message handlers.
 
-## Steps for creating public DID using vdri endpoint
-To create public DID use `HTTP POST /vdri/create-public-did` endpoint. 
-For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST /vdri/create-public-did` of alice agent and use below parameters.
+## Steps for creating public DID using vdr endpoint
+To create public DID use `HTTP POST /vdr/create-public-did` endpoint. 
+For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST /vdr/create-public-did` of alice agent and use below parameters.
 ```
     method : sidetree
     header : {"alg":"","kid":"","operation":"create"}

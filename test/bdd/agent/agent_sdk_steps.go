@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -78,14 +78,14 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 		url += "identifiers"
 	}
 
-	httpVDRI, err := httpbinding.New(url,
+	httpVDR, err := httpbinding.New(url,
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
 	}
 
 	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
-		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDRI(httpVDRI))
+		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDR(httpVDR))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
@@ -101,7 +101,7 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 			url += "identifiers"
 		}
 
-		httpVDRI, err := httpbinding.New(url,
+		httpVDR, err := httpbinding.New(url,
 			httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 		if err != nil {
 			return fmt.Errorf("failed from httpbinding new ")
@@ -109,7 +109,7 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 
 		storeProv := a.getStoreProvider(agentID)
 
-		opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
+		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv))
 
 		if err := a.create(agentID, inboundHost, inboundPort, "http", opts...); err != nil {
 			return err

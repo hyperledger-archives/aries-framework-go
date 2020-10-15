@@ -22,15 +22,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (
@@ -59,8 +59,8 @@ type Aries struct {
 	packerCreators             []packer.Creator
 	primaryPacker              packer.Packer
 	packers                    []packer.Packer
-	vdriRegistry               vdriapi.Registry
-	vdri                       []vdriapi.VDRI
+	vdrRegistry                vdrapi.Registry
+	vdr                        []vdrapi.VDR
 	verifiableStore            verifiable.Store
 	transportReturnRoute       string
 	id                         string
@@ -108,8 +108,8 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 		return nil, e
 	}
 
-	// Create vdri
-	if e := createVDRI(frameworkOpts); e != nil {
+	// Create vdr
+	if e := createVDR(frameworkOpts); e != nil {
 		return nil, e
 	}
 
@@ -230,10 +230,10 @@ func WithCrypto(c crypto.Crypto) Option {
 	}
 }
 
-// WithVDRI injects a VDRI service to the Aries framework.
-func WithVDRI(v vdriapi.VDRI) Option {
+// WithVDR injects a VDR service to the Aries framework.
+func WithVDR(v vdrapi.VDR) Option {
 	return func(opts *Aries) error {
-		opts.vdri = append(opts.vdri, v)
+		opts.vdr = append(opts.vdr, v)
 		return nil
 	}
 }
@@ -284,7 +284,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithProtocolStateStorageProvider(a.protocolStateStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
 		context.WithPackager(a.packager),
-		context.WithVDRIRegistry(a.vdriRegistry),
+		context.WithVDRegistry(a.vdrRegistry),
 		context.WithTransportReturnRoute(a.transportReturnRoute),
 		context.WithAriesFrameworkID(a.id),
 		context.WithMessageServiceProvider(a.msgSvcProvider),
@@ -320,13 +320,13 @@ func (a *Aries) Close() error {
 		}
 	}
 
-	return a.closeVDRI()
+	return a.closeVDR()
 }
 
-func (a *Aries) closeVDRI() error {
-	if a.vdriRegistry != nil {
-		if err := a.vdriRegistry.Close(); err != nil {
-			return fmt.Errorf("vdri registry close failed: %w", err)
+func (a *Aries) closeVDR() error {
+	if a.vdrRegistry != nil {
+		if err := a.vdrRegistry.Close(); err != nil {
+			return fmt.Errorf("vdr registry close failed: %w", err)
 		}
 	}
 
@@ -350,7 +350,7 @@ func createKMS(frameworkOpts *Aries) error {
 	return nil
 }
 
-func createVDRI(frameworkOpts *Aries) error {
+func createVDR(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
@@ -361,26 +361,26 @@ func createVDRI(frameworkOpts *Aries) error {
 		return fmt.Errorf("create context failed: %w", err)
 	}
 
-	var opts []vdri.Option
-	for _, v := range frameworkOpts.vdri {
-		opts = append(opts, vdri.WithVDRI(v))
+	var opts []vdr.Option
+	for _, v := range frameworkOpts.vdr {
+		opts = append(opts, vdr.WithVDR(v))
 	}
 
 	p, err := peer.New(ctx.StorageProvider())
 	if err != nil {
-		return fmt.Errorf("create new vdri peer failed: %w", err)
+		return fmt.Errorf("create new vdr peer failed: %w", err)
 	}
 
 	opts = append(opts,
-		vdri.WithVDRI(p),
-		vdri.WithDefaultServiceType(vdriapi.DIDCommServiceType),
-		vdri.WithDefaultServiceEndpoint(ctx.ServiceEndpoint()),
+		vdr.WithVDR(p),
+		vdr.WithDefaultServiceType(vdrapi.DIDCommServiceType),
+		vdr.WithDefaultServiceEndpoint(ctx.ServiceEndpoint()),
 	)
 
 	k := key.New()
-	opts = append(opts, vdri.WithVDRI(k))
+	opts = append(opts, vdr.WithVDR(k))
 
-	frameworkOpts.vdriRegistry = vdri.New(ctx, opts...)
+	frameworkOpts.vdrRegistry = vdr.New(ctx, opts...)
 
 	return nil
 }
@@ -410,7 +410,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
-		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -462,7 +462,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithPackager(frameworkOpts.packager),
 		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
 		context.WithRouterEndpoint(routingEndpoint(frameworkOpts)),
-		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 		context.WithVerifiableStore(frameworkOpts.verifiableStore),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 	)
@@ -516,7 +516,7 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 	}
 
 	ctx, err = context.New(context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...),
-		context.WithStorageProvider(frameworkOpts.storeProvider), context.WithVDRIRegistry(frameworkOpts.vdriRegistry))
+		context.WithStorageProvider(frameworkOpts.storeProvider), context.WithVDRegistry(frameworkOpts.vdrRegistry))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}

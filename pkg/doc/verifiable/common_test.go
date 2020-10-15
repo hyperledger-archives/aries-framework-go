@@ -15,8 +15,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 )
 
 func TestJwtAlgorithm_Name(t *testing.T) {
@@ -228,7 +228,7 @@ func Test_proofsToRaw(t *testing.T) {
 }
 
 func TestNewDIDKeyResolver(t *testing.T) {
-	resolver := NewDIDKeyResolver(vdri.New(&mockprovider.Provider{}))
+	resolver := NewDIDKeyResolver(vdr.New(&mockprovider.Provider{}))
 	require.NotNil(t, resolver)
 }
 
@@ -240,7 +240,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	authentication := didDoc.Authentication[0]
 	assertionMethod := didDoc.AssertionMethod[0]
 
-	v := &mockvdri.MockVDRIRegistry{
+	v := &mockvdr.MockVDRegistry{
 		ResolveValue: didDoc,
 	}
 
