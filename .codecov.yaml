@@ -14,5 +14,5 @@ coverage:
 
 ignore:
   - "test/bdd"  # ignore bdd tests
-  - "protos"
+  - "proto"
   - "pkg/crypto/tinkcrypto/primitive/proto"
