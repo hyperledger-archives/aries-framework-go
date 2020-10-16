@@ -76,8 +76,8 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
         })
     })
 
-    after(() => {
-        aries.destroy()
+    after(async () => {
+       await aries.destroy()
     })
 
     it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
@@ -105,22 +105,13 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
     let invitation, aliceConnectionID, bobConnectionID
 
     before(async () => {
-        await newAries('alice')
-            .then(a => {
-                aliceAgent = a
-            })
-            .catch(err => new Error(err.message));
-
-        await newAries('bob')
-            .then(a => {
-                bobAgent = a
-            })
-            .catch(err => new Error(err.message));
+        aliceAgent = await newAries('alice')
+        bobAgent = await newAries('bob')
     })
 
-    after(() => {
-        aliceAgent.destroy()
-        bobAgent.destroy()
+    after(async() => {
+        await aliceAgent.destroy()
+        await bobAgent.destroy()
     })
 
     it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
@@ -204,15 +195,11 @@ describe("Registers multiple routers", function () {
     let invitation1, connectionID1, invitation2, connectionID2
 
     before(async () => {
-        await newAries('alice')
-            .then(a => {
-                aliceAgent = a
-            })
-            .catch(err => new Error(err.message));
+        aliceAgent = await newAries('alice')
     })
 
-    after(() => {
-        aliceAgent.destroy()
+    after(async () => {
+        await aliceAgent.destroy()
     })
 
     it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {

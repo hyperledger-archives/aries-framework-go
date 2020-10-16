@@ -20,24 +20,16 @@ describe("KMS Test", function () {
 async function kms(mode) {
     let aries
 
-    before(() => {
-        return new Promise((resolve, reject) => {
-            let _aries;
-            if (mode === restMode){
-                _aries =  newAriesREST(agentControllerApiUrl)
-            }else {
-                _aries =   newAries()
-            }
-
-            _aries.then(
-                a => {aries = a; resolve()},
-                err => reject(new Error(err.message))
-            )
-        })
+    before(async () => {
+        if (mode === restMode){
+            aries = await newAriesREST(agentControllerApiUrl)
+        }else {
+            aries = await newAries()
+        }
     })
 
-    after(() => {
-        aries.destroy()
+    after(async () => {
+        await aries.destroy()
     })
 
     it("Alice create key set", function (done) {

@@ -58,8 +58,8 @@ async function presentProof(mode) {
         prover = didClient.agent2
     })
 
-    after(() => {
-        didClient.destroy()
+    after(async () => {
+        await didClient.destroy()
     })
 
     let proverAction;
@@ -86,7 +86,10 @@ async function presentProof(mode) {
 
     const name = mode + ".js.presentation.test"
 
+    let presentationRes;
     it("Verifier accepts a presentation", async function () {
+        presentationRes = getPresentation(verifier, name)
+
         return verifier.presentproof.acceptPresentation({
             piid: (await verifierAction).Properties.piid,
             names: [name],
@@ -94,7 +97,7 @@ async function presentProof(mode) {
     })
 
     it("Verifier checks presentation", async function () {
-        let presentation = await getPresentation(verifier, name)
+        let presentation = await presentationRes
 
         assert.equal(presentation.my_did, verifierConn.MyDID)
         assert.equal(presentation.their_did, verifierConn.TheirDID)

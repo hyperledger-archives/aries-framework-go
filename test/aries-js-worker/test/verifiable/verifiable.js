@@ -57,15 +57,11 @@ async function verifiableStore(newAries, mode = wasmMode) {
     let modePrefix = '[' + mode + '] '
 
     before(async () => {
-        await newAries
-            .then(a => {
-                aries = a
-            })
-            .catch(err => new Error(err.message));
+        aries = await newAries
     })
 
-    after(() => {
-        aries.destroy()
+    after(async () => {
+        await aries.destroy()
     })
 
     it(modePrefix + "Alice stores the verifiable credential received from the college", function (done) {
