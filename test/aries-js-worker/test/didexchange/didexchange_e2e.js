@@ -125,8 +125,8 @@ export const didExchangeClient = class {
             await this.agent2.mediator.unregister({"connectionID": this.agent2RouterConnection})
         }
 
-        this.agent1.destroy()
-        this.agent2.destroy()
+        await this.agent1.destroy()
+        await this.agent2.destroy()
     }
 
     static async createInvitationFromRouter(endpoint) {
@@ -218,14 +218,8 @@ export async function newDIDExchangeClient(agent1, agent2) {
 
 
 export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
-    let aries1, aries2;
-
-    const init = (values) => {
-        aries1 = values[0]
-        aries2 = values[1]
-    };
-
-    await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
+    let aries1 = await newAriesREST(agentURL1)
+    let aries2 = await newAriesREST(agentURL2)
 
     return new didExchangeClient(aries1, aries2, restMode)
 }

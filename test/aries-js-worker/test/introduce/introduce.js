@@ -310,20 +310,21 @@ async function skipProposal(mode) {
     })
 }
 
-function clients(mode) {
+async function clients(mode) {
+    let a, b, c;
     if (mode === restMode) {
-        return Promise.all([
-            newAriesREST(agent1ControllerApiUrl),
-            newAriesREST(agent2ControllerApiUrl),
-            newAriesREST(agent3ControllerApiUrl)
-        ]);
+        a = await newAriesREST(agent1ControllerApiUrl)
+        b = await newAriesREST(agent2ControllerApiUrl)
+        c = await newAriesREST(agent3ControllerApiUrl)
+
+        return [a, b, c]
     }
 
-    return Promise.all([
-        newAries("alice", "alice"),
-        newAries("bob", "bob"),
-        newAries("carol", "carol")
-    ]);
+    a = await newAries("alice", "alice")
+    b = await newAries("bob", "bob")
+    c = await newAries("carol", "carol")
+
+    return [a, b, c]
 }
 
 async function createClients(mode) {

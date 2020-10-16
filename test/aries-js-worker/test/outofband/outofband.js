@@ -39,8 +39,8 @@ async function outofbandRequest(mode) {
         didexClient = await client(mode)
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     let request;
@@ -84,8 +84,8 @@ async function outofbandInvitation(mode) {
         didexClient = await client(mode)
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     let invitation;
