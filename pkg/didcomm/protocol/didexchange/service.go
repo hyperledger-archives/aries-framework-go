@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -67,7 +67,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	Crypto() crypto.Crypto
 	KMS() kms.KeyManager
-	VDRIRegistry() vdriapi.Registry
+	VDRegistry() vdrapi.Registry
 	Service(id string) (interface{}, error)
 }
 
@@ -92,7 +92,7 @@ type context struct {
 	crypto             crypto.Crypto
 	kms                kms.KeyManager
 	connectionStore    *connectionStore
-	vdriRegistry       vdriapi.Registry
+	vdRegistry         vdrapi.Registry
 	routeSvc           mediator.ProtocolService
 }
 
@@ -132,7 +132,7 @@ func New(prov provider) (*Service, error) {
 			outboundDispatcher: prov.OutboundDispatcher(),
 			crypto:             prov.Crypto(),
 			kms:                prov.KMS(),
-			vdriRegistry:       prov.VDRIRegistry(),
+			vdRegistry:         prov.VDRegistry(),
 			connectionStore:    connRecorder,
 			routeSvc:           routeSvc,
 		},
@@ -591,9 +591,9 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 // CreateConnection saves the record to the connection store and maps TheirDID to their recipient keys in
 // the did connection store.
 func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc) error {
-	err := s.ctx.vdriRegistry.Store(theirDID)
+	err := s.ctx.vdRegistry.Store(theirDID)
 	if err != nil {
-		return fmt.Errorf("vdri failed to store theirDID : %w", err)
+		return fmt.Errorf("vdr failed to store theirDID : %w", err)
 	}
 
 	return s.connectionStore.saveConnectionRecord(record)
@@ -775,7 +775,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
 	inviteeLabel, inviteeDID string, routerConnections []string) (string, error) {
 	logger.Debugf("implicit invitation requested inviterDID[%s] inviteeDID[%s]", inviterDID, inviteeDID)
 
-	didDoc, err := s.ctx.vdriRegistry.Resolve(inviterDID)
+	didDoc, err := s.ctx.vdRegistry.Resolve(inviterDID)
 	if err != nil {
 		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}

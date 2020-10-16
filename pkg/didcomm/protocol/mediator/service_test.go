@@ -20,14 +20,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockmessagep "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -800,8 +800,8 @@ func TestServiceForwardMsg(t *testing.T) {
 					return nil
 				},
 			},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+			VDRegistryValue: &mockvdr.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 					if didID == invalidDID {
 						return nil, errors.New("invalid")
 					}
@@ -856,8 +856,8 @@ func TestMessagePickup(t *testing.T) {
 						return errors.New("websocket connection failed")
 					},
 				},
-				VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-					ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+				VDRegistryValue: &mockvdr.MockVDRegistry{
+					ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 						return mockdiddoc.GetMockDIDDoc(), nil
 					},
 				},
@@ -899,8 +899,8 @@ func TestMessagePickup(t *testing.T) {
 					return errors.New("websocket connection failed")
 				},
 			},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+			VDRegistryValue: &mockvdr.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 					return mockdiddoc.GetMockDIDDoc(), nil
 				},
 			},

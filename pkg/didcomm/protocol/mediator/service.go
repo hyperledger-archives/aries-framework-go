@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -96,7 +96,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	RouterEndpoint() string
 	KMS() kms.KeyManager
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	Service(id string) (interface{}, error)
 }
 
@@ -137,7 +137,7 @@ type Service struct {
 	outbound             dispatcher.Outbound
 	endpoint             string
 	kms                  kms.KeyManager
-	vdRegistry           vdri.Registry
+	vdRegistry           vdr.Registry
 	keylistUpdateMap     map[string]chan *KeylistUpdateResponse
 	keylistUpdateMapLock sync.RWMutex
 	callbacks            chan *callback
@@ -171,7 +171,7 @@ func New(prov provider) (*Service, error) {
 		outbound:         prov.OutboundDispatcher(),
 		endpoint:         prov.RouterEndpoint(),
 		kms:              prov.KMS(),
-		vdRegistry:       prov.VDRIRegistry(),
+		vdRegistry:       prov.VDRegistry(),
 		connectionLookup: connectionLookup,
 		keylistUpdateMap: make(map[string]chan *KeylistUpdateResponse),
 		callbacks:        make(chan *callback),

@@ -12,30 +12,30 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 type ctx struct {
 	store storage.Provider
-	vdr   vdriapi.Registry
+	vdr   vdrapi.Registry
 }
 
 func (c *ctx) StorageProvider() storage.Provider {
 	return c.store
 }
 
-func (c *ctx) VDRIRegistry() vdriapi.Registry {
+func (c *ctx) VDRegistry() vdrapi.Registry {
 	return c.vdr
 }
 
 func TestBaseConnectionStore(t *testing.T) {
 	prov := ctx{
 		store: mockstorage.NewMockStoreProvider(),
-		vdr: &mockvdri.MockVDRIRegistry{
+		vdr: &mockvdr.MockVDRegistry{
 			CreateValue:  mockdiddoc.GetMockDIDDoc(),
 			ResolveValue: mockdiddoc.GetMockDIDDoc(),
 		},
@@ -62,7 +62,7 @@ func TestBaseConnectionStore(t *testing.T) {
 					ErrPut: fmt.Errorf("put error"),
 				},
 			},
-			vdr: &mockvdri.MockVDRIRegistry{
+			vdr: &mockvdr.MockVDRegistry{
 				CreateValue:  mockdiddoc.GetMockDIDDoc(),
 				ResolveValue: mockdiddoc.GetMockDIDDoc(),
 			},
@@ -116,7 +116,7 @@ func TestBaseConnectionStore(t *testing.T) {
 	t.Run("SaveDIDByResolving error", func(t *testing.T) {
 		prov := ctx{
 			store: mockstorage.NewMockStoreProvider(),
-			vdr:   &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
+			vdr:   &mockvdr.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")},
 		}
 
 		cs, err := NewConnectionStore(&prov)

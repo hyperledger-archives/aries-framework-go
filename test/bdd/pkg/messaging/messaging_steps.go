@@ -118,7 +118,7 @@ func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string
 		return fmt.Errorf("unable to find context for agent `%s`", fromAgentID)
 	}
 
-	dest, err := service.GetDestination(publicDID.ID, ctx.VDRIRegistry())
+	dest, err := service.GetDestination(publicDID.ID, ctx.VDRegistry())
 	if err != nil {
 		return fmt.Errorf("unable to get destination from public DID `%s` : %w", publicDID.ID, err)
 	}

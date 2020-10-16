@@ -223,7 +223,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
 	}
 
-	doc, err := a.bddContext.AgentCtx[prover].VDRIRegistry().Resolve(conn.MyDID)
+	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(conn.MyDID)
 	if err != nil {
 		return err
 	}

@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -464,7 +464,7 @@ func getLabel(options *options) string {
 
 func (ctx *context) getDestination(invitation *Invitation) (*service.Destination, error) {
 	if invitation.DID != "" {
-		return service.GetDestination(invitation.DID, ctx.vdriRegistry)
+		return service.GetDestination(invitation.DID, ctx.vdRegistry)
 	}
 
 	return &service.Destination{
@@ -479,7 +479,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
-		didDoc, err := ctx.vdriRegistry.Resolve(pubDID)
+		didDoc, err := ctx.vdRegistry.Resolve(pubDID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
@@ -497,7 +497,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	var services []did.Service
 
 	for _, connID := range routerConnections {
-		// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
+		// get the route configs (pass empty service endpoint, as default service endpoint added in VDR)
 		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, connID, "")
 		if err != nil {
 			return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
@@ -511,9 +511,9 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	}
 
 	// by default use peer did
-	newDidDoc, err := ctx.vdriRegistry.Create(
+	newDidDoc, err := ctx.vdRegistry.Create(
 		didMethod,
-		vdri.WithServices(services...),
+		vdr.WithServices(services...),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
@@ -551,11 +551,11 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 	didDoc := conn.DIDDoc
 	if didDoc == nil {
 		// did content was not provided; resolve
-		return ctx.vdriRegistry.Resolve(conn.DID)
+		return ctx.vdRegistry.Resolve(conn.DID)
 	}
 
 	// store provided did document
-	err := ctx.vdriRegistry.Store(didDoc)
+	err := ctx.vdRegistry.Store(didDoc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}
@@ -645,7 +645,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, fmt.Errorf("prepare destination from response did doc: %w", err)
 	}
 
-	myDidDoc, err := ctx.vdriRegistry.Resolve(connRecord.MyDID)
+	myDidDoc, err := ctx.vdRegistry.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
@@ -742,7 +742,7 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
 	if invitation.DID != "" {
-		didDoc, err := ctx.vdriRegistry.Resolve(invitation.DID)
+		didDoc, err := ctx.vdRegistry.Resolve(invitation.DID)
 		if err != nil {
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
@@ -791,7 +791,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 
 	switch svc := i.Target.(type) {
 	case string:
-		doc, err := ctx.vdriRegistry.Resolve(svc)
+		doc, err := ctx.vdRegistry.Resolve(svc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve myDID=%s : %w", svc, err)
 		}

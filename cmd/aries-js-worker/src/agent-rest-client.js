@@ -51,23 +51,23 @@ const pkgs = {
             method: "GET"
         },
     },
-    vdri: {
+    vdr: {
         SaveDID: {
-            path: "/vdri/did",
+            path: "/vdr/did",
             method: "POST"
         },
         GetDID: {
-            path: "/vdri/did/{id}",
+            path: "/vdr/did/{id}",
             method: "GET",
             pathParam:"id"
         },
         ResolveDID: {
-            path: "/vdri/did/resolve/{id}",
+            path: "/vdr/did/resolve/{id}",
             method: "GET",
             pathParam:"id"
         },
         GetDIDs: {
-            path: "/vdri/did/records",
+            path: "/vdr/did/records",
             method: "GET",
         },
     },

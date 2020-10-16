@@ -41,7 +41,7 @@ It uses the following interfaces:
 - [MessagingController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/messaging.go)
 - [OutOfBandController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/outofband.go)
 - [PresentProofController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/presentproof.go)
-- [VDRIController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/vdri.go)
+- [VDRController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/vdr.go)
 - [VerifiableController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/verifiable.go)
 
 ## Implementations

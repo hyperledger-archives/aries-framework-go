@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -139,8 +139,8 @@ func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentI
 // WaitForPublicDID waits for public DID.
 func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
 	for _, agentID := range strings.Split(agents, ",") {
-		vdri := d.bddContext.AgentCtx[agentID].VDRIRegistry()
-		if _, err := resolveDID(vdri, d.bddContext.PublicDIDDocs[agentID].ID, maxSeconds); err != nil {
+		vdr := d.bddContext.AgentCtx[agentID].VDRegistry()
+		if _, err := resolveDID(vdr, d.bddContext.PublicDIDDocs[agentID].ID, maxSeconds); err != nil {
 			return err
 		}
 	}
@@ -208,7 +208,7 @@ func (d *SDKSteps) ValidateConnection(agents, stateValue string) error {
 
 // validateResolveDID verifies if given agent is able to resolve their DID.
 func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
-	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Resolve(theirDID)
+	doc, err := d.bddContext.AgentCtx[agentID].VDRegistry().Resolve(theirDID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange : %w", theirDID, err)
 	}
@@ -452,12 +452,12 @@ func (d *SDKSteps) saveConnectionID(agentID, varName string) error {
 	return nil
 }
 
-func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
+func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
-		doc, err = vdriRegistry.Resolve(did)
+		doc, err = vdr.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
 			return doc, err
 		}

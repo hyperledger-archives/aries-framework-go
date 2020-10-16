@@ -23,8 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/issuecredential"
-	mocksvdri "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdri"
-	mocksstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 )
 
 func getCredential() *verifiable.Credential {
@@ -58,7 +58,7 @@ func TestSaveCredentials(t *testing.T) {
 	defer ctrl.Finish()
 
 	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
 
 	next := issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
@@ -141,12 +141,12 @@ func TestSaveCredentials(t *testing.T) {
 			},
 		}))
 
-		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore := mockstore.NewMockStore(ctrl)
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New(errMsg))
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "save credential: "+errMsg)
@@ -164,8 +164,8 @@ func TestSaveCredentials(t *testing.T) {
 		}))
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
-		provider.EXPECT().VerifiableStore().Return(mocksstore.NewMockStore(ctrl))
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(mockstore.NewMockStore(ctrl))
 
 		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "myDID or theirDID is absent")
 	})
@@ -189,12 +189,12 @@ func TestSaveCredentials(t *testing.T) {
 			},
 		}))
 
-		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore := mockstore.NewMockStore(ctrl)
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
@@ -221,12 +221,12 @@ func TestSaveCredentials(t *testing.T) {
 			},
 		}))
 
-		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore := mockstore.NewMockStore(ctrl)
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
@@ -290,11 +290,11 @@ func TestSaveCredentials(t *testing.T) {
 			},
 		}))
 
-		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore := mockstore.NewMockStore(ctrl)
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		registry := mocksvdri.NewMockRegistry(ctrl)
+		registry := mockvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:123456").Return(&did.Doc{
 			PublicKey: []did.PublicKey{{
 				ID: "#key1",
@@ -306,7 +306,7 @@ func TestSaveCredentials(t *testing.T) {
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))

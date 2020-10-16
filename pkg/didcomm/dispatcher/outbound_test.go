@@ -20,13 +20,13 @@ import (
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 func TestOutboundDispatcher_Send(t *testing.T) {
@@ -138,7 +138,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		o := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdr: &mockvdr.MockVDRegistry{
 				ResolveValue: mockDoc,
 			},
 			outboundTransportsValue: []transport.OutboundTransport{
@@ -152,7 +152,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	t.Run("resolve err", func(t *testing.T) {
 		o := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdr: &mockvdr.MockVDRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
 			outboundTransportsValue: []transport.OutboundTransport{
@@ -310,7 +310,7 @@ type mockProvider struct {
 	packagerValue           commontransport.Packager
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
-	vdriRegistry            vdri.Registry
+	vdr                     vdrapi.Registry
 	kms                     kms.KeyManager
 }
 
@@ -326,8 +326,8 @@ func (p *mockProvider) TransportReturnRoute() string {
 	return p.transportReturnRoute
 }
 
-func (p *mockProvider) VDRIRegistry() vdri.Registry {
-	return p.vdriRegistry
+func (p *mockProvider) VDRegistry() vdrapi.Registry {
+	return p.vdr
 }
 
 func (p *mockProvider) KMS() kms.KeyManager {

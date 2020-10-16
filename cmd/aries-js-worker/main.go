@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
 
 const (
@@ -408,13 +408,13 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 				return nil, fmt.Errorf("invalid http resolver options found")
 			}
 
-			httpVDRI, err := httpbinding.New(r[1],
+			httpVDR, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}
 
-			opts = append(opts, aries.WithVDRI(httpVDRI))
+			opts = append(opts, aries.WithVDR(httpVDR))
 		}
 	}
 

@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -28,7 +28,7 @@ var ErrNotFound = errors.New("did not found under given key")
 // ConnectionStore stores DIDs indexed by key.
 type ConnectionStore struct {
 	store storage.Store
-	vdr   vdri.Registry
+	vdr   vdr.Registry
 }
 
 type didRecord struct {
@@ -39,7 +39,7 @@ type didRecord struct {
 
 type connectionProvider interface {
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 }
 
 // NewConnectionStore returns a new did lookup ConnectionStore.
@@ -49,7 +49,7 @@ func NewConnectionStore(ctx connectionProvider) (*ConnectionStore, error) {
 		return nil, err
 	}
 
-	return &ConnectionStore{store: store, vdr: ctx.VDRIRegistry()}, nil
+	return &ConnectionStore{store: store, vdr: ctx.VDRegistry()}, nil
 }
 
 // saveDID saves a DID, indexed using the given public key.
@@ -108,10 +108,10 @@ func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
 //  keys: fallback keys in case the DID can't be resolved
 func (c *ConnectionStore) SaveDIDByResolving(did string, keys ...string) error {
 	doc, err := c.vdr.Resolve(did)
-	if errors.Is(err, vdri.ErrNotFound) {
+	if errors.Is(err, vdr.ErrNotFound) {
 		return c.SaveDID(did, keys...)
 	} else if err != nil {
-		return fmt.Errorf("failed to read from vdri store : %w", err)
+		return fmt.Errorf("failed to read from vdr store : %w", err)
 	}
 
 	return c.SaveDIDFromDoc(doc)

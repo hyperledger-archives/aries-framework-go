@@ -177,13 +177,13 @@ func TestAries_GetPresentProofController(t *testing.T) {
 	})
 }
 
-func TestAries_GetVDRIController(t *testing.T) {
+func TestAries_GetVDRController(t *testing.T) {
 	t.Run("it creates a controller", func(t *testing.T) {
 		a, err := NewAries(&config.Options{AgentURL: mockAgentURL})
 		require.NoError(t, err)
 		require.NotNil(t, a)
 
-		controller, err := a.GetVDRIController()
+		controller, err := a.GetVDRController()
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})

@@ -17,11 +17,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -173,7 +173,7 @@ func (m *MockDIDExchangeSvc) CreateConnection(r *connection.Record, theirDID *di
 type MockProvider struct {
 	StoreProvider              *mockstore.MockStoreProvider
 	ProtocolStateStoreProvider *mockstore.MockStoreProvider
-	CustomVDRI                 vdriapi.Registry
+	CustomVDR                  vdrapi.Registry
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -204,13 +204,13 @@ func (p *MockProvider) Crypto() crypto.Crypto {
 	return &mockcrypto.Crypto{}
 }
 
-// VDRIRegistry is mock vdri registry.
-func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
-	if p.CustomVDRI != nil {
-		return p.CustomVDRI
+// VDRegistry is mock vdr registry.
+func (p *MockProvider) VDRegistry() vdrapi.Registry {
+	if p.CustomVDR != nil {
+		return p.CustomVDR
 	}
 
-	return &mockvdri.MockVDRIRegistry{}
+	return &mockvdr.MockVDRegistry{}
 }
 
 // MockEventProperties is a didexchange.Event.

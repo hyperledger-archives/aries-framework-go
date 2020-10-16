@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
@@ -33,7 +33,7 @@ import (
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -499,7 +499,7 @@ func TestOperation_Send(t *testing.T) {
 			testConnection *connection.Record
 			messenger      *mocksvc.MockMessenger
 			kms            *mockkms.KeyManager
-			vdri           *mockvdri.MockVDRIRegistry
+			vdr            *mockvdr.MockVDRegistry
 			requestJSON    string
 			httpErrCode    int
 			errorCode      command.Code
@@ -557,7 +557,7 @@ func TestOperation_Send(t *testing.T) {
 			{
 				name:        "failed to resolve destination from DID",
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
-				vdri:        &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("sample-err-01")},
+				vdr:         &mockvdr.MockVDRegistry{ResolveErr: fmt.Errorf("sample-err-01")},
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-err-01",
@@ -565,8 +565,8 @@ func TestOperation_Send(t *testing.T) {
 			{
 				name:        "invalid message body - scenario 1",
 				requestJSON: `{"message_body": "sample-input", "their_did": "theirDID-001"}`,
-				vdri: &mockvdri.MockVDRIRegistry{
-					ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+				vdr: &mockvdr.MockVDRegistry{
+					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOpts) (doc *did.Doc, e error) {
 						return mockdiddoc.GetMockDIDDoc(), nil
 					},
 				},
@@ -610,8 +610,8 @@ func TestOperation_Send(t *testing.T) {
 					provider.CustomKMS = tc.kms
 				}
 
-				if tc.vdri != nil {
-					provider.CustomVDRI = tc.vdri
+				if tc.vdr != nil {
+					provider.CustomVDR = tc.vdr
 				}
 
 				svc, err := New(provider, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())

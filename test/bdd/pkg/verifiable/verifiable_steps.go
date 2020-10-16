@@ -218,8 +218,8 @@ func (s *SDKSteps) getVCWithEd25519LDP(vc *verifiable.Credential,
 }
 
 func (s *SDKSteps) verifyCredential(holder string) error {
-	vdriRegistry := s.bddContext.AgentCtx[holder].VDRIRegistry()
-	pKeyFetcher := verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()
+	vdr := s.bddContext.AgentCtx[holder].VDRegistry()
+	pKeyFetcher := verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher()
 
 	localKMS, ok := s.bddContext.AgentCtx[holder].KMS().(*localkms.LocalKMS)
 	if !ok {

@@ -31,7 +31,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocklock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -344,11 +344,11 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, s, prov.ProtocolStateStorageProvider())
 	})
 
-	t.Run("test new with vdri", func(t *testing.T) {
-		r := &mockvdri.MockVDRIRegistry{}
-		prov, err := New(WithVDRIRegistry(r))
+	t.Run("test new with vdr", func(t *testing.T) {
+		r := &mockvdr.MockVDRegistry{}
+		prov, err := New(WithVDRegistry(r))
 		require.NoError(t, err)
-		require.Equal(t, r, prov.VDRIRegistry())
+		require.Equal(t, r, prov.VDRegistry())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

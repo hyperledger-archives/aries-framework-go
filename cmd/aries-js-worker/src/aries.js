@@ -811,8 +811,8 @@ const Aries = function (opts) {
          * VDRI methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */
-        vdri: {
-            pkgname: "vdri",
+        vdr: {
+            pkgname: "vdr",
 
             /**
              * Saves a did document.

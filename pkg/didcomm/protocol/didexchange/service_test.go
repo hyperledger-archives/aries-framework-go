@@ -34,11 +34,11 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const testMethod = "peer"
@@ -115,13 +115,13 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionStore:    cStore,
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
@@ -287,19 +287,19 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionStore:    cStore,
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
 	require.NoError(t, err)
 
-	s.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+	s.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -634,7 +634,7 @@ func TestCreateConnection(t *testing.T) {
 			InvitationID:    uuid.New().String(),
 			Namespace:       myNSPrefix,
 		}
-		storedInVDRI := false
+		storedInVDR := false
 		storageProvider := &mockprovider.Provider{
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
@@ -643,9 +643,9 @@ func TestCreateConnection(t *testing.T) {
 			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              storageProvider.StorageProvider(),
 			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			VDRegistryValue: &mockvdr.MockVDRegistry{
 				StoreFunc: func(result *did.Doc) error {
-					storedInVDRI = true
+					storedInVDR = true
 					require.Equal(t, theirDID, result)
 
 					return nil
@@ -659,7 +659,7 @@ func TestCreateConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		err = s.CreateConnection(record, theirDID)
-		require.True(t, storedInVDRI)
+		require.True(t, storedInVDR)
 		require.NoError(t, err)
 
 		didConnStore, err := newConnectionStore(provider)
@@ -669,13 +669,13 @@ func TestCreateConnection(t *testing.T) {
 		require.Equal(t, record, result)
 	})
 
-	t.Run("wraps vdri registry error", func(t *testing.T) {
+	t.Run("wraps vdr registry error", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
 			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			VDRegistryValue: &mockvdr.MockVDRegistry{
 				PutErr: expected,
 			},
 			ServiceMap: map[string]interface{}{
@@ -697,7 +697,7 @@ func TestCreateConnection(t *testing.T) {
 				Store: &mockstorage.MockStore{ErrPut: expected},
 			},
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
-			VDRIRegistryValue:                 &mockvdri.MockVDRIRegistry{},
+			VDRegistryValue:                   &mockvdr.MockVDRegistry{},
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -1274,10 +1274,10 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	const publicDIDMethod = "sidetree"
 	publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-	newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+	newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 	require.NoError(t, err)
 
-	svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+	svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
@@ -1471,9 +1471,9 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 
 		const publicDIDMethod = "sidetree"
 		publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-		newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+		newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 		require.NoError(t, err)
-		svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+		svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 
 		actionCh := make(chan service.DIDCommAction, 10)
 		err = svc.RegisterActionEvent(actionCh)
@@ -1731,10 +1731,10 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 		connectionStore:    connStore,
 	}
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
@@ -1775,7 +1775,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDIDDoc},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1807,7 +1807,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolve error")},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1843,7 +1843,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDIDDoc},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1877,7 +1877,7 @@ func TestRespondTo(t *testing.T) {
 	t.Run("responds to an implicit invitation", func(t *testing.T) {
 		publicDID := createDIDDoc(t, k)
 		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDID}
+		provider.CustomVDR = &mockvdr.MockVDRegistry{ResolveValue: publicDID}
 		s, err := New(provider)
 		require.NoError(t, err)
 		connID, err := s.RespondTo(newInvitation(publicDID.ID), nil)
@@ -1913,10 +1913,10 @@ func TestRespondTo(t *testing.T) {
 		_, err = s.RespondTo(newInvitation(invalid), nil)
 		require.Error(t, err)
 	})
-	t.Run("wraps error from vdri registry when resolving DID", func(t *testing.T) {
+	t.Run("wraps error from vdr registry when resolving DID", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{
+		provider.CustomVDR = &mockvdr.MockVDRegistry{
 			ResolveErr: expected,
 		}
 		s, err := New(provider)

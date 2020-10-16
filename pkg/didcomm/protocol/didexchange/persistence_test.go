@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
@@ -124,7 +124,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		record.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
-			CustomVDRI: &vdri.MockVDRIRegistry{
+			CustomVDR: &vdr.MockVDRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
 		})
@@ -150,7 +150,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		record.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
-			CustomVDRI: &vdri.MockVDRIRegistry{
+			CustomVDR: &vdr.MockVDRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
 		})

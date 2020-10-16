@@ -29,17 +29,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (
@@ -787,7 +787,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		// send connection request message
 		id := "valid-thread-id"
-		newDidDoc, err := (&mockvdri.MockVDRIRegistry{}).Create("peer")
+		newDidDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer")
 		require.NoError(t, err)
 
 		invitation, err := cmd.client.CreateInvitation("test")
@@ -970,10 +970,10 @@ func newPeerDID(t *testing.T) *did.Doc {
 	ctx, err := a.Context()
 	require.NoError(t, err)
 
-	d, err := ctx.VDRIRegistry().Create(
+	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod,
-		vdri.WithServices(did.Service{
-			Type:            vdri.DIDCommServiceType,
+		vdr.WithServices(did.Service{
+			Type:            vdr.DIDCommServiceType,
 			ServiceEndpoint: "http://agent.example.com/didcomm",
 		}),
 	)
