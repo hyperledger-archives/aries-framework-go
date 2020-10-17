@@ -29,7 +29,7 @@ vendor
 .DS_Store
 docs/build
 bin
-coverage.txt
+coverage.out
 
 # Exclude build directory
 build

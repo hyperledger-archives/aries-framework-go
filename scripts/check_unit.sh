@@ -12,11 +12,11 @@ GO_TEST_CMD="go test"
 
 go generate ./...
 ROOT=$(pwd)
-echo "" > "$ROOT"/coverage.txt
+touch "$ROOT"/coverage.out
 
 amend_coverage_file () {
 if [ -f profile.out ]; then
-     cat profile.out >> "$ROOT"/coverage.txt
+     cat profile.out >> "$ROOT"/coverage.out
      rm profile.out
 fi
 }

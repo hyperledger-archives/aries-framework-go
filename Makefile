@@ -200,7 +200,7 @@ clean-images:
 
 .PHONY: clean-build
 clean-build:
-	@rm -f coverage.txt
+	@rm -f coverage.out
 	@rm -Rf ./build
 	@rm -Rf $(ARIES_AGENT_MOBILE_PATH)/build
 	@rm -Rf ./test/bdd/db
