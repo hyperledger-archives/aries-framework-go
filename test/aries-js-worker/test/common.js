@@ -7,11 +7,31 @@ SPDX-License-Identifier: Apache-2.0
 var AriesWeb = null;
 var AriesREST = null;
 
+(async function  () {
+    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
+    AriesWeb = Aries.Framework
+
+    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/rest/aries.js')
+    AriesREST = Aries.Framework
+})();
+
+async function waitUntil(f, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        let timeWas = new Date();
+        let wait = setInterval(function() {
+            if (f()) {
+                clearInterval(wait);
+                resolve();
+            } else if (new Date() - timeWas > timeoutMs) {
+                clearInterval(wait);
+                reject();
+            }
+        }, 100);
+    });
+}
+
 export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = []) {
-    if (AriesWeb === null){
-        await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
-        AriesWeb = Aries.Framework
-    }
+    await waitUntil(() => AriesWeb !== null, 5000);
 
     return new AriesWeb({
         assetsPath: "/base/public/aries-framework-go/assets",
@@ -26,10 +46,7 @@ export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = 
 }
 
 export async function newAriesREST(controllerUrl) {
-    if (AriesREST === null){
-        await import('/base/node_modules/@hyperledger/aries-framework-go/dist/rest/aries.js')
-        AriesREST = Aries.Framework
-    }
+    await waitUntil(() => AriesREST !== null, 5000);
 
     return new AriesREST({
         assetsPath: "/base/public/aries-framework-go/assets",
