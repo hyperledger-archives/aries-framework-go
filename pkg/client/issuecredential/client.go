@@ -191,6 +191,14 @@ func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
 	return issuecredential.WithProposeCredential(&origin)
 }
 
+// WithRequestCredential allows providing RequestCredential message
+// USAGE: This message should be provided after receiving an OfferCredential message.
+func WithRequestCredential(msg *RequestCredential) issuecredential.Opt {
+	origin := issuecredential.RequestCredential(*msg)
+
+	return issuecredential.WithRequestCredential(&origin)
+}
+
 // WithOfferCredential allows providing OfferCredential message
 // USAGE: This message should be provided after receiving a ProposeCredential message.
 func WithOfferCredential(msg *OfferCredential) issuecredential.Opt {

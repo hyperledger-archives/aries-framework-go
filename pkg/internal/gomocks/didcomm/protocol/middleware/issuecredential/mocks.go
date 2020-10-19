@@ -171,6 +171,20 @@ func (mr *MockMetadataMockRecorder) ProposeCredential() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposeCredential", reflect.TypeOf((*MockMetadata)(nil).ProposeCredential))
 }
 
+// RequestCredential mocks base method
+func (m *MockMetadata) RequestCredential() *issuecredential.RequestCredential {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequestCredential")
+	ret0, _ := ret[0].(*issuecredential.RequestCredential)
+	return ret0
+}
+
+// RequestCredential indicates an expected call of RequestCredential
+func (mr *MockMetadataMockRecorder) RequestCredential() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestCredential", reflect.TypeOf((*MockMetadata)(nil).RequestCredential))
+}
+
 // StateName mocks base method
 func (m *MockMetadata) StateName() string {
 	m.ctrl.T.Helper()
