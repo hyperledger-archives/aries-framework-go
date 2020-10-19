@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,15 +65,19 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing sample document with extra context",
 				doc:    jsonLDMultipleInvalidRDFs,
 				result: canonizedSampleVP_extraContext,
-				opts: []ProcessorOpts{WithRemoveAllInvalidRDF(),
-					WithExternalContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld")},
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(),
+					WithExternalContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
+				},
 			},
 			{
 				name:   "canonizing sample document with extra dummy context and in-memory document loader",
 				doc:    jsonLDMultipleInvalidRDFs,
 				result: canonizedSampleVP_extraContext,
-				opts: []ProcessorOpts{WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
-					WithDocumentLoader(createInMemoryDocumentLoader("http://localhost:8652/dummy.jsonld", extraJSONLDContext))},
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoader(createInMemoryDocumentLoader("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
+				},
 			},
 			{
 				name:   "canonizing sample document with multiple incorrect RDFs 3",

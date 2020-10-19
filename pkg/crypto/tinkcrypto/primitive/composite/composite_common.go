@@ -20,7 +20,7 @@ const (
 	// A256GCM is the default content encryption algorithm value as per
 	// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
 	A256GCM = "A256GCM"
-	// DIDCommEncType representing the JWE 'Typ' protected type header
+	// DIDCommEncType representing the JWE 'Typ' protected type header.
 	DIDCommEncType = "didcomm-envelope-enc"
 )
 

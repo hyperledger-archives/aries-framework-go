@@ -35,7 +35,47 @@ const (
 // ErrConnectionNotFound is returned when connection not found.
 var ErrConnectionNotFound = errors.New("connection not found")
 
-// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+type options struct {
+	routerConnections  []string
+	routerConnectionID string
+}
+
+func applyOptions(args ...Opt) *options {
+	opts := &options{}
+
+	for i := range args {
+		args[i](opts)
+	}
+
+	return opts
+}
+
+// Opt represents option function.
+type Opt func(*options)
+
+// InvOpt represents option for the CreateInvitation function.
+type InvOpt Opt
+
+// WithRouterConnectionID allows you to specify the router connection ID.
+func WithRouterConnectionID(conn string) InvOpt {
+	return func(opts *options) {
+		opts.routerConnectionID = conn
+	}
+}
+
+// WithRouterConnections allows you to specify the router connections.
+func WithRouterConnections(conns ...string) Opt {
+	return func(opts *options) {
+		for _, conn := range conns {
+			// filters out empty connections
+			if conn != "" {
+				opts.routerConnections = append(opts.routerConnections, conn)
+			}
+		}
+	}
+}
+
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
@@ -60,14 +100,15 @@ type protocolService interface {
 	service.DIDComm
 
 	// Accepts/Approves exchange request
-	AcceptExchangeRequest(connectionID, publicDID, label string) error
+	AcceptExchangeRequest(connectionID, publicDID, label string, routerConnections []string) error
 
 	// Accepts/Approves exchange invitation
-	AcceptInvitation(connectionID, publicDID, label string) error
+	AcceptInvitation(connectionID, publicDID, label string, routerConnections []string) error
 
 	// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
-	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
+	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel,
+		inviteeDID string, routerConnections []string) (string, error)
 
 	// CreateConnection saves the connection record.
 	CreateConnection(*connection.Record, *did.Doc) error
@@ -113,7 +154,13 @@ func New(ctx provider) (*Client, error) {
 // CreateInvitation creates an invitation. New key pair will be generated and base58 encoded public key will be
 // used as basis for invitation. This invitation will be stored so client can cross reference this invitation during
 // did exchange protocol.
-func (c *Client) CreateInvitation(label string) (*Invitation, error) {
+func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, error) {
+	opts := &options{}
+
+	for i := range args {
+		args[i](opts)
+	}
+
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
 	_, sigPubKey, err := c.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
@@ -123,10 +170,22 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 
 	sigPubKeyB58 := base58.Encode(sigPubKey)
 
-	// get the route configs
-	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(c.routeSvc, c.serviceEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("createInvitation: getRouterConfig: %w", err)
+	var (
+		serviceEndpoint = c.serviceEndpoint
+		routingKeys     []string
+	)
+
+	if opts.routerConnectionID != "" {
+		// get the route configs
+		serviceEndpoint, routingKeys, err = mediator.GetRouterConfig(c.routeSvc,
+			opts.routerConnectionID, c.serviceEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("createInvitation: getRouterConfig: %w", err)
+		}
+
+		if err = mediator.AddKeyToRouter(c.routeSvc, opts.routerConnectionID, sigPubKeyB58); err != nil {
+			return nil, fmt.Errorf("createInvitation: AddKeyToRouter: %w", err)
+		}
 	}
 
 	invitation := &didexchange.Invitation{
@@ -136,10 +195,6 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		ServiceEndpoint: serviceEndpoint,
 		Type:            didexchange.InvitationMsgType,
 		RoutingKeys:     routingKeys,
-	}
-
-	if err = mediator.AddKeyToRouter(c.routeSvc, sigPubKeyB58); err != nil {
-		return nil, fmt.Errorf("createInvitation: AddKeyToRouter: %w", err)
 	}
 
 	err = c.connectionStore.SaveInvitation(invitation.ID, invitation)
@@ -194,8 +249,10 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 
 // AcceptInvitation accepts/approves exchange invitation. This call is not used if auto execute is setup
 // for this client (see package example for more details about how to setup auto execute).
-func (c *Client) AcceptInvitation(connectionID, publicDID, label string) error {
-	if err := c.didexchangeSvc.AcceptInvitation(connectionID, publicDID, label); err != nil {
+func (c *Client) AcceptInvitation(connectionID, publicDID, label string, args ...Opt) error {
+	opts := applyOptions(args...)
+
+	if err := c.didexchangeSvc.AcceptInvitation(connectionID, publicDID, label, opts.routerConnections); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange invitation: %w", err)
 	}
 
@@ -204,8 +261,10 @@ func (c *Client) AcceptInvitation(connectionID, publicDID, label string) error {
 
 // AcceptExchangeRequest accepts/approves exchange request. This call is not used if auto execute is setup
 // for this client (see package example for more details about how to setup auto execute).
-func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) error {
-	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID, publicDID, label); err != nil {
+func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string, args ...Opt) error {
+	err := c.didexchangeSvc.AcceptExchangeRequest(connectionID, publicDID, label,
+		applyOptions(args...).routerConnections)
+	if err != nil {
 		return fmt.Errorf("did exchange client - accept exchange request: %w", err)
 	}
 
@@ -213,8 +272,9 @@ func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) er
 }
 
 // CreateImplicitInvitation enables invitee to create and send an exchange request using inviter public DID.
-func (c *Client) CreateImplicitInvitation(inviterLabel, inviterDID string) (string, error) {
-	return c.didexchangeSvc.CreateImplicitInvitation(inviterLabel, inviterDID, "", "")
+func (c *Client) CreateImplicitInvitation(inviterLabel, inviterDID string, args ...Opt) (string, error) {
+	return c.didexchangeSvc.CreateImplicitInvitation(inviterLabel, inviterDID,
+		"", "", applyOptions(args...).routerConnections)
 }
 
 // CreateImplicitInvitationWithDID enables invitee to create implicit invitation using inviter and invitee public DID.
@@ -223,7 +283,7 @@ func (c *Client) CreateImplicitInvitationWithDID(inviter, invitee *DIDInfo) (str
 		return "", errors.New("missing inviter and/or invitee public DID(s)")
 	}
 
-	return c.didexchangeSvc.CreateImplicitInvitation(inviter.Label, inviter.DID, invitee.Label, invitee.DID)
+	return c.didexchangeSvc.CreateImplicitInvitation(inviter.Label, inviter.DID, invitee.Label, invitee.DID, nil)
 }
 
 // QueryConnections queries connections matching given criteria(parameters).

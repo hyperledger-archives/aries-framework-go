@@ -338,8 +338,10 @@ func TestConnectionRecordByState(t *testing.T) {
 	recorder, err := NewRecorder(&protocol.MockProvider{})
 	require.NoError(t, err)
 
-	connRec := &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
-		Namespace: MyNSPrefix, State: "requested"}
+	connRec := &Record{
+		ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
+		Namespace: MyNSPrefix, State: "requested",
+	}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
 
@@ -354,8 +356,10 @@ func TestConnectionRecordByState(t *testing.T) {
 	require.Contains(t, err.Error(), "data not found")
 
 	// data with no state details
-	connRec = &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
-		Namespace: MyNSPrefix}
+	connRec = &Record{
+		ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
+		Namespace: MyNSPrefix,
+	}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
 	_, err = recorder.GetConnectionRecordAtState(connRec.ConnectionID, "requested")
@@ -374,8 +378,10 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
-		record := &Record{ThreadID: threadIDValue,
-			ConnectionID: uuid.New().String(), State: stateNameInvited, Namespace: TheirNSPrefix}
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(), State: stateNameInvited, Namespace: TheirNSPrefix,
+		}
 		err = recorder.SaveConnectionRecord(record)
 		require.NoError(t, err)
 
@@ -438,8 +444,10 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &Record{ThreadID: "",
-			ConnectionID: "test", State: stateNameInvited, Namespace: TheirNSPrefix}
+		connRec := &Record{
+			ThreadID:     "",
+			ConnectionID: "test", State: stateNameInvited, Namespace: TheirNSPrefix,
+		}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -453,8 +461,10 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &Record{ThreadID: "",
-			ConnectionID: "test", State: StateNameCompleted, Namespace: TheirNSPrefix}
+		connRec := &Record{
+			ThreadID:     "",
+			ConnectionID: "test", State: StateNameCompleted, Namespace: TheirNSPrefix,
+		}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -635,8 +645,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
+		connRec := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix,
+		}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 
@@ -651,8 +663,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
-		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: TheirNSPrefix}
+		connRec := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: TheirNSPrefix,
+		}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 
@@ -668,8 +682,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &Record{ThreadID: "",
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
+		connRec := &Record{
+			ThreadID:     "",
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix,
+		}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "validation failed")
@@ -686,8 +702,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NotNil(t, recorder)
 		require.NoError(t, err)
 
-		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
+		connRec := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix,
+		}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)
@@ -697,8 +715,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: "invalid-ns"}
+		connRec := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: "invalid-ns",
+		}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "namespace not supported")

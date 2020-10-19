@@ -34,7 +34,7 @@ const (
 	createInvitationPath         = connOperationID + "/create-invitation"
 	createImplicitInvitationPath = connOperationID + "/create-implicit-invitation"
 	receiveInvtiationPath        = connOperationID + "/receive-invitation"
-	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s"
+	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s" // router_connections
 	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
 	connectionsByID              = connOperationID + "/{id}"
 	createKeySetPath             = kmsOperationID + "/keyset"
@@ -70,14 +70,20 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers agent steps.
-func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
+	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)" and router "([^"]*)"$`,
+		a.createInvitationWithRouter)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
-	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)
+	s.Step(`^"([^"]*)" approves exchange invitation through controller$`, a.approveInvitation)
+	s.Step(`^"([^"]*)" approves exchange invitation with router "([^"]*)" through controller$`,
+		a.approveInvitationWithRouter)
 	s.Step(`^"([^"]*)" approves exchange request through controller`, a.ApproveRequest)
+	s.Step(`^"([^"]*)" approves exchange request with router "([^"]*)" through controller$`,
+		a.ApproveRequestWithRouter)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to web notifier`, a.WaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
-		a.validateConnection)
+		a.validateConnections)
 	// public DID steps
 	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.createPublicDID)
 	s.Step(`^"([^"]*)" creates invitation through controller using public DID and label "([^"]*)"$`,
@@ -119,11 +125,20 @@ func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string
 }
 
 func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
-	return a.performCreateInvitation(inviterAgentID, label, false)
+	return a.performCreateInvitation(inviterAgentID, label, "", false)
+}
+
+func (a *ControllerSteps) createInvitationWithRouter(inviterAgentID, label, router string) error {
+	routerID, ok := a.bddContext.Args[router]
+	if !ok {
+		return fmt.Errorf("create invitation with router: connection %q was not found", router)
+	}
+
+	return a.performCreateInvitation(inviterAgentID, label, routerID, false)
 }
 
 func (a *ControllerSteps) createInvitationWithDID(inviterAgentID, label string) error {
-	return a.performCreateInvitation(inviterAgentID, label, true)
+	return a.performCreateInvitation(inviterAgentID, label, "", true)
 }
 
 func (a *ControllerSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID string) error {
@@ -134,7 +149,22 @@ func (a *ControllerSteps) createImplicitInvitationWithDID(inviteeAgentID, invite
 	return a.performCreateImplicitInvitation(inviteeAgentID, inviterAgentID, true)
 }
 
-func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, useDID bool) error {
+func chooseConnection(url string) (string, error) {
+	connections := struct{ Connections []string }{}
+
+	err := util.SendHTTP(http.MethodGet, url+"/mediator/connections", nil, &connections)
+	if err != nil {
+		return "", fmt.Errorf("mediator connections: %w", err)
+	}
+
+	if len(connections.Connections) == 0 {
+		return "", nil
+	}
+
+	return connections.Connections[0], nil
+}
+
+func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label, routerID string, useDID bool) error {
 	destination, ok := a.bddContext.GetControllerURL(inviterAgentID)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]",
@@ -152,8 +182,18 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 	logger.Debugf("Creating invitation from controller for agent[%s], label[%s], did[%s]",
 		inviterAgentID, publicDID, label)
 
+	if routerID == "" {
+		var err error
+
+		routerID, err = chooseConnection(destination)
+		if err != nil {
+			return err
+		}
+	}
+
 	// call controller
-	path := fmt.Sprintf("%s%s?alias=%s&public=%s", destination, createInvitationPath, label, publicDID)
+	path := fmt.Sprintf("%s%s?alias=%s&public=%s&router_connection_id=%s",
+		destination, createInvitationPath, label, publicDID, routerID)
 
 	var result didexcmd.CreateInvitationResponse
 
@@ -288,14 +328,23 @@ func (a *ControllerSteps) saveConnectionID(agentID, varName string) error {
 }
 
 func (a *ControllerSteps) approveInvitation(agentID string) error {
-	return a.performApproveInvitation(agentID, false)
+	return a.performApproveInvitation(agentID, "", false)
+}
+
+func (a *ControllerSteps) approveInvitationWithRouter(agentID, router string) error {
+	routerID, ok := a.bddContext.Args[router]
+	if !ok {
+		return fmt.Errorf("approve invitation with router: connection %q was not found", router)
+	}
+
+	return a.performApproveInvitation(agentID, routerID, false)
 }
 
 func (a *ControllerSteps) approveInvitationWithPublicDID(agentID string) error {
-	return a.performApproveInvitation(agentID, true)
+	return a.performApproveInvitation(agentID, "", true)
 }
 
-func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) error {
+func (a *ControllerSteps) performApproveInvitation(agentID, routerID string, useDID bool) error {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "invited")
 	if err != nil {
 		return fmt.Errorf("approve exchange invitation : %w", err)
@@ -306,7 +355,7 @@ func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) 
 
 	var response didexcmd.AcceptInvitationResponse
 
-	err = a.performApprove(agentID, useDID, connectionID, acceptInvitationPath, &response)
+	err = a.performApprove(agentID, useDID, connectionID, routerID, acceptInvitationPath, &response)
 	if err != nil {
 		return err
 	}
@@ -321,14 +370,24 @@ func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) 
 
 // ApproveRequest approves a request.
 func (a *ControllerSteps) ApproveRequest(agentID string) error {
-	return a.performApproveRequest(agentID, false)
+	return a.performApproveRequest(agentID, "", false)
+}
+
+// ApproveRequestWithRouter approves a request.
+func (a *ControllerSteps) ApproveRequestWithRouter(agentID, router string) error {
+	routerID, ok := a.bddContext.Args[router]
+	if !ok {
+		return fmt.Errorf("create invitation with router: connection %q was not found", router)
+	}
+
+	return a.performApproveRequest(agentID, routerID, false)
 }
 
 func (a *ControllerSteps) approveRequestWithPublicDID(agentID string) error {
-	return a.performApproveRequest(agentID, true)
+	return a.performApproveRequest(agentID, "", true)
 }
 
-func (a *ControllerSteps) performApprove(agentID string, useDID bool, connectionID, operationPath string,
+func (a *ControllerSteps) performApprove(agentID string, useDID bool, connectionID, routerID, operationPath string,
 	response interface{}) error {
 	controllerURL, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
@@ -346,7 +405,17 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
 		agentID, publicDID)
 
+	if routerID == "" {
+		var err error
+
+		routerID, err = chooseConnection(controllerURL)
+		if err != nil {
+			return err
+		}
+	}
+
 	path := controllerURL + fmt.Sprintf(operationPath, connectionID, publicDID)
+	path += "&router_connections=" + routerID
 
 	err := util.SendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
@@ -357,7 +426,7 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 	return nil
 }
 
-func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) error {
+func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) error {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
 		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
@@ -368,7 +437,7 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 
 	var response didexcmd.ExchangeResponse
 
-	err = a.performApprove(agentID, useDID, connectionID, acceptRequestPath, &response)
+	err = a.performApprove(agentID, useDID, connectionID, routerID, acceptRequestPath, &response)
 	if err != nil {
 		return err
 	}
@@ -382,10 +451,22 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 }
 
 // WaitForPostEvent waits for the specific post event state.
-func (a *ControllerSteps) WaitForPostEvent(agentID, statesValue string) error {
-	_, err := a.pullEventsFromWebSocket(agentID, statesValue)
-	if err != nil {
-		return fmt.Errorf("failed to get notification from webhook, %w", err)
+func (a *ControllerSteps) WaitForPostEvent(agents, statesValue string) error {
+	for _, agent := range strings.Split(agents, ",") {
+		_, err := a.pullEventsFromWebSocket(agent, statesValue)
+		if err != nil {
+			return fmt.Errorf("failed to get notification from webhook, %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (a *ControllerSteps) validateConnections(agents, stateValue string) error {
+	for _, agent := range strings.Split(agents, ",") {
+		if err := a.validateConnection(agent, stateValue); err != nil {
+			return fmt.Errorf("validate connections: %w", err)
+		}
 	}
 
 	return nil
@@ -455,6 +536,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 
 		if connection.State == queryState && connection.ConnectionID == verifyID {
 			found = true
+
 			break
 		}
 	}

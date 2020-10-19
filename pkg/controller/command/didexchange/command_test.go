@@ -29,17 +29,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (
@@ -200,7 +200,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 
 func TestCommand_ReceiveInvitation(t *testing.T) {
 	t.Run("Successful ReceiveInvitation", func(t *testing.T) {
-		var jsonStr = `{
+		jsonStr := `{
 		"serviceEndpoint":"http://alice.agent.example.com:8081",
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
@@ -225,7 +225,7 @@ func TestCommand_ReceiveInvitation(t *testing.T) {
 	})
 
 	t.Run("ReceiveInvitation failure", func(t *testing.T) {
-		var jsonStr = `{
+		jsonStr := `{
     	"@type": "https://didcomm.org/connections/1.0/invitation",
     	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
     	"serviceEndpoint": "http://ip10-0-46-4-blikjbs9psqg8vrg4p10-8020.direct.play-with-von.vonx.io",
@@ -257,7 +257,7 @@ func TestCommand_ReceiveInvitation(t *testing.T) {
 	})
 
 	t.Run("ReceiveInvitation validation error", func(t *testing.T) {
-		var jsonStr = `--`
+		jsonStr := `--`
 		cmd, err := New(mockProvider(), mockwebhook.NewMockWebhookNotifier(), "", false)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -521,7 +521,8 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			}},
+			},
+		},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
 					if topic == "didexchange_actions" {
@@ -751,7 +752,8 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH}},
+			KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH},
+		},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
 					if topic == "didexchange_actions" {
@@ -785,7 +787,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		// send connection request message
 		id := "valid-thread-id"
-		newDidDoc, err := (&mockvdri.MockVDRIRegistry{}).Create("peer")
+		newDidDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer")
 		require.NoError(t, err)
 
 		invitation, err := cmd.client.CreateInvitation("test")
@@ -968,10 +970,12 @@ func newPeerDID(t *testing.T) *did.Doc {
 	ctx, err := a.Context()
 	require.NoError(t, err)
 
-	d, err := ctx.VDRIRegistry().Create(
+	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod,
-		vdri.WithServiceType(vdri.DIDCommServiceType),
-		vdri.WithServiceEndpoint("http://agent.example.com/didcomm"),
+		vdr.WithServices(did.Service{
+			Type:            vdr.DIDCommServiceType,
+			ServiceEndpoint: "http://agent.example.com/didcomm",
+		}),
 	)
 	require.NoError(t, err)
 

@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -34,7 +34,7 @@ import (
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
@@ -271,6 +271,7 @@ func TestInvitedState_Execute(t *testing.T) {
 		require.NotNil(t, action)
 	})
 }
+
 func TestRequestedState_Execute(t *testing.T) {
 	prov := getProvider(t)
 	// Alice receives an invitation from Bob
@@ -300,7 +301,6 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx := getContext(t, &prov)
 		msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
 		require.NoError(t, err)
-		// nolint: govet
 		thid, err := msg.ThreadID()
 		require.NoError(t, err)
 		connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -368,10 +368,11 @@ func TestRequestedState_Execute(t *testing.T) {
 			ServiceEndpoint: "http://test.com",
 			RecipientKeys:   []string{expected},
 		}}
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{
 			CreateValue: doc,
 		}
 		ctx.routeSvc = &mockroute.MockMediatorSvc{
+			Connections:    []string{"xyz"},
 			RoutingKeys:    []string{expected},
 			RouterEndpoint: "http://blah.com",
 			AddKeyFunc: func(result string) error {
@@ -381,6 +382,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			},
 		}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			options:    &options{routerConnections: []string{"xyz"}},
 			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
 			connRecord: &connection.Record{},
 		}, "", ctx)
@@ -392,24 +394,26 @@ func TestRequestedState_Execute(t *testing.T) {
 		created := false
 		ctx := getContext(t, &prov)
 		ctx.routeSvc = &mockroute.MockMediatorSvc{
+			Connections:    []string{"xyz"},
 			RouterEndpoint: expected.Endpoint(),
 			RoutingKeys:    expected.Keys(),
 		}
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{
-			CreateFunc: func(_ string, options ...vdri.DocOpts) (*diddoc.Doc, error) {
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{
+			CreateFunc: func(_ string, options ...vdr.DocOpts) (*diddoc.Doc, error) {
 				created = true
-				result := &vdri.CreateDIDOpts{}
+				result := &vdr.CreateDIDOpts{}
 
 				for _, opt := range options {
 					opt(result)
 				}
 
-				require.Equal(t, expected.Keys(), result.RoutingKeys)
-				require.Equal(t, expected.Endpoint(), result.ServiceEndpoint)
+				require.Equal(t, expected.Keys(), result.Services[0].RoutingKeys)
+				require.Equal(t, expected.Endpoint(), result.Services[0].ServiceEndpoint)
 				return createDIDDoc(t, prov.CustomKMS), nil
 			},
 		}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			options:    &options{routerConnections: []string{"xyz"}},
 			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
 			connRecord: &connection.Record{},
 		}, "", ctx)
@@ -429,7 +433,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			RoutingKeys:     nil,
 			ServiceEndpoint: "",
 		}}
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{CreateValue: myDoc}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 		_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: msg,
 			connRecord: &connection.Record{},
@@ -447,7 +451,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			RoutingKeys:     nil,
 			ServiceEndpoint: "",
 		}}
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{CreateValue: myDoc}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 				ID:         uuid.New().String(),
@@ -478,14 +482,17 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.Nil(t, followup)
 	})
 	t.Run("create DID error", func(t *testing.T) {
-		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("create DID error")}}
-		didDoc, err := ctx2.vdriRegistry.Create(testMethod)
+		ctx2 := &context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create DID error")},
+		}
+		didDoc, err := ctx2.vdRegistry.Create(testMethod)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, didDoc)
 	})
 }
+
 func TestRespondedState_Execute(t *testing.T) {
 	prov := getProvider(t)
 	ctx := getContext(t, &prov)
@@ -560,7 +567,7 @@ func TestRespondedState_Execute(t *testing.T) {
 			RoutingKeys:     nil,
 			ServiceEndpoint: "",
 		}}
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{CreateValue: myDoc}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 		_, _, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: bytesToDIDCommMsg(t, requestPayloadBytes),
 			connRecord: &connection.Record{},
@@ -568,6 +575,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
 func TestAbandonedState_Execute(t *testing.T) {
 	t.Run("execute abandon state", func(t *testing.T) {
 		connRec, _, _, err := (&abandoned{}).ExecuteInbound(&stateMachineMsg{
@@ -627,7 +635,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		}
 		err = ctx.connectionStore.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
-		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc()}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc()}
 		require.NoError(t, err)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
@@ -653,7 +661,8 @@ func TestCompletedState_Execute(t *testing.T) {
 			Status: ackStatusOK,
 			Thread: &decorator.Thread{
 				ID: response.Thread.ID,
-			}}
+			},
+		}
 		ackPayloadBytes, e := json.Marshal(ack)
 		require.NoError(t, e)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
@@ -670,7 +679,8 @@ func TestCompletedState_Execute(t *testing.T) {
 
 		for _, msg := range others {
 			_, _, _, err = (&completed{}).ExecuteInbound(&stateMachineMsg{
-				DIDCommMsg: msg}, "", &context{})
+				DIDCommMsg: msg,
+			}, "", &context{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "illegal msg type")
 		}
@@ -838,7 +848,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	ctx := getContext(t, &prov)
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	c := &Connection{
@@ -863,11 +873,12 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cStore)
 
-		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc},
-			crypto:          &tinkcrypto.Crypto{},
-			connectionStore: cStore,
-			kms:             prov.CustomKMS,
+		ctx2 := &context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDidDoc},
+			crypto:             &tinkcrypto.Crypto{},
+			connectionStore:    cStore,
+			kms:                prov.CustomKMS,
 		}
 		connectionSignature, err := ctx2.prepareConnectionSignature(c, newDidDoc.ID)
 		require.NoError(t, err)
@@ -904,8 +915,10 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cStore)
 
-		ctx := &context{crypto: &mockcrypto.Crypto{
-			SignErr: errors.New("sign error")},
+		ctx := &context{
+			crypto: &mockcrypto.Crypto{
+				SignErr: errors.New("sign error"),
+			},
 			connectionStore: cStore,
 			kms:             prov.KMS(),
 		}
@@ -942,8 +955,9 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		cStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
-			connectionStore: cStore}
+			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
+			connectionStore: cStore,
+		}
 		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{publicDID: doc.ID},
 			&connection.Record{})
 		require.NoError(t, err)
@@ -952,8 +966,10 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := protocol.MockProvider{}
-		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), routeSvc: &mockroute.MockMediatorSvc{},
-			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("create DID error")}}
+		ctx := &context{
+			outboundDispatcher: prov.OutboundDispatcher(), routeSvc: &mockroute.MockMediatorSvc{},
+			vdRegistry: &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create DID error")},
+		}
 		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
@@ -976,7 +992,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("unsuccessful new response from request due to create did error", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc()
 		ctx := &context{
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdRegistry: &mockvdr.MockVDRegistry{
 				CreateErr:    fmt.Errorf("create DID error"),
 				ResolveValue: mockdiddoc.GetMockDIDDoc(),
 			},
@@ -994,7 +1010,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, cStore)
 
 		ctx := &context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			crypto:          &mockcrypto.Crypto{SignErr: errors.New("sign error")},
 			connectionStore: cStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
@@ -1010,7 +1026,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.Nil(t, connRec)
 	})
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
-		ctx := &context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolver error")}}
+		ctx := &context{vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")}}
 		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
 		_, _, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
@@ -1051,6 +1067,7 @@ func TestHandleInboundResponse(t *testing.T) {
 		require.Nil(t, connRec)
 	})
 }
+
 func TestGetInvitationRecipientKey(t *testing.T) {
 	prov := getProvider(t)
 	ctx := getContext(t, &prov)
@@ -1071,7 +1088,7 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		doc := mockdiddoc.GetMockDIDDoc()
 		_, ok := diddoc.LookupService(doc, "did-communication")
 		require.True(t, ok)
-		ctx := context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveValue: doc}}
+		ctx := context{vdRegistry: &mockvdr.MockVDRegistry{ResolveValue: doc}}
 		invitation := &Invitation{
 			Type: InvitationMsgType,
 			ID:   randomString(),
@@ -1099,7 +1116,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key by id", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+		newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey(newDidDoc.PublicKey[0].ID, newDidDoc)
 		require.True(t, ok)
@@ -1108,7 +1125,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+		newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey("invalid-key", newDidDoc)
 		require.False(t, ok)
@@ -1123,9 +1140,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		cStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
-			connectionStore: cStore}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID)
+			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
+			connectionStore: cStore,
+		}
+		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 		require.NotNil(t, conn)
@@ -1133,8 +1151,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 	t.Run("error getting public did doc from resolver", func(t *testing.T) {
 		ctx := context{
-			vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolver error")}}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id")
+			vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")},
+		}
+		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 		require.Nil(t, didDoc)
@@ -1155,9 +1174,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
-			connectionStore: cStore}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID)
+			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
+			connectionStore: cStore,
+		}
+		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did error")
 		require.Nil(t, didDoc)
@@ -1165,10 +1185,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 	t.Run("error creating peer did", func(t *testing.T) {
 		ctx := context{
-			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: errors.New("creator error")},
-			routeSvc:     &mockroute.MockMediatorSvc{},
+			vdRegistry: &mockvdr.MockVDRegistry{CreateErr: errors.New("creator error")},
+			routeSvc:   &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "creator error")
 		require.Nil(t, didDoc)
@@ -1178,11 +1198,11 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 		require.NotNil(t, conn)
@@ -1201,11 +1221,11 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did error")
 		require.Nil(t, didDoc)
@@ -1216,11 +1236,14 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
+			routeSvc: &mockroute.MockMediatorSvc{
+				Connections: []string{"xyz"},
+				ConfigErr:   errors.New("router config error"),
+			},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - fetch router config")
 		require.Nil(t, didDoc)
@@ -1231,11 +1254,14 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{AddKeyErr: errors.New("router add key error")},
+			routeSvc: &mockroute.MockMediatorSvc{
+				Connections: []string{"xyz"},
+				AddKeyErr:   errors.New("router add key error"),
+			},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)
@@ -1263,7 +1289,7 @@ func TestGetVerKey(t *testing.T) {
 		invitation := newOOBInvite(publicDID.ID)
 		ctx := &context{
 			connectionStore: connStore(t, testProvider()),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveValue: publicDID,
 			},
 		}
@@ -1291,7 +1317,7 @@ func TestGetVerKey(t *testing.T) {
 		publicDID := createDIDDoc(t, k)
 		ctx := &context{
 			connectionStore: connStore(t, testProvider()),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveValue: publicDID,
 			},
 		}
@@ -1334,11 +1360,11 @@ func TestGetVerKey(t *testing.T) {
 		_, err = ctx.getVerKey(invitation.ID)
 		require.Error(t, err)
 	})
-	t.Run("wraps error from vdri resolution", func(t *testing.T) {
+	t.Run("wraps error from vdr resolution", func(t *testing.T) {
 		expected := errors.New("test")
 		ctx := &context{
 			connectionStore: connStore(t, testProvider()),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{
+			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveErr: expected,
 			},
 		}
@@ -1415,12 +1441,13 @@ func getContext(t *testing.T, prov *protocol.MockProvider) *context {
 	connStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
 
-	return &context{outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
-		crypto:          &tinkcrypto.Crypto{},
-		connectionStore: connStore,
-		routeSvc:        &mockroute.MockMediatorSvc{},
-		kms:             prov.KMS(),
+	return &context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		crypto:             &tinkcrypto.Crypto{},
+		connectionStore:    connStore,
+		routeSvc:           &mockroute.MockMediatorSvc{},
+		kms:                prov.KMS(),
 	}
 }
 
@@ -1454,7 +1481,7 @@ func createRequest(t *testing.T, ctx *context) (*Request, error) {
 }
 
 func createResponse(request *Request, ctx *context) (*Response, error) {
-	didDoc, err := ctx.vdriRegistry.Create(testMethod)
+	didDoc, err := ctx.vdRegistry.Create(testMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -1485,7 +1512,6 @@ func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Re
 	t.Helper()
 
 	response, err := createResponse(request, ctx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -1498,8 +1524,8 @@ func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Re
 		InvitationID:  request.Thread.PID,
 		RecipientKeys: []string{pubKey},
 	}
-	err = ctx.connectionStore.saveConnectionRecord(connRec)
 
+	err = ctx.connectionStore.saveConnectionRecord(connRec)
 	if err != nil {
 		return nil, err
 	}
@@ -1521,8 +1547,8 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
-	err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 
+	err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
 		return nil, err
 	}

@@ -30,9 +30,9 @@ func (m *Mediator) Unregister(request *models.RequestEnvelope) *models.ResponseE
 	return m.createRespEnvelope(request, mediator.UnregisterCommandMethod)
 }
 
-// Connection returns the connectionID of the router.
-func (m *Mediator) Connection(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	return m.createRespEnvelope(request, mediator.GetConnectionIDCommandMethod)
+// Connections returns router`s connections.
+func (m *Mediator) Connections(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return m.createRespEnvelope(request, mediator.GetConnectionsCommandMethod)
 }
 
 // Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator.

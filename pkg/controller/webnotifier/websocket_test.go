@@ -96,8 +96,10 @@ func TestNotifyWS(t *testing.T) {
 		expTopic = "example"
 	)
 
-	payloads := []string{`{"msg":"payload1"}`, `{"msg":"payload2"}`, `{"msg":"payload3"}`,
-		`{"msg":"payload4"}`, `{"msg":"payload5"}`}
+	payloads := []string{
+		`{"msg":"payload1"}`, `{"msg":"payload2"}`, `{"msg":"payload3"}`,
+		`{"msg":"payload4"}`, `{"msg":"payload5"}`,
+	}
 
 	n := NewWSNotifier(path)
 	clientHost := randomURL()
@@ -182,6 +184,7 @@ func TestNotifyWS(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
 func startWSListener(t *testing.T, n *WSNotifier, clientHost string) {
 	const timeout = 2 * time.Second
 

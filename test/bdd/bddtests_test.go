@@ -37,8 +37,10 @@ const (
 	SideTreeURL = "${SIDETREE_URL}"
 )
 
-var composition []*dockerutil.Composition
-var composeFiles = []string{"./fixtures/agent-rest", "./fixtures/sidetree-mock"}
+var (
+	composition  []*dockerutil.Composition
+	composeFiles = []string{"./fixtures/agent-rest", "./fixtures/sidetree-mock"}
+)
 
 // Feature of the aries framework under test.
 type feature interface {

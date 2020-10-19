@@ -23,7 +23,7 @@ import (
 
 var logger = log.New("aries-framework/command/kms")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.KMS)
@@ -33,16 +33,16 @@ const (
 	ImportKeyError
 )
 
-// constants for KMS commands
+// constants for KMS commands.
 const (
-	// command name
+	// command name.
 	CommandName = "kms"
 
-	// command methods
+	// command methods.
 	CreateKeySetCommandMethod = "CreateKeySet"
 	ImportKeyCommandMethod    = "ImportKey"
 
-	// error messages
+	// error messages.
 	errEmptyKeyType = "key type is mandatory"
 	errEmptyKeyID   = "key id is mandatory"
 )
@@ -112,8 +112,8 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 // ImportKey import key.
 func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(req)
 
+	_, err := buf.ReadFrom(req)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))

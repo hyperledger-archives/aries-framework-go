@@ -37,7 +37,7 @@ const (
 	// OverDIDCommMsgRequestType is http over DIDComm request message type.
 	OverDIDCommMsgRequestType = OverDIDCommSpec + "request"
 
-	// error messages
+	// error messages.
 	errNameAndHandleMandatory   = "service name and http request handle is mandatory"
 	errFailedToDecodeMsg        = "unable to decode DID comm message: %w"
 	errFailedToDecodeBody       = "unable to decode message body: %w"

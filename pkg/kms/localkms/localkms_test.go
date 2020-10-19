@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
@@ -38,6 +37,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 const testMasterKeyURI = keywrapper.LocalKeyURIPrefix + "test/key/uri"
@@ -128,7 +128,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
-					ErrPut: putDataErr},
+					ErrPut: putDataErr,
+				},
 			},
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
@@ -277,8 +278,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
 
-		b58KID := base58.Encode([]byte(keyID))
-		ks, ok := storeDB[b58KID]
+		ks, ok := storeDB[prefix.StorageKIDPrefix+keyID]
 		require.True(t, ok)
 		require.NotEmpty(t, ks)
 
@@ -398,7 +398,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 	_, _, err := kmsService.ImportPrivateKey(nil, kms.ECDSAP256TypeDER)
 	require.EqualError(t, err, "import private key does not support this key type or key is public")
 
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName  string
 		keyType kms.KeyType
 		curve   elliptic.Curve
@@ -555,7 +555,8 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(masterKeyContent)})
+		Plaintext: string(masterKeyContent),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, masterLockEnc)
 

@@ -58,13 +58,13 @@ describe("Introduce - Bob sends a response with approve and an out-of-band reque
 })
 
 async function proposalWithRequest(mode) {
-    let alice, bob, carol;
+    let alice, bob, carol, destroy;
     before(async () => {
-        [alice, bob, carol] = await createClients(mode)
+        [alice, bob, carol, destroy] = await createClients(mode)
     })
 
     after(async () => {
-        await destroyClients(mode, alice, bob, carol)
+        await destroy()
     })
 
     let alice_bob, alice_carol;
@@ -105,7 +105,7 @@ async function proposalWithRequest(mode) {
     })
 
     it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
-        request = await bob.outofband.createRequest(createRequest("Bob"))
+        request = await bob.outofband.createRequest(createRequest(bob.routerConnection, "Bob"))
         await bob.introduce.acceptProposalWithOOBRequest({
             piid: (await bobAction).Properties.piid,
             "request": request.request
@@ -115,7 +115,7 @@ async function proposalWithRequest(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
-        let checked = checkConnection(mode, bob, carol, request.request['@id'])
+        let checked = checkConnection(mode, bob, carol, request.request['@id'], bob.routerConnection)
 
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
@@ -124,6 +124,7 @@ async function proposalWithRequest(mode) {
         await carol.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
             label: "Bob",
+            router_connections: carol.routerConnection,
         })
 
         await checked
@@ -131,13 +132,13 @@ async function proposalWithRequest(mode) {
 }
 
 async function proposal(mode) {
-    let alice, bob, carol;
+    let alice, bob, carol, destroy;
     before(async () => {
-        [alice, bob, carol] = await createClients(mode)
+        [alice, bob, carol, destroy] = await createClients(mode)
     })
 
     after(async () => {
-        await destroyClients(mode, alice, bob, carol)
+        await destroy()
     })
 
     let alice_bob, alice_carol;
@@ -172,7 +173,7 @@ async function proposal(mode) {
     })
 
     it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
-        request = await bob.outofband.createRequest(createRequest("Bob"))
+        request = await bob.outofband.createRequest(createRequest(bob.routerConnection, "Bob"))
         await bob.introduce.acceptProposalWithOOBRequest({
             piid: (await bobAction).Properties.piid,
             "request": request.request
@@ -182,7 +183,7 @@ async function proposal(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
-        let checked = checkConnection(mode, bob, carol, request.request['@id'])
+        let checked = checkConnection(mode, bob, carol, request.request['@id'], bob.routerConnection)
 
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
@@ -191,6 +192,7 @@ async function proposal(mode) {
         await carol.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
             label: "Bob",
+            router_connections: carol.routerConnection,
         })
 
         await checked
@@ -198,13 +200,13 @@ async function proposal(mode) {
 }
 
 async function skipProposalWithRequest(mode) {
-    let alice, bob, carol;
+    let alice, bob, carol, destroy;
     before(async () => {
-        [alice, bob, carol] = await createClients(mode)
+        [alice, bob, carol, destroy] = await createClients(mode)
     })
 
     after(async () => {
-        await destroyClients(mode, alice, bob, carol)
+        await destroy()
     })
 
     let alice_bob, alice_carol;
@@ -229,7 +231,7 @@ async function skipProposalWithRequest(mode) {
     let bobAction;
     it("Alice sends introduce proposal back to the requester with public out-of-band request", async function () {
         bobAction = getAction(bob)
-        request = await carol.outofband.createRequest(createRequest("Carol"))
+        request = await carol.outofband.createRequest(createRequest(carol.routerConnection, "Carol"))
         await alice.introduce.acceptRequestWithPublicOOBRequest({
             piid: (await action).Properties.piid,
             "request": request.request, "to": {"name": "Carol", "img~attach": {"content": {}}}
@@ -239,7 +241,7 @@ async function skipProposalWithRequest(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
-        let checked = checkConnection(mode, carol, bob, request.request['@id'])
+        let checked = checkConnection(mode, carol, bob, request.request['@id'], carol.routerConnection)
 
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,
@@ -248,6 +250,7 @@ async function skipProposalWithRequest(mode) {
         await bob.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
             label: "Bob",
+            router_connections: bob.routerConnection,
         })
 
         await checked
@@ -255,13 +258,13 @@ async function skipProposalWithRequest(mode) {
 }
 
 async function skipProposal(mode) {
-    let alice, bob, carol;
+    let alice, bob, carol, destroy;
     before(async () => {
-        [alice, bob, carol] = await createClients(mode)
+        [alice, bob, carol, destroy] = await createClients(mode)
     })
 
     after(async () => {
-        await destroyClients(mode, alice, bob, carol)
+        await destroy()
     })
 
     let alice_bob, alice_carol;
@@ -276,7 +279,7 @@ async function skipProposal(mode) {
         bobAction = getAction(bob)
 
         let conn = await alice.didexchange.queryConnectionByID({id: alice_bob[0]})
-        request = await carol.outofband.createRequest(createRequest("Carol"))
+        request = await carol.outofband.createRequest(createRequest(carol.routerConnection, "Carol"))
 
         await alice.introduce.sendProposalWithOOBRequest({
             "request": request.request,
@@ -291,7 +294,7 @@ async function skipProposal(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
-        let checked = checkConnection(mode, carol, bob, request.request['@id'])
+        let checked = checkConnection(mode, carol, bob, request.request['@id'], carol.routerConnection)
 
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,
@@ -300,49 +303,50 @@ async function skipProposal(mode) {
         await bob.outofband.actionContinue({
             piid: (await outofbandAction).Message['@id'],
             label: "Bob",
+            router_connections: bob.routerConnection,
         })
 
         await checked
     })
 }
 
-function clients(mode) {
+async function clients(mode) {
+    let a, b, c;
     if (mode === restMode) {
-        return Promise.all([
-            newAriesREST(agent1ControllerApiUrl),
-            newAriesREST(agent2ControllerApiUrl),
-            newAriesREST(agent3ControllerApiUrl)
-        ]);
+        a = await newAriesREST(agent1ControllerApiUrl)
+        b = await newAriesREST(agent2ControllerApiUrl)
+        c = await newAriesREST(agent3ControllerApiUrl)
+
+        return [a, b, c]
     }
 
-    return Promise.all([
-        newAries("alice", "alice"),
-        newAries("bob", "bob"),
-        newAries("carol", "carol")
-    ]);
+    a = await newAries("alice", "alice")
+    b = await newAries("bob", "bob")
+    c = await newAries("carol", "carol")
+
+    return [a, b, c]
 }
 
 async function createClients(mode) {
     let [alice, bob, carol] = await clients(mode)
+
     if (mode === wasmMode) {
-        await didExchangeClient.addRouter(mode, alice)
-        await didExchangeClient.addRouter(mode, bob)
-        await didExchangeClient.addRouter(mode, carol)
+        alice.routerConnection = await didExchangeClient.addRouter(mode, alice)
+        bob.routerConnection = await didExchangeClient.addRouter(mode, bob)
+        carol.routerConnection = await didExchangeClient.addRouter(mode, carol)
     }
 
-    return [alice, bob, carol]
-}
+    return [alice, bob, carol, async function() {
+        if (mode === wasmMode) {
+            await alice.mediator.unregister({"connectionID": alice.routerConnection})
+            await bob.mediator.unregister({"connectionID": bob.routerConnection})
+            await carol.mediator.unregister({"connectionID": carol.routerConnection})
+        }
 
-async function destroyClients(mode, alice, bob, carol) {
-    if (mode === wasmMode) {
-        await alice.mediator.unregister()
-        await bob.mediator.unregister()
-        await carol.mediator.unregister()
-    }
-
-    await alice.destroy()
-    await bob.destroy()
-    await carol.destroy()
+        await alice.destroy()
+        await bob.destroy()
+        await carol.destroy()
+    }]
 }
 
 async function getAction(agent) {

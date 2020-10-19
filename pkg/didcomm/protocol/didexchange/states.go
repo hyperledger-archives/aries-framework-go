@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -55,7 +55,7 @@ const (
 
 var errVerKeyNotFound = errors.New("verkey not found")
 
-// state action for network call
+// state action for network call.
 type stateAction func() error
 
 // The did-exchange protocol's state.
@@ -126,7 +126,7 @@ func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*c
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
 
-// null state
+// null state.
 type null struct {
 }
 
@@ -143,7 +143,7 @@ func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (
 	return &connectionstore.Record{}, &noOp{}, nil, nil
 }
 
-// invited state
+// invited state.
 type invited struct {
 }
 
@@ -164,7 +164,7 @@ func (s *invited) ExecuteInbound(msg *stateMachineMsg, _ string, _ *context) (*c
 	return msg.connRecord, &requested{}, func() error { return nil }, nil
 }
 
-// requested state
+// requested state.
 type requested struct {
 }
 
@@ -207,7 +207,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// responded state
+// responded state.
 type responded struct {
 }
 
@@ -243,7 +243,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// completed state
+// completed state.
 type completed struct {
 }
 
@@ -280,7 +280,7 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	}
 }
 
-// abandoned state
+// abandoned state.
 type abandoned struct {
 }
 
@@ -299,7 +299,7 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 
 func (ctx *context) handleInboundOOBInvitation(
 	msg *stateMachineMsg, thid string, options *options) (stateAction, *connectionstore.Record, error) {
-	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, fmt.Errorf("handleInboundOOBInvitation - failed to get diddoc and connection: %w", err)
 	}
@@ -356,7 +356,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 	}
 
 	// get did document that will be used in exchange request
-	didDoc, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	didDoc, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -396,7 +396,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	// get did document that will be used in exchange response
 	// (my did doc)
-	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options))
+	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -445,6 +445,14 @@ func getPublicDID(options *options) string {
 	return options.publicDID
 }
 
+func getRouterConnections(options *options) []string {
+	if options == nil {
+		return nil
+	}
+
+	return options.routerConnections
+}
+
 // returns the label given in the options, otherwise an empty string.
 func getLabel(options *options) string {
 	if options == nil {
@@ -456,7 +464,7 @@ func getLabel(options *options) string {
 
 func (ctx *context) getDestination(invitation *Invitation) (*service.Destination, error) {
 	if invitation.DID != "" {
-		return service.GetDestination(invitation.DID, ctx.vdriRegistry)
+		return service.GetDestination(invitation.DID, ctx.vdRegistry)
 	}
 
 	return &service.Destination{
@@ -466,11 +474,12 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}, nil
 }
 
-func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection, error) {
+// nolint: funlen,gocyclo
+func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []string) (*did.Doc, *Connection, error) {
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
-		didDoc, err := ctx.vdriRegistry.Resolve(pubDID)
+		didDoc, err := ctx.vdRegistry.Resolve(pubDID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
@@ -485,29 +494,42 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
-	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
-	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
+	var services []did.Service
+
+	for _, connID := range routerConnections {
+		// get the route configs (pass empty service endpoint, as default service endpoint added in VDR)
+		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(ctx.routeSvc, connID, "")
+		if err != nil {
+			return nil, nil, fmt.Errorf("did doc - fetch router config: %w", err)
+		}
+
+		services = append(services, did.Service{ServiceEndpoint: serviceEndpoint, RoutingKeys: routingKeys})
+	}
+
+	if len(services) == 0 {
+		services = append(services, did.Service{})
 	}
 
 	// by default use peer did
-	newDidDoc, err := ctx.vdriRegistry.Create(
+	newDidDoc, err := ctx.vdRegistry.Create(
 		didMethod,
-		vdri.WithServiceEndpoint(serviceEndpoint),
-		vdri.WithRoutingKeys(routingKeys),
+		vdr.WithServices(services...),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	svc, ok := did.LookupService(newDidDoc, didCommServiceType)
-	if ok {
-		for _, recKey := range svc.RecipientKeys {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
-			//  recKeys to the Router
-			if err = mediator.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {
-				return nil, nil, fmt.Errorf("did doc - add key to the router: %w", err)
+	if len(routerConnections) != 0 {
+		svc, ok := did.LookupService(newDidDoc, didCommServiceType)
+		if ok {
+			for _, recKey := range svc.RecipientKeys {
+				for _, connID := range routerConnections {
+					// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+					//  recKeys to the Router
+					if err = mediator.AddKeyToRouter(ctx.routeSvc, connID, recKey); err != nil {
+						return nil, nil, fmt.Errorf("did doc - add key to the router: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -529,11 +551,11 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 	didDoc := conn.DIDDoc
 	if didDoc == nil {
 		// did content was not provided; resolve
-		return ctx.vdriRegistry.Resolve(conn.DID)
+		return ctx.vdRegistry.Resolve(conn.DID)
 	}
 
 	// store provided did document
-	err := ctx.vdriRegistry.Store(didDoc)
+	err := ctx.vdRegistry.Store(didDoc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}
@@ -595,8 +617,8 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 			ID: response.Thread.ID,
 		},
 	}
-	nsThID, err := connectionstore.CreateNamespaceKey(myNSPrefix, ack.Thread.ID)
 
+	nsThID, err := connectionstore.CreateNamespaceKey(myNSPrefix, ack.Thread.ID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -607,7 +629,6 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 	}
 
 	conn, err := verifySignature(response.ConnectionSignature, connRecord.RecipientKeys[0])
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -624,7 +645,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, fmt.Errorf("prepare destination from response did doc: %w", err)
 	}
 
-	myDidDoc, err := ctx.vdriRegistry.Resolve(connRecord.MyDID)
+	myDidDoc, err := ctx.vdRegistry.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
@@ -664,7 +685,8 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 
 	err = signatureSuite.Verify(&verifier.PublicKey{
 		Type:  kms.ED25519,
-		Value: pubKey},
+		Value: pubKey,
+	},
 		sigData, signature)
 	if err != nil {
 		return nil, fmt.Errorf("verify signature: %w", err)
@@ -720,7 +742,7 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
 	if invitation.DID != "" {
-		didDoc, err := ctx.vdriRegistry.Resolve(invitation.DID)
+		didDoc, err := ctx.vdRegistry.Resolve(invitation.DID)
 		if err != nil {
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
@@ -769,7 +791,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 
 	switch svc := i.Target.(type) {
 	case string:
-		doc, err := ctx.vdriRegistry.Resolve(svc)
+		doc, err := ctx.vdRegistry.Resolve(svc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve myDID=%s : %w", svc, err)
 		}

@@ -14,8 +14,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
-const securityContext = "https://w3id.org/security/v2"
-const securityContextJWK2020 = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
+const (
+	securityContext        = "https://w3id.org/security/v2"
+	securityContextJWK2020 = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
+)
 
 const (
 	jwtPartsNumber   = 3
@@ -64,7 +66,7 @@ func GetJWTSignature(jwt string) ([]byte, error) {
 
 func getJWTHeader(jwt string) (string, error) {
 	jwtParts := strings.Split(jwt, ".")
-	if len(jwtParts) != jwtPartsNumber { // nolint:gomnd
+	if len(jwtParts) != jwtPartsNumber {
 		return "", errors.New("invalid JWT")
 	}
 

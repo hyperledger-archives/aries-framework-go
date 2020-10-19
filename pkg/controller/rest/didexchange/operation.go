@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for endpoints of DIDExchange
+// constants for endpoints of DIDExchange.
 const (
 	OperationID                  = "/connections"
 	CreateInvitationPath         = OperationID + "/create-invitation"
@@ -37,7 +37,7 @@ const (
 	RemoveConnection             = OperationID + "/{id}/remove"
 )
 
-// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
@@ -127,7 +127,8 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	request := fmt.Sprintf(`{"id":"%s", "public":"%s"}`, id, req.URL.Query().Get("public"))
+	request := fmt.Sprintf(`{"id":"%s", "public":"%s", "router_connections": "%s"}`,
+		id, req.URL.Query().Get("public"), req.URL.Query().Get("router_connections"))
 
 	rest.Execute(c.command.AcceptInvitation, rw, bytes.NewBufferString(request))
 }
@@ -162,7 +163,8 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	request := fmt.Sprintf(`{"id":"%s", "public":"%s"}`, id, req.URL.Query().Get("public"))
+	request := fmt.Sprintf(`{"id":"%s", "public":"%s", "router_connections": "%s"}`,
+		id, req.URL.Query().Get("public"), req.URL.Query().Get("router_connections"))
 
 	rest.Execute(c.command.AcceptExchangeRequest, rw, bytes.NewBufferString(request))
 }

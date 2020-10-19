@@ -24,8 +24,8 @@ type AriesController interface {
 	// GetDIDExchangeController returns an implementation of DIDExchangeController
 	GetDIDExchangeController() (DIDExchangeController, error)
 
-	// GetVDRIController returns an implementation of VDRIController
-	GetVDRIController() (VDRIController, error)
+	// GetVDRController returns an implementation of VDRController
+	GetVDRController() (VDRController, error)
 
 	// GetMediatorController returns an implementation of MediatorController
 	GetMediatorController() (MediatorController, error)
@@ -38,4 +38,10 @@ type AriesController interface {
 
 	// GetKMSController returns an implementation of KMSController
 	GetKMSController() (KMSController, error)
+
+	// RegisterHandler registers handler for handling notifications
+	RegisterHandler(h Handler, topics string) string
+
+	// UnregisterHandler unregisters handler
+	UnregisterHandler(id string)
 }

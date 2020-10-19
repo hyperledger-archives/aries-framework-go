@@ -18,7 +18,6 @@ import (
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddoutofband "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
@@ -171,18 +170,19 @@ func (s *ControllerSteps) sendProposal(introducer, introducee1, introducee2 stri
 	}
 
 	req, err := json.Marshal(introduce.SendProposalArgs{
-		Recipients: []*client.Recipient{{
-			To:       &protocol.To{Name: conn2.TheirLabel},
-			MyDID:    conn1.MyDID,
-			TheirDID: conn1.TheirDID,
-		},
+		Recipients: []*client.Recipient{
+			{
+				To:       &protocol.To{Name: conn2.TheirLabel},
+				MyDID:    conn1.MyDID,
+				TheirDID: conn1.TheirDID,
+			},
 			{
 				To:       &protocol.To{Name: conn1.TheirLabel},
 				MyDID:    conn2.MyDID,
 				TheirDID: conn2.TheirDID,
-			}},
+			},
+		},
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
@@ -254,7 +254,6 @@ func (s *ControllerSteps) sendRequest(introducee1, introducer, introducee2 strin
 		MyDID:             conn.MyDID,
 		TheirDID:          conn.TheirDID,
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
@@ -286,7 +285,6 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 			TheirDID: conn.TheirDID,
 		},
 	})
-
 	if err != nil {
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
@@ -360,7 +358,7 @@ func (s *ControllerSteps) tryOutofbandContinue(agent string) error {
 		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	piid, err := service.DIDCommMsgMap(msg.Message.Message).ThreadID()
+	piid, err := msg.Message.Message.ThreadID()
 	if err != nil {
 		return fmt.Errorf("thread id: %w", err)
 	}

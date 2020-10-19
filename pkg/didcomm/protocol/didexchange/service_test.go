@@ -34,11 +34,11 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const testMethod = "peer"
@@ -67,7 +67,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		_, err := New(
 			&protocol.MockProvider{StoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+			}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
@@ -75,7 +76,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test error from open protocol state store", func(t *testing.T) {
 		_, err := New(
 			&protocol.MockProvider{ProtocolStateStoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store")}})
+				ErrOpenStoreHandle: fmt.Errorf("failed to open protocol state store"),
+			}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open protocol state store")
 	})
@@ -113,13 +115,13 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionStore:    cStore,
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
@@ -268,7 +270,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 	protocolStateStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, store)
-	prov := &protocol.MockProvider{StoreProvider: store,
+	prov := &protocol.MockProvider{
+		StoreProvider:              store,
 		ProtocolStateStoreProvider: protocolStateStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -284,19 +287,19 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionStore:    cStore,
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
 	require.NoError(t, err)
 
-	s.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+	s.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -584,8 +587,10 @@ func TestService_CurrentState(t *testing.T) {
 func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
-	connRec := &connection.Record{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
-		Namespace: findNamespace(RequestMsgType)}
+	connRec := &connection.Record{
+		ThreadID: "123", ConnectionID: "123456", State: s.Name(),
+		Namespace: findNamespace(RequestMsgType),
+	}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 
@@ -629,7 +634,7 @@ func TestCreateConnection(t *testing.T) {
 			InvitationID:    uuid.New().String(),
 			Namespace:       myNSPrefix,
 		}
-		storedInVDRI := false
+		storedInVDR := false
 		storageProvider := &mockprovider.Provider{
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
@@ -638,9 +643,9 @@ func TestCreateConnection(t *testing.T) {
 			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              storageProvider.StorageProvider(),
 			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			VDRegistryValue: &mockvdr.MockVDRegistry{
 				StoreFunc: func(result *did.Doc) error {
-					storedInVDRI = true
+					storedInVDR = true
 					require.Equal(t, theirDID, result)
 
 					return nil
@@ -654,7 +659,7 @@ func TestCreateConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		err = s.CreateConnection(record, theirDID)
-		require.True(t, storedInVDRI)
+		require.True(t, storedInVDR)
 		require.NoError(t, err)
 
 		didConnStore, err := newConnectionStore(provider)
@@ -664,13 +669,13 @@ func TestCreateConnection(t *testing.T) {
 		require.Equal(t, record, result)
 	})
 
-	t.Run("wraps vdri registry error", func(t *testing.T) {
+	t.Run("wraps vdr registry error", func(t *testing.T) {
 		expected := errors.New("test")
 		s, err := New(&mockprovider.Provider{
 			KMSValue:                          &mockkms.KeyManager{},
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			VDRegistryValue: &mockvdr.MockVDRegistry{
 				PutErr: expected,
 			},
 			ServiceMap: map[string]interface{}{
@@ -692,7 +697,7 @@ func TestCreateConnection(t *testing.T) {
 				Store: &mockstorage.MockStore{ErrPut: expected},
 			},
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
-			VDRIRegistryValue:                 &mockvdri.MockVDRIRegistry{},
+			VDRegistryValue:                   &mockvdr.MockVDRegistry{},
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
@@ -711,6 +716,7 @@ type mockStore struct {
 	put    func(string, []byte) error
 	get    func(string) ([]byte, error)
 	delete func(string) error
+	query  func(string) (storage.StoreIterator, error)
 }
 
 // Put stores the key and the record.
@@ -726,6 +732,10 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 // Delete the record based on key.
 func (m *mockStore) Delete(k string) error {
 	return m.delete(k)
+}
+
+func (m *mockStore) Query(query string) (storage.StoreIterator, error) {
+	return m.query(query)
 }
 
 // Search returns storage iterator.
@@ -838,8 +848,9 @@ func continueWithPublicDID(ch chan service.DIDCommAction, pubDID string) {
 }
 
 type testOptions struct {
-	publicDID string
-	label     string
+	publicDID         string
+	label             string
+	routerConnections []string
 }
 
 func (to *testOptions) PublicDID() string {
@@ -848,6 +859,10 @@ func (to *testOptions) PublicDID() string {
 
 func (to *testOptions) Label() string {
 	return to.label
+}
+
+func (to *testOptions) RouterConnections() []string {
+	return to.routerConnections
 }
 
 func TestEventsUserError(t *testing.T) {
@@ -882,8 +897,10 @@ func TestEventsUserError(t *testing.T) {
 	}()
 
 	id := randomString()
-	connRec := &connection.Record{ConnectionID: randomString(), ThreadID: id,
-		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name()}
+	connRec := &connection.Record{
+		ConnectionID: randomString(), ThreadID: id,
+		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name(),
+	}
 
 	err = svc.connectionStore.saveConnectionRecordWithMapping(connRec)
 	require.NoError(t, err)
@@ -1215,7 +1232,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), "", ""))
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), "", "", nil))
 		}
 	}()
 
@@ -1257,10 +1274,10 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	const publicDIDMethod = "sidetree"
 	publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-	newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+	newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 	require.NoError(t, err)
 
-	svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+	svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
@@ -1283,7 +1300,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), publicDID, "sample-label"))
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), publicDID, "sample-label", nil))
 		}
 	}()
 
@@ -1351,7 +1368,7 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDInvited {
-					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", ""))
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", "", nil))
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDRequested {
@@ -1389,7 +1406,7 @@ func TestAcceptInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(generateRandomID(), "", "")
+		err = svc.AcceptInvitation(generateRandomID(), "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
@@ -1413,7 +1430,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "", "")
+		err = svc.AcceptInvitation(id, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
 	})
@@ -1435,7 +1452,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "", "")
+		err = svc.AcceptInvitation(id, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
 	})
@@ -1454,9 +1471,9 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 
 		const publicDIDMethod = "sidetree"
 		publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-		newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+		newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 		require.NoError(t, err)
-		svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+		svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
 
 		actionCh := make(chan service.DIDCommAction, 10)
 		err = svc.RegisterActionEvent(actionCh)
@@ -1485,7 +1502,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDInvited {
-					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label"))
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label", nil))
 				}
 
 				if e.Type == service.PostState && e.StateID == StateIDRequested {
@@ -1523,7 +1540,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get protocol state data : data not found")
 	})
@@ -1547,7 +1564,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
 	})
@@ -1569,7 +1586,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		err = svc.storeEventProtocolStateData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
 	})
@@ -1605,11 +1622,11 @@ func TestEventProtocolStateData(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.AcceptExchangeRequest(generateRandomID(), "", "")
+		err = svc.AcceptExchangeRequest(generateRandomID(), "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 
-		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label")
+		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange request : get protocol state data : data not found")
 	})
@@ -1712,10 +1729,12 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 	require.NoError(t, err)
 	require.NotNil(t, connStore)
 
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
-		connectionStore: connStore}
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
+	ctx := context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+		connectionStore:    connStore,
+	}
+	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
@@ -1756,7 +1775,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDIDDoc},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1765,7 +1784,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		s.ctx = ctx
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1788,7 +1807,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolve error")},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1797,7 +1816,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 		require.Empty(t, connID)
@@ -1824,7 +1843,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDIDDoc},
 			connectionStore:    cStore,
 			routeSvc:           routeSvc,
 		}
@@ -1833,7 +1852,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)
@@ -1851,17 +1870,17 @@ func TestRespondTo(t *testing.T) {
 			Type:            "did-communication",
 			RecipientKeys:   []string{"did:key:1234567"},
 			ServiceEndpoint: "http://example.com",
-		}))
+		}), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
 	t.Run("responds to an implicit invitation", func(t *testing.T) {
 		publicDID := createDIDDoc(t, k)
 		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDID}
+		provider.CustomVDR = &mockvdr.MockVDRegistry{ResolveValue: publicDID}
 		s, err := New(provider)
 		require.NoError(t, err)
-		connID, err := s.RespondTo(newInvitation(publicDID.ID))
+		connID, err := s.RespondTo(newInvitation(publicDID.ID), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1873,7 +1892,7 @@ func TestRespondTo(t *testing.T) {
 			ThreadID:   "",
 			TheirLabel: "test",
 			Target:     "did:example:123",
-		})
+		}, nil)
 		require.Error(t, err)
 	})
 	t.Run("fails if invitation is missing a target", func(t *testing.T) {
@@ -1884,25 +1903,25 @@ func TestRespondTo(t *testing.T) {
 			ThreadID:   uuid.New().String(),
 			TheirLabel: "test",
 			Target:     nil,
-		})
+		}, nil)
 		require.Error(t, err)
 	})
 	t.Run("fails if invitation has an invalid target type", func(t *testing.T) {
 		invalid := &struct{}{}
 		s, err := New(testProvider())
 		require.NoError(t, err)
-		_, err = s.RespondTo(newInvitation(invalid))
+		_, err = s.RespondTo(newInvitation(invalid), nil)
 		require.Error(t, err)
 	})
-	t.Run("wraps error from vdri registry when resolving DID", func(t *testing.T) {
+	t.Run("wraps error from vdr registry when resolving DID", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{
+		provider.CustomVDR = &mockvdr.MockVDRegistry{
 			ResolveErr: expected,
 		}
 		s, err := New(provider)
 		require.NoError(t, err)
-		_, err = s.RespondTo(newInvitation("did:example:123"))
+		_, err = s.RespondTo(newInvitation("did:example:123"), nil)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})

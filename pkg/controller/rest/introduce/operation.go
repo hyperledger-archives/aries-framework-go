@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for operation introduce
+// constants for operation introduce.
 const (
 	OperationID                       = "/introduce"
 	Actions                           = OperationID + "/actions"

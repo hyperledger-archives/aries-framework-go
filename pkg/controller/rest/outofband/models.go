@@ -19,10 +19,11 @@ import (
 type outofbandCreateRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Label    string        `json:"label"`
-		Goal     string        `json:"goal"`
-		GoalCode string        `json:"goal_code"`
-		Service  []interface{} `json:"service"`
+		Label              string        `json:"label"`
+		Goal               string        `json:"goal"`
+		GoalCode           string        `json:"goal_code"`
+		Service            []interface{} `json:"service"`
+		RouterConnectionID string        `json:"router_connection_id"`
 		// Attachments is intended to provide the possibility to include files, links or even JSON payload to the message.
 		// required: true
 		Attachments []*decorator.Attachment `json:"attachments"`
@@ -49,11 +50,12 @@ type outofbandCreateRequestResponse struct { // nolint: unused,deadcode
 type outofbandCreateInvitationRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Label     string        `json:"label"`
-		Goal      string        `json:"goal"`
-		GoalCode  string        `json:"goal_code"`
-		Service   []interface{} `json:"service"`
-		Protocols []string      `json:"protocols"`
+		Label              string        `json:"label"`
+		Goal               string        `json:"goal"`
+		GoalCode           string        `json:"goal_code"`
+		Service            []interface{} `json:"service"`
+		Protocols          []string      `json:"protocols"`
+		RouterConnectionID string        `json:"router_connection_id"`
 	}
 }
 
@@ -77,8 +79,9 @@ type outofbandCreateInvitationResponse struct { // nolint: unused,deadcode
 type outofbandAcceptRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Request struct{ *protocol.Request } `json:"request"`
-		MyLabel string                      `json:"my_label"`
+		Request           struct{ *protocol.Request } `json:"request"`
+		MyLabel           string                      `json:"my_label"`
+		RouterConnections string                      `json:"router_connections"`
 	}
 }
 
@@ -102,8 +105,9 @@ type outofbandAcceptRequestResponse struct { // nolint: unused,deadcode
 type outofbandAcceptInvitationRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Invitation struct{ *protocol.Invitation } `json:"invitation"`
-		MyLabel    string                         `json:"my_label"`
+		Invitation        struct{ *protocol.Invitation } `json:"invitation"`
+		MyLabel           string                         `json:"my_label"`
+		RouterConnections string                         `json:"router_connections"`
 	}
 }
 
@@ -151,6 +155,8 @@ type outofbandActionContinueRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	Label string `json:"label"`
+
+	RouterConnections string `json:"router_connections"`
 }
 
 // outofbandActionContinueResponse model

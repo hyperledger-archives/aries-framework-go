@@ -29,20 +29,28 @@ const (
 func TestSendError(t *testing.T) {
 	t.Run("Test sending HTTP status codes", func(t *testing.T) {
 		const errMsg = "here is the sample which I want to write to response"
-		var errors = []struct {
+		errors := []struct {
 			err        error
 			errCode    command.Code
 			statusCode int
 			response   genericErrorBody
 		}{
-			{fmt.Errorf(errMsg), sampleErr1, http.StatusOK,
-				genericErrorBody{Code: sampleErr1, Message: errMsg}},
-			{fmt.Errorf(errMsg), sampleErr2, http.StatusForbidden,
-				genericErrorBody{Code: sampleErr2, Message: errMsg}},
-			{fmt.Errorf(errMsg), sampleErr3, http.StatusNotAcceptable,
-				genericErrorBody{Code: sampleErr3, Message: errMsg}},
-			{fmt.Errorf(errMsg), sampleErr4, http.StatusNoContent,
-				genericErrorBody{Code: sampleErr4, Message: errMsg}},
+			{
+				fmt.Errorf(errMsg), sampleErr1, http.StatusOK,
+				genericErrorBody{Code: sampleErr1, Message: errMsg},
+			},
+			{
+				fmt.Errorf(errMsg), sampleErr2, http.StatusForbidden,
+				genericErrorBody{Code: sampleErr2, Message: errMsg},
+			},
+			{
+				fmt.Errorf(errMsg), sampleErr3, http.StatusNotAcceptable,
+				genericErrorBody{Code: sampleErr3, Message: errMsg},
+			},
+			{
+				fmt.Errorf(errMsg), sampleErr4, http.StatusNoContent,
+				genericErrorBody{Code: sampleErr4, Message: errMsg},
+			},
 		}
 
 		for _, data := range errors {
@@ -62,19 +70,27 @@ func TestSendError(t *testing.T) {
 
 	t.Run("Test sending command errors", func(t *testing.T) {
 		const errMsg = "here is the sample which I want to write to response"
-		var errors = []struct {
+		errors := []struct {
 			err        command.Error
 			statusCode int
 			response   genericErrorBody
 		}{
-			{command.NewValidationError(sampleErr1, fmt.Errorf(errMsg)), http.StatusBadRequest,
-				genericErrorBody{Code: sampleErr1, Message: errMsg}},
-			{command.NewExecuteError(sampleErr2, fmt.Errorf(errMsg)), http.StatusInternalServerError,
-				genericErrorBody{Code: sampleErr2, Message: errMsg}},
-			{command.NewValidationError(sampleErr3, fmt.Errorf(errMsg)), http.StatusBadRequest,
-				genericErrorBody{Code: sampleErr3, Message: errMsg}},
-			{command.NewExecuteError(sampleErr4, fmt.Errorf(errMsg)), http.StatusInternalServerError,
-				genericErrorBody{Code: sampleErr4, Message: errMsg}},
+			{
+				command.NewValidationError(sampleErr1, fmt.Errorf(errMsg)), http.StatusBadRequest,
+				genericErrorBody{Code: sampleErr1, Message: errMsg},
+			},
+			{
+				command.NewExecuteError(sampleErr2, fmt.Errorf(errMsg)), http.StatusInternalServerError,
+				genericErrorBody{Code: sampleErr2, Message: errMsg},
+			},
+			{
+				command.NewValidationError(sampleErr3, fmt.Errorf(errMsg)), http.StatusBadRequest,
+				genericErrorBody{Code: sampleErr3, Message: errMsg},
+			},
+			{
+				command.NewExecuteError(sampleErr4, fmt.Errorf(errMsg)), http.StatusInternalServerError,
+				genericErrorBody{Code: sampleErr4, Message: errMsg},
+			},
 		}
 
 		for _, data := range errors {
@@ -108,7 +124,7 @@ func TestExecute(t *testing.T) {
 	require.Contains(t, rw.Body.String(), `{"code":1,"message":"sample"}`)
 }
 
-// mockRWriter to recreate response writer error scenario
+// mockRWriter to recreate response writer error scenario.
 type mockRWriter struct {
 }
 

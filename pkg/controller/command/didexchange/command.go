@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -26,11 +27,11 @@ import (
 
 var logger = log.New("aries-framework/controller/did-exchange")
 
-// constants for endpoints of DIDExchange
+// constants for endpoints of DIDExchange.
 const (
 	CommandName = "didexchange"
 
-	// error messages
+	// error messages.
 	errEmptyInviterDID = "empty inviter DID"
 	errEmptyConnID     = "empty connection ID"
 
@@ -44,7 +45,7 @@ const (
 	CreateConnectionCommandMethod         = "CreateConnection"
 	RemoveConnectionCommandMethod         = "RemoveConnection"
 
-	// log constants
+	// log constants.
 	connectionIDString = "connectionID"
 	successString      = "success"
 	invitationIDString = "invitationID"
@@ -83,7 +84,7 @@ const (
 	_states  = "_states"
 )
 
-// provider contains dependencies for the DID Exchange command and is typically created by using aries.Context()
+// provider contains dependencies for the DID Exchange command and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
@@ -176,6 +177,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -184,17 +186,20 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	if request.Public != "" {
 		invitation, err = c.client.CreateInvitationWithDID(c.defaultLabel, request.Public)
 	} else {
-		invitation, err = c.client.CreateInvitation(c.defaultLabel)
+		invitation, err = c.client.CreateInvitation(c.defaultLabel,
+			didexchange.WithRouterConnectionID(request.RouterConnectionID))
 	}
 
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitationCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &CreateInvitationResponse{
 		Invitation: invitation,
-		Alias:      request.Alias},
+		Alias:      request.Alias,
+	},
 		logger)
 
 	logutil.LogDebug(logger, CommandName, CreateInvitationCommandMethod, successString,
@@ -210,6 +215,7 @@ func (c *Command) ReceiveInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request.Invitation)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ReceiveInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -242,18 +248,22 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, AcceptInvitationCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	err = c.client.AcceptInvitation(request.ID, request.Public, c.defaultLabel)
+	err = c.client.AcceptInvitation(request.ID, request.Public, c.defaultLabel,
+		didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitationCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
@@ -274,11 +284,13 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateImplicitInvitationCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.InviterDID == "" {
 		logutil.LogDebug(logger, CommandName, CreateImplicitInvitationCommandMethod, errEmptyInviterDID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyInviterDID))
 	}
 
@@ -293,11 +305,13 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 		invitee := &didexchange.DIDInfo{DID: request.InviteeDID, Label: request.InviteeLabel}
 		id, err = c.client.CreateImplicitInvitationWithDID(inviter, invitee)
 	} else {
-		id, err = c.client.CreateImplicitInvitation(inviter.Label, inviter.DID)
+		id, err = c.client.CreateImplicitInvitation(inviter.Label, inviter.DID,
+			didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	}
 
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateImplicitInvitationCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateImplicitInvitationErrorCode, err)
 	}
 
@@ -317,6 +331,7 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptExchangeRequestCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -324,10 +339,12 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	err = c.client.AcceptExchangeRequest(request.ID, request.Public, c.defaultLabel)
+	err = c.client.AcceptExchangeRequest(request.ID, request.Public,
+		c.defaultLabel, didexchange.WithRouterConnections(strings.Split(request.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptExchangeRequestCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(AcceptExchangeRequestErrorCode, err)
 	}
 
@@ -348,12 +365,14 @@ func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, QueryConnectionsCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	results, err := c.client.QueryConnections(&request.QueryConnectionsParams)
 	if err != nil {
 		logutil.LogError(logger, CommandName, QueryConnectionsCommandMethod, err.Error())
+
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
@@ -373,11 +392,13 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, QueryConnectionByIDCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, QueryConnectionByIDCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -385,6 +406,7 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 	if err != nil {
 		logutil.LogError(logger, CommandName, QueryConnectionByIDCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
@@ -405,12 +427,14 @@ func (c *Command) CreateConnection(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	theirDID, err := did.ParseDocument(request.TheirDID.Contents)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -423,6 +447,7 @@ func (c *Command) CreateConnection(rw io.Writer, req io.Reader) command.Error {
 		didexchange.WithThreadID(request.ThreadID))
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateConnectionCommandMethod, err.Error())
+
 		return command.NewExecuteError(CreateConnectionErrorCode, err)
 	}
 
@@ -443,11 +468,13 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, RemoveConnectionCommandMethod, err.Error())
+
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, RemoveConnectionCommandMethod, errEmptyConnID)
+
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -457,6 +484,7 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 	if err != nil {
 		logutil.LogError(logger, CommandName, RemoveConnectionCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 		return command.NewExecuteError(RemoveConnectionErrorCode, err)
 	}
 

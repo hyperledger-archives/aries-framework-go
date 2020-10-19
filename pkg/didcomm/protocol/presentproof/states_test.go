@@ -522,7 +522,7 @@ func TestProposePresentationReceived_Execute(t *testing.T) {
 func notTransition(t *testing.T, st state) {
 	t.Helper()
 
-	var allState = [...]state{
+	allState := [...]state{
 		// common states
 		&start{}, &abandoned{}, &done{}, &noOp{},
 		// states for Verifier

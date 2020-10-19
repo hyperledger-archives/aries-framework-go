@@ -19,10 +19,10 @@ jobs:
         os: [ubuntu-18.04, macOS-10.15]
     steps:
 
-    - name: Setup Go 1.14
+    - name: Setup Go 1.15
       uses: actions/setup-go@v2
       with:
-        go-version: 1.14
+        go-version: 1.15
       id: go
 
     - uses: actions/checkout@v2
@@ -34,9 +34,9 @@ jobs:
     - name: Upload coverage to Codecov
       timeout-minutes: 10
       if: matrix.os == 'ubuntu-18.04' && github.repository == 'hyperledger/aries-framework-go'
-      uses: codecov/codecov-action@v1.0.6
+      uses: codecov/codecov-action@v1.0.13
       with:
-        file: ./coverage.txt
+        file: ./coverage.out
 
   unitTestWasm:
     name: Unit test wasm
@@ -44,10 +44,10 @@ jobs:
     timeout-minutes: 10
     steps:
 
-      - name: Setup Go 1.14
+      - name: Setup Go 1.15
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.15
         id: go
 
       - uses: actions/checkout@v2
@@ -59,17 +59,17 @@ jobs:
   bddTest:
     name: BDD test
     runs-on: ubuntu-18.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
 
-      - name: Setup Go 1.14
+      - name: Setup Go 1.15
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.15
         id: go
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1.4.0
+        uses: actions/setup-node@v1.4.4
         with:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run BDD test
-        timeout-minutes: 20
+        timeout-minutes: 25
         run: |
           function logout {
             docker logout docker.pkg.github.com
@@ -91,10 +91,10 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-18.04
     steps:
-      - name: Setup Go 1.14
+      - name: Setup Go 1.15
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.15
 
       - uses: actions/checkout@v2
 
@@ -109,10 +109,10 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 10
     steps:
-      - name: Setup Go 1.14
+      - name: Setup Go 1.15
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.15
         id: go
 
       - name: Setup Node.js

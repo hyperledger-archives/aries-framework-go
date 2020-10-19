@@ -6,7 +6,7 @@
 #
 set -e
 
-DEMO_COMPOSE_OP="${DEMO_COMPOSE_OP:-up --force-recreate}"
+DEMO_COMPOSE_OP="${DEMO_COMPOSE_OP:-up --force-recreate -d}"
 COMPOSE_FILES="${DEMO_COMPOSE_FILES}"
 DEMO_PATH="$PWD/${DEMO_COMPOSE_PATH}"
 AGENT_PATH="${AGENT_REST_COMPOSE_PATH}"
@@ -27,8 +27,8 @@ set -o allexport
 set +o allexport
 
 cd $AGENT_COMPOSE_FILE
-docker-compose -f docker-compose.yml  ${DEMO_COMPOSE_OP} -d
+docker-compose -f docker-compose.yml  ${DEMO_COMPOSE_OP}
 cd $SIDETREE_COMPOSE_FILE
-docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP} -d
+docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP}
 cd $DEMO_PATH
-docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP} -d
+docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP}

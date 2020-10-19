@@ -142,10 +142,12 @@ const validDocV011 = `{
   "created": "2002-10-10T17:00:00Z"
 }`
 
-const did = "did:method:abc"
-const creator = did + "#key-1"
-const keyType = "Ed25519VerificationKey2018"
-const signatureType = "Ed25519Signature2018"
+const (
+	did           = "did:method:abc"
+	creator       = did + "#key-1"
+	keyType       = "Ed25519VerificationKey2018"
+	signatureType = "Ed25519Signature2018"
+)
 
 const missingPubKeyID = "did:example:123456789abcdefghs#key4"
 
@@ -188,29 +190,38 @@ func TestValid(t *testing.T) {
 				ID:         "did:example:123456789abcdefghs#key3",
 				Controller: "did:example:123456789abcdefghs",
 				Type:       "RsaVerificationKey2018",
-				Value:      hexDecodeValue}, Relationship: Authentication, Embedded: true}}
+				Value:      hexDecodeValue,
+			}, Relationship: Authentication, Embedded: true},
+		}
 		require.Equal(t, eAuthentication, doc.Authentication)
 
 		// test public key
 		ePubKey := []PublicKey{
-			{ID: "did:example:123456789abcdefghi#keys-1",
+			{
+				ID:         "did:example:123456789abcdefghi#keys-1",
 				Controller: "did:example:123456789abcdefghi",
 				Type:       "Secp256k1VerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
-			{ID: "did:example:123456789abcdefghw#key2",
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+			},
+			{
+				ID:         "did:example:123456789abcdefghw#key2",
 				Controller: "did:example:123456789abcdefghw",
 				Type:       "RsaVerificationKey2018",
-				Value:      block.Bytes}}
+				Value:      block.Bytes,
+			},
+		}
 		require.Equal(t, ePubKey, doc.PublicKey)
 
 		// test services
 		eServices := []Service{
-			{ID: "did:example:123456789abcdefghi#inbox",
+			{
+				ID:              "did:example:123456789abcdefghi#inbox",
 				Type:            "SocialWebInboxService",
 				ServiceEndpoint: "https://social.example.com/83hfh37dj",
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
-			{ID: "did:example:123456789abcdefghi#did-communication",
+			{
+				ID:              "did:example:123456789abcdefghi#did-communication",
 				Type:            "did-communication",
 				Priority:        0,
 				RecipientKeys:   []string{"did:example:123456789abcdefghi#key2"},
@@ -241,12 +252,14 @@ func TestValidWithProof(t *testing.T) {
 		nonce, err := base64.RawURLEncoding.DecodeString("")
 		require.NoError(t, err)
 
-		eProof := Proof{Type: "Ed25519Signature2018",
+		eProof := Proof{
+			Type:       "Ed25519Signature2018",
 			Created:    &created,
 			Creator:    "did:method:abc#key-1",
 			ProofValue: proofValue,
 			Domain:     "",
-			Nonce:      nonce}
+			Nonce:      nonce,
+		}
 		require.Equal(t, []Proof{eProof}, doc.Proof)
 
 		byteDoc, err := doc.JSONBytes()
@@ -1450,8 +1463,10 @@ func createSignedDidDocument(privKey, pubKey []byte) []byte {
 		panic(err)
 	}
 
-	context := &signer.Context{Creator: creator,
-		SignatureType: signatureType}
+	context := &signer.Context{
+		Creator:       creator,
+		SignatureType: signatureType,
+	}
 
 	s := signer.New(ed25519signature2018.New(
 		suite.WithSigner(getSigner(privKey))))

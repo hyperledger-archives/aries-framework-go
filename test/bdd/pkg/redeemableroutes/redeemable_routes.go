@@ -38,6 +38,7 @@ type BDDSteps struct {
 	routeSdk       *bddroute.SDKSteps
 	proposals      map[string]*introClient.Recipient
 	goalCode       string
+	connectionID   string
 	redeemableCode string
 	redeemableOpts *mediator.Options
 	introClients   map[string]*introClient.Client
@@ -240,6 +241,13 @@ func (b *BDDSteps) bobConnectsWithRouterAndRequestsRoute(bob, router string) err
 		return fmt.Errorf("failed to confirm connection status between %s and %s : %w", router, bob, err)
 	}
 
+	conn, err := b.oobSdk.GetConnection(bob, router)
+	if err != nil {
+		return fmt.Errorf("failed to get connection between %s and %s : %w", router, bob, err)
+	}
+
+	b.connectionID = conn.ConnectionID
+
 	return nil
 }
 
@@ -266,7 +274,7 @@ func (b *BDDSteps) routerConfirmsCodeAndApprovesRequest(router string) error {
 }
 
 func (b *BDDSteps) bobConfirmsGrant(bob, serviceEndpoint, routingKey string) error {
-	config, err := b.routeSdk.GetRoutingConfig(bob, timeout)
+	config, err := b.routeSdk.GetRoutingConfig(bob, b.connectionID, timeout)
 	if err != nil {
 		return err
 	}

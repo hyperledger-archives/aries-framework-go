@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -22,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -31,7 +32,7 @@ import (
 
 var logger = log.New("aries-framework/route/service")
 
-// constants for route coordination spec types
+// constants for route coordination spec types.
 const (
 	// Coordination route coordination protocol.
 	Coordination = "coordinatemediation"
@@ -55,29 +56,31 @@ const (
 // constants for key list update processing
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update
 const (
-	// add key to the store
+	// add key to the store.
 	add = "add"
 
-	// remove key from the store
+	// remove key from the store.
 	remove = "remove"
 
-	// server error while storing the key
+	// server error while storing the key.
 	serverError = "server_error"
 
-	// key save success
+	// key save success.
 	success = "success"
 )
 
 const (
-	// data key to store router connection ID
-	routeConnIDDataKey = "route-connID"
+	// data key to store router connection ID.
+	routeConnIDDataKey = "route_connID_%s"
 
-	// data key to store router config
-	routeConfigDataKey = "route-config"
+	// data key to store router config.
+	routeConfigDataKey = "route_config_%s"
+
+	routeGrantKey = "grant_%s"
 )
 
 const (
-	updateTimeout = 5 * time.Second
+	updateTimeout = 10 * time.Second
 )
 
 // ErrConnectionNotFound connection not found error.
@@ -86,14 +89,14 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // ErrRouterNotRegistered router not registered error.
 var ErrRouterNotRegistered = errors.New("router not registered")
 
-// provider contains dependencies for the Routing protocol and is typically created by using aries.Context()
+// provider contains dependencies for the Routing protocol and is typically created by using aries.Context().
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	RouterEndpoint() string
 	KMS() kms.KeyManager
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	Service(id string) (interface{}, error)
 }
 
@@ -129,18 +132,16 @@ type connections interface {
 type Service struct {
 	service.Action
 	service.Message
-	routeStore               storage.Store
-	connectionLookup         connections
-	outbound                 dispatcher.Outbound
-	endpoint                 string
-	kms                      kms.KeyManager
-	vdRegistry               vdri.Registry
-	routeRegistrationMap     map[string]chan Grant
-	routeRegistrationMapLock sync.RWMutex
-	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
-	keylistUpdateMapLock     sync.RWMutex
-	callbacks                chan *callback
-	messagePickupSvc         messagepickup.ProtocolService
+	routeStore           storage.Store
+	connectionLookup     connections
+	outbound             dispatcher.Outbound
+	endpoint             string
+	kms                  kms.KeyManager
+	vdRegistry           vdr.Registry
+	keylistUpdateMap     map[string]chan *KeylistUpdateResponse
+	keylistUpdateMapLock sync.RWMutex
+	callbacks            chan *callback
+	messagePickupSvc     messagepickup.ProtocolService
 }
 
 // New return route coordination service.
@@ -166,16 +167,15 @@ func New(prov provider) (*Service, error) {
 	}
 
 	s := &Service{
-		routeStore:           store,
-		outbound:             prov.OutboundDispatcher(),
-		endpoint:             prov.RouterEndpoint(),
-		kms:                  prov.KMS(),
-		vdRegistry:           prov.VDRIRegistry(),
-		connectionLookup:     connectionLookup,
-		routeRegistrationMap: make(map[string]chan Grant),
-		keylistUpdateMap:     make(map[string]chan *KeylistUpdateResponse),
-		callbacks:            make(chan *callback),
-		messagePickupSvc:     messagePickupSvc,
+		routeStore:       store,
+		outbound:         prov.OutboundDispatcher(),
+		endpoint:         prov.RouterEndpoint(),
+		kms:              prov.KMS(),
+		vdRegistry:       prov.VDRegistry(),
+		connectionLookup: connectionLookup,
+		keylistUpdateMap: make(map[string]chan *KeylistUpdateResponse),
+		callbacks:        make(chan *callback),
+		messagePickupSvc: messagePickupSvc,
 	}
 
 	go s.listenForCallbacks()
@@ -189,6 +189,7 @@ func (s *Service) listenForCallbacks() {
 
 		if c.err != nil {
 			go s.handleUserRejection(c)
+
 			continue
 		}
 
@@ -262,12 +263,12 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}
 
 	// perform action on inbound message asynchronously
-	go func() {
+	go func(msg service.DIDCommMsg) {
 		var err error
 
 		switch msg.Type() {
 		case GrantMsgType:
-			err = s.handleGrant(msg)
+			err = s.saveGrant(msg)
 		case KeylistUpdateMsgType:
 			err = s.handleKeylistUpdate(msg, myDID, theirDID)
 		case KeylistUpdateResponseMsgType:
@@ -299,7 +300,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 				logutil.CreateKeyValueString("msgID", msg.ID()),
 				connectionIDLog)
 		}
-	}()
+	}(msg.Clone())
 
 	return msg.ID(), nil
 }
@@ -389,28 +390,6 @@ func outboundGrant(
 	}
 
 	return grant, nil
-}
-
-func (s *Service) handleGrant(msg service.DIDCommMsg) error {
-	// unmarshal the payload
-	grantMsg := &Grant{}
-
-	err := msg.Decode(grantMsg)
-	if err != nil {
-		return fmt.Errorf("route grant message unmarshal : %w", err)
-	}
-
-	// check if there are any channels registered for the message ID
-	grantCh := s.getRouteRegistrationCh(grantMsg.ID)
-
-	if grantCh == nil {
-		logger.Warnf("no channels awaiting grant with msgID=%s", grantMsg.ID)
-		return nil
-	}
-
-	grantCh <- *grantMsg
-
-	return nil
 }
 
 func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID string) error {
@@ -521,7 +500,7 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 func (s *Service) Register(connectionID string, options ...ClientOption) error {
 	record, err := s.getConnection(connectionID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get connection: %w", err)
 	}
 
 	opts := parseClientOpts(options...)
@@ -537,83 +516,114 @@ func (s *Service) Register(connectionID string, options ...ClientOption) error {
 	)
 }
 
-// TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Register agent with
-//  multiple routers
 func (s *Service) doRegistration(record *connection.Record, req *Request, timeout time.Duration) error {
 	// check if router is already registered
-	routerConnID, err := s.getRouterConnectionID()
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return fmt.Errorf("fetch router connection id : %w", err)
-	}
-
-	if routerConnID != "" {
+	err := s.ensureConnectionExists(record.ConnectionID)
+	if err == nil {
 		return errors.New("router is already registered")
 	}
 
-	msgID := req.ID
-
-	// register chan for callback processing
-	grantCh := make(chan Grant)
-	s.setRouteRegistrationCh(msgID, grantCh)
+	if !errors.Is(err, ErrRouterNotRegistered) {
+		return fmt.Errorf("ensure connection exists: %w", err)
+	}
 
 	// TODO: would this be better served as time.Now().Add(timeout).Unix() as pkg/doc/verifiable/credential.go
 	// demonstrates? additionally `ExpiresTime` would need to be migrated to int64
 	req.ExpiresTime = time.Now().UTC().Add(timeout)
 
 	// send message to the router
-	if err := s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
+	if err = s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
 		return fmt.Errorf("send route request: %w", err)
 	}
 
-	// callback processing (to make this function look like a sync function)
-	select {
-	case grantResp := <-grantCh:
-		conf := &config{
-			RouterEndpoint: grantResp.Endpoint,
-			RoutingKeys:    grantResp.RoutingKeys,
-		}
-
-		if err := s.saveRouterConfig(conf); err != nil {
-			return fmt.Errorf("save route config : %w", err)
-		}
-	case <-time.After(timeout):
-		return errors.New("timeout waiting for grant from the router")
+	var grant *Grant
+	// waits until the mediate-grant message is received or timeout was exceeded
+	grant, err = s.getGrant(req.ID, timeout)
+	if err != nil {
+		return fmt.Errorf("get grant: %w", err)
 	}
 
-	// remove the channel once its been processed
-	s.setRouteRegistrationCh(msgID, nil)
+	err = s.saveRouterConfig(record.ConnectionID, &config{
+		RouterEndpoint: grant.Endpoint,
+		RoutingKeys:    grant.RoutingKeys,
+	})
+	if err != nil {
+		return fmt.Errorf("save route config : %w", err)
+	}
 
 	// save the connectionID of the router
 	return s.saveRouterConnectionID(record.ConnectionID)
 }
 
+func (s *Service) getGrant(id string, timeout time.Duration) (*Grant, error) {
+	var (
+		src []byte
+		err error
+	)
+
+	err = backoff.Retry(func() error {
+		src, err = s.routeStore.Get(fmt.Sprintf(routeGrantKey, id))
+
+		return err
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), uint64(timeout/time.Second)))
+
+	if err != nil {
+		return nil, fmt.Errorf("store: %w", err)
+	}
+
+	var grant *Grant
+
+	err = json.Unmarshal(src, &grant)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal grant: %w", err)
+	}
+
+	return grant, nil
+}
+
+func (s *Service) saveGrant(grant service.DIDCommMsg) error {
+	src, err := json.Marshal(grant)
+	if err != nil {
+		return fmt.Errorf("marshal grant: %w", err)
+	}
+
+	return s.routeStore.Put(fmt.Sprintf(routeGrantKey, grant.ID()), src)
+}
+
 // Unregister unregisters the agent with the router.
-func (s *Service) Unregister() error {
+func (s *Service) Unregister(connID string) error {
 	// check if router is already registered
-	_, err := s.getRouterConnectionID()
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return fmt.Errorf("fetch router connection id : %w", err)
-	} else if errors.Is(err, storage.ErrDataNotFound) {
-		return ErrRouterNotRegistered
+	err := s.ensureConnectionExists(connID)
+	if err != nil {
+		return fmt.Errorf("ensure connection exists: %w", err)
 	}
 
 	// TODO Remove all the recKeys from the router
 	//  https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update-response
 
-	// reset the connectionID
-	return s.saveRouterConnectionID("")
+	// deletes the connectionID
+	return s.deleteRouterConnectionID(connID)
 }
 
-// GetConnection returns the connectionID of the router.
-func (s *Service) GetConnection() (string, error) {
-	routerConnID, err := s.getRouterConnectionID()
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return "", fmt.Errorf("fetch router connection id : %w", err)
-	} else if errors.Is(err, storage.ErrDataNotFound) || routerConnID == "" {
-		return "", ErrRouterNotRegistered
+// GetConnections returns the connections of the router.
+func (s *Service) GetConnections() ([]string, error) {
+	records := s.routeStore.Iterator(
+		fmt.Sprintf(routeConnIDDataKey, ""),
+		fmt.Sprintf(routeConnIDDataKey, storage.EndKeySuffix),
+	)
+	defer records.Release()
+
+	var conns []string
+
+	for records.Next() {
+		conns = append(conns, string(records.Value()))
 	}
 
-	return routerConnID, nil
+	if records.Error() != nil {
+		return nil, records.Error()
+	}
+
+	return conns, nil
 }
 
 // AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
@@ -621,21 +631,17 @@ func (s *Service) GetConnection() (string, error) {
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
 //  recKeys to the Router
-func (s *Service) AddKey(recKey string) error {
+func (s *Service) AddKey(connID, recKey string) error {
 	// check if router is already registered
-	routerConnID, err := s.getRouterConnectionID()
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return fmt.Errorf("fetch router connection id : %w", err)
-	}
-
-	if routerConnID == "" {
-		return ErrRouterNotRegistered
+	err := s.ensureConnectionExists(connID)
+	if err != nil {
+		return fmt.Errorf("ensure connection exists: %w", err)
 	}
 
 	// get the connection record for the ID to fetch DID information
-	conn, err := s.getConnection(routerConnID)
+	conn, err := s.getConnection(connID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get connection: %w", err)
 	}
 
 	// generate message ID
@@ -676,13 +682,13 @@ func (s *Service) AddKey(recKey string) error {
 }
 
 // Config fetches the router config - endpoint and routingKeys.
-func (s *Service) Config() (*Config, error) {
+func (s *Service) Config(connID string) (*Config, error) {
 	// check if router is already registered
-	if _, err := s.GetConnection(); err != nil {
-		return nil, err
+	if err := s.ensureConnectionExists(connID); err != nil {
+		return nil, fmt.Errorf("ensure connection exists: %w", err)
 	}
 
-	return s.getRouterConfig()
+	return s.getRouterConfig(connID)
 }
 
 func processKeylistUpdateResp(recKey string, keyUpdateResp *KeylistUpdateResponse) error {
@@ -693,24 +699,6 @@ func processKeylistUpdateResp(recKey string, keyUpdateResp *KeylistUpdateRespons
 	}
 
 	return nil
-}
-
-func (s *Service) getRouteRegistrationCh(msgID string) chan Grant {
-	s.routeRegistrationMapLock.RLock()
-	defer s.routeRegistrationMapLock.RUnlock()
-
-	return s.routeRegistrationMap[msgID]
-}
-
-func (s *Service) setRouteRegistrationCh(msgID string, grantCh chan Grant) {
-	s.routeRegistrationMapLock.Lock()
-	defer s.routeRegistrationMapLock.Unlock()
-
-	if grantCh == nil {
-		delete(s.routeRegistrationMap, msgID)
-	} else {
-		s.routeRegistrationMap[msgID] = grantCh
-	}
 }
 
 func (s *Service) getKeyUpdateResponseCh(msgID string) chan *KeylistUpdateResponse {
@@ -731,17 +719,21 @@ func (s *Service) setKeyUpdateResponseCh(msgID string, keyUpdateCh chan *Keylist
 	}
 }
 
-func (s *Service) getRouterConnectionID() (string, error) {
-	id, err := s.routeStore.Get(routeConnIDDataKey)
-	if err != nil {
-		return "", err
+func (s *Service) ensureConnectionExists(connID string) error {
+	_, err := s.routeStore.Get(fmt.Sprintf(routeConnIDDataKey, connID))
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return ErrRouterNotRegistered
 	}
 
-	return string(id), nil
+	return err
 }
 
-func (s *Service) saveRouterConnectionID(id string) error {
-	return s.routeStore.Put(routeConnIDDataKey, []byte(id))
+func (s *Service) deleteRouterConnectionID(connID string) error {
+	return s.routeStore.Delete(fmt.Sprintf(routeConnIDDataKey, connID))
+}
+
+func (s *Service) saveRouterConnectionID(connID string) error {
+	return s.routeStore.Put(fmt.Sprintf(routeConnIDDataKey, connID), []byte(connID))
 }
 
 type config struct {
@@ -749,8 +741,8 @@ type config struct {
 	RoutingKeys    []string
 }
 
-func (s *Service) getRouterConfig() (*Config, error) {
-	val, err := s.routeStore.Get(routeConfigDataKey)
+func (s *Service) getRouterConfig(connID string) (*Config, error) {
+	val, err := s.routeStore.Get(fmt.Sprintf(routeConfigDataKey, connID))
 	if err != nil {
 		return nil, fmt.Errorf("get router config data : %w", err)
 	}
@@ -765,13 +757,13 @@ func (s *Service) getRouterConfig() (*Config, error) {
 	return NewConfig(conf.RouterEndpoint, conf.RoutingKeys), nil
 }
 
-func (s *Service) saveRouterConfig(conf *config) error {
+func (s *Service) saveRouterConfig(connID string, conf *config) error {
 	bytes, err := json.Marshal(conf)
 	if err != nil {
-		return fmt.Errorf("store router config data : %w", err)
+		return fmt.Errorf("marshal config data: %w", err)
 	}
 
-	return s.routeStore.Put(routeConfigDataKey, bytes)
+	return s.routeStore.Put(fmt.Sprintf(routeConfigDataKey, connID), bytes)
 }
 
 func (s *Service) getConnection(routerConnID string) (*connection.Record, error) {

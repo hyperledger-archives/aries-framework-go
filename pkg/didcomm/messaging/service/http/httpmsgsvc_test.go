@@ -29,14 +29,28 @@ func TestNewOverDIDComm(t *testing.T) {
 		handle  RequestHandle
 		failure string
 	}{
-		{"Successfully create new HTTP Over DIDComm service with all args",
-			"sample-name-01", []string{"prp-01", "prp-02"}, newMockHandle(), ""},
-		{"Successfully create new HTTP Over DIDComm service without purpose",
-			"sample-name-01", nil, newMockHandle(), ""},
-		{"Failed to create new HTTP Over DIDComm service without name",
-			"", []string{"prp-01", "prp-02"}, newMockHandle(), errNameAndHandleMandatory},
-		{"Failed to create new HTTP Over DIDComm service without handle",
-			"sample-name-01", []string{"prp-01", "prp-02"}, nil, errNameAndHandleMandatory},
+		{
+			"Successfully create new HTTP Over DIDComm service with all args",
+			"sample-name-01",
+			[]string{"prp-01", "prp-02"},
+			newMockHandle(), "",
+		},
+		{
+			"Successfully create new HTTP Over DIDComm service without purpose",
+			"sample-name-01", nil, newMockHandle(), "",
+		},
+		{
+			"Failed to create new HTTP Over DIDComm service without name",
+			"",
+			[]string{"prp-01", "prp-02"},
+			newMockHandle(), errNameAndHandleMandatory,
+		},
+		{
+			"Failed to create new HTTP Over DIDComm service without handle",
+			"sample-name-01",
+			[]string{"prp-01", "prp-02"},
+			nil, errNameAndHandleMandatory,
+		},
 	}
 
 	t.Parallel()
@@ -77,8 +91,10 @@ func TestOverDIDComm_Accept(t *testing.T) {
 			result  bool
 		}
 	}{
-		{"Test acceptance criteria with purpose",
-			"sample-name-01", []string{"foo", "bar"},
+		{
+			"Test acceptance criteria with purpose",
+			"sample-name-01",
+			[]string{"foo", "bar"},
 			[]struct {
 				msgType string
 				purpose []string
@@ -122,7 +138,8 @@ func TestOverDIDComm_Accept(t *testing.T) {
 				},
 			},
 		},
-		{"Test acceptance criteria without purpose",
+		{
+			"Test acceptance criteria without purpose",
 			"sample-name-01", nil,
 			[]struct {
 				msgType string

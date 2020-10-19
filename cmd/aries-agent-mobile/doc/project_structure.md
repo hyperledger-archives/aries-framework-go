@@ -23,8 +23,8 @@ A remote agent will forward all operations to an Aries agent deployed on an exte
 
 Here are examples for:
 
-- [Android](https://github.com/trustbloc/aries-examples/blob/master/android/AriesDemo/app/src/main/java/com/github/trustbloc/ariesdemo/FirstFragment.java#L41)
-- [iOS](https://github.com/trustbloc/aries-examples/blob/master/ios/AriesDemo/AriesDemo/ViewController.m#L96)
+- [Android](https://github.com/trustbloc/aries-examples/blob/master/android/AriesDemo/app/src/main/java/com/github/trustbloc/ariesdemo/FirstFragment.java)
+- [iOS](https://github.com/trustbloc/aries-examples/blob/master/ios/AriesDemo/AriesDemo/ViewController.m)
 
 ## Interfaces
 
@@ -41,7 +41,7 @@ It uses the following interfaces:
 - [MessagingController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/messaging.go)
 - [OutOfBandController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/outofband.go)
 - [PresentProofController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/presentproof.go)
-- [VDRIController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/vdri.go)
+- [VDRController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/vdr.go)
 - [VerifiableController](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-agent-mobile/pkg/api/verifiable.go)
 
 ## Implementations

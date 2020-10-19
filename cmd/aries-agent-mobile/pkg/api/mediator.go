@@ -17,8 +17,8 @@ type MediatorController interface {
 	// Unregister unregisters the agent with the router.
 	Unregister(request *models.RequestEnvelope) *models.ResponseEnvelope
 
-	// Connection returns the connectionID of the router.
-	Connection(request *models.RequestEnvelope) *models.ResponseEnvelope
+	// Connections returns router`s connections.
+	Connections(request *models.RequestEnvelope) *models.ResponseEnvelope
 
 	// Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator.
 	Reconnect(request *models.RequestEnvelope) *models.ResponseEnvelope

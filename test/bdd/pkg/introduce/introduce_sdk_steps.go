@@ -33,7 +33,7 @@ import (
 	outofbandbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
 
-const timeout = time.Second * 10
+const timeout = time.Second * 15
 
 // SDKSteps is steps for introduce using client SDK.
 type SDKSteps struct {
@@ -547,10 +547,7 @@ func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outo
 		}
 	}
 
-	r, err := client.CreateRequest(
-		attachments,
-		outofband.WithLabel(agentID),
-	)
+	r, err := client.CreateRequest(attachments, outofband.WithLabel(agentID))
 	if err != nil {
 		return nil, err
 	}
@@ -591,29 +588,27 @@ func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
 		return err
 	}
 
-	var result string
+	var connections []string
 
-	err = errors.New("dummy")
 	deadline := time.Now().Add(timeout)
 
 	// TODO add protocol state msg event capability to routing service
 	//  https://github.com/hyperledger/aries-framework-go/issues/1718
-	for err != nil && time.Now().Before(deadline) {
-		result, err = client.GetConnection()
+	for time.Now().Before(deadline) {
+		connections, err = client.GetConnections()
 		if err != nil {
-			time.Sleep(250 * time.Millisecond) //nolint:gomnd
+			return err
 		}
+
+		for i := range connections {
+			if expected.ConnectionID == connections[i] {
+				return nil
+			}
+		}
+
+		time.Sleep(250 * time.Millisecond) //nolint:gomnd
 	}
 
-	if err != nil {
-		return err
-	}
-
-	if expected.ConnectionID != result {
-		return fmt.Errorf(
-			"mismatch: %s has connectionID=%s with router %s but its routing ID is %s",
-			agentID, expected.ConnectionID, router, result)
-	}
-
-	return nil
+	return fmt.Errorf("mismatch: %s has connectionID=%s with router %s but its routing IDs are %v",
+		agentID, expected.ConnectionID, router, connections)
 }

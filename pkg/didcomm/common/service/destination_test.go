@@ -18,14 +18,14 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 func TestGetDestinationFromDID(t *testing.T) {
 	doc := createDIDDoc()
 
 	t.Run("successfully getting destination from public DID", func(t *testing.T) {
-		vdr := mockvdri.MockVDRIRegistry{ResolveValue: doc}
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc}
 		destination, err := GetDestination(doc.ID, &vdr)
 		require.NoError(t, err)
 		require.NotNil(t, destination)
@@ -34,7 +34,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 	t.Run("test service not found", func(t *testing.T) {
 		doc2 := createDIDDoc()
 		doc2.Service = nil
-		vdr := mockvdri.MockVDRIRegistry{ResolveValue: doc2}
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
 		destination, err := GetDestination(doc2.ID, &vdr)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing DID doc service")
@@ -46,7 +46,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 		for i := range diddoc.Service {
 			diddoc.Service[i].Type = "invalid"
 		}
-		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		vdr := &mockvdr.MockVDRegistry{ResolveValue: diddoc}
 		_, err := GetDestination(diddoc.ID, vdr)
 		require.Error(t, err)
 	})
@@ -56,7 +56,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 		for i := range diddoc.Service {
 			diddoc.Service[i].ServiceEndpoint = ""
 		}
-		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		vdr := &mockvdr.MockVDRegistry{ResolveValue: diddoc}
 		_, err := GetDestination(diddoc.ID, vdr)
 		require.Error(t, err)
 	})
@@ -66,13 +66,13 @@ func TestGetDestinationFromDID(t *testing.T) {
 		for i := range diddoc.Service {
 			diddoc.Service[i].RecipientKeys = nil
 		}
-		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		vdr := &mockvdr.MockVDRegistry{ResolveValue: diddoc}
 		_, err := GetDestination(diddoc.ID, vdr)
 		require.Error(t, err)
 	})
 
 	t.Run("test did document not found", func(t *testing.T) {
-		vdr := mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolver error")}
+		vdr := mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")}
 		destination, err := GetDestination(doc.ID, &vdr)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")

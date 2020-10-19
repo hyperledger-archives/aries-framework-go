@@ -26,12 +26,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (
 	dbName    = "aries-%s"
-	defDbName = "aries"
+	defDBName = "aries"
 )
 
 var dbVersion = 1 //nolint:gochecknoglobals
@@ -46,7 +46,7 @@ type Provider struct {
 func NewProvider(name string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
-	db := defDbName
+	db := defDBName
 	if name != "" {
 		db = fmt.Sprintf(dbName, name)
 	}
@@ -194,6 +194,11 @@ func (s *store) Delete(k string) error {
 	}
 
 	return nil
+}
+
+// TODO #2229 - implement query method.
+func (s *store) Query(query string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
 }
 
 type iterator struct {

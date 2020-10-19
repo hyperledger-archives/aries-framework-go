@@ -146,7 +146,7 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	sort.Strings(keys)
 
 	var (
-		sIDx, eIDx = 0, len(keys)
+		sIDx, eIDx = -1, len(keys)
 		skip       bool
 	)
 
@@ -167,6 +167,10 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 		}
 	}
 
+	if sIDx == -1 {
+		return newMemIterator(nil)
+	}
+
 	for _, k := range keys[sIDx:eIDx] {
 		batch = append(batch, []string{k, string(data[k])})
 	}
@@ -185,6 +189,11 @@ func (s *memStore) Delete(k string) error {
 	s.Unlock()
 
 	return nil
+}
+
+// TODO #2228 - implement query method.
+func (s *memStore) Query(_ string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
 }
 
 type memIterator struct {

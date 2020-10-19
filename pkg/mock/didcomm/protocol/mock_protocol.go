@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -19,7 +19,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -28,7 +28,7 @@ import (
 type MockProvider struct {
 	StoreProvider              *mockstore.MockStoreProvider
 	ProtocolStateStoreProvider *mockstore.MockStoreProvider
-	CustomVDRI                 vdriapi.Registry
+	CustomVDR                  vdrapi.Registry
 	CustomOutbound             *mockdispatcher.MockOutbound
 	CustomMessenger            *mockservice.MockMessenger
 	CustomKMS                  kms.KeyManager
@@ -72,13 +72,13 @@ func (p *MockProvider) Crypto() crypto.Crypto {
 	return &mockcrypto.Crypto{}
 }
 
-// VDRIRegistry is mock vdri registry.
-func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
-	if p.CustomVDRI != nil {
-		return p.CustomVDRI
+// VDRegistry is mock vdr registry.
+func (p *MockProvider) VDRegistry() vdrapi.Registry {
+	if p.CustomVDR != nil {
+		return p.CustomVDR
 	}
 
-	return &mockvdri.MockVDRIRegistry{}
+	return &mockvdr.MockVDRegistry{}
 }
 
 // KMS returns mock kms instance.

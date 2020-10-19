@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -34,7 +34,7 @@ import (
 
 var logger = log.New("aries-framework/command/verifiable")
 
-// Error codes
+// Error codes.
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VC)
@@ -79,11 +79,11 @@ const (
 	RemovePresentationByNameErrorCode
 )
 
-// constants for the Verifiable protocol
+// constants for the Verifiable protocol.
 const (
 	CommandName = "verifiable"
 
-	// command methods
+	// command methods.
 	ValidateCredentialCommandMethod       = "ValidateCredential"
 	SaveCredentialCommandMethod           = "SaveCredential"
 	GetCredentialCommandMethod            = "GetCredential"
@@ -98,14 +98,14 @@ const (
 	RemoveCredentialByNameCommandMethod   = "RemoveCredentialByName"
 	RemovePresentationByNameCommandMethod = "RemovePresentationByName"
 
-	// error messages
+	// error messages.
 	errEmptyCredentialName   = "credential name is mandatory"
 	errEmptyPresentationName = "presentation name is mandatory"
 	errEmptyCredentialID     = "credential id is mandatory"
 	errEmptyPresentationID   = "presentation id is mandatory"
 	errEmptyDID              = "did is mandatory"
 
-	// log constants
+	// log constants.
 	vcID   = "vcID"
 	vcName = "vcName"
 	vpID   = "vpID"
@@ -167,7 +167,7 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 	Crypto() ariescrypto.Crypto
 }
@@ -195,7 +195,7 @@ func New(p provider) (*Command, error) {
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
-		kResolver:       verifiable.NewDIDKeyResolver(p.VDRIRegistry()),
+		kResolver:       verifiable.NewDIDKeyResolver(p.VDRegistry()),
 		ctx:             p,
 	}, nil
 }
@@ -374,16 +374,16 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
-	//  if did not found in VDRI, look through in local storage
+	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, SignCredentialCommandMethod,
-				"failed to get did doc from store or vdri: "+err.Error())
+				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(SignCredentialErrorCode,
-				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
 	}
 
@@ -539,16 +539,16 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
-	//  if did not found in VDRI, look through in local storage
+	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
-				"failed to get did doc from store or vdri: "+err.Error())
+				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(GeneratePresentationErrorCode,
-				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
 	}
 
@@ -800,7 +800,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 			credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
 		} else {
 			credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(o.ctx.VDRIRegistry()).PublicKeyFetcher(),
+				verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
 			))
 		}
 
@@ -881,6 +881,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 			// if verification method is provided as an option, then validate if it belongs to given method
 			if opts.VerificationMethod == vm.PublicKey.ID {
 				vmMatched = true
+
 				break
 			}
 
@@ -888,6 +889,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 		} else {
 			// by default first authentication public key
 			opts.VerificationMethod = vm.PublicKey.ID
+
 			break
 		}
 	}
@@ -921,6 +923,7 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 		for _, k := range didDoc.PublicKey {
 			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
 				publicKeyID = k.ID
+
 				break
 			}
 		}

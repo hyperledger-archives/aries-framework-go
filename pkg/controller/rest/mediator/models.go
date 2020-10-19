@@ -20,18 +20,40 @@ type registerRouteReq struct { // nolint: unused,deadcode
 	Params mediator.RegisterRoute
 }
 
+// unregisterRouteRes model
+//
+// swagger:response unregisterRouteRes
+type unregisterRouteRes struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
+
 // registerRouteRes model
 //
 // swagger:response registerRouteRes
-type registerRouteRes struct { // nolint: unused,deadcode
+type registerRouteRes struct {
+	// in: body
+	Body struct{}
 }
 
-// ConnectionRes model
+// ConnectionsResponse model
 //
-// response of get connection action
+// Represents a Connections response message
 //
-// swagger:response getConnectionResponse
-type ConnectionRes struct { // nolint: unused,deadcode
+// swagger:response getConnectionsResponse
+type ConnectionsResponse struct {
+	// in: body
+	Params mediator.ConnectionsResponse
+}
+
+// unregisterRouterReq model
+//
+// This is used for unregister a router for the agent.
+//
+// swagger:parameters unregisterRouter
+type unregisterRouterReq struct { // nolint: unused,deadcode
+	// Params for unregister the router
+	//
 	// in: body
 	Params mediator.RegisterRoute
 }
@@ -65,7 +87,7 @@ type statusRequest struct { // nolint: unused,deadcode
 // Response containing details of pending messages for given connection.
 //
 // swagger:response statusResponse
-type statusResponse struct { // nolint: unused,deadcode
+type statusResponse struct {
 	// Details of pending messages for given connection.
 	//
 	// in: body
@@ -89,7 +111,7 @@ type batchPickupRequest struct { // nolint: unused,deadcode
 // Response from router after pending messages dispatched for given connection.
 //
 // swagger:response batchPickupResponse
-type batchPickupResponse struct { // nolint: unused,deadcode
+type batchPickupResponse struct {
 	// Response after dispatching pending messages for given connection...
 	//
 	// in: body

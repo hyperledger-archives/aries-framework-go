@@ -31,22 +31,20 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	couchdbstore "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mysql"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
 
 const (
-	// api host flag
+	// api host flag.
 	agentHostFlagName      = "api-host"
 	agentHostEnvKey        = "ARIESD_API_HOST"
 	agentHostFlagShorthand = "a"
 	agentHostFlagUsage     = "Host Name:Port." +
 		" Alternatively, this can be set with the following environment variable: " + agentHostEnvKey
 
-	// api token flag
+	// api token flag.
 	agentTokenFlagName      = "api-token"
 	agentTokenEnvKey        = "ARIESD_API_TOKEN" // nolint:gosec
 	agentTokenFlagShorthand = "t"
@@ -57,15 +55,8 @@ const (
 	databaseTypeEnvKey        = "ARIESD_DATABASE_TYPE"
 	databaseTypeFlagShorthand = "q"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb, mysql, leveldb. " +
+		"Supported options: mem, leveldb. " +
 		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
-
-	databaseURLFlagName      = "database-url"
-	databaseURLEnvKey        = "ARIESD_DATABASE_URL"
-	databaseURLFlagShorthand = "v"
-	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
-		" For CouchDB, include the username:password@ text if required. " +
-		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
 
 	databasePrefixFlagName      = "database-prefix"
 	databasePrefixEnvKey        = "ARIESD_DATABASE_PREFIX"
@@ -73,7 +64,14 @@ const (
 	databasePrefixFlagUsage     = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
 
-	// webhook url flag
+	databaseTimeoutFlagName  = "database-timeout"
+	databaseTimeoutFlagUsage = "Total time in seconds to wait until the db is available before giving up." +
+		" Default: " + databaseTimeoutDefault + " seconds." +
+		" Alternatively, this can be set with the following environment variable: " + databaseTimeoutEnvKey
+	databaseTimeoutEnvKey  = "ARIESD_DATABASE_TIMEOUT"
+	databaseTimeoutDefault = "30"
+
+	// webhook url flag.
 	agentWebhookFlagName      = "webhook-url"
 	agentWebhookEnvKey        = "ARIESD_WEBHOOK_URL"
 	agentWebhookFlagShorthand = "w"
@@ -81,21 +79,21 @@ const (
 		" This flag can be repeated, allowing for multiple listeners." +
 		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentWebhookEnvKey
 
-	// default label flag
+	// default label flag.
 	agentDefaultLabelFlagName      = "agent-default-label"
 	agentDefaultLabelEnvKey        = "ARIESD_DEFAULT_LABEL"
 	agentDefaultLabelFlagShorthand = "l"
 	agentDefaultLabelFlagUsage     = "Default Label for this agent. Defaults to blank if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentDefaultLabelEnvKey
 
-	// log level
+	// log level.
 	agentLogLevelFlagName  = "log-level"
 	agentLogLevelEnvKey    = "ARIESD_LOG_LEVEL"
 	agentLogLevelFlagUsage = "Log level." +
 		" Possible values [INFO] [DEBUG] [ERROR] [WARNING] [CRITICAL] . Defaults to INFO if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentLogLevelEnvKey
 
-	// http resolver url flag
+	// http resolver url flag.
 	agentHTTPResolverFlagName      = "http-resolver-url"
 	agentHTTPResolverEnvKey        = "ARIESD_HTTP_RESOLVER"
 	agentHTTPResolverFlagShorthand = "r"
@@ -104,7 +102,7 @@ const (
 		" Alternatively, this can be set with the following environment variable (in CSV format): " +
 		agentHTTPResolverEnvKey
 
-	// outbound transport flag
+	// outbound transport flag.
 	agentOutboundTransportFlagName      = "outbound-transport"
 	agentOutboundTransportEnvKey        = "ARIESD_OUTBOUND_TRANSPORT"
 	agentOutboundTransportFlagShorthand = "o"
@@ -125,7 +123,7 @@ const (
 	agentTLSKeyFileFlagUsage     = "tls key file." +
 		" Alternatively, this can be set with the following environment variable: " + agentTLSKeyFileEnvKey
 
-	// inbound host url flag
+	// inbound host url flag.
 	agentInboundHostFlagName      = "inbound-host"
 	agentInboundHostEnvKey        = "ARIESD_INBOUND_HOST"
 	agentInboundHostFlagShorthand = "i"
@@ -134,7 +132,7 @@ const (
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
 
-	// inbound host external url flag
+	// inbound host external url flag.
 	agentInboundHostExternalFlagName      = "inbound-host-external"
 	agentInboundHostExternalEnvKey        = "ARIESD_INBOUND_HOST_EXTERNAL"
 	agentInboundHostExternalFlagShorthand = "e"
@@ -144,38 +142,31 @@ const (
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
 
-	// auto accept flag
+	// auto accept flag.
 	agentAutoAcceptFlagName  = "auto-accept"
 	agentAutoAcceptEnvKey    = "ARIESD_AUTO_ACCEPT"
 	agentAutoAcceptFlagUsage = "Auto accept requests." +
 		" Possible values [true] [false]. Defaults to false if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentAutoAcceptEnvKey
 
-	// transport return route option flag
+	// transport return route option flag.
 	agentTransportReturnRouteFlagName  = "transport-return-route"
 	agentTransportReturnRouteEnvKey    = "ARIESD_TRANSPORT_RETURN_ROUTE"
 	agentTransportReturnRouteFlagUsage = "Transport Return Route option." +
-		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint lll
+		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint: lll
 		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
-
-	dbTimeoutFlagName  = "db-timeout"
-	dbTimeoutFlagUsage = "Total time in seconds to wait until the db is available before giving up." +
-		" Default: " + dbTimeoutDefault + " seconds." +
-		" Alternatively, this can be set with the following environment variable: " + dbTimeoutEnvKey
-	dbTimeoutEnvKey  = "ADAPTER_REST_DSN_TIMEOUT"
-	dbTimeoutDefault = "30"
 
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
 	databaseTypeMemOption     = "mem"
-	databaseTypeCouchDBOption = "couchdb"
-	databaseTypeMYSQLDBOption = "mysql"
 	databaseTypeLevelDBOption = "leveldb"
 )
 
-var errMissingHost = errors.New("host not provided")
-var logger = log.New("aries-framework/agent-rest")
+var (
+	errMissingHost = errors.New("host not provided")
+	logger         = log.New("aries-framework/agent-rest")
+)
 
 type agentParameters struct {
 	server                                         server
@@ -191,9 +182,18 @@ type agentParameters struct {
 
 type dbParam struct {
 	dbType  string
-	url     string
 	prefix  string
 	timeout uint64
+}
+
+// nolint:gochecknoglobals
+var supportedStorageProviders = map[string]func(prefix string) (storage.Provider, error){
+	databaseTypeMemOption: func(_ string) (storage.Provider, error) { // nolint:unparam
+		return mem.NewProvider(), nil
+	},
+	databaseTypeLevelDBOption: func(path string) (storage.Provider, error) { // nolint:unparam
+		return leveldb.NewProvider(path), nil
+	},
 }
 
 type server interface {
@@ -221,7 +221,7 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
-func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
+func createStartCMD(server server) *cobra.Command { //nolint: funlen, gocyclo
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -338,23 +338,18 @@ func getDBParam(cmd *cobra.Command) (*dbParam, error) {
 		return nil, err
 	}
 
-	dbParam.url, err = getUserSetVar(cmd, databaseURLFlagName, databaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
 	dbParam.prefix, err = getUserSetVar(cmd, databasePrefixFlagName, databasePrefixEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	dbTimeout, err := getUserSetVar(cmd, dbTimeoutFlagName, dbTimeoutEnvKey, true)
+	dbTimeout, err := getUserSetVar(cmd, databaseTimeoutFlagName, databaseTimeoutEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if dbTimeout == "" || dbTimeout == "0" {
-		dbTimeout = dbTimeoutDefault
+		dbTimeout = databaseTimeoutDefault
 	}
 
 	t, err := strconv.Atoi(dbTimeout)
@@ -398,9 +393,6 @@ func createFlags(startCmd *cobra.Command) {
 	// db type
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 
-	// db url
-	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
-
 	// db prefix
 	startCmd.Flags().StringP(databasePrefixFlagName, databasePrefixFlagShorthand, "", databasePrefixFlagUsage)
 
@@ -437,7 +429,7 @@ func createFlags(startCmd *cobra.Command) {
 		agentTLSKeyFileFlagShorthand, "", agentTLSKeyFileFlagUsage)
 
 	// db timeout
-	startCmd.Flags().StringP(dbTimeoutFlagName, "", "", dbTimeoutFlagUsage)
+	startCmd.Flags().StringP(databaseTimeoutFlagName, "", "", databaseTimeoutFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
@@ -498,14 +490,13 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 				return nil, fmt.Errorf("invalid http resolver options found")
 			}
 
-			httpVDRI, err := httpbinding.New(r[1],
+			httpVDR, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}
 
-			opts = append(opts, aries.WithVDRI(httpVDRI))
+			opts = append(opts, aries.WithVDR(httpVDR))
 		}
 	}
 
@@ -731,63 +722,30 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 }
 
 func createStoreProviders(parameters *agentParameters) (storage.Provider, error) {
-	const (
-		sleep = 1 * time.Second
-	)
-
-	switch {
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMemOption):
-		return mem.NewProvider(), nil
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeLevelDBOption):
-		return leveldb.NewProvider(parameters.dbParam.url), nil
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeCouchDBOption):
-		var store storage.Provider
-
-		err := backoff.RetryNotify(
-			func() error {
-				var openErr error
-				store, openErr = couchdbstore.NewProvider(parameters.dbParam.url,
-					couchdbstore.WithDBPrefix(parameters.dbParam.prefix))
-
-				return openErr
-			},
-			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
-			func(retryErr error, t time.Duration) {
-				logger.Warnf(
-					"failed to connect to storage, will sleep for %s before trying again : %s\n",
-					t, retryErr)
-			},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
-		}
-
-		return store, nil
-
-	case strings.EqualFold(parameters.dbParam.dbType, databaseTypeMYSQLDBOption):
-		var store storage.Provider
-
-		err := backoff.RetryNotify(
-			func() error {
-				var openErr error
-				store, openErr = mysql.NewProvider(parameters.dbParam.url,
-					mysql.WithDBPrefix(parameters.dbParam.prefix))
-				return openErr
-			},
-			backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), parameters.dbParam.timeout),
-			func(retryErr error, t time.Duration) {
-				logger.Warnf(
-					"failed to connect to storage, will sleep for %s before trying again : %s\n",
-					t, retryErr)
-			},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.dbType, err)
-		}
-
-		return store, nil
+	provider, supported := supportedStorageProviders[parameters.dbParam.dbType]
+	if !supported {
+		return nil, fmt.Errorf("key database type not set to a valid type." +
+			" run start --help to see the available options")
 	}
 
-	return nil, fmt.Errorf("key database type not set to a valid type." +
-		" run start --help to see the available options")
+	var store storage.Provider
+
+	err := backoff.RetryNotify(
+		func() error {
+			var openErr error
+			store, openErr = provider(parameters.dbParam.prefix)
+			return openErr
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), parameters.dbParam.timeout),
+		func(retryErr error, t time.Duration) {
+			logger.Warnf(
+				"failed to connect to storage, will sleep for %s before trying again : %s\n",
+				t, retryErr)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.prefix, err)
+	}
+
+	return store, nil
 }

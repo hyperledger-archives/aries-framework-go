@@ -69,8 +69,10 @@ func (d *dockerCmdlineHelper) GetIPAddress(containerID string) (ipAddress string
 		return fmt.Errorf("error getting IPAddress for container '%s':  %s", containerID, err)
 	}
 
-	if cmdOutput, err = d.issueDockerCommand([]string{"inspect", "--format", "{{ .NetworkSettings.IPAddress }}",
-		containerID}); err != nil {
+	if cmdOutput, err = d.issueDockerCommand([]string{
+		"inspect", "--format", "{{ .NetworkSettings.IPAddress }}",
+		containerID,
+	}); err != nil {
 		return "", errRetFunc()
 	}
 

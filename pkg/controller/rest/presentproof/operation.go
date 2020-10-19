@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
-// constants for PresentProof operations
+// constants for PresentProof operations.
 const (
 	OperationID                  = "/presentproof"
 	Actions                      = OperationID + "/actions"
@@ -135,7 +135,7 @@ func (c *Operation) AcceptProblemReport(rw http.ResponseWriter, req *http.Reques
 // Responses:
 //    default: genericError
 //        200: presentProofAcceptRequestPresentationResponse
-func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptRequestPresentation, rw, r)
 	}
@@ -148,7 +148,7 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 // Responses:
 //    default: genericError
 //        200: presentProofAcceptProposePresentationResponse
-func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptProposePresentation, rw, r)
 	}
@@ -161,7 +161,7 @@ func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.
 // Responses:
 //    default: genericError
 //        200: presentProofAcceptPresentationResponse
-func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptPresentation, rw, r)
 	}
@@ -174,7 +174,7 @@ func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request
 // Responses:
 //    default: genericError
 //        200: presentProofNegotiateRequestPresentationResponse
-func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.NegotiateRequestPresentation, rw, r)
 	}

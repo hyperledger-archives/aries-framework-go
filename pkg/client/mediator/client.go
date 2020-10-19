@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
-// provider contains dependencies for the route protocol and is typically created by using aries.Context()
+// provider contains dependencies for the route protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
 }
@@ -36,13 +36,13 @@ type protocolService interface {
 	Register(connectionID string, options ...mediator.ClientOption) error
 
 	// Unregister unregisters the agent with the router
-	Unregister() error
+	Unregister(connID string) error
 
-	// GetConnection returns the connectionID of the router.
-	GetConnection() (string, error)
+	// GetConnections returns router`s connections.
+	GetConnections() ([]string, error)
 
 	// Config returns the router's configuration.
-	Config() (*mediator.Config, error)
+	Config(connID string) (*mediator.Config, error)
 }
 
 // WithTimeout option is for definition timeout value waiting for responses received from the router.
@@ -82,28 +82,27 @@ func (c *Client) Register(connectionID string) error {
 }
 
 // Unregister unregisters the agent with the router.
-func (c *Client) Unregister() error {
-	if err := c.routeSvc.Unregister(); err != nil {
+func (c *Client) Unregister(connID string) error {
+	if err := c.routeSvc.Unregister(connID); err != nil {
 		return fmt.Errorf("router unregister : %w", err)
 	}
 
 	return nil
 }
 
-// GetConnection returns the connectionID of the router.
-func (c *Client) GetConnection() (string, error) {
-	connectionID, err := c.routeSvc.GetConnection()
-
+// GetConnections returns router`s connections.
+func (c *Client) GetConnections() ([]string, error) {
+	connections, err := c.routeSvc.GetConnections()
 	if err != nil {
-		return "", fmt.Errorf("get router connectionID : %w", err)
+		return nil, fmt.Errorf("get router connections: %w", err)
 	}
 
-	return connectionID, nil
+	return connections, nil
 }
 
 // GetConfig returns the router's configuration.
-func (c *Client) GetConfig() (*mediator.Config, error) {
-	conf, err := c.routeSvc.Config()
+func (c *Client) GetConfig(connID string) (*mediator.Config, error) {
+	conf, err := c.routeSvc.Config(connID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch routing configuration : %w", err)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -36,7 +36,7 @@ type Provider interface {
 	Packager() transport.Packager
 	ServiceEndpoint() string
 	RouterEndpoint() string
-	VDRIRegistry() vdriapi.Registry
+	VDRegistry() vdrapi.Registry
 	ProtocolStateStorageProvider() storage.Provider
 	InboundMessageHandler() didcommtransport.InboundMessageHandler
 	OutboundMessageHandler() service.OutboundHandler

@@ -88,7 +88,7 @@ func (s *ControllerSteps) CheckConnection(receiverID, senderID string) error {
 	return err
 }
 
-func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string) error { // nolint: dupl
+func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string) error {
 	invitation, found := s.pendingInvitations[receiverID]
 	if !found {
 		return fmt.Errorf("no pending invitations found for %s", receiverID)
@@ -199,7 +199,7 @@ func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchan
 	return nil, errors.New("no connection between agents")
 }
 
-func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) error { // nolint: dupl
+func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) error {
 	request, found := s.pendingRequests[receiverID]
 	if !found {
 		return fmt.Errorf("no pending requests found for %s", receiverID)

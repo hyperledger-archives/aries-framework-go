@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -32,12 +32,12 @@ type Metadata presentproof.Metadata
 // Provider contains dependencies for the SavePresentation middleware function.
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdrapi.Registry
 }
 
 // SavePresentation the helper function for the present proof protocol which saves the presentations.
 func SavePresentation(p Provider) presentproof.Middleware {
-	registryVDRI := p.VDRIRegistry()
+	vdr := p.VDRegistry()
 	store := p.VerifiableStore()
 
 	return func(next presentproof.Handler) presentproof.Handler {
@@ -46,12 +46,12 @@ func SavePresentation(p Provider) presentproof.Middleware {
 				return next.Handle(metadata)
 			}
 
-			var presentation = presentproof.Presentation{}
+			presentation := presentproof.Presentation{}
 			if err := metadata.Message().Decode(&presentation); err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
 
-			presentations, err := toVerifiablePresentation(registryVDRI, presentation.PresentationsAttach)
+			presentations, err := toVerifiablePresentation(vdr, presentation.PresentationsAttach)
 			if err != nil {
 				return fmt.Errorf("to verifiable presentation: %w", err)
 			}
@@ -61,7 +61,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 			}
 
 			var names []string
-			var properties = metadata.Properties()
+			properties := metadata.Properties()
 
 			// nolint: errcheck
 			myDID, _ := properties[myDIDKey].(string)
@@ -91,7 +91,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 }
 
 func getName(idx int, id string, metadata presentproof.Metadata) string {
-	var name = id
+	name := id
 	if len(metadata.PresentationNames()) > idx {
 		name = metadata.PresentationNames()[idx]
 	}
@@ -103,7 +103,7 @@ func getName(idx int, id string, metadata presentproof.Metadata) string {
 	return uuid.New().String()
 }
 
-func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachment) ([]*verifiable.Presentation, error) {
+func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.Attachment) ([]*verifiable.Presentation, error) {
 	var presentations []*verifiable.Presentation
 
 	for i := range data {
@@ -113,9 +113,8 @@ func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachmen
 		}
 
 		presentation, err := verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(registry).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
 		))
-
 		if err != nil {
 			return nil, fmt.Errorf("parse presentation: %w", err)
 		}

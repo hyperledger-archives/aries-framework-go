@@ -25,11 +25,9 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice" receives invitation from "Alice-Router"
       And   "Alice" approves invitation request
       And   "Alice-Router" approves did exchange request
-      And   "Alice-Router" waits for post state event "completed"
-      And   "Alice" waits for post state event "completed"
+      And   "Alice-Router,Alice" waits for post state event "completed"
 
-    Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice-Router,Alice" retrieves connection record and validates that connection state is "completed"
       And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
@@ -47,11 +45,9 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" receives invitation from "Bob-Router"
       And   "Bob" approves invitation request
       And   "Bob-Router" approves did exchange request
-      And   "Bob-Router" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob-Router,Bob" waits for post state event "completed"
 
-    Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Bob-Router,Bob" retrieves connection record and validates that connection state is "completed"
       And   "Bob" saves connectionID to variable "bob-router-connID"
 
        # Alice registers her Router
@@ -65,16 +61,14 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
-    When   "Alice" creates invitation
+    When   "Alice" creates invitation with router "alice-router-connID"
       And   "Alice" validates that invitation service endpoint of type "ws"
       And   "Bob" receives invitation from "Alice"
-      And   "Bob" approves invitation request
-      And   "Alice" approves did exchange request
-      And   "Alice" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob" approves invitation request with router "bob-router-connID"
+      And   "Alice" approves did exchange request with router "alice-router-connID"
+      And   "Alice,Bob" waits for post state event "completed"
 
-    Then   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
 
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
     # DID Exchange between Alice and her Router
@@ -92,11 +86,9 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice" receives invitation from "Alice-Router"
       And   "Alice" approves invitation request
       And   "Alice-Router" approves did exchange request
-      And   "Alice-Router" waits for post state event "completed"
-      And   "Alice" waits for post state event "completed"
+      And   "Alice-Router,Alice" waits for post state event "completed"
 
-    Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice-Router,Alice" retrieves connection record and validates that connection state is "completed"
       And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
@@ -114,11 +106,9 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" receives invitation from "Bob-Router"
       And   "Bob" approves invitation request
       And   "Bob-Router" approves did exchange request
-      And   "Bob-Router" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob-Router,Bob" waits for post state event "completed"
 
-    Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Bob-Router,Bob" retrieves connection record and validates that connection state is "completed"
       And   "Bob" saves connectionID to variable "bob-router-connID"
 
        # Alice registers her Router
@@ -132,16 +122,14 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
-    When   "Alice" creates invitation
+    When   "Alice" creates invitation with router "alice-router-connID"
       And   "Alice" validates that invitation service endpoint of type "http"
       And   "Bob" receives invitation from "Alice"
-      And   "Bob" approves invitation request
-      And   "Alice" approves did exchange request
-      And   "Alice" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob" approves invitation request with router "bob-router-connID"
+      And   "Alice" approves did exchange request with router "alice-router-connID"
+      And   "Alice,Bob" waits for post state event "completed"
 
-    Then   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
@@ -160,12 +148,25 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice" receives invitation from "Alice-Router"
       And   "Alice" approves invitation request
       And   "Alice-Router" approves did exchange request
-      And   "Alice-Router" waits for post state event "completed"
-      And   "Alice" waits for post state event "completed"
+      And   "Alice-Router,Alice" waits for post state event "completed"
 
-    Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice-Router,Alice" retrieves connection record and validates that connection state is "completed"
       And   "Alice" saves connectionID to variable "alice-router-connID"
+     # DID Exchange between Alice and her second router
+    Given "Alice-second-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
+    And "Alice-second-Router" creates a route exchange client
+    And   "Alice-second-Router" creates did exchange client
+    And   "Alice-second-Router" registers to receive notification for post state event "completed"
+
+    When   "Alice-second-Router" creates invitation
+    And   "Alice-second-Router" validates that invitation service endpoint of type "ws"
+    And   "Alice" receives invitation from "Alice-second-Router"
+    And   "Alice" approves invitation request
+    And   "Alice-second-Router" approves did exchange request
+    And   "Alice-second-Router,Alice" waits for post state event "completed"
+
+    Then   "Alice-second-Router,Alice" retrieves connection record and validates that connection state is "completed"
+    And   "Alice" saves connectionID to variable "alice-second-router-connID"
 
      # DID Exchange between Bob and his Router
     Given "Bob" edge agent is running with "http,websocket" as the outbound transport provider and "all" as the transport return route option
@@ -182,31 +183,58 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" receives invitation from "Bob-Router"
       And   "Bob" approves invitation request
       And   "Bob-Router" approves did exchange request
-      And   "Bob-Router" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob-Router,Bob" waits for post state event "completed"
 
-    Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Bob-Router,Bob" retrieves connection record and validates that connection state is "completed"
       And   "Bob" saves connectionID to variable "bob-router-connID"
+     # DID Exchange between Bob and his Router
+    Given "Bob-second-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
+      And "Bob-second-Router" creates a route exchange client
+      And   "Bob-second-Router" creates did exchange client
+      And   "Bob-second-Router" registers to receive notification for post state event "completed"
+
+    When   "Bob-second-Router" creates invitation
+      And   "Bob-second-Router" validates that invitation service endpoint of type "ws"
+      And   "Bob" receives invitation from "Bob-second-Router"
+      And   "Bob" approves invitation request
+      And   "Bob-second-Router" approves did exchange request
+      And   "Bob-second-Router,Bob" waits for post state event "completed"
+
+    Then   "Bob-second-Router,Bob" retrieves connection record and validates that connection state is "completed"
+      And   "Bob" saves connectionID to variable "bob-second-router-connID"
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
       And   "Alice" sets "alice-router-connID" as the router and "Alice-Router" approves
       And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
+       # Alice registers her second router
+      And   "Alice" sets "alice-second-router-connID" as the router and "Alice-second-Router" approves
+      And   "Alice" verifies that the router connection id is set to "alice-second-router-connID"
+
        # Bob registers his Router
       And   "Bob" creates a route exchange client
       And   "Bob" sets "bob-router-connID" as the router and "Bob-Router" approves
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
+       # Bob registers his second router
+      And   "Bob" sets "bob-second-router-connID" as the router and "Bob-second-Router" approves
+      And   "Bob" verifies that the router connection id is set to "bob-second-router-connID"
 
      # DIDExchange between Alice and Bob through routers
-    When   "Alice" creates invitation
+    When   "Alice" creates invitation with router "alice-router-connID"
       And   "Alice" validates that invitation service endpoint of type "http"
       And   "Bob" receives invitation from "Alice"
-      And   "Bob" approves invitation request
-      And   "Alice" approves did exchange request
-      And   "Alice" waits for post state event "completed"
-      And   "Bob" waits for post state event "completed"
+      And   "Bob" approves invitation request with router "bob-router-connID"
+      And   "Alice" approves did exchange request with router "alice-router-connID"
+      And   "Alice,Bob" waits for post state event "completed"
 
-    Then   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" retrieves connection record and validates that connection state is "completed"
+    Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
+     # DIDExchange between Alice and Bob through routers (second connection)
+    When   "Alice" creates invitation with router "alice-second-router-connID"
+    And   "Alice" validates that invitation service endpoint of type "http"
+    And   "Bob" receives invitation from "Alice"
+    And   "Bob" approves invitation request with router "bob-second-router-connID"
+    And   "Alice" approves did exchange request with router "alice-second-router-connID"
+    And   "Alice,Bob" waits for post state event "completed"
+
+    Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"

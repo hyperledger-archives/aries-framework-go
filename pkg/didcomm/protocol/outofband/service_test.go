@@ -363,7 +363,7 @@ func TestHandleRequestCallback(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					invoked <- struct{}{}
 					return "", nil
 				},
@@ -382,7 +382,7 @@ func TestHandleRequestCallback(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(i *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(i *didexchange.OOBInvitation, _ []string) (string, error) {
 					require.NotNil(t, i)
 					return "", nil
 				},
@@ -404,7 +404,7 @@ func TestHandleRequestCallback(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					return "", expected
 				},
 			},
@@ -877,13 +877,13 @@ func TestAcceptRequest(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					return expected, nil
 				},
 			},
 		}
 		s := newAutoService(t, provider)
-		result, err := s.AcceptRequest(newRequest(), "")
+		result, err := s.AcceptRequest(newRequest(), "", nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -892,13 +892,13 @@ func TestAcceptRequest(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					return "", expected
 				},
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.AcceptRequest(newRequest(), "")
+		_, err := s.AcceptRequest(newRequest(), "", nil)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -910,13 +910,13 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					return expected, nil
 				},
 			},
 		}
 		s := newAutoService(t, provider)
-		result, err := s.AcceptInvitation(newInvitation(), "")
+		result, err := s.AcceptInvitation(newInvitation(), "", nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -925,13 +925,13 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
 					return "", expected
 				},
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.AcceptInvitation(newInvitation(), "")
+		_, err := s.AcceptInvitation(newInvitation(), "", nil)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -1270,6 +1270,10 @@ func (s *stubStore) Iterator(start, limit string) storage.StoreIterator {
 }
 
 func (s *stubStore) Delete(k string) error {
+	panic("implement me")
+}
+
+func (s *stubStore) Query(query string) (storage.StoreIterator, error) {
 	panic("implement me")
 }
 

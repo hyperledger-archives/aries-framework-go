@@ -113,6 +113,11 @@ type leveldbStore struct {
 	db *leveldb.DB
 }
 
+// TODO #2227 - implement query method.
+func (s *leveldbStore) Query(_ string) (storage.StoreIterator, error) {
+	return nil, storage.ErrQueryingNotSupported
+}
+
 // Put stores the key and the record.
 func (s *leveldbStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
@@ -142,8 +147,10 @@ func (s *leveldbStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
-	return s.db.NewIterator(&util.Range{Start: []byte(start),
-		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~"))}, nil)
+	return s.db.NewIterator(&util.Range{
+		Start: []byte(start),
+		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~")),
+	}, nil)
 }
 
 // Delete will delete record with k key.

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -42,9 +43,9 @@ const (
 	ActionContinueErrorCode
 )
 
-// constants for out-of-band
+// constants for out-of-band.
 const (
-	// command name
+	// command name.
 	CommandName      = "outofband"
 	CreateRequest    = "CreateRequest"
 	CreateInvitation = "CreateInvitation"
@@ -54,12 +55,12 @@ const (
 	Actions          = "Actions"
 	ActionContinue   = "ActionContinue"
 
-	// error messages
+	// error messages.
 	errOneAttachmentMustBeProvided = "at least one attachment must be provided"
 	errEmptyRequest                = "request was not provided"
 	errEmptyMyLabel                = "my_label was not provided"
 	errEmptyPIID                   = "piid was not provided"
-	// log constants
+	// log constants.
 	successString = "success"
 
 	_actions = "_actions"
@@ -134,8 +135,8 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 		outofband.WithGoal(args.Goal, args.GoalCode),
 		outofband.WithLabel(args.Label),
 		outofband.WithServices(args.Service...),
+		outofband.WithRouterConnections(args.RouterConnectionID),
 	}...)
-
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateRequest, err.Error())
 		return command.NewExecuteError(CreateRequestErrorCode, err)
@@ -164,8 +165,8 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		outofband.WithGoal(args.Goal, args.GoalCode),
 		outofband.WithLabel(args.Label),
 		outofband.WithServices(args.Service...),
+		outofband.WithRouterConnections(args.RouterConnectionID),
 	}...)
-
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
@@ -181,7 +182,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
+func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptRequestArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
@@ -198,7 +199,8 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
-	connID, err := c.client.AcceptRequest(args.Request, args.MyLabel)
+	connID, err := c.client.AcceptRequest(args.Request, args.MyLabel,
+		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
 		return command.NewExecuteError(AcceptRequestErrorCode, err)
@@ -214,7 +216,7 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { // nolint: dupl
+func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptInvitationArgs
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, AcceptInvitation, err.Error())
@@ -231,7 +233,8 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { 
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
-	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel)
+	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel,
+		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...))
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
@@ -277,7 +280,9 @@ func (c *Command) ActionContinue(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.ActionContinue(args.PIID, args.Label); err != nil {
+	err := c.client.ActionContinue(args.PIID, args.Label,
+		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...))
+	if err != nil {
 		logutil.LogError(logger, CommandName, ActionContinue, err.Error())
 		return command.NewExecuteError(ActionContinueErrorCode, err)
 	}

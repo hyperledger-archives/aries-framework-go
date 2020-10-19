@@ -10,14 +10,13 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"golang.org/x/net/context"
-	"nhooyr.io/websocket/wsjson"
-
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -69,11 +68,11 @@ func SendHTTP(method, destination string, message []byte, result interface{}) er
 }
 
 // PullEventsFromWebSocket returns WebSocket event by given filter
-// nolint: gocyclo
+// nolint: gocyclo,gocognit
 func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters ...Filter) (*Incoming, error) {
 	const timeoutPullTopics = 30 * time.Second
 
-	conn, ok := bdd.GetWebSocketConn(agentID)
+	_, ok := bdd.GetWebSocketConn(agentID)
 	if !ok {
 		return nil, fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
 	}
@@ -84,14 +83,26 @@ func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters
 		filters[i](filter)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutPullTopics)
-	defer cancel()
-
 	for {
-		var incoming *Incoming
+		var inc *bddcontext.Incoming
 
-		if err := wsjson.Read(ctx, conn, &incoming); err != nil {
-			return nil, fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
+		select {
+		case inc = <-bdd.ReadFromWebSocket(agentID):
+		case <-time.After(timeoutPullTopics):
+			return nil, errors.New("timeout pulling events from WebSocket")
+		}
+
+		incoming := &Incoming{
+			ID:    inc.ID,
+			Topic: inc.Topic,
+		}
+
+		if err := inc.Message.Decode(&incoming.Message); err != nil {
+			return nil, err
+		}
+
+		if incoming.Message.ProtocolName == "" {
+			incoming.Message.Message = inc.Message
 		}
 
 		if filter.Topic != nil && incoming.Topic != *filter.Topic {
@@ -106,6 +117,10 @@ func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters
 			continue
 		}
 
+		if filter.NotEmptyMessage != nil && *filter.NotEmptyMessage && len(incoming.Message.Message) == 0 {
+			continue
+		}
+
 		if filter.PIID != nil && incoming.Message.Properties["piid"].(string) != *filter.PIID {
 			continue
 		}
@@ -115,10 +130,11 @@ func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters
 }
 
 type eventFilter struct {
-	Topic   *string
-	StateID *string
-	Type    *string
-	PIID    *string
+	Topic           *string
+	StateID         *string
+	Type            *string
+	PIID            *string
+	NotEmptyMessage *bool
 }
 
 // Filter is an option for the PullEventsFromWebSocket function.
@@ -152,13 +168,22 @@ func FilterType(val string) Filter {
 	}
 }
 
+// NotEmptyMessage filters WebSocket events by not empty message.
+func NotEmptyMessage() Filter {
+	return func(filter *eventFilter) {
+		empty := true
+
+		filter.NotEmptyMessage = &empty
+	}
+}
+
 // Incoming represents WebSocket event message.
 type Incoming struct {
 	ID      string `json:"id"`
 	Topic   string `json:"topic"`
 	Message struct {
 		ProtocolName string
-		Message      map[string]interface{}
+		Message      service.DIDCommMsgMap
 		StateID      string
 		Properties   map[string]interface{}
 		Type         string

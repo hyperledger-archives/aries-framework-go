@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -32,12 +32,12 @@ type Metadata issuecredential.Metadata
 // Provider contains dependencies for the SaveCredentials middleware function.
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdrapi.Registry
 }
 
 // SaveCredentials the helper function for the issue credential protocol which saves credentials.
 func SaveCredentials(p Provider) issuecredential.Middleware {
-	registryVDRI := p.VDRIRegistry()
+	vdr := p.VDRegistry()
 	store := p.VerifiableStore()
 
 	return func(next issuecredential.Handler) issuecredential.Handler {
@@ -46,14 +46,14 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 				return next.Handle(metadata)
 			}
 
-			var credential = issuecredential.IssueCredential{}
+			credential := issuecredential.IssueCredential{}
 
 			err := metadata.Message().Decode(&credential)
 			if err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
 
-			credentials, err := toVerifiableCredentials(registryVDRI, credential.CredentialsAttach)
+			credentials, err := toVerifiableCredentials(vdr, credential.CredentialsAttach)
 			if err != nil {
 				return fmt.Errorf("to verifiable credentials: %w", err)
 			}
@@ -63,7 +63,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 			}
 
 			var names []string
-			var properties = metadata.Properties()
+			properties := metadata.Properties()
 
 			// nolint: errcheck
 			myDID, _ := properties[myDIDKey].(string)
@@ -93,7 +93,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 }
 
 func getName(idx int, id string, metadata issuecredential.Metadata) string {
-	var name = id
+	name := id
 	if len(metadata.CredentialNames()) > idx {
 		name = metadata.CredentialNames()[idx]
 	}
@@ -105,7 +105,7 @@ func getName(idx int, id string, metadata issuecredential.Metadata) string {
 	return uuid.New().String()
 }
 
-func toVerifiableCredentials(vReg vdri.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
+func toVerifiableCredentials(v vdrapi.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
 	var credentials []*verifiable.Credential
 
 	for i := range attachments {
@@ -115,7 +115,7 @@ func toVerifiableCredentials(vReg vdri.Registry, attachments []decorator.Attachm
 		}
 
 		vc, err := verifiable.ParseCredential(rawVC, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(vReg).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(v).PublicKeyFetcher(),
 		))
 		if err != nil {
 			return nil, fmt.Errorf("new credential: %w", err)

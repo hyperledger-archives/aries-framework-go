@@ -4,11 +4,11 @@
 
 module github.com/hyperledger/aries-framework-go/cmd/aries-js-worker
 
-go 1.13
+go 1.15
 
 require (
-	github.com/google/uuid v1.1.1
-	github.com/hyperledger/aries-framework-go v0.0.0
+	github.com/google/uuid v1.1.2
+	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
 	github.com/mitchellh/mapstructure v1.3.0
 	github.com/stretchr/testify v1.6.1
 )

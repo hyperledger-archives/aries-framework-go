@@ -73,8 +73,8 @@ async function issueCredential (mode) {
         issuer = didexClient.agent2
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     let issuerAction;

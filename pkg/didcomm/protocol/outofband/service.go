@@ -51,10 +51,11 @@ var errIgnoredDidEvent = errors.New("ignored")
 type Options interface {
 	// MyLabel is the label to share with the other agent in the subsequent did-exchange.
 	MyLabel() string
+	RouterConnections() []string
 }
 
 type didExchSvc interface {
-	RespondTo(*didexchange.OOBInvitation) (string, error)
+	RespondTo(*didexchange.OOBInvitation, []string) (string, error)
 	SaveInvitation(invitation *didexchange.OOBInvitation) error
 }
 
@@ -99,7 +100,7 @@ type Action struct {
 	TheirDID     string
 }
 
-// transitionalPayload keeps payload needed for Continue function to proceed with the action
+// transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
 }
@@ -357,10 +358,10 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 }
 
 // AcceptRequest from another agent and return the connection ID.
-func (s *Service) AcceptRequest(r *Request, myLabel string) (string, error) {
+func (s *Service) AcceptRequest(r *Request, myLabel string, routerConnections []string) (string, error) {
 	connID, err := s.handleCallback(&callback{
 		msg:     service.NewDIDCommMsgMap(r),
-		options: &userOptions{myLabel: myLabel},
+		options: &userOptions{myLabel: myLabel, routerConnections: routerConnections},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to accept request : %w", err)
@@ -370,12 +371,11 @@ func (s *Service) AcceptRequest(r *Request, myLabel string) (string, error) {
 }
 
 // AcceptInvitation from another agent and return the connection ID.
-func (s *Service) AcceptInvitation(i *Invitation, myLabel string) (string, error) {
+func (s *Service) AcceptInvitation(i *Invitation, myLabel string, routerConnections []string) (string, error) {
 	connID, err := s.handleCallback(&callback{
 		msg:     service.NewDIDCommMsgMap(i),
-		options: &userOptions{myLabel: myLabel},
+		options: &userOptions{myLabel: myLabel, routerConnections: routerConnections},
 	})
-
 	if err != nil {
 		return "", fmt.Errorf("failed to accept invitation : %w", err)
 	}
@@ -507,7 +507,7 @@ func (s *Service) handleRequestCallback(c *callback) (string, error) {
 		return "", fmt.Errorf("failed to save new state : %w", err)
 	}
 
-	connID, err := s.didSvc.RespondTo(invitation)
+	connID, err := s.didSvc.RespondTo(invitation, c.options.RouterConnections())
 	if err != nil {
 		return "", fmt.Errorf("didexchange service failed to handle inbound request : %w", err)
 	}
@@ -533,7 +533,7 @@ func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 		return "", fmt.Errorf("handleInvitationCallback: failed to decode callback message : %w", err)
 	}
 
-	connID, err := s.didSvc.RespondTo(didInv)
+	connID, err := s.didSvc.RespondTo(didInv, c.options.RouterConnections())
 	if err != nil {
 		return "", fmt.Errorf("didexchange service failed to handle inbound invitation : %w", err)
 	}
@@ -761,11 +761,16 @@ func (e *eventProps) Error() error {
 }
 
 type userOptions struct {
-	myLabel string
+	myLabel           string
+	routerConnections []string
 }
 
 func (e *userOptions) MyLabel() string {
 	return e.myLabel
+}
+
+func (e *userOptions) RouterConnections() []string {
+	return e.routerConnections
 }
 
 // All implements EventProperties interface.

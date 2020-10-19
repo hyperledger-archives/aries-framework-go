@@ -27,7 +27,7 @@ import (
 )
 
 func TestPubKeyExport(t *testing.T) {
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName      string
 		keyTemplate *tinkpb.KeyTemplate
 	}{

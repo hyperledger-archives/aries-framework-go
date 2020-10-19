@@ -116,7 +116,7 @@ func (a *ControllerSteps) checkAgentIsRunning(agentID, controllerURL, webhookURL
 
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
 		HTTPClient: util.DefaultClient,
-	}) //nolint:bodyclose
+	})
 	if err != nil {
 		return fmt.Errorf("failed to dial connection from '%s' : %w", wsURL, err)
 	}
@@ -164,7 +164,7 @@ func (a *ControllerSteps) checkAgentIsRunningWithHTTPInbound(agentID, inboundHos
 
 func (a *ControllerSteps) healthCheck(endpoint string) error {
 	if strings.HasPrefix(endpoint, "http") {
-		resp, err := util.DefaultClient.Get(endpoint) //nolint: gosec
+		resp, err := util.DefaultClient.Get(endpoint)
 		if err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func (a *ControllerSteps) healthCheck(endpoint string) error {
 	} else if strings.HasPrefix(endpoint, "ws") {
 		_, _, err := websocket.Dial(goctx.Background(), endpoint, &websocket.DialOptions{
 			HTTPClient: util.DefaultClient,
-		}) //nolint:bodyclose
+		})
 		if err != nil {
 			return err
 		}

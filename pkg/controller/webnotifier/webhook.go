@@ -36,7 +36,7 @@ func (n *HTTPNotifier) Notify(topic string, message []byte) error {
 		return fmt.Errorf(emptyMessageErrMsg)
 	}
 
-	topicMsg, err := prepareTopicMessage(topic, message)
+	topicMsg, err := PrepareTopicMessage(topic, message)
 	if err != nil {
 		return fmt.Errorf(failedToCreateErrMsg, err)
 	}
@@ -57,7 +57,6 @@ func notifyWH(destination string, message []byte) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, destination,
 		bytes.NewBuffer(message))
-
 	if err != nil {
 		return fmt.Errorf("failed to create new http post request for %s: %s", destination, err)
 	}

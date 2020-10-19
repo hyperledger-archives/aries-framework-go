@@ -86,7 +86,8 @@ func (c *Composition) refreshContainerList() (err error) {
 	if thisProjectsContainers, err = c.DockerClient.ListContainers(
 		docker.ListContainersOptions{
 			All:     true,
-			Filters: map[string][]string{"name": {c.ProjectName}}}); err != nil {
+			Filters: map[string][]string{"name": {c.ProjectName}},
+		}); err != nil {
 		return fmt.Errorf("error refreshing container list for project '%s':  %s", c.ProjectName, err)
 	}
 
@@ -151,7 +152,7 @@ func (c *Composition) GenerateLogs(dir, logName string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(logName, outputBytes, 0600)
+	return ioutil.WriteFile(logName, outputBytes, 0o600)
 }
 
 // GetAPIContainerForComposeService return the docker.APIContainers with the supplied composeService name.

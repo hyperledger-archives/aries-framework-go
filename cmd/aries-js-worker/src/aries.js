@@ -811,8 +811,8 @@ const Aries = function (opts) {
          * VDRI methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */
-        vdri: {
-            pkgname: "vdri",
+        vdr: {
+            pkgname: "vdr",
 
             /**
              * Saves a did document.
@@ -876,8 +876,8 @@ const Aries = function (opts) {
              *
              * @returns {Promise<Object>}
              */
-            unregister: async function () {
-                return invoke(aw, pending, this.pkgname, "Unregister", "{}", "timeout while registering router")
+            unregister: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Unregister", req, "timeout while registering router")
             },
 
             /**
@@ -885,9 +885,9 @@ const Aries = function (opts) {
              *
              * @returns {Promise<Object>}
              */
-            getConnection: async function () {
+            getConnections: async function () {
                 // console.log("router get connection")
-                return invoke(aw, pending, this.pkgname, "Connection", "{}", "timeout while fetching router connection id")
+                return invoke(aw, pending, this.pkgname, "Connections", "{}", "timeout while fetching router connection id")
             },
 
             /**
@@ -1077,7 +1077,7 @@ const Aries = function (opts) {
 
     // return promise which waits for worker to load and aries to start.
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 10000)
+        const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 15000)
         notifications.set("asset-ready", new Map().set("asset", async (result) => {
             clearTimeout(timer)
             invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries").then(

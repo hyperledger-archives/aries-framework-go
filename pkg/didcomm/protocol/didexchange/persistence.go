@@ -36,7 +36,7 @@ func newConnectionStore(p provider) (*connectionStore, error) {
 }
 
 // connectionStore takes care of connection and DID related persistence features
-// TODO merge connection stores [Issue #1004]
+// TODO merge connection stores [Issue #1004].
 type connectionStore struct {
 	*connection.Recorder
 	*did.ConnectionStore

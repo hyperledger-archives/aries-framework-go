@@ -51,7 +51,7 @@ type sendNewMessageRequest struct { // nolint: unused,deadcode
 // This is used for operation to send reply to message
 //
 // swagger:parameters sendReplyMessage
-type SendReplyMessageRequest struct { // nolint: unused,deadcode
+type SendReplyMessageRequest struct {
 	// Params for sending message reply
 	//
 	// in: body
@@ -75,7 +75,7 @@ type registerHTTPMessageServiceRequest struct { // nolint: unused,deadcode
 // This is used for returning list of registered service names
 //
 // swagger:response registeredServicesResponse
-type registeredServicesResponse struct { // nolint: unused,deadcode
+type registeredServicesResponse struct {
 	// in: body
 	messaging.RegisteredServicesResponse
 }

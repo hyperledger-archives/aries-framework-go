@@ -31,7 +31,7 @@ type (
 	Action introduce.Action
 )
 
-// Provider contains dependencies for the introduce protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the introduce protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }
@@ -191,5 +191,6 @@ func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
 // USAGE: event.Continue(WithOOBRequest(inv)).
 func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
 	_req := outofbandsvc.Request(*req)
+
 	return introduce.WithOOBRequest(&_req, a...)
 }

@@ -29,9 +29,11 @@ const (
 	ecdh1puAESPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAesAeadPrivateKey"
 )
 
-// common errors
-var errInvalidECDH1PUAESPrivateKey = errors.New("ecdh1pu_aes_private_key_manager: invalid key")
-var errInvalidECDH1PUAESPrivateKeyFormat = errors.New("ecdh1pu_aes_private_key_manager: invalid key format")
+// common errors.
+var (
+	errInvalidECDH1PUAESPrivateKey       = errors.New("ecdh1pu_aes_private_key_manager: invalid key")
+	errInvalidECDH1PUAESPrivateKeyFormat = errors.New("ecdh1pu_aes_private_key_manager: invalid key format")
+)
 
 // ecdh1puAESPrivateKeyManager is an implementation of PrivateKeyManager interface.
 // It generates new ECDHESPrivateKey (AES) keys and produces new instances of ECDH1PUAEADCompositeDecrypt subtle.

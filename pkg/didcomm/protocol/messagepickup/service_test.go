@@ -41,7 +41,8 @@ func TestServiceNew(t *testing.T) {
 	t.Run("test new service name - store error", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("error opening the store")},
+				ErrOpenStoreHandle: fmt.Errorf("error opening the store"),
+			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
 		}, &mockTransportProvider{
@@ -158,7 +159,8 @@ func TestHandleInbound(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -246,7 +248,8 @@ func TestHandleInbound(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}, &mockTransportProvider{
 			packagerValue: &mockPackager{},
 		})
@@ -598,11 +601,13 @@ func TestStatusRequest(t *testing.T) {
 					msgID <- request.ID
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -619,7 +624,7 @@ func TestStatusRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		go func() {
-			status, err := svc.StatusRequest("conn1")
+			status, err := svc.StatusRequest("conn")
 			require.NoError(t, err)
 
 			require.Equal(t, 6, status.MessageCount)
@@ -652,7 +657,7 @@ func TestStatusRequest(t *testing.T) {
 			},
 		}
 
-		_, err = svc.StatusRequest("conn1")
+		_, err = svc.StatusRequest("conn")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -666,11 +671,13 @@ func TestStatusRequest(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -686,7 +693,7 @@ func TestStatusRequest(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.StatusRequest("conn1")
+		_, err = svc.StatusRequest("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send route request")
 	})
@@ -712,11 +719,13 @@ func TestBatchPickup(t *testing.T) {
 					msgID <- batchpickup.ID
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -751,7 +760,7 @@ func TestBatchPickup(t *testing.T) {
 			ch <- s
 		}()
 
-		p, err := svc.BatchPickup("conn1", 1)
+		p, err := svc.BatchPickup("conn", 1)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, p)
@@ -768,7 +777,7 @@ func TestBatchPickup(t *testing.T) {
 			},
 		}
 
-		p, err := svc.BatchPickup("conn1", 4)
+		p, err := svc.BatchPickup("conn", 4)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 		require.Equal(t, -1, p)
@@ -783,11 +792,13 @@ func TestBatchPickup(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -803,7 +814,7 @@ func TestBatchPickup(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.BatchPickup("conn1", 4)
+		_, err = svc.BatchPickup("conn", 4)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send batch pickup request")
 	})
@@ -847,6 +858,7 @@ func TestHandleOutbound(t *testing.T) {
 		require.Contains(t, err.Error(), "not implemented")
 	})
 }
+
 func TestNoop(t *testing.T) {
 	t.Run("test MessagePickupService.Noop() - success", func(t *testing.T) {
 		s := make(map[string][]byte)
@@ -863,11 +875,13 @@ func TestNoop(t *testing.T) {
 					require.True(t, ok)
 
 					return nil
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -883,7 +897,7 @@ func TestNoop(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.NoError(t, err)
 	})
 
@@ -896,11 +910,13 @@ func TestNoop(t *testing.T) {
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return errors.New("send error")
-				}},
+				},
+			},
 		}
 
 		connRec := &connection.Record{
-			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
+		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
@@ -916,7 +932,7 @@ func TestNoop(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send noop request")
 	})
@@ -932,7 +948,7 @@ func TestNoop(t *testing.T) {
 			},
 		}
 
-		err = svc.Noop("conn1")
+		err = svc.Noop("conn")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -967,7 +983,7 @@ func getService() (*Service, error) {
 	return svc, err
 }
 
-// mockProvider mock provider
+// mockProvider mock provider.
 type mockTransportProvider struct {
 	packagerValue commontransport.Packager
 }
@@ -987,7 +1003,7 @@ func (p *mockTransportProvider) AriesFrameworkID() string {
 	return "aries-framework-instance-1"
 }
 
-// mockPackager mock packager
+// mockPackager mock packager.
 type mockPackager struct {
 }
 

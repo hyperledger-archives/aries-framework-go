@@ -63,6 +63,7 @@ func (m *MockMsgSvcProvider) Unregister(name string) error {
 	for i, msgSvc := range m.svcs {
 		if msgSvc.Name() == name {
 			index = i
+
 			break
 		}
 	}

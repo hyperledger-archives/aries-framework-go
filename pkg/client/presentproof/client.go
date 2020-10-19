@@ -31,7 +31,7 @@ var (
 	errEmptyProposePresentation = errors.New("propose presentation message is empty")
 )
 
-// Provider contains dependencies for the protocol and is typically created by using aries.Context()
+// Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Service(id string) (interface{}, error)
 }
@@ -152,6 +152,7 @@ func (c *Client) AcceptProblemReport(piID string) error {
 // Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {
 	origin := presentproof.Presentation(*msg)
+
 	return presentproof.WithPresentation(&origin)
 }
 
@@ -159,6 +160,7 @@ func WithPresentation(msg *Presentation) presentproof.Opt {
 // Use this option to respond to RequestPresentation.
 func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 	origin := presentproof.ProposePresentation(*msg)
+
 	return presentproof.WithProposePresentation(&origin)
 }
 
@@ -166,6 +168,7 @@ func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 // Use this option to respond to ProposePresentation.
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
 	origin := presentproof.RequestPresentation(*msg)
+
 	return presentproof.WithRequestPresentation(&origin)
 }
 

@@ -19,16 +19,16 @@ import (
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// provider interface for outbound ctx
+// provider interface for outbound ctx.
 type provider interface {
 	Packager() commontransport.Packager
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 }
 
@@ -37,7 +37,7 @@ type OutboundDispatcher struct {
 	outboundTransports   []transport.OutboundTransport
 	packager             commontransport.Packager
 	transportReturnRoute string
-	vdRegistry           vdri.Registry
+	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
 }
 
@@ -47,7 +47,7 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 		outboundTransports:   prov.OutboundTransports(),
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
-		vdRegistry:           prov.VDRIRegistry(),
+		vdRegistry:           prov.VDRegistry(),
 		kms:                  prov.KMS(),
 	}
 }

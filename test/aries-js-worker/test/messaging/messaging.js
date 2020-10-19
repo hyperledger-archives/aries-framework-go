@@ -47,8 +47,8 @@ describe("Basic Messaging", function () {
         receiver = didexClient.agent2
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     it("receiver registers basic message service", function (done) {

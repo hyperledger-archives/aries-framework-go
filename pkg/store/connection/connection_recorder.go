@@ -212,8 +212,8 @@ func removeConnectionsForStates(c *Recorder, connectionID string) error {
 
 	for itr.Next() {
 		key := string(itr.Key())
-		err := c.protocolStateStore.Delete(key)
 
+		err := c.protocolStateStore.Delete(key)
 		if err != nil {
 			return fmt.Errorf(
 				"unable to delete connection state record from the protocol state store: key=%s connectionid=%s err=%w",

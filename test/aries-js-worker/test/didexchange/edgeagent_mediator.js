@@ -45,10 +45,10 @@ function routeRegister(agent, connectionID, done) {
 }
 
 function validateRouterConnection(agent, connectionID, done) {
-    agent.mediator.getConnection().then(
+    agent.mediator.getConnections().then(
         resp => {
             try {
-                assert.equal(resp.connectionID, connectionID)
+                assert.isTrue(resp.connections.includes(connectionID))
             } catch (err) {
                 done(err)
             }
@@ -76,8 +76,8 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
         })
     })
 
-    after(() => {
-        aries.destroy()
+    after(async () => {
+       await aries.destroy()
     })
 
     it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
@@ -102,25 +102,16 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
 
 describe("DID-Exchange between two Edge Agents using the router", function () {
     let aliceAgent, bobAgent
-    let invitation, connectionID
+    let invitation, aliceConnectionID, bobConnectionID
 
     before(async () => {
-        await newAries('alice')
-            .then(a => {
-                aliceAgent = a
-            })
-            .catch(err => new Error(err.message));
-
-        await newAries('bob')
-            .then(a => {
-                bobAgent = a
-            })
-            .catch(err => new Error(err.message));
+        aliceAgent = await newAries('alice')
+        bobAgent = await newAries('bob')
     })
 
-    after(() => {
-        aliceAgent.destroy()
-        bobAgent.destroy()
+    after(async() => {
+        await aliceAgent.destroy()
+        await bobAgent.destroy()
     })
 
     it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
@@ -136,20 +127,20 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
 
     it("Alice Edge Agent accepts the invitation from the router", async function () {
         let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
-        connectionID = res.connection_id
+        aliceConnectionID = res.connection_id
     })
 
     it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
         let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
-        assert.equal(connectionID, connID)
+        assert.equal(aliceConnectionID, connID)
     })
 
     it("Alice Edge Agent sets previous connection as the router", function (done) {
-        routeRegister(aliceAgent, connectionID, done)
+        routeRegister(aliceAgent, aliceConnectionID, done)
     })
 
     it("Alice Edge Agent validates that the router connection is set previous connection", function (done) {
-        validateRouterConnection(aliceAgent, connectionID, done)
+        validateRouterConnection(aliceAgent, aliceConnectionID, done)
     })
 
     it("Bob Edge Agent receives an invitation from the router via the controller API", async function () {
@@ -161,42 +152,96 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
 
     it("Bob Edge Agent accepts the invitation from the router",async function () {
         let res = await didExchangeClient.acceptInvitation('wasm', bobAgent, invitation)
-        connectionID = res.connection_id
+        bobConnectionID = res.connection_id
     })
 
     it("Bob Edge Agent validates that the connection's state is 'completed'",async function () {
         let connID = await didExchangeClient.watchForConnection(bobAgent, completedState)
-        assert.equal(connectionID, connID)
+        assert.equal(bobConnectionID, connID)
     })
 
     it("Bob Edge Agent sets previous connection as the router", function (done) {
-        routeRegister(bobAgent, connectionID, done)
+        routeRegister(bobAgent, bobConnectionID, done)
     })
 
     it("Bob Edge Agent validates that the router connection is set previous connection", function (done) {
-        validateRouterConnection(bobAgent, connectionID, done)
+        validateRouterConnection(bobAgent, bobConnectionID, done)
     })
 
     it("Alice Edge Agent receives an invitation from Bob Edge agent", function (done) {
-        bobAgent.didexchange.createInvitation().then(
+        didExchangeClient.acceptExchangeRequest(bobAgent, "", bobConnectionID)
+
+        bobAgent.didexchange.createInvitation({router_connection_id: bobConnectionID}).then(
             resp => {
                 invitation = resp.invitation
                 validateInvitation(invitation)
-
                 done()
             },
             err => done(err)
         )
-
-        didExchangeClient.acceptExchangeRequest(bobAgent)
     })
 
-    it("Alice Edge Agent accepts the invitation from the Bob",async function () {
-        await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
+    it("Alice Edge Agent accepts the invitation from the Bob", async function () {
+        await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation, aliceConnectionID)
     })
 
     it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
         await didExchangeClient.watchForConnection(aliceAgent, completedState)
+    })
+})
+
+describe("Registers multiple routers", function () {
+    let aliceAgent
+    let invitation1, connectionID1, invitation2, connectionID2
+
+    before(async () => {
+        aliceAgent = await newAries('alice')
+    })
+
+    after(async () => {
+        await aliceAgent.destroy()
+    })
+
+    it(`Router is running on "${routerHttpUrl},${routerWsUrl}" with controller "${routerControllerApiUrl}"`, async function () {
+        await routerHealthCheck(routerHttpUrl, routerWsUrl, routerControllerApiUrl)
+    })
+
+    it("Alice Edge Agent receives invitations from the router via the controller API", async function () {
+        const inv1 = await axios.post(routerCreateInvitationPath)
+        invitation1 = inv1.data.invitation
+        validateInvitation(invitation1)
+
+        const inv2 = await axios.post(routerCreateInvitationPath)
+        invitation2 = inv2.data.invitation
+
+        validateInvitation(invitation2)
+    })
+
+    it("Alice Edge Agent accepts the invitation(first) from the router", async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation1)
+        let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
+        connectionID1 = res.connection_id
+        assert.equal(connectionID1, connID)
+    })
+
+    it("Alice Edge Agent accepts the invitation(second) from the router", async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation2)
+        let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
+        connectionID2 = res.connection_id
+        assert.equal(connectionID2, connID)
+    })
+
+    it("Alice Edge Agent registers connections", async function () {
+        await aliceAgent.mediator.register({"connectionID": connectionID1})
+        await aliceAgent.mediator.register({"connectionID": connectionID2})
+    })
+
+    it("Alice Edge Agent validates router`s connections", async function () {
+        let resp = await aliceAgent.mediator.getConnections()
+        assert.notEqual(connectionID1, connectionID2)
+
+        assert.isTrue(resp.connections.includes(connectionID1))
+        assert.isTrue(resp.connections.includes(connectionID2))
     })
 })
 

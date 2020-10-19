@@ -27,10 +27,10 @@ const (
 
 // Group is the error groups.
 // Note: recommended to use [0-9]*000 pattern for any new entries
-// Example: 2000, 3000, 4000 ...... 25000
+// Example: 2000, 3000, 4000 ...... 25000.
 type Group int32
 
-// TODO command types shouldn't be mentioned in common error package, [Issue#1182]
+// TODO command types shouldn't be mentioned in common error package, [Issue#1182].
 const (
 	// Common error group for general command errors.
 	Common Group = 1000
@@ -41,8 +41,8 @@ const (
 	// Messaging error group for messaging service errors.
 	Messaging Group = 3000
 
-	// VDRI error group for VDRI command errors.
-	VDRI Group = 4000
+	// VDR error group for VDR command errors.
+	VDR Group = 4000
 
 	// ROUTE error group for Route command errors.
 	ROUTE Group = 5000

@@ -60,10 +60,12 @@ func TestParseCredential(t *testing.T) {
 		require.NotNil(t, vc)
 
 		// validate @context
-		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1",
+		require.Equal(t, []string{
+			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://trustbloc.github.io/context/vc/credentials-v1.jsonld",
-			"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}, vc.Context)
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+		}, vc.Context)
 
 		// validate id
 		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
@@ -162,7 +164,8 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 		raw.Context = []interface{}{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"}
+			"https://www.w3.org/2018/credentials/examples/v1",
+		}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -175,7 +178,8 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 		raw.Context = []interface{}{
 			"https://www.w3.org/2018/credentials/v2",
-			"https://www.w3.org/2018/credentials/examples/v1"}
+			"https://www.w3.org/2018/credentials/examples/v1",
+		}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -827,13 +831,15 @@ func TestWithBaseContextExtendedValidation(t *testing.T) {
 
 	require.Equal(t, map[string]bool{
 		"https://www.w3.org/2018/credentials/v1":          true,
-		"https://www.w3.org/2018/credentials/examples/v1": true},
+		"https://www.w3.org/2018/credentials/examples/v1": true,
+	},
 		opts.allowedCustomContexts)
 
 	require.Equal(t, map[string]bool{
 		"VerifiableCredential":       true,
 		"UniversityDegreeCredential": true,
-		"AlumniCredential":           true},
+		"AlumniCredential":           true,
+	},
 		opts.allowedCustomTypes)
 }
 
@@ -1119,7 +1125,8 @@ func Test_SubjectID(t *testing.T) {
 					"name":   "Morgan Doe",
 					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				},
-			}}
+			},
+		}
 		subjectID, err := SubjectID(vcWithMultipleSubjects.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "more than one subject is defined")
@@ -1321,6 +1328,7 @@ func TestParseIssuer(t *testing.T) {
 		require.Empty(t, issuer.ID)
 	})
 }
+
 func TestParseSubject(t *testing.T) {
 	t.Run("Parse Subject defined by ID only", func(t *testing.T) {
 		subjectBytes, err := json.Marshal("did:example:ebfeb1f712ebc6f1c276e12ec21")
@@ -1494,10 +1502,12 @@ func TestContextToSerialize(t *testing.T) {
 	// several contexts without custom objects
 	require.Equal(t, []string{
 		"https://www.w3.org/2018/credentials/v1",
-		"https://www.w3.org/2018/credentials/examples/v1"},
+		"https://www.w3.org/2018/credentials/examples/v1",
+	},
 		contextToRaw([]string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 			[]interface{}{}))
 
 	// context with custom objects
@@ -1706,10 +1716,12 @@ func TestCredential_validateCredential(t *testing.T) {
 				modelValidationMode: baseContextExtendedValidation,
 				allowedCustomTypes: map[string]bool{
 					"VerifiableCredential": true,
-					"AlumniCredential":     true},
+					"AlumniCredential":     true,
+				},
 				allowedCustomContexts: map[string]bool{
 					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true},
+					"https://www.exaple.org/alumni/v1":       true,
+				},
 			}))
 
 		vc.Types = []string{"VerifiableCredential", "UniversityDegreeCredential"}
@@ -1720,10 +1732,12 @@ func TestCredential_validateCredential(t *testing.T) {
 				modelValidationMode: baseContextExtendedValidation,
 				allowedCustomTypes: map[string]bool{
 					"VerifiableCredential": true,
-					"AlumniCredential":     true},
+					"AlumniCredential":     true,
+				},
 				allowedCustomContexts: map[string]bool{
 					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true},
+					"https://www.exaple.org/alumni/v1":       true,
+				},
 			})
 		r.Error(err)
 		r.EqualError(err, "not allowed type: UniversityDegreeCredential")
@@ -1736,10 +1750,12 @@ func TestCredential_validateCredential(t *testing.T) {
 				modelValidationMode: baseContextExtendedValidation,
 				allowedCustomTypes: map[string]bool{
 					"VerifiableCredential": true,
-					"AlumniCredential":     true},
+					"AlumniCredential":     true,
+				},
 				allowedCustomContexts: map[string]bool{
 					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true},
+					"https://www.exaple.org/alumni/v1":       true,
+				},
 			})
 		r.Error(err)
 		r.EqualError(err, "not allowed @context: https://www.exaple.org/udc/v1")

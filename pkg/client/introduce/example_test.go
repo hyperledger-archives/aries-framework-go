@@ -33,7 +33,7 @@ const (
 	Carol = "Carol"
 )
 
-// payload represents a transport message structure
+// payload represents a transport message structure.
 type payload struct {
 	msg      []byte
 	myDID    string
@@ -153,7 +153,7 @@ func ExampleClient_SendProposal() {
 		Carol: make(chan payload),
 	}
 
-	var done = make(chan struct{})
+	done := make(chan struct{})
 
 	// Alice creates client
 	clientAlice, err := New(mockContext(Alice, transport, done))
@@ -243,7 +243,7 @@ func ExampleClient_SendProposalWithOOBRequest() {
 		Bob:   make(chan payload),
 	}
 
-	var done = make(chan struct{})
+	done := make(chan struct{})
 
 	// Alice creates client
 	clientAlice, err := New(mockContext(Alice, transport, done))
@@ -314,7 +314,7 @@ func ExampleClient_SendRequest() {
 		Carol: make(chan payload),
 	}
 
-	var done = make(chan struct{})
+	done := make(chan struct{})
 
 	// Alice creates client
 	clientAlice, err := New(mockContext(Alice, transport, done))
@@ -406,7 +406,7 @@ func ExampleClient_SendRequest_second() {
 		Carol: make(chan payload),
 	}
 
-	var done = make(chan struct{})
+	done := make(chan struct{})
 
 	// Alice creates client
 	clientAlice, err := New(mockContext(Alice, transport, done))

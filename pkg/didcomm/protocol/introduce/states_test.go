@@ -23,7 +23,7 @@ import (
 func notTransition(t *testing.T, st state) {
 	t.Helper()
 
-	var allState = [...]state{
+	allState := [...]state{
 		&noOp{}, &start{}, &done{},
 		&arranging{}, &delivering{},
 		&confirming{}, &abandoning{},

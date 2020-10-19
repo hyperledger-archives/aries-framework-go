@@ -153,11 +153,13 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	vc := &Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"},
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
 		ID: "http://example.edu/credentials/1872",
 		Types: []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"},
+			"UniversityDegreeCredential",
+		},
 		Subject: UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",
@@ -190,7 +192,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		// Create and encode VP.
 		vp := &Presentation{
 			Context: []string{
-				"https://www.w3.org/2018/credentials/v1"},
+				"https://www.w3.org/2018/credentials/v1",
+			},
 			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
 			Type:   []string{"VerifiablePresentation"},
 			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -240,7 +243,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		// Create and encode VP.
 		vp := &Presentation{
 			Context: []string{
-				"https://www.w3.org/2018/credentials/v1"},
+				"https://www.w3.org/2018/credentials/v1",
+			},
 			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
 			Type:   []string{"VerifiablePresentation"},
 			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -275,7 +279,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		// Create and encode VP.
 		vp := &Presentation{
 			Context: []string{
-				"https://www.w3.org/2018/credentials/v1"},
+				"https://www.w3.org/2018/credentials/v1",
+			},
 			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
 			Type:   []string{"VerifiablePresentation"},
 			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",

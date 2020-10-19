@@ -18,19 +18,19 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for the Verifiable protocol
+// constants for the Verifiable protocol.
 const (
-	// roots
+	// roots.
 	VerifiableOperationID      = "/verifiable"
 	verifiableCredentialPath   = VerifiableOperationID + "/credential"
 	verifiablePresentationPath = VerifiableOperationID + "/presentation"
 
-	// credential paths
+	// credential paths.
 	ValidateCredentialPath     = verifiableCredentialPath + "/validate"
 	SaveCredentialPath         = verifiableCredentialPath
 	GetCredentialPath          = verifiableCredentialPath + "/{id}"
@@ -39,7 +39,7 @@ const (
 	SignCredentialsPath        = VerifiableOperationID + "/signcredential"
 	RemoveCredentialByNamePath = verifiableCredentialPath + "/remove/name" + "/{name}"
 
-	// presentation paths
+	// presentation paths.
 	GeneratePresentationPath     = verifiablePresentationPath + "/generate"
 	GeneratePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
 	SavePresentationPath         = verifiablePresentationPath
@@ -51,7 +51,7 @@ const (
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 	Crypto() ariescrypto.Crypto
 }

@@ -10,10 +10,7 @@ import {environment} from "../environment.js"
 const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
 
 const routerConnPath = "/connections"
-const mediatorPath = "/mediator"
 const routerCreateInvitationPath = `${routerControllerApiUrl}${routerConnPath}/create-invitation`
-const routerGetConnectionPath = `${routerControllerApiUrl}${mediatorPath}/connection`
-const routerRegisterPath = `${routerControllerApiUrl}${mediatorPath}/register`
 
 const statesTopic = "didexchange_states"
 const postState = "post_state"
@@ -41,6 +38,8 @@ export const didExchangeClient = class {
         this.agent1 = agent1
         this.agent2 = agent2
         this.mode = mode
+        this.agent1RouterConnection = ""
+        this.agent2RouterConnection = ""
     }
 
     async performDIDExchangeE2E() {
@@ -50,7 +49,9 @@ export const didExchangeClient = class {
 
         // perform did exchange between agent 1 and agent 2
         // create invitation from agent1
-        let response = await this.agent1.didexchange.createInvitation()
+        let response = await this.agent1.didexchange.createInvitation({
+            router_connection_id: this.agent1RouterConnection
+        })
         didExchangeClient.validateInvitation(response.invitation)
 
         // wait for connection 'completed' in both the agents
@@ -70,21 +71,24 @@ export const didExchangeClient = class {
         ])
 
         if (this.mode === wasmMode) {
-            didExchangeClient.acceptExchangeRequest(this.agent1, response.invitation['@id'])
+            didExchangeClient.acceptExchangeRequest(this.agent1, response.invitation['@id'], this.agent1RouterConnection)
         }
 
         // accept invitation in agent 2 and accept exchange request in agent 1
-        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2,
+            response.invitation, this.agent2RouterConnection)
 
         return await connections
     }
 
     static async addRouter(mode, agent) {
-        await agent.mediator.unregister().catch((err) => {
-            if (!err.message.includes("router not registered")) {
-                throw new Error(err)
+        let resp = await agent.mediator.getConnections()
+        if (resp.connections){
+            for (let i = 0; i < resp.connections.length; i++) {
+                await agent.mediator.unregister({"connectionID": resp.connections[i]})
             }
-        })
+        }
+
         // receive an invitation from the router via the controller API
         let invitation = await didExchangeClient.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
@@ -117,12 +121,12 @@ export const didExchangeClient = class {
 
     async destroy() {
         if (this.hasMediator) {
-            await this.agent1.mediator.unregister()
-            await this.agent2.mediator.unregister()
+            await this.agent1.mediator.unregister({"connectionID": this.agent1RouterConnection})
+            await this.agent2.mediator.unregister({"connectionID": this.agent2RouterConnection})
         }
 
-        this.agent1.destroy()
-        this.agent2.destroy()
+        await this.agent1.destroy()
+        await this.agent2.destroy()
     }
 
     static async createInvitationFromRouter(endpoint) {
@@ -144,7 +148,7 @@ export const didExchangeClient = class {
         assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
     }
 
-    static async acceptInvitation(mode, agent, invitation) {
+    static async acceptInvitation(mode, agent, invitation, router = "") {
         if (mode === restMode) {
             return agent.didexchange.receiveInvitation(invitation)
         }
@@ -159,11 +163,12 @@ export const didExchangeClient = class {
         await agent.didexchange.receiveInvitation(invitation)
 
         return agent.didexchange.acceptInvitation({
-            id: (await event).Properties.connectionID
+            id: (await event).Properties.connectionID,
+            router_connections: router,
         })
     }
 
-    static acceptExchangeRequest(agent, messageID) {
+    static acceptExchangeRequest(agent, messageID, router = "") {
         let options = {
             stateID: states.requested,
             type: postState,
@@ -174,9 +179,10 @@ export const didExchangeClient = class {
             options.messageID = messageID
         }
 
-        return watchForEvent(agent, options).then((e) => {
+        return watchForEvent(agent, options).then(async (e) => {
             return agent.didexchange.acceptExchangeRequest({
-                id: e.Properties.connectionID
+                id: e.Properties.connectionID,
+                router_connections: router,
             })
         })
     }
@@ -198,34 +204,22 @@ export const didExchangeClient = class {
     }
 
     static async validateRouterConnection(agent, connectionID) {
-        let resp = await agent.mediator.getConnection()
-        assert.equal(resp.connectionID, connectionID)
+        let resp = await agent.mediator.getConnections()
+        assert.isTrue(resp.connections.includes(connectionID))
     }
 }
 
 export async function newDIDExchangeClient(agent1, agent2) {
-    let aries1, aries2;
-
-    const init = (values) => {
-        aries1 = values[0]
-        aries2 = values[1]
-    };
-
-    await Promise.all([newAries(agent1, agent1), newAries(agent2, agent2)]).then(init).catch(err => new Error(err.message));
+    let aries1 = await newAries(agent1, agent1)
+    let aries2 = await newAries(agent2, agent2)
 
     return new didExchangeClient(aries1, aries2, wasmMode)
 }
 
 
 export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
-    let aries1, aries2;
-
-    const init = (values) => {
-        aries1 = values[0]
-        aries2 = values[1]
-    };
-
-    await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
+    let aries1 = await newAriesREST(agentURL1)
+    let aries2 = await newAriesREST(agentURL2)
 
     return new didExchangeClient(aries1, aries2, restMode)
 }

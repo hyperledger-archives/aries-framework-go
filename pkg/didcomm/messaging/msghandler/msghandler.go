@@ -93,6 +93,7 @@ func (m *Registrar) Unregister(name string) error {
 	for i, svc := range m.services {
 		if svc.Name() == name {
 			index = i
+
 			break
 		}
 	}

@@ -39,7 +39,7 @@ func TestDIDCommMsgMap_ID(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.ID())
@@ -52,7 +52,7 @@ func TestDIDCommMsgMap_SetID(t *testing.T) {
 
 	require.EqualError(t, DIDCommMsgMap.SetID(nil, ID), ErrNilMessage.Error())
 
-	var m = DIDCommMsgMap{}
+	m := DIDCommMsgMap{}
 
 	require.NoError(t, m.SetID(ID))
 	require.Equal(t, ID, m.ID())
@@ -82,7 +82,7 @@ func TestDIDCommMsgMap_MetaData(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Metadata())
@@ -115,7 +115,7 @@ func TestDIDCommMsgMap_Type(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Type())
@@ -150,7 +150,7 @@ func TestDIDCommMsgMap_Clone(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.Clone())
@@ -183,7 +183,7 @@ func TestDIDCommMsgMap_ParentThreadID(t *testing.T) {
 	}
 
 	for i := range tests {
-		var test = tests[i]
+		test := tests[i]
 
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.expected, test.msg.ParentThreadID())
@@ -211,6 +211,41 @@ func TestDIDCommMsgMap_ToStruct(t *testing.T) {
 	actual := Test{}
 	require.NoError(t, msg.Decode(&actual))
 	require.Equal(t, expected, actual)
+}
+
+func TestDIDCommMsgMap_ToJsonRawStruct(t *testing.T) {
+	const sample = `{
+    "@id": "ac881ac9-47b1-485f-8509-cd1e382bfe59",
+    "@type": "https://sampleorg.io/sample-type/1.0/sample-request",
+    "data": {
+        "doc": {
+			"@id": "fh770bd8-58c2-596g-9610-de2f493cgf60",
+            "created": "2020-10-08T16:22:23.2967447Z",
+            "updated": "2020-10-08T16:22:23.2967447Z"
+        }
+    },
+    "~purpose": ["sample-purpose"],
+    "~thread": {"thid": "ac881ac9-47b1-485f-8509-cd1e382bfe59"},
+    "~transport": {"~return_route": "all"}
+	}`
+
+	msg := DIDCommMsgMap{}
+
+	err := msg.UnmarshalJSON([]byte(sample))
+	require.NoError(t, err)
+
+	req := struct {
+		ID      string   `json:"@id"`
+		Type    string   `json:"@type"`
+		Purpose []string `json:"~purpose"`
+		Data    *struct {
+			Doc json.RawMessage `json:"doc"`
+		} `json:"data"`
+	}{}
+
+	err = msg.Decode(&req)
+	require.NoError(t, err)
+	require.NotEmpty(t, req.Data.Doc)
 }
 
 func TestDIDCommMsgMap_MarshalJSON(t *testing.T) {

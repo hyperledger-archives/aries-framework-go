@@ -24,7 +24,7 @@ func TestWithDBPath(t *testing.T) {
 		// create an non-writeable directory so that the store path will cause error
 		tempPath, cleanup := generateTempDir(t)
 		defer cleanup()
-		err := os.Chmod(tempPath, 0000)
+		err := os.Chmod(tempPath, 0o000)
 		require.NoError(t, err)
 
 		path := filepath.Join(tempPath, "db")

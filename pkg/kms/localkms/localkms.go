@@ -30,7 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/base58wrapper"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 )
 
 const (
@@ -40,9 +40,7 @@ const (
 	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
 
-var (
-	errInvalidKeyType = errors.New("key type is not supported")
-)
+var errInvalidKeyType = errors.New("key type is not supported")
 
 // package localkms is the default KMS service implementation of pkg/kms.KeyManager. It uses Tink keys to support the
 // default Crypto implementation, pkg/crypto/tinkcrypto, and stores these keys in the format understood by Tink. It also
@@ -64,7 +62,7 @@ func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
 		return nil, err
 	}
 
-	return base58wrapper.NewBase58StoreWrapper(s), nil
+	return prefix.NewPrefixStoreWrapper(s, prefix.StorageKIDPrefix)
 }
 
 // New will create a new (local) KMS service.
@@ -287,6 +285,7 @@ func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...kms.PrivateKey
 
 func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 	localDBReader := newReader(l.store, id)
+
 	jsonKeysetReader := keyset.NewJSONReader(localDBReader)
 
 	// Read reads the encrypted keyset handle back from the io.reader implementation

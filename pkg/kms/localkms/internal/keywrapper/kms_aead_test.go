@@ -47,7 +47,7 @@ func TestLocalKMS_New_AEAD(t *testing.T) {
 }
 
 func TestLocalKMS_EncryptDecrypt(t *testing.T) {
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName    string
 		encVal    []byte
 		errEncVal error

@@ -50,9 +50,9 @@ const (
 	DeclinePresentationErrorCode
 )
 
-// constants for the PresentProof operations
+// constants for the PresentProof operations.
 const (
-	// command name
+	// command name.
 	CommandName = "presentproof"
 
 	Actions                      = "Actions"
@@ -69,7 +69,7 @@ const (
 )
 
 const (
-	// error messages
+	// error messages.
 	errEmptyPIID                = "empty PIID"
 	errEmptyMyDID               = "empty MyDID"
 	errEmptyTheirDID            = "empty TheirDID"
@@ -77,7 +77,7 @@ const (
 	errEmptyProposePresentation = "empty ProposePresentation"
 	errEmptyRequestPresentation = "empty RequestPresentation"
 
-	// log constants
+	// log constants.
 	successString = "success"
 
 	_actions = "_actions"

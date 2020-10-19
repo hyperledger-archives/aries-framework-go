@@ -18,7 +18,7 @@ import (
 )
 
 func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
-	var flagTests = []struct {
+	flagTests := []struct {
 		tcName    string
 		curveType string
 		tmplFunc  func() *tinkpb.KeyTemplate

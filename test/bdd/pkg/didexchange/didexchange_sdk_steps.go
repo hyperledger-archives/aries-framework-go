@@ -18,14 +18,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
 // SDKSteps is steps for didexchange using client SDK.
 type SDKSteps struct {
 	bddContext     *context.BDDContext
-	nextAction     map[string]chan struct{}
+	nextAction     map[string]chan struct{ connections []string }
 	connectionID   map[string]string
 	invitations    map[string]*didexchange.Invitation
 	postStatesFlag map[string]map[string]chan bool
@@ -34,15 +34,29 @@ type SDKSteps struct {
 // NewDIDExchangeSDKSteps return new steps for didexchange using client SDK.
 func NewDIDExchangeSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		nextAction:     make(map[string]chan struct{}),
+		nextAction:     make(map[string]chan struct{ connections []string }),
 		connectionID:   make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
 		postStatesFlag: make(map[string]map[string]chan bool),
 	}
 }
 
-func (d *SDKSteps) createInvitation(inviterAgentID string) error {
-	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID)
+func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) error {
+	connection, ok := d.bddContext.Args[router]
+	if !ok {
+		return fmt.Errorf("no connection for %s", router)
+	}
+
+	return d.createInvitation(inviterAgentID, connection)
+}
+
+func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
+	return d.createInvitation(inviterAgentID, "")
+}
+
+func (d *SDKSteps) createInvitation(inviterAgentID, connection string) error {
+	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID,
+		didexchange.WithRouterConnectionID(connection))
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
@@ -125,8 +139,8 @@ func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentI
 // WaitForPublicDID waits for public DID.
 func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
 	for _, agentID := range strings.Split(agents, ",") {
-		vdri := d.bddContext.AgentCtx[agentID].VDRIRegistry()
-		if _, err := resolveDID(vdri, d.bddContext.PublicDIDDocs[agentID].ID, maxSeconds); err != nil {
+		vdr := d.bddContext.AgentCtx[agentID].VDRegistry()
+		if _, err := resolveDID(vdr, d.bddContext.PublicDIDDocs[agentID].ID, maxSeconds); err != nil {
 			return err
 		}
 	}
@@ -164,25 +178,29 @@ func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 }
 
 // ValidateConnection checks the agents connection status against the given value.
-func (d *SDKSteps) ValidateConnection(agentID, stateValue string) error {
-	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.connectionID[agentID])
-	if err != nil {
-		return fmt.Errorf("failed to query connection by id: %w", err)
-	}
+func (d *SDKSteps) ValidateConnection(agents, stateValue string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.connectionID[agentID])
+		if err != nil {
+			return fmt.Errorf("failed to query connection by id: %w", err)
+		}
 
-	prettyConn, err := json.MarshalIndent(conn, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal connection: %w", err)
-	}
+		prettyConn, err := json.MarshalIndent(conn, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal connection: %w", err)
+		}
 
-	logger.Debugf("Agent[%s] state[%s] connection: \n %s", agentID, stateValue, string(prettyConn))
+		logger.Debugf("Agent[%s] state[%s] connection: \n %s", agentID, stateValue, string(prettyConn))
 
-	if conn.State != stateValue {
-		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
-	}
+		if conn.State != stateValue {
+			return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
+		}
 
-	if stateValue == "completed" {
-		return d.validateResolveDID(agentID, conn.TheirDID)
+		if stateValue == "completed" {
+			if err = d.validateResolveDID(agentID, conn.TheirDID); err != nil {
+				return fmt.Errorf("validate resolve DID: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -190,7 +208,7 @@ func (d *SDKSteps) ValidateConnection(agentID, stateValue string) error {
 
 // validateResolveDID verifies if given agent is able to resolve their DID.
 func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
-	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Resolve(theirDID)
+	doc, err := d.bddContext.AgentCtx[agentID].VDRegistry().Resolve(theirDID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange : %w", theirDID, err)
 	}
@@ -198,6 +216,24 @@ func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 	if doc == nil || doc.ID != theirDID {
 		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange", theirDID)
 	}
+
+	return nil
+}
+
+// ApproveRequestWithRouter approves request.
+func (d *SDKSteps) ApproveRequestWithRouter(agentID, router string) error {
+	c, found := d.nextAction[agentID]
+	if !found {
+		return fmt.Errorf("%s is not registered for request approval", agentID)
+	}
+
+	connection, ok := d.bddContext.Args[router]
+	if !ok {
+		return fmt.Errorf("no connection for %s", router)
+	}
+
+	// sends the signal which automatically handles events
+	c <- struct{ connections []string }{connections: []string{connection}}
 
 	return nil
 }
@@ -210,13 +246,13 @@ func (d *SDKSteps) ApproveRequest(agentID string) error {
 	}
 
 	// sends the signal which automatically handles events
-	c <- struct{}{}
+	c <- struct{ connections []string }{connections: nil}
 
 	return nil
 }
 
-func (d *SDKSteps) getClientOptions(agentID string) interface{} {
-	clientOpts := &clientOptions{label: agentID}
+func (d *SDKSteps) getClientOptions(agentID string, connections []string) interface{} {
+	clientOpts := &clientOptions{label: agentID, routerConnections: connections}
 
 	pubDID, ok := d.bddContext.PublicDIDDocs[agentID]
 	if ok {
@@ -229,8 +265,9 @@ func (d *SDKSteps) getClientOptions(agentID string) interface{} {
 }
 
 type clientOptions struct {
-	publicDID string
-	label     string
+	publicDID         string
+	label             string
+	routerConnections []string
 }
 
 func (copts *clientOptions) PublicDID() string {
@@ -239,6 +276,10 @@ func (copts *clientOptions) PublicDID() string {
 
 func (copts *clientOptions) Label() string {
 	return copts.label
+}
+
+func (copts *clientOptions) RouterConnections() []string {
+	return copts.routerConnections
 }
 
 // CreateDIDExchangeClient creates DIDExchangeClient.
@@ -261,7 +302,7 @@ func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 
 		d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
 		// initializes the channel for the agent
-		d.nextAction[agentID] = make(chan struct{})
+		d.nextAction[agentID] = make(chan struct{ connections []string })
 
 		go d.autoExecuteActionEvent(agentID, actionCh)
 	}
@@ -272,7 +313,7 @@ func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDCommAction) {
 	for e := range ch {
 		// waits for the signal to allows this code to be executed
-		<-d.nextAction[agentID]
+		res := <-d.nextAction[agentID]
 
 		switch v := e.Properties.(type) {
 		case didexchange.Event:
@@ -281,7 +322,7 @@ func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDC
 			panic(fmt.Sprintf("Service processing failed: %s", v))
 		}
 
-		clientOpts := d.getClientOptions(agentID)
+		clientOpts := d.getClientOptions(agentID, res.connections)
 		e.Continue(clientOpts)
 	}
 }
@@ -316,7 +357,7 @@ func (d *SDKSteps) performDIDExchange(inviter, invitee string) error {
 	}
 
 	// create invitation
-	err := d.createInvitation(inviter)
+	err := d.createInvitationWithoutRouter(inviter)
 	if err != nil {
 		return err
 	}
@@ -411,12 +452,12 @@ func (d *SDKSteps) saveConnectionID(agentID, varName string) error {
 	return nil
 }
 
-func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
+func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
-		doc, err = vdriRegistry.Resolve(did)
+		doc, err = vdr.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
 			return doc, err
 		}
@@ -434,8 +475,9 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers did exchange steps.
-func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
-	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
+func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitationWithoutRouter)
+	s.Step(`^"([^"]*)" creates invitation with router "([^"]*)"$`, d.createInvitationWithRouter)
 	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
@@ -447,8 +489,10 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.ValidateConnection)
 	s.Step(`^"([^"]*)" creates did exchange client$`, d.CreateDIDExchangeClient)
-	s.Step(`^"([^"]*)" approves did exchange request`, d.ApproveRequest)
-	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves did exchange request$`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves invitation request$`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves invitation request with router "([^"]*)"$`, d.ApproveRequestWithRouter)
+	s.Step(`^"([^"]*)" approves did exchange request with router "([^"]*)"$`, d.ApproveRequestWithRouter)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.RegisterPostMsgEvent)
 	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange$`, d.performDIDExchange)
 	s.Step(`^"([^"]*)" saves connectionID to variable "([^"]*)"$`, d.saveConnectionID)

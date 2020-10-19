@@ -108,29 +108,31 @@ func (d *SDKSteps) GetEventReceived(msgID string, timeout time.Duration) (*servi
 }
 
 // GetRoutingConfig blocks until it fetches the agent's routing configuration or until the timeout is reached.
-func (d *SDKSteps) GetRoutingConfig(agent string, timeout time.Duration) (*routesvc.Config, error) {
+func (d *SDKSteps) GetRoutingConfig(agent, connectionID string, timeout time.Duration) (*routesvc.Config, error) {
 	client, found := d.bddContext.RouteClients[agent]
 	if !found {
 		return nil, fmt.Errorf("%s does not have a registered routing client", agent)
 	}
 
-	var config *routesvc.Config
+	var (
+		config *routesvc.Config
+		err    error
+	)
 
-	err := errors.New("dummy")
 	deadline := time.Now().Add(timeout)
 
-	for err != nil && time.Now().Before(deadline) {
-		config, err = client.GetConfig()
+	for time.Now().Before(deadline) {
+		config, err = client.GetConfig(connectionID)
 		if err != nil {
 			time.Sleep(sleepDuration)
+
+			continue
 		}
+
+		return config, nil
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("%s failed to fetch their routing config : %w", agent, err)
-	}
-
-	return config, nil
+	return nil, err
 }
 
 // ApproveRequest approves a routing protocol request with the given args.
@@ -158,17 +160,22 @@ func (d *SDKSteps) RegisterRoute(agentID, varName, routerID string) error {
 
 // VerifyConnection verifies the router connection id has been set to the provided connection id.
 func (d *SDKSteps) VerifyConnection(agentID, varName string) error {
-	connectionID, err := d.bddContext.RouteClients[agentID].GetConnection()
+	connections, err := d.bddContext.RouteClients[agentID].GetConnections()
 	if err != nil {
 		return fmt.Errorf("fetch router connection id : %w", err)
 	}
 
-	if connectionID != d.bddContext.Args[varName] {
-		return fmt.Errorf("router connection id does not match : routerConnID=%s newConnID=%s",
-			connectionID, d.bddContext.Args[varName])
+	if len(connections) == 0 {
+		return errors.New("router does not have any connections")
 	}
 
-	return nil
+	for _, conn := range connections {
+		if conn == d.bddContext.Args[varName] {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("router connection id does not exist: routerConnID=%s", d.bddContext.Args[varName])
 }
 
 // SetContext is called before every scenario is run with a fresh new context.

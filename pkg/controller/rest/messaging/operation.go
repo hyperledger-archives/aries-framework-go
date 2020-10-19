@@ -15,18 +15,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// constants for Messaging operations
+// constants for Messaging operations.
 const (
-	// http over didcomm endpoints
+	// http over didcomm endpoints.
 	httpOverDIDComm                = "/http-over-didcomm"
 	RegisterHTTPOverDIDCommService = httpOverDIDComm + "/register"
 
-	// message service endpoints
+	// message service endpoints.
 	MsgServiceOperationID = "/message"
 	RegisterMsgService    = MsgServiceOperationID + "/register-service"
 	UnregisterMsgService  = MsgServiceOperationID + "/unregister-service"
@@ -36,9 +36,9 @@ const (
 )
 
 // provider contains dependencies for the common controller operations
-// and is typically created by using aries.Context()
+// and is typically created by using aries.Context().
 type provider interface {
-	VDRIRegistry() vdri.Registry
+	VDRegistry() vdr.Registry
 	Messenger() service.Messenger
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider

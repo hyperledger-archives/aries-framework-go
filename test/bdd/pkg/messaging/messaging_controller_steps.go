@@ -10,7 +10,6 @@
 package messaging
 
 import (
-	rqCtx "context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,40 +18,38 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
-	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const (
-	// message service endpoints
+	// message service endpoints.
 	msgServiceOperationID = "/message"
 	registerMsgService    = msgServiceOperationID + "/register-service"
 	unregisterMsgService  = msgServiceOperationID + "/unregister-service"
 	msgServiceList        = msgServiceOperationID + "/services"
 	sendNewMsg            = msgServiceOperationID + "/send"
 	sendReplyMsg          = msgServiceOperationID + "/reply"
-	// query connections endpoint
+	// query connections endpoint.
 	queryConnections = "/connections"
-	// webhook checktopics
-	checkForTopics    = "/checktopics"
-	timeoutPullTopics = 5 * time.Second
+	// webhook checktopics.
+	checkForTopics = "/checktopics"
 	// retry options to pull topics from webhook
-	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
+	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry.
 	pullTopicsWaitInMilliSec = 200
 	// pullTopicsAttemptsBeforeFail total number of retries where
-	// total time shouldn't exceed 5 seconds
+	// total time shouldn't exceed 5 seconds.
 	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 
 // ControllerSteps is steps for messaging using controller/REST binding.
 type ControllerSteps struct {
-	bddContext     *context.BDDContext
+	bddContext     *bddcontext.BDDContext
 	msgIDsBySender map[string]string
 }
 
@@ -104,6 +101,7 @@ func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose str
 	for _, svcName := range svcNames {
 		if svcName == name {
 			found = true
+
 			break
 		}
 	}
@@ -269,35 +267,16 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	return "", fmt.Errorf("no connection found, for agents '%s'", agentID)
 }
 
-func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (*service.DIDCommMsgMap, error) {
-	conn, ok := d.bddContext.GetWebSocketConn(agentID)
-	if !ok {
-		return nil, fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
+func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (service.DIDCommMsgMap, error) {
+	msg, err := util.PullEventsFromWebSocket(d.bddContext, agentID,
+		util.FilterTopic(topic),
+		util.NotEmptyMessage(),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	ctx, cancel := rqCtx.WithTimeout(rqCtx.Background(), timeoutPullTopics)
-	defer cancel()
-
-	var incoming struct {
-		ID      string                `json:"id"`
-		Topic   string                `json:"topic"`
-		Message service.DIDCommMsgMap `json:"message"`
-	}
-
-	for {
-		err := wsjson.Read(ctx, conn, &incoming)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
-		}
-
-		if topic != incoming.Topic {
-			continue
-		}
-
-		if len(incoming.Message) > 0 {
-			return &incoming.Message, nil
-		}
-	}
+	return msg.Message.Message, nil
 }
 
 func postToURL(url string, payload interface{}) error {
@@ -392,6 +371,7 @@ func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) e
 
 	return d.sendMessage(fromAgentID, toAgentID, basicMsg)
 }
+
 func (d *ControllerSteps) sendBasicMessageToDID(fromAgentID, msg, toAgentID string) error {
 	basicMsg := &basic.Message{
 		ID:      uuid.New().String(),
@@ -491,12 +471,12 @@ func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, topic, from 
 }
 
 // SetContext is called before every scenario is run with a fresh new context.
-func (d *ControllerSteps) SetContext(ctx *context.BDDContext) {
+func (d *ControllerSteps) SetContext(ctx *bddcontext.BDDContext) {
 	d.bddContext = ctx
 }
 
 // RegisterSteps registers messaging steps.
-func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+func (d *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	// generic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for type "([^"]*)"`+
 		` and purpose "([^"]*)"$`, d.registerMsgService)

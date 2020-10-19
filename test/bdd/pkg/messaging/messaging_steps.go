@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// messagingSDKSteps is steps for messaging using client SDK
+// messagingSDKSteps is steps for messaging using client SDK.
 type messagingSDKSteps struct {
 	bddContext *context.BDDContext
 }
@@ -71,6 +71,7 @@ func (d *messagingSDKSteps) sendMessage(fromAgentID, toAgentID string, msg servi
 	for _, conn := range connections {
 		if conn.State == "completed" && conn.TheirLabel == toAgentID {
 			target = conn
+
 			break
 		}
 	}
@@ -117,7 +118,7 @@ func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string
 		return fmt.Errorf("unable to find context for agent `%s`", fromAgentID)
 	}
 
-	dest, err := service.GetDestination(publicDID.ID, ctx.VDRIRegistry())
+	dest, err := service.GetDestination(publicDID.ID, ctx.VDRegistry())
 	if err != nil {
 		return fmt.Errorf("unable to get destination from public DID `%s` : %w", publicDID.ID, err)
 	}

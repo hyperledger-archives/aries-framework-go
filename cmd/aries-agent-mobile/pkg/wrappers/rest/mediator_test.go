@@ -43,8 +43,10 @@ func TestMediator_BatchPickup(t *testing.T) {
 		reqData := sampleBatchPickupRequest
 
 		mockResponse := `{"message_count":64}`
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + mediator.BatchPickupPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + mediator.BatchPickupPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.BatchPickup(req)
@@ -55,18 +57,20 @@ func TestMediator_BatchPickup(t *testing.T) {
 	})
 }
 
-func TestMediator_Connection(t *testing.T) {
+func TestMediator_Connections(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		controller := getMediatorController(t)
 
 		reqData := emptyJSON
 
-		mockResponse := `{"connectionID":"conn-abc"}`
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodGet, url: mockAgentURL + mediator.GetConnectionPath}
+		mockResponse := `{"connections":["conn-abc"]}`
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodGet, url: mockAgentURL + mediator.GetConnectionsPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := controller.Connection(req)
+		resp := controller.Connections(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
@@ -81,8 +85,10 @@ func TestMediator_Reconnect(t *testing.T) {
 		reqData := sampleConnRequest
 
 		mockResponse := emptyJSON
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + mediator.ReconnectPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + mediator.ReconnectPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Reconnect(req)
@@ -100,8 +106,10 @@ func TestMediator_Register(t *testing.T) {
 		reqData := sampleConnRequest
 
 		mockResponse := emptyJSON
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + mediator.RegisterPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + mediator.RegisterPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Register(req)
@@ -120,8 +128,10 @@ func TestMediator_Status(t *testing.T) {
 
 		mockResponse := `{"@id":"sample-status-id","message_count":0,"last_added_time":"0001-01-01T00:00:00Z",
 "last_delivered_time":"0001-01-01T00:00:00Z","last_removed_time":"0001-01-01T00:00:00Z","total_size":64}`
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + mediator.StatusPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + mediator.StatusPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Status(req)
@@ -139,8 +149,10 @@ func TestMediator_Unregister(t *testing.T) {
 		reqData := emptyJSON
 
 		mockResponse := emptyJSON
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodDelete, url: mockAgentURL + mediator.UnregisterPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodDelete, url: mockAgentURL + mediator.UnregisterPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.Unregister(req)

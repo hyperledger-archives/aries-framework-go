@@ -39,30 +39,32 @@ async function outofbandRequest(mode) {
         didexClient = await client(mode)
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     let request;
     it("Alice constructs an out-of-band request with no attachments", async function () {
-        request = await didexClient.agent1.outofband.createRequest(createRequest("Alice"))
+        request = await didexClient.agent1.outofband.createRequest(createRequest(didexClient.agent1RouterConnection, "Alice"))
     })
 
     it("Bob accepts the request and connects with Alice", async function () {
-        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, request.request['@id'])
+        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, request.request['@id'], didexClient.agent1RouterConnection)
 
         await didexClient.agent2.outofband.acceptRequest({
             my_label: "Bob",
             request: request.request,
+            router_connections: didexClient.agent2RouterConnection,
         })
 
         await checked
     })
 }
 
-export function createRequest(label) {
+export function createRequest(router, label) {
     return {
         label: label,
+        router_connection_id: router,
         attachments: [
             {
                 "@id": getRandom(1, 9) + "955adee-bdb4-437f-884a-b466e38d5884",
@@ -82,23 +84,25 @@ async function outofbandInvitation(mode) {
         didexClient = await client(mode)
     })
 
-    after(() => {
-        didexClient.destroy()
+    after(async () => {
+        await didexClient.destroy()
     })
 
     let invitation;
     it("Alice constructs an out-of-band invitation", async function () {
         invitation = await didexClient.agent1.outofband.createInvitation({
-            label: "Alice"
+            label: "Alice",
+            router_connection_id: didexClient.agent1RouterConnection
         })
     })
 
     it("Bob accepts the invitation and connects with Alice", async function () {
-        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, invitation.invitation['@id'])
+        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, invitation.invitation['@id'], didexClient.agent1RouterConnection)
 
         await didexClient.agent2.outofband.acceptInvitation({
             my_label: "Bob",
             invitation: invitation.invitation,
+            router_connections: didexClient.agent2RouterConnection,
         })
 
         await checked
@@ -115,7 +119,7 @@ async function client(mode) {
     return client
 }
 
-export async function checkConnection(mode, inviter, invitee, expected) {
+export async function checkConnection(mode, inviter, invitee, expected, router) {
     let connections = Promise.all([
         didExchangeClient.watchForConnection(inviter, "completed").then(async (id) => {
             let conn = await connection(inviter, id)
@@ -130,7 +134,7 @@ export async function checkConnection(mode, inviter, invitee, expected) {
     ])
 
     if (mode === wasmMode) {
-        didExchangeClient.acceptExchangeRequest(inviter)
+        didExchangeClient.acceptExchangeRequest(inviter, "", router)
     }
 
     return await connections
@@ -139,13 +143,15 @@ export async function checkConnection(mode, inviter, invitee, expected) {
 export async function connectAgents(mode, inviter, invitee) {
     let invitation = await inviter.outofband.createInvitation({
         label: getRandom(1, 10) + "_" + getRandom(1, 10),
+        router_connection_id: inviter.routerConnection
     })
 
-    let checked = checkConnection(mode, inviter, invitee, invitation.invitation['@id'])
+    let checked = checkConnection(mode, inviter, invitee, invitation.invitation['@id'], inviter.routerConnection)
 
     await invitee.outofband.acceptInvitation({
         my_label: getRandom(1, 10) + "_" + getRandom(1, 10),
         invitation: invitation.invitation,
+        router_connections: invitee.routerConnection,
     })
 
     return await checked
@@ -169,8 +175,4 @@ export async function getAction(agent) {
     return await watchForEvent(agent, {
         topic: actionsTopic,
     })
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }

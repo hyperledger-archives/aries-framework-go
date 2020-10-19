@@ -37,17 +37,17 @@ func NewRouteRESTSteps() *RESTSteps {
 }
 
 // RegisterRoute registers the router for the agent.
-func (d *RESTSteps) RegisterRoute(agentID, varName string) error {
-	connectionID := d.bddContext.Args[varName]
-
+func (d *RESTSteps) RegisterRoute(agentID, varNames string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)
 	if !ok {
-		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	err := postToURL(destination+"/mediator/register", registerRouteReq{ConnectionID: connectionID})
-	if err != nil {
-		return fmt.Errorf("router registration : %w", err)
+	for _, varName := range strings.Split(varNames, ",") {
+		err := postToURL(destination+"/mediator/register", registerRouteReq{ConnectionID: d.bddContext.Args[varName]})
+		if err != nil {
+			return fmt.Errorf("router registration: %w", err)
+		}
 	}
 
 	return nil
@@ -63,44 +63,57 @@ func postToURL(url string, payload interface{}) error {
 }
 
 // UnregisterRoute unregisters the router.
-func (d *RESTSteps) UnregisterRoute(agentID string) error {
+func (d *RESTSteps) UnregisterRoute(agentID, varNames string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	err := util.SendHTTP(http.MethodDelete, destination+"/mediator/unregister", nil, nil)
-	if err != nil {
-		// ignore error if router is not registered (code=5003)
-		if strings.Contains(err.Error(), "\"code\":5003") {
-			logger.Infof("ignore unregister - router not registered")
-
-			return nil
+	for _, varName := range strings.Split(varNames, ",") {
+		body, err := json.Marshal(registerRouteReq{ConnectionID: d.bddContext.Args[varName]})
+		if err != nil {
+			return err
 		}
 
-		return fmt.Errorf("router unregistration : %w", err)
+		err = util.SendHTTP(http.MethodDelete, destination+"/mediator/unregister", body, nil)
+		if err != nil {
+			// ignore error if router is not registered (code=5003)
+			if strings.Contains(err.Error(), "\"code\":5003") {
+				logger.Infof("ignore unregister - router not registered")
+
+				return nil
+			}
+
+			return fmt.Errorf("router unregistration : %w", err)
+		}
 	}
 
 	return nil
 }
 
-// VerifyConnection verifies the router connection id has been set to the provided connection id.
-func (d *RESTSteps) VerifyConnection(agentID, varName string) error {
+// VerifyConnections verifies the router connections id has been set to the provided connections id.
+func (d *RESTSteps) VerifyConnections(agentID, varNames string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	resp := &mediator.RegisterRoute{}
+	resp := &mediator.ConnectionsResponse{}
 
-	err := util.SendHTTP(http.MethodGet, destination+"/mediator/connection", nil, resp)
+	err := util.SendHTTP(http.MethodGet, destination+"/mediator/connections", nil, resp)
 	if err != nil {
 		return fmt.Errorf("fetch route connection : %w", err)
 	}
 
-	if resp.ConnectionID != d.bddContext.Args[varName] {
-		return fmt.Errorf("router connection id does not match : routerConnID=%s newConnID=%s",
-			resp.ConnectionID, d.bddContext.Args[varName])
+	set := map[string]struct{}{}
+	for _, conn := range resp.Connections {
+		set[conn] = struct{}{}
+	}
+
+	for _, name := range strings.Split(varNames, ",") {
+		if _, ok := set[d.bddContext.Args[name]]; !ok {
+			return fmt.Errorf("router connection id does not exist: routerConnID=%s", d.bddContext.Args[name])
+		}
 	}
 
 	return nil
@@ -114,6 +127,6 @@ func (d *RESTSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers router steps.
 func (d *RESTSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sets connection "([^"]*)" as the router$`, d.RegisterRoute)
-	s.Step(`^"([^"]*)" unregisters the router$`, d.UnregisterRoute)
-	s.Step(`^"([^"]*)" verifies that the router connection is set to "([^"]*)"$`, d.VerifyConnection)
+	s.Step(`^"([^"]*)" unregisters the router with connection "([^"]*)"$`, d.UnregisterRoute)
+	s.Step(`^"([^"]*)" verifies that the router connection is set to "([^"]*)"$`, d.VerifyConnections)
 }

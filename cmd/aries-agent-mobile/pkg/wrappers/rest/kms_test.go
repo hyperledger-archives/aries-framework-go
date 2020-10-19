@@ -38,8 +38,10 @@ func TestKMS_CreateKeySet(t *testing.T) {
 		reqData := `{"keyType":"ED25519"}`
 		mockResponse := `{"keyID":"keyID","publicKey":"cHVibGljS2V5"}`
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + kms.CreateKeySetPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + kms.CreateKeySetPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.CreateKeySet(req)
@@ -58,8 +60,10 @@ func TestKMS_ImportKey(t *testing.T) {
 "x":"jXAvdkE8oHbFat1HYkdq3FXsuPdGtdl8NhKr163kikA","d":"QlXTAvl0V7Kh7ckWXTVmdAdZZQcIdZ0yqXxwvw9QX04"}`
 		mockResponse := emptyJSON
 
-		controller.httpClient = &mockHTTPClient{data: mockResponse,
-			method: http.MethodPost, url: mockAgentURL + kms.ImportKeyPath}
+		controller.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockAgentURL + kms.ImportKeyPath,
+		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := controller.ImportKey(req)

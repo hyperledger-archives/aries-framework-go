@@ -21,9 +21,11 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
-const sampleConnRequest = `{"connectionID":"123-abc"}`
-const sampleBatchPickupRequest = `{"connectionID":"123-abc", "batch_size": 100}`
-const sampleEmptyConnectionRequest = `{"connectionID":""}`
+const (
+	sampleConnRequest            = `{"connectionID":"123-abc"}`
+	sampleBatchPickupRequest     = `{"connectionID":"123-abc", "batch_size": 100}`
+	sampleEmptyConnectionRequest = `{"connectionID":""}`
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
@@ -150,8 +152,46 @@ func TestCommand_Unregister(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.Unregister(&b, nil)
+		err = cmd.Unregister(&b, bytes.NewBufferString(`{"connectionID":"xyz"}`))
 		require.NoError(t, err)
+	})
+
+	t.Run("unregister - decode error", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Unregister(&b, bytes.NewBufferString(`}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("unregister - no connection id", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Unregister(&b, bytes.NewBufferString(`{}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "connectionID is mandatory")
 	})
 
 	t.Run("test unregister - error", func(t *testing.T) {
@@ -170,13 +210,13 @@ func TestCommand_Unregister(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.Unregister(&b, nil)
+		err = cmd.Unregister(&b, bytes.NewBufferString(`{"connectionID":"xyz"}`))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router unregister")
 	})
 }
 
-func TestCommand_Connection(t *testing.T) {
+func TestCommand_Connections(t *testing.T) {
 	t.Run("test get connection - success", func(t *testing.T) {
 		routerConnectionID := "conn-abc"
 
@@ -185,7 +225,7 @@ func TestCommand_Connection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
 					mediator.Coordination: &mockroute.MockMediatorSvc{
-						ConnectionID: routerConnectionID,
+						Connections: []string{routerConnectionID},
 					},
 				},
 			},
@@ -195,13 +235,13 @@ func TestCommand_Connection(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.Connection(&b, nil)
+		err = cmd.Connections(&b, nil)
 		require.NoError(t, err)
 
-		response := RegisterRoute{}
+		response := ConnectionsResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
-		require.Equal(t, routerConnectionID, response.ConnectionID)
+		require.Equal(t, routerConnectionID, response.Connections[0])
 	})
 
 	t.Run("test get connection - error", func(t *testing.T) {
@@ -210,7 +250,7 @@ func TestCommand_Connection(t *testing.T) {
 				ServiceMap: map[string]interface{}{
 					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
 					mediator.Coordination: &mockroute.MockMediatorSvc{
-						GetConnectionIDErr: errors.New("get connectionID error"),
+						GetConnectionsErr: errors.New("get connections error"),
 					},
 				},
 			},
@@ -220,9 +260,9 @@ func TestCommand_Connection(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.Connection(&b, nil)
+		err = cmd.Connections(&b, nil)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get router connectionID")
+		require.Contains(t, err.Error(), "get router connections")
 	})
 }
 

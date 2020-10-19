@@ -20,7 +20,7 @@ DOCKER_CMD ?= docker
 GO_CMD     ?= go
 ALPINE_VER ?= 3.12
 GO_TAGS    ?=
-GO_VER ?= 1.14
+GO_VER ?= 1.15
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
@@ -100,6 +100,12 @@ run-openapi-demo: generate-test-keys generate-openapi-demo-specs
 	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
         scripts/run-openapi-demo.sh
 
+.PHONY: stop-openapi-demo
+stop-openapi-demo:
+	@echo "Stopping demo agent rest containers ..."
+	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
+        DEMO_COMPOSE_OP=down scripts/run-openapi-demo.sh
+
 .PHONY: agent-rest
 agent-rest:
 	@echo "Building aries-agent-rest"
@@ -159,7 +165,7 @@ depend:
 
 .PHONY: mocks
 mocks: depend clean-mocks
-	$(call create_mock,pkg/framework/aries/api/vdri,Registry)
+	$(call create_mock,pkg/framework/aries/api/vdr,Registry)
 	$(call create_mock,pkg/didcomm/protocol/issuecredential,Provider)
 	$(call create_mock,pkg/didcomm/protocol/middleware/issuecredential,Provider;Metadata)
 	$(call create_mock,pkg/didcomm/protocol/middleware/presentproof,Provider;Metadata)
@@ -194,7 +200,7 @@ clean-images:
 
 .PHONY: clean-build
 clean-build:
-	@rm -f coverage.txt
+	@rm -f coverage.out
 	@rm -Rf ./build
 	@rm -Rf $(ARIES_AGENT_MOBILE_PATH)/build
 	@rm -Rf ./test/bdd/db

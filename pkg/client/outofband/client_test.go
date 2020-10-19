@@ -84,7 +84,7 @@ func TestCreateRequest(t *testing.T) {
 		}
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		c.didDocSvcFunc = func() (*did.Service, error) {
+		c.didDocSvcFunc = func(_ string) (*did.Service, error) {
 			return expected, nil
 		}
 		req, err := c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
@@ -101,6 +101,23 @@ func TestCreateRequest(t *testing.T) {
 			WithLabel(expected))
 		require.NoError(t, err)
 		require.Equal(t, expected, req.Label)
+	})
+	t.Run("with router connection", func(t *testing.T) {
+		const expectedConn = "conn-xyz"
+
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+
+		c.didDocSvcFunc = func(conn string) (*did.Service, error) {
+			require.Equal(t, expectedConn, conn)
+
+			return &did.Service{ServiceEndpoint: expectedConn}, nil
+		}
+
+		req, err := c.CreateRequest(
+			[]*decorator.Attachment{dummyAttachment(t)}, WithRouterConnections(expectedConn))
+		require.NoError(t, err)
+		require.Equal(t, expectedConn, req.Service[0].(*did.Service).ServiceEndpoint)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -200,7 +217,7 @@ func TestCreateRequest(t *testing.T) {
 		routeSvc.ConfigErr = expected
 		c, err := New(provider)
 		require.NoError(t, err)
-		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
+		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)}, WithRouterConnections("xyz"))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -212,7 +229,7 @@ func TestCreateRequest(t *testing.T) {
 		routeSvc.AddKeyErr = expected
 		c, err := New(provider)
 		require.NoError(t, err)
-		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
+		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)}, WithRouterConnections("xyz"))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -260,7 +277,7 @@ func TestCreateInvitation(t *testing.T) {
 		}
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		c.didDocSvcFunc = func() (*did.Service, error) {
+		c.didDocSvcFunc = func(_ string) (*did.Service, error) {
 			return expected, nil
 		}
 		inv, err := c.CreateInvitation(nil)
@@ -275,6 +292,22 @@ func TestCreateInvitation(t *testing.T) {
 		inv, err := c.CreateInvitation(nil, WithLabel(expected))
 		require.NoError(t, err)
 		require.Equal(t, expected, inv.Label)
+	})
+	t.Run("with router connection", func(t *testing.T) {
+		const expectedConn = "conn-xyz"
+
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+
+		c.didDocSvcFunc = func(conn string) (*did.Service, error) {
+			require.Equal(t, expectedConn, conn)
+
+			return &did.Service{ServiceEndpoint: expectedConn}, nil
+		}
+
+		inv, err := c.CreateInvitation(nil, WithRouterConnections(expectedConn))
+		require.NoError(t, err)
+		require.Equal(t, expectedConn, inv.Service[0].(*did.Service).ServiceEndpoint)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -393,7 +426,7 @@ func TestClient_Actions(t *testing.T) {
 		require.Nil(t, actions)
 	})
 	t.Run("Success", func(t *testing.T) {
-		var expected = []outofband.Action{{}, {}}
+		expected := []outofband.Action{{}, {}}
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
@@ -417,7 +450,7 @@ func TestAcceptRequest(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptReqFunc: func(*outofband.Request, string) (string, error) {
+				acceptReqFunc: func(*outofband.Request, string, []string) (string, error) {
 					return expected, nil
 				},
 			},
@@ -433,7 +466,7 @@ func TestAcceptRequest(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptReqFunc: func(*outofband.Request, string) (string, error) {
+				acceptReqFunc: func(*outofband.Request, string, []string) (string, error) {
 					return "", expected
 				},
 			},
@@ -452,7 +485,7 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation, string) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, string, []string) (string, error) {
 					return expected, nil
 				},
 			},
@@ -468,7 +501,7 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation, string) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, string, []string) (string, error) {
 					return "", expected
 				},
 			},
@@ -521,7 +554,7 @@ func withTestProvider() *mockprovider.Provider {
 		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		KMSValue:                          &mockkms.KeyManager{CreateKeyValue: mockKey},
 		ServiceMap: map[string]interface{}{
-			mediator.Coordination: &mockroute.MockMediatorSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{Connections: []string{"xyz"}},
 			outofband.Name:        &stubOOBService{},
 		},
 		ServiceEndpointValue: "endpoint",
@@ -530,8 +563,8 @@ func withTestProvider() *mockprovider.Provider {
 
 type stubOOBService struct {
 	service.Event
-	acceptReqFunc      func(*outofband.Request, string) (string, error)
-	acceptInvFunc      func(*outofband.Invitation, string) (string, error)
+	acceptReqFunc      func(*outofband.Request, string, []string) (string, error)
+	acceptInvFunc      func(*outofband.Invitation, string, []string) (string, error)
 	saveReqFunc        func(*outofband.Request) error
 	saveInvFunc        func(*outofband.Invitation) error
 	actionsFunc        func() ([]outofband.Action, error)
@@ -539,17 +572,17 @@ type stubOOBService struct {
 	actionStopFunc     func(piid string, err error) error
 }
 
-func (s *stubOOBService) AcceptRequest(request *outofband.Request, myLabel string) (string, error) {
+func (s *stubOOBService) AcceptRequest(request *outofband.Request, myLabel string, conns []string) (string, error) {
 	if s.acceptReqFunc != nil {
-		return s.acceptReqFunc(request, myLabel)
+		return s.acceptReqFunc(request, myLabel, conns)
 	}
 
 	return "", nil
 }
 
-func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation, myLabel string) (string, error) {
+func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation, myLabel string, conns []string) (string, error) {
 	if s.acceptInvFunc != nil {
-		return s.acceptInvFunc(i, myLabel)
+		return s.acceptInvFunc(i, myLabel, conns)
 	}
 
 	return "", nil

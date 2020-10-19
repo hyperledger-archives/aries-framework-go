@@ -23,24 +23,24 @@ const (
 )
 
 const (
-	// common states
+	// common states.
 	stateNameNoop       = "noop"
 	stateNameStart      = "start"
 	stateNameAbandoning = "abandoning"
 	stateNameDone       = "done"
 
-	// introducer states
+	// introducer states.
 	stateNameArranging  = "arranging"
 	stateNameDelivering = "delivering"
 	stateNameConfirming = "confirming"
 
-	// introducee states
+	// introducee states.
 	stateNameRequesting = "requesting"
 	stateNameDeciding   = "deciding"
 	stateNameWaiting    = "waiting"
 )
 
-// state action for network call
+// state action for network call.
 type stateAction func() error
 
 // The introduce protocol's state.
@@ -57,7 +57,7 @@ type state interface {
 
 func zeroAction() error { return nil }
 
-// noOp state
+// noOp state.
 type noOp struct {
 }
 
@@ -77,7 +77,7 @@ func (s *noOp) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAc
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
-// start state
+// start state.
 type start struct {
 }
 
@@ -104,7 +104,7 @@ func (s *start) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateA
 	return nil, nil, errors.New("start: ExecuteOutbound function is not supposed to be used")
 }
 
-// done state
+// done state.
 type done struct {
 }
 
@@ -125,7 +125,7 @@ func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAc
 	return nil, nil, errors.New("done: ExecuteOutbound function is not supposed to be used")
 }
 
-// arranging state
+// arranging state.
 type arranging struct {
 }
 
@@ -164,7 +164,7 @@ func getMetaRecipients(md *metaData) []*Recipient {
 		return nil
 	}
 
-	var recipients = make([]*Recipient, len(_recipients))
+	recipients := make([]*Recipient, len(_recipients))
 
 	for i, _recipient := range _recipients {
 		recipient, ok := _recipient.(*Recipient)
@@ -241,7 +241,7 @@ func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (
 	return &noOp{}, func() error { return messenger.Send(md.Msg, md.MyDID, md.TheirDID) }, nil
 }
 
-// delivering state
+// delivering state.
 type delivering struct {
 }
 
@@ -304,7 +304,7 @@ func (s *delivering) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, s
 	return nil, nil, errors.New("delivering: ExecuteOutbound function is not supposed to be used")
 }
 
-// confirming state
+// confirming state.
 type confirming struct {
 }
 
@@ -340,7 +340,7 @@ func (s *confirming) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, s
 	return nil, nil, errors.New("confirming: ExecuteOutbound function is not supposed to be used")
 }
 
-// abandoning state
+// abandoning state.
 type abandoning struct {
 	Code string
 }
@@ -380,7 +380,8 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (
 				Type: ProblemReportMsgType,
 				Description: model.Code{
 					Code: codeRequestDeclined,
-				}},
+				},
+			},
 			), md.MyDID, md.TheirDID)
 		}, nil
 	}
@@ -422,7 +423,7 @@ func (s *abandoning) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, s
 	return nil, nil, errors.New("abandoning: ExecuteOutbound function is not supposed to be used")
 }
 
-// deciding state
+// deciding state.
 type deciding struct {
 }
 
@@ -469,7 +470,7 @@ func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, sta
 	return nil, nil, errors.New("deciding: ExecuteOutbound function is not supposed to be used")
 }
 
-// waiting state
+// waiting state.
 type waiting struct {
 }
 
@@ -489,7 +490,7 @@ func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stat
 	return nil, nil, errors.New("waiting: ExecuteOutbound function is not supposed to be used")
 }
 
-// requesting state
+// requesting state.
 type requesting struct {
 }
 

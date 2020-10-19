@@ -162,12 +162,14 @@ func TestCreateServiceFromPathWithoutMasterLock(t *testing.T) {
 
 	someKey := random.GetRandomBytes(uint32(32))
 	someKeyEnc, err := s.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(someKey)})
+		Plaintext: string(someKey),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, someKeyEnc)
 
 	someKeyDec, err := s.Decrypt("", &secretlock.DecryptRequest{
-		Ciphertext: someKeyEnc.Ciphertext})
+		Ciphertext: someKeyEnc.Ciphertext,
+	})
 	require.NoError(t, err)
 	require.Equal(t, someKey, []byte(someKeyDec.Plaintext))
 
@@ -206,7 +208,8 @@ func TestCreateServiceFromPathWithMasterLock(t *testing.T) {
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(masterKeyContent)})
+		Plaintext: string(masterKeyContent),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, masterLockEnc)
 
@@ -248,12 +251,14 @@ func TestCreateServiceFromPathWithMasterLock(t *testing.T) {
 
 	someKey := random.GetRandomBytes(uint32(32))
 	someKeyEnc, err := s.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(someKey)})
+		Plaintext: string(someKey),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, someKeyEnc)
 
 	someKeyDec, err := s.Decrypt("", &secretlock.DecryptRequest{
-		Ciphertext: someKeyEnc.Ciphertext})
+		Ciphertext: someKeyEnc.Ciphertext,
+	})
 	require.NoError(t, err)
 	require.Equal(t, someKey, []byte(someKeyDec.Plaintext))
 
@@ -302,12 +307,14 @@ func TestCreateServiceFromEnvWithoutMasterLock(t *testing.T) {
 
 	someKey := random.GetRandomBytes(uint32(32))
 	someKeyEnc, err := s.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(someKey)})
+		Plaintext: string(someKey),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, someKeyEnc)
 
 	someKeyDec, err := s.Decrypt("", &secretlock.DecryptRequest{
-		Ciphertext: someKeyEnc.Ciphertext})
+		Ciphertext: someKeyEnc.Ciphertext,
+	})
 	require.NoError(t, err)
 	require.Equal(t, someKey, []byte(someKeyDec.Plaintext))
 }
@@ -330,7 +337,8 @@ func TestCreateServiceFromEnvWithMasterLock(t *testing.T) {
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(masterKeyContent)})
+		Plaintext: string(masterKeyContent),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, masterLockEnc)
 
@@ -373,12 +381,14 @@ func TestCreateServiceFromEnvWithMasterLock(t *testing.T) {
 
 	someKey := random.GetRandomBytes(uint32(32))
 	someKeyEnc, err := s.Encrypt("", &secretlock.EncryptRequest{
-		Plaintext: string(someKey)})
+		Plaintext: string(someKey),
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, someKeyEnc)
 
 	someKeyDec, err := s.Decrypt("", &secretlock.DecryptRequest{
-		Ciphertext: someKeyEnc.Ciphertext})
+		Ciphertext: someKeyEnc.Ciphertext,
+	})
 	require.NoError(t, err)
 	require.Equal(t, someKey, []byte(someKeyDec.Plaintext))
 }
