@@ -735,16 +735,6 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 }
 
 func TestStoreProvider(t *testing.T) {
-	t.Run("test error from create new couchdb", func(t *testing.T) {
-		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: databaseTypeCouchDBOption}})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
-	})
-	t.Run("test error from create new mysql", func(t *testing.T) {
-		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: databaseTypeMYSQLDBOption}})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
-	})
 	t.Run("test invalid database type", func(t *testing.T) {
 		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: "data1"}})
 		require.Error(t, err)

@@ -31,10 +31,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	couchdbstore "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
 
@@ -57,15 +55,8 @@ const (
 	databaseTypeEnvKey        = "ARIESD_DATABASE_TYPE"
 	databaseTypeFlagShorthand = "q"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb, mysql, leveldb. " +
+		"Supported options: mem, leveldb. " +
 		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
-
-	databaseURLFlagName      = "database-url"
-	databaseURLEnvKey        = "ARIESD_DATABASE_URL"
-	databaseURLFlagShorthand = "v"
-	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
-		" For CouchDB, include the username:password@ text if required. " +
-		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
 
 	databasePrefixFlagName      = "database-prefix"
 	databasePrefixEnvKey        = "ARIESD_DATABASE_PREFIX"
@@ -169,8 +160,6 @@ const (
 	websocketProtocol = "ws"
 
 	databaseTypeMemOption     = "mem"
-	databaseTypeCouchDBOption = "couchdb"
-	databaseTypeMYSQLDBOption = "mysql"
 	databaseTypeLevelDBOption = "leveldb"
 )
 
@@ -193,24 +182,17 @@ type agentParameters struct {
 
 type dbParam struct {
 	dbType  string
-	url     string
 	prefix  string
 	timeout uint64
 }
 
 // nolint:gochecknoglobals
-var supportedStorageProviders = map[string]func(url, prefix string) (storage.Provider, error){
-	databaseTypeMemOption: func(_, _ string) (storage.Provider, error) { // nolint:unparam
+var supportedStorageProviders = map[string]func(prefix string) (storage.Provider, error){
+	databaseTypeMemOption: func(_ string) (storage.Provider, error) { // nolint:unparam
 		return mem.NewProvider(), nil
 	},
-	databaseTypeLevelDBOption: func(path, _ string) (storage.Provider, error) { // nolint:unparam
+	databaseTypeLevelDBOption: func(path string) (storage.Provider, error) { // nolint:unparam
 		return leveldb.NewProvider(path), nil
-	},
-	databaseTypeCouchDBOption: func(url, prefix string) (storage.Provider, error) {
-		return couchdbstore.NewProvider(url, couchdbstore.WithDBPrefix(prefix))
-	},
-	databaseTypeMYSQLDBOption: func(url, prefix string) (storage.Provider, error) {
-		return mysql.NewProvider(url, mysql.WithDBPrefix(prefix))
 	},
 }
 
@@ -356,11 +338,6 @@ func getDBParam(cmd *cobra.Command) (*dbParam, error) {
 		return nil, err
 	}
 
-	dbParam.url, err = getUserSetVar(cmd, databaseURLFlagName, databaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
 	dbParam.prefix, err = getUserSetVar(cmd, databasePrefixFlagName, databasePrefixEnvKey, true)
 	if err != nil {
 		return nil, err
@@ -415,9 +392,6 @@ func createFlags(startCmd *cobra.Command) {
 
 	// db type
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
-
-	// db url
-	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 
 	// db prefix
 	startCmd.Flags().StringP(databasePrefixFlagName, databasePrefixFlagShorthand, "", databasePrefixFlagUsage)
@@ -759,7 +733,7 @@ func createStoreProviders(parameters *agentParameters) (storage.Provider, error)
 	err := backoff.RetryNotify(
 		func() error {
 			var openErr error
-			store, openErr = provider(parameters.dbParam.url, parameters.dbParam.prefix)
+			store, openErr = provider(parameters.dbParam.prefix)
 			return openErr
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), parameters.dbParam.timeout),
@@ -770,7 +744,7 @@ func createStoreProviders(parameters *agentParameters) (storage.Provider, error)
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.url, err)
+		return nil, fmt.Errorf("failed to connect to storage at %s : %w", parameters.dbParam.prefix, err)
 	}
 
 	return store, nil
