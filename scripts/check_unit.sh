@@ -21,10 +21,6 @@ if [ -f profile.out ]; then
 fi
 }
 
-if [[ -n ${SKIP_DOCKER+x} ]]; then
-  GO_TEST_CMD="$GO_TEST_CMD --tags=ISSUE2183"
-fi
-
 # Running aries-framework-go unit test
 PKGS=$(go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | grep -v /mocks | grep -v /aries-js-worker)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
