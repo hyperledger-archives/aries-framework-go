@@ -82,6 +82,9 @@ type SendReplyMessageArgs struct {
 
 	// Message body of the reply message
 	MessageBody json.RawMessage `json:"message_body"`
+
+	// StartNewThread if provided, replies to message by starting a new thread.
+	StartNewThread bool `json:"start_new_thread"`
 }
 
 // RegisterHTTPMsgSvcArgs contains parameters for registering an HTTP over DIDComm message service to message handler.

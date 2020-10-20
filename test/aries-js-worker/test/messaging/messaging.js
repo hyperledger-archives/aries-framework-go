@@ -107,9 +107,7 @@ describe("Basic Messaging", function () {
     })
 
     it("receiver replies to last received basic message", async function () {
-        receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg})
-
-        const incomingMsg = await new Promise((resolve, reject) => {
+        const incoming = new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error("time out waiting for incoming message")), 5000)
             const stop = sender.startNotifier(msg => {
                 stop()
@@ -117,9 +115,35 @@ describe("Basic Messaging", function () {
             }, [basicMsgSvcName])
         })
 
+        receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg})
+
+        let incomingMsg = await incoming
         assert.equal(incomingMsg["@id"], sampleReplyMsg["@id"])
         assert.equal(incomingMsg["@type"], sampleReplyMsg["@type"])
         assert.equal(incomingMsg.content, sampleReplyMsg.content)
+        assert.deepEqual(incomingMsg["~thread"], {
+            "thid": "1d9a1589-9d7b-4308-9fab-8ee9730720c2"
+        })
+    })
+
+    it("receiver replies to last received basic message by starting new thread", async function () {
+        const incoming = new Promise((resolve, reject) => {
+            const timer = setTimeout(_ => reject(new Error("time out waiting for incoming message")), 5000)
+            const stop = sender.startNotifier(msg => {
+                stop()
+                resolve(msg.payload.message)
+            }, [basicMsgSvcName])
+        })
+
+        receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg, "start_new_thread": true})
+
+        let incomingMsg = await incoming
+        assert.equal(incomingMsg["@id"], sampleReplyMsg["@id"])
+        assert.equal(incomingMsg["@type"], sampleReplyMsg["@type"])
+        assert.equal(incomingMsg.content, sampleReplyMsg.content)
+        assert.deepEqual(incomingMsg["~thread"], {
+            "pthid": "1d9a1589-9d7b-4308-9fab-8ee9730720c2"
+        })
     })
 
     it("receiver loses connection from router", async function () {

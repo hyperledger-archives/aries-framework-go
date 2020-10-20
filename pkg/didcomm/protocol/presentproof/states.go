@@ -114,10 +114,10 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 	}
 
 	return &noOp{}, func(messenger service.Messenger) error {
-		return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(&model.ProblemReport{
+		return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReport{
 			Type:        ProblemReportMsgType,
 			Description: code,
-		}), md.MyDID, md.TheirDID)
+		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID})
 	}, nil
 }
 
