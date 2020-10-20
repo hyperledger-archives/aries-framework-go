@@ -26,6 +26,7 @@ const (
 	ID       = "ID"
 	myDID    = "myDID"
 	theirDID = "theirDID"
+	msgID    = "msgID"
 	errMsg   = "test error"
 )
 
@@ -412,7 +413,30 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		msgr, err := NewMessenger(provider)
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
-		require.NoError(t, msgr.ReplyToNested(thID, service.DIDCommMsgMap{jsonID: ID}, myDID, theirDID))
+		require.NoError(t, msgr.ReplyToNested(service.DIDCommMsgMap{jsonID: ID},
+			&service.NestedReplyOpts{ThreadID: thID, TheirDID: theirDID, MyDID: myDID}))
+	})
+
+	t.Run("success with msgID option", func(t *testing.T) {
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(msgID).Return([]byte(`{"my_did":"myDID","their_did":"theirDID","thread_id":"theirDID"}`), nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
+
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonParentThreadID))
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(outbound)
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+		require.NoError(t, msgr.ReplyToNested(service.DIDCommMsgMap{jsonID: ID},
+			&service.NestedReplyOpts{MsgID: msgID}))
 	})
 
 	t.Run("success msg without id", func(t *testing.T) {
@@ -431,7 +455,8 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		require.NoError(t, msgr.ReplyToNested(thID, service.DIDCommMsgMap{}, myDID, theirDID))
+		require.NoError(t, msgr.ReplyToNested(service.DIDCommMsgMap{},
+			&service.NestedReplyOpts{ThreadID: thID, TheirDID: theirDID, MyDID: myDID}))
 	})
 
 	t.Run("save metadata error", func(t *testing.T) {
@@ -449,9 +474,29 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		err = msgr.ReplyToNested("thID", service.DIDCommMsgMap{
+		err = msgr.ReplyToNested(service.DIDCommMsgMap{
 			jsonMetadata: map[string]interface{}{"key": "val"},
-		}, myDID, theirDID)
+		}, &service.NestedReplyOpts{ThreadID: "thID", TheirDID: theirDID, MyDID: myDID})
 		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
+	})
+
+	t.Run("failure with message ID issues", func(t *testing.T) {
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(msgID).Return(nil, errors.New(errMsg))
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcherMocks.NewMockOutbound(ctrl))
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+
+		err = msgr.ReplyToNested(service.DIDCommMsgMap{jsonID: ID},
+			&service.NestedReplyOpts{MsgID: msgID})
+		require.Contains(t, err.Error(), errMsg)
 	})
 }

@@ -241,8 +241,8 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().
-			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				defer close(done)
 
 				r := &model.ProblemReport{}
@@ -410,8 +410,8 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 
 		messenger.EXPECT().
-			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				defer close(done)
 
 				r := &model.ProblemReport{}
@@ -457,8 +457,8 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().
-			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				defer close(done)
 
 				r := &model.ProblemReport{}
@@ -686,8 +686,8 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().
-			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				defer close(done)
 
 				r := &model.ProblemReport{}
@@ -974,8 +974,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Issue Credential Stop", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				defer close(done)
 
 				r := &model.ProblemReport{}

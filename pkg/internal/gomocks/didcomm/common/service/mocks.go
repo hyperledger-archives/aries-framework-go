@@ -236,17 +236,17 @@ func (mr *MockMessengerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // ReplyToNested mocks base method
-func (m *MockMessenger) ReplyToNested(arg0 string, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+func (m *MockMessenger) ReplyToNested(arg0 service.DIDCommMsgMap, arg1 *service.NestedReplyOpts) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyToNested", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ReplyToNested", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyToNested indicates an expected call of ReplyToNested
-func (mr *MockMessengerMockRecorder) ReplyToNested(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMessengerMockRecorder) ReplyToNested(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToNested", reflect.TypeOf((*MockMessenger)(nil).ReplyToNested), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToNested", reflect.TypeOf((*MockMessenger)(nil).ReplyToNested), arg0, arg1)
 }
 
 // Send mocks base method
@@ -329,17 +329,17 @@ func (mr *MockMessengerHandlerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gom
 }
 
 // ReplyToNested mocks base method
-func (m *MockMessengerHandler) ReplyToNested(arg0 string, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+func (m *MockMessengerHandler) ReplyToNested(arg0 service.DIDCommMsgMap, arg1 *service.NestedReplyOpts) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyToNested", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ReplyToNested", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyToNested indicates an expected call of ReplyToNested
-func (mr *MockMessengerHandlerMockRecorder) ReplyToNested(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMessengerHandlerMockRecorder) ReplyToNested(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToNested", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyToNested), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToNested", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyToNested), arg0, arg1)
 }
 
 // Send mocks base method

@@ -689,6 +689,17 @@ func TestCommand_Reply(t *testing.T) {
 		cmdErr := cmd.Reply(&b, bytes.NewBufferString(jsonMsg))
 		require.NoError(t, cmdErr)
 	})
+
+	t.Run("Test send message reply by starting new thread", func(t *testing.T) {
+		const jsonMsg = `{"message_ID": "1234","message_body": {"msg":"Hello !!"}, "start_new_thread": true}`
+		cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.Reply(&b, bytes.NewBufferString(jsonMsg))
+		require.NoError(t, cmdErr)
+	})
 }
 
 func TestCommand_SendToDestinationFailures(t *testing.T) {
