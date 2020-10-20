@@ -41,7 +41,7 @@ type Messenger interface {
 
 	// ReplyToNested sends the message by starting a new thread.
 	// Keeps parent threadID in the *decorator.Thread
-	ReplyToNested(threadID string, msg DIDCommMsgMap, myDID, theirDID string) error
+	ReplyToNested(msg DIDCommMsgMap, opts *NestedReplyOpts) error
 }
 
 // MessengerHandler includes Messenger interface and Handle function to handle inbound messages.
@@ -49,4 +49,20 @@ type MessengerHandler interface {
 	Messenger
 	// HandleInbound handles all inbound messages
 	HandleInbound(msg DIDCommMsgMap, myDID, theirDID string) error
+}
+
+// NestedReplyOpts options for performing `ReplyToNested` operation.
+type NestedReplyOpts struct {
+	// ThreadID is parent thread ID for nested reply,
+	// if not provided then 'ThreadID' from message record will be used
+	ThreadID string
+	// MyDID for nested reply message,
+	// if not provided then 'MyDID' from message record will be used
+	MyDID string
+	// TheirDID for nested reply message,
+	// if not provided then 'TheirDID' from message record will be used
+	TheirDID string
+	// MsgID to which nested reply to be sent,
+	// optional when all the above parameters are provided.
+	MsgID string
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -51,6 +52,8 @@ type Messenger struct {
 	store      storage.Store
 	dispatcher dispatcher.Outbound
 }
+
+var logger = log.New("aries-framework/pkg/didcomm/messenger")
 
 // NewMessenger returns a new instance of the Messenger.
 func NewMessenger(ctx Provider) (*Messenger, error) {
@@ -195,8 +198,8 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 // ReplyToNested sends the message by starting a new thread.
 // Do not provide a message with ~thread decorator. It will be rewritten.
 // The function adds ~thread decorator to the message according to the given threadID.
-// NOTE: Given threadID becomes parent threadID.
-func (m *Messenger) ReplyToNested(threadID string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+// NOTE: Given threadID (from opts or from message record) becomes parent threadID.
+func (m *Messenger) ReplyToNested(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 	// fills missing fields
 	fillIfMissing(msg)
 
@@ -204,10 +207,14 @@ func (m *Messenger) ReplyToNested(threadID string, msg service.DIDCommMsgMap, my
 		return fmt.Errorf("save metadata: %w", err)
 	}
 
-	// sets parent threadID
-	msg[jsonThread] = map[string]interface{}{jsonParentThreadID: threadID}
+	if err := m.fillNestedReplyOption(opts); err != nil {
+		return fmt.Errorf("failed to prepare nested reply options: %w", err)
+	}
 
-	return m.dispatcher.SendToDID(msg, myDID, theirDID)
+	// sets parent threadID
+	msg[jsonThread] = map[string]interface{}{jsonParentThreadID: opts.ThreadID}
+
+	return m.dispatcher.SendToDID(msg, opts.MyDID, opts.TheirDID)
 }
 
 // fillIfMissing populates message with common fields such as ID.
@@ -241,4 +248,35 @@ func (m *Messenger) saveRecord(msgID string, rec record) error {
 	}
 
 	return m.store.Put(msgID, src)
+}
+
+// fillNestedReplyOption prefills missing nested reply options from record.
+func (m *Messenger) fillNestedReplyOption(opts *service.NestedReplyOpts) error {
+	if opts.ThreadID != "" && opts.TheirDID != "" && opts.MyDID != "" {
+		return nil
+	}
+
+	if opts.MsgID == "" {
+		logger.Debugf("failed to prepare fill nested reply options, missing message ID")
+		return nil
+	}
+
+	rec, err := m.getRecord(opts.MsgID)
+	if err != nil {
+		return err
+	}
+
+	if opts.ThreadID == "" {
+		opts.ThreadID = rec.ThreadID
+	}
+
+	if opts.TheirDID == "" {
+		opts.TheirDID = rec.TheirDID
+	}
+
+	if opts.MyDID == "" {
+		opts.MyDID = rec.MyDID
+	}
+
+	return nil
 }

@@ -262,7 +262,7 @@ func deliveringSkipInvitation(messenger service.Messenger, md *metaData) (state,
 	return &done{}, func() error {
 		msg := contextOOBMessage(md.Msg)
 
-		return messenger.ReplyToNested(thID, msg, md.MyDID, md.TheirDID)
+		return messenger.ReplyToNested(msg, &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID})
 	}, nil
 }
 
@@ -290,7 +290,8 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, md *metaData) (
 
 	return &confirming{}, func() error {
 		for _, p := range participants {
-			err := messenger.ReplyToNested(p.ThreadID, msg, p.MyDID, p.TheirDID)
+			err := messenger.ReplyToNested(msg,
+				&service.NestedReplyOpts{ThreadID: p.ThreadID, MyDID: p.MyDID, TheirDID: p.TheirDID})
 			if err != nil {
 				return fmt.Errorf("reply to nested: %w", err)
 			}
@@ -376,13 +377,13 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (
 
 		// Sends a ProblemReport to the introducee.
 		return &done{}, func() error {
-			return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(model.ProblemReport{
+			return messenger.ReplyToNested(service.NewDIDCommMsgMap(model.ProblemReport{
 				Type: ProblemReportMsgType,
 				Description: model.Code{
 					Code: codeRequestDeclined,
 				},
 			},
-			), md.MyDID, md.TheirDID)
+			), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID})
 		}, nil
 	}
 
@@ -410,7 +411,12 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (
 				},
 			})
 
-			if err := messenger.ReplyToNested(recipient.ThreadID, problem, recipient.MyDID, recipient.TheirDID); err != nil {
+			if err := messenger.ReplyToNested(problem,
+				&service.NestedReplyOpts{
+					ThreadID: recipient.ThreadID,
+					MyDID:    recipient.MyDID,
+					TheirDID: recipient.TheirDID,
+				}); err != nil {
 				return fmt.Errorf("send problem-report: %w", err)
 			}
 		}
