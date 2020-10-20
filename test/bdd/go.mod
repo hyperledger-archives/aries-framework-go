@@ -18,6 +18,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-00010101000000-000000000000
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
@@ -30,5 +31,6 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
 )

@@ -1,5 +1,3 @@
-// +build !js,!wasm
-
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -24,10 +22,6 @@ func TestDefaultFramework(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("test default framework - success", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
 		aries := &Aries{}
 		err := defFrameworkOpts(aries)
 		require.NoError(t, err)

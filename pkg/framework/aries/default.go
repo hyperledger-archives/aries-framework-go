@@ -53,12 +53,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.storeProvider == nil {
-		storeProv, err := storeProvider()
-		if err != nil {
-			return fmt.Errorf("resolver initialization failed : %w", err)
-		}
-
-		frameworkOpts.storeProvider = storeProv
+		frameworkOpts.storeProvider = storeProvider()
 	}
 
 	err := assignVerifiableStoreIfNeeded(frameworkOpts, frameworkOpts.storeProvider)
@@ -196,12 +191,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.protocolStateStoreProvider == nil {
-		var err error
-		frameworkOpts.protocolStateStoreProvider, err = protocolStateStoreProvider()
-
-		if err != nil {
-			return err
-		}
+		frameworkOpts.protocolStateStoreProvider = storeProvider()
 	}
 
 	if frameworkOpts.msgSvcProvider == nil {
