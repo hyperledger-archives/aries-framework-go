@@ -59,6 +59,7 @@ type Recipient struct {
 type RecipientHeaders struct {
 	Alg string          `json:"alg,omitempty"`
 	APU string          `json:"apu,omitempty"`
+	APV string          `json:"apv,omitempty"`
 	IV  string          `json:"iv,omitempty"`
 	Tag string          `json:"tag,omitempty"`
 	KID string          `json:"kid,omitempty"`

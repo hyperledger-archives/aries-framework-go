@@ -356,7 +356,7 @@ func (m *MockEncHelper) BuildDecData(encData *composite.EncryptedData) []byte {
 	return finalCT
 }
 
-func TestUnWrapUsingKeysOnDifferentCurves(t *testing.T) {
+func TestUnwrapUsingKeysOnDifferentCurves(t *testing.T) {
 	keySize := 32
 	curveP256, err := hybrid.GetCurve(commonpb.EllipticCurveType_NIST_P256.String())
 	require.NoError(t, err)
