@@ -19,6 +19,8 @@ type MockStoreProvider struct {
 	Store              *MockStore
 	Custom             storage.Store
 	ErrOpenStoreHandle error
+	ErrClose           error
+	ErrCloseStore      error
 	FailNamespace      string
 }
 
@@ -50,12 +52,12 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 
 // Close closes all stores created under this store provider.
 func (s *MockStoreProvider) Close() error {
-	return nil
+	return s.ErrClose
 }
 
 // CloseStore closes store for given name space.
 func (s *MockStoreProvider) CloseStore(name string) error {
-	return nil
+	return s.ErrCloseStore
 }
 
 // MockStore mock store.

@@ -10,7 +10,6 @@ package prefix
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -37,20 +36,20 @@ type StorePrefixWrapper struct {
 
 // Put stores v with k ID by prefixing it with IDPrefix.
 func (b *StorePrefixWrapper) Put(k string, v []byte) error {
-	if k == "" {
-		return fmt.Errorf("cannot Put with empty key")
+	if k != "" {
+		k = b.prefix + k
 	}
 
-	updatedKey := b.prefix + k
-
-	return b.store.Put(updatedKey, v)
+	return b.store.Put(k, v)
 }
 
 // Get fetches the record based on k by first prefixing it with IDPrefix.
 func (b *StorePrefixWrapper) Get(k string) ([]byte, error) {
-	updatedKey := b.prefix + k
+	if k != "" {
+		k = b.prefix + k
+	}
 
-	return b.store.Get(updatedKey)
+	return b.store.Get(k)
 }
 
 // Iterator returns an iterator for the latest snapshot of the underlying store.
@@ -64,21 +63,24 @@ func (b *StorePrefixWrapper) Get(k string) ([]byte, error) {
 //
 // StoreIterator: a wrapped iterator for result range.
 func (b *StorePrefixWrapper) Iterator(startKey, endKey string) storage.StoreIterator {
-	updatedStartKey := b.prefix + startKey
-	updatedEndKey := b.prefix + endKey
+	if startKey != "" {
+		startKey = b.prefix + startKey
+	}
 
-	return b.store.Iterator(updatedStartKey, updatedEndKey)
+	if endKey != "" {
+		endKey = b.prefix + endKey
+	}
+
+	return b.store.Iterator(startKey, endKey)
 }
 
 // Delete will delete a record with k by prefixing it with IDPrefix first.
 func (b *StorePrefixWrapper) Delete(k string) error {
-	if k == "" {
-		return fmt.Errorf("key is mandatory for deletion")
+	if k != "" {
+		k = b.prefix + k
 	}
 
-	updatedKey := b.prefix + k
-
-	return b.store.Delete(updatedKey)
+	return b.store.Delete(k)
 }
 
 // Query is currently not implemented.

@@ -1,4 +1,4 @@
-// +build !js,!wasm,!ISSUE2183
+// +build !js,!wasm
 
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
@@ -11,89 +11,30 @@ package prefix
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/google/uuid"
-	dctest "github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	couchdbstore "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
-const (
-	couchDBURL          = "admin:password@localhost:5981"
-	dockerCouchdbImage  = "couchdb"
-	dockerCouchdbTag    = "3.1.0"
-	dockerCouchdbVolume = "%s/scripts/couchdb-config/10-single-node.ini:/opt/couchdb/etc/local.d/10-single-node.ini"
-)
+func TestStorePrefixWrapper(t *testing.T) {
+	_, err := NewPrefixStoreWrapper(nil, "")
+	require.EqualError(t, err, "newPrefixStoreWrapper: prefix is empty")
 
-func TestMain(m *testing.M) {
-	code := 1
-
-	defer func() { os.Exit(code) }()
-
-	pool, err := dctest.NewPool("")
-	if err != nil {
-		panic(fmt.Sprintf("pool: %v", err))
-	}
-
-	path, err := filepath.Abs("./../../../../")
-	if err != nil {
-		panic(fmt.Sprintf("filepath: %v", err))
-	}
-
-	couchdbResource, err := pool.RunWithOptions(&dctest.RunOptions{
-		Repository: dockerCouchdbImage,
-		Tag:        dockerCouchdbTag,
-		Env:        []string{"COUCHDB_USER=admin", "COUCHDB_PASSWORD=password"},
-		Mounts:     []string{fmt.Sprintf(dockerCouchdbVolume, path)},
-		PortBindings: map[dc.Port][]dc.PortBinding{
-			"5984/tcp": {{HostIP: "", HostPort: "5981"}},
-		},
-	})
-	if err != nil {
-		panic(fmt.Sprintf("run with options: %v", err))
-	}
-
-	defer func() {
-		if err := pool.Purge(couchdbResource); err != nil {
-			panic(fmt.Sprintf("purge: %v", err))
-		}
-	}()
-
-	if err := checkCouchDB(); err != nil {
-		panic(fmt.Sprintf("check CouchDB: %v", err))
-	}
-
-	code = m.Run()
-}
-
-const retries = 30
-
-func checkCouchDB() error {
-	return backoff.Retry(func() error {
-		return couchdbstore.PingCouchDB(couchDBURL)
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), retries))
-}
-
-func TestCouchDBStore(t *testing.T) {
 	cdbPrefix := "t"
 
-	t.Run("Test couchdb store put and get", func(t *testing.T) {
-		prov, err := couchdbstore.NewProvider(couchDBURL, couchdbstore.WithDBPrefix("dbprefix"))
-		require.NoError(t, err)
-		couchdbStore, err := prov.OpenStore(randomKey())
+	t.Run("Test put and get", func(t *testing.T) {
+		prov := mem.NewProvider()
+		memStore, err := prov.OpenStore(uuid.New().String())
 		require.NoError(t, err)
 
-		prefix := "testPrefix"
-		store, err := NewPrefixStoreWrapper(couchdbStore, prefix)
+		var store storage.Store
+
+		store, err = NewPrefixStoreWrapper(memStore, "testPrefix")
 		require.NoError(t, err)
 
 		const key = "ZGlkOmV4YW1wbGU6MTIz" // "did:example:123" base64 RAW URL encoded
@@ -141,30 +82,33 @@ func TestCouchDBStore(t *testing.T) {
 
 		// nil key
 		err = store.Put("", data)
-		require.EqualError(t, err, "cannot Put with empty key")
+		require.EqualError(t, err, "key and value are mandatory")
 
 		err = prov.Close()
 		require.NoError(t, err)
 	})
 
-	t.Run("Test couchdb multi store close by name", func(t *testing.T) {
-		prov, err := couchdbstore.NewProvider(couchDBURL, couchdbstore.WithDBPrefix("dbprefix"))
-		require.NoError(t, err)
+	t.Run("Test multi store close by name", func(t *testing.T) {
+		prov := mem.NewProvider()
 
 		const commonKey = "ZGlkOmV4YW1wbGU6MQ" // "did:example:1" base64 RAW URL encoded
 
 		data := []byte("value1")
 
-		storeNames := []string{randomKey(), randomKey(), randomKey(), randomKey(), randomKey()}
+		storeNames := []string{
+			uuid.New().String(), uuid.New().String(),
+			uuid.New().String(), uuid.New().String(),
+			uuid.New().String(),
+		}
 		storesToClose := []string{storeNames[0], storeNames[2], storeNames[4]}
 
 		for _, name := range storeNames {
-			couchdbStore, e := prov.OpenStore(name)
+			memStore, e := prov.OpenStore(name)
 			require.NoError(t, e)
 
 			var store storage.Store
 
-			store, err = NewPrefixStoreWrapper(couchdbStore, cdbPrefix)
+			store, err := NewPrefixStoreWrapper(memStore, cdbPrefix)
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
@@ -173,12 +117,12 @@ func TestCouchDBStore(t *testing.T) {
 		}
 
 		for _, name := range storeNames {
-			couchdbStore, e := prov.OpenStore(name)
+			memStore, e := prov.OpenStore(name)
 			require.NoError(t, e)
 
 			var store storage.Store
 
-			store, err = NewPrefixStoreWrapper(couchdbStore, cdbPrefix)
+			store, err := NewPrefixStoreWrapper(memStore, cdbPrefix)
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
@@ -203,7 +147,7 @@ func TestCouchDBStore(t *testing.T) {
 		// require.Len(t, prov.dbs, 2) // not available in the wrapper provider
 
 		// try to close non existing db
-		err = prov.CloseStore("store_x")
+		err := prov.CloseStore("store_x")
 		require.NoError(t, err)
 
 		// verify store length
@@ -220,13 +164,15 @@ func TestCouchDBStore(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Test couchdb store iterator", func(t *testing.T) {
-		prov, err := couchdbstore.NewProvider(couchDBURL)
-		require.NoError(t, err)
-		cdbStore, err := prov.OpenStore(randomKey())
+	t.Run("Test store iterator", func(t *testing.T) {
+		prov := mem.NewProvider()
+
+		cdbStore, err := prov.OpenStore(uuid.New().String())
 		require.NoError(t, err)
 
-		store, err := NewPrefixStoreWrapper(cdbStore, cdbPrefix)
+		var store storage.Store
+
+		store, err = NewPrefixStoreWrapper(cdbStore, cdbPrefix)
 		require.NoError(t, err)
 		require.NotEmpty(t, store)
 
@@ -271,55 +217,48 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 	require.Empty(t, itr.Key())
 	require.Empty(t, itr.Value())
 	require.Error(t, itr.Error())
-	require.Contains(t, itr.Error().Error(), "Iterator is closed")
+	require.Contains(t, itr.Error().Error(), "iterator released")
 }
 
-func TestCouchDBStore_Delete(t *testing.T) {
+func TestStorePrefixWrapper_Delete(t *testing.T) {
 	const commonKey = "ZGlkOmV4YW1wbGU6MTIzNA" // "did:example:1234" base64 RAW URL encoded
 
-	prov, err := couchdbstore.NewProvider(couchDBURL)
-	require.NoError(t, err)
+	prov := mem.NewProvider()
 
 	data := []byte("value1")
-	cdbPrefix := "prefix"
 
 	// create store 1 & store 2
-	couchdbStore, err := prov.OpenStore(randomKey())
+	memStore, err := prov.OpenStore(uuid.New().String())
 	require.NoError(t, err)
 
-	store1, err := NewPrefixStoreWrapper(couchdbStore, cdbPrefix)
-	require.NoError(t, err)
-	require.NotEmpty(t, store1)
+	var store storage.Store
 
-	// put in store 1
-	err = store1.Put(commonKey, data)
+	store, err = NewPrefixStoreWrapper(memStore, "prefix")
+	require.NoError(t, err)
+	require.NotEmpty(t, store)
+
+	// put in store
+	err = store.Put(commonKey, data)
 	require.NoError(t, err)
 
-	// get in store 1 - found
-	doc, err := store1.Get(commonKey)
+	// get in store - found
+	doc, err := store.Get(commonKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, doc)
 	require.Equal(t, data, doc)
 
 	// now try Delete with an empty key - should fail
-	err = store1.Delete("")
-	require.EqualError(t, err, "key is mandatory for deletion")
+	err = store.Delete("")
+	require.EqualError(t, err, "key is mandatory")
 
-	err = store1.Delete("k1")
+	err = store.Delete("k1")
 	require.NoError(t, err)
 
 	// finally test Delete an existing key
-	err = store1.Delete(commonKey)
+	err = store.Delete(commonKey)
 	require.NoError(t, err)
 
-	doc, err = store1.Get(commonKey)
+	doc, err = store.Get(commonKey)
 	require.EqualError(t, err, storage.ErrDataNotFound.Error())
 	require.Empty(t, doc)
-}
-
-func randomKey() string {
-	// prefix `key` is needed for couchdb due to error e.g Name: '7c80bdcd-b0e3-405a-bb82-fae75f9f2470'.
-	// Only lowercase characters (a-z), digits (0-9), and any of the characters _, $, (, ), +, -, and / are allowed.
-	// Must begin with a letter.
-	return "key" + uuid.New().String()
 }

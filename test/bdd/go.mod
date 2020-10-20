@@ -15,15 +15,14 @@ require (
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go v0.0.0
+	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/piprate/json-gold v0.3.0
 	github.com/trustbloc/sidetree-core-go v0.1.5-0.20200904134412-6c2efa84f694
-	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89
 	google.golang.org/genproto v0.0.0-20200211111953-2dc5924e3898 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
 	nhooyr.io/websocket v1.8.3
