@@ -86,7 +86,7 @@ func TestInvalidProofValue(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Nil(t, p)
-	require.Contains(t, err.Error(), "illegal base64 data")
+	require.EqualError(t, err, "unsupported proof encoding")
 
 	// proof is not defined (neither "proofValue" nor "jws" is defined)
 	p, err = NewProof(map[string]interface{}{

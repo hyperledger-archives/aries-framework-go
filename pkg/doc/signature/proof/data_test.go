@@ -92,6 +92,11 @@ func TestCreateVerifyData(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
+	p.SignatureRepresentation = SignatureProofValue
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{compactProof: true}, doc, p)
+	require.NoError(t, err)
+	require.NotEmpty(t, normalizedDoc)
+
 	p.SignatureRepresentation = SignatureJWS
 	p.JWS = "jws header.."
 	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p)
