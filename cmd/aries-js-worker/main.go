@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/jsindexeddb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	cmdctrl "github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -27,7 +28,6 @@ import (
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
 
@@ -364,9 +364,12 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
-	if opts.DBNamespace != "" {
-		options = append(options, defaults.WithStorePath(opts.DBNamespace))
+	store, err := jsindexeddb.NewProvider(opts.DBNamespace)
+	if err != nil {
+		return nil, err
 	}
+
+	options = append(options, aries.WithStoreProvider(store))
 
 	for _, transport := range opts.OutboundTransport {
 		switch transport {

@@ -29,23 +29,20 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.6.1
-	github.com/syndtr/goleveldb v1.0.0
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89 // indirect
 	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
 	nhooyr.io/websocket v1.8.3
 )
 
 replace (
-	github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
 	github.com/kilic/bls12-381 => github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef
 	github.com/phoreproject/bls => github.com/trustbloc/bls v0.0.0-20201008085849-81064514c3cc
+	github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
+	golang.org/x/sys => golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
 )
 
 go 1.15

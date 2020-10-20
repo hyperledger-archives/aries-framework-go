@@ -34,7 +34,6 @@ import (
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
@@ -100,11 +99,7 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
-	if opts.DBNamespace != "" {
-		options = append(options, defaults.WithStorePath(opts.DBNamespace))
-	} else {
-		options = append(options, aries.WithStoreProvider(mem.NewProvider()))
-	}
+	options = append(options, aries.WithStoreProvider(mem.NewProvider()))
 
 	for _, transport := range opts.OutboundTransport {
 		switch transport {

@@ -20,6 +20,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -31,7 +32,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 )
