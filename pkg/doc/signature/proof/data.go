@@ -100,6 +100,8 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 	}
 
 	if suite.CompactProof() {
+		opts = append(opts, jsonld.WithDocumentLoaderCache(jsonldCache))
+
 		docCompacted, err := getCompactedWithSecuritySchema(proofOptionsCopy, opts...)
 		if err != nil {
 			return nil, err

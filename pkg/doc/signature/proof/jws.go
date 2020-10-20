@@ -120,7 +120,7 @@ func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{},
 	delete(proofOptionsCopy, jsonldJWS)
 	delete(proofOptionsCopy, jsonldProofValue)
 
-	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
+	return suite.GetCanonicalDocument(proofOptionsCopy, append(opts, jsonld.WithDocumentLoaderCache(jsonldCache))...)
 }
 
 func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interface{},
@@ -129,6 +129,8 @@ func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interfa
 	doc := GetCopyWithoutProof(jsonldObject)
 
 	if suite.CompactProof() {
+		opts = append(opts, jsonld.WithDocumentLoaderCache(jsonldCache))
+
 		docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
 		if err != nil {
 			return nil, err
@@ -147,7 +149,5 @@ func getCompactedWithSecuritySchema(docMap map[string]interface{},
 		"@context": securityContext,
 	}
 
-	// TODO pass JSON-LD document loader with loaded security context
-	//  (https://github.com/hyperledger/aries-framework-go/issues/2253)
 	return jsonld.Default().Compact(docMap, contextMap, opts...)
 }
