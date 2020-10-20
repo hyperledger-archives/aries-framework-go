@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"encoding/json"
 )
 
 // StructuredDocument represents a Structured Document
@@ -24,7 +24,7 @@ type EncryptedDocument struct {
 	ID                          string                       `json:"id"`
 	Sequence                    int                          `json:"sequence"`
 	IndexedAttributeCollections []IndexedAttributeCollection `json:"indexed,omitempty"`
-	JWE                         jose.JSONWebEncryption       `json:"jwe"`
+	JWE                         json.RawMessage              `json:"jwe"`
 }
 
 // IndexedAttributeCollection represents a collection of indexed attributes,
