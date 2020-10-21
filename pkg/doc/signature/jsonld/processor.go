@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package jsonld
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
@@ -27,34 +30,51 @@ var logger = log.New("aries-framework/json-ld-processor")
 // ErrInvalidRDFFound is returned when normalized view contains invalid RDF.
 var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
 
-// normalizeOpts holds options for canonicalization of JSON LD docs.
-type normalizeOpts struct {
-	removeInvalidRDF bool
-	validateRDF      bool
-	documentLoader   ld.DocumentLoader
-	externalContexts []string
+// processorOpts holds options for canonicalization of JSON LD docs.
+type processorOpts struct {
+	removeInvalidRDF    bool
+	validateRDF         bool
+	documentLoader      ld.DocumentLoader
+	externalContexts    []string
+	documentLoaderCache map[string]interface{}
 }
 
 // ProcessorOpts are the options for JSON LD operations on docs (like canonicalization or compacting).
-type ProcessorOpts func(opts *normalizeOpts)
+type ProcessorOpts func(opts *processorOpts)
 
 // WithRemoveAllInvalidRDF option for removing all invalid RDF dataset from normalize document.
 func WithRemoveAllInvalidRDF() ProcessorOpts {
-	return func(opts *normalizeOpts) {
+	return func(opts *processorOpts) {
 		opts.removeInvalidRDF = true
 	}
 }
 
 // WithDocumentLoader option is for passing custom JSON-LD document loader.
 func WithDocumentLoader(loader ld.DocumentLoader) ProcessorOpts {
-	return func(opts *normalizeOpts) {
+	return func(opts *processorOpts) {
 		opts.documentLoader = loader
+	}
+}
+
+// WithDocumentLoaderCache option is for passing cached contexts to be used by JSON-LD context document loader.
+// Supported value types: map[string]interface{}, string, []byte, io.Reader.
+func WithDocumentLoaderCache(cache map[string]interface{}) ProcessorOpts {
+	return func(opts *processorOpts) {
+		if opts.documentLoaderCache == nil {
+			opts.documentLoaderCache = make(map[string]interface{})
+		}
+
+		for k, v := range cache {
+			if cacheValue := getDocumentCacheValue(v); cacheValue != nil {
+				opts.documentLoaderCache[k] = cacheValue
+			}
+		}
 	}
 }
 
 // WithExternalContext option is for definition of external context when doing JSON-LD operations.
 func WithExternalContext(context ...string) ProcessorOpts {
-	return func(opts *normalizeOpts) {
+	return func(opts *processorOpts) {
 		opts.externalContexts = context
 	}
 }
@@ -62,7 +82,7 @@ func WithExternalContext(context ...string) ProcessorOpts {
 // WithValidateRDF option validates result view and fails if any invalid RDF dataset found.
 // This option will take precedence when used in conjunction with 'WithRemoveAllInvalidRDF' option.
 func WithValidateRDF() ProcessorOpts {
-	return func(opts *normalizeOpts) {
+	return func(opts *processorOpts) {
 		opts.validateRDF = true
 	}
 }
@@ -97,10 +117,7 @@ func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...Pro
 	ldOptions.Algorithm = p.algorithm
 	ldOptions.Format = format
 	ldOptions.ProduceGeneralizedRdf = true
-
-	if procOptions.documentLoader != nil {
-		ldOptions.DocumentLoader = procOptions.documentLoader
-	}
+	useDocumentLoader(ldOptions, procOptions.documentLoader, procOptions.documentLoaderCache)
 
 	if len(procOptions.externalContexts) > 0 {
 		doc["@context"] = AppendExternalContexts(doc["@context"], procOptions.externalContexts...)
@@ -154,9 +171,7 @@ func (p *Processor) Compact(input, context map[string]interface{},
 
 	procOptions := prepareOpts(opts)
 
-	if procOptions.documentLoader != nil {
-		options.DocumentLoader = procOptions.documentLoader
-	}
+	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
 
 	if context == nil {
 		inputContext := input["@context"]
@@ -175,7 +190,7 @@ func (p *Processor) Compact(input, context map[string]interface{},
 // removeMatchingInvalidRDFs validates normalized view to find any invalid RDF and
 // returns filtered view after removing all invalid data except the ones given in rdfMatches argument.
 // [Note : handling invalid RDF data, by following pattern https://github.com/digitalbazaar/jsonld.js/issues/199]
-func (p *Processor) removeMatchingInvalidRDFs(view string, opts *normalizeOpts) (string, error) {
+func (p *Processor) removeMatchingInvalidRDFs(view string, opts *processorOpts) (string, error) {
 	if !opts.removeInvalidRDF && !opts.validateRDF {
 		return view, nil
 	}
@@ -238,13 +253,71 @@ func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
 	return result.(string), nil
 }
 
-// prepareOpts prepare normalizeOpts from given CanonicalizationOpts arguments.
-func prepareOpts(opts []ProcessorOpts) *normalizeOpts {
-	nOpts := &normalizeOpts{}
+func useDocumentLoader(ldOptions *ld.JsonLdOptions, loader ld.DocumentLoader, cache map[string]interface{}) {
+	if loader == nil && len(cache) == 0 {
+		return
+	}
+
+	ldOptions.DocumentLoader = getCachingDocumentLoader(loader, cache)
+}
+
+func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interface{}) *ld.CachingDocumentLoader {
+	cachingLoader := createCachingDocumentLoader(loader)
+
+	for k, v := range cache {
+		cachingLoader.AddDocument(k, v)
+	}
+
+	return cachingLoader
+}
+
+func createCachingDocumentLoader(loader ld.DocumentLoader) *ld.CachingDocumentLoader {
+	if loader == nil {
+		return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	}
+
+	if cachingLoader, ok := loader.(*ld.CachingDocumentLoader); ok {
+		return cachingLoader
+	}
+
+	return ld.NewCachingDocumentLoader(loader)
+}
+
+// prepareOpts prepare processorOpts from given CanonicalizationOpts arguments.
+func prepareOpts(opts []ProcessorOpts) *processorOpts {
+	nOpts := &processorOpts{}
 	// apply opts
 	for _, opt := range opts {
 		opt(nOpts)
 	}
 
 	return nOpts
+}
+
+func getDocumentCacheValue(v interface{}) interface{} {
+	switch cv := v.(type) {
+	case map[string]interface{}:
+		return cv
+
+	case string:
+		var m map[string]interface{}
+
+		if err := json.Unmarshal([]byte(cv), &m); err == nil {
+			return m
+		}
+
+	case []byte:
+		var m map[string]interface{}
+
+		if err := json.Unmarshal(cv, &m); err == nil {
+			return m
+		}
+
+	case io.Reader:
+		if reader, err := ld.DocumentFromReader(cv); err == nil {
+			return reader
+		}
+	}
+
+	return nil
 }
