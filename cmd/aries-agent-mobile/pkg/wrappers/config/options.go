@@ -17,7 +17,6 @@ type Options struct {
 	AutoAccept           bool
 	TransportReturnRoute string
 	LogLevel             string
-	DBNamespace          string
 
 	// expected to be ignored by gomobile
 	// not intended to be used by golang code

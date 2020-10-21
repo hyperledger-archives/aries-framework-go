@@ -260,7 +260,12 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(SendMsgReplyError, err)
 	}
 
-	err = o.ctx.Messenger().ReplyTo(request.MessageID, msg)
+	if request.StartNewThread {
+		err = o.ctx.Messenger().ReplyToNested(msg, &service.NestedReplyOpts{MsgID: request.MessageID})
+	} else {
+		err = o.ctx.Messenger().ReplyTo(request.MessageID, msg)
+	}
+
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(replyTo, request.MessageID))

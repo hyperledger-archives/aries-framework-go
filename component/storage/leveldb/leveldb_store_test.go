@@ -1,5 +1,3 @@
-// +build !js,!wasm
-
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 

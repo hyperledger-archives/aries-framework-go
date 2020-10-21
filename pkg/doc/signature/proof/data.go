@@ -99,6 +99,15 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 		}
 	}
 
+	if suite.CompactProof() {
+		docCompacted, err := getCompactedWithSecuritySchema(proofOptionsCopy, opts...)
+		if err != nil {
+			return nil, err
+		}
+
+		proofOptionsCopy = docCompacted
+	}
+
 	// build canonical proof options
 	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
 }
@@ -116,16 +125,15 @@ func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]inte
 type excludedKey uint
 
 const (
-	proofType excludedKey = iota + 1
-	proofID
+	proofID excludedKey = iota + 1
 	proofValue
 	jws
 )
 
 //nolint:gochecknoglobals
 var (
-	excludedKeysStr = [...]string{"type", "id", "proofValue", "jws"}
-	excludedKeys    = [...]excludedKey{proofType, proofID, proofValue, jws}
+	excludedKeysStr = [...]string{"id", "proofValue", "jws"}
+	excludedKeys    = [...]excludedKey{proofID, proofValue, jws}
 )
 
 func (ek excludedKey) String() string {

@@ -34,6 +34,8 @@ type Metadata interface {
 	ProposeCredential() *ProposeCredential
 	// IssueCredential is pointer to the message provided by the user through the Continue function.
 	IssueCredential() *IssueCredential
+	// RequestCredential is pointer to message provided by the user through the Continue function.
+	RequestCredential() *RequestCredential
 	// CredentialNames is a slice which contains credential names provided by the user through the Continue function.
 	CredentialNames() []string
 	// StateName provides the state name

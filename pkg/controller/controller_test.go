@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package controller
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,11 +35,7 @@ func TestGetCommandHandlers(t *testing.T) {
 
 func TestGetCommandHandlers_Success(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
-		framework, err := aries.New(defaults.WithStorePath(path),
-			defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -57,11 +51,7 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 	})
 
 	t.Run("With options", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
-		framework, err := aries.New(defaults.WithStorePath(path),
-			defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -81,11 +71,7 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 
 func TestGetRESTHandlers_Success(t *testing.T) {
 	t.Run("", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
-		framework, err := aries.New(defaults.WithStorePath(path),
-			defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -100,11 +86,7 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 		require.NotEmpty(t, handlers)
 	})
 	t.Run("", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-
-		framework, err := aries.New(defaults.WithStorePath(path),
-			defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -162,18 +144,4 @@ func TestWithMessageHandler(t *testing.T) {
 	opt(controllerOpts)
 
 	require.NotNil(t, controllerOpts.msgHandler)
-}
-
-func generateTempDir(t testing.TB) (string, func()) {
-	path, err := ioutil.TempDir("", "db")
-	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
-	}
-
-	return path, func() {
-		err := os.RemoveAll(path)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
-		}
-	}
 }

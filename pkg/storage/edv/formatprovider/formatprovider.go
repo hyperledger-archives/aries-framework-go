@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/edv"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/documentprocessor"
 )
 
 const (
@@ -39,11 +38,18 @@ var (
 
 type marshalFunc func(interface{}) ([]byte, error)
 
+// DocumentProcessor represents a type that can encrypt and decrypt between
+// Structured Documents and Encrypted Documents.
+type DocumentProcessor interface {
+	Encrypt(*edv.StructuredDocument) (*edv.EncryptedDocument, error)
+	Decrypt(*edv.EncryptedDocument) (*edv.StructuredDocument, error)
+}
+
 // FormatProvider is an encrypted storage provider that uses EDV document models
 // as defined in https://identity.foundation/secure-data-store/#data-model.
 type FormatProvider struct {
 	storeProvider     storage.Provider
-	documentProcessor documentprocessor.DocumentProcessor
+	documentProcessor DocumentProcessor
 }
 
 // New instantiates a new FormatProvider with the given underlying provider and EDV document processor.
@@ -51,8 +57,7 @@ type FormatProvider struct {
 // only deals with data in encrypted form and cannot read the data flowing in or out of it.
 // The EDV document processor handles encryption/decryption between structured documents and encrypted documents.
 // It contains the necessary crypto functionality.
-func New(underlyingProvider storage.Provider,
-	encryptedDocumentProcessor documentprocessor.DocumentProcessor) (FormatProvider, error) {
+func New(underlyingProvider storage.Provider, encryptedDocumentProcessor DocumentProcessor) (FormatProvider, error) {
 	return FormatProvider{
 		storeProvider:     underlyingProvider,
 		documentProcessor: encryptedDocumentProcessor,
@@ -97,14 +102,14 @@ func (p FormatProvider) Close() error {
 
 type formatStore struct {
 	underlyingStore   storage.Store
-	documentProcessor documentprocessor.DocumentProcessor
+	documentProcessor DocumentProcessor
 
 	marshal marshalFunc
 }
 
 func (s formatStore) Put(k string, v []byte) error {
 	content := make(map[string]interface{})
-	content["payload"] = v
+	content[payloadKey] = v
 
 	structuredDoc := edv.StructuredDocument{
 		ID:      k,

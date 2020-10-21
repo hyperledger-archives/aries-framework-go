@@ -82,8 +82,8 @@ func TestAbandoning_Execute(t *testing.T) {
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 		messenger.EXPECT().
-			ReplyToNested(thID, gomock.Any(), "", "").
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeInternalError, r.Description.Code)
@@ -119,8 +119,8 @@ func TestAbandoning_Execute(t *testing.T) {
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 		messenger.EXPECT().
-			ReplyToNested(thID, gomock.Any(), "", "").
-			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+			ReplyToNested(gomock.Any(), gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeRejectedError, r.Description.Code)

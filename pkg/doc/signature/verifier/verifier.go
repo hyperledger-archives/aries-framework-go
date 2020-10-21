@@ -75,11 +75,11 @@ func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, opts ...jsonld.ProcessorOpt
 		return fmt.Errorf("failed to unmarshal json ld document: %w", err)
 	}
 
-	return dv.verifyObject(jsonLdObject, opts)
+	return dv.verifyObject(jsonLdObject, opts...)
 }
 
 // verifyObject will verify document proofs for JSON LD object.
-func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}, opts []jsonld.ProcessorOpts) error {
+func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}, opts ...jsonld.ProcessorOpts) error {
 	proofs, err := proof.GetProofs(jsonLdObject)
 	if err != nil {
 		return err

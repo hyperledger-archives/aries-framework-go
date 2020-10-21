@@ -35,7 +35,7 @@ func (m *MockMessenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) 
 }
 
 // ReplyToNested mock messenger reply to nested.
-func (m *MockMessenger) ReplyToNested(threadID string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *MockMessenger) ReplyToNested(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 	if m.ErrReplyToNested != nil {
 		return m.ErrReplyToNested
 	}
