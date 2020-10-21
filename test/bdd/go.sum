@@ -316,8 +316,8 @@ github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod 
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6 h1:GlzMPygeehW/W8tq2vBiN6DLsTFY5xtvQysu1aqqGoQ=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
-github.com/trustbloc/sidetree-core-go v0.1.5-0.20200904134412-6c2efa84f694 h1:eOGjUCAEFiyUCfqJxXBxDhovyXqSFu4pjyuelyZTY9k=
-github.com/trustbloc/sidetree-core-go v0.1.5-0.20200904134412-6c2efa84f694/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
+github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b h1:2iCsl09MuOAnpphBNHI/wgHeSK38Jt0A8n1yWYrVF2I=
+github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
