@@ -84,6 +84,6 @@ func (b *StorePrefixWrapper) Delete(k string) error {
 }
 
 // Query is currently not implemented.
-func (b *StorePrefixWrapper) Query(_ string) (storage.StoreIterator, error) {
+func (b *StorePrefixWrapper) Query(name, value string) (storage.StoreIterator, error) {
 	return nil, storage.ErrQueryingNotSupported
 }

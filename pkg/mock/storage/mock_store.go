@@ -136,7 +136,7 @@ func (s *MockStore) Delete(k string) error {
 }
 
 // Query returns a mocked store iterator and error value.
-func (s *MockStore) Query(_ string) (storage.StoreIterator, error) {
+func (s *MockStore) Query(indexKey, indexValue string) (storage.StoreIterator, error) {
 	return s.QueryReturnValue, s.ErrQuery
 }
 

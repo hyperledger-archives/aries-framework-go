@@ -191,9 +191,20 @@ func (s *memStore) Delete(k string) error {
 	return nil
 }
 
-// TODO #2228 - implement query method.
-func (s *memStore) Query(_ string) (storage.StoreIterator, error) {
-	return nil, storage.ErrQueryingNotSupported
+// A simple query method useful for testing purposes. Not necessarily performant or good for production code.
+// The iterator will iterate over all key-value pairs from the memStore database that satisfy the query.
+// A key-value pair from the memStore database satisfies the query if the value contains both indexKey and indexValue
+// somewhere in the value.
+func (s *memStore) Query(name, value string) (storage.StoreIterator, error) {
+	var results [][]string
+
+	for k, v := range s.db {
+		if strings.Contains(string(v), name) && strings.Contains(string(v), value) {
+			results = append(results, []string{k, string(v)})
+		}
+	}
+
+	return newMemIterator(results), nil
 }
 
 type memIterator struct {

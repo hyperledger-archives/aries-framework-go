@@ -43,7 +43,7 @@ func TestAriesDocumentProcessor_Encrypt(t *testing.T) {
 		documentProcessor := DocumentProcessor{marshal: failingMarshal}
 		require.NotNil(t, documentProcessor)
 
-		encryptedDocument, err := documentProcessor.Encrypt(nil)
+		encryptedDocument, err := documentProcessor.Encrypt(nil, nil)
 		require.EqualError(t, err, fmt.Errorf(failMarshalStructuredDocument, errFailingMarshal).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -51,7 +51,7 @@ func TestAriesDocumentProcessor_Encrypt(t *testing.T) {
 		documentProcessor := New(&failingEncrypter{}, nil)
 		require.NotNil(t, documentProcessor)
 
-		encryptedDocument, err := documentProcessor.Encrypt(createStructuredDocument())
+		encryptedDocument, err := documentProcessor.Encrypt(createStructuredDocument(), nil)
 		require.EqualError(t, err, fmt.Errorf(failEncryptStructuredDocument, errFailingEncrypter).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -145,7 +145,7 @@ func createStructuredDocument() *edv.StructuredDocument {
 func createEncryptedDocument(t *testing.T, documentProcessor *DocumentProcessor) *edv.EncryptedDocument {
 	structuredDocument := createStructuredDocument()
 
-	encryptedDocument, err := documentProcessor.Encrypt(structuredDocument)
+	encryptedDocument, err := documentProcessor.Encrypt(structuredDocument, nil)
 	require.NoError(t, err)
 	require.NotNil(t, encryptedDocument)
 

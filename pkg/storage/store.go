@@ -59,9 +59,8 @@ type Store interface {
 	// Delete will delete a record with k key
 	Delete(k string) error
 
-	// Query queries the store for data based on the provided query string, the format of
-	// which will be dependent on what the underlying store requires.
-	Query(query string) (StoreIterator, error)
+	// Query searches all stored key-value pairs and returns all values that satisfy the query.
+	Query(name string, value string) (StoreIterator, error)
 }
 
 // StoreIterator is the iterator for the latest snapshot of the underlying store.

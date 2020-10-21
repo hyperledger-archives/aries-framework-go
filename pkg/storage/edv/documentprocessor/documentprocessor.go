@@ -43,7 +43,8 @@ func New(jweEncrypter jose.Encrypter, jweDecrypter jose.Decrypter) *DocumentProc
 }
 
 // Encrypt creates a new encrypted document based off of the given structured document.
-func (a *DocumentProcessor) Encrypt(structuredDocument *edv.StructuredDocument) (*edv.EncryptedDocument, error) {
+func (a *DocumentProcessor) Encrypt(structuredDocument *edv.StructuredDocument,
+	indexedAttributes []edv.IndexedAttributeCollection) (*edv.EncryptedDocument, error) {
 	structuredDocumentBytes, err := a.marshal(structuredDocument)
 	if err != nil {
 		return nil, fmt.Errorf(failMarshalStructuredDocument, err)
@@ -60,8 +61,9 @@ func (a *DocumentProcessor) Encrypt(structuredDocument *edv.StructuredDocument) 
 	}
 
 	encryptedDoc := edv.EncryptedDocument{
-		ID:  structuredDocument.ID,
-		JWE: []byte(serializedJWE),
+		ID:                          structuredDocument.ID,
+		IndexedAttributeCollections: indexedAttributes,
+		JWE:                         []byte(serializedJWE),
 	}
 
 	return &encryptedDoc, nil
