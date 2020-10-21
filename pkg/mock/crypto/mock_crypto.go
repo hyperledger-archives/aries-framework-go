@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
+import "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+
 // SignFunc mocks Crypto's Sign() function, it useful for executing custom signing with the help of SignKey.
 type SignFunc func([]byte, interface{}) ([]byte, error)
 
@@ -24,6 +26,10 @@ type Crypto struct {
 	ComputeMACValue   []byte
 	ComputeMACErr     error
 	VerifyMACErr      error
+	WrapValue         *composite.RecipientWrappedKey
+	WrapError         error
+	UnwrapValue       []byte
+	UnwrapError       error
 }
 
 // Encrypt returns mocked values and a mocked error.
@@ -58,4 +64,14 @@ func (c *Crypto) ComputeMAC(data []byte, kh interface{}) ([]byte, error) {
 // VerifyMAC returns a mocked value.
 func (c *Crypto) VerifyMAC(mac, data []byte, kh interface{}) error {
 	return c.VerifyMACErr
+}
+
+// WrapKey returns a mocked value.
+func (c *Crypto) WrapKey(cek, apu, apv []byte, kh interface{}) (*composite.RecipientWrappedKey, error) {
+	return c.WrapValue, c.WrapError
+}
+
+// UnwrapKey returns a mocked value.
+func (c *Crypto) UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{}) ([]byte, error) {
+	return c.UnwrapValue, c.UnwrapError
 }

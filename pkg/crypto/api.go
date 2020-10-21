@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
+import "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+
 // package crypto contains the Crypto interface to be used by the framework.
 // it will be created via Options creation in pkg/framework/context.Provider
 
@@ -37,4 +39,10 @@ type Crypto interface {
 	// VerifyMAC determines if mac is a correct authentication code (MAC) for data
 	// using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
 	VerifyMAC(mac, data []byte, kh interface{}) error
+
+	// WrapKey will execute key wrapping of cek using apu, apv and recipient public key found in kh.
+	WrapKey(cek, apu, apv []byte, kh interface{}) (*composite.RecipientWrappedKey, error)
+
+	// UnwrapKey unwraps a key in recWK using recipient private key kh.
+	UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{}) ([]byte, error)
 }

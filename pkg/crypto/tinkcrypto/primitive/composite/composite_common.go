@@ -46,6 +46,8 @@ type RecipientWrappedKey struct {
 	EncryptedCEK []byte    `json:"encryptedcek,omitempty"`
 	EPK          PublicKey `json:"epk,omitempty"`
 	Alg          string    `json:"alg,omitempty"`
+	APU          []byte    `json:"apu,omitempty"`
+	APV          []byte    `json:"apv,omitempty"`
 }
 
 // PublicKey mainly to exchange EPK in RecipientWrappedKey.

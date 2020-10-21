@@ -14,10 +14,12 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
+	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 )
 
 const testMessage = "test message"
@@ -38,6 +40,9 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		badKH, err := keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
 		require.NoError(t, err)
 
+		badKH2, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
 		c := Crypto{}
 		msg := []byte(testMessage)
 		aad := []byte("some additional data")
@@ -50,12 +55,20 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		_, _, err = c.Encrypt(msg, aad, badKH)
 		require.Error(t, err)
 
+		// encrypt with another bad key handle - should fail
+		_, _, err = c.Encrypt(msg, aad, badKH2)
+		require.Error(t, err)
+
 		plainText, err := c.Decrypt(cipherText, aad, nonce, kh)
 		require.NoError(t, err)
 		require.Equal(t, msg, plainText)
 
 		// decrypt with bad key handle - should fail
 		_, err = c.Decrypt(cipherText, aad, nonce, badKH)
+		require.Error(t, err)
+
+		// decrypt with another bad key handle - should fail
+		_, err = c.Decrypt(cipherText, aad, nonce, badKH2)
 		require.Error(t, err)
 
 		// decrypt with bad nonce - should fail
@@ -237,4 +250,74 @@ func TestCrypto_VerifyMAC(t *testing.T) {
 		err = c.VerifyMAC(nil, nil, kh)
 		require.EqualError(t, err, "mac_factory: not a MAC primitive")
 	})
+}
+
+func TestCrypto_Wrap_Unwrap_Key(t *testing.T) {
+	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	c, err := New()
+	require.NoError(t, err)
+
+	cek := random.GetRandomBytes(uint32(keySize))
+	apu := random.GetRandomBytes(uint32(10)) // or sender name
+	apv := random.GetRandomBytes(uint32(10)) // or recipient name
+
+	// test WrapKey with bad key 1
+	badKey1 := &[]byte{}
+
+	_, err = c.WrapKey(cek, apu, apv, badKey1)
+	require.EqualError(t, err, "wrapKey: bad key handle format")
+
+	// test WrapKey with bad key 2 (symmetric key)
+	badKey2, err := keyset.NewHandle(aead.AES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	_, err = c.WrapKey(cek, apu, apv, badKey2)
+	require.EqualError(t, err, "wrapKey: failed to extract recipient public key from kh: "+
+		"extractPrimaryPublicKey: failed to get public key content: keyset.Handle: keyset.Handle: "+
+		"keyset contains a non-private key")
+
+	// now test WrapKey with good key
+	wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey) // WrapKey will extract public key from recipientKey
+	require.NoError(t, err)
+	require.NotEmpty(t, wrappedKey.EncryptedCEK)
+	require.NotEmpty(t, wrappedKey.EPK)
+	require.EqualValues(t, wrappedKey.APU, apu)
+	require.EqualValues(t, wrappedKey.APV, apv)
+	require.Equal(t, wrappedKey.Alg, ecdhesKWAlg)
+
+	// test UnwrapKey with empty recWK and/or kh
+	_, err = c.UnwrapKey(nil, nil)
+	require.EqualError(t, err, "unwrapKey: RecipientWrappedKey is empty")
+
+	_, err = c.UnwrapKey(nil, recipientKey)
+	require.EqualError(t, err, "unwrapKey: RecipientWrappedKey is empty")
+
+	_, err = c.UnwrapKey(wrappedKey, nil)
+	require.EqualError(t, err, "unwrapKey: bad key handle format")
+
+	// test UnwrapKey with ECDHES key but different curve
+	ecdh384Key, err := keyset.NewHandle(ecdhes.ECDHES384KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	_, err = c.UnwrapKey(wrappedKey, ecdh384Key)
+	require.EqualError(t, err, "unwrapKey: recipient and epk keys are not on the same curve")
+
+	// test UnwrapKey with invalid key (symmetric key)
+	_, err = c.UnwrapKey(wrappedKey, badKey2)
+	require.EqualError(t, err, "unwrapKey: extractPrivKey: can't extract unsupported private key")
+
+	// test UnwrapKey with wrappedKey using different algorithm
+	origAlg := wrappedKey.Alg
+	wrappedKey.Alg = "badAlg"
+	_, err = c.UnwrapKey(wrappedKey, recipientKey)
+	require.EqualError(t, err, "unwrapKey: unsupported JWE KW Alg 'badAlg'")
+
+	wrappedKey.Alg = origAlg
+
+	// finally test with valid wrappedKey and recipientKey
+	uCEK, err := c.UnwrapKey(wrappedKey, recipientKey) // UnwrapKey will extract private key from recipientKey
+	require.NoError(t, err)
+	require.EqualValues(t, cek, uCEK)
 }
