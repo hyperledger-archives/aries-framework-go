@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -22,6 +23,7 @@ const (
 	ed25519Signature2018        = "Ed25519Signature2018"
 	jsonWebSignature2020        = "JsonWebSignature2020"
 	ecdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
+	bbsBlsSignature2020         = "BbsBlsSignature2020"
 )
 
 func getProofType(proofMap map[string]interface{}) (string, error) {
@@ -32,7 +34,7 @@ func getProofType(proofMap map[string]interface{}) (string, error) {
 
 	proofTypeStr := safeStringValue(proofType)
 	switch proofTypeStr {
-	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019:
+	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019, bbsBlsSignature2020:
 		return proofTypeStr, nil
 	default:
 		return "", fmt.Errorf("unsupported proof type: %s", proofType)
@@ -115,6 +117,9 @@ func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([
 			case ecdsaSecp256k1Signature2019:
 				ldpSuites = append(ldpSuites, ecdsasecp256k1signature2019.New(
 					suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())))
+			case bbsBlsSignature2020:
+				ldpSuites = append(ldpSuites, bbsblssignature2020.New(
+					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier())))
 			}
 		}
 	}

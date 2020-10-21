@@ -16,10 +16,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/btcsuite/btcd/btcec"
 	gojose "github.com/square/go-jose/v3"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
@@ -368,6 +370,40 @@ func NewECDSAES521SignatureVerifier() *ECDSASignatureVerifier {
 			hash:    crypto.SHA512,
 		},
 	}
+}
+
+// NewBBSG2SignatureVerifier creates a new BBSG2SignatureVerifier.
+func NewBBSG2SignatureVerifier() *BBSG2SignatureVerifier {
+	return &BBSG2SignatureVerifier{}
+}
+
+// BBSG2SignatureVerifier is a signature verifier that verifies a BBS+ Signature
+// taking Bls12381G2Key2020 public key bytes as input.
+// The reference implementation https://github.com/mattrglobal/bls12381-key-pair supports public key bytes only,
+// JWK is not supported.
+type BBSG2SignatureVerifier struct {
+	baseSignatureVerifier
+}
+
+// Verify verifies the signature.
+func (v *BBSG2SignatureVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
+	bbs := bbs12381g2pub.New()
+
+	return bbs.Verify(v.splitMessageIntoLines(string(doc)), signature, pubKeyValue.Value)
+}
+
+func (v *BBSG2SignatureVerifier) splitMessageIntoLines(msg string) [][]byte {
+	rows := strings.Split(msg, "\n")
+
+	msgs := make([][]byte, 0, len(rows))
+
+	for i := range rows {
+		if strings.TrimSpace(rows[i]) != "" {
+			msgs = append(msgs, []byte(rows[i]))
+		}
+	}
+
+	return msgs
 }
 
 type ellipticCurve struct {

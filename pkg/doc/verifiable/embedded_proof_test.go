@@ -200,3 +200,22 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		r.Nil(docBytes)
 	})
 }
+
+func Test_getSuites(t *testing.T) {
+	createProofOfTypeFunc := func(suiteType string) map[string]interface{} {
+		return map[string]interface{}{
+			"type": suiteType,
+		}
+	}
+
+	proofs := []map[string]interface{}{
+		createProofOfTypeFunc(ed25519Signature2018),
+		createProofOfTypeFunc(jsonWebSignature2020),
+		createProofOfTypeFunc(ecdsaSecp256k1Signature2019),
+		createProofOfTypeFunc(bbsBlsSignature2020),
+	}
+
+	suites, err := getSuites(proofs, &embeddedProofCheckOpts{})
+	require.NoError(t, err)
+	require.Len(t, suites, 4)
+}
