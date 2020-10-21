@@ -10,6 +10,7 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"encoding/base64"
 	"errors"
 	"testing"
 
@@ -366,6 +367,53 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		require.Error(t, verifyError)
 		require.EqualError(t, verifyError, "ecdsa: invalid signature")
 	})
+}
+
+//nolint:lll
+func TestNewBBSG2SignatureVerifier(t *testing.T) {
+	pkBase64 := "h/rkcTKXXzRbOPr9UxSfegCbid2U/cVNXQUaKeGF7UhwrMJFP70uMH0VQ9+3+/2zDPAAjflsdeLkOXW3+ShktLxuPy8UlXSNgKNmkfb+rrj+FRwbs13pv/WsIf+eV66+"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	require.NoError(t, err)
+
+	sigBase64 := `o/79UazZRsf3y35mZ8kT6hx2M2R1fGgj2puotSqeLiha5MGRmqHLx1JAQsG3JlJeW5n56Gg+xUKaDPfzyimi0V9ECloPIBJY+dIMjQE15PFAk+/wtnde9QY8cZOmTIiI56HuN6DwADIzo3BLwkL2RQ==`
+	sigBytes, err := base64.StdEncoding.DecodeString(sigBase64)
+	require.NoError(t, err)
+
+	msg := `
+_:c14n0 <http://purl.org/dc/terms/created> "2020-10-07T16:38:09Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020> .
+_:c14n0 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> .
+_:c14n0 <https://w3id.org/security#verificationMethod> <did:example:489398593#test> .
+<did:example:b34ca6cd37bbf23> <http://schema.org/birthDate> "1958-07-17"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<did:example:b34ca6cd37bbf23> <http://schema.org/familyName> "SMITH" .
+<did:example:b34ca6cd37bbf23> <http://schema.org/gender> "Male" .
+<did:example:b34ca6cd37bbf23> <http://schema.org/givenName> "JOHN" .
+<did:example:b34ca6cd37bbf23> <http://schema.org/image> <data:image/png;base64,iVBORw0KGgokJggg==> .
+<did:example:b34ca6cd37bbf23> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+<did:example:b34ca6cd37bbf23> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#PermanentResident> .
+<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#birthCountry> "Bahamas" .
+<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#commuterClassification> "C1" .
+<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#lprCategory> "C09" .
+<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#lprNumber> "999-999-999" .
+<did:example:b34ca6cd37bbf23> <https://w3id.org/citizenship#residentSince> "2015-01-01"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/description> "Government of Example Permanent Resident Card." .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/identifier> "83627465" .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <http://schema.org/name> "Permanent Resident Card" .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/citizenship#PermanentResidentCard> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:b34ca6cd37bbf23> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#expirationDate> "2029-12-03T12:19:52Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#issuanceDate> "2019-12-03T12:19:52Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://issuer.oidp.uscis.gov/credentials/83627465> <https://www.w3.org/2018/credentials#issuer> <did:example:489398593> .
+`
+
+	verifier := NewBBSG2SignatureVerifier()
+	err = verifier.Verify(&PublicKey{
+		Type:  "Bls12381G2Key2020",
+		Value: pkBytes,
+	}, []byte(msg), sigBytes)
+
+	require.NoError(t, err)
 }
 
 type testSignatureVerifier struct {

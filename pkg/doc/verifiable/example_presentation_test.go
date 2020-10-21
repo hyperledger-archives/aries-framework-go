@@ -687,7 +687,8 @@ func ExamplePresentation_AddLinkedDataProof() {
 
 			return nil, errors.New("unsupported issuer")
 		}),
-		verifiable.WithPresEmbeddedSignatureSuites(ed25519Suite))
+		verifiable.WithPresEmbeddedSignatureSuites(ed25519Suite),
+		verifiable.WithPresJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VP JWS: %w", err))
 	}

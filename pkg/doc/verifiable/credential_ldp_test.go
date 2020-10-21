@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -442,6 +443,70 @@ func TestExtraContextWithLDP(t *testing.T) {
 		WithStrictValidation())
 	r.NoError(err)
 	r.NotNil(vcWithLdp)
+}
+
+//nolint:lll
+func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
+	r := require.New(t)
+
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/citizenship/v1",
+    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+  ],
+  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+  "type": [
+    "VerifiableCredential",
+    "PermanentResidentCard"
+  ],
+  "issuer": "did:example:489398593",
+  "identifier": "83627465",
+  "name": "Permanent Resident Card",
+  "description": "Government of Example Permanent Resident Card.",
+  "issuanceDate": "2019-12-03T12:19:52Z",
+  "expirationDate": "2029-12-03T12:19:52Z",
+  "credentialSubject": {
+    "id": "did:example:b34ca6cd37bbf23",
+    "type": [
+      "PermanentResident",
+      "Person"
+    ],
+    "givenName": "JOHN",
+    "familyName": "SMITH",
+    "gender": "Male",
+    "image": "data:image/png;base64,iVBORw0KGgokJggg==",
+    "residentSince": "2015-01-01",
+    "lprCategory": "C09",
+    "lprNumber": "999-999-999",
+    "commuterClassification": "C1",
+    "birthCountry": "Bahamas",
+    "birthDate": "1958-07-17"
+  },
+  "proof": {
+    "type": "BbsBlsSignature2020",
+    "created": "2020-10-07T16:38:09Z",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "o/79UazZRsf3y35mZ8kT6hx2M2R1fGgj2puotSqeLiha5MGRmqHLx1JAQsG3JlJeW5n56Gg+xUKaDPfzyimi0V9ECloPIBJY+dIMjQE15PFAk+/wtnde9QY8cZOmTIiI56HuN6DwADIzo3BLwkL2RQ==",
+    "verificationMethod": "did:example:489398593#test"
+  }
+}
+`
+
+	sigSuite := bbsblssignature2020.New(
+		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+	pkBase64 := "h/rkcTKXXzRbOPr9UxSfegCbid2U/cVNXQUaKeGF7UhwrMJFP70uMH0VQ9+3+/2zDPAAjflsdeLkOXW3+ShktLxuPy8UlXSNgKNmkfb+rrj+FRwbs13pv/WsIf+eV66+"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	r.NoError(err)
+
+	vc, err := parseTestCredential([]byte(vcJSON),
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pkBytes, "Bls12381G2Key2020")),
+	)
+
+	r.NoError(err)
+	r.NotNil(vc)
 }
 
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {

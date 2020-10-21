@@ -264,6 +264,13 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 		"https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
 		"presentation_submission_v1.jsonld")
 
+	addJSONLDCachedContextFromFile(loader,
+		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+		"bss2020.jsonld")
+	addJSONLDCachedContextFromFile(loader,
+		"https://w3id.org/citizenship/v1",
+		"citizenship.jsonld")
+
 	return loader
 }
 
