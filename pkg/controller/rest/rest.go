@@ -27,12 +27,12 @@ type Handler interface {
 // Execute executes given command with args provided and writes error to
 // response writer.
 func Execute(exec command.Exec, rw http.ResponseWriter, req io.Reader) {
+	rw.Header().Set("Content-Type", "application/json")
+
 	err := exec(rw, req)
 	if err != nil {
 		SendError(rw, err)
 	}
-
-	rw.Header().Set("Content-Type", "application/json")
 }
 
 // genericError is aries rest api error response

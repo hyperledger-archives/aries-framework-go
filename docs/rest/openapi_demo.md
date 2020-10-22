@@ -5,6 +5,8 @@ Please go through the [prerequisites](../test/build.md#Prerequisites-(for-runnin
 
 `make run-openapi-demo`
 
+Note: Since this open api demo makes API calls in https make sure you import tls certs generated while running above target. Generated certs can be found in `test/bdd/fixtures/keys/tls`.
+
 Once both agents are up, click on the agent specific urls to launch the OpenAPI interface.
 
 [Alice OpenAPI Interface](http://localhost:8089/openapi/)

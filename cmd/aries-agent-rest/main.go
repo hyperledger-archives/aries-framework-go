@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 // Terms Of Service:
 //
 //
-//     Schemes: http, https
+//     Schemes: https
 //     Version: 0.1.0
 //     License: SPDX-License-Identifier: Apache-2.0
 //
