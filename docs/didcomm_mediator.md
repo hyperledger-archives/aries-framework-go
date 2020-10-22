@@ -27,7 +27,7 @@ framework := aries.New(aries.WithInboundTransport(inbound), aries.WithOutboundTr
 ### rest/docker
 ```
 - ARIESD_INBOUND_HOST=http@$<http_internal>,ws@$<ws_internal>
-- ARIESD_INBOUND_HOST_EXTERNAL=http@$<ws_extenal_url>,ws@$<ws_extenal_url>
+- ARIESD_INBOUND_HOST_EXTERNAL=http@$<http_extenal_url>,ws@$<ws_extenal_url>
 - ARIESD_OUTBOUND_TRANSPORT=http,ws
 ```
 
