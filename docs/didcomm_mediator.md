@@ -6,13 +6,45 @@ route the messages to it by asking for permission. On successful grant, agent re
 endpoint and routing key details. These details are used in DID Exchange Invitation or DID 
 Document Service Descriptor.
 
+## Mediator Setup
+To set up the project as a mediator, configure `WebSocket` for inbound and outbound communication.
+
+### sdk
+```
+// add http inbound and outbound
+opts = append(opts, http_inbound, http_outbound))
+
+// add websocket inbound and outbound
+inbound, err := ws.NewInbound(...)
+if err != nil {
+	return err
+}
+
+opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
+framework := aries.New(aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
+```
+
+### rest/docker
+```
+- ARIESD_INBOUND_HOST=http@$<http_internal>,ws@$<ws_internal>
+- ARIESD_INBOUND_HOST_EXTERNAL=http@$<ws_extenal_url>,ws@$<ws_extenal_url>
+- ARIESD_OUTBOUND_TRANSPORT=http,ws
+```
+
 ## Edge Agents without Inbound Capability
 The project supports DIDComm between two agents without inbound capability through a router. The 
 framework needs to be initialized with Transport Return route options.
 
+### sdk
 ```
-// create the framework with Transport return route
-framework := aries.New(aries.WithTransportReturnRoute(""all"))
+// create the framework with Transport return route and websocket outbound
+framework := aries.New(aries.WithTransportReturnRoute("all"), aries.WithOutboundTransports(ws.NewOutbound())
+```
+
+### rest/docker
+```
+- ARIESD_TRANSPORT_RETURN_ROUTE=all
+- ARIESD_OUTBOUND_TRANSPORT=ws
 ```
 
 ## Limitations
