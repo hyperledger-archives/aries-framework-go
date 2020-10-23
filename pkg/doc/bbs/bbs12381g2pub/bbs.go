@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	bls12381 "github.com/kilic/bls12-381"
 	"github.com/phoreproject/bls"
+	"github.com/phoreproject/bls/g2pubs"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -44,16 +46,19 @@ const (
 
 	// Number of bytes in scalar compressed form.
 	frCompressedSize = 32
+
+	// Number of bytes in scalar uncompressed form.
+	frUncompressedSize = 48
 )
 
 // Verify makes BLS BBS12-381 signature verification.
-func (b BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
+func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
 	signature, err := ParseSignature(sigBytes)
 	if err != nil {
 		return fmt.Errorf("parse signature: %w", err)
 	}
 
-	publicKey, err := ParsePublicKey(pubKeyBytes)
+	publicKey, err := UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return fmt.Errorf("parse public key: %w", err)
 	}
@@ -62,7 +67,7 @@ func (b BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error 
 	for i := range messages {
 		messagesFr[i], err = ParseSignatureMessage(messages[i])
 		if err != nil {
-			return fmt.Errorf("parse signature message: %w", err)
+			return fmt.Errorf("parse signature message %d: %w", i+1, err)
 		}
 	}
 
@@ -83,7 +88,63 @@ func (b BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error 
 	return errors.New("BLS12-381: invalid signature")
 }
 
-func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Affine, error) {
+// Sign signs the one or more messages using private key in compressed form.
+func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error) {
+	privKey, err := UnmarshalPrivateKey(privKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal private key: %w", err)
+	}
+
+	if len(messages) == 0 {
+		return nil, errors.New("messages are not defined")
+	}
+
+	return bbs.SignWithKey(messages, privKey)
+}
+
+// SignWithKey signs the one or more messages using BBS+ key pair.
+func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte, error) {
+	var err error
+
+	pubKey := privKey.PublicKey()
+
+	messagesFr := make([]*SignatureMessage, len(messages))
+	for i := range messages {
+		messagesFr[i], err = ParseSignatureMessage(messages[i])
+		if err != nil {
+			return nil, fmt.Errorf("parse signature message %d: %w", i+1, err)
+		}
+	}
+
+	e, err := bls.RandFR(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("create signature.E: %w", err)
+	}
+
+	s, err := bls.RandFR(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("create signature.S: %w", err)
+	}
+
+	b, err := computeB(s, messagesFr, pubKey)
+	if err != nil {
+		return nil, fmt.Errorf("compute B point: %w", err)
+	}
+
+	exp := privKey.GetFRElement().Copy()
+	exp.AddAssign(e)
+	sig := b.MulFR(exp.Inverse().ToRepr())
+
+	signature := &Signature{
+		Signature: g2pubs.NewSignatureFromG1(sig.ToAffine()),
+		E:         e,
+		S:         s,
+	}
+
+	return signature.ToBytes()
+}
+
+func computeB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Projective, error) {
 	const basesOffset = 2
 
 	messagesCount := len(messages)
@@ -139,9 +200,18 @@ func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Affin
 		res = res.Add(g)
 	}
 
-	res.NegAssign()
+	return res, nil
+}
 
-	return res.ToAffine(), nil
+func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Affine, error) {
+	b, err := computeB(s, messages, key)
+	if err != nil {
+		return nil, err
+	}
+
+	b.NegAssign()
+
+	return b.ToAffine(), nil
 }
 
 func calcData(key *PublicKey, messagesCount int) []byte {
@@ -214,17 +284,4 @@ func compareTwoPairings(p1 *bls.G1Projective, q1 *bls.G2Projective, p2 *bls.G1Pr
 	addPairFunc(p2, q2)
 
 	return engine.Check()
-}
-
-func parseFr(data []byte) (*bls.FR, error) {
-	var arr [32]byte
-
-	copy(arr[:], data)
-
-	fr := bls.FRReprToFR(bls.FRReprFromBytes(arr))
-	if fr == nil {
-		return nil, errors.New("invalid FR")
-	}
-
-	return fr, nil
 }
