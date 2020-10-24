@@ -35,7 +35,7 @@ const (
 // composite.PublicKey type.
 // The keyset must have a keyURL value equal to `ecdhesAESPublicKeyTypeURL` constant of ecdhes package or
 // `ecdh1puAESPublicKeyTypeURL` constant of ecdh1pu package.
-// Note: This writer should be used only for ECDHES/ECDH1PU public key exports. Other export of public keys should be
+// Note: This writer should be used only for ECDH public key exports. Other export of public keys should be
 //       called via localkms package.
 type PubKeyWriter struct {
 	w io.Writer

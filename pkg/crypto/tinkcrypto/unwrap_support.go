@@ -8,6 +8,7 @@ package tinkcrypto
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -61,6 +62,17 @@ func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
 	}
 
 	return hybrid.GetECPrivateKey(c, pbKey.KeyValue), nil
+}
+
+func hybridECPrivToECDSAKey(hybridEcPriv *hybrid.ECPrivateKey) *ecdsa.PrivateKey {
+	return &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: hybridEcPriv.PublicKey.Curve,
+			X:     hybridEcPriv.PublicKey.Point.X,
+			Y:     hybridEcPriv.PublicKey.Point.Y,
+		},
+		D: hybridEcPriv.D,
+	}
 }
 
 type noopAEAD struct{}

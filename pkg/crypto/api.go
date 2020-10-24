@@ -41,8 +41,12 @@ type Crypto interface {
 	VerifyMAC(mac, data []byte, kh interface{}) error
 
 	// WrapKey will execute key wrapping of cek using apu, apv and recipient public key found in kh.
-	WrapKey(cek, apu, apv []byte, kh interface{}) (*composite.RecipientWrappedKey, error)
+	// 'opts' allows setting the option sender key handle using WithSenderKH() option. It allows ECDH-1PU key wrapping
+	// (aka Authcrypt). The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt).
+	WrapKey(cek, apu, apv []byte, kh interface{}, opts ...WrapKeyOpts) (*composite.RecipientWrappedKey, error)
 
 	// UnwrapKey unwraps a key in recWK using recipient private key kh.
-	UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{}) ([]byte, error)
+	// 'opts' allows setting the option sender key handle using WithSenderKH() option. It allows ECDH-1PU key unwrapping
+	// (aka Authcrypt). The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt).
+	UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{}, opts ...WrapKeyOpts) ([]byte, error)
 }
