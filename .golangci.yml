@@ -118,3 +118,5 @@ issues:
     -  at least one file in a package should have a package comment
     # Allow magic number 1
     - Magic number[:] 1[^\d]
+    # Temporarily allow old protobuf reference
+    - package github.com/golang/protobuf/proto is deprecated

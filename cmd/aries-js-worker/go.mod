@@ -17,7 +17,7 @@ require (
 replace (
 	github.com/hyperledger/aries-framework-go => ../../
 	github.com/hyperledger/aries-framework-go/component/storage/jsindexeddb => ../../component/storage/jsindexeddb
-	github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
 	github.com/kilic/bls12-381 => github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef
 	github.com/phoreproject/bls => github.com/trustbloc/bls v0.0.0-20201008085849-81064514c3cc
+	github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
 )
