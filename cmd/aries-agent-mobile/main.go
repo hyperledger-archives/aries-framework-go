@@ -12,12 +12,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/command"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/logger"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
 
 // New initializes and returns an implementation of the AriesController.
 func New(opts *config.Options) (api.AriesController, error) {
+	if opts.Logger != nil {
+		log.Initialize(logger.New(opts.Logger))
+	}
+
 	if err := setLogLevel(opts.LogLevel); err != nil {
 		return nil, err
 	}
