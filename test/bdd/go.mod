@@ -24,8 +24,6 @@ require (
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/piprate/json-gold v0.3.0
 	github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b
-	google.golang.org/genproto v0.0.0-20200211111953-2dc5924e3898 // indirect
-	google.golang.org/grpc v1.27.1 // indirect
 	nhooyr.io/websocket v1.8.3
 )
 
