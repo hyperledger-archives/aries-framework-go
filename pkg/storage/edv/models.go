@@ -44,6 +44,8 @@ type IndexedAttribute struct {
 }
 
 // IDTypePair represents an ID+Type pair.
+// TODO: #2262 This is a simplified version of the actual EDV query format, which is still not finalized
+// in the spec as of writing. Spec: https://identity.foundation/secure-data-store/#creating-encrypted-indexes.
 type IDTypePair struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`

@@ -164,7 +164,7 @@ func TestStorePrefixWrapper(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Test store iterator", func(t *testing.T) {
+	t.Run("Test store range", func(t *testing.T) {
 		prov := mem.NewProvider()
 
 		cdbStore, err := prov.OpenStore(uuid.New().String())

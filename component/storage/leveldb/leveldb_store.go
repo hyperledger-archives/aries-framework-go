@@ -112,7 +112,7 @@ type leveldbStore struct {
 }
 
 // TODO #2227 - implement query method.
-func (s *leveldbStore) Query(_ string) (storage.StoreIterator, error) {
+func (s *leveldbStore) Query(name, value string) (storage.StoreIterator, error) {
 	return nil, storage.ErrQueryingNotSupported
 }
 

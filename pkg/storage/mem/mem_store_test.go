@@ -193,7 +193,7 @@ func TestMemStore(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Test mem store iterator", func(t *testing.T) {
+	t.Run("Test mem store range", func(t *testing.T) {
 		prov := NewProvider()
 		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
@@ -220,6 +220,30 @@ func TestMemStore(t *testing.T) {
 
 		itr = store.Iterator("t_", "t_"+storage.EndKeySuffix)
 		verifyItr(t, itr, 0, "")
+	})
+
+	t.Run("Test mem store query", func(t *testing.T) {
+		prov := NewProvider()
+		store, err := prov.OpenStore("test-iterator")
+		require.NoError(t, err)
+
+		err = store.Put("key", []byte("SomeData"))
+		require.NoError(t, err)
+
+		iterator, err := store.Query("Some", "Data")
+		require.NoError(t, err)
+
+		ok := iterator.Next()
+		require.True(t, ok)
+		require.NoError(t, iterator.Error())
+
+		key := iterator.Key()
+		require.Equal(t, "key", string(key))
+		require.NoError(t, iterator.Error())
+
+		value := iterator.Value()
+		require.Equal(t, "SomeData", string(value))
+		require.NoError(t, iterator.Error())
 	})
 }
 

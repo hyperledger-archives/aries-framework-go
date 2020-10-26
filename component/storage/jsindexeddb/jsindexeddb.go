@@ -197,7 +197,7 @@ func (s *store) Delete(k string) error {
 }
 
 // TODO #2229 - implement query method.
-func (s *store) Query(query string) (storage.StoreIterator, error) {
+func (s *store) Query(name, value string) (storage.StoreIterator, error) {
 	return nil, storage.ErrQueryingNotSupported
 }
 

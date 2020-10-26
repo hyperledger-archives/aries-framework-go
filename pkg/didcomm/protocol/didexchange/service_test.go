@@ -716,7 +716,7 @@ type mockStore struct {
 	put    func(string, []byte) error
 	get    func(string) ([]byte, error)
 	delete func(string) error
-	query  func(string) (storage.StoreIterator, error)
+	query  func(string, string) (storage.StoreIterator, error)
 }
 
 // Put stores the key and the record.
@@ -734,8 +734,8 @@ func (m *mockStore) Delete(k string) error {
 	return m.delete(k)
 }
 
-func (m *mockStore) Query(query string) (storage.StoreIterator, error) {
-	return m.query(query)
+func (m *mockStore) Query(name, value string) (storage.StoreIterator, error) {
+	return m.query(name, value)
 }
 
 // Search returns storage iterator.
