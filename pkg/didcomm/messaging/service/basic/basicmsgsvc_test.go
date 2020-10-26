@@ -70,7 +70,7 @@ func TestMessageService_HandleInbound(t *testing.T) {
 	t.Run("test MessageService.HandleInbound()", func(t *testing.T) {
 		const jsonStr = `{
 			    "@id": "123456780",
-			    "@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/basicmessage/1.0/message",
+			    "@type": "https://didcomm.org/basicmessage/1.0/message",
 			    "~l10n": { "locale": "en" },
 			    "content": "Your hovercraft is full of eels."
 			}`
