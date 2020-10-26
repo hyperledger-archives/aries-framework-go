@@ -33,7 +33,6 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634 // indirect
-	google.golang.org/protobuf v1.25.0
 	nhooyr.io/websocket v1.8.3
 )
 

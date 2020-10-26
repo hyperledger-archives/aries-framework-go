@@ -15,6 +15,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,10 @@ type mockKeyWrapperSupport struct {
 	wrapErr         error
 	unwrapVal       []byte
 	unwrapErr       error
+	deriveSen1PuVal []byte
+	deriveSen1PuErr error
+	deriveRec1PuVal []byte
+	deriveRec1PuErr error
 }
 
 func (w *mockKeyWrapperSupport) getCurve(curve string) (elliptic.Curve, error) {
@@ -53,6 +58,16 @@ func (w *mockKeyWrapperSupport) wrap(block cipher.Block, cek []byte) ([]byte, er
 
 func (w *mockKeyWrapperSupport) unwrap(block cipher.Block, wrappedKey []byte) ([]byte, error) {
 	return w.unwrapVal, w.unwrapErr
+}
+
+func (w *mockKeyWrapperSupport) deriveSender1Pu(kwAlg string, apu, apv []byte, epPriv, sePrivKey *ecdsa.PrivateKey,
+	recPubKey *ecdsa.PublicKey, keySize int) ([]byte, error) {
+	return w.deriveSen1PuVal, w.deriveSen1PuErr
+}
+
+func (w *mockKeyWrapperSupport) deriveRecipient1Pu(kwAlg string, apu, apv []byte, epPub, sePubKey *ecdsa.PublicKey,
+	recPrivKey *ecdsa.PrivateKey, keySize int) ([]byte, error) {
+	return w.deriveRec1PuVal, w.deriveRec1PuErr
 }
 
 func TestWrapKey_Failure(t *testing.T) {
@@ -150,4 +165,66 @@ func TestUnwrapKey_Failure(t *testing.T) {
 
 	_, err = c.UnwrapKey(wpKey, recipientKey)
 	require.EqualError(t, err, "unwrapKey: failed to unwrap key: unwrap error")
+}
+
+func Test_ksToPrivateECDSAKey_Failure(t *testing.T) {
+	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	recipientKeyPub, err := recipientKey.Public()
+	require.NoError(t, err)
+
+	_, err = ksToPrivateECDSAKey(recipientKeyPub)
+	require.EqualError(t, err, "ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: "+
+		"can't extract unsupported private key")
+}
+
+func Test_ksToPublicECDSAKey_Failure(t *testing.T) {
+	_, err := ksToPublicECDSAKey(nil, nil)
+	require.EqualError(t, err, "ksToPublicECDSAKey: unsupported keyset type <nil>")
+
+	symKey, err := keyset.NewHandle(aead.AES128GCMKeyTemplate())
+	require.NoError(t, err)
+
+	_, err = ksToPublicECDSAKey(symKey, nil)
+	require.EqualError(t, err, "ksToPublicECDSAKey: failed to extract public key from keyset handle: "+
+		"extractPrimaryPublicKey: failed to get public key content: keyset.Handle: keyset.Handle: keyset contains "+
+		"a non-private key")
+
+	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	kw := &mockKeyWrapperSupport{
+		getCurveErr: errors.New("getCurve error"),
+	}
+
+	_, err = ksToPublicECDSAKey(recipientKey, kw)
+	require.EqualError(t, err, "ksToPublicECDSAKey: failed to GetCurve: getCurve error")
+}
+
+func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
+	c := Crypto{
+		kw: &mockKeyWrapperSupport{},
+	}
+
+	_, err := c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, nil, nil, nil)
+	require.EqualError(t, err, "unwrap: sender's public keyset handle option is required for 'ECDH-1PU+A256KW'")
+
+	c.kw = &mockKeyWrapperSupport{
+		getCurveErr: errors.New("getCurve error"),
+	}
+
+	senderKH, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	_, err = c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, senderKH, nil, nil)
+	require.EqualError(t, err, "unwrapKey: failed to retrieve sender key: ksToPublicECDSAKey: failed to "+
+		"GetCurve: getCurve error")
+
+	c.kw = &mockKeyWrapperSupport{
+		deriveRec1PuErr: errors.New("derive recipient 1pu error"),
+	}
+
+	_, err = c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, senderKH, nil, nil)
+	require.EqualError(t, err, "unwrapKey: failed to derive kek: derive recipient 1pu error")
 }
