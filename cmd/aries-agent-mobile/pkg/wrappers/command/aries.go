@@ -69,7 +69,9 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	notifications := make(chan notifier.NotificationPayload)
 
 	commandHandlers, err := controller.GetCommandHandlers(context,
-		controller.WithNotifier(notifier.NewNotifier(notifications)))
+		controller.WithNotifier(notifier.NewNotifier(notifications)),
+		controller.WithAutoAccept(opts.AutoAccept),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get command handlers: %w", err)
 	}
