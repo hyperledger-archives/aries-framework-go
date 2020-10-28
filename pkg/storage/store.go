@@ -20,9 +20,6 @@ var ErrStoreNotFound = errors.New("store not found")
 // ErrKeyRequired is returned when key is mandatory.
 var ErrKeyRequired = errors.New("key is mandatory")
 
-// ErrQueryingNotSupported is used when querying is not supported by the store implementation.
-var ErrQueryingNotSupported = errors.New("querying not supported")
-
 // Provider storage provider interface.
 type Provider interface {
 	// OpenStore opens a store with given name space and returns the handle
@@ -58,9 +55,6 @@ type Store interface {
 
 	// Delete will delete a record with k key
 	Delete(k string) error
-
-	// Query searches all stored key-value pairs and returns all values that satisfy the query.
-	Query(name string, value string) (StoreIterator, error)
 }
 
 // StoreIterator is the iterator for the latest snapshot of the underlying store.

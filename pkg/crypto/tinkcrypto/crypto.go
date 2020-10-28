@@ -204,7 +204,7 @@ func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
 }
 
 // WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key found in kh.
-// The optional 'wrapKeyOpts' specifies the sender KH for 1PU key wrapping.
+// The optional 'wrapKeyOpts' specifies the sender kh for 1PU key wrapping.
 // returns the resulting key wrapping info as *composite.RecipientWrappedKey or error in case of wrapping failure.
 func (t *Crypto) WrapKey(cek, apu, apv []byte, kh interface{},
 	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*composite.RecipientWrappedKey, error) {
@@ -244,7 +244,7 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, kh interface{},
 }
 
 // UnwrapKey unwraps a key in recWK using ECDH (ES or 1PU) with recipient private key kh.
-// The optional 'wrapKeyOpts' specifies the sender KH for 1PU key unwrapping.
+// The optional 'wrapKeyOpts' specifies the sender kh for 1PU key unwrapping.
 // Note, if the option was used in WrapKey(), then it must be set here as well for a successful unwrapping.
 // returns the resulting unwrapping key or error in case of unwrapping failure.
 func (t *Crypto) UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{},

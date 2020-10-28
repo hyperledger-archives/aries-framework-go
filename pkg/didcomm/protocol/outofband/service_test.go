@@ -1273,10 +1273,6 @@ func (s *stubStore) Delete(k string) error {
 	panic("implement me")
 }
 
-func (s *stubStore) Query(name, value string) (storage.StoreIterator, error) {
-	panic("implement me")
-}
-
 type outboundMsgHandlerStub struct {
 	handleFunc func(service.DIDCommMsg, string, string) (string, error)
 }

@@ -196,11 +196,6 @@ func (s *store) Delete(k string) error {
 	return nil
 }
 
-// TODO #2229 - implement query method.
-func (s *store) Query(name, value string) (storage.StoreIterator, error) {
-	return nil, storage.ErrQueryingNotSupported
-}
-
 type iterator struct {
 	batch    *js.Value
 	err      error
