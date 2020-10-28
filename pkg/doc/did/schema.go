@@ -14,18 +14,33 @@ const (
   ],
   "properties": {
     "@context": {
-      "type": ["array","string"],
-      "items": [
-        {
-          "type": "string",
-          "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v1$"
-        }
-      ],
-      "additionalItems": {
+    "oneOf": [
+      {
         "type": "string",
-        "format": "uri"
+        "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v1$"
+      },
+      {
+        "type": "array",
+        "items": [
+          {
+            "type": "string",
+            "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v1$"
+          }
+        ],
+        "uniqueItems": true,
+        "additionalItems": {
+          "oneOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
       }
-    },
+    ]
+  },
     "id": {
       "type": "string"
     },
@@ -68,7 +83,7 @@ const (
     }
   },
   "definitions": {
-	"proof": {
+    "proof": {
       "type": "object",
       "required": [ "type", "creator", "created", "proofValue"],
       "properties": {
@@ -92,7 +107,7 @@ const (
         "nonce": {
           "type": "string"
         }
-	  }
+      }
     },
     "publicKey": {
       "required": [
@@ -134,7 +149,7 @@ const (
         }
       }
     }
-  }
+   }
 }`
 
 	schemaV011 = `{
