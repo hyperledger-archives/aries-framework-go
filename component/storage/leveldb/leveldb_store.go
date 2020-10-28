@@ -111,11 +111,6 @@ type leveldbStore struct {
 	db *leveldb.DB
 }
 
-// TODO #2227 - implement query method.
-func (s *leveldbStore) Query(name, value string) (storage.StoreIterator, error) {
-	return nil, storage.ErrQueryingNotSupported
-}
-
 // Put stores the key and the record.
 func (s *leveldbStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
