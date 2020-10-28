@@ -74,3 +74,56 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 		require.Contains(t, err.Error(), "parse signature: deserialize G1 compressed signature")
 	})
 }
+
+func TestBBSG2Pub_SignWithKeyPair(t *testing.T) {
+	pubKey, privKey, err := generateKeyPairRandom()
+	require.NoError(t, err)
+
+	bls := bbs12381g2pub.New()
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+
+	signatureBytes, err := bls.SignWithKey(messagesBytes, privKey)
+	require.NoError(t, err)
+	require.NotEmpty(t, signatureBytes)
+	require.Len(t, signatureBytes, 112)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+
+	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+}
+
+func TestBBSG2Pub_Sign(t *testing.T) {
+	pubKey, privKey, err := generateKeyPairRandom()
+	require.NoError(t, err)
+
+	bls := bbs12381g2pub.New()
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+
+	privKeyBytes, err := privKey.Marshal()
+	require.NoError(t, err)
+
+	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
+	require.NoError(t, err)
+	require.NotEmpty(t, signatureBytes)
+	require.Len(t, signatureBytes, 112)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+
+	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+
+	// invalid private key bytes
+	signatureBytes, err = bls.Sign(messagesBytes, []byte("invalid"))
+	require.Error(t, err)
+	require.EqualError(t, err, "unmarshal private key: invalid size of private key")
+	require.Nil(t, signatureBytes)
+
+	// at least one message must be passed
+	signatureBytes, err = bls.Sign([][]byte{}, privKeyBytes)
+	require.Error(t, err)
+	require.EqualError(t, err, "messages are not defined")
+	require.Nil(t, signatureBytes)
+}

@@ -39,12 +39,12 @@ func ParseSignature(sigBytes []byte) (*Signature, error) {
 
 	e, err := parseFr(sigBytes[g1CompressedSize : g1CompressedSize+frCompressedSize])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("deserialize E: %w", err)
 	}
 
 	s, err := parseFr(sigBytes[g1CompressedSize+frCompressedSize:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("deserialize S: %w", err)
 	}
 
 	return &Signature{
@@ -52,6 +52,19 @@ func ParseSignature(sigBytes []byte) (*Signature, error) {
 		E:         e,
 		S:         s,
 	}, nil
+}
+
+// ToBytes converts signature to bytes using compression of G1 point and E, S FR points.
+func (s *Signature) ToBytes() ([]byte, error) {
+	bytes := make([]byte, bls12381SignatureLen)
+
+	sigBytes := s.Signature.Serialize()
+	copy(bytes, sigBytes[:])
+
+	copy(bytes[g1CompressedSize:g1CompressedSize+frCompressedSize], frToBytes(s.E))
+	copy(bytes[g1CompressedSize+frCompressedSize:], frToBytes(s.S))
+
+	return bytes, nil
 }
 
 // GetPoint returns G1 point of the Signature.

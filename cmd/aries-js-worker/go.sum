@@ -259,8 +259,8 @@ github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4 h1:Sq/68UWgBzKT+pLTUTkSf0jS2IUwwXLFlZmeh+nAzQM=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod h1:9PdLyPiZIiW3UopXyRnPYyjUXSpiQNHRLu8fOsR3o8M=
-github.com/trustbloc/bls v0.0.0-20201008085849-81064514c3cc h1:312UsgPy3LxPl3dM+OrjQ6M2ymLcVTXIp+6wdDWkSY8=
-github.com/trustbloc/bls v0.0.0-20201008085849-81064514c3cc/go.mod h1:xHJKf2TLXUA39Dhv8k5QmQOxLsbrb1KeTS/3ERfLeqc=
+github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e h1:IuSryDFXv17anJ2sux9qSEmIyaqKSWXnfVMv5CFCmDc=
+github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e/go.mod h1:xHJKf2TLXUA39Dhv8k5QmQOxLsbrb1KeTS/3ERfLeqc=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef h1:nZF/RNtWszq+WD8+p7blxWsWJjiTgdGQ1rv2IEffLj8=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef/go.mod h1:XXfR6YFCRSrkEXbNlIyDsgXVNJWVUV30m/ebkVy9n6s=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1MKGO71j3jIV7e2aKX72/DTrzLjq9R8kc6xk=
