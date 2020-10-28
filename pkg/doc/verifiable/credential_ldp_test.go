@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -445,68 +447,88 @@ func TestExtraContextWithLDP(t *testing.T) {
 	r.NotNil(vcWithLdp)
 }
 
-//nolint:lll
 func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r := require.New(t)
 
-	vcJSON := `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://w3id.org/citizenship/v1",
-    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
-  ],
-  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
-  "type": [
-    "VerifiableCredential",
-    "PermanentResidentCard"
-  ],
-  "issuer": "did:example:489398593",
-  "identifier": "83627465",
-  "name": "Permanent Resident Card",
-  "description": "Government of Example Permanent Resident Card.",
-  "issuanceDate": "2019-12-03T12:19:52Z",
-  "expirationDate": "2029-12-03T12:19:52Z",
-  "credentialSubject": {
-    "id": "did:example:b34ca6cd37bbf23",
-    "type": [
-      "PermanentResident",
-      "Person"
-    ],
-    "givenName": "JOHN",
-    "familyName": "SMITH",
-    "gender": "Male",
-    "image": "data:image/png;base64,iVBORw0KGgokJggg==",
-    "residentSince": "2015-01-01",
-    "lprCategory": "C09",
-    "lprNumber": "999-999-999",
-    "commuterClassification": "C1",
-    "birthCountry": "Bahamas",
-    "birthDate": "1958-07-17"
-  },
-  "proof": {
-    "type": "BbsBlsSignature2020",
-    "created": "2020-10-07T16:38:09Z",
-    "proofPurpose": "assertionMethod",
-    "proofValue": "o/79UazZRsf3y35mZ8kT6hx2M2R1fGgj2puotSqeLiha5MGRmqHLx1JAQsG3JlJeW5n56Gg+xUKaDPfzyimi0V9ECloPIBJY+dIMjQE15PFAk+/wtnde9QY8cZOmTIiI56HuN6DwADIzo3BLwkL2RQ==",
-    "verificationMethod": "did:example:489398593#test"
-  }
-}
-`
+	pubKey, privKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+	r.NoError(err)
+
+	bbsSigner, err := newBBSSigner(privKey)
+	r.NoError(err)
 
 	sigSuite := bbsblssignature2020.New(
+		suite.WithSigner(bbsSigner),
 		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
-	pkBase64 := "h/rkcTKXXzRbOPr9UxSfegCbid2U/cVNXQUaKeGF7UhwrMJFP70uMH0VQ9+3+/2zDPAAjflsdeLkOXW3+ShktLxuPy8UlXSNgKNmkfb+rrj+FRwbs13pv/WsIf+eV66+"
-	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vcJSON := `
+	{
+	 "@context": [
+	   "https://www.w3.org/2018/credentials/v1",
+	   "https://w3id.org/citizenship/v1",
+	   "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	 ],
+	 "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	 "type": [
+	   "VerifiableCredential",
+	   "PermanentResidentCard"
+	 ],
+	 "issuer": "did:example:489398593",
+	 "identifier": "83627465",
+	 "name": "Permanent Resident Card",
+	 "description": "Government of Example Permanent Resident Card.",
+	 "issuanceDate": "2019-12-03T12:19:52Z",
+	 "expirationDate": "2029-12-03T12:19:52Z",
+	 "credentialSubject": {
+	   "id": "did:example:b34ca6cd37bbf23",
+	   "type": [
+	     "PermanentResident",
+	     "Person"
+	   ],
+	   "givenName": "JOHN",
+	   "familyName": "SMITH",
+	   "gender": "Male",
+	   "image": "data:image/png;base64,iVBORw0KGgokJggg==",
+	   "residentSince": "2015-01-01",
+	   "lprCategory": "C09",
+	   "lprNumber": "999-999-999",
+	   "commuterClassification": "C1",
+	   "birthCountry": "Bahamas",
+	   "birthDate": "1958-07-17"
+	 }
+	}
+	`
+
+	vc, err := parseTestCredential([]byte(vcJSON))
+	r.NoError(err)
+	r.Len(vc.Proofs, 0)
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	r.NoError(err)
+	r.Len(vc.Proofs, 1)
+	r.Equal("BbsBlsSignature2020", vc.Proofs[0]["type"])
+	r.NotEmpty(vc.Proofs[0]["proofValue"])
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+	r.NotEmpty(vcBytes)
+
+	pubKeyBytes, err := pubKey.Marshal()
 	r.NoError(err)
 
-	vc, err := parseTestCredential([]byte(vcJSON),
+	vcVerified, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pkBytes, "Bls12381G2Key2020")),
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
 	)
-
 	r.NoError(err)
-	r.NotNil(vc)
+	r.NotNil(vcVerified)
+	r.Equal(vc, vcVerified)
 }
 
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
@@ -1157,4 +1179,36 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)
 		r.Error(err)
 	})
+}
+
+type bbsSigner struct {
+	privKeyBytes []byte
+}
+
+func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+	privKeyBytes, err := privKey.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &bbsSigner{privKeyBytes: privKeyBytes}, nil
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	msgs := s.textToLines(string(data))
+
+	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
 }
