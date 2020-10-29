@@ -115,6 +115,12 @@ type Doc struct {
 	Created              *time.Time
 	Updated              *time.Time
 	Proof                []Proof
+	processingMeta       processingMeta
+}
+
+// processingMeta include info how to process the doc.
+type processingMeta struct {
+	baseURI string
 }
 
 // PublicKey DID doc public key.
@@ -127,16 +133,23 @@ type PublicKey struct {
 
 	Value []byte
 
-	jsonWebKey *jose.JWK
+	jsonWebKey  *jose.JWK
+	relativeURL bool
 }
 
 // NewPublicKeyFromBytes creates a new PublicKey based on raw public key bytes.
 func NewPublicKeyFromBytes(id, kType, controller string, value []byte) *PublicKey {
+	relativeURL := false
+	if strings.HasPrefix(id, "#") {
+		relativeURL = true
+	}
+
 	return &PublicKey{
-		ID:         id,
-		Type:       kType,
-		Controller: controller,
-		Value:      value,
+		ID:          id,
+		Type:        kType,
+		Controller:  controller,
+		Value:       value,
+		relativeURL: relativeURL,
 	}
 }
 
@@ -147,12 +160,18 @@ func NewPublicKeyFromJWK(id, kType, controller string, jwk *jose.JWK) (*PublicKe
 		return nil, fmt.Errorf("convert JWK to public key bytes: %w", err)
 	}
 
+	relativeURL := false
+	if strings.HasPrefix(id, "#") {
+		relativeURL = true
+	}
+
 	return &PublicKey{
-		ID:         id,
-		Type:       kType,
-		Controller: controller,
-		Value:      pkBytes,
-		jsonWebKey: jwk,
+		ID:          id,
+		Type:        kType,
+		Controller:  controller,
+		Value:       pkBytes,
+		jsonWebKey:  jwk,
+		relativeURL: relativeURL,
 	}, nil
 }
 
@@ -163,13 +182,16 @@ func (pk *PublicKey) JSONWebKey() *jose.JWK {
 
 // Service DID doc service.
 type Service struct {
-	ID              string
-	Type            string
-	Priority        uint
-	RecipientKeys   []string
-	RoutingKeys     []string
-	ServiceEndpoint string
-	Properties      map[string]interface{}
+	ID                       string
+	Type                     string
+	Priority                 uint
+	RecipientKeys            []string
+	RoutingKeys              []string
+	ServiceEndpoint          string
+	Properties               map[string]interface{}
+	recipientKeysRelativeURL map[string]bool
+	routingKeysRelativeURL   map[string]bool
+	relativeURL              bool
 }
 
 // VerificationRelationship defines a verification relationship between DID subject and a verification method.
@@ -201,7 +223,6 @@ type VerificationMethod struct {
 	PublicKey    PublicKey
 	Relationship VerificationRelationship
 	Embedded     bool
-	RelativeURL  bool
 }
 
 // NewEmbeddedVerificationMethod creates a new verification method with embedded public key.
@@ -214,11 +235,10 @@ func NewEmbeddedVerificationMethod(pk *PublicKey, r VerificationRelationship) *V
 }
 
 // NewReferencedVerificationMethod creates a new verification method with referenced public key.
-func NewReferencedVerificationMethod(pk *PublicKey, r VerificationRelationship, isRelativeURL bool) *VerificationMethod { //nolint:lll
+func NewReferencedVerificationMethod(pk *PublicKey, r VerificationRelationship) *VerificationMethod { //nolint:lll
 	return &VerificationMethod{
 		PublicKey:    *pk,
 		Relationship: r,
-		RelativeURL:  isRelativeURL,
 	}
 }
 
@@ -246,6 +266,7 @@ type Proof struct {
 	Domain       string
 	Nonce        []byte
 	ProofPurpose string
+	relativeURL  bool
 }
 
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
@@ -270,11 +291,12 @@ func ParseDocument(data []byte) (*Doc, error) {
 		Updated: raw.Updated,
 	}
 
-	context := raw.ParseContext()
+	context, baseURI := raw.ParseContext()
 	doc.Context = context
-	doc.Service = populateServices(raw.Service)
+	doc.processingMeta = processingMeta{baseURI: baseURI}
+	doc.Service = populateServices(raw.ID, baseURI, raw.Service)
 
-	publicKeys, err := populatePublicKeys(context[0], raw.PublicKey)
+	publicKeys, err := populatePublicKeys(context[0], doc.ID, baseURI, raw.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("populate public keys failed: %w", err)
 	}
@@ -286,7 +308,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 		return nil, err
 	}
 
-	proofs, err := populateProofs(context[0], raw.Proof)
+	proofs, err := populateProofs(context[0], doc.ID, baseURI, raw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("populate proofs failed: %w", err)
 	}
@@ -335,7 +357,7 @@ func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {
 	return nil
 }
 
-func populateProofs(context string, rawProofs []interface{}) ([]Proof, error) {
+func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]Proof, error) {
 	proofs := make([]Proof, 0, len(rawProofs))
 
 	for _, rawProof := range rawProofs {
@@ -367,14 +389,24 @@ func populateProofs(context string, rawProofs []interface{}) ([]Proof, error) {
 			return nil, err
 		}
 
+		creator := stringEntry(emap[jsonldCreator])
+
+		isRelative := false
+
+		if strings.HasPrefix(creator, "#") {
+			creator = resolveRelativeDIDURL(didID, baseURI, creator)
+			isRelative = true
+		}
+
 		proof := Proof{
 			Type:         stringEntry(emap[jsonldType]),
 			Created:      &timeValue,
-			Creator:      stringEntry(emap[jsonldCreator]),
+			Creator:      creator,
 			ProofValue:   proofValue,
 			ProofPurpose: stringEntry(emap[jsonldProofPurpose]),
 			Domain:       stringEntry(emap[jsonldDomain]),
 			Nonce:        nonce,
+			relativeURL:  isRelative,
 		}
 
 		proofs = append(proofs, proof)
@@ -383,17 +415,38 @@ func populateProofs(context string, rawProofs []interface{}) ([]Proof, error) {
 	return proofs, nil
 }
 
-func populateServices(rawServices []map[string]interface{}) []Service {
+func populateServices(didID, baseURI string, rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
 	for _, rawService := range rawServices {
+		id := stringEntry(rawService[jsonldID])
+		recipientKeys := stringArray(rawService[jsonldRecipientKeys])
+		routingKeys := stringArray(rawService[jsonldRoutingKeys])
+
+		var recipientKeysRelativeURL map[string]bool
+
+		var routingKeysRelativeURL map[string]bool
+
+		isRelative := false
+
+		if strings.HasPrefix(id, "#") {
+			id = resolveRelativeDIDURL(didID, baseURI, id)
+			isRelative = true
+		}
+
+		if len(recipientKeys) != 0 {
+			recipientKeys, recipientKeysRelativeURL = populateKeys(recipientKeys, didID, baseURI)
+		}
+
+		if len(routingKeys) != 0 {
+			routingKeys, routingKeysRelativeURL = populateKeys(routingKeys, didID, baseURI)
+		}
+
 		service := Service{
-			ID:              stringEntry(rawService[jsonldID]),
-			Type:            stringEntry(rawService[jsonldType]),
-			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]),
-			RecipientKeys:   stringArray(rawService[jsonldRecipientKeys]),
-			RoutingKeys:     stringArray(rawService[jsonldRoutingKeys]),
-			Priority:        uintEntry(rawService[jsonldPriority]),
+			ID: id, Type: stringEntry(rawService[jsonldType]), relativeURL: isRelative,
+			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]), RecipientKeys: recipientKeys,
+			RoutingKeys: routingKeys, Priority: uintEntry(rawService[jsonldPriority]),
+			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
 		}
 
 		delete(rawService, jsonldID)
@@ -408,6 +461,27 @@ func populateServices(rawServices []map[string]interface{}) []Service {
 	}
 
 	return services
+}
+
+func populateKeys(keys []string, didID, baseURI string) ([]string, map[string]bool) {
+	values := make([]string, 0)
+	keysRelativeURL := make(map[string]bool)
+
+	for _, v := range keys {
+		if strings.HasPrefix(v, "#") {
+			id := resolveRelativeDIDURL(didID, baseURI, v)
+			values = append(values, id)
+			keysRelativeURL[id] = true
+
+			continue
+		}
+
+		keysRelativeURL[v] = false
+
+		values = append(values, v)
+	}
+
+	return values, keysRelativeURL
 }
 
 func populateVerificationMethods(doc *Doc, rawVerificationMethods []interface{},
@@ -435,7 +509,7 @@ func getVerificationMethods(doc *Doc, rawVerificationMethod interface{},
 
 	keyID, keyIDExist := rawVerificationMethod.(string)
 	if keyIDExist {
-		return getVerificationMethodsByKeyID(doc.ID, pks, relationship, keyID)
+		return getVerificationMethodsByKeyID(doc.ID, doc.processingMeta.baseURI, pks, relationship, keyID)
 	}
 
 	m, ok := rawVerificationMethod.(map[string]interface{})
@@ -446,18 +520,18 @@ func getVerificationMethods(doc *Doc, rawVerificationMethod interface{},
 	if context == contextV011 {
 		keyID, keyIDExist = m[jsonldPublicKey].(string)
 		if keyIDExist {
-			return getVerificationMethodsByKeyID(doc.ID, pks, relationship, keyID)
+			return getVerificationMethodsByKeyID(doc.ID, doc.processingMeta.baseURI, pks, relationship, keyID)
 		}
 	}
 
 	if context == contextV12019 {
 		keyIDs, keyIDsExist := m[jsonldPublicKey].([]interface{})
 		if keyIDsExist {
-			return getVerificationMethodsByKeyID(doc.ID, pks, relationship, keyIDs...)
+			return getVerificationMethodsByKeyID(doc.ID, doc.processingMeta.baseURI, pks, relationship, keyIDs...)
 		}
 	}
 
-	pk, err := populatePublicKeys(context, []map[string]interface{}{m})
+	pk, err := populatePublicKeys(context, doc.ID, doc.processingMeta.baseURI, []map[string]interface{}{m})
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +540,7 @@ func getVerificationMethods(doc *Doc, rawVerificationMethod interface{},
 }
 
 // getVerificationMethodsByKeyID get verification methods by key IDs.
-func getVerificationMethodsByKeyID(didID string, pks []PublicKey, relationship VerificationRelationship,
+func getVerificationMethodsByKeyID(didID, baseURI string, pks []PublicKey, relationship VerificationRelationship,
 	keyIDs ...interface{}) ([]VerificationMethod, error) {
 	var vms []VerificationMethod
 
@@ -478,13 +552,8 @@ func getVerificationMethodsByKeyID(didID string, pks []PublicKey, relationship V
 		}
 
 		for _, pk := range pks {
-			if pk.ID == keyID {
+			if pk.ID == keyID || pk.ID == resolveRelativeDIDURL(didID, baseURI, keyID) {
 				vms = append(vms, VerificationMethod{PublicKey: pk, Relationship: relationship})
-				keyExist = true
-
-				break
-			} else if pk.ID == resolveRelativeDIDURL(didID, keyID) {
-				vms = append(vms, VerificationMethod{PublicKey: pk, Relationship: relationship, RelativeURL: true})
 				keyExist = true
 
 				break
@@ -499,15 +568,27 @@ func getVerificationMethodsByKeyID(didID string, pks []PublicKey, relationship V
 	return vms, nil
 }
 
-func resolveRelativeDIDURL(didID string, keyID interface{}) string {
-	return didID + keyID.(string)
+func resolveRelativeDIDURL(didID, baseURI string, keyID interface{}) string {
+	id := baseURI
+
+	if id == "" {
+		id = didID
+	}
+
+	return id + keyID.(string)
 }
 
-func makeRelativeDIDURL(didURL, didID string) string {
-	return strings.Replace(didURL, didID, "", 1)
+func makeRelativeDIDURL(didURL, baseURI, didID string) string {
+	id := baseURI
+
+	if id == "" {
+		id = didID
+	}
+
+	return strings.Replace(didURL, id, "", 1)
 }
 
-func populatePublicKeys(context string, rawPKs []map[string]interface{}) ([]PublicKey, error) {
+func populatePublicKeys(context, didID, baseURI string, rawPKs []map[string]interface{}) ([]PublicKey, error) {
 	var publicKeys []PublicKey
 
 	for _, rawPK := range rawPKs {
@@ -517,9 +598,22 @@ func populatePublicKeys(context string, rawPKs []map[string]interface{}) ([]Publ
 			controllerKey = jsonldOwner
 		}
 
+		id := stringEntry(rawPK[jsonldID])
+		controller := stringEntry(rawPK[controllerKey])
+
+		isRelative := false
+
+		if strings.HasPrefix(id, "#") {
+			id = resolveRelativeDIDURL(didID, baseURI, id)
+			split := strings.Split(id, "#")
+			controller = split[0]
+			isRelative = true
+		}
+
 		publicKey := PublicKey{
-			ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
-			Controller: stringEntry(rawPK[controllerKey]),
+			ID: id, Type: stringEntry(rawPK[jsonldType]),
+			Controller:  controller,
+			relativeURL: isRelative,
 		}
 
 		err := decodePK(&publicKey, rawPK)
@@ -597,26 +691,37 @@ func decodePublicKeyJwk(jwkMap map[string]interface{}, publicKey *PublicKey) err
 	return nil
 }
 
-func (r *rawDoc) ParseContext() []string {
+func (r *rawDoc) ParseContext() ([]string, string) {
 	switch ctx := r.Context.(type) {
 	case []interface{}:
 		var context []string
+
+		var base string
+
 		for _, v := range ctx {
-			context = append(context, v.(string))
+			switch value := v.(type) {
+			case string:
+				context = append(context, value)
+			case map[string]interface{}:
+				baseValue, ok := value["@base"].(string)
+				if ok {
+					base = baseValue
+				}
+			}
 		}
 
-		return context
+		return context, base
 	case []string:
-		return ctx
+		return ctx, ""
 	case interface{}:
-		return []string{r.Context.(string)}
+		return []string{r.Context.(string)}, ""
 	}
 
-	return []string{""}
+	return []string{""}, ""
 }
 
 func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
-	context := r.ParseContext()
+	context, _ := r.ParseContext()
 	if len(context) == 0 {
 		return schemaLoaderV1
 	}
@@ -714,49 +819,49 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 		context = doc.Context[0]
 	}
 
-	publicKeys, err := populateRawPublicKeys(context, doc.PublicKey)
+	publicKeys, err := populateRawPublicKeys(context, doc.ID, doc.processingMeta.baseURI, doc.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of Public Key failed: %w", err)
 	}
 
-	auths, err := populateRawVerificationMethods(context, doc.ID, doc.Authentication)
+	auths, err := populateRawVerificationMethods(context, doc.processingMeta.baseURI, doc.ID, doc.Authentication)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of Authentication failed: %w", err)
 	}
 
-	assertionMethods, err := populateRawVerificationMethods(context, doc.ID, doc.AssertionMethod)
+	assertionMethods, err := populateRawVerificationMethods(context, doc.processingMeta.baseURI, doc.ID,
+		doc.AssertionMethod)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of AssertionMethod failed: %w", err)
 	}
 
-	capabilityDelegations, err := populateRawVerificationMethods(context, doc.ID, doc.CapabilityDelegation)
+	capabilityDelegations, err := populateRawVerificationMethods(context, doc.processingMeta.baseURI, doc.ID,
+		doc.CapabilityDelegation)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of CapabilityDelegation failed: %w", err)
 	}
 
-	capabilityInvocations, err := populateRawVerificationMethods(context, doc.ID, doc.CapabilityInvocation)
+	capabilityInvocations, err := populateRawVerificationMethods(context, doc.processingMeta.baseURI, doc.ID,
+		doc.CapabilityInvocation)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of CapabilityInvocation failed: %w", err)
 	}
 
-	keyAgreements, err := populateRawVerificationMethods(context, doc.ID, doc.KeyAgreement)
+	keyAgreements, err := populateRawVerificationMethods(context, doc.processingMeta.baseURI, doc.ID, doc.KeyAgreement)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of KeyAgreement failed: %w", err)
 	}
 
 	raw := &rawDoc{
-		Context:              doc.Context,
-		ID:                   doc.ID,
-		PublicKey:            publicKeys,
-		Authentication:       auths,
-		AssertionMethod:      assertionMethods,
-		CapabilityDelegation: capabilityDelegations,
-		CapabilityInvocation: capabilityInvocations,
-		KeyAgreement:         keyAgreements,
-		Service:              populateRawServices(doc.Service),
-		Created:              doc.Created,
-		Proof:                populateRawProofs(context, doc.Proof),
-		Updated:              doc.Updated,
+		Context: doc.Context, ID: doc.ID, PublicKey: publicKeys,
+		Authentication: auths, AssertionMethod: assertionMethods, CapabilityDelegation: capabilityDelegations,
+		CapabilityInvocation: capabilityInvocations, KeyAgreement: keyAgreements,
+		Service: populateRawServices(doc.Service, doc.ID, doc.processingMeta.baseURI), Created: doc.Created,
+		Proof: populateRawProofs(context, doc.ID, doc.processingMeta.baseURI, doc.Proof), Updated: doc.Updated,
+	}
+
+	if doc.processingMeta.baseURI != "" {
+		raw.Context = contextWithBase(doc)
 	}
 
 	byteDoc, err := json.Marshal(raw)
@@ -765,6 +870,21 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	}
 
 	return byteDoc, nil
+}
+
+func contextWithBase(doc *Doc) []interface{} {
+	baseObject := make(map[string]interface{})
+	baseObject["@base"] = doc.processingMeta.baseURI
+
+	m := make([]interface{}, 0)
+
+	for _, v := range doc.Context {
+		m = append(m, v)
+	}
+
+	m = append(m, baseObject)
+
+	return m
 }
 
 // VerifyProof verifies document proofs.
@@ -874,22 +994,48 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 // ErrKeyNotFound is returned when key is not found.
 var ErrKeyNotFound = errors.New("key not found")
 
-func populateRawServices(services []Service) []map[string]interface{} {
+func populateRawServices(services []Service, didID, baseURI string) []map[string]interface{} {
 	var rawServices []map[string]interface{}
 
-	for _, service := range services {
+	for i := range services {
 		rawService := make(map[string]interface{})
 
-		for k, v := range service.Properties {
+		for k, v := range services[i].Properties {
 			rawService[k] = v
 		}
 
-		rawService[jsonldID] = service.ID
-		rawService[jsonldType] = service.Type
-		rawService[jsonldServicePoint] = service.ServiceEndpoint
-		rawService[jsonldRecipientKeys] = service.RecipientKeys
-		rawService[jsonldRoutingKeys] = service.RoutingKeys
-		rawService[jsonldPriority] = service.Priority
+		routingKeys := make([]string, 0)
+
+		for _, v := range services[i].RoutingKeys {
+			if services[i].routingKeysRelativeURL[v] {
+				routingKeys = append(routingKeys, makeRelativeDIDURL(v, baseURI, didID))
+				continue
+			}
+
+			routingKeys = append(routingKeys, v)
+		}
+
+		recipientKeys := make([]string, 0)
+
+		for _, v := range services[i].RecipientKeys {
+			if services[i].routingKeysRelativeURL[v] {
+				recipientKeys = append(recipientKeys, makeRelativeDIDURL(v, baseURI, didID))
+				continue
+			}
+
+			recipientKeys = append(recipientKeys, v)
+		}
+
+		rawService[jsonldID] = services[i].ID
+		if services[i].relativeURL {
+			rawService[jsonldID] = makeRelativeDIDURL(services[i].ID, baseURI, didID)
+		}
+
+		rawService[jsonldType] = services[i].Type
+		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
+		rawService[jsonldRecipientKeys] = recipientKeys
+		rawService[jsonldRoutingKeys] = routingKeys
+		rawService[jsonldPriority] = services[i].Priority
 
 		rawServices = append(rawServices, rawService)
 	}
@@ -897,11 +1043,11 @@ func populateRawServices(services []Service) []map[string]interface{} {
 	return rawServices
 }
 
-func populateRawPublicKeys(context string, pks []PublicKey) ([]map[string]interface{}, error) {
+func populateRawPublicKeys(context, didID, baseURI string, pks []PublicKey) ([]map[string]interface{}, error) {
 	var rawPKs []map[string]interface{}
 
 	for i := range pks {
-		publicKey, err := populateRawPublicKey(context, &pks[i])
+		publicKey, err := populateRawPublicKey(context, didID, baseURI, &pks[i])
 		if err != nil {
 			return nil, err
 		}
@@ -912,15 +1058,23 @@ func populateRawPublicKeys(context string, pks []PublicKey) ([]map[string]interf
 	return rawPKs, nil
 }
 
-func populateRawPublicKey(context string, pk *PublicKey) (map[string]interface{}, error) {
+func populateRawPublicKey(context, didID, baseURI string, pk *PublicKey) (map[string]interface{}, error) {
 	rawPK := make(map[string]interface{})
 	rawPK[jsonldID] = pk.ID
+
+	if pk.relativeURL {
+		rawPK[jsonldID] = makeRelativeDIDURL(pk.ID, baseURI, didID)
+	}
+
 	rawPK[jsonldType] = pk.Type
 
 	if context == contextV011 {
 		rawPK[jsonldOwner] = pk.Controller
 	} else {
 		rawPK[jsonldController] = pk.Controller
+		if pk.relativeURL {
+			rawPK[jsonldController] = ""
+		}
 	}
 
 	if pk.jsonWebKey != nil {
@@ -937,20 +1091,20 @@ func populateRawPublicKey(context string, pk *PublicKey) (map[string]interface{}
 	return rawPK, nil
 }
 
-func populateRawVerificationMethods(context, didID string, vms []VerificationMethod) ([]interface{}, error) {
+func populateRawVerificationMethods(context, baseURI, didID string, vms []VerificationMethod) ([]interface{}, error) {
 	var rawVerificationMethods []interface{}
 
 	for _, vm := range vms {
 		if vm.Embedded {
-			publicKey, err := populateRawPublicKey(context, &vm.PublicKey)
+			publicKey, err := populateRawPublicKey(context, didID, baseURI, &vm.PublicKey)
 			if err != nil {
 				return nil, err
 			}
 
 			rawVerificationMethods = append(rawVerificationMethods, publicKey)
 		} else {
-			if vm.RelativeURL {
-				rawVerificationMethods = append(rawVerificationMethods, makeRelativeDIDURL(vm.PublicKey.ID, didID))
+			if vm.PublicKey.relativeURL {
+				rawVerificationMethods = append(rawVerificationMethods, makeRelativeDIDURL(vm.PublicKey.ID, baseURI, didID))
 			} else {
 				rawVerificationMethods = append(rawVerificationMethods, vm.PublicKey.ID)
 			}
@@ -960,7 +1114,7 @@ func populateRawVerificationMethods(context, didID string, vms []VerificationMet
 	return rawVerificationMethods, nil
 }
 
-func populateRawProofs(context string, proofs []Proof) []interface{} {
+func populateRawProofs(context, didID, baseURI string, proofs []Proof) []interface{} {
 	rawProofs := make([]interface{}, 0, len(proofs))
 
 	k := jsonldProofValue
@@ -970,10 +1124,15 @@ func populateRawProofs(context string, proofs []Proof) []interface{} {
 	}
 
 	for _, p := range proofs {
+		creator := p.Creator
+		if p.relativeURL {
+			creator = makeRelativeDIDURL(p.Creator, baseURI, didID)
+		}
+
 		rawProofs = append(rawProofs, map[string]interface{}{
 			jsonldType:         p.Type,
 			jsonldCreated:      p.Created,
-			jsonldCreator:      p.Creator,
+			jsonldCreator:      creator,
 			k:                  base64.RawURLEncoding.EncodeToString(p.ProofValue),
 			jsonldDomain:       p.Domain,
 			jsonldNonce:        base64.RawURLEncoding.EncodeToString(p.Nonce),

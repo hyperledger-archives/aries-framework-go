@@ -1992,7 +1992,6 @@ func newPeerDID(t *testing.T) *did.Doc {
 			PublicKey:    key,
 			Relationship: 0,
 			Embedded:     true,
-			RelativeURL:  false,
 		}}),
 		did.WithService([]did.Service{{
 			ID:              "didcomm",

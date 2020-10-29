@@ -14,9 +14,9 @@ func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 	const notFound = -1
 	index := notFound
 
-	for i, s := range didDoc.Service {
-		if s.Type == serviceType {
-			if index == notFound || didDoc.Service[index].Priority > s.Priority {
+	for i := range didDoc.Service {
+		if didDoc.Service[i].Type == serviceType {
+			if index == notFound || didDoc.Service[index].Priority > didDoc.Service[i].Priority {
 				index = i
 			}
 		}

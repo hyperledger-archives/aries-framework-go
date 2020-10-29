@@ -15,7 +15,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -142,6 +141,64 @@ const validDocV011 = `{
   "created": "2002-10-10T17:00:00Z"
 }`
 
+//nolint:lll
+const validDocWithBase = `{
+  "@context": ["https://w3id.org/did/v1",
+   { "@base": "did:example:123456789abcdefghi"}],
+  "id": "did:example:123456789abcdefghi",
+  "publicKey": [
+    {
+      "id": "#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "#key2",
+      "type": "RsaVerificationKey2018",
+      "controller": "",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+  ],
+  "authentication": [
+    "#keys-1",
+    {
+      "id": "#key3",
+      "type": "RsaVerificationKey2018",
+      "controller": "",
+      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
+    }
+  ],
+  "service": [
+    {
+      "id": "#inbox",
+      "type": "SocialWebInboxService",
+      "serviceEndpoint": "https://social.example.com/83hfh37dj",
+      "spamCost": {
+        "amount": "0.50",
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "#did-communication",
+      "type": "did-communication",
+      "serviceEndpoint": "https://agent.example.com/",
+      "priority" : 0,
+      "recipientKeys" : ["#key2"],
+      "routingKeys" : ["#key2"]
+    }
+  ],
+  "proof": [{
+		"created": "2002-10-10T17:00:00Z",
+		"creator": "#key-5",
+		"domain": "",
+		"nonce": "",
+		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
+		"type": "Ed25519Signature2018"
+	}],
+  "created": "2002-10-10T17:00:00Z"
+}`
+
 const (
 	did           = "did:method:abc"
 	creator       = did + "#key-1"
@@ -158,14 +215,97 @@ func TestParseOfNull(t *testing.T) {
 	require.Contains(t, err.Error(), "document payload is not provided")
 }
 
-func TestValid(t *testing.T) {
-	// use single value string type context
-	singleCtxValidDoc := strings.ReplaceAll(validDoc, `"@context": ["https://w3id.org/did/v1"]`,
-		`"@context": "https://w3id.org/did/v1"`)
-	singleCtxValidDocV011 := strings.ReplaceAll(validDocV011, `"@context": ["https://w3id.org/did/v0.11"]`,
-		`"@context": "https://w3id.org/did/v0.11"`)
+func TestValidWithDocBase(t *testing.T) {
+	docs := []string{validDocWithBase}
+	for _, d := range docs {
+		doc, err := ParseDocument([]byte(d))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+		require.Contains(t, doc.Context[0], "https://w3id.org/did/v")
 
-	docs := []string{validDoc, validDocV011, singleCtxValidDoc, singleCtxValidDocV011}
+		// test doc id
+		require.Equal(t, doc.ID, "did:example:123456789abcdefghi")
+
+		hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
+		block, _ := pem.Decode([]byte(pemPK))
+		require.NotNil(t, block)
+		require.NoError(t, err)
+
+		// test authentication
+		eAuthentication := []VerificationMethod{
+			{
+				PublicKey: PublicKey{
+					ID:          "did:example:123456789abcdefghi#keys-1",
+					Type:        "Secp256k1VerificationKey2018",
+					Controller:  "did:example:123456789abcdefghi",
+					Value:       base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+					relativeURL: true,
+				},
+				Relationship: Authentication,
+			},
+			{
+				PublicKey: PublicKey{
+					ID:          "did:example:123456789abcdefghi#key3",
+					Controller:  "did:example:123456789abcdefghi",
+					Type:        "RsaVerificationKey2018",
+					Value:       hexDecodeValue,
+					relativeURL: true,
+				},
+				Relationship: Authentication, Embedded: true,
+			},
+		}
+		require.Equal(t, eAuthentication, doc.Authentication)
+
+		// test public key
+		ePubKey := []PublicKey{
+			{
+				ID:          "did:example:123456789abcdefghi#keys-1",
+				Controller:  "did:example:123456789abcdefghi",
+				Type:        "Secp256k1VerificationKey2018",
+				Value:       base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+				relativeURL: true,
+			},
+			{
+				ID:          "did:example:123456789abcdefghi#key2",
+				Controller:  "did:example:123456789abcdefghi",
+				Type:        "RsaVerificationKey2018",
+				Value:       block.Bytes,
+				relativeURL: true,
+			},
+		}
+		require.Equal(t, ePubKey, doc.PublicKey)
+
+		// test services
+		eServices := []Service{
+			{
+				ID:              "did:example:123456789abcdefghi#inbox",
+				Type:            "SocialWebInboxService",
+				relativeURL:     true,
+				ServiceEndpoint: "https://social.example.com/83hfh37dj",
+				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
+			},
+			{
+				ID:                       "did:example:123456789abcdefghi#did-communication",
+				Type:                     "did-communication",
+				Priority:                 0,
+				relativeURL:              true,
+				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
+				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint:          "https://agent.example.com/",
+				Properties:               map[string]interface{}{},
+				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": true},
+				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": true},
+			},
+		}
+		require.EqualValues(t, eServices, doc.Service)
+
+		// test proof
+		require.EqualValues(t, "did:example:123456789abcdefghi#key-5", doc.Proof[0].Creator)
+	}
+}
+
+func TestValid(t *testing.T) {
+	docs := []string{validDoc}
 	for _, d := range docs {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
@@ -221,13 +361,15 @@ func TestValid(t *testing.T) {
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
 			{
-				ID:              "did:example:123456789abcdefghi#did-communication",
-				Type:            "did-communication",
-				Priority:        0,
-				RecipientKeys:   []string{"did:example:123456789abcdefghi#key2"},
-				RoutingKeys:     []string{"did:example:123456789abcdefghi#key2"},
-				ServiceEndpoint: "https://agent.example.com/",
-				Properties:      map[string]interface{}{},
+				ID:                       "did:example:123456789abcdefghi#did-communication",
+				Type:                     "did-communication",
+				Priority:                 0,
+				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
+				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint:          "https://agent.example.com/",
+				Properties:               map[string]interface{}{},
+				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
+				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": false},
 			},
 		}
 		require.EqualValues(t, eServices, doc.Service)
@@ -294,7 +436,7 @@ func TestInvalidEncodingInProof(t *testing.T) {
 			"nonce":   "Invalid\x01",
 			"type":    "Ed25519Signature2018",
 		}}
-		doc, err := populateProofs(c, rawProofs)
+		doc, err := populateProofs(c, "", "", rawProofs)
 		require.NotNil(t, err)
 		require.Nil(t, doc)
 		require.Contains(t, err.Error(), "illegal base64 data")
@@ -307,7 +449,7 @@ func TestInvalidEncodingInProof(t *testing.T) {
 			"type":    "Ed25519Signature2018",
 		}}
 
-		doc, err = populateProofs(c, rawProofs)
+		doc, err = populateProofs(c, "", "", rawProofs)
 		require.NotNil(t, err)
 		require.Nil(t, doc)
 		require.Contains(t, err.Error(), "illegal base64 data")
@@ -869,7 +1011,9 @@ func TestValidateDidDocProof(t *testing.T) {
 }
 
 func TestJSONConversion(t *testing.T) {
-	docs := []string{validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships}
+	docs := []string{
+		validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships, validDocWithBase,
+	}
 	for _, d := range docs {
 		// setup -> create Document from json byte data
 		doc, err := ParseDocument([]byte(d))
@@ -880,6 +1024,12 @@ func TestJSONConversion(t *testing.T) {
 		byteDoc, err := doc.JSONBytes()
 		require.NoError(t, err)
 		require.NotEmpty(t, byteDoc)
+
+		if d != validDocWithBase {
+			require.NotContains(t, string(byteDoc), "@base")
+		} else {
+			require.Contains(t, string(byteDoc), "@base")
+		}
 
 		// convert json byte data to document
 		doc2, err := ParseDocument(byteDoc)
@@ -1296,17 +1446,15 @@ func TestNewEmbeddedVerificationMethod(t *testing.T) {
 
 func TestNewReferencedVerificationMethod(t *testing.T) {
 	t.Run("relative URL - true", func(t *testing.T) {
-		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication, true)
+		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication)
 		require.NotNil(t, vm)
 		require.NotNil(t, vm.PublicKey)
-		require.True(t, vm.RelativeURL)
 		require.Equal(t, Authentication, vm.Relationship)
 	})
 	t.Run("relative URL - false", func(t *testing.T) {
-		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication, false)
+		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication)
 		require.NotNil(t, vm)
 		require.NotNil(t, vm.PublicKey)
-		require.False(t, vm.RelativeURL)
 		require.Equal(t, Authentication, vm.Relationship)
 	})
 }
