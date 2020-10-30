@@ -64,7 +64,7 @@ type PublicKeyFetcher func(issuerID, keyID string) (*verifier.PublicKey, error)
 
 // SingleKey defines the case when only one verification key is used and we don't need to pick the one.
 func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
-	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
+	return func(_, _ string) (*verifier.PublicKey, error) {
 		return &verifier.PublicKey{
 			Type:  pubKeyType,
 			Value: pubKey,

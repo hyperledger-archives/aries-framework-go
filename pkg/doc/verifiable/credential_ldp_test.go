@@ -1179,6 +1179,52 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)
 		r.Error(err)
 	})
+
+	t.Run("sign and verify proof with capabilityChain", func(t *testing.T) {
+		rootCapability := "https://edv.com/foo/zcap/123"
+		vc, err := parseTestCredential([]byte(validCredential))
+		r.NoError(err)
+
+		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: SignatureJWS,
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+			VerificationMethod:      "did:example:xyz#key-1",
+			Challenge:               uuid.New().String(),
+			Domain:                  "issuer.service.com",
+			Purpose:                 "capabilityDelegation",
+			CapabilityChain:         []interface{}{rootCapability},
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+		r.NoError(err)
+
+		r.Len(vc.Proofs, 1)
+		proof := vc.Proofs[0]
+		r.Contains(proof, "proofPurpose")
+		r.Equal("capabilityDelegation", proof["proofPurpose"])
+		r.Contains(proof, "capabilityChain")
+		chain, ok := proof["capabilityChain"].([]interface{})
+		r.True(ok)
+		r.Len(chain, 1)
+		r.Equal(rootCapability, chain[0])
+
+		// parse
+		raw, err := json.Marshal(vc)
+		r.NoError(err)
+		result, err := ParseCredential(raw,
+			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			WithPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)),
+		)
+		r.NoError(err)
+		r.Len(result.Proofs, 1)
+		proof = result.Proofs[0]
+		r.Contains(proof, "proofPurpose")
+		r.Equal("capabilityDelegation", proof["proofPurpose"])
+		r.Contains(proof, "capabilityChain")
+		capabilities, ok := proof["capabilityChain"].([]interface{})
+		r.True(ok)
+		r.Len(capabilities, 1)
+		r.Equal(rootCapability, capabilities[0])
+	})
 }
 
 type bbsSigner struct {

@@ -10,7 +10,6 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/mobile v0.0.0-20200801112145-973feb4309de // indirect
 	nhooyr.io/websocket v1.8.3
 )
 
