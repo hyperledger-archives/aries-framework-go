@@ -62,6 +62,8 @@ type LinkedDataProofContext struct {
 	Challenge               string                  // optional
 	Domain                  string                  // optional
 	Purpose                 string                  // optional
+	// CapabilityChain must be an array. Each element is either a string or an object.
+	CapabilityChain []interface{}
 }
 
 func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
@@ -132,5 +134,6 @@ func mapContext(context *LinkedDataProofContext) *signer.Context {
 		Challenge:               context.Challenge,
 		Domain:                  context.Domain,
 		Purpose:                 context.Purpose,
+		CapabilityChain:         context.CapabilityChain,
 	}
 }

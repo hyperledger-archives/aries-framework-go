@@ -53,6 +53,7 @@ type Context struct {
 	VerificationMethod      string                        // optional
 	Challenge               string                        // optional
 	Purpose                 string                        // optional
+	CapabilityChain         []interface{}                 // optional
 }
 
 // New returns new instance of document verifier.
@@ -110,6 +111,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		VerificationMethod:      context.VerificationMethod,
 		Challenge:               context.Challenge,
 		ProofPurpose:            context.Purpose,
+		CapabilityChain:         context.CapabilityChain,
 	}
 
 	// TODO support custom proof purpose

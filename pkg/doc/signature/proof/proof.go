@@ -8,6 +8,7 @@ package proof
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
@@ -33,6 +34,8 @@ const (
 	jsonldVerificationMethod = "verificationMethod"
 	// jsonldChallenge is a key for challenge.
 	jsonldChallenge = "challenge"
+	// jsonldCapabilityChain is a key for capabilityChain.
+	jsonldCapabilityChain = "capabilityChain"
 )
 
 // Proof is cryptographic proof of the integrity of the DID Document.
@@ -48,6 +51,8 @@ type Proof struct {
 	Nonce                   []byte
 	Challenge               string
 	SignatureRepresentation SignatureRepresentation
+	// CapabilityChain must be an array. Each element is either a string or an object.
+	CapabilityChain []interface{}
 }
 
 // NewProof creates new proof.
@@ -86,6 +91,11 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		return nil, err
 	}
 
+	capabilityChain, err := decodeCapabilityChain(emap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode capabilityChain: %w", err)
+	}
+
 	return &Proof{
 		Type:                    stringEntry(emap[jsonldType]),
 		Created:                 timeValue,
@@ -98,7 +108,24 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		Domain:                  stringEntry(emap[jsonldDomain]),
 		Nonce:                   nonce,
 		Challenge:               stringEntry(emap[jsonldChallenge]),
+		CapabilityChain:         capabilityChain,
 	}, nil
+}
+
+func decodeCapabilityChain(proof map[string]interface{}) ([]interface{}, error) {
+	var capabilityChain []interface{}
+
+	untyped, found := proof[jsonldCapabilityChain]
+	if found {
+		var ok bool
+
+		capabilityChain, ok = untyped.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid format for capabilityChain - must be an array: %+v", untyped)
+		}
+	}
+
+	return capabilityChain, nil
 }
 
 func decodeProofValue(proofStr string) ([]byte, error) {
@@ -126,7 +153,7 @@ func stringEntry(entry interface{}) string {
 }
 
 // JSONLdObject returns map that represents JSON LD Object.
-func (p *Proof) JSONLdObject() map[string]interface{} {
+func (p *Proof) JSONLdObject() map[string]interface{} { // nolint:gocyclo
 	emap := make(map[string]interface{})
 	emap[jsonldType] = p.Type
 
@@ -164,6 +191,10 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 
 	if p.Challenge != "" {
 		emap[jsonldChallenge] = p.Challenge
+	}
+
+	if p.CapabilityChain != nil {
+		emap[jsonldCapabilityChain] = p.CapabilityChain
 	}
 
 	return emap

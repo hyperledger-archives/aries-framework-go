@@ -74,6 +74,54 @@ func TestProof(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "2018-03-15T00:00:00.00000Z", p.Created.Format(p.Created.GetFormat()))
+
+	t.Run("capabilityChain", func(t *testing.T) {
+		t.Run("parses capabilityChain", func(t *testing.T) {
+			cap1 := "http://edv.com/zcaps/1"
+			cap2 := "http://edv.com/zcaps/2"
+			p, err := NewProof(map[string]interface{}{
+				"type":               "type",
+				"creator":            "didID",
+				"verificationMethod": "did:example:123456#key1",
+				"created":            "2018-03-15T00:00:00Z",
+				"domain":             "abc.com",
+				"nonce":              "",
+				"proofValue":         proofValueBase64,
+				"capabilityChain":    []interface{}{cap1, cap2},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []interface{}{cap1, cap2}, p.CapabilityChain)
+		})
+
+		t.Run("no capabiltyChain", func(t *testing.T) {
+			p, err := NewProof(map[string]interface{}{
+				"type":               "type",
+				"creator":            "didID",
+				"verificationMethod": "did:example:123456#key1",
+				"created":            "2018-03-15T00:00:00Z",
+				"domain":             "abc.com",
+				"nonce":              "",
+				"proofValue":         proofValueBase64,
+			})
+			require.NoError(t, err)
+			require.Empty(t, p.CapabilityChain)
+		})
+
+		t.Run("fails if capability chain is not an []interface{}", func(t *testing.T) {
+			_, err := NewProof(map[string]interface{}{
+				"type":               "type",
+				"creator":            "didID",
+				"verificationMethod": "did:example:123456#key1",
+				"created":            "2018-03-15T00:00:00Z",
+				"domain":             "abc.com",
+				"nonce":              "",
+				"proofValue":         proofValueBase64,
+				"capabilityChain":    "INVALID FORMAT",
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "invalid format for capabilityChain")
+		})
+	})
 }
 
 func TestInvalidProofValue(t *testing.T) {
@@ -163,6 +211,46 @@ func TestProof_JSONLdObject(t *testing.T) {
 	p.Created = util.NewTimeWithTrailingZeroMsec(created, 3)
 	pJSONLd = p.JSONLdObject()
 	r.Equal("2018-03-15T00:00:00.000Z", pJSONLd["created"])
+
+	t.Run("capabilityChain", func(t *testing.T) {
+		t.Run("included", func(t *testing.T) {
+			capability := "http://edv.com/foo/zcaps/1"
+			p := &Proof{
+				Type:            "Ed25519Signature2018",
+				Created:         util.NewTime(created),
+				Creator:         "creator",
+				ProofValue:      proofValueBytes,
+				JWS:             "test.jws.value",
+				ProofPurpose:    "assertionMethod",
+				Domain:          "internal",
+				Nonce:           nonceBase64,
+				Challenge:       "sample-challenge-xyz",
+				CapabilityChain: []interface{}{capability},
+			}
+			result := p.JSONLdObject()
+			r.Contains(result, "capabilityChain")
+			chain, ok := result["capabilityChain"].([]interface{})
+			r.True(ok)
+			r.Len(chain, 1)
+			r.Equal(capability, chain[0])
+		})
+
+		t.Run("not included", func(t *testing.T) {
+			p := &Proof{
+				Type:         "Ed25519Signature2018",
+				Created:      util.NewTime(created),
+				Creator:      "creator",
+				ProofValue:   proofValueBytes,
+				JWS:          "test.jws.value",
+				ProofPurpose: "assertionMethod",
+				Domain:       "internal",
+				Nonce:        nonceBase64,
+				Challenge:    "sample-challenge-xyz",
+			}
+			result := p.JSONLdObject()
+			r.NotContains(result, "capabilityChain")
+		})
+	})
 }
 
 func TestProof_PublicKeyID(t *testing.T) {
