@@ -14,10 +14,8 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/mac"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
@@ -115,7 +113,7 @@ func Test_formatStore_Put(t *testing.T) {
 		err = store.Put(testKey, []byte(testValue))
 		require.NoError(t, err)
 	})
-	t.Run("Fail to format key-value pair", func(t *testing.T) {
+	t.Run("Fail to format value", func(t *testing.T) {
 		provider := storage.NewFormattedProvider(mem.NewProvider(), &failingFormatter{})
 		require.NotNil(t, provider)
 
@@ -125,7 +123,7 @@ func Test_formatStore_Put(t *testing.T) {
 
 		err = store.Put(testKey, []byte(testValue))
 		require.EqualError(t, err,
-			fmt.Errorf("failed to format key-value pair: %w", errFailingFormatter).Error())
+			fmt.Errorf("failed to format value: %w", errFailingFormatter).Error())
 	})
 	t.Run("Fail to put formatted value into underlying store", func(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
@@ -180,7 +178,7 @@ func Test_formatStore_Get(t *testing.T) {
 
 		value, err := store.Get(testKey)
 		require.EqualError(t, err,
-			`failed to parse formatted value: failed to unmarshal encrypted document bytes: `+
+			`failed to parse formatted value: failed to unmarshal value into an encrypted document: `+
 				`invalid character 'o' in literal null (expecting 'u')`)
 		require.Nil(t, value)
 	})
@@ -245,8 +243,7 @@ func Test_formatStore_Delete(t *testing.T) {
 func createEDVFormatter(t *testing.T) storage.Formatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter, err := edv.NewEncryptedFormatter(encrypter, decrypter, newMACCrypto(t))
-	require.NoError(t, err)
+	formatter := edv.NewEncryptedFormatter(encrypter, decrypter)
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -279,26 +276,15 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	return encrypter, decrypter
 }
 
-func newMACCrypto(t *testing.T) *edv.MACCrypto {
-	crypto, err := tinkcrypto.New()
-	require.NoError(t, err)
-
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-	require.NoError(t, err)
-	require.NotNil(t, kh)
-
-	return edv.NewMACCrypto(kh, crypto)
-}
-
 var errFailingFormatter = errors.New("failingFormatter always fails")
 
 type failingFormatter struct {
 }
 
-func (f *failingFormatter) FormatPair(k string, v []byte) ([]byte, error) {
+func (f *failingFormatter) Format([]byte) ([]byte, error) {
 	return nil, errFailingFormatter
 }
 
-func (f *failingFormatter) ParseValue(i []byte) ([]byte, error) {
+func (f *failingFormatter) ParseValue([]byte) ([]byte, error) {
 	return nil, errFailingFormatter
 }

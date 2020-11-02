@@ -8,19 +8,15 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/mac"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 )
 
 const (
-	testKey                       = "key"
 	testValue                     = "data"
 	jweCreatedUsingKeyWeDoNotHave = `{"protected":"eyJhbGciOiJFQ0RILUVTK0EyNTZLVyIsImVuYyI6IkEyNT` +
 		`ZHQ00iLCJlcGsiOnsidXNlIjoiZW5jIiwia3R5IjoiRUMiLCJjcnYiOiJQLTI1NiIsIngiOiJCNDYzRVYyd0tfYzFF` +
@@ -31,17 +27,9 @@ const (
 		`nd5dyLtFtKxBacjNJ0XhhJ6UTSLi3zQG3qIA50fuA","tag":"XgFSOBj96lL3aVP6AhyCmA"}`
 )
 
-var errTest = errors.New("test error")
-
 func TestNewEncryptedFormatter(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		createEncryptedFormatter(t)
-	})
-	t.Run("Fail to compute MAC for index name", func(t *testing.T) {
-		formatter, err := NewEncryptedFormatter(nil, nil,
-			NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest}))
-		require.EqualError(t, err, fmt.Errorf(failComputeMACIndexName, errTest).Error())
-		require.Nil(t, formatter)
 	})
 }
 
@@ -56,25 +44,15 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 
 		formatter.randomBytesFunc = failingGenerateRandomBytesFunc
 
-		value, err := formatter.FormatPair(testKey, []byte(testValue))
+		value, err := formatter.Format([]byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failGenerateEDVCompatibleID, errGenerateRandomBytes).Error())
-		require.Nil(t, value)
-	})
-	t.Run("Fail to create indexed attribute", func(t *testing.T) {
-		formatter := createEncryptedFormatter(t)
-
-		formatter.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
-
-		value, err := formatter.FormatPair(testKey, []byte(testValue))
-		require.EqualError(t, err,
-			fmt.Errorf(failCreateIndexedAttribute, fmt.Errorf(failToComputeMACIndexValue, errTest)).Error())
 		require.Nil(t, value)
 	})
 	t.Run("Fail to marshal structured document", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 		formatter.marshal = failingMarshal
 
-		encryptedDocument, err := formatter.FormatPair(testKey, []byte(testValue))
+		encryptedDocument, err := formatter.Format([]byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failMarshalStructuredDocument, errFailingMarshal).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -82,7 +60,7 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 		formatter.jweEncrypter = &failingEncrypter{}
 
-		encryptedDocument, err := formatter.FormatPair(testKey, []byte(testValue))
+		encryptedDocument, err := formatter.Format([]byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failEncryptStructuredDocument, errFailingEncrypter).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -98,12 +76,66 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, string(value), testValue)
 	})
+	t.Run("Fail to unmarshal structured document bytes", func(t *testing.T) {
+		formatter := createEncryptedFormatter(t)
+		formatter.jweDecrypter = &mockJWEDecrypter{
+			decryptReturnValue: []byte("this cannot be unmarshalled to a structured document"),
+		}
+
+		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
+
+		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		require.EqualError(t, err,
+			fmt.Errorf(failUnmarshalStructuredDocument,
+				errors.New("invalid character 'h' in literal true (expecting 'r')")).Error())
+		require.Nil(t, value)
+	})
+	t.Run("Structured document is missing the payload key", func(t *testing.T) {
+		formatter := createEncryptedFormatter(t)
+
+		structuredDocumentBytes, err := json.Marshal(StructuredDocument{})
+		require.NoError(t, err)
+
+		formatter.jweDecrypter = &mockJWEDecrypter{
+			decryptReturnValue: structuredDocumentBytes,
+		}
+
+		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
+
+		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		require.EqualError(t, err, errPayloadKeyMissing.Error())
+		require.Nil(t, value)
+	})
+	t.Run("Structured document payload value cannot be asserted as a string", func(t *testing.T) {
+		formatter := createEncryptedFormatter(t)
+
+		content := make(map[string]interface{})
+		// Set payload to an arbitrary number that, when marshalled and unmarshalled, cannot be asserted as a string
+		content["payload"] = 1
+
+		structuredDocumentWithByteArrayPayload := &StructuredDocument{
+			Content: content,
+		}
+
+		structuredDocumentBytes, err := json.Marshal(structuredDocumentWithByteArrayPayload)
+		require.NoError(t, err)
+
+		formatter.jweDecrypter = &mockJWEDecrypter{
+			decryptReturnValue: structuredDocumentBytes,
+		}
+
+		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
+
+		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		require.EqualError(t, err, errPayloadNotAssertableAsString.Error())
+		require.Nil(t, value)
+	})
 	t.Run("Fail to unmarshal encrypted document bytes", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 
 		value, err := formatter.ParseValue([]byte("Not a valid encrypted document"))
 		require.EqualError(t, err,
-			fmt.Errorf(failUnmarshalEncryptedDocument,
+			fmt.Errorf(failUnmarshalValueIntoEncryptedDocument,
 				errors.New("invalid character 'N' looking for beginning of value")).Error())
 		require.Nil(t, value)
 	})
@@ -139,8 +171,7 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 func createEncryptedFormatter(t *testing.T) *EncryptedFormatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter, err := NewEncryptedFormatter(encrypter, decrypter, newMACCrypto(t))
-	require.NoError(t, err)
+	formatter := NewEncryptedFormatter(encrypter, decrypter)
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -173,19 +204,8 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	return encrypter, decrypter
 }
 
-func newMACCrypto(t *testing.T) *MACCrypto {
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-	require.NoError(t, err)
-	require.NotNil(t, kh)
-
-	crypto, err := tinkcrypto.New()
-	require.NoError(t, err)
-
-	return NewMACCrypto(kh, crypto)
-}
-
 func createEncryptedDocument(t *testing.T, formatter *EncryptedFormatter) []byte {
-	encryptedDocumentBytes, err := formatter.FormatPair(testKey, []byte(testValue))
+	encryptedDocumentBytes, err := formatter.Format([]byte(testValue))
 	require.NoError(t, err)
 	require.NotNil(t, encryptedDocumentBytes)
 
@@ -215,4 +235,12 @@ var errGenerateRandomBytes = errors.New("failingGenerateRandomBytesFunc always f
 
 func failingGenerateRandomBytesFunc([]byte) (int, error) {
 	return -1, errGenerateRandomBytes
+}
+
+type mockJWEDecrypter struct {
+	decryptReturnValue []byte
+}
+
+func (m *mockJWEDecrypter) Decrypt(jwe *jose.JSONWebEncryption) ([]byte, error) {
+	return m.decryptReturnValue, nil
 }
