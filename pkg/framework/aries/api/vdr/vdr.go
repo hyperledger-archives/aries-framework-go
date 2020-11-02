@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -55,6 +56,7 @@ const (
 
 // ResolveDIDOpts holds the options for did resolve.
 type ResolveDIDOpts struct {
+	HTTPClient  *http.Client
 	ResultType  ResultType
 	VersionID   interface{}
 	VersionTime string
@@ -63,6 +65,13 @@ type ResolveDIDOpts struct {
 
 // ResolveOpts is a did resolve option.
 type ResolveOpts func(opts *ResolveDIDOpts)
+
+// WithHTTPClient the HTTP client input option can be used to resolve with a specific http client.
+func WithHTTPClient(httpClient *http.Client) ResolveOpts {
+	return func(opts *ResolveDIDOpts) {
+		opts.HTTPClient = httpClient
+	}
+}
 
 // WithResultType the result type input option can be used to request a certain type of result.
 func WithResultType(resultType ResultType) ResolveOpts {
