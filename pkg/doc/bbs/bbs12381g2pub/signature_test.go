@@ -30,22 +30,4 @@ func TestParseSignature(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "deserialize G1 compressed signature")
 	require.Nil(t, signature)
-
-	// invalid E (FR) part
-	copy(invalidSigBytes, sigBytes)
-	copy(invalidSigBytes[48:], getInvalidFrBytes())
-
-	signature, err = bbs.ParseSignature(invalidSigBytes)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "deserialize E: invalid FR")
-	require.Nil(t, signature)
-
-	// invalid S (FR) part
-	copy(invalidSigBytes, sigBytes)
-	copy(invalidSigBytes[48+32:], getInvalidFrBytes())
-
-	signature, err = bbs.ParseSignature(invalidSigBytes)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "deserialize S: invalid FR")
-	require.Nil(t, signature)
 }

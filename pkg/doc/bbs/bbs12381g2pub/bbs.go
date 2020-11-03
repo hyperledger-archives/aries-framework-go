@@ -14,18 +14,21 @@ import (
 	"hash"
 
 	bls12381 "github.com/kilic/bls12-381"
-	"github.com/phoreproject/bls"
-	"github.com/phoreproject/bls/g2pubs"
 	"golang.org/x/crypto/blake2b"
 )
 
 // BBSG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.
 type BBSG2Pub struct {
+	g1 *bls12381.G1
+	g2 *bls12381.G2
 }
 
 // New creates a new BBSG2Pub.
 func New() *BBSG2Pub {
-	return &BBSG2Pub{}
+	return &BBSG2Pub{
+		g1: bls12381.NewG1(),
+		g2: bls12381.NewG2(),
+	}
 }
 
 const (
@@ -37,9 +40,6 @@ const (
 
 	// Number of bytes in G1 X coordinate.
 	g1CompressedSize = 48
-
-	// Number of bytes in G1 X and Y coordinates.
-	g1UncompressedSize = 96
 
 	// Number of bytes in G2 X(a, b) and Y(a, b) coordinates.
 	g2UncompressedSize = 192
@@ -71,17 +71,18 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 		}
 	}
 
-	p1 := signature.GetPoint().ToAffine()
-	q1 := bls.G2ProjectiveOne.
-		MulFR(signature.E.ToRepr()).
-		Add(publicKey.GetPoint())
+	p1 := signature.A
 
-	p2, err := getB(signature.S, messagesFr, publicKey)
+	q1 := bbs.g2.One()
+	bbs.g2.MulScalar(q1, q1, frToRepr(signature.E))
+	bbs.g2.Add(q1, q1, publicKey.PointG2)
+
+	p2, err := bbs.getB(signature.S, messagesFr, publicKey)
 	if err != nil {
 		return fmt.Errorf("get B point: %w", err)
 	}
 
-	if compareTwoPairings(p1.ToProjective(), q1, p2.ToProjective(), bls.G2ProjectiveOne) {
+	if compareTwoPairingsKilic(p1, q1, p2, bbs.g2.One()) {
 		return nil
 	}
 
@@ -102,6 +103,15 @@ func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error
 	return bbs.SignWithKey(messages, privKey)
 }
 
+func createRandSignatureFr() (*bls12381.Fr, error) {
+	fr, err := bls12381.NewFr().Rand(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("create random FR: %w", err)
+	}
+
+	return frToRepr(fr), nil
+}
+
 // SignWithKey signs the one or more messages using BBS+ key pair.
 func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte, error) {
 	var err error
@@ -116,55 +126,58 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 		}
 	}
 
-	e, err := bls.RandFR(rand.Reader)
+	e, err := createRandSignatureFr()
 	if err != nil {
 		return nil, fmt.Errorf("create signature.E: %w", err)
 	}
 
-	s, err := bls.RandFR(rand.Reader)
+	s, err := createRandSignatureFr()
 	if err != nil {
 		return nil, fmt.Errorf("create signature.S: %w", err)
 	}
 
-	b, err := computeB(s, messagesFr, pubKey)
+	b, err := bbs.computeB(s, messagesFr, pubKey)
 	if err != nil {
 		return nil, fmt.Errorf("compute B point: %w", err)
 	}
 
-	exp := privKey.GetFRElement().Copy()
-	exp.AddAssign(e)
-	sig := b.MulFR(exp.Inverse().ToRepr())
+	exp := bls12381.NewFr().Set(privKey.FR)
+	exp.Add(exp, e)
+	exp = exp.Inverse()
+
+	sig := bbs.g1.New()
+	bbs.g1.MulScalar(sig, b, frToRepr(exp))
 
 	signature := &Signature{
-		Signature: g2pubs.NewSignatureFromG1(sig.ToAffine()),
-		E:         e,
-		S:         s,
+		A: sig,
+		E: e,
+		S: s,
 	}
 
 	return signature.ToBytes()
 }
 
-func computeB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Projective, error) {
+func (bbs *BBSG2Pub) computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKey) (*bls12381.PointG1, error) {
 	const basesOffset = 2
 
 	messagesCount := len(messages)
 
-	bases := make([]*bls.G1Projective, messagesCount+basesOffset)
-	scalars := make([]*bls.FR, messagesCount+basesOffset)
+	bases := make([]*bls12381.PointG1, messagesCount+basesOffset)
+	scalars := make([]*bls12381.Fr, messagesCount+basesOffset)
 
-	bases[0] = bls.G1AffineOne.ToProjective()
-	scalars[0] = bls.FRReprToFR(bls.NewFRRepr(1))
+	bases[0] = bbs.g1.One()
+	scalars[0] = bls12381.NewFr().RedOne()
 
 	offset := g2UncompressedSize + 1
 
-	data := calcData(key, messagesCount)
+	data := bbs.calcData(key, messagesCount)
 
-	h0, err := hashToG1(data)
+	h0, err := bbs.hashToG1(data)
 	if err != nil {
 		return nil, fmt.Errorf("create G1 point from hash")
 	}
 
-	h := make([]*bls.G1Projective, messagesCount)
+	h := make([]*bls12381.PointG1, messagesCount)
 
 	for i := 1; i <= messagesCount; i++ {
 		dataCopy := make([]byte, len(data))
@@ -176,7 +189,7 @@ func computeB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1P
 			dataCopy[j+offset] = iBytes[j]
 		}
 
-		h[i-1], err = hashToG1(dataCopy)
+		h[i-1], err = bbs.hashToG1(dataCopy)
 		if err != nil {
 			return nil, fmt.Errorf("create G1 point from hash: %w", err)
 		}
@@ -190,33 +203,34 @@ func computeB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1P
 		scalars[i+basesOffset] = messages[i].FR
 	}
 
-	res := bls.G1ProjectiveZero
+	res := bbs.g1.Zero()
 
 	for i := 0; i < len(bases); i++ {
 		b := bases[i]
-		s := scalars[i].ToRepr()
+		s := scalars[i]
 
-		g := b.MulFR(s)
-		res = res.Add(g)
+		g := bbs.g1.New()
+
+		bbs.g1.MulScalar(g, b, frToRepr(s))
+		bbs.g1.Add(res, res, g)
 	}
 
 	return res, nil
 }
 
-func getB(s *bls.FR, messages []*SignatureMessage, key *PublicKey) (*bls.G1Affine, error) {
-	b, err := computeB(s, messages, key)
+func (bbs *BBSG2Pub) getB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKey) (*bls12381.PointG1, error) {
+	b, err := bbs.computeB(s, messages, key)
 	if err != nil {
 		return nil, err
 	}
 
-	b.NegAssign()
+	bbs.g1.Neg(b, b)
 
-	return b.ToAffine(), nil
+	return b, nil
 }
 
-func calcData(key *PublicKey, messagesCount int) []byte {
-	keyBytes := key.GetPoint().ToAffine().SerializeBytes()
-	data := keyBytes[:]
+func (bbs *BBSG2Pub) calcData(key *PublicKey, messagesCount int) []byte {
+	data := bbs.g2.ToUncompressed(key.PointG2)
 
 	data = append(data, 0, 0, 0, 0, 0, 0)
 
@@ -235,7 +249,7 @@ func uint32ToBytes(value uint32) []byte {
 	return bytes
 }
 
-func hashToG1(data []byte) (*bls.G1Projective, error) {
+func (bbs *BBSG2Pub) hashToG1(data []byte) (*bls12381.PointG1, error) {
 	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
 
 	newBlake2b := func() hash.Hash {
@@ -244,44 +258,15 @@ func hashToG1(data []byte) (*bls.G1Projective, error) {
 		return h
 	}
 
-	g1 := bls12381.NewG1()
-
-	p0, err := g1.HashToCurve(newBlake2b, data, dstG1)
-	if err != nil {
-		return nil, fmt.Errorf("hash to curve: %w", err)
-	}
-
-	p0Bytes := g1.ToUncompressed(p0)
-
-	var p0BytesArr [g1UncompressedSize]byte
-
-	copy(p0BytesArr[:], p0Bytes)
-
-	var p0Bls bls.G1Affine
-
-	p0Bls.SetRawBytes(p0BytesArr)
-
-	return p0Bls.ToProjective(), nil
+	return bbs.g1.HashToCurve(newBlake2b, data, dstG1)
 }
 
-func compareTwoPairings(p1 *bls.G1Projective, q1 *bls.G2Projective, p2 *bls.G1Projective, q2 *bls.G2Projective) bool {
+func compareTwoPairingsKilic(p1 *bls12381.PointG1, q1 *bls12381.PointG2,
+	p2 *bls12381.PointG1, q2 *bls12381.PointG2) bool {
 	engine := bls12381.NewEngine()
 
-	// Here we convert valid bls G1 and G2 points to bls12381 ones using marshalling/unmarshalling,
-	// error is not possible.
-	//nolint:errcheck
-	addPairFunc := func(p *bls.G1Projective, q *bls.G2Projective) {
-		bytesG1 := p.ToAffine().SerializeBytes()
-		g1, _ := engine.G1.FromUncompressed(bytesG1[:])
-
-		bytesG2 := q.ToAffine().SerializeBytes()
-		g2, _ := engine.G2.FromUncompressed(bytesG2[:])
-
-		engine.AddPair(g1, g2)
-	}
-
-	addPairFunc(p1, q1)
-	addPairFunc(p2, q2)
+	engine.AddPair(p1, q1)
+	engine.AddPair(p2, q2)
 
 	return engine.Check()
 }

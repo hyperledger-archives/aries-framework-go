@@ -7,13 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	"errors"
-
-	"github.com/phoreproject/bls"
+	bls12381 "github.com/kilic/bls12-381"
 	"golang.org/x/crypto/blake2b"
 )
 
-func frFromOKM(message []byte) (*bls.FR, error) {
+func parseFr(data []byte) *bls12381.Fr {
+	return bls12381.NewFr().RedFromBytes(data)
+}
+
+func f2192() *bls12381.Fr {
+	return &bls12381.Fr{0, 0, 0, 1}
+}
+
+func frFromOKM(message []byte) *bls12381.Fr {
 	const (
 		eightBytes = 8
 		okmMiddle  = 24
@@ -27,46 +33,18 @@ func frFromOKM(message []byte) (*bls.FR, error) {
 	okm := h.Sum(nil)
 	emptyEightBytes := make([]byte, eightBytes)
 
-	elm, err := parseFr(append(emptyEightBytes, okm[:okmMiddle]...))
-	if err != nil {
-		return nil, err
-	}
+	elm := bls12381.NewFr().RedFromBytes(append(emptyEightBytes, okm[:okmMiddle]...))
+	elm.Mul(elm, f2192())
 
-	elm.MulAssign(f2192())
+	fr := bls12381.NewFr().RedFromBytes(append(emptyEightBytes, okm[okmMiddle:]...))
+	elm.Add(elm, fr)
 
-	fr, err := parseFr(append(emptyEightBytes, okm[okmMiddle:]...))
-	if err != nil {
-		return nil, err
-	}
-
-	elm.AddAssign(fr)
-
-	return elm, nil
+	return elm
 }
 
-func parseFr(data []byte) (*bls.FR, error) {
-	var arr [frCompressedSize]byte
+func frToRepr(fr *bls12381.Fr) *bls12381.Fr {
+	frRepr := bls12381.NewFr()
+	frRepr.RedMul(fr, &bls12381.Fr{1})
 
-	copy(arr[:], data)
-
-	fr := bls.FRReprToFR(bls.FRReprFromBytes(arr))
-	if fr == nil {
-		return nil, errors.New("invalid FR")
-	}
-
-	return fr, nil
-}
-
-func frToBytes(fr *bls.FR) []byte {
-	bytes := fr.ToRepr().Bytes()
-	return bytes[:]
-}
-
-func f2192() *bls.FR {
-	return bls.NewFr(&bls.FRRepr{
-		0x59476ebc41b4528f,
-		0xc5a30cb243fcc152,
-		0x2b34e63940ccbd72,
-		0x1e179025ca247088,
-	})
+	return frRepr
 }
