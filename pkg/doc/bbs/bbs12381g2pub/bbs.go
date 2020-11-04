@@ -143,7 +143,7 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 
 	exp := bls12381.NewFr().Set(privKey.FR)
 	exp.Add(exp, e)
-	exp = exp.Inverse()
+	exp.Inverse(exp)
 
 	sig := bbs.g1.New()
 	bbs.g1.MulScalar(sig, b, frToRepr(exp))

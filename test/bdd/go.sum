@@ -433,6 +433,8 @@ github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e h1:IuSryDFXv17anJ2su
 github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e/go.mod h1:xHJKf2TLXUA39Dhv8k5QmQOxLsbrb1KeTS/3ERfLeqc=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef h1:nZF/RNtWszq+WD8+p7blxWsWJjiTgdGQ1rv2IEffLj8=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef/go.mod h1:XXfR6YFCRSrkEXbNlIyDsgXVNJWVUV30m/ebkVy9n6s=
+github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8 h1:VtbBrpzy6rg4EHKOgGDOhBlFg8WWb0dFTYGz140gtj4=
+github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8/go.mod h1:gcwDl9YLyNc3H3wmPXamu+8evD8TYUa6BjTsWnvdn7A=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6 h1:GlzMPygeehW/W8tq2vBiN6DLsTFY5xtvQysu1aqqGoQ=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
 github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b h1:2iCsl09MuOAnpphBNHI/wgHeSK38Jt0A8n1yWYrVF2I=
