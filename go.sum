@@ -283,6 +283,10 @@ github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e h1:IuSryDFXv17anJ2su
 github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e/go.mod h1:xHJKf2TLXUA39Dhv8k5QmQOxLsbrb1KeTS/3ERfLeqc=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef h1:nZF/RNtWszq+WD8+p7blxWsWJjiTgdGQ1rv2IEffLj8=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef/go.mod h1:XXfR6YFCRSrkEXbNlIyDsgXVNJWVUV30m/ebkVy9n6s=
+github.com/trustbloc/bls12-381 v0.0.0-20201101201458-d97cf51104c4 h1:VmMex+YdkqqAUOuSIomLXCoCRiKZza6pNLxCvyYfJFw=
+github.com/trustbloc/bls12-381 v0.0.0-20201101201458-d97cf51104c4/go.mod h1:gcwDl9YLyNc3H3wmPXamu+8evD8TYUa6BjTsWnvdn7A=
+github.com/trustbloc/bls12-381 v0.0.0-20201103210009-cfbc37ced5f5 h1:ecf4AkIPaXNM3IP0TTKNl3Fjtvyi58X4W5HV8rvH5hc=
+github.com/trustbloc/bls12-381 v0.0.0-20201103210009-cfbc37ced5f5/go.mod h1:gcwDl9YLyNc3H3wmPXamu+8evD8TYUa6BjTsWnvdn7A=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1MKGO71j3jIV7e2aKX72/DTrzLjq9R8kc6xk=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=

@@ -13,8 +13,7 @@ import (
 	"hash"
 	"io"
 
-	"github.com/phoreproject/bls"
-	"github.com/phoreproject/bls/g2pubs"
+	bls12381 "github.com/kilic/bls12-381"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -25,17 +24,12 @@ const (
 
 // PublicKey defines BLS Public Key.
 type PublicKey struct {
-	PubKey *g2pubs.PublicKey
+	PointG2 *bls12381.PointG2
 }
 
 // PrivateKey defines BLS Public Key.
 type PrivateKey struct {
-	PrivKey *g2pubs.SecretKey
-}
-
-// GetFRElement returns FR element of the PrivateKey.
-func (k *PrivateKey) GetFRElement() *bls.FR {
-	return k.PrivKey.GetFRElement()
+	FR *bls12381.Fr
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.
@@ -44,27 +38,27 @@ func UnmarshalPrivateKey(privKeyBytes []byte) (*PrivateKey, error) {
 		return nil, errors.New("invalid size of private key")
 	}
 
-	fr, err := parseFr(privKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
-	}
+	fr := parseFr(privKeyBytes)
 
 	return &PrivateKey{
-		PrivKey: g2pubs.NewSecretKeyFromFR(fr),
+		FR: fr,
 	}, nil
 }
 
 // Marshal marshals PrivateKey.
 func (k *PrivateKey) Marshal() ([]byte, error) {
-	bytes := k.PrivKey.Serialize()
-	return bytes[:], nil
+	bytes := k.FR.RedToBytes()
+	return bytes, nil
 }
 
 // PublicKey returns a Public Key as G2 point generated from the Private Key.
 func (k *PrivateKey) PublicKey() *PublicKey {
-	pubKeyG2Point := bls.G2AffineOne.MulFR(k.PrivKey.GetFRElement().ToRepr())
+	g2 := bls12381.NewG2()
 
-	return &PublicKey{g2pubs.NewPublicKeyFromG2(pubKeyG2Point.ToAffine())}
+	pointG2 := g2.One()
+	g2.MulScalar(pointG2, pointG2, frToRepr(k.FR))
+
+	return &PublicKey{pointG2}
 }
 
 // UnmarshalPublicKey parses a PublicKey from bytes.
@@ -73,30 +67,24 @@ func UnmarshalPublicKey(pubKeyBytes []byte) (*PublicKey, error) {
 		return nil, errors.New("invalid size of public key")
 	}
 
-	var pkBytesArr [bls12381G2PublicKeyLen]byte
+	g2 := bls12381.NewG2()
 
-	copy(pkBytesArr[:], pubKeyBytes[:bls12381G2PublicKeyLen])
-
-	publicKey, err := g2pubs.DeserializePublicKey(pkBytesArr)
+	pointG2, err := g2.FromCompressed(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("deserialize public key: %w", err)
 	}
 
 	return &PublicKey{
-		PubKey: publicKey,
+		PointG2: pointG2,
 	}, nil
 }
 
 // Marshal marshals PublicKey.
 func (pk *PublicKey) Marshal() ([]byte, error) {
-	pkBytes := pk.PubKey.Serialize()
+	g2 := bls12381.NewG2()
+	pkBytes := g2.ToCompressed(pk.PointG2)
 
-	return pkBytes[:], nil
-}
-
-// GetPoint returns G2 point of the PublicKey.
-func (pk *PublicKey) GetPoint() *bls.G2Projective {
-	return pk.PubKey.GetPoint()
+	return pkBytes, nil
 }
 
 // GenerateKeyPair generates BBS+ PublicKey and PrivateKey pair.
@@ -110,12 +98,9 @@ func GenerateKeyPair(h func() hash.Hash, seed []byte) (*PublicKey, *PrivateKey, 
 		return nil, nil, err
 	}
 
-	privKeyFr, err := frFromOKM(okm)
-	if err != nil {
-		return nil, nil, fmt.Errorf("convert OKM to FR: %w", err)
-	}
+	privKeyFr := frFromOKM(okm)
 
-	privKey := &PrivateKey{PrivKey: g2pubs.NewSecretKeyFromFR(privKeyFr)}
+	privKey := &PrivateKey{privKeyFr}
 	pubKey := privKey.PublicKey()
 
 	return pubKey, privKey, nil

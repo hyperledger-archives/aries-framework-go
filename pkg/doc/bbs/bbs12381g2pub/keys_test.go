@@ -52,11 +52,6 @@ func TestPrivateKey_Marshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, privKeyUnmarshalled)
 	require.Equal(t, privKey, privKeyUnmarshalled)
-
-	privKeyUnmarshalled, err = bbs.UnmarshalPrivateKey(getInvalidFrBytes())
-	require.Error(t, err)
-	require.Nil(t, privKeyUnmarshalled)
-	require.EqualError(t, err, "parse private key: invalid FR")
 }
 
 func TestPrivateKey_PublicKey(t *testing.T) {
