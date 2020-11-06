@@ -1,0 +1,100 @@
+/*
+Copyright Google Inc., SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+// Definitions for Elliptic Curve Diffie-Hellman - Ephemeral Static (ECDH-ES) and 1 Pass Unified model (ECDH-1PU).
+syntax = "proto3";
+
+package google.crypto.tink;
+import "proto/common.proto";
+import "proto/tink.proto";
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option objc_class_prefix = "TINKPB";
+option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto";
+
+// Protos keys for (external ECDH) KW and AEAD encryption.
+//
+//
+// ECDH-keys represent ECDHEncryption and ECDHDecryption primitives.
+
+// KeyType, EC or OKP
+enum KeyType {
+  UNKNOWN_KEY_TYPE = 0;
+  EC = 1;
+  OKP = 2;
+}
+
+// Parameters of KW (Key Wrapping) for storage only as KW is done outside the Tink key primitive.
+message EcdhKwParams {
+  // Required.
+  EllipticCurveType curve_type = 1;
+
+  // Required.
+  KeyType key_type = 2;
+}
+
+// Parameters of AEAD Content encryption.
+message EcdhAeadEncParams {
+  // Required.
+  KeyTemplate aead_enc = 1; // Contains e.g. AesGcmKeyFormat.
+
+  // Required for primitive execution, not storage.
+  bytes CEK = 2; // Contains cek used for AES GCM encryption
+}
+
+message EcdhAeadParams {
+  // Key Wrapping.
+  // Required.
+  EcdhKwParams kw_params = 1;
+
+  // Content Encryption.
+  // Required.
+  EcdhAeadEncParams enc_params = 2;
+
+  // EC point format.
+  // Required.
+  EcPointFormat ec_point_format = 3;
+}
+
+// EcdhAeadPublicKey represents ECDHEncrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAeadPublicKey
+message EcdhAeadPublicKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  EcdhAeadParams params = 2;
+
+  // Required.
+  string KID = 3;
+
+  // Affine coordinates of the public key in bigendian representation.
+  // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
+  // Required.
+  bytes x = 4;
+
+  // Required.
+  bytes y = 5;
+}
+
+// EcdhAeadPrivateKey represents ECDHDecrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAeadPrivateKey
+message EcdhAeadPrivateKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  EcdhAeadPublicKey public_key = 2;
+
+  // Required.
+  bytes key_value = 3; // Big integer in bigendian representation.
+}
+
+message EcdhAeadKeyFormat {
+  // Required.
+  EcdhAeadParams params = 1;
+}

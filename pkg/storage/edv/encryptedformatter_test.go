@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package edv
 
 import (
@@ -10,10 +16,12 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 )
 
 const (
@@ -163,7 +171,7 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 
 		structuredDocument, err := formatter.ParseValue(encryptedDocumentBytes)
 		require.EqualError(t, err,
-			fmt.Errorf(failDecryptJWE, errors.New("ecdhes_factory: decryption failed")).Error())
+			fmt.Errorf(failDecryptJWE, errors.New("jwedecrypt: failed to unwrap cek")).Error())
 		require.Nil(t, structuredDocument)
 	})
 }
@@ -178,8 +186,15 @@ func createEncryptedFormatter(t *testing.T) *EncryptedFormatter {
 }
 
 func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecrypt) {
-	keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
+
+	keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	kmsSvc := &mockkms.KeyManager{
+		GetKeyValue: keyHandle,
+	}
 
 	pubKH, err := keyHandle.Public()
 	require.NoError(t, err)
@@ -190,16 +205,16 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	require.NoError(t, err)
 
-	ecPubKey := new(composite.PublicKey)
+	ecPubKey := new(cryptoapi.PublicKey)
 
 	err = json.Unmarshal(buf.Bytes(), ecPubKey)
 	require.NoError(t, err)
 
 	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "EDVEncryptedDocument", "", nil,
-		[]*composite.PublicKey{ecPubKey})
+		[]*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
 	require.NoError(t, err)
 
-	decrypter := jose.NewJWEDecrypt(nil, keyHandle)
+	decrypter := jose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
 
 	return encrypter, decrypter
 }

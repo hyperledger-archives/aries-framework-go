@@ -15,7 +15,7 @@ import (
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -40,9 +40,10 @@ var logger = log.New("aries-framework/pkg/didcomm/packer/authcrypt")
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
-	kms          kms.KeyManager
-	encAlg       jose.EncAlg
-	thirdPartyKS storage.Store
+	kms           kms.KeyManager
+	encAlg        jose.EncAlg
+	thirdPartyKS  storage.Store
+	cryptoService cryptoapi.Crypto
 }
 
 // New will create an Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys.
@@ -54,6 +55,11 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	k := ctx.KMS()
 	if k == nil {
 		return nil, errors.New("authcrypt: failed to create packer because KMS is empty")
+	}
+
+	c := ctx.Crypto()
+	if c == nil {
+		return nil, errors.New("authcrypt: failed to create packer because crypto service is empty")
 	}
 
 	sp := ctx.StorageProvider()
@@ -72,9 +78,10 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	}
 
 	return &Packer{
-		kms:          k,
-		encAlg:       encAlg,
-		thirdPartyKS: store,
+		kms:           k,
+		encAlg:        encAlg,
+		thirdPartyKS:  store,
+		cryptoService: c,
 	}, nil
 }
 
@@ -99,7 +106,8 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, string(senderID), kh.(*keyset.Handle), recECKeys)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, string(senderID), kh.(*keyset.Handle), recECKeys,
+		p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -124,11 +132,11 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 	return []byte(s), nil
 }
 
-func unmarshalRecipientKeys(keys [][]byte) ([]*composite.PublicKey, error) {
-	var pubKeys []*composite.PublicKey
+func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, error) {
+	var pubKeys []*cryptoapi.PublicKey
 
 	for _, key := range keys {
-		var ecKey *composite.PublicKey
+		var ecKey *cryptoapi.PublicKey
 
 		err := json.Unmarshal(key, &ecKey)
 		if err != nil {
@@ -182,7 +190,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("authcrypt Unpack: invalid keyset handle")
 		}
 
-		jweDecrypter := jose.NewJWEDecrypt(p.thirdPartyKS, keyHandle)
+		jweDecrypter := jose.NewJWEDecrypt(p.thirdPartyKS, p.cryptoService, p.kms)
 
 		pt, err = jweDecrypter.Decrypt(jwe)
 		if err != nil {

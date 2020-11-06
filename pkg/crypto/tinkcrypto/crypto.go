@@ -25,16 +25,13 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	ecdh1pusubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu/subtle"
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 )
 
 const (
-	ecdhesKWAlg  = ecdhessubtle.A256KWAlg
-	ecdh1puKWAlg = ecdh1pusubtle.A256KWAlg
-	keySize      = 32
+	// ECDHESA256KWAlg is the ECDH-ES with AES-GCM 256 key wrapping algorithm.
+	ECDHESA256KWAlg = "ECDH-ES+A256KW"
+	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-GCM 256 key wrapping algorithm.
+	ECDH1PUA256KWAlg = "ECDH-1PU+A256KW"
 )
 
 var errBadKeyHandleFormat = errors.New("bad key handle format")
@@ -54,7 +51,7 @@ func New() (*Crypto, error) {
 	return &Crypto{kw: &keyWrapperSupport{}}, nil
 }
 
-// Encrypt will encrypt msg using the implementation's corresponding encryption key and primitive in kh.
+// Encrypt will encrypt msg using the implementation's corresponding encryption key and primitive in kh of a public key.
 func (t *Crypto) Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
@@ -100,7 +97,8 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 	return ivSize
 }
 
-// Decrypt will decrypt cipher using the implementation's corresponding encryption key referenced by kh.
+// Decrypt will decrypt cipher using the implementation's corresponding encryption key referenced by kh of
+// a private key.
 func (t *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
@@ -131,7 +129,7 @@ func (t *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, err
 	return pt, nil
 }
 
-// Sign will sign msg using the implementation's corresponding signing key referenced by kh.
+// Sign will sign msg using the implementation's corresponding signing key referenced by kh of a private key.
 func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
@@ -151,7 +149,8 @@ func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 	return s, nil
 }
 
-// Verify will verify sig signature of msg using the implementation's corresponding signing key referenced by kh.
+// Verify will verify sig signature of msg using the implementation's corresponding signing key referenced by kh of
+// a public key.
 func (t *Crypto) Verify(sig, msg []byte, kh interface{}) error {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
@@ -203,51 +202,53 @@ func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
 	return macPrimitive.VerifyMAC(macBytes, data)
 }
 
-// WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key found in kh.
+// WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
 // The optional 'wrapKeyOpts' specifies the sender kh for 1PU key wrapping.
+// This function is used with the following parameters:
+//  - Key Wrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSenderKH() option) over A256KW as
+// 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
+//  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
 // returns the resulting key wrapping info as *composite.RecipientWrappedKey or error in case of wrapping failure.
-func (t *Crypto) WrapKey(cek, apu, apv []byte, kh interface{},
-	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*composite.RecipientWrappedKey, error) {
+func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
+	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*cryptoapi.RecipientWrappedKey, error) {
+	if recPubKey == nil {
+		return nil, errors.New("wrapKey: recipient public key is required")
+	}
+
 	pOpts := cryptoapi.NewOpt()
 
 	for _, opt := range wrapKeyOpts {
 		opt(pOpts)
 	}
 
-	pubKH, ok := kh.(*keyset.Handle)
-	if !ok {
-		return nil, fmt.Errorf("wrapKey: %w", errBadKeyHandleFormat)
-	}
-
-	pubKey, err := keyio.ExtractPrimaryPublicKey(pubKH)
-	if err != nil {
-		return nil, fmt.Errorf("wrapKey: failed to extract recipient public key from kh: %w", err)
-	}
-
-	c, err := t.kw.getCurve(pubKey.Curve)
+	c, err := t.kw.getCurve(recPubKey.Curve)
 	if err != nil {
 		return nil, fmt.Errorf("wrapKey: failed to get curve of recipient key: %w", err)
 	}
 
-	recPubKey := &ecdsa.PublicKey{
+	pubKey := &ecdsa.PublicKey{
 		Curve: c,
-		X:     new(big.Int).SetBytes(pubKey.X),
-		Y:     new(big.Int).SetBytes(pubKey.Y),
+		X:     new(big.Int).SetBytes(recPubKey.X),
+		Y:     new(big.Int).SetBytes(recPubKey.Y),
 	}
 
-	ephemeralPriv, err := t.kw.generateKey(recPubKey.Curve)
+	ephemeralPriv, err := t.kw.generateKey(pubKey.Curve)
 	if err != nil {
 		return nil, fmt.Errorf("wrapKey: failed to generate EPK: %w", err)
 	}
 
-	return t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKH(), ephemeralPriv, recPubKey, pubKey.KID)
+	return t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKH(), ephemeralPriv, pubKey, recPubKey.KID)
 }
 
 // UnwrapKey unwraps a key in recWK using ECDH (ES or 1PU) with recipient private key kh.
 // The optional 'wrapKeyOpts' specifies the sender kh for 1PU key unwrapping.
 // Note, if the option was used in WrapKey(), then it must be set here as well for a successful unwrapping.
+// This function is used with the following parameters:
+//  - Key Unwrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSenderKH() option) over A256KW as
+// 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
+//  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
 // returns the resulting unwrapping key or error in case of unwrapping failure.
-func (t *Crypto) UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{},
+func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
 	wrapKeyOpts ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	if recWK == nil {
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")

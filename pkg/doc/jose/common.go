@@ -82,6 +82,11 @@ const (
 	// HeaderB64 determines whether the payload is represented in the JWS and the JWS Signing
 	// Input as ASCII(BASE64URL(JWS Payload)) or as the JWS Payload value itself with no encoding performed.
 	HeaderB64Payload = "b64" // bool
+	// A256GCMALG is the default content encryption algorithm value as per
+	// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
+	A256GCMALG = "A256GCM"
+	// DIDCommEncType representing the JWE 'Typ' protected type header.
+	DIDCommEncType = "didcomm-envelope-enc"
 )
 
 // Headers represents JOSE headers.

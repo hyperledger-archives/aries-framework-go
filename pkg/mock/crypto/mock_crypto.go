@@ -8,7 +8,6 @@ package crypto
 
 import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 )
 
 // SignFunc mocks Crypto's Sign() function, it useful for executing custom signing with the help of SignKey.
@@ -29,7 +28,7 @@ type Crypto struct {
 	ComputeMACValue   []byte
 	ComputeMACErr     error
 	VerifyMACErr      error
-	WrapValue         *composite.RecipientWrappedKey
+	WrapValue         *cryptoapi.RecipientWrappedKey
 	WrapError         error
 	UnwrapValue       []byte
 	UnwrapError       error
@@ -70,13 +69,13 @@ func (c *Crypto) VerifyMAC(mac, data []byte, kh interface{}) error {
 }
 
 // WrapKey returns a mocked value.
-func (c *Crypto) WrapKey(cek, apu, apv []byte, kh interface{},
-	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*composite.RecipientWrappedKey, error) {
+func (c *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
+	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*cryptoapi.RecipientWrappedKey, error) {
 	return c.WrapValue, c.WrapError
 }
 
 // UnwrapKey returns a mocked value.
-func (c *Crypto) UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{},
+func (c *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
 	wrapKeyOpts ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	return c.UnwrapValue, c.UnwrapError
 }

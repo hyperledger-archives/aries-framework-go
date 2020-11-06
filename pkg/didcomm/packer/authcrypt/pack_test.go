@@ -15,7 +15,8 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -39,7 +40,10 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 		Store: thirdPartyKeyStore,
 	}}
 
-	authPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
 	require.NoError(t, err)
 
 	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
@@ -73,10 +77,13 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 func TestAuthcryptPackerFail(t *testing.T) {
 	k := createKMS(t)
 
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
 	t.Run("new Pack fail with nil thirdPartyKS provider", func(t *testing.T) {
-		_, err := New(newMockProvider(nil, k), jose.A256GCM)
+		_, err = New(newMockProvider(nil, k, cryptoSvc), jose.A256GCM)
 		require.EqualError(t, err, "authcrypt: failed to create packer because StorageProvider is empty")
 	})
 
@@ -86,7 +93,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 			FailNamespace:      ThirdPartyKeysDB,
 		}
 
-		_, err := New(newMockProvider(badStoreProvider, k), jose.A256GCM)
+		_, err = New(newMockProvider(badStoreProvider, k, cryptoSvc), jose.A256GCM)
 		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdpartykeysdb")
 	})
 
@@ -96,32 +103,32 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	}}
 
 	t.Run("new Pack fail with nil kms", func(t *testing.T) {
-		_, err := New(newMockProvider(mockStoreProvider, nil), jose.A256GCM)
+		_, err = New(newMockProvider(mockStoreProvider, nil, cryptoSvc), jose.A256GCM)
 		require.EqualError(t, err, "authcrypt: failed to create packer because KMS is empty")
 	})
 
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")
-	authPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
+	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
 	require.NoError(t, err)
 
 	mockStoreMap[skid] = senderKey
 	skidB := []byte(skid)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
-		_, err := authPacker.Pack(origMsg, nil, nil)
+		_, err = authPacker.Pack(origMsg, nil, nil)
 		require.EqualError(t, err, "authcrypt Pack: empty recipientsPubKeys")
 	})
 
 	t.Run("pack fail with invalid recipients keys", func(t *testing.T) {
-		_, err := authPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
+		_, err = authPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
 		require.EqualError(t, err, "authcrypt Pack: failed to convert recipient keys: invalid character 'i' "+
 			"looking for beginning of value")
 	})
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k), jose.EncAlg(invalidAlg))
+		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.EncAlg(invalidAlg))
 		require.NoError(t, err)
 
 		_, err = invalidAuthPacker.Pack(origMsg, skidB, recipientsKeys)
@@ -137,7 +144,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		badKMS, err := localkms.New("local-lock://test/key/uri", p)
 		require.NoError(t, err)
 
-		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS), jose.A256GCM)
+		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		_, err = badAuthPacker.Pack(origMsg, skidB, recipientsKeys)
@@ -145,7 +152,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		_, err = validAuthPacker.Pack(origMsg, skidB, recipientsKeys)
@@ -157,7 +164,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(origMsg, skidB, [][]byte{recipientsKeys[0]})
@@ -177,17 +184,17 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
 		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k), jose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(origMsg, skidB, newRecKeys)
 		require.NoError(t, err)
 
 		// rotate keys to update keyID and force a failure
-		_, _, err = k.Rotate(kms.ECDH1PU256AES256GCMType, kids[0])
+		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[0])
 		require.NoError(t, err)
 
-		_, _, err = k.Rotate(kms.ECDH1PU256AES256GCMType, kids[1])
+		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[1])
 		require.NoError(t, err)
 
 		_, err = validAuthPacker.Unpack(ct)
@@ -221,7 +228,7 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 func createAndMarshalKey(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
 	t.Helper()
 
-	kid, keyHandle, err := k.Create(kms.ECDH1PU256AES256GCMType)
+	kid, keyHandle, err := k.Create(kms.ECDH256KWAES256GCMType)
 	require.NoError(t, err)
 
 	kh, ok := keyHandle.(*keyset.Handle)
@@ -230,7 +237,7 @@ func createAndMarshalKey(t *testing.T, k *localkms.LocalKMS) (string, []byte, *k
 	pubKeyBytes, err := exportPubKeyBytes(kh)
 	require.NoError(t, err)
 
-	key := &composite.PublicKey{}
+	key := &cryptoapi.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
 
@@ -252,9 +259,11 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	return k
 }
 
-func newMockProvider(customStoreProvider storage.Provider, customKMS kms.KeyManager) *mockprovider.Provider {
+func newMockProvider(customStoreProvider storage.Provider, customKMS kms.KeyManager,
+	customCrypto cryptoapi.Crypto) *mockprovider.Provider {
 	return &mockprovider.Provider{
 		KMSValue:             customKMS,
 		StorageProviderValue: customStoreProvider,
+		CryptoValue:          customCrypto,
 	}
 }

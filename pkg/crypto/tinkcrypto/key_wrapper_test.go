@@ -20,7 +20,8 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 )
 
 type mockKeyWrapperSupport struct {
@@ -71,10 +72,13 @@ func (w *mockKeyWrapperSupport) deriveRecipient1Pu(kwAlg string, apu, apv []byte
 }
 
 func TestWrapKey_Failure(t *testing.T) {
-	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(keySize))
+	recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
+	require.NoError(t, err)
+
+	cek := random.GetRandomBytes(uint32(defKeySize))
 	apu := []byte("sender")
 	apv := []byte("recipient")
 
@@ -104,7 +108,7 @@ func TestWrapKey_Failure(t *testing.T) {
 	_, err = c.WrapKey(cek, apu, apv, recipientKey)
 	require.EqualError(t, err, "wrapKey: failed to create new Cipher: createCipher failed")
 
-	aesCipher, err := aes.NewCipher(random.GetRandomBytes(uint32(keySize)))
+	aesCipher, err := aes.NewCipher(random.GetRandomBytes(uint32(defKeySize)))
 	require.NoError(t, err)
 
 	// test WrapKey with mocked Wrap call error
@@ -121,10 +125,13 @@ func TestWrapKey_Failure(t *testing.T) {
 }
 
 func TestUnwrapKey_Failure(t *testing.T) {
-	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(keySize))
+	recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
+	require.NoError(t, err)
+
+	cek := random.GetRandomBytes(uint32(defKeySize))
 	apu := []byte("sender")
 	apv := []byte("recipient")
 
@@ -137,7 +144,7 @@ func TestUnwrapKey_Failure(t *testing.T) {
 	// test UnwrapKey with mocked getCurve error
 	c := Crypto{kw: &mockKeyWrapperSupport{getCurveErr: errors.New("bad Curve")}}
 
-	_, err = c.UnwrapKey(wpKey, recipientKey)
+	_, err = c.UnwrapKey(wpKey, recipientKeyHandle)
 	require.EqualError(t, err, "unwrapKey: failed to GetCurve: bad Curve")
 
 	// test UnwrapKey with mocked createCipher error
@@ -148,11 +155,11 @@ func TestUnwrapKey_Failure(t *testing.T) {
 		},
 	}
 
-	_, err = c.UnwrapKey(wpKey, recipientKey)
+	_, err = c.UnwrapKey(wpKey, recipientKeyHandle)
 	require.EqualError(t, err, "unwrapKey: failed to create new Cipher: createCipher failed")
 
 	// test UnwrapKey with mocked unwrap error
-	aesCipher, err := aes.NewCipher(random.GetRandomBytes(uint32(keySize)))
+	aesCipher, err := aes.NewCipher(random.GetRandomBytes(uint32(defKeySize)))
 	require.NoError(t, err)
 
 	c = Crypto{
@@ -163,12 +170,12 @@ func TestUnwrapKey_Failure(t *testing.T) {
 		},
 	}
 
-	_, err = c.UnwrapKey(wpKey, recipientKey)
+	_, err = c.UnwrapKey(wpKey, recipientKeyHandle)
 	require.EqualError(t, err, "unwrapKey: failed to unwrap key: unwrap error")
 }
 
 func Test_ksToPrivateECDSAKey_Failure(t *testing.T) {
-	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	recipientKey, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	recipientKeyPub, err := recipientKey.Public()
@@ -176,7 +183,8 @@ func Test_ksToPrivateECDSAKey_Failure(t *testing.T) {
 
 	_, err = ksToPrivateECDSAKey(recipientKeyPub)
 	require.EqualError(t, err, "ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: "+
-		"can't extract unsupported private key")
+		"can't extract unsupported private key 'type.hyperledger.org/hyperledger.aries.crypto.tink"+
+		".EcdhAesAeadPublicKey'")
 }
 
 func Test_ksToPublicECDSAKey_Failure(t *testing.T) {
@@ -188,10 +196,10 @@ func Test_ksToPublicECDSAKey_Failure(t *testing.T) {
 
 	_, err = ksToPublicECDSAKey(symKey, nil)
 	require.EqualError(t, err, "ksToPublicECDSAKey: failed to extract public key from keyset handle: "+
-		"extractPrimaryPublicKey: failed to get public key content: keyset.Handle: keyset.Handle: keyset contains "+
-		"a non-private key")
+		"extractPrimaryPublicKey: failed to get public key content: exporting unencrypted secret key material "+
+		"is forbidden")
 
-	recipientKey, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	recipientKey, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	kw := &mockKeyWrapperSupport{
@@ -207,17 +215,17 @@ func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
 		kw: &mockKeyWrapperSupport{},
 	}
 
-	_, err := c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, nil, nil, nil)
+	_, err := c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, nil, nil)
 	require.EqualError(t, err, "unwrap: sender's public keyset handle option is required for 'ECDH-1PU+A256KW'")
 
 	c.kw = &mockKeyWrapperSupport{
 		getCurveErr: errors.New("getCurve error"),
 	}
 
-	senderKH, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
-	_, err = c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, senderKH, nil, nil)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, senderKH, nil, nil)
 	require.EqualError(t, err, "unwrapKey: failed to retrieve sender key: ksToPublicECDSAKey: failed to "+
 		"GetCurve: getCurve error")
 
@@ -225,6 +233,6 @@ func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
 		deriveRec1PuErr: errors.New("derive recipient 1pu error"),
 	}
 
-	_, err = c.deriveKEKAndUnwrap(ecdh1puKWAlg, nil, nil, nil, senderKH, nil, nil)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, senderKH, nil, nil)
 	require.EqualError(t, err, "unwrapKey: failed to derive kek: derive recipient 1pu error")
 }

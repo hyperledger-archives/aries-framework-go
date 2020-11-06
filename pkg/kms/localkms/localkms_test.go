@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
@@ -26,8 +25,6 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -263,12 +260,9 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.ECDSAP384TypeIEEEP1363,
 		kms.ECDSAP521TypeIEEEP1363,
 		kms.ED25519Type,
-		kms.ECDHES256AES256GCMType,
-		kms.ECDHES384AES256GCMType,
-		kms.ECDHES521AES256GCMType,
-		kms.ECDH1PU256AES256GCMType,
-		kms.ECDH1PU384AES256GCMType,
-		kms.ECDH1PU521AES256GCMType,
+		kms.ECDH256KWAES256GCMType,
+		kms.ECDH384KWAES256GCMType,
+		kms.ECDH521KWAES256GCMType,
 	}
 
 	for _, v := range keyTemplates {
@@ -282,10 +276,6 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.True(t, ok)
 		require.NotEmpty(t, ks)
 
-		if strings.Contains(string(v), "1PU") {
-			newKeyHandle = addRandomSenderKey(t, newKeyHandle, v)
-		}
-
 		// get key handle primitives
 		newKHPrimitives, e := newKeyHandle.(*keyset.Handle).Primitives()
 		require.NoError(t, e)
@@ -295,10 +285,6 @@ func TestLocalKMS_Success(t *testing.T) {
 		loadedKeyHandle, e := kmsService.Get(keyID)
 		require.NoError(t, e)
 		require.NotEmpty(t, loadedKeyHandle)
-
-		if strings.Contains(string(v), "1PU") {
-			loadedKeyHandle = addRandomSenderKey(t, loadedKeyHandle, v)
-		}
 
 		readKHPrimitives, e := loadedKeyHandle.(*keyset.Handle).Primitives()
 		require.NoError(t, e)
@@ -343,39 +329,6 @@ func TestLocalKMS_Success(t *testing.T) {
 			require.NoError(t, e)
 		}
 	}
-}
-
-func addRandomSenderKey(t *testing.T, ksHandle interface{}, kt kms.KeyType) interface{} {
-	t.Helper()
-
-	var c string
-
-	switch kt {
-	case kms.ECDH1PU256AES256GCMType:
-		c = "P-256"
-	case kms.ECDH1PU384AES256GCMType:
-		c = "P-384"
-	case kms.ECDH1PU521AES256GCMType:
-		c = "P-521"
-	default:
-		t.Error("invalid ECDH1PU key type")
-	}
-
-	// ECDH1PU handles represent recipient (private) keys by default and require a sender public key for invoking their
-	// respective key manager Primitive() call.
-	pHandle, pOK := ksHandle.(*keyset.Handle)
-	require.True(t, pOK)
-
-	// add a mock public sender key
-	pHandle, er := ecdh1pu.AddSenderKey(pHandle, &composite.PublicKey{
-		X:     new(big.Int).Bytes(),
-		Y:     new(big.Int).Bytes(),
-		Curve: c,
-		Type:  "EC",
-	})
-	require.NoError(t, er)
-
-	return pHandle
 }
 
 func TestLocalKMS_ImportPrivateKey(t *testing.T) {

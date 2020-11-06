@@ -22,7 +22,8 @@ func Test_ExtractPrivKey(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = extractPrivKey(badKey)
-	require.EqualError(t, err, "extractPrivKey: can't extract unsupported private key")
+	require.EqualError(t, err, "extractPrivKey: can't extract unsupported private key 'type.googleapis.com/"+
+		"google.crypto.tink.AesGcmKey'")
 
 	_, err = extractPrivKey(&keyset.Handle{})
 	require.EqualError(t, err, "extractPrivKey: retrieving private key failed: keyset.Handle: invalid keyset")

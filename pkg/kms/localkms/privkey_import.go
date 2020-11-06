@@ -184,7 +184,7 @@ func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset, opts ...kms.PrivateKeyOpt
 		return "", fmt.Errorf("invalid keyset data")
 	}
 
-	encrypted, err := l.masterKeyEnvAEAD.Encrypt(serializedKeyset, []byte{})
+	encrypted, err := l.primaryKeyEnvAEAD.Encrypt(serializedKeyset, []byte{})
 	if err != nil {
 		return "", fmt.Errorf("encrypted failed: %w", err)
 	}
