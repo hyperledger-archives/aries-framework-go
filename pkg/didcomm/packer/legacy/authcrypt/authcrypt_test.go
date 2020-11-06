@@ -19,6 +19,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -60,10 +62,15 @@ type provider struct {
 	storeProvider storage.Provider
 	kms           kms.KeyManager
 	secretLock    secretlock.Service
+	cryptoService cryptoapi.Crypto
 }
 
 func (p *provider) StorageProvider() storage.Provider {
 	return p.storeProvider
+}
+
+func (p *provider) Crypto() cryptoapi.Crypto {
+	return p.cryptoService
 }
 
 func newKMS(t *testing.T) (kms.KeyManager, storage.Store) {
@@ -101,9 +108,13 @@ func (p *provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
-func newWithKMS(k kms.KeyManager) *Packer {
+func newWithKMSAndCrypto(t *testing.T, k kms.KeyManager) *Packer {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	return New(&provider{
-		kms: k,
+		kms:           k,
+		cryptoService: c,
 	})
 }
 
@@ -136,7 +147,7 @@ func TestEncrypt(t *testing.T) {
 	senderKey := createKey(t, testingKMS)
 
 	t.Run("Failure: pack without any recipients", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
 		_, err := packer.Pack([]byte("Test Message"), senderKey, [][]byte{})
@@ -144,7 +155,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure: pack with an invalid recipient key", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
 		badKey := "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"
@@ -157,7 +168,7 @@ func TestEncrypt(t *testing.T) {
 	recipientKey := createKey(t, testingKMS)
 
 	t.Run("Failure: pack with an invalid-size sender key", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
 		_, err := packer.Pack([]byte("Test Message"), []byte{1, 2, 3}, [][]byte{recipientKey})
@@ -167,7 +178,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
 		enc, e := packer.Pack([]byte("Pack my box with five dozen liquor jugs!"),
@@ -184,7 +195,7 @@ func TestEncrypt(t *testing.T) {
 		rec4Key := createKey(t, testingKMS)
 
 		recipientKeys := [][]byte{rec1Key, rec2Key, rec3Key, rec4Key}
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
 		enc, err := packer.Pack([]byte("God! a red nugget! A fat egg under a dog!"), senderKey1, recipientKeys)
@@ -206,7 +217,7 @@ func TestEncrypt(t *testing.T) {
 		source := insecurerand.NewSource(5937493) // constant fixed to ensure constant output
 		constRand := insecurerand.New(source)     //nolint:gosec
 
-		packer := newWithKMS(kms2)
+		packer := newWithKMSAndCrypto(t, kms2)
 		require.NotEmpty(t, packer)
 		packer.randSource = constRand
 		enc, err := packer.Pack(nil, base58.Decode(senderPub), [][]byte{base58.Decode(recipientPub)})
@@ -231,7 +242,7 @@ func TestEncrypt(t *testing.T) {
 		source := insecurerand.NewSource(6572692) // constant fixed to ensure constant output
 		constRand := insecurerand.New(source)     //nolint:gosec
 
-		packer := newWithKMS(senderKMS)
+		packer := newWithKMSAndCrypto(t, senderKMS)
 		require.NotEmpty(t, packer)
 		packer.randSource = constRand
 		enc, err := packer.Pack(
@@ -254,7 +265,7 @@ func TestEncryptComponents(t *testing.T) {
 	testKMS, _ := newKMS(t)
 	require.NoError(t, persistKey(t, senderPub, senderPriv, testKMS))
 
-	packer := newWithKMS(testKMS)
+	packer := newWithKMSAndCrypto(t, testKMS)
 
 	t.Run("Failure: content encryption nonce generation fails", func(t *testing.T) {
 		failRand := newFailReader(0, rand.Reader)
@@ -308,7 +319,7 @@ func TestEncryptComponents(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	packer2 := newWithKMS(testKMS)
+	packer2 := newWithKMSAndCrypto(t, testKMS)
 
 	t.Run("Failure: generate recipient header with bad sender key", func(t *testing.T) {
 		_, err := packer2.buildRecipient(&[32]byte{}, []byte(""), base58.Decode(rec1Pub))
@@ -333,7 +344,7 @@ func TestDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success: pack then unpack, same packer", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMSAndCrypto(t, testingKMS)
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
 
 		var (
@@ -363,8 +374,8 @@ func TestDecrypt(t *testing.T) {
 
 		require.NoError(t, err)
 
-		sendPacker := newWithKMS(testingKMS)
-		rec2Packer := newWithKMS(rec2KMS)
+		sendPacker := newWithKMSAndCrypto(t, testingKMS)
+		rec2Packer := newWithKMSAndCrypto(t, rec2KMS)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
 
@@ -382,7 +393,7 @@ func TestDecrypt(t *testing.T) {
 		require.Equal(t, rec2Key, env.ToKey)
 
 		emptyKMS, _ := newKMS(t)
-		rec4Packer := newWithKMS(emptyKMS)
+		rec4Packer := newWithKMSAndCrypto(t, emptyKMS)
 
 		_, err = rec4Packer.Unpack(enc)
 		require.NotNil(t, err)
@@ -400,7 +411,7 @@ func TestDecrypt(t *testing.T) {
 		recKMS, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recPub, recPriv, recKMS))
 
-		recPacker := newWithKMS(recKMS)
+		recPacker := newWithKMSAndCrypto(t, recKMS)
 
 		var envOut *transport.Envelope
 		envOut, err = recPacker.Unpack([]byte(env))
@@ -423,7 +434,7 @@ func TestDecrypt(t *testing.T) {
 		recKMS, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recPub, recPriv, recKMS))
 
-		recPacker := newWithKMS(recKMS)
+		recPacker := newWithKMSAndCrypto(t, recKMS)
 
 		var envOut *transport.Envelope
 		envOut, err = recPacker.Unpack([]byte(env))
@@ -443,7 +454,7 @@ func TestDecrypt(t *testing.T) {
 		recKMS, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recPub, recPriv, recKMS))
 
-		recPacker := newWithKMS(recKMS)
+		recPacker := newWithKMSAndCrypto(t, recKMS)
 
 		_, err = recPacker.Unpack([]byte(env))
 		require.NotNil(t, err)
@@ -467,7 +478,7 @@ func unpackComponentFailureTest(t *testing.T, protectedHeader, msg, recKeyPub, r
 
 	require.NoError(t, err)
 
-	recPacker := newWithKMS(w)
+	recPacker := newWithKMSAndCrypto(t, w)
 	_, err = recPacker.Unpack([]byte(fullMessage))
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), errString)
@@ -483,7 +494,7 @@ func TestUnpackComponents(t *testing.T) {
 		w, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recKeyPub, recKeyPriv, w))
 
-		recPacker := newWithKMS(w)
+		recPacker := newWithKMSAndCrypto(t, w)
 
 		_, err := recPacker.Unpack([]byte(msg))
 		require.EqualError(t, err, "invalid character 'e' looking for beginning of value")
@@ -495,7 +506,7 @@ func TestUnpackComponents(t *testing.T) {
 		w, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recKeyPub, recKeyPriv, w))
 
-		recPacker := newWithKMS(w)
+		recPacker := newWithKMSAndCrypto(t, w)
 
 		_, err := recPacker.Unpack([]byte(msg))
 		require.EqualError(t, err, "illegal base64 data at input byte 0")

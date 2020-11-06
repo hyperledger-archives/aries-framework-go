@@ -21,11 +21,13 @@ import (
 	"github.com/google/tink/go/keyset"
 	josecipher "github.com/square/go-jose/v3/cipher"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
-	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
+
+const defKeySize = 32
 
 type keyWrapper interface {
 	getCurve(curve string) (elliptic.Curve, error)
@@ -79,27 +81,27 @@ func (w *keyWrapperSupport) deriveRecipient1Pu(alg string, apu, apv []byte, ephe
 }
 
 func (t *Crypto) deriveKEKAndWrap(cek, apu, apv []byte, senderKH interface{}, ephemeralPrivKey *ecdsa.PrivateKey,
-	recPubKey *ecdsa.PublicKey, recKID string) (*composite.RecipientWrappedKey, error) {
+	recPubKey *ecdsa.PublicKey, recKID string) (*cryptoapi.RecipientWrappedKey, error) {
 	var kek []byte
 
 	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
-	keyType := compositepb.KeyType_EC.String()
-	wrappingAlg := ecdhesKWAlg
+	keyType := ecdhpb.KeyType_EC.String()
+	wrappingAlg := ECDHESA256KWAlg
 
 	if senderKH != nil { // ecdh1pu
-		wrappingAlg = ecdh1puKWAlg
+		wrappingAlg = ECDH1PUA256KWAlg
 
 		senderPrivKey, err := ksToPrivateECDSAKey(senderKH)
 		if err != nil {
 			return nil, fmt.Errorf("wrapKey: failed to retrieve sender key: %w", err)
 		}
 
-		kek, err = t.kw.deriveSender1Pu(wrappingAlg, apu, apv, ephemeralPrivKey, senderPrivKey, recPubKey, keySize)
+		kek, err = t.kw.deriveSender1Pu(wrappingAlg, apu, apv, ephemeralPrivKey, senderPrivKey, recPubKey, defKeySize)
 		if err != nil {
 			return nil, fmt.Errorf("wrapKey: failed to derive key: %w", err)
 		}
 	} else { // ecdhes
-		kek = josecipher.DeriveECDHES(wrappingAlg, apu, apv, ephemeralPrivKey, recPubKey, keySize)
+		kek = josecipher.DeriveECDHES(wrappingAlg, apu, apv, ephemeralPrivKey, recPubKey, defKeySize)
 	}
 
 	block, err := t.kw.createCipher(kek)
@@ -112,10 +114,10 @@ func (t *Crypto) deriveKEKAndWrap(cek, apu, apv []byte, senderKH interface{}, ep
 		return nil, fmt.Errorf("wrapKey: failed to wrap key: %w", err)
 	}
 
-	return &composite.RecipientWrappedKey{
+	return &cryptoapi.RecipientWrappedKey{
 		KID:          recKID,
 		EncryptedCEK: wk,
-		EPK: composite.PublicKey{
+		EPK: cryptoapi.PublicKey{
 			X:     ephemeralPrivKey.PublicKey.X.Bytes(),
 			Y:     ephemeralPrivKey.PublicKey.Y.Bytes(),
 			Curve: ephemeralPrivKey.PublicKey.Curve.Params().Name,
@@ -132,9 +134,10 @@ func (t *Crypto) deriveKEKAndUnwrap(alg string, encCEK, apu, apv []byte, senderK
 	var kek []byte
 
 	switch alg {
-	case ecdh1puKWAlg:
+	case ECDH1PUA256KWAlg:
 		if senderKH == nil {
-			return nil, fmt.Errorf("unwrap: sender's public keyset handle option is required for '%s'", ecdh1puKWAlg)
+			return nil, fmt.Errorf("unwrap: sender's public keyset handle option is required for "+
+				"'%s'", ECDH1PUA256KWAlg)
 		}
 
 		senderPubKey, err := ksToPublicECDSAKey(senderKH, t.kw)
@@ -142,12 +145,12 @@ func (t *Crypto) deriveKEKAndUnwrap(alg string, encCEK, apu, apv []byte, senderK
 			return nil, fmt.Errorf("unwrapKey: failed to retrieve sender key: %w", err)
 		}
 
-		kek, err = t.kw.deriveRecipient1Pu(alg, apu, apv, epkPubKey, senderPubKey, recPrivKey, keySize)
+		kek, err = t.kw.deriveRecipient1Pu(alg, apu, apv, epkPubKey, senderPubKey, recPrivKey, defKeySize)
 		if err != nil {
 			return nil, fmt.Errorf("unwrapKey: failed to derive kek: %w", err)
 		}
-	case ecdhesKWAlg:
-		kek = josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, epkPubKey, keySize)
+	case ECDHESA256KWAlg:
+		kek = josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, epkPubKey, defKeySize)
 	default:
 		return nil, fmt.Errorf("unwrapKey: unsupported JWE KW Alg '%s'", alg)
 	}

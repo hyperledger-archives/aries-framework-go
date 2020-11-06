@@ -14,7 +14,8 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -29,7 +30,10 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	k := createKMS(t)
 	_, recipientsKeys, keyHandles := createRecipients(t, k, 10)
 
-	anonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
 	require.NoError(t, err)
 
 	origMsg := []byte("secret message")
@@ -57,31 +61,34 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 }
 
 func TestAnoncryptPackerFail(t *testing.T) {
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("new Pack fail with nil kms", func(t *testing.T) {
-		_, err := New(newMockProviderWithCustomKMS(nil), jose.A256GCM)
+		_, err = New(newMockProvider(nil, cryptoSvc), jose.A256GCM)
 		require.EqualError(t, err, "anoncrypt: failed to create packer because KMS is empty")
 	})
 
 	k := createKMS(t)
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")
-	anonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
 	require.NoError(t, err)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
-		_, err := anonPacker.Pack(origMsg, nil, nil)
+		_, err = anonPacker.Pack(origMsg, nil, nil)
 		require.EqualError(t, err, "anoncrypt Pack: empty recipientsPubKeys")
 	})
 
 	t.Run("pack fail with invalid recipients keys", func(t *testing.T) {
-		_, err := anonPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
+		_, err = anonPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
 		require.EqualError(t, err, "anoncrypt Pack: failed to convert recipient keys: invalid character 'i' "+
 			"looking for beginning of value")
 	})
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.EncAlg(invalidAlg))
+		invalidAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.EncAlg(invalidAlg))
 		require.NoError(t, err)
 
 		_, err = invalidAnonPacker.Pack(origMsg, nil, recipientsKeys)
@@ -90,7 +97,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Pack(origMsg, nil, recipientsKeys)
@@ -102,7 +109,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAnonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
@@ -122,17 +129,17 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
 		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAnonPacker, err := New(newMockProviderWithCustomKMS(k), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAnonPacker.Pack(origMsg, nil, newRecKeys)
 		require.NoError(t, err)
 
 		// rotate keys to update keyID and force a failure
-		_, _, err = k.Rotate(kms.ECDHES256AES256GCMType, kids[0])
+		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[0])
 		require.NoError(t, err)
 
-		_, _, err = k.Rotate(kms.ECDHES256AES256GCMType, kids[1])
+		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[1])
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Unpack(ct)
@@ -166,7 +173,7 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 func createAndMarshalRecipient(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
 	t.Helper()
 
-	kid, keyHandle, err := k.Create(kms.ECDHES256AES256GCMType)
+	kid, keyHandle, err := k.Create(kms.ECDH256KWAES256GCMType)
 	require.NoError(t, err)
 
 	kh, ok := keyHandle.(*keyset.Handle)
@@ -175,7 +182,7 @@ func createAndMarshalRecipient(t *testing.T, k *localkms.LocalKMS) (string, []by
 	pubKeyBytes, err := exportPubKeyBytes(kh)
 	require.NoError(t, err)
 
-	key := &composite.PublicKey{}
+	key := &cryptoapi.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
 
@@ -197,8 +204,9 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	return k
 }
 
-func newMockProviderWithCustomKMS(customKMS kms.KeyManager) *mockprovider.Provider {
+func newMockProvider(customKMS kms.KeyManager, customCrypto cryptoapi.Crypto) *mockprovider.Provider {
 	return &mockprovider.Provider{
-		KMSValue: customKMS,
+		KMSValue:    customKMS,
+		CryptoValue: customCrypto,
 	}
 }

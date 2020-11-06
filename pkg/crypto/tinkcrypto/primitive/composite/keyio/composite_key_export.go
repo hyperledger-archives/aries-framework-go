@@ -9,32 +9,33 @@ package keyio
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/tink/go/aead"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
+	"github.com/google/tink/go/insecurecleartextkeyset"
 	"github.com/google/tink/go/keyset"
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
-	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
 // Package keyio supports exporting of Composite keys (aka Write) and converting the public key part of the a composite
 // key (aka PublicKeyToHandle to be used as a valid Tink key)
 
 const (
-	ecdhesAESPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAesAeadPublicKey"
-	ecdh1puAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAesAeadPublicKey"
+	ecdhAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAesAeadPublicKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key. The raw bytes are a marshaled
 // composite.PublicKey type.
-// The keyset must have a keyURL value equal to `ecdhesAESPublicKeyTypeURL` constant of ecdhes package or
-// `ecdh1puAESPublicKeyTypeURL` constant of ecdh1pu package.
+// The keyset must have a keyURL value equal to `ecdhAESPublicKeyTypeURL` constant of ecdh package.
 // Note: This writer should be used only for ECDH public key exports. Other export of public keys should be
 //       called via localkms package.
 type PubKeyWriter struct {
@@ -102,20 +103,15 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 	return n > 0, nil
 }
 
-func protoToCompositeKey(keyData *tinkpb.KeyData) (*composite.PublicKey, error) {
+func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, error) {
 	var (
 		cKey compositeKeyGetter
 		err  error
 	)
 
 	switch keyData.TypeUrl {
-	case ecdhesAESPublicKeyTypeURL:
-		cKey, err = newECDHESKey(keyData.Value)
-		if err != nil {
-			return nil, err
-		}
-	case ecdh1puAESPublicKeyTypeURL:
-		cKey, err = newECDH1PUKey(keyData.Value)
+	case ecdhAESPublicKeyTypeURL:
+		cKey, err = newECDHKey(keyData.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -126,21 +122,21 @@ func protoToCompositeKey(keyData *tinkpb.KeyData) (*composite.PublicKey, error) 
 	return buildKey(cKey)
 }
 
-func buildKey(c compositeKeyGetter) (*composite.PublicKey, error) {
+func buildKey(c compositeKeyGetter) (*cryptoapi.PublicKey, error) {
 	curveName := c.curveName()
 	keyTypeName := c.keyType()
 
 	return buildCompositeKey(c.kid(), keyTypeName, curveName, c.x(), c.y())
 }
 
-func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*composite.PublicKey, error) {
+func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*cryptoapi.PublicKey, error) {
 	// validate curve
 	_, err := hybrid.GetCurve(curve)
 	if err != nil {
 		return nil, fmt.Errorf("undefined curve: %w", err)
 	}
 
-	return &composite.PublicKey{
+	return &cryptoapi.PublicKey{
 		KID:   kid,
 		Type:  keyType,
 		Curve: curve,
@@ -157,12 +153,12 @@ type compositeKeyGetter interface {
 	y() []byte
 }
 
-type ecdhesKey struct {
-	protoKey *ecdhespb.EcdhesAeadPublicKey
+type ecdhKey struct {
+	protoKey *ecdhpb.EcdhAeadPublicKey
 }
 
-func newECDHESKey(mKey []byte) (compositeKeyGetter, error) {
-	pubKeyProto := new(ecdhespb.EcdhesAeadPublicKey)
+func newECDHKey(mKey []byte) (compositeKeyGetter, error) {
+	pubKeyProto := new(ecdhpb.EcdhAeadPublicKey)
 
 	err := proto.Unmarshal(mKey, pubKeyProto)
 	if err != nil {
@@ -170,81 +166,41 @@ func newECDHESKey(mKey []byte) (compositeKeyGetter, error) {
 	}
 
 	// validate key type
-	if pubKeyProto.Params.KwParams.KeyType != commonpb.KeyType_EC {
+	if pubKeyProto.Params.KwParams.KeyType != ecdhpb.KeyType_EC {
 		return nil, fmt.Errorf("undefined key type: '%s'", pubKeyProto.Params.KwParams.KeyType)
 	}
 
-	return &ecdhesKey{protoKey: pubKeyProto}, nil
+	return &ecdhKey{protoKey: pubKeyProto}, nil
 }
 
-func (e *ecdhesKey) kid() string {
+func (e *ecdhKey) kid() string {
 	return e.protoKey.KID
 }
 
-func (e *ecdhesKey) curveName() string {
+func (e *ecdhKey) curveName() string {
 	return e.protoKey.Params.KwParams.CurveType.String()
 }
 
-func (e *ecdhesKey) keyType() string {
+func (e *ecdhKey) keyType() string {
 	return e.protoKey.Params.KwParams.KeyType.String()
 }
 
-func (e *ecdhesKey) x() []byte {
+func (e *ecdhKey) x() []byte {
 	return e.protoKey.X
 }
 
-func (e *ecdhesKey) y() []byte {
-	return e.protoKey.Y
-}
-
-type ecdh1puKey struct {
-	protoKey *ecdh1pupb.Ecdh1PuAeadPublicKey
-}
-
-func newECDH1PUKey(mKey []byte) (compositeKeyGetter, error) {
-	pubKeyProto := new(ecdh1pupb.Ecdh1PuAeadPublicKey)
-
-	err := proto.Unmarshal(mKey, pubKeyProto)
-	if err != nil {
-		return nil, err
-	}
-
-	// validate key type
-	if pubKeyProto.Params.KwParams.KeyType != commonpb.KeyType_EC {
-		return nil, fmt.Errorf("undefined key type: '%s'", pubKeyProto.Params.KwParams.KeyType)
-	}
-
-	return &ecdh1puKey{protoKey: pubKeyProto}, nil
-}
-
-func (e *ecdh1puKey) kid() string {
-	return e.protoKey.KID
-}
-
-func (e *ecdh1puKey) curveName() string {
-	return e.protoKey.Params.KwParams.CurveType.String()
-}
-
-func (e *ecdh1puKey) keyType() string {
-	return e.protoKey.Params.KwParams.KeyType.String()
-}
-
-func (e *ecdh1puKey) x() []byte {
-	return e.protoKey.X
-}
-
-func (e *ecdh1puKey) y() []byte {
+func (e *ecdhKey) y() []byte {
 	return e.protoKey.Y
 }
 
 // ExtractPrimaryPublicKey is a utility function that will extract the main public key from *keyset.Handle kh.
-func ExtractPrimaryPublicKey(kh *keyset.Handle) (*composite.PublicKey, error) {
+func ExtractPrimaryPublicKey(kh *keyset.Handle) (*cryptoapi.PublicKey, error) {
 	keyBytes, err := writePubKeyFromKeyHandle(kh)
 	if err != nil {
 		return nil, fmt.Errorf("extractPrimaryPublicKey: failed to get public key content: %w", err)
 	}
 
-	ecPubKey := new(composite.PublicKey)
+	ecPubKey := new(cryptoapi.PublicKey)
 
 	err = json.Unmarshal(keyBytes, ecPubKey)
 	if err != nil {
@@ -257,7 +213,11 @@ func ExtractPrimaryPublicKey(kh *keyset.Handle) (*composite.PublicKey, error) {
 func writePubKeyFromKeyHandle(handle *keyset.Handle) ([]byte, error) {
 	pubKH, err := handle.Public()
 	if err != nil {
-		return nil, err
+		if strings.HasSuffix(err.Error(), "keyset contains a non-private key") {
+			pubKH = handle
+		} else {
+			return nil, err
+		}
 	}
 
 	buf := new(bytes.Buffer)
@@ -269,4 +229,82 @@ func writePubKeyFromKeyHandle(handle *keyset.Handle) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// PublicKeyToKeysetHandle converts pubKey into a *keyset.Handle where pubKey could be either a sender or a recipient
+// key. The resulting handle cannot be directly used for primitive execution as the cek is not set. This function serves
+// as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt).
+func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey) (*keyset.Handle, error) {
+	// validate curve
+	cp, err := getCurveProto(pubKey.Curve)
+	if err != nil {
+		return nil, fmt.Errorf("publicKeyToKeysetHandle: failed to convert curve string to proto: %w", err)
+	}
+
+	protoKey := &ecdhpb.EcdhAeadPublicKey{
+		Version: 0,
+		Params: &ecdhpb.EcdhAeadParams{
+			KwParams: &ecdhpb.EcdhKwParams{
+				CurveType: cp,
+				KeyType:   ecdhpb.KeyType_EC, // for now, TODO create getTypeProto(pubKey.Type) function
+			},
+			EncParams: &ecdhpb.EcdhAeadEncParams{
+				AeadEnc: aead.AES256GCMKeyTemplate(),
+			},
+			EcPointFormat: commonpb.EcPointFormat_UNCOMPRESSED,
+		},
+		KID: pubKey.KID,
+		X:   pubKey.X,
+		Y:   pubKey.Y,
+	}
+
+	marshalledKey, err := proto.Marshal(protoKey)
+	if err != nil {
+		return nil, fmt.Errorf("publicKeyToKeysetHandle: failed to marshal proto: %w", err)
+	}
+
+	ks := newKeySet(ecdhAESPublicKeyTypeURL, marshalledKey, tinkpb.KeyData_ASYMMETRIC_PUBLIC)
+
+	memReader := &keyset.MemReaderWriter{Keyset: ks}
+
+	parsedHandle, err := insecurecleartextkeyset.Read(memReader)
+	if err != nil {
+		return nil, fmt.Errorf("publicKeyToKeysetHandle: failed to create key handle: %w", err)
+	}
+
+	return parsedHandle, nil
+}
+
+func getCurveProto(c string) (commonpb.EllipticCurveType, error) {
+	switch c {
+	case "secp256r1", "NIST_P256", "P-256", "EllipticCurveType_NIST_P256":
+		return commonpb.EllipticCurveType_NIST_P256, nil
+	case "secp384r1", "NIST_P384", "P-384", "EllipticCurveType_NIST_P384":
+		return commonpb.EllipticCurveType_NIST_P384, nil
+	case "secp521r1", "NIST_P521", "P-521", "EllipticCurveType_NIST_P521":
+		return commonpb.EllipticCurveType_NIST_P521, nil
+	default:
+		return 0, errors.New("unsupported curve")
+	}
+}
+
+func newKeySet(tURL string, marshalledKey []byte, keyMaterialType tinkpb.KeyData_KeyMaterialType) *tinkpb.Keyset {
+	keyData := &tinkpb.KeyData{
+		TypeUrl:         tURL,
+		Value:           marshalledKey,
+		KeyMaterialType: keyMaterialType,
+	}
+
+	return &tinkpb.Keyset{
+		Key: []*tinkpb.Keyset_Key{
+			{
+				KeyData: keyData,
+				Status:  tinkpb.KeyStatusType_ENABLED,
+				KeyId:   1,
+				// since we're building the key from raw key bytes, then must use raw key prefix type
+				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
+			},
+		},
+		PrimaryKeyId: 1,
+	}
 }

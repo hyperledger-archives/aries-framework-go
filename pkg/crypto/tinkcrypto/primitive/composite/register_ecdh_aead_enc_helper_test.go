@@ -7,11 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package composite
 
 import (
-	"crypto/elliptic"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/google/tink/go/aead"
@@ -25,23 +22,21 @@ import (
 	"golang.org/x/crypto/poly1305"
 )
 
-func newKeyTemplates() map[*tinkpb.KeyTemplate]int {
-	return map[*tinkpb.KeyTemplate]int{
-		aead.ChaCha20Poly1305KeyTemplate():  32,
-		aead.XChaCha20Poly1305KeyTemplate(): 32,
-		aead.AES256GCMKeyTemplate():         32,
-		aead.AES128GCMKeyTemplate():         16,
+func newKeyTemplates() []*tinkpb.KeyTemplate {
+	return []*tinkpb.KeyTemplate{
+		aead.ChaCha20Poly1305KeyTemplate(),
+		aead.XChaCha20Poly1305KeyTemplate(),
+		aead.AES256GCMKeyTemplate(),
+		aead.AES128GCMKeyTemplate(),
 	}
 }
 
 func TestCipherGetters(t *testing.T) {
 	keyTemplates := newKeyTemplates()
 
-	for c, l := range keyTemplates {
+	for _, c := range keyTemplates {
 		rDem, err := NewRegisterCompositeAEADEncHelper(c)
 		require.NoError(t, err, "error generating a content encryption helper")
-
-		require.EqualValues(t, l, rDem.GetSymmetricKeySize(), "incorrect template key size")
 
 		switch rDem.encKeyURL {
 		case AESGCMTypeURL:
@@ -75,13 +70,13 @@ func TestUnsupportedKeyTemplates(t *testing.T) {
 func TestAead(t *testing.T) {
 	keyTemplates := newKeyTemplates()
 
-	for c := range keyTemplates {
+	for _, c := range keyTemplates {
 		pt := random.GetRandomBytes(20)
 		ad := random.GetRandomBytes(20)
 		rEnc, err := NewRegisterCompositeAEADEncHelper(c)
 		require.NoError(t, err, "error generating a content encryption helper")
 
-		keySize := uint32(rEnc.GetSymmetricKeySize())
+		keySize := uint32(32)
 		sk := random.GetRandomBytes(keySize)
 		a, err := rEnc.GetAEAD(sk)
 		require.NoError(t, err, "error getting AEAD primitive")
@@ -125,19 +120,9 @@ func TestBuildEncDecData(t *testing.T) {
 	require.NoError(t, err)
 
 	refEncData := &EncryptedData{
-		EncAlg:     "A256GCM",
 		IV:         random.GetRandomBytes(uint32(rEnc.GetIVSize())),
 		Ciphertext: []byte("ciphertext"),
 		Tag:        random.GetRandomBytes(uint32(rEnc.GetTagSize())),
-		Recipients: []*RecipientWrappedKey{
-			{
-				KID:          "kid",
-				EncryptedCEK: []byte("cek"),
-				EPK:          PublicKey{},
-				Alg:          "P-256",
-			},
-		},
-		SingleRecipientAAD: []byte("{\"enc\":\"testAlg\"}"),
 	}
 
 	preBuiltCT := append(refEncData.IV, refEncData.Ciphertext...)
@@ -148,92 +133,10 @@ func TestBuildEncDecData(t *testing.T) {
 	require.EqualValues(t, preBuiltCT, finalCT)
 
 	// test BuildEncData
-	mEncData, err := rEnc.BuildEncData(refEncData.EncAlg, refEncData.EncType, refEncData.Recipients, preBuiltCT,
-		refEncData.SingleRecipientAAD)
+	mEncData, err := rEnc.BuildEncData(preBuiltCT)
 	require.NoError(t, err)
 
 	mRefEncData, err := json.Marshal(refEncData)
 	require.NoError(t, err)
 	require.EqualValues(t, mRefEncData, mEncData)
-}
-
-func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
-	aad := map[string]string{"enc": "test"}
-
-	mAAD, e := json.Marshal(aad)
-	require.NoError(t, e)
-
-	keyTemplates := newKeyTemplates()
-
-	for c := range keyTemplates {
-		cEnc, err := NewRegisterCompositeAEADEncHelper(c)
-		require.NoError(t, err)
-
-		wk := &RecipientWrappedKey{
-			EPK: PublicKey{},
-		}
-
-		// fail with aad not base64URL encoded
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte("aad not base64URL encoded"))
-		require.EqualError(t, err, "illegal base64 data at input byte 3")
-
-		badAAD := base64.RawURLEncoding.EncodeToString([]byte("aad not a json format"))
-
-		// fail with aad not being a marshalled json
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte(badAAD))
-		require.EqualError(t, err, "invalid character 'a' looking for beginning of value")
-
-		// fail with epk curve not set
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
-		require.EqualError(t, err, "unsupported curve")
-
-		// set epk curve for subsequent tests
-		wk.EPK.Curve = elliptic.P256().Params().Name
-
-		fm := &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 0,
-		}
-
-		cEnc.marshalFunc = fm.failingMarshal
-
-		// fail KID marshalling
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
-		require.EqualError(t, err, errFailingMarshal.Error())
-
-		fm = &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 1,
-		}
-
-		cEnc.marshalFunc = fm.failingMarshal
-
-		// fail Alg marshalling
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
-		require.EqualError(t, err, errFailingMarshal.Error())
-
-		fm = &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 2,
-		}
-
-		cEnc.marshalFunc = fm.failingMarshal
-		// fail EPK marshalling
-		_, err = cEnc.MergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
-		require.EqualError(t, err, errFailingMarshal.Error())
-	}
-}
-
-var errFailingMarshal = fmt.Errorf("json marshal error")
-
-type failingMarshaller struct {
-	numTimesMarshalCalled                int
-	numTimesMarshalCalledBeforeReturnErr int
-}
-
-func (m *failingMarshaller) failingMarshal(_ interface{}) ([]byte, error) {
-	if m.numTimesMarshalCalled == m.numTimesMarshalCalledBeforeReturnErr {
-		return nil, errFailingMarshal
-	}
-
-	m.numTimesMarshalCalled++
-
-	return nil, nil
 }

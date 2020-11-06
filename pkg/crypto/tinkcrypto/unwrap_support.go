@@ -18,7 +18,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
 func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
@@ -42,14 +42,14 @@ func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
 		return nil, errors.New("extractPrivKey: invalid private key")
 	}
 
-	ecdhesAESPrivateKeyTypeURL := "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAesAeadPrivateKey"
+	ecdhAESPrivateKeyTypeURL := "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAesAeadPrivateKey"
 	primaryKey := ks.Key[0]
 
-	if primaryKey.KeyData.TypeUrl != ecdhesAESPrivateKeyTypeURL {
-		return nil, errors.New("extractPrivKey: can't extract unsupported private key")
+	if primaryKey.KeyData.TypeUrl != ecdhAESPrivateKeyTypeURL {
+		return nil, fmt.Errorf("extractPrivKey: can't extract unsupported private key '%s'", primaryKey.KeyData.TypeUrl)
 	}
 
-	pbKey := new(ecdhespb.EcdhesAeadPrivateKey)
+	pbKey := new(ecdhpb.EcdhAeadPrivateKey)
 
 	err = proto.Unmarshal(primaryKey.KeyData.Value, pbKey)
 	if err != nil {

@@ -19,7 +19,7 @@ import (
 
 const maxKeyIDLen = 50
 
-// newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI.
+// newWriter creates a new instance of local storage key storeWriter in the given store and for primaryKeyURI.
 func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter {
 	pOpts := kms.NewOpt()
 
@@ -42,7 +42,7 @@ type storeWriter struct {
 	KeysetID string
 }
 
-// Write a marshaled keyset p in localstore with masterKeyURI prefix + randomly generated KeysetID.
+// Write a marshaled keyset p in localstore with primaryKeyURI prefix + randomly generated KeysetID.
 func (l *storeWriter) Write(p []byte) (int, error) {
 	var err error
 

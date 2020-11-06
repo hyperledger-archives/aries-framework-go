@@ -198,7 +198,7 @@ func (l *LocalKMS) exportEncPrivKeyBytes(id string) ([]byte, error) {
 		return nil, err
 	}
 
-	primaryKeyEnvAEAD := aead.NewKMSEnvelopeAEAD(*aead.AES256GCMKeyTemplate(), kw)
+	primaryKeyEnvAEAD := aead.NewKMSEnvelopeAEAD2(aead.AES256GCMKeyTemplate(), kw)
 
 	err = kh.Write(bWriter, primaryKeyEnvAEAD)
 	if err != nil {

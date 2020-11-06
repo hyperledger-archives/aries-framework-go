@@ -23,9 +23,8 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -50,10 +49,10 @@ var errInvalidKeyType = errors.New("key type is not supported")
 // It uses an underlying secret lock service (default local secretLock) to wrap (encrypt) keys
 // prior to storing them.
 type LocalKMS struct {
-	secretLock       secretlock.Service
-	masterKeyURI     string
-	store            storage.Store
-	masterKeyEnvAEAD *aead.KMSEnvelopeAEAD
+	secretLock        secretlock.Service
+	primaryKeyURI     string
+	store             storage.Store
+	primaryKeyEnvAEAD *aead.KMSEnvelopeAEAD
 }
 
 func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
@@ -66,7 +65,7 @@ func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
 }
 
 // New will create a new (local) KMS service.
-func New(masterKeyURI string, p kms.Provider) (*LocalKMS, error) {
+func New(primaryKeyURI string, p kms.Provider) (*LocalKMS, error) {
 	store, err := newKeyIDWrapperStore(p.StorageProvider())
 	if err != nil {
 		return nil, fmt.Errorf("new: failed to ceate local kms: %w", err)
@@ -74,19 +73,19 @@ func New(masterKeyURI string, p kms.Provider) (*LocalKMS, error) {
 
 	secretLock := p.SecretLock()
 
-	kw, err := keywrapper.New(secretLock, masterKeyURI)
+	kw, err := keywrapper.New(secretLock, primaryKeyURI)
 	if err != nil {
 		return nil, fmt.Errorf("new: failed to create new keywrapper: %w", err)
 	}
 
 	// create a KMSEnvelopeAEAD instance to wrap/unwrap keys managed by LocalKMS
-	masterKeyEnvAEAD := aead.NewKMSEnvelopeAEAD(*aead.AES256GCMKeyTemplate(), kw)
+	keyEnvelopeAEAD := aead.NewKMSEnvelopeAEAD2(aead.AES256GCMKeyTemplate(), kw)
 
 	return &LocalKMS{
-			store:            store,
-			secretLock:       secretLock,
-			masterKeyURI:     masterKeyURI,
-			masterKeyEnvAEAD: masterKeyEnvAEAD,
+			store:             store,
+			secretLock:        secretLock,
+			primaryKeyURI:     primaryKeyURI,
+			primaryKeyEnvAEAD: keyEnvelopeAEAD,
 		},
 		nil
 }
@@ -169,7 +168,7 @@ func (l *LocalKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, er
 	return newID, updatedKH, nil
 }
 
-// nolint:gocyclo,funlen
+// nolint:gocyclo
 func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 	switch keyType {
 	case kms.AES128GCMType:
@@ -200,21 +199,12 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.HMACSHA256Tag256Type:
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
-	case kms.ECDHES256AES256GCMType:
-		return ecdhes.ECDHES256KWAES256GCMKeyTemplate(), nil
-	case kms.ECDHES384AES256GCMType:
-		return ecdhes.ECDHES384KWAES256GCMKeyTemplate(), nil
-	case kms.ECDHES521AES256GCMType:
-		return ecdhes.ECDHES521KWAES256GCMKeyTemplate(), nil
-	case kms.ECDH1PU256AES256GCMType:
-		// Keys created by ECDH1PU templates should be used only to be persisted in the KMS. To execute primitives,
-		// one must add the sender public key (on the recipient side using ecdh1pu.AddSenderKey()) or the recipient(s)
-		// public key(s) (on the sender side using ecdh1pu.AddRecipientsKeys())
-		return ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate(), nil
-	case kms.ECDH1PU384AES256GCMType:
-		return ecdh1pu.ECDH1PU384KWAES256GCMKeyTemplate(), nil
-	case kms.ECDH1PU521AES256GCMType:
-		return ecdh1pu.ECDH1PU521KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH256KWAES256GCMType:
+		return ecdh.ECDH256KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH384KWAES256GCMType:
+		return ecdh.ECDH384KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH521KWAES256GCMType:
+		return ecdh.ECDH521KWAES256GCMKeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("getKeyTemplate: key type '%s' unrecognized", keyType)
 	}
@@ -257,7 +247,7 @@ func (l *LocalKMS) storeKeySet(kh *keyset.Handle, kt kms.KeyType) (string, error
 	buf := new(bytes.Buffer)
 	jsonKeysetWriter := keyset.NewJSONWriter(buf)
 
-	err = kh.Write(jsonKeysetWriter, l.masterKeyEnvAEAD)
+	err = kh.Write(jsonKeysetWriter, l.primaryKeyEnvAEAD)
 	if err != nil {
 		return "", fmt.Errorf("storeKeySet: failed to write json key to buffer: %w", err)
 	}
@@ -289,8 +279,8 @@ func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 	jsonKeysetReader := keyset.NewJSONReader(localDBReader)
 
 	// Read reads the encrypted keyset handle back from the io.reader implementation
-	// and decrypts it using masterKeyEnvAEAD.
-	kh, err := keyset.Read(jsonKeysetReader, l.masterKeyEnvAEAD)
+	// and decrypts it using primaryKeyEnvAEAD.
+	kh, err := keyset.Read(jsonKeysetReader, l.primaryKeyEnvAEAD)
 	if err != nil {
 		return nil, fmt.Errorf("getKeySet: failed to read json keyset from reader: %w", err)
 	}
@@ -318,7 +308,7 @@ func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, error) {
 }
 
 func setKIDForCompositeKey(marshalledKey []byte, kid string) ([]byte, error) {
-	pubKey := &composite.PublicKey{}
+	pubKey := &cryptoapi.PublicKey{}
 
 	err := json.Unmarshal(marshalledKey, pubKey)
 	if err != nil { // if unmarshalling to composite.PublicKey fails, it's not a composite key, return original bytes

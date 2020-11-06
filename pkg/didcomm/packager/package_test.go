@@ -14,6 +14,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	. "github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -34,6 +36,9 @@ import (
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	localKeyURI := "local-lock://test/key-uri/"
 
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
 		// create a custom KMS instance with this provider
 		customKMS, err := localkms.New(localKeyURI,
@@ -48,6 +53,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
+			crypto:        cryptoSvc,
 		}
 		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
 		require.NoError(t, err)
@@ -71,6 +77,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
+			crypto:        cryptoSvc,
 		}
 		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
 		require.NoError(t, err)
@@ -118,6 +125,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		mockedProviders := &mockProvider{
 			storage:       mockstorage.NewCustomMockStoreProvider(thirdPartyStore),
 			kms:           customKMS,
+			crypto:        cryptoSvc,
 			primaryPacker: nil,
 			packers:       nil,
 		}
@@ -130,7 +138,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// fromKey is stored in the KMS
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
 		require.NoError(t, err)
 
 		// for authcrypt, sender key should be in third party store, must use base58 wrapped store to match kms store.
@@ -141,7 +149,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
-		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCM)
+		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCM)
 		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to keys
@@ -176,6 +184,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
+			crypto:        cryptoSvc,
 		}
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
@@ -198,10 +207,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// use ECDH1PU type as we are using a sender key (ie: packer's FromKey is not empty aka authcrypt)
-		fromKID, _, err := customKMS.Create(kms.ECDH1PU384AES256GCMType)
+		fromKID, _, err := customKMS.Create(kms.ECDH384KWAES256GCMType)
 		require.NoError(t, err)
 
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU384AES256GCMType)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH384KWAES256GCMType)
 		require.NoError(t, err)
 
 		// try pack with nil envelope - should fail
@@ -258,6 +267,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
+			crypto:        cryptoSvc,
 		}
 
 		// create a real testPacker (no mocking here)
@@ -272,10 +282,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
 		require.NoError(t, err)
 
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH1PU256AES256GCMType)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
@@ -418,7 +428,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 }
 
 func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
-	return &mockProvider{storagePvdr, nil, &noop.NoLock{}, nil, nil, nil}
+	return &mockProvider{storagePvdr, nil, &noop.NoLock{}, nil, nil, nil, nil}
 }
 
 // mockProvider mocks provider for KMS.
@@ -426,6 +436,7 @@ type mockProvider struct {
 	storage       *mockstorage.MockStoreProvider
 	kms           kms.KeyManager
 	secretLock    secretlock.Service
+	crypto        cryptoapi.Crypto
 	packers       []packer.Packer
 	primaryPacker packer.Packer
 	vdr           vdrapi.Registry
@@ -454,4 +465,8 @@ func (m *mockProvider) PrimaryPacker() packer.Packer {
 // VDRegistry returns a vdr registry.
 func (m *mockProvider) VDRegistry() vdrapi.Registry {
 	return m.vdr
+}
+
+func (m *mockProvider) Crypto() cryptoapi.Crypto {
+	return m.crypto
 }

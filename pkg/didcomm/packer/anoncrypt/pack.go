@@ -15,7 +15,7 @@ import (
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -34,8 +34,9 @@ var logger = log.New("aries-framework/pkg/didcomm/packer/anoncrypt")
 
 // Packer represents an Anoncrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
-	kms    kms.KeyManager
-	encAlg jose.EncAlg
+	kms           kms.KeyManager
+	encAlg        jose.EncAlg
+	cryptoService cryptoapi.Crypto
 }
 
 // New will create an Packer instance to 'AnonCrypt' payloads for a given list of recipients.
@@ -46,9 +47,15 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		return nil, errors.New("anoncrypt: failed to create packer because KMS is empty")
 	}
 
+	c := ctx.Crypto()
+	if c == nil {
+		return nil, errors.New("anoncrypt: failed to create packer because crypto service is empty")
+	}
+
 	return &Packer{
-		kms:    k,
-		encAlg: encAlg,
+		kms:           k,
+		encAlg:        encAlg,
+		cryptoService: c,
 	}, nil
 }
 
@@ -65,7 +72,7 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 		return nil, fmt.Errorf("anoncrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, "", nil, recECKeys)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, "", nil, recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("anoncrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -90,11 +97,11 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 	return []byte(s), nil
 }
 
-func unmarshalRecipientKeys(keys [][]byte) ([]*composite.PublicKey, error) {
-	var pubKeys []*composite.PublicKey
+func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, error) {
+	var pubKeys []*cryptoapi.PublicKey
 
 	for _, key := range keys {
-		var ecKey *composite.PublicKey
+		var ecKey *cryptoapi.PublicKey
 
 		err := json.Unmarshal(key, &ecKey)
 		if err != nil {
@@ -142,7 +149,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("anoncrypt Unpack: invalid keyset handle")
 		}
 
-		jweDecrypter := jose.NewJWEDecrypt(nil, keyHandle)
+		jweDecrypter := jose.NewJWEDecrypt(nil, p.cryptoService, p.kms)
 
 		pt, err := jweDecrypter.Decrypt(jwe)
 		if err != nil {

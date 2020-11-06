@@ -19,11 +19,9 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	commoncompb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
 func TestPubKeyExport(t *testing.T) {
@@ -32,28 +30,16 @@ func TestPubKeyExport(t *testing.T) {
 		keyTemplate *tinkpb.KeyTemplate
 	}{
 		{
-			tcName:      "export then read AES256GCM with ECDHES P-256 public key",
-			keyTemplate: ecdhes.ECDHES256KWAES256GCMKeyTemplate(),
+			tcName:      "export then read AES256GCM with ECDH P-256 public recipient key",
+			keyTemplate: ecdh.ECDH256KWAES256GCMKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDH1PU P-256 public key",
-			keyTemplate: ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate(),
+			tcName:      "export then read AES256GCM with ECDHES P-384 public recipient key",
+			keyTemplate: ecdh.ECDH384KWAES256GCMKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDHES P-384 public key",
-			keyTemplate: ecdhes.ECDHES384KWAES256GCMKeyTemplate(),
-		},
-		{
-			tcName:      "export then read AES256GCM with ECDH1PU P-384 public key",
-			keyTemplate: ecdh1pu.ECDH1PU384KWAES256GCMKeyTemplate(),
-		},
-		{
-			tcName:      "export then read AES256GCM with ECDHES P-521 public key",
-			keyTemplate: ecdhes.ECDHES521KWAES256GCMKeyTemplate(),
-		},
-		{
-			tcName:      "export then read AES256GCM with ECDH1PU P-521 public key",
-			keyTemplate: ecdh1pu.ECDH1PU521KWAES256GCMKeyTemplate(),
+			tcName:      "export then read AES256GCM with ECDHES P-521 public recipient key",
+			keyTemplate: ecdh.ECDH521KWAES256GCMKeyTemplate(),
 		},
 	}
 
@@ -67,7 +53,7 @@ func TestPubKeyExport(t *testing.T) {
 			exportedKeyBytes := exportRawPublicKeyBytes(t, kh, false)
 			require.NotEmpty(t, exportedKeyBytes)
 
-			ecPubKey := new(composite.PublicKey)
+			ecPubKey := new(cryptoapi.PublicKey)
 			err = json.Unmarshal(exportedKeyBytes, ecPubKey)
 			require.NoError(t, err)
 
@@ -75,6 +61,14 @@ func TestPubKeyExport(t *testing.T) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, ecPubKey, extractedPubKey)
+
+			// now convert back ecPubKey to *keyset.Handle
+			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey)
+			require.NoError(t, err)
+
+			xk, err := ExtractPrimaryPublicKey(xPubKH)
+			require.NoError(t, err)
+			require.EqualValues(t, ecPubKey, xk)
 		})
 	}
 }
@@ -118,13 +112,12 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test protoToCompositeKey() with bad key type", func(t *testing.T) {
-		mKey, err := proto.Marshal(&ecdhespb.EcdhesAeadPublicKey{
+		mKey, err := proto.Marshal(&ecdhpb.EcdhAeadPublicKey{
 			Version: 0,
-			Params: &ecdhespb.EcdhesAeadParams{
-				KwParams: &ecdhespb.EcdhesKwParams{
-					CurveType:  commonpb.EllipticCurveType_NIST_P256,
-					KeyType:    commoncompb.KeyType_UNKNOWN_KEY_TYPE, // Unknown key type should trigger failure
-					Recipients: nil,
+			Params: &ecdhpb.EcdhAeadParams{
+				KwParams: &ecdhpb.EcdhKwParams{
+					CurveType: commonpb.EllipticCurveType_NIST_P256,
+					KeyType:   ecdhpb.KeyType_UNKNOWN_KEY_TYPE, // Unknown key type should trigger failure
 				},
 				EncParams:     nil,
 				EcPointFormat: 0,
@@ -136,14 +129,7 @@ func TestNegativeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = protoToCompositeKey(&tinkpb.KeyData{
-			TypeUrl:         ecdhesAESPublicKeyTypeURL,
-			Value:           mKey,
-			KeyMaterialType: 0,
-		})
-		require.EqualError(t, err, "undefined key type: 'UNKNOWN_KEY_TYPE'")
-
-		_, err = protoToCompositeKey(&tinkpb.KeyData{
-			TypeUrl:         ecdh1puAESPublicKeyTypeURL,
+			TypeUrl:         ecdhAESPublicKeyTypeURL,
 			Value:           mKey,
 			KeyMaterialType: 0,
 		})
@@ -151,7 +137,7 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test WriteEncrypted() should fail since it's not supported by Writer", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 		require.NotEmpty(t, kh)
 
@@ -175,13 +161,12 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test write() should fail with failing writer", func(t *testing.T) {
-		mKey, err := proto.Marshal(&ecdhespb.EcdhesAeadPublicKey{
+		mKey, err := proto.Marshal(&ecdhpb.EcdhAeadPublicKey{
 			Version: 0,
-			Params: &ecdhespb.EcdhesAeadParams{
-				KwParams: &ecdhespb.EcdhesKwParams{
-					CurveType:  commonpb.EllipticCurveType_NIST_P256,
-					KeyType:    commoncompb.KeyType_EC,
-					Recipients: nil,
+			Params: &ecdhpb.EcdhAeadParams{
+				KwParams: &ecdhpb.EcdhKwParams{
+					CurveType: commonpb.EllipticCurveType_NIST_P256,
+					KeyType:   ecdhpb.KeyType_EC,
 				},
 				EncParams:     nil,
 				EcPointFormat: 0,
@@ -197,7 +182,7 @@ func TestNegativeCases(t *testing.T) {
 			Key: []*tinkpb.Keyset_Key{
 				{
 					KeyData: &tinkpb.KeyData{
-						TypeUrl:         ecdhesAESPublicKeyTypeURL,
+						TypeUrl:         ecdhAESPublicKeyTypeURL,
 						Value:           mKey,
 						KeyMaterialType: 0,
 					},
@@ -210,28 +195,20 @@ func TestNegativeCases(t *testing.T) {
 		require.EqualError(t, err, "failed to write")
 	})
 
-	t.Run("ExtractPrimaryPublicKey fail due to keyset.Handle being a public key", func(t *testing.T) {
-		kt := ecdhes.ECDHES256KWAES256GCMKeyTemplate()
-		kh, err := keyset.NewHandle(kt)
-		require.NoError(t, err)
-
-		pubKH, err := kh.Public()
-		require.NoError(t, err)
-
-		// Extract should fail with public keyHandle
-		_, err = ExtractPrimaryPublicKey(pubKH)
-		require.EqualError(t, err, "extractPrimaryPublicKey: failed to get public key content: "+
-			"keyset.Handle: keyset.Handle: keyset contains a non-private key")
-	})
-
-	t.Run("call newECDHESKey() with bad marshalled bytes", func(t *testing.T) {
-		_, err := newECDHESKey([]byte("bad data"))
+	t.Run("call newECDHKey() with bad marshalled bytes", func(t *testing.T) {
+		_, err := newECDHKey([]byte("bad data"))
 		require.EqualError(t, err, "unexpected EOF")
 	})
 
-	t.Run("call newECDH1PUKey() with bad marshalled bytes", func(t *testing.T) {
-		_, err := newECDH1PUKey([]byte("bad data"))
-		require.EqualError(t, err, "unexpected EOF")
+	t.Run("get undefined curve from getCurveProto should fail", func(t *testing.T) {
+		_, err := getCurveProto("")
+		require.EqualError(t, err, "unsupported curve")
+
+		_, err = PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
+			Curve: "",
+		})
+		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert curve string to proto: "+
+			"unsupported curve")
 	})
 }
 
