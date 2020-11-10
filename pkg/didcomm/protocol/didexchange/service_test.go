@@ -1980,18 +1980,18 @@ func newPeerDID(t *testing.T) *did.Doc {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	key := did.PublicKey{
+	key := did.VerificationMethod{
 		ID:         uuid.New().String(),
 		Type:       "Ed25519VerificationKey2018",
 		Controller: "did:example:123",
 		Value:      pubKey,
 	}
 	doc, err := peer.NewDoc(
-		[]did.PublicKey{key},
-		did.WithAuthentication([]did.VerificationMethod{{
-			PublicKey:    key,
-			Relationship: 0,
-			Embedded:     true,
+		[]did.VerificationMethod{key},
+		did.WithAuthentication([]did.Verification{{
+			VerificationMethod: key,
+			Relationship:       0,
+			Embedded:           true,
 		}}),
 		did.WithService([]did.Service{{
 			ID:              "didcomm",

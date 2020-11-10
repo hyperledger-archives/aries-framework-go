@@ -30,7 +30,7 @@ const (
 // Build builds new DID document.
 func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, error) {
 	var (
-		publicKey, keyAgr *did.PublicKey
+		publicKey, keyAgr *did.VerificationMethod
 		err               error
 		didKey            string
 	)
@@ -40,7 +40,7 @@ func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, er
 		var keyID string
 
 		didKey, keyID = fingerprint.CreateDIDKey(pubKey.Value)
-		publicKey = did.NewPublicKeyFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKey.Value)
+		publicKey = did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKey.Value)
 
 		keyAgr, err = keyAgreement(didKey, pubKey.Value)
 		if err != nil {
@@ -69,30 +69,30 @@ func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, er
 	return createDoc(publicKey, keyAgr, didKey)
 }
 
-func createDoc(pubKey, keyAgreement *did.PublicKey, didKey string) (*did.Doc, error) {
+func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) (*did.Doc, error) {
 	// Created/Updated time
 	t := time.Now()
 
 	return &did.Doc{
-		Context:   []string{schemaV1},
-		ID:        didKey,
-		PublicKey: []did.PublicKey{*pubKey},
-		Authentication: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey,
+		Context:            []string{schemaV1},
+		ID:                 didKey,
+		VerificationMethod: []did.VerificationMethod{*pubKey},
+		Authentication: []did.Verification{*did.NewReferencedVerification(pubKey,
 			did.Authentication)},
-		AssertionMethod: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey,
+		AssertionMethod: []did.Verification{*did.NewReferencedVerification(pubKey,
 			did.AssertionMethod)},
-		CapabilityDelegation: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey,
+		CapabilityDelegation: []did.Verification{*did.NewReferencedVerification(pubKey,
 			did.CapabilityDelegation)},
-		CapabilityInvocation: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey,
+		CapabilityInvocation: []did.Verification{*did.NewReferencedVerification(pubKey,
 			did.CapabilityInvocation)},
-		KeyAgreement: []did.VerificationMethod{*did.NewEmbeddedVerificationMethod(keyAgreement,
+		KeyAgreement: []did.Verification{*did.NewEmbeddedVerification(keyAgreement,
 			did.KeyAgreement)},
 		Created: &t,
 		Updated: &t,
 	}, nil
 }
 
-func keyAgreement(didKey string, ed25519PubKey []byte) (*did.PublicKey, error) {
+func keyAgreement(didKey string, ed25519PubKey []byte) (*did.VerificationMethod, error) {
 	curve25519PubKey, err := cryptoutil.PublicEd25519toCurve25519(ed25519PubKey)
 	if err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func keyAgreement(didKey string, ed25519PubKey []byte) (*did.PublicKey, error) {
 
 	fp := fingerprint.KeyFingerprint(x25519pub, curve25519PubKey)
 	keyID := fmt.Sprintf("%s#%s", didKey, fp)
-	pubKey := did.NewPublicKeyFromBytes(keyID, x25519KeyAgreementKey2019, didKey, curve25519PubKey)
+	pubKey := did.NewVerificationMethodFromBytes(keyID, x25519KeyAgreementKey2019, didKey, curve25519PubKey)
 
 	return pubKey, nil
 }

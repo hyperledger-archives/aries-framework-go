@@ -161,8 +161,8 @@ type ModifiedBy struct {
 	Sig string `json:"sig,omitempty"`
 }
 
-// RetrieveEncryptionKey retrieves an encryption PublicKey in JWK format from key.
-func RetrieveEncryptionKey(didKey string, key *PubKey) (*did.PublicKey, error) {
+// RetrieveEncryptionKey retrieves an encryption VerificationMethod in JWK format from key.
+func RetrieveEncryptionKey(didKey string, key *PubKey) (*did.VerificationMethod, error) {
 	jwk, err := toJWK(key)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func RetrieveEncryptionKey(didKey string, key *PubKey) (*did.PublicKey, error) {
 
 	keyID := fmt.Sprintf("%s#%s", didKey, key.ID)
 
-	publicKey, err := did.NewPublicKeyFromJWK(keyID, key.Type, didKey, jwk)
+	publicKey, err := did.NewVerificationMethodFromJWK(keyID, key.Type, didKey, jwk)
 	if err != nil {
 		return nil, err
 	}

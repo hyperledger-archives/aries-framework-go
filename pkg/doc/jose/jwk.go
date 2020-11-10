@@ -40,7 +40,7 @@ type JWK struct {
 }
 
 // JWKFromPublicKey creates a JWK from public key struct.
-// It's e.g. *ecdsa.PublicKey or ed25519.PublicKey.
+// It's e.g. *ecdsa.PublicKey or ed25519.VerificationMethod.
 func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{

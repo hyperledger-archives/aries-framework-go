@@ -136,7 +136,7 @@ func createDIDDocWithKey(pub string) *did.Doc {
 
 	id := fmt.Sprintf(didFormat, method, pub[:16])
 	pubKeyID := fmt.Sprintf(didPKID, id, 1)
-	pubKey := did.PublicKey{
+	pubKey := did.VerificationMethod{
 		ID:         pubKeyID,
 		Type:       "Ed25519VerificationKey2018",
 		Controller: id,
@@ -153,12 +153,12 @@ func createDIDDocWithKey(pub string) *did.Doc {
 	}
 	createdTime := time.Now()
 	didDoc := &did.Doc{
-		Context:   []string{did.Context},
-		ID:        id,
-		PublicKey: []did.PublicKey{pubKey},
-		Service:   services,
-		Created:   &createdTime,
-		Updated:   &createdTime,
+		Context:            []string{did.Context},
+		ID:                 id,
+		VerificationMethod: []did.VerificationMethod{pubKey},
+		Service:            services,
+		Created:            &createdTime,
+		Updated:            &createdTime,
 	}
 
 	return didDoc

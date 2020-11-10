@@ -33,7 +33,7 @@ type Ed25519Signer struct {
 	PubKey     ed25519.PublicKey
 }
 
-// PublicKey returns a public key object (ed25519.PublicKey).
+// PublicKey returns a public key object (ed25519.VerificationMethod).
 func (s *Ed25519Signer) PublicKey() interface{} {
 	return s.PubKey
 }

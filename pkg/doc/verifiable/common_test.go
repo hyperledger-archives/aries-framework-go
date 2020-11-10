@@ -236,7 +236,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	r := require.New(t)
 
 	didDoc := createDIDDoc()
-	publicKey := didDoc.PublicKey[0]
+	publicKey := didDoc.VerificationMethod[0]
 	authentication := didDoc.Authentication[0]
 	assertionMethod := didDoc.AssertionMethod[0]
 
@@ -254,16 +254,16 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	r.NotNil(pubKey.JWK)
 	r.Equal(pubKey.JWK.Algorithm, "EdDSA")
 
-	authPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, authentication.PublicKey.ID)
+	authPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, authentication.VerificationMethod.ID)
 	r.NoError(err)
-	r.Equal(authentication.PublicKey.Value, authPubKey.Value)
+	r.Equal(authentication.VerificationMethod.Value, authPubKey.Value)
 	r.Equal("Ed25519VerificationKey2018", authPubKey.Type)
 	r.NotNil(authPubKey.JWK)
 	r.Equal(authPubKey.JWK.Algorithm, "EdDSA")
 
-	assertMethPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, assertionMethod.PublicKey.ID)
+	assertMethPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, assertionMethod.VerificationMethod.ID)
 	r.NoError(err)
-	r.Equal(assertionMethod.PublicKey.Value, assertMethPubKey.Value)
+	r.Equal(assertionMethod.VerificationMethod.Value, assertMethPubKey.Value)
 	r.Equal("Ed25519VerificationKey2018", assertMethPubKey.Type)
 
 	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
@@ -285,7 +285,7 @@ func createDIDDoc() *did.Doc {
     "https://w3id.org/did/v1"
   ],
   "id": "did:test:2WxUJa8nVjXr5yS69JWoKZ",
-  "publicKey": [
+  "verificationMethod": [
     {
       "controller": "did:test:8STcrCQFzFxKey7YSbj62A",
       "id": "did:test:8STcrCQFzFxKey7YSbj62A#keys-1",

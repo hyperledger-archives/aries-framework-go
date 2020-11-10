@@ -209,7 +209,7 @@ func TestDIDExchange_CreateConnection(t *testing.T) {
 		"theirDID":{"id":"did:peer:1zQmVVFUXT2NkSLRxNJDLkz82FNPiEtoDTWGkXxsxWc6s9u2",
 		"contents":{"@context":["https://w3id.org/did/v1"],
 		"id":"did:peer:1zQmVVFUXT2NkSLRxNJDLkz82FNPiEtoDTWGkXxsxWc6s9u2",
-		"publicKey":[{"controller":"did:example:123","id":"e2cbb249-8c25-4e6e-8b92-b1ceee211c8c",
+		"verificationMethod":[{"controller":"did:example:123","id":"e2cbb249-8c25-4e6e-8b92-b1ceee211c8c",
 		"publicKeyBase58":"7qf5xCRSGP3NW6PAUonYLmq1LCz6Ux5ynek9nbzGgCnP","type":"Ed25519VerificationKey2018"}],
 		"service":[{"id":"didcomm","priority":0,"recipientKeys":["7qf5xCRSGP3NW6PAUonYLmq1LCz6Ux5ynek9nbzGgCnP"],
 		"routingKeys":null,"serviceEndpoint":"http://example.com","type":"did-communication"}],

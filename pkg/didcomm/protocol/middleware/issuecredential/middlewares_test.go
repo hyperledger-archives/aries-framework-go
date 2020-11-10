@@ -296,7 +296,7 @@ func TestSaveCredentials(t *testing.T) {
 
 		registry := mockvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:123456").Return(&did.Doc{
-			PublicKey: []did.PublicKey{{
+			VerificationMethod: []did.VerificationMethod{{
 				ID: "#key1",
 				Value: []byte{
 					234, 100, 192, 93, 251, 181, 198, 73, 122, 220, 27, 48, 93, 73, 166,

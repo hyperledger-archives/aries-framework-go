@@ -136,7 +136,7 @@ func (s *mockSignatureSuite) CompactProof() bool {
 const validDoc = `{
   "@context": ["https://w3id.org/did/v1"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",

@@ -38,16 +38,16 @@ var (
 )
 
 // NewDoc returns the resolved variant of the genesis version of the peer DID document.
-func NewDoc(publicKey []did.PublicKey, opts ...did.DocOption) (*did.Doc, error) {
+func NewDoc(publicKey []did.VerificationMethod, opts ...did.DocOption) (*did.Doc, error) {
 	if len(publicKey) == 0 {
 		return nil, fmt.Errorf("the did:peer genesis version must include public keys and authentication")
 	}
 
 	// build DID Doc
-	doc := did.BuildDoc(append([]did.DocOption{did.WithPublicKey(publicKey)}, opts...)...)
+	doc := did.BuildDoc(append([]did.DocOption{did.WithVerificationMethod(publicKey)}, opts...)...)
 
 	// Create a did doc based on the mandatory value: publicKeys & authentication
-	if len(doc.Authentication) == 0 || len(doc.PublicKey) == 0 {
+	if len(doc.Authentication) == 0 || len(doc.VerificationMethod) == 0 {
 		return nil, fmt.Errorf("the did:peer genesis version must include public keys and authentication")
 	}
 
@@ -65,7 +65,7 @@ func NewDoc(publicKey []did.PublicKey, opts ...did.DocOption) (*did.Doc, error) 
 // For example: did:peer:1zQmZMygzYqNwU6Uhmewx5Xepf2VLp5S4HLSwwgf2aiKZuwa.
 // Reference: https://identity.foundation/peer-did-method-spec/#generation-method
 func computeDidMethod1(doc *did.Doc) (string, error) {
-	if doc.PublicKey == nil || doc.Authentication == nil {
+	if doc.VerificationMethod == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")
 	}
 

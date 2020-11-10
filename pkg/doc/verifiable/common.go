@@ -90,14 +90,13 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
 	}
 
-	methods := doc.VerificationMethods()
-	for _, verificationMethods := range methods {
-		for _, vm := range verificationMethods {
-			if strings.Contains(vm.PublicKey.ID, keyID) {
+	for _, verifications := range doc.VerificationMethods() {
+		for _, verification := range verifications {
+			if strings.Contains(verification.VerificationMethod.ID, keyID) {
 				return &verifier.PublicKey{
-					Type:  vm.PublicKey.Type,
-					Value: vm.PublicKey.Value,
-					JWK:   vm.PublicKey.JSONWebKey(),
+					Type:  verification.VerificationMethod.Type,
+					Value: verification.VerificationMethod.Value,
+					JWK:   verification.VerificationMethod.JSONWebKey(),
 				}, nil
 			}
 		}

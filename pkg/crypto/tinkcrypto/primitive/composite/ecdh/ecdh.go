@@ -46,8 +46,8 @@ SPDX-License-Identifier: Apache-2.0
 //      if err != nil {
 //          //handle error
 //      }
-//
-//      ecPubKey := new(composite.PublicKey) // ecPubKey represents a recipient public key that can be used to wrap cek
+//      // ecPubKey represents a recipient public key that can be used to wrap cek
+//      ecPubKey := new(composite.VerificationMethod)
 //      err := json.Unmarshal(buf.Bytes(), ecPubKey)
 //
 //		// see pkg/crypto/tinkcrypto to see how you can wrap a shared secret (cek)

@@ -31,7 +31,7 @@ func GetMockDIDDoc() *did.Doc {
 				RecipientKeys:   []string{"did:example:123456789abcdefghi#keys-1"},
 			},
 		},
-		PublicKey: []did.PublicKey{
+		VerificationMethod: []did.VerificationMethod{
 			{
 				ID:         "did:example:123456789abcdefghi#keys-1",
 				Controller: "did:example:123456789abcdefghi",

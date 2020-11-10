@@ -79,14 +79,14 @@ func assertDoc(t *testing.T, doc *did.Doc) {
 	// validate id
 	require.Equal(t, didKey, doc.ID)
 
-	expectedPubKey := &did.PublicKey{
+	expectedPubKey := &did.VerificationMethod{
 		ID:         didKeyID,
 		Type:       ed25519VerificationKey2018,
 		Controller: didKey,
 		Value:      base58.Decode(pubKeyBase58),
 	}
 
-	expectedKeyAgreement := &did.PublicKey{
+	expectedKeyAgreement := &did.VerificationMethod{
 		ID:         agreementKeyID,
 		Type:       x25519KeyAgreementKey2019,
 		Controller: didKey,
@@ -94,25 +94,25 @@ func assertDoc(t *testing.T, doc *did.Doc) {
 	}
 
 	// validate publicKey
-	assertPubKey(t, expectedPubKey, &doc.PublicKey[0])
+	assertPubKey(t, expectedPubKey, &doc.VerificationMethod[0])
 
 	// validate assertionMethod
-	assertPubKey(t, expectedPubKey, &doc.AssertionMethod[0].PublicKey)
+	assertPubKey(t, expectedPubKey, &doc.AssertionMethod[0].VerificationMethod)
 
 	// validate authentication
-	assertPubKey(t, expectedPubKey, &doc.Authentication[0].PublicKey)
+	assertPubKey(t, expectedPubKey, &doc.Authentication[0].VerificationMethod)
 
 	// validate capabilityDelegation
-	assertPubKey(t, expectedPubKey, &doc.CapabilityDelegation[0].PublicKey)
+	assertPubKey(t, expectedPubKey, &doc.CapabilityDelegation[0].VerificationMethod)
 
 	// validate capabilityInvocation
-	assertPubKey(t, expectedPubKey, &doc.CapabilityInvocation[0].PublicKey)
+	assertPubKey(t, expectedPubKey, &doc.CapabilityInvocation[0].VerificationMethod)
 
 	// validate keyAgreement
-	assertPubKey(t, expectedKeyAgreement, &doc.KeyAgreement[0].PublicKey)
+	assertPubKey(t, expectedKeyAgreement, &doc.KeyAgreement[0].VerificationMethod)
 }
 
-func assertPubKey(t *testing.T, expectedPubKey, actualPubKey *did.PublicKey) {
+func assertPubKey(t *testing.T, expectedPubKey, actualPubKey *did.VerificationMethod) {
 	require.NotNil(t, actualPubKey)
 	require.Equal(t, expectedPubKey.ID, actualPubKey.ID)
 	require.Equal(t, expectedPubKey.Type, actualPubKey.Type)

@@ -148,7 +148,7 @@ func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 const validDoc = `{
   "@context": ["https://w3id.org/did/v1", "https://w3id.org/security/v2"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
       "type": "EcdsaSecp256k1VerificationKey2019",

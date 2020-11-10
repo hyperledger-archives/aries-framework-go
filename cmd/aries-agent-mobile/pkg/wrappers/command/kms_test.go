@@ -34,7 +34,7 @@ func TestKMS_CreateKeySet(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		controller := getKMSController(t)
 
-		mockResponse := `{"keyID":"keyID","publicKey":"cHVibGljS2V5"}`
+		mockResponse := `{"keyID":"keyID","verificationMethod":"cHVibGljS2V5"}`
 
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		controller.handlers[kms.CreateKeySetCommandMethod] = fakeHandler.exec

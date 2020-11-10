@@ -879,7 +879,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 	for _, vm := range vMs {
 		if opts.VerificationMethod != "" {
 			// if verification method is provided as an option, then validate if it belongs to given method
-			if opts.VerificationMethod == vm.PublicKey.ID {
+			if opts.VerificationMethod == vm.VerificationMethod.ID {
 				vmMatched = true
 
 				break
@@ -888,7 +888,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 			continue
 		} else {
 			// by default first authentication public key
-			opts.VerificationMethod = vm.PublicKey.ID
+			opts.VerificationMethod = vm.VerificationMethod.ID
 
 			break
 		}
@@ -917,10 +917,10 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 // TODO default verification method logic needs to be revisited, [Issue #1693].
 func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 	switch {
-	case len(didDoc.PublicKey) > 0:
+	case len(didDoc.VerificationMethod) > 0:
 		var publicKeyID string
 
-		for _, k := range didDoc.PublicKey {
+		for _, k := range didDoc.VerificationMethod {
 			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
 				publicKeyID = k.ID
 
@@ -930,7 +930,7 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 
 		// if there isn't any ed25519 key then pick first one
 		if publicKeyID == "" {
-			publicKeyID = didDoc.PublicKey[0].ID
+			publicKeyID = didDoc.VerificationMethod[0].ID
 		}
 
 		// todo Review this logic  #1640
@@ -940,7 +940,7 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 
 		return publicKeyID, nil
 	case len(didDoc.Authentication) > 0:
-		return didDoc.Authentication[0].PublicKey.ID, nil
+		return didDoc.Authentication[0].VerificationMethod.ID, nil
 	default:
 		return "", errors.New("public key not found in DID Document")
 	}

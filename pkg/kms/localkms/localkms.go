@@ -311,7 +311,7 @@ func setKIDForCompositeKey(marshalledKey []byte, kid string) ([]byte, error) {
 	pubKey := &cryptoapi.PublicKey{}
 
 	err := json.Unmarshal(marshalledKey, pubKey)
-	if err != nil { // if unmarshalling to composite.PublicKey fails, it's not a composite key, return original bytes
+	if err != nil { // if unmarshalling to VerificationMethod fails, it's not a composite key, return original bytes
 		return marshalledKey, nil
 	}
 

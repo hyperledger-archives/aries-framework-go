@@ -111,7 +111,7 @@ const doc = `{
   "id": "did:peer:123456789abcdefghi#inbox",
   "authentication": ["did:peer:123456789abcdefghi#keys-1"],
   "assertionMethod": ["did:peer:123456789abcdefghi#keys-1"],
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",
@@ -138,7 +138,7 @@ const doc = `{
 const invalidDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
+  "verificationMethod": [
   ]
 }`
 
@@ -148,7 +148,7 @@ const jwsDIDDoc = `{
 	"id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
 	"authentication" : [ "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777" ],
 	"assertionMethod" : [ "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777" ],
-    "publicKey": [{
+    "verificationMethod": [{
             "controller": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
             "id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
             "publicKeyJwk": {"kty": "OKP", "crv": "Ed25519", "x": "tp-lwePd7QnwWaxCLZ76-fPj2mjA-3z_ivCfBmZoDNA"},
@@ -173,7 +173,7 @@ const didKeyDoc = `{
     "controller" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
     "publicKeyBase58" : "6eBPUhK2ryHmoras6qq5Y15Z9pW3ceiQcZMptFQXrxDQ"
   } ],
-  "publicKey" : [ {
+  "verificationMethod" : [ {
     "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
     "type" : "Ed25519VerificationKey2018",
     "controller" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
@@ -196,7 +196,7 @@ const tbDoc = `{
     "#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ"
   ],
   "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
-  "publicKey": [
+  "verificationMethod": [
     {
       "controller": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
       "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
@@ -212,7 +212,7 @@ const tbDocNoAuth = `{
     "https://w3id.org/did/v1"
   ],
   "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
-  "publicKey": [
+  "verificationMethod": [
     {
       "controller": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
       "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
