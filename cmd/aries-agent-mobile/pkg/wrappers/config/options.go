@@ -10,21 +10,20 @@ import "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api
 
 // Options represents configurations for Aries.
 type Options struct {
-	UseLocalAgent bool
-
-	AgentURL string
-	APIToken string
-
+	UseLocalAgent        bool
+	AgentURL             string
+	APIToken             string
 	Label                string
 	AutoAccept           bool
 	TransportReturnRoute string
 	LogLevel             string
+	Logger               api.LoggerProvider
+	Storage              api.StorageProvider
 
 	// expected to be ignored by gomobile
 	// not intended to be used by golang code
 	HTTPResolvers     []string
 	OutboundTransport []string
-	Logger            api.LoggerProvider
 	WebsocketURL      string
 }
 
