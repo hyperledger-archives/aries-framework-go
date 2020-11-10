@@ -12,7 +12,6 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/containerd/containerd v1.3.3 // indirect
 	github.com/cucumber/godog v0.8.1
-	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/uuid v1.1.2
@@ -23,7 +22,7 @@ require (
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/piprate/json-gold v0.3.0
-	github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b
+	github.com/trustbloc/sidetree-core-go v0.1.5-0.20201110144511-4edb07cdb793
 	nhooyr.io/websocket v1.8.3
 )
 

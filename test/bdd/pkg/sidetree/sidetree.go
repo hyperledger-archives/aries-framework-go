@@ -14,8 +14,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/trustbloc/sidetree-core-go/pkg/commitment"
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
-	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
+	"github.com/trustbloc/sidetree-core-go/pkg/versions/0_1/client"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -27,15 +27,15 @@ const docTemplate = `{
    {
      "id": "%s",
      "type": "%s",
-     "purpose": ["auth", "general"],
-     "jwk": %s
+     "purposes": ["authentication"],
+     "publicKeyJwk": %s
    }
   ],
   "service": [
 	{
 	   "id": "hub",
 	   "type": "did-communication",
-	   "endpoint": "%s",
+	   "serviceEndpoint": "%s",
        "recipientKeys" : [ "%s" ]
 	}
   ]
@@ -143,7 +143,7 @@ func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
 	}
 
 	// for testing purposes we are going to use same commitment key for update and recovery
-	return helper.NewCreateRequest(&helper.CreateRequestInfo{
+	return client.NewCreateRequest(&client.CreateRequestInfo{
 		OpaqueDocument:     string(doc),
 		UpdateCommitment:   c,
 		RecoveryCommitment: c,
