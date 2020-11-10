@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/notifier"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -101,7 +102,11 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
-	options = append(options, aries.WithStoreProvider(mem.NewProvider()))
+	if opts.Storage != nil {
+		options = append(options, aries.WithStoreProvider(storage.New(opts.Storage)))
+	} else {
+		options = append(options, aries.WithStoreProvider(mem.NewProvider()))
+	}
 
 	for _, transport := range opts.OutboundTransport {
 		switch transport {
