@@ -37,7 +37,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		alicePeerDID := createPeerDIDLikeDIDExchangeService(t, alice)
 		require.NotEmpty(t, alicePeerDID.Authentication)
 
-		verKey := alicePeerDID.Authentication[0].PublicKey
+		verKey := alicePeerDID.Authentication[0].VerificationMethod
 		require.NotNil(t, verKey)
 
 		// alice self-issues a VC
@@ -218,7 +218,7 @@ func (s *cryptoSigner) Sign(msg []byte) ([]byte, error) {
 	return s.cr.Sign(msg, s.kh)
 }
 
-// PublicKey returns a public key object (e.g. ed25519.PublicKey or *ecdsa.PublicKey).
+// VerificationMethod returns a public key object (e.g. ed25519.VerificationMethod or *ecdsa.PublicKey).
 func (s *cryptoSigner) PublicKey() interface{} {
 	return s.PubKey
 }

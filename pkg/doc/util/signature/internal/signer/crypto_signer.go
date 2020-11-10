@@ -32,7 +32,7 @@ func (s *CryptoSigner) Sign(msg []byte) ([]byte, error) {
 	return s.crypto.Sign(msg, s.kh)
 }
 
-// PublicKey returns a public key object (e.g. ed25519.PublicKey or *ecdsa.PublicKey).
+// PublicKey returns a public key object (e.g. ed25519.VerificationMethod or *ecdsa.PublicKey).
 func (s *CryptoSigner) PublicKey() interface{} {
 	return s.PubKey
 }

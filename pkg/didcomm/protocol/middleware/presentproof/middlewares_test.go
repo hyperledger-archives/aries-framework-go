@@ -26,7 +26,7 @@ import (
 )
 
 // nolint: gochecknoglobals
-var pubKey = did.PublicKey{
+var pubKey = did.VerificationMethod{
 	ID: "key-1",
 	Value: []byte{
 		61, 133, 23, 17, 77, 132, 169, 196, 47, 203, 19, 71, 145, 144, 92, 145,
@@ -130,7 +130,7 @@ func TestSavePresentation(t *testing.T) {
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			PublicKey: []did.PublicKey{pubKey},
+			VerificationMethod: []did.VerificationMethod{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -153,7 +153,7 @@ func TestSavePresentation(t *testing.T) {
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			PublicKey: []did.PublicKey{pubKey},
+			VerificationMethod: []did.VerificationMethod{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -188,7 +188,7 @@ func TestSavePresentation(t *testing.T) {
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			PublicKey: []did.PublicKey{pubKey},
+			VerificationMethod: []did.VerificationMethod{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -225,7 +225,7 @@ func TestSavePresentation(t *testing.T) {
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			PublicKey: []did.PublicKey{pubKey},
+			VerificationMethod: []did.VerificationMethod{pubKey},
 		}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)

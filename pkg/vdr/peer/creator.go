@@ -36,14 +36,14 @@ func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, er
 }
 
 func build(pubKey *vdrapi.PubKey, docOpts *vdrapi.CreateDIDOpts) (*did.Doc, error) {
-	var publicKey did.PublicKey
+	var publicKey did.VerificationMethod
 
 	switch pubKey.Type {
 	case ed25519VerificationKey2018:
-		// TODO keyID of PublicKey should have the DID doc id as controller, since the DID document is created after
+		// TODO keyID of VerificationMethod should have the DID doc id as controller, since the DID document is created after
 		//      the publicKey, its id is unknown until NewDoc() is called below. The controller and key ID of publicKey
 		//		needs to be sorted out.
-		publicKey = *did.NewPublicKeyFromBytes(pubKey.ID, ed25519VerificationKey2018, "#id", pubKey.Value)
+		publicKey = *did.NewVerificationMethodFromBytes(pubKey.ID, ed25519VerificationKey2018, "#id", pubKey.Value)
 	default:
 		return nil, fmt.Errorf("not supported public key type: %s", pubKey.Type)
 	}
@@ -76,17 +76,17 @@ func build(pubKey *vdrapi.PubKey, docOpts *vdrapi.CreateDIDOpts) (*did.Doc, erro
 	t := time.Now()
 
 	return NewDoc(
-		[]did.PublicKey{publicKey},
+		[]did.VerificationMethod{publicKey},
 		did.WithService(service),
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
-		did.WithAuthentication([]did.VerificationMethod{{
-			PublicKey:    publicKey,
-			Relationship: did.Authentication,
+		did.WithAuthentication([]did.Verification{{
+			VerificationMethod: publicKey,
+			Relationship:       did.Authentication,
 		}}),
-		did.WithAssertion([]did.VerificationMethod{{
-			PublicKey:    publicKey,
-			Relationship: did.AssertionMethod,
+		did.WithAssertion([]did.Verification{{
+			VerificationMethod: publicKey,
+			Relationship:       did.AssertionMethod,
 		}}),
 	)
 }

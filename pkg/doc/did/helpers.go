@@ -62,8 +62,8 @@ func LookupRecipientKeys(didDoc *Doc, serviceType, keyType string) ([]string, bo
 }
 
 // LookupPublicKey returns the public key with the given id from the given DID Doc.
-func LookupPublicKey(id string, didDoc *Doc) (*PublicKey, bool) {
-	for _, key := range didDoc.PublicKey {
+func LookupPublicKey(id string, didDoc *Doc) (*VerificationMethod, bool) {
+	for _, key := range didDoc.VerificationMethod {
 		if key.ID == id {
 			return &key, true
 		}

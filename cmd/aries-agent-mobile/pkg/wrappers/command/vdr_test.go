@@ -17,7 +17,7 @@ import (
 
 const (
 	mockDocument = `{"did":{"@context":["https://w3id.org/did/v1","https://w3id.org/did/v2"],
-"id":"did:peer:21tDAKCERh95uGgKbJNHYp","publicKey":[{"controller":"did:peer:123456789abcdefghi",
+"id":"did:peer:21tDAKCERh95uGgKbJNHYp","verificationMethod":[{"controller":"did:peer:123456789abcdefghi",
 "id":"did:peer:123456789abcdefghi#keys-1","publicKeyBase58":"H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
 "type":"Secp256k1VerificationKey2018"},{"controller":"did:peer:123456789abcdefghw",
 "id":"did:peer:123456789abcdefghw#key2",
@@ -109,7 +109,7 @@ func TestVDR_SaveDID(t *testing.T) {
 		vdrController.handlers[cmdvdr.SaveDIDCommandMethod] = fakeHandler.exec
 
 		payload := `{"did":{"@context":["https://w3id.org/did/v1","https://w3id.org/did/v2"],
-"id":"did:peer:21tDAKCERh95uGgKbJNHYp","publicKey":[{"id":"did:peer:123456789abcdefghi#keys-1",
+"id":"did:peer:21tDAKCERh95uGgKbJNHYp","verificationMethod":[{"id":"did:peer:123456789abcdefghi#keys-1",
 "type":"Secp256k1VerificationKey2018","controller":"did:peer:123456789abcdefghi",
 "publicKeyBase58":"H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"},
 {"id":"did:peer:123456789abcdefghw#key2","type":"RsaVerificationKey2018","controller":"did:peer:123456789abcdefghw",

@@ -163,7 +163,7 @@ func newProtoECDSAPrivateKey(publicKey *ecdsapb.EcdsaPublicKey, keyValue []byte)
 func newProtoEd25519PrivateKey(privateKey ed25519.PrivateKey) (*ed25519pb.Ed25519PrivateKey, error) {
 	pubKey, ok := (privateKey.Public()).(ed25519.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("public key from private key is not ed25519.PublicKey")
+		return nil, fmt.Errorf("public key from private key is not ed25519.VerificationMethod")
 	}
 
 	publicProto := &ed25519pb.Ed25519PublicKey{

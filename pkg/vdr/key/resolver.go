@@ -42,7 +42,7 @@ func (v *VDR) Read(didKey string, opts ...vdrapi.ResolveOpts) (*did.Doc, error) 
 
 	didKey = fmt.Sprintf("did:key:%s", parsed.MethodSpecificID)
 	keyID := fmt.Sprintf("%s#%s", didKey, parsed.MethodSpecificID)
-	publicKey := did.NewPublicKeyFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKeyBytes)
+	publicKey := did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKeyBytes)
 
 	return createDoc(publicKey, keyAgr, didKey)
 }

@@ -50,6 +50,12 @@ const (
         "$ref": "#/definitions/publicKey"
       }
     },
+    "verificationMethod": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/publicKey"
+      }
+    },
     "authentication": {
       "type": "array",
       "items": {

@@ -34,7 +34,7 @@ const (
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key. The raw bytes are a marshaled
-// composite.PublicKey type.
+// composite.VerificationMethod type.
 // The keyset must have a keyURL value equal to `ecdhAESPublicKeyTypeURL` constant of ecdh package.
 // Note: This writer should be used only for ECDH public key exports. Other export of public keys should be
 //       called via localkms package.

@@ -129,7 +129,7 @@ func VerifyRS256(pubKey *verifier.PublicKey, message, signature []byte) error {
 	//  https://github.com/hyperledger/aries-framework-go/issues/1278
 	pubKeyRsa, err := x509.ParsePKCS1PublicKey(pubKey.Value)
 	if err != nil {
-		return errors.New("not *rsa.PublicKey public key")
+		return errors.New("not *rsa.VerificationMethod public key")
 	}
 
 	hash := crypto.SHA256.New()

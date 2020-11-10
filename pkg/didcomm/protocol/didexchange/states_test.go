@@ -1118,7 +1118,7 @@ func TestGetPublicKey(t *testing.T) {
 		ctx := getContext(t, &prov)
 		newDidDoc, err := ctx.vdRegistry.Create(testMethod)
 		require.NoError(t, err)
-		pubkey, ok := diddoc.LookupPublicKey(newDidDoc.PublicKey[0].ID, newDidDoc)
+		pubkey, ok := diddoc.LookupPublicKey(newDidDoc.VerificationMethod[0].ID, newDidDoc)
 		require.True(t, ok)
 		require.NotNil(t, pubkey)
 	})
@@ -1393,7 +1393,7 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 
 	id := fmt.Sprintf(didFormat, method, pub[:16])
 	pubKeyID := fmt.Sprintf(didPKID, id, 1)
-	pubKey := diddoc.PublicKey{
+	pubKey := diddoc.VerificationMethod{
 		ID:         pubKeyID,
 		Type:       "Ed25519VerificationKey2018",
 		Controller: id,
@@ -1410,12 +1410,12 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 	}
 	createdTime := time.Now()
 	didDoc := &diddoc.Doc{
-		Context:   []string{diddoc.Context},
-		ID:        id,
-		PublicKey: []diddoc.PublicKey{pubKey},
-		Service:   services,
-		Created:   &createdTime,
-		Updated:   &createdTime,
+		Context:            []string{diddoc.Context},
+		ID:                 id,
+		VerificationMethod: []diddoc.VerificationMethod{pubKey},
+		Service:            services,
+		Created:            &createdTime,
+		Updated:            &createdTime,
 	}
 
 	return didDoc

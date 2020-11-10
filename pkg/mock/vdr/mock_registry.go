@@ -107,7 +107,7 @@ func createDefaultDID() *did.Doc {
 		Priority:        0,
 	}
 
-	signingKey := did.PublicKey{
+	signingKey := did.VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: didID,
@@ -117,10 +117,10 @@ func createDefaultDID() *did.Doc {
 	createdTime := time.Now()
 
 	return &did.Doc{
-		Context:   []string{didContext},
-		ID:        didID,
-		PublicKey: []did.PublicKey{signingKey},
-		Service:   []did.Service{service},
-		Created:   &createdTime,
+		Context:            []string{didContext},
+		ID:                 didID,
+		VerificationMethod: []did.VerificationMethod{signingKey},
+		Service:            []did.Service{service},
+		Created:            &createdTime,
 	}
 }

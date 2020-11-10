@@ -21,7 +21,7 @@ func TestComputeDID(t *testing.T) {
 	peerDID, err := computeDidMethod1(storedDoc)
 	require.NoError(t, err)
 	require.Len(t, peerDID, 57)
-	require.Equal(t, "did:peer:1zQmNyG6jwmVybr5J8z6FKQWQ1FsrZeQezYhcAj9iW7QWh5q", peerDID)
+	require.Equal(t, "did:peer:1zQmezSbKyEq899oNbCqrDL7wfVvhGSmJghApykB1Jr2X6hu", peerDID)
 }
 
 func TestComputeDIDError(t *testing.T) {
@@ -72,7 +72,7 @@ func TestValidateDIDRegex(t *testing.T) {
 }
 
 func TestNewDoc(t *testing.T) {
-	publicKey := did.PublicKey{
+	publicKey := did.VerificationMethod{
 		ID:         "did:example:123456789abcdefghi#keys-1",
 		Type:       "Secp256k1VerificationKey2018",
 		Controller: "did:example:123456789abcdefghi",
@@ -80,8 +80,8 @@ func TestNewDoc(t *testing.T) {
 	}
 
 	doc, err := NewDoc(
-		[]did.PublicKey{publicKey},
-		did.WithAuthentication([]did.VerificationMethod{{PublicKey: publicKey}}))
+		[]did.VerificationMethod{publicKey},
+		did.WithAuthentication([]did.Verification{{VerificationMethod: publicKey}}))
 	require.NoError(t, err)
 	require.NotNil(t, doc)
 
@@ -100,7 +100,7 @@ func TestNewDocError(t *testing.T) {
 // genesisDoc creates the doc without an id.
 func genesisDoc() *did.Doc {
 	//nolint:lll
-	pk := []did.PublicKey{
+	pk := []did.VerificationMethod{
 		{
 			ID:         "did:example:123456789abcdefghi#keys-1",
 			Type:       "Secp256k1VerificationKey2018",
@@ -114,9 +114,9 @@ func genesisDoc() *did.Doc {
 			Value:      []byte(`"publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"`),
 		},
 	}
-	auth := []did.VerificationMethod{
+	auth := []did.Verification{
 		{
-			PublicKey: did.PublicKey{
+			VerificationMethod: did.VerificationMethod{
 				ID:         "did:example:123456789abcdefghs#key3",
 				Type:       "RsaVerificationKey2018",
 				Controller: "did:example:123456789abcdefghs",
@@ -126,14 +126,14 @@ func genesisDoc() *did.Doc {
 	}
 
 	doc := &did.Doc{
-		Context:        []string{"https://w3id.org/did/v1", "https://w3id.org/did/v2"},
-		PublicKey:      pk,
-		Authentication: auth,
-		Created:        &time.Time{},
+		Context:            []string{"https://w3id.org/did/v1", "https://w3id.org/did/v2"},
+		VerificationMethod: pk,
+		Authentication:     auth,
+		Created:            &time.Time{},
 	}
 
 	return &did.Doc{
-		Context: doc.Context, PublicKey: doc.PublicKey, Authentication: doc.Authentication,
+		Context: doc.Context, VerificationMethod: doc.VerificationMethod, Authentication: doc.Authentication,
 		Created: doc.Created,
 	}
 }

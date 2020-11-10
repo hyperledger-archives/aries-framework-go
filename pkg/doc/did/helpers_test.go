@@ -55,7 +55,7 @@ func TestGetRecipientKeys(t *testing.T) {
 
 	t.Run("error due to unsupported key types", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc()
-		didDoc.Service[0].RecipientKeys = []string{didDoc.PublicKey[0].ID}
+		didDoc.Service[0].RecipientKeys = []string{didDoc.VerificationMethod[0].ID}
 
 		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
 		require.False(t, ok)

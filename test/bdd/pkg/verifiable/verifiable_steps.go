@@ -122,7 +122,7 @@ func (s *SDKSteps) createVC(issuedAt, subject, issuer string) (*verifiable.Crede
 
 func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType string) ([]byte, error) {
 	doc := s.getPublicDID(issuer)
-	pubKeyID := doc.PublicKey[0].ID
+	pubKeyID := doc.VerificationMethod[0].ID
 
 	cr := s.bddContext.AgentCtx[issuer].Crypto()
 	cryptoSigner := newCryptoSigner(cr, s.bddContext.KeyHandles[issuer])

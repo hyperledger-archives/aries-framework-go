@@ -150,7 +150,7 @@ const validDoc = `
     "https://w3id.org/did/v1"
   ],
   "id": "did:example:123456789abcdefghi",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",

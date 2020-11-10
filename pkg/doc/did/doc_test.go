@@ -30,6 +30,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
+const wrongDataMsg = "wrongData"
+
 const pemPK = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO
 3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX
@@ -44,7 +46,7 @@ FQIDAQAB
 const validDoc = `{
   "@context": ["https://w3id.org/did/v1"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",
@@ -232,9 +234,9 @@ func TestValidWithDocBase(t *testing.T) {
 		require.NoError(t, err)
 
 		// test authentication
-		eAuthentication := []VerificationMethod{
+		eAuthentication := []Verification{
 			{
-				PublicKey: PublicKey{
+				VerificationMethod: VerificationMethod{
 					ID:          "did:example:123456789abcdefghi#keys-1",
 					Type:        "Secp256k1VerificationKey2018",
 					Controller:  "did:example:123456789abcdefghi",
@@ -244,7 +246,7 @@ func TestValidWithDocBase(t *testing.T) {
 				Relationship: Authentication,
 			},
 			{
-				PublicKey: PublicKey{
+				VerificationMethod: VerificationMethod{
 					ID:          "did:example:123456789abcdefghi#key3",
 					Controller:  "did:example:123456789abcdefghi",
 					Type:        "RsaVerificationKey2018",
@@ -257,7 +259,7 @@ func TestValidWithDocBase(t *testing.T) {
 		require.Equal(t, eAuthentication, doc.Authentication)
 
 		// test public key
-		ePubKey := []PublicKey{
+		ePubKey := []VerificationMethod{
 			{
 				ID:          "did:example:123456789abcdefghi#keys-1",
 				Controller:  "did:example:123456789abcdefghi",
@@ -273,7 +275,7 @@ func TestValidWithDocBase(t *testing.T) {
 				relativeURL: true,
 			},
 		}
-		require.Equal(t, ePubKey, doc.PublicKey)
+		require.Equal(t, ePubKey, doc.VerificationMethod)
 
 		// test services
 		eServices := []Service{
@@ -321,12 +323,12 @@ func TestValid(t *testing.T) {
 		require.NoError(t, err)
 
 		// test authentication
-		eAuthentication := []VerificationMethod{
-			{PublicKey: *NewPublicKeyFromBytes("did:example:123456789abcdefghi#keys-1",
+		eAuthentication := []Verification{
+			{VerificationMethod: *NewVerificationMethodFromBytes("did:example:123456789abcdefghi#keys-1",
 				"Secp256k1VerificationKey2018",
 				"did:example:123456789abcdefghi",
 				base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")), Relationship: Authentication},
-			{PublicKey: PublicKey{
+			{VerificationMethod: VerificationMethod{
 				ID:         "did:example:123456789abcdefghs#key3",
 				Controller: "did:example:123456789abcdefghs",
 				Type:       "RsaVerificationKey2018",
@@ -336,7 +338,7 @@ func TestValid(t *testing.T) {
 		require.Equal(t, eAuthentication, doc.Authentication)
 
 		// test public key
-		ePubKey := []PublicKey{
+		ePubKey := []VerificationMethod{
 			{
 				ID:         "did:example:123456789abcdefghi#keys-1",
 				Controller: "did:example:123456789abcdefghi",
@@ -350,7 +352,7 @@ func TestValid(t *testing.T) {
 				Value:      block.Bytes,
 			},
 		}
-		require.Equal(t, ePubKey, doc.PublicKey)
+		require.Equal(t, ePubKey, doc.VerificationMethod)
 
 		// test services
 		eServices := []Service{
@@ -466,7 +468,7 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 
@@ -482,7 +484,7 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -499,7 +501,7 @@ func TestPopulateAssertionMethods(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -516,7 +518,7 @@ func TestPopulateCapabilityDelegations(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -533,7 +535,7 @@ func TestPopulateCapabilityInvocations(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -550,7 +552,7 @@ func TestPopulateKeyAgreements(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -561,7 +563,13 @@ func TestPublicKeys(t *testing.T) {
 		for _, d := range docs {
 			raw := &rawDoc{}
 			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			raw.PublicKey[1][jsonldPublicKeyPem] = "wrongData"
+
+			if len(raw.PublicKey) != 0 {
+				raw.PublicKey[1][jsonldPublicKeyPem] = wrongDataMsg
+			} else {
+				raw.VerificationMethod[1][jsonldPublicKeyPem] = wrongDataMsg
+			}
+
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			_, err = ParseDocument(bytes)
@@ -575,8 +583,15 @@ func TestPublicKeys(t *testing.T) {
 		for _, d := range docs {
 			raw := &rawDoc{}
 			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			delete(raw.PublicKey[1], jsonldPublicKeyPem)
-			raw.PublicKey[1]["publicKeyMultibase"] = "wrongData"
+
+			if len(raw.PublicKey) != 0 {
+				delete(raw.PublicKey[1], jsonldPublicKeyPem)
+				raw.PublicKey[1]["publicKeyMultibase"] = wrongDataMsg
+			} else {
+				delete(raw.VerificationMethod[1], jsonldPublicKeyPem)
+				raw.VerificationMethod[1]["publicKeyMultibase"] = wrongDataMsg
+			}
+
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			_, err = ParseDocument(bytes)
@@ -588,7 +603,7 @@ func TestPublicKeys(t *testing.T) {
 
 func TestParseDocument(t *testing.T) {
 	// test error from Unmarshal
-	_, err := ParseDocument([]byte("wrongData"))
+	_, err := ParseDocument([]byte(wrongDataMsg))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "JSON marshalling of did doc bytes bytes failed")
 }
@@ -642,7 +657,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		for _, d := range docs {
 			raw := &rawDoc{}
 			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			raw.PublicKey = nil
+			raw.VerificationMethod = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			err = validate(bytes, raw.schemaLoader())
@@ -655,7 +670,13 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		for _, d := range docs {
 			raw := &rawDoc{}
 			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			delete(raw.PublicKey[0], jsonldID)
+
+			if len(raw.PublicKey) != 0 {
+				delete(raw.PublicKey[0], jsonldID)
+			} else {
+				delete(raw.VerificationMethod[0], jsonldID)
+			}
+
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			err = validate(bytes, raw.schemaLoader())
@@ -669,7 +690,13 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		for _, d := range docs {
 			raw := &rawDoc{}
 			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			delete(raw.PublicKey[0], jsonldType)
+
+			if len(raw.PublicKey) != 0 {
+				delete(raw.PublicKey[0], jsonldType)
+			} else {
+				delete(raw.VerificationMethod[0], jsonldType)
+			}
+
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			err = validate(bytes, raw.schemaLoader())
@@ -681,7 +708,13 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 	t.Run("test did doc public key without controller", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		delete(raw.PublicKey[0], jsonldController)
+
+		if len(raw.PublicKey) != 0 {
+			delete(raw.PublicKey[0], jsonldController)
+		} else {
+			delete(raw.VerificationMethod[0], jsonldController)
+		}
+
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes, raw.schemaLoader())
@@ -1053,7 +1086,7 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 	}
 
 	// Success.
-	signingKey, err := NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
 	require.NoError(t, err)
 	require.Equal(t, jwk, signingKey.JSONWebKey())
 	require.Equal(t, []byte(pubKey), signingKey.Value)
@@ -1065,7 +1098,7 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
 		},
 	}
-	signingKey, err = NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	signingKey, err = NewVerificationMethodFromJWK(creator, keyType, did, jwk)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "convert JWK to public key bytes")
 	require.Nil(t, signingKey)
@@ -1084,18 +1117,18 @@ func TestJSONWebKey(t *testing.T) {
 		},
 	}
 
-	signingKey, err := NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
 	require.NoError(t, err)
 	require.Equal(t, jwk, signingKey.JSONWebKey())
 
 	createdTime := time.Now()
 
 	didDoc := &Doc{
-		Context:   []string{didContext},
-		ID:        did,
-		PublicKey: []PublicKey{*signingKey},
-		Created:   &createdTime,
-		Updated:   &createdTime,
+		Context:            []string{didContext},
+		ID:                 did,
+		VerificationMethod: []VerificationMethod{*signingKey},
+		Created:            &createdTime,
+		Updated:            &createdTime,
 	}
 
 	didDocBytes, err := didDoc.JSONBytes()
@@ -1157,7 +1190,7 @@ func TestDidKeyResolver_Resolve(t *testing.T) {
 	require.Nil(t, key)
 
 	testKeyVal := []byte("pub key")
-	pubKeys := []PublicKey{{
+	pubKeys := []VerificationMethod{{
 		ID:    "id",
 		Value: testKeyVal,
 		Type:  keyType,
@@ -1172,10 +1205,10 @@ func TestDidKeyResolver_Resolve(t *testing.T) {
 
 func TestBuildDoc(t *testing.T) {
 	ti := time.Now()
-	doc := BuildDoc(WithPublicKey([]PublicKey{{}}), WithService([]Service{{}, {}}),
-		WithAuthentication([]VerificationMethod{{}}), WithCreatedTime(ti), WithUpdatedTime(ti))
+	doc := BuildDoc(WithVerificationMethod([]VerificationMethod{{}}), WithService([]Service{{}, {}}),
+		WithAuthentication([]Verification{{}}), WithCreatedTime(ti), WithUpdatedTime(ti))
 	require.NotEmpty(t, doc)
-	require.Equal(t, 1, len(doc.PublicKey))
+	require.Equal(t, 1, len(doc.VerificationMethod))
 	require.Equal(t, 2, len(doc.Service))
 	require.Equal(t, 1, len(doc.Authentication))
 	require.Equal(t, ti, *doc.Created)
@@ -1261,7 +1294,7 @@ func TestDIDSchemas(t *testing.T) {
 				"assertionMethod": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
 				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
 				"@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
-				"publicKey": [{
+				"verificationMethod": [{
 				"id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
 				"usage": "signing",
 				"publicKeyJwk": {
@@ -1314,7 +1347,7 @@ func TestDIDSchemas(t *testing.T) {
 				"assertionMethod": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
 				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
 				"@context": "https://w3id.org/did/v1",
-				"publicKey": [{
+				"verificationMethod": [{
 				"id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
 				"usage": "signing",
 				"publicKeyJwk": {
@@ -1437,24 +1470,24 @@ func TestDIDSchemas(t *testing.T) {
 }
 
 func TestNewEmbeddedVerificationMethod(t *testing.T) {
-	vm := NewEmbeddedVerificationMethod(&PublicKey{}, Authentication)
+	vm := NewEmbeddedVerification(&VerificationMethod{}, Authentication)
 	require.NotNil(t, vm)
-	require.NotNil(t, vm.PublicKey)
+	require.NotNil(t, vm.VerificationMethod)
 	require.True(t, vm.Embedded)
 	require.Equal(t, Authentication, vm.Relationship)
 }
 
 func TestNewReferencedVerificationMethod(t *testing.T) {
 	t.Run("relative URL - true", func(t *testing.T) {
-		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication)
+		vm := NewReferencedVerification(&VerificationMethod{}, Authentication)
 		require.NotNil(t, vm)
-		require.NotNil(t, vm.PublicKey)
+		require.NotNil(t, vm.VerificationMethod)
 		require.Equal(t, Authentication, vm.Relationship)
 	})
 	t.Run("relative URL - false", func(t *testing.T) {
-		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication)
+		vm := NewReferencedVerification(&VerificationMethod{}, Authentication)
 		require.NotNil(t, vm)
-		require.NotNil(t, vm.PublicKey)
+		require.NotNil(t, vm.VerificationMethod)
 		require.Equal(t, Authentication, vm.Relationship)
 	})
 }
@@ -1584,7 +1617,7 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 		securityContext = "https://w3id.org/security/v1"
 	)
 
-	signingKey := PublicKey{
+	signingKey := VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: did,
@@ -1594,10 +1627,10 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	createdTime := time.Now()
 
 	didDoc := &Doc{
-		Context:   []string{didContext, securityContext},
-		ID:        did,
-		PublicKey: []PublicKey{signingKey},
-		Created:   &createdTime,
+		Context:            []string{didContext, securityContext},
+		ID:                 did,
+		VerificationMethod: []VerificationMethod{signingKey},
+		Created:            &createdTime,
 	}
 
 	return didDoc

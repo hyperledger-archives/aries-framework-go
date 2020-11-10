@@ -101,7 +101,7 @@ const doc = `{
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "authentication": ["did:peer:123456789abcdefghi#keys-1"],
   "assertionMethod": ["did:peer:123456789abcdefghi#keys-1"],
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",

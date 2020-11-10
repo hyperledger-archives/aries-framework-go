@@ -36,7 +36,7 @@ func TestKMS_CreateKeySet(t *testing.T) {
 		controller := getKMSController(t)
 
 		reqData := `{"keyType":"ED25519"}`
-		mockResponse := `{"keyID":"keyID","publicKey":"cHVibGljS2V5"}`
+		mockResponse := `{"keyID":"keyID","verificationMethod":"cHVibGljS2V5"}`
 
 		controller.httpClient = &mockHTTPClient{
 			data:   mockResponse,

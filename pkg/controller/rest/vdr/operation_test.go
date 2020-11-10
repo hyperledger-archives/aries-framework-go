@@ -35,7 +35,7 @@ const sampleDIDName = "sampleDIDName"
 const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
       "type": "Secp256k1VerificationKey2018",
