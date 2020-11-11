@@ -5,6 +5,7 @@
 #
 
 @all
+@controller
 @aries_router_controller
 Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Binding]
 

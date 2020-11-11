@@ -7,6 +7,7 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 
 @all
+@controller
 @outofband_controller_sdk
 Feature: Out-Of-Band protocol
 

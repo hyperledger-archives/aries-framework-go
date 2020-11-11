@@ -6,6 +6,7 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0028-introduce
 
 @all
+@controller
 @introduce_controller
 Feature: Introduce using controller API
   @controller_skip_proposal
