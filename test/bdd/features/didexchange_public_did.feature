@@ -99,6 +99,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then   "Uma" retrieves connection record and validates that connection state is "completed"
       And   "John" retrieves connection record and validates that connection state is "completed"
 
+  @controller
   @didexchange_controller_public_dids_invitation
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
@@ -118,6 +119,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
     And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
 
+  @controller
   @didexchange_controller_mixed_public_and_peer_dids
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
@@ -135,6 +137,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
 
+  @controller
   @didexchange_controller_implicit_invitation_peer_did
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
@@ -150,6 +153,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
 
+  @controller
   @didexchange_controller_implicit_invitation_public_did
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"

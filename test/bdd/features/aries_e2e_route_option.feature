@@ -29,6 +29,7 @@ Feature: DIDComm between Edge Agent(without Inbound) and Router/Mediator
     Then   "Alice" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
 
+  @controller
   Scenario: Decentralized Identifier(DID) between Edge Agent and Router/Mediator using Transport Return Route option [REST Binding]
     Given "Carl" agent is running with controller "https://localhost:10081" and "all" as the transport return route option
     And   "Carl-Router" agent is running on "https://localhost:10091,wss://localhost:10092" with controller "https://localhost:10093"

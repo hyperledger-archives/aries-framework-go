@@ -6,6 +6,7 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0036-issue-credential
 
 @all
+@controller
 @issue_credential_controller
 Feature: Issue Credential using controller API
 

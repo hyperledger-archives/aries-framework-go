@@ -5,6 +5,7 @@
 #
 
 @all
+@controller
 @messaging_e2e_controller
 Feature: Messaging between the agents using REST/controller binding
 
