@@ -12,27 +12,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-)
-
-const (
-	testKey = "key"
-
-	vaultIDPathVariable    = "vaultID"
-	docIDPathVariable      = "docID"
-	queryVaultEndpoint     = "/{" + vaultIDPathVariable + "}/query"
-	createDocumentEndpoint = "/{" + vaultIDPathVariable + "}/documents"
-	readDocumentEndpoint   = "/{" + vaultIDPathVariable + "}/documents/{" + docIDPathVariable + "}"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 )
 
 var errTest = errors.New("test error")
@@ -44,7 +34,7 @@ func TestNewRESTProvider(t *testing.T) {
 	t.Run("Fail to compute index name MAC", func(t *testing.T) {
 		provider, err := NewRESTProvider("EDVServerURL", "vaultID",
 			NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest}))
-		require.EqualError(t, err, fmt.Errorf(failComputeMACIndexName, errTest).Error())
+		require.EqualError(t, err, fmt.Errorf(failComputeMACStoreAndKeyIndexName, errTest).Error())
 		require.Nil(t, provider)
 	})
 }
@@ -73,20 +63,21 @@ func TestRESTProvider_Close(t *testing.T) {
 
 func TestRestStore_Put(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		mockSDSServerOperation := mockSDSServerOperation{
-			createDocumentReturnLocation:   "documentLocation",
-			createDocumentReturnStatusCode: http.StatusCreated,
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			CreateDocumentReturnLocation:   "documentLocation",
+			CreateDocumentReturnStatusCode: http.StatusCreated,
 		}
-		sdsSrv := mockSDSServerOperation.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -113,7 +104,7 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -121,24 +112,24 @@ func TestRestStore_Put(t *testing.T) {
 		err = store.Put(testKey, encryptedDocumentBytes)
 		require.EqualError(t, err,
 			fmt.Errorf(failCreateIndexedAttribute,
-				fmt.Errorf(failComputeBase64EncodedIndexValueMAC,
-					fmt.Errorf(failComputeMACIndexValue, errTest))).Error())
+				fmt.Errorf(failComputeMACStoreIndexValue, errTest)).Error())
 	})
 	t.Run("Receive error response from EDV server", func(t *testing.T) {
-		mockSDSServerOp := mockSDSServerOperation{
-			createDocumentReturnStatusCode: http.StatusInternalServerError,
-			createDocumentReturnBody:       []byte(errTest.Error()),
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			CreateDocumentReturnStatusCode: http.StatusInternalServerError,
+			CreateDocumentReturnBody:       []byte(errTest.Error()),
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -152,7 +143,7 @@ func TestRestStore_Put(t *testing.T) {
 
 func TestRestStore_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		encryptedDocument := EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -162,16 +153,17 @@ func TestRestStore_Get(t *testing.T) {
 		queryResultsBytes, err := json.Marshal(queryResults)
 		require.NoError(t, err)
 
-		mockSDSServerOp := mockSDSServerOperation{
-			queryVaultReturnStatusCode:   http.StatusOK,
-			queryVaultReturnBody:         queryResultsBytes,
-			readDocumentReturnStatusCode: http.StatusOK,
-			readDocumentReturnBody:       encryptedDocumentBytes,
+		mockEDVServerOp := edv.MockServerOperation{
+			T:                            t,
+			QueryVaultReturnStatusCode:   http.StatusOK,
+			QueryVaultReturnBody:         queryResultsBytes,
+			ReadDocumentReturnStatusCode: http.StatusOK,
+			ReadDocumentReturnBody:       encryptedDocumentBytes,
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOp.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
@@ -191,19 +183,20 @@ func TestRestStore_Get(t *testing.T) {
 
 		encryptedDocumentBytes, err := store.Get(testKey)
 		require.EqualError(t, err,
-			fmt.Errorf(failComputeBase64EncodedIndexValueMAC,
-				fmt.Errorf(failComputeMACIndexValue, errTest)).Error())
+			fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
+				fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest)).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
 	t.Run("Receive error response from EDV server query endpoint", func(t *testing.T) {
-		mockSDSServerOp := mockSDSServerOperation{
-			queryVaultReturnStatusCode: http.StatusInternalServerError,
-			queryVaultReturnBody:       []byte(errTest.Error()),
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                          t,
+			QueryVaultReturnStatusCode: http.StatusInternalServerError,
+			QueryVaultReturnBody:       []byte(errTest.Error()),
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
@@ -221,14 +214,15 @@ func TestRestStore_Get(t *testing.T) {
 		queryResultsBytes, err := json.Marshal(queryResults)
 		require.NoError(t, err)
 
-		mockSDSServerOp := mockSDSServerOperation{
-			queryVaultReturnStatusCode: http.StatusOK,
-			queryVaultReturnBody:       queryResultsBytes,
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                          t,
+			QueryVaultReturnStatusCode: http.StatusOK,
+			QueryVaultReturnBody:       queryResultsBytes,
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
@@ -247,14 +241,15 @@ func TestRestStore_Get(t *testing.T) {
 		queryResultsBytes, err := json.Marshal(queryResults)
 		require.NoError(t, err)
 
-		mockSDSServerOp := mockSDSServerOperation{
-			queryVaultReturnStatusCode: http.StatusOK,
-			queryVaultReturnBody:       queryResultsBytes,
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                          t,
+			QueryVaultReturnStatusCode: http.StatusOK,
+			QueryVaultReturnBody:       queryResultsBytes,
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
@@ -270,16 +265,17 @@ func TestRestStore_Get(t *testing.T) {
 		queryResultsBytes, err := json.Marshal(queryResults)
 		require.NoError(t, err)
 
-		mockSDSServerOp := mockSDSServerOperation{
-			queryVaultReturnStatusCode:   http.StatusOK,
-			queryVaultReturnBody:         queryResultsBytes,
-			readDocumentReturnStatusCode: http.StatusInternalServerError,
-			readDocumentReturnBody:       []byte(errTest.Error()),
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                            t,
+			QueryVaultReturnStatusCode:   http.StatusOK,
+			QueryVaultReturnBody:         queryResultsBytes,
+			ReadDocumentReturnStatusCode: http.StatusInternalServerError,
+			ReadDocumentReturnBody:       []byte(errTest.Error()),
 		}
-		sdsSrv := mockSDSServerOp.startNewMockSDSServer()
-		defer sdsSrv.Close()
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-		provider := createRESTProvider(t, sdsSrv.URL)
+		provider := createRESTProvider(t, edvSrv.URL)
 
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
@@ -294,18 +290,90 @@ func TestRestStore_Get(t *testing.T) {
 }
 
 func TestRestStore_Iterator(t *testing.T) {
-	provider := createRESTProvider(t, "EDVServerURL")
+	t.Run("Success", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			CreateDocumentReturnStatusCode: http.StatusCreated,
+			ReadDocumentReturnStatusCode:   http.StatusOK,
+			QueryVaultReturnStatusCode:     http.StatusOK,
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-	store, err := provider.OpenStore("StoreName")
-	require.NoError(t, err)
-	require.NotNil(t, store)
+		provider := createRESTProvider(t, edvSrv.URL)
 
-	iterator := store.Iterator("StartKey", "EndKey")
-	require.False(t, iterator.Next())
-	require.Nil(t, iterator.Key())
-	require.Nil(t, iterator.Value())
-	require.Equal(t, errIteratorNotSupported, iterator.Error())
-	iterator.Release()
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
+		encryptedFormatter := createEncryptedFormatter(t)
+
+		for _, key := range keys {
+			encryptedDocument, err := encryptedFormatter.FormatPair(key, []byte(fmt.Sprintf(valPrefix, key)))
+			require.NoError(t, err)
+
+			err = store.Put(key, encryptedDocument)
+			require.NoError(t, err)
+		}
+
+		iterator := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		verifyIterator(t, iterator, len(keys))
+	})
+	t.Run("Fail to get all document locations", func(t *testing.T) {
+		provider := createRESTProvider(t, "EDVServerURL")
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		itr := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		require.EqualError(t, itr.Error(),
+			fmt.Errorf(failGetAllDocumentLocations,
+				fmt.Errorf(failQueryVaultInEDVServer,
+					errors.New(`failed to send POST request: Post "EDVServerURL/vaultID/query": `+
+						`unsupported protocol scheme ""`))).Error())
+	})
+	t.Run("Fail to get all original key document pairs", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			CreateDocumentReturnStatusCode: http.StatusCreated,
+			ReadDocumentReturnStatusCode:   http.StatusInternalServerError,
+			ReadDocumentReturnBody:         []byte(errTest.Error()),
+			QueryVaultReturnStatusCode:     http.StatusOK,
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(t, edvSrv.URL)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
+		encryptedFormatter := createEncryptedFormatter(t)
+
+		for _, key := range keys {
+			encryptedDocument, err := encryptedFormatter.FormatPair(key, []byte(fmt.Sprintf(valPrefix, key)))
+			require.NoError(t, err)
+
+			err = store.Put(key, encryptedDocument)
+			require.NoError(t, err)
+		}
+
+		itr := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		require.EqualError(t, itr.Error(),
+			fmt.Errorf(failGetAllDocuments,
+				fmt.Errorf(failRetrieveDocumentFromEDVServer,
+					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
+	})
 }
 
 func TestRestStore_Delete(t *testing.T) {
@@ -339,51 +407,22 @@ func newMACCrypto(t *testing.T) *MACCrypto {
 	return NewMACCrypto(kh, crypto)
 }
 
-type mockSDSServerOperation struct {
-	createDocumentReturnStatusCode int
-	createDocumentReturnLocation   string
-	createDocumentReturnBody       []byte
-	readDocumentReturnStatusCode   int
-	readDocumentReturnBody         []byte
-	queryVaultReturnStatusCode     int
-	queryVaultReturnBody           []byte
-}
+func verifyIterator(t *testing.T, itr storage.StoreIterator, count int) {
+	t.Helper()
 
-func (o *mockSDSServerOperation) startNewMockSDSServer() *httptest.Server {
-	router := mux.NewRouter()
-	router.UseEncodedPath()
+	var values []string
 
-	router.HandleFunc(createDocumentEndpoint, o.mockCreateDocumentHandler).Methods(http.MethodPost)
-	router.HandleFunc(readDocumentEndpoint, o.mockReadDocumentHandler).Methods(http.MethodGet)
-	router.HandleFunc(queryVaultEndpoint, o.mockQueryVaultHandler).Methods(http.MethodPost)
+	for itr.Next() {
+		require.NotEmpty(t, itr.Key())
 
-	return httptest.NewServer(router)
-}
-
-func (o *mockSDSServerOperation) mockCreateDocumentHandler(rw http.ResponseWriter, _ *http.Request) {
-	rw.Header().Set("Location", o.createDocumentReturnLocation)
-	rw.WriteHeader(o.createDocumentReturnStatusCode)
-
-	_, err := rw.Write(o.createDocumentReturnBody)
-	if err != nil {
-		logger.Errorf("failed to write return body: %w", err)
+		values = append(values, string(itr.Value()))
 	}
-}
+	require.Len(t, values, count)
 
-func (o *mockSDSServerOperation) mockReadDocumentHandler(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(o.readDocumentReturnStatusCode)
-
-	_, err := rw.Write(o.readDocumentReturnBody)
-	if err != nil {
-		logger.Errorf("failed to write return body: %w", err)
-	}
-}
-
-func (o *mockSDSServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(o.queryVaultReturnStatusCode)
-
-	_, err := rw.Write(o.queryVaultReturnBody)
-	if err != nil {
-		logger.Errorf("failed to write return body: %w", err)
-	}
+	itr.Release()
+	require.False(t, itr.Next())
+	require.Empty(t, itr.Key())
+	require.Empty(t, itr.Value())
+	require.Error(t, itr.Error())
+	require.Contains(t, itr.Error().Error(), "iterator released")
 }

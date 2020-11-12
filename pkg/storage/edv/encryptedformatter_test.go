@@ -22,9 +22,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 )
 
 const (
+	testKey                       = "key"
 	testValue                     = "data"
 	jweCreatedUsingKeyWeDoNotHave = `{"protected":"eyJhbGciOiJFQ0RILUVTK0EyNTZLVyIsImVuYyI6IkEyNT` +
 		`ZHQ00iLCJlcGsiOnsidXNlIjoiZW5jIiwia3R5IjoiRUMiLCJjcnYiOiJQLTI1NiIsIngiOiJCNDYzRVYyd0tfYzFF` +
@@ -52,7 +54,7 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 
 		formatter.randomBytesFunc = failingGenerateRandomBytesFunc
 
-		value, err := formatter.Format([]byte(testValue))
+		value, err := formatter.FormatPair(testKey, []byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failGenerateEDVCompatibleID, errGenerateRandomBytes).Error())
 		require.Nil(t, value)
 	})
@@ -60,7 +62,7 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 		formatter.marshal = failingMarshal
 
-		encryptedDocument, err := formatter.Format([]byte(testValue))
+		encryptedDocument, err := formatter.FormatPair(testKey, []byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failMarshalStructuredDocument, errFailingMarshal).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -68,7 +70,7 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 		formatter.jweEncrypter = &failingEncrypter{}
 
-		encryptedDocument, err := formatter.Format([]byte(testValue))
+		encryptedDocument, err := formatter.FormatPair(testKey, []byte(testValue))
 		require.EqualError(t, err, fmt.Errorf(failEncryptStructuredDocument, errFailingEncrypter).Error())
 		require.Nil(t, encryptedDocument)
 	})
@@ -80,8 +82,9 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 
 		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
 
-		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.NoError(t, err)
+		require.Equal(t, testKey, key)
 		require.Equal(t, string(value), testValue)
 	})
 	t.Run("Fail to unmarshal structured document bytes", func(t *testing.T) {
@@ -92,16 +95,18 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 
 		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
 
-		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.EqualError(t, err,
-			fmt.Errorf(failUnmarshalStructuredDocument,
-				errors.New("invalid character 'h' in literal true (expecting 'r')")).Error())
+			fmt.Errorf(failGetStructuredDocFromEncryptedDocBytes,
+				fmt.Errorf(failUnmarshalStructuredDocument,
+					errors.New("invalid character 'h' in literal true (expecting 'r')"))).Error())
+		require.Empty(t, key)
 		require.Nil(t, value)
 	})
 	t.Run("Structured document is missing the payload key", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 
-		structuredDocumentBytes, err := json.Marshal(StructuredDocument{})
+		structuredDocumentBytes, err := json.Marshal(models.StructuredDocument{})
 		require.NoError(t, err)
 
 		formatter.jweDecrypter = &mockJWEDecrypter{
@@ -110,8 +115,9 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 
 		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
 
-		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.EqualError(t, err, errPayloadKeyMissing.Error())
+		require.Empty(t, key)
 		require.Nil(t, value)
 	})
 	t.Run("Structured document payload value cannot be asserted as a string", func(t *testing.T) {
@@ -121,7 +127,7 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 		// Set payload to an arbitrary number that, when marshalled and unmarshalled, cannot be asserted as a string
 		content["payload"] = 1
 
-		structuredDocumentWithByteArrayPayload := &StructuredDocument{
+		structuredDocumentWithByteArrayPayload := &models.StructuredDocument{
 			Content: content,
 		}
 
@@ -134,45 +140,54 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 
 		encryptedDocumentBytes := createEncryptedDocument(t, formatter)
 
-		value, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.EqualError(t, err, errPayloadNotAssertableAsString.Error())
+		require.Empty(t, key)
 		require.Nil(t, value)
 	})
 	t.Run("Fail to unmarshal encrypted document bytes", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 
-		value, err := formatter.ParseValue([]byte("Not a valid encrypted document"))
+		key, value, err := formatter.ParsePair([]byte("Not a valid encrypted document"))
 		require.EqualError(t, err,
-			fmt.Errorf(failUnmarshalValueIntoEncryptedDocument,
-				errors.New("invalid character 'N' looking for beginning of value")).Error())
+			fmt.Errorf(failGetStructuredDocFromEncryptedDocBytes,
+				fmt.Errorf(failUnmarshalValueIntoEncryptedDocument,
+					errors.New("invalid character 'N' looking for beginning of value"))).Error())
+		require.Empty(t, key)
 		require.Nil(t, value)
 	})
 	t.Run("Fail to deserialize encrypted document's JWE", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 
-		encryptedDocument := EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
 
-		structuredDocument, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.EqualError(t, err,
-			fmt.Errorf(failDeserializeJWE, errors.New("invalid compact JWE: it must have five parts")).Error())
-		require.Nil(t, structuredDocument)
+			fmt.Errorf(failGetStructuredDocFromEncryptedDocBytes,
+				fmt.Errorf(failDeserializeJWE,
+					errors.New("invalid compact JWE: it must have five parts"))).Error())
+		require.Empty(t, key)
+		require.Nil(t, value)
 	})
 	t.Run("Fail to decrypt encrypted document - we don't have the key", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 
 		encryptedDocumentCreatedUsingKeyWeDoNotHave :=
-			EncryptedDocument{JWE: []byte(jweCreatedUsingKeyWeDoNotHave)}
+			models.EncryptedDocument{JWE: []byte(jweCreatedUsingKeyWeDoNotHave)}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocumentCreatedUsingKeyWeDoNotHave)
 		require.NoError(t, err)
 
-		structuredDocument, err := formatter.ParseValue(encryptedDocumentBytes)
+		key, value, err := formatter.ParsePair(encryptedDocumentBytes)
 		require.EqualError(t, err,
-			fmt.Errorf(failDecryptJWE, errors.New("jwedecrypt: failed to unwrap cek")).Error())
-		require.Nil(t, structuredDocument)
+			fmt.Errorf(failGetStructuredDocFromEncryptedDocBytes,
+				fmt.Errorf(failDecryptJWE,
+					errors.New("jwedecrypt: failed to unwrap cek"))).Error())
+		require.Empty(t, key)
+		require.Nil(t, value)
 	})
 }
 
@@ -220,7 +235,7 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 }
 
 func createEncryptedDocument(t *testing.T, formatter *EncryptedFormatter) []byte {
-	encryptedDocumentBytes, err := formatter.Format([]byte(testValue))
+	encryptedDocumentBytes, err := formatter.FormatPair(testKey, []byte(testValue))
 	require.NoError(t, err)
 	require.NotNil(t, encryptedDocumentBytes)
 
