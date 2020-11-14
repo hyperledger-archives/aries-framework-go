@@ -94,7 +94,7 @@ func (l *storeWriter) newKeysetID() (string, error) {
 		// ensure ksID is not already used
 		_, err := l.storage.Get(ksID)
 		if err != nil {
-			if err == storage.ErrDataNotFound {
+			if errors.Is(err, storage.ErrDataNotFound) {
 				break
 			}
 
