@@ -563,7 +563,7 @@ func (c *restClient) DeleteDocument(vaultID, docID string) error {
 
 	logger.Debugf(sendDELETERequestLogMsg, endpoint, resp.StatusCode, respBytes)
 
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+	if resp.StatusCode == http.StatusOK {
 		return nil
 	}
 
