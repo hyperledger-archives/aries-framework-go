@@ -15,6 +15,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 )
 
 const (
@@ -27,13 +28,17 @@ const (
 	failDecryptJWE                  = "failed to decrypt JWE: %w"
 	failUnmarshalStructuredDocument = "failed to unmarshal structured document: %w"
 
-	payloadKey = "payload"
+	payloadContentKey     = "payload"
+	originalKeyContentKey = "originalKey"
 )
 
 var (
 	errPayloadKeyMissing = errors.New(`the structured document content did not contain the ` +
-		`expected "payload" key`)
-	errPayloadNotAssertableAsString = errors.New("unable to assert the payload value as a string")
+		`expected "` + payloadContentKey + `" key`)
+	errOriginalKeyMissing = errors.New(`the structured document content did not contain the ` +
+		`expected "` + originalKeyContentKey + `" key`)
+	errPayloadNotAssertableAsString     = errors.New("unable to assert the payload value as a string")
+	errOriginalKeyNotAssertableAsString = errors.New("failed to assert the original key value as a string")
 )
 
 type marshalFunc func(interface{}) ([]byte, error)
@@ -57,17 +62,18 @@ func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decryp
 	}
 }
 
-// Format encrypts v into encrypted document format.
-func (f *EncryptedFormatter) Format(v []byte) ([]byte, error) {
+// FormatPair encrypts k and v into encrypted document format.
+func (f *EncryptedFormatter) FormatPair(k string, v []byte) ([]byte, error) {
 	content := make(map[string]interface{})
-	content[payloadKey] = string(v)
+	content[originalKeyContentKey] = k
+	content[payloadContentKey] = string(v)
 
 	structuredDocumentID, err := generateEDVCompatibleID(f.randomBytesFunc)
 	if err != nil {
 		return nil, fmt.Errorf(failGenerateEDVCompatibleID, err)
 	}
 
-	structuredDocument := StructuredDocument{
+	structuredDocument := models.StructuredDocument{
 		ID:      structuredDocumentID,
 		Content: content,
 	}
@@ -89,7 +95,7 @@ func (f *EncryptedFormatter) Format(v []byte) ([]byte, error) {
 		return nil, fmt.Errorf(failJWESerialize, err)
 	}
 
-	encryptedDocument := EncryptedDocument{
+	encryptedDocument := models.EncryptedDocument{
 		ID:  structuredDocument.ID,
 		JWE: []byte(serializedJWE),
 	}
@@ -102,43 +108,63 @@ func (f *EncryptedFormatter) Format(v []byte) ([]byte, error) {
 	return encryptedDocumentBytes, nil
 }
 
-// ParseValue decrypts encryptedDocumentBytes and returns the decrypted data.
-func (f *EncryptedFormatter) ParseValue(encryptedDocumentBytes []byte) ([]byte, error) {
-	var encryptedDocument EncryptedDocument
-
-	err := json.Unmarshal(encryptedDocumentBytes, &encryptedDocument)
+// ParsePair decrypts encryptedDocumentBytes and returns the original key and the decrypted data.
+func (f *EncryptedFormatter) ParsePair(encryptedDocumentBytes []byte) (string, []byte, error) {
+	structuredDocument, err := f.getStructuredDocFromEncryptedDoc(encryptedDocumentBytes)
 	if err != nil {
-		return nil, fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
+		return "", nil, fmt.Errorf(failGetStructuredDocFromEncryptedDocBytes, err)
 	}
 
-	encryptedJWE, err := jose.Deserialize(string(encryptedDocument.JWE))
-	if err != nil {
-		return nil, fmt.Errorf(failDeserializeJWE, err)
-	}
-
-	structuredDocumentBytes, err := f.jweDecrypter.Decrypt(encryptedJWE)
-	if err != nil {
-		return nil, fmt.Errorf(failDecryptJWE, err)
-	}
-
-	var structuredDocument StructuredDocument
-
-	err = json.Unmarshal(structuredDocumentBytes, &structuredDocument)
-	if err != nil {
-		return nil, fmt.Errorf(failUnmarshalStructuredDocument, err)
-	}
-
-	payloadValue, ok := structuredDocument.Content[payloadKey]
+	payloadValue, ok := structuredDocument.Content[payloadContentKey]
 	if !ok {
-		return nil, errPayloadKeyMissing
+		return "", nil, errPayloadKeyMissing
 	}
 
 	payloadValueString, ok := payloadValue.(string)
 	if !ok {
-		return nil, errPayloadNotAssertableAsString
+		return "", nil, errPayloadNotAssertableAsString
 	}
 
-	return []byte(payloadValueString), nil
+	originalKeyValue, ok := structuredDocument.Content[originalKeyContentKey]
+	if !ok {
+		return "", nil, errOriginalKeyMissing
+	}
+
+	originalKeyValueString, ok := originalKeyValue.(string)
+	if !ok {
+		return "", nil, errOriginalKeyNotAssertableAsString
+	}
+
+	return originalKeyValueString, []byte(payloadValueString), nil
+}
+
+func (f *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
+	encryptedDocBytes []byte) (models.StructuredDocument, error) {
+	var encryptedDocument models.EncryptedDocument
+
+	err := json.Unmarshal(encryptedDocBytes, &encryptedDocument)
+	if err != nil {
+		return models.StructuredDocument{}, fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
+	}
+
+	encryptedJWE, err := jose.Deserialize(string(encryptedDocument.JWE))
+	if err != nil {
+		return models.StructuredDocument{}, fmt.Errorf(failDeserializeJWE, err)
+	}
+
+	structuredDocumentBytes, err := f.jweDecrypter.Decrypt(encryptedJWE)
+	if err != nil {
+		return models.StructuredDocument{}, fmt.Errorf(failDecryptJWE, err)
+	}
+
+	var structuredDocument models.StructuredDocument
+
+	err = json.Unmarshal(structuredDocumentBytes, &structuredDocument)
+	if err != nil {
+		return models.StructuredDocument{}, fmt.Errorf(failUnmarshalStructuredDocument, err)
+	}
+
+	return structuredDocument, nil
 }
 
 type generateRandomBytesFunc func([]byte) (int, error)

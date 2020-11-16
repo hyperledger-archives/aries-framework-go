@@ -129,7 +129,7 @@ func (s *memStore) Get(k string) ([]byte, error) {
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	if limit == "" {
-		return newMemIterator(nil)
+		return NewMemIterator(nil, nil)
 	}
 
 	s.RLock()
@@ -168,14 +168,14 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	}
 
 	if sIDx == -1 {
-		return newMemIterator(nil)
+		return NewMemIterator(nil, nil)
 	}
 
 	for _, k := range keys[sIDx:eIDx] {
 		batch = append(batch, []string{k, string(data[k])})
 	}
 
-	return newMemIterator(batch)
+	return NewMemIterator(batch, nil)
 }
 
 // Delete will delete record with k key.
@@ -199,12 +199,12 @@ type memIterator struct {
 }
 
 // NewMemIterator returns new mem iterator for given batch.
-func newMemIterator(batch [][]string) *memIterator {
+func NewMemIterator(batch [][]string, errInitial error) storage.StoreIterator {
 	if len(batch) == 0 {
-		return &memIterator{}
+		return &memIterator{err: errInitial}
 	}
 
-	return &memIterator{items: batch}
+	return &memIterator{items: batch, err: errInitial}
 }
 
 func (s *memIterator) isExhausted() bool {

@@ -209,10 +209,16 @@ func TestMemStore(t *testing.T) {
 		itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
 		verifyItr(t, itr, 4, "abc_")
 
+		itr = store.Iterator("abc_", "abc_")
+		verifyItr(t, itr, 4, "abc_")
+
 		itr = store.Iterator("", "")
 		verifyItr(t, itr, 0, "")
 
 		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
+		verifyItr(t, itr, 7, "")
+
+		itr = store.Iterator("abc_", "mno_")
 		verifyItr(t, itr, 7, "")
 
 		itr = store.Iterator("abc_", "mno_123")

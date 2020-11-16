@@ -21,22 +21,28 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 )
 
 const (
-	indexName                  = "StoreName-FriendlyKeyName"
+	storeIndexName             = "StoreName"
+	storeAndKeyIndexName       = "StoreName-FriendlyKeyName"
 	indexValueFormat           = "%s-%s"
 	contentTypeApplicationJSON = "application/json"
 	locationHeaderName         = "Location"
 
-	failComputeMACIndexName               = "failed to compute MAC for index name: %w"
-	failComputeMACIndexValue              = "failed to compute index value MAC: %w"
-	failCreateIndexedAttribute            = "failed to create indexed attribute: %w"
-	failComputeBase64EncodedIndexValueMAC = "failed to compute Base64-encoded index value MAC: %w"
-	failCreateDocumentInEDVServer         = "failed to create document in EDV server: %w"
-	failQueryVaultInEDVServer             = "failed to query vault in EDV server: %w"
-	noDocumentMatchingQueryFound          = "no document matching the query was found: %w"
-	failRetrieveDocumentFromEDVServer     = "failed to retrieve document from EDV server: %w"
+	failComputeMACStoreIndexName                     = "failed to compute MAC for the store index name: %w"
+	failComputeMACStoreIndexValue                    = "failed to compute MAC for the store index value: %w"
+	failComputeMACStoreAndKeyIndexName               = "failed to compute MAC for the store+key index name: %w"
+	failComputeMACStoreAndKeyIndexValue              = "failed to compute MAC for the store+key index value: %w"
+	failCreateIndexedAttribute                       = "failed to create indexed attribute: %w"
+	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
+	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
+	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
+	noDocumentMatchingQueryFound                     = "no document matching the query was found: %w"
+	failRetrieveDocumentFromEDVServer                = "failed to retrieve document from EDV server: %w"
+	failGetAllDocumentLocations                      = "failed to get all document locations: %w"
+	failGetAllDocuments                              = "failed to get all documents: %w"
 
 	failSendGETRequest             = "failed to send GET request: %w"
 	failSendPOSTRequest            = "failed to send POST request: %w"
@@ -92,10 +98,11 @@ func NewMACCrypto(kh interface{}, macDigester MACDigester) *MACCrypto {
 // RESTProvider is a store provider that can be used to store data in a server supporting the
 // data vault HTTPS API as defined in https://identity.foundation/secure-data-store/#data-vault-https-api.
 type RESTProvider struct {
-	vaultID                  string
-	macCrypto                *MACCrypto
-	indexKeyMACBase64Encoded string
-	restClient               restClient
+	vaultID                               string
+	macCrypto                             *MACCrypto
+	storeIndexNameMACBase64Encoded        string
+	storeAndKeyIndexNNameMACBase64Encoded string
+	restClient                            restClient
 }
 
 // NewRESTProvider returns a new RESTProvider. edvServerURL is the base URL for the data vault HTTPS API.
@@ -106,9 +113,14 @@ type RESTProvider struct {
 // without leaking that key to the EDV server.
 func NewRESTProvider(edvServerURL, vaultID string,
 	macCrypto *MACCrypto, httpClientOpts ...Option) (*RESTProvider, error) {
-	indexKeyMAC, err := macCrypto.ComputeMAC(indexName)
+	storeAndKeyIndexNameMAC, err := macCrypto.ComputeMAC(storeAndKeyIndexName)
 	if err != nil {
-		return nil, fmt.Errorf(failComputeMACIndexName, err)
+		return nil, fmt.Errorf(failComputeMACStoreAndKeyIndexName, err)
+	}
+
+	storeIndexNameMAC, err := macCrypto.ComputeMAC(storeIndexName)
+	if err != nil {
+		return nil, fmt.Errorf(failComputeMACStoreIndexName, err)
 	}
 
 	client := restClient{
@@ -121,21 +133,23 @@ func NewRESTProvider(edvServerURL, vaultID string,
 	}
 
 	return &RESTProvider{
-		vaultID:                  vaultID,
-		macCrypto:                macCrypto,
-		indexKeyMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(indexKeyMAC)),
-		restClient:               client,
+		vaultID:                               vaultID,
+		macCrypto:                             macCrypto,
+		storeIndexNameMACBase64Encoded:        base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
+		storeAndKeyIndexNNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeAndKeyIndexNameMAC)),
+		restClient:                            client,
 	}, nil
 }
 
 // OpenStore opens a new restStore, using name as the namespace.
 func (r *RESTProvider) OpenStore(name string) (storage.Store, error) {
 	return &restStore{
-		vaultID:                  r.vaultID,
-		name:                     name,
-		macCrypto:                r.macCrypto,
-		indexKeyMACBase64Encoded: r.indexKeyMACBase64Encoded,
-		restClient:               r.restClient,
+		vaultID:                              r.vaultID,
+		name:                                 name,
+		macCrypto:                            r.macCrypto,
+		storeIndexNameMACBase64Encoded:       r.storeIndexNameMACBase64Encoded,
+		storeAndKeyIndexNameMACBase64Encoded: r.storeAndKeyIndexNNameMACBase64Encoded,
+		restClient:                           r.restClient,
 	}, nil
 }
 
@@ -150,23 +164,24 @@ func (r *RESTProvider) Close() error {
 }
 
 type restStore struct {
-	vaultID                  string
-	name                     string
-	restClient               restClient
-	macCrypto                *MACCrypto
-	indexKeyMACBase64Encoded string
+	vaultID                              string
+	name                                 string
+	restClient                           restClient
+	macCrypto                            *MACCrypto
+	storeIndexNameMACBase64Encoded       string
+	storeAndKeyIndexNameMACBase64Encoded string
 }
 
 // v must be a marshalled EncryptedDocument.
 func (r *restStore) Put(k string, v []byte) error {
-	var encryptedDocument EncryptedDocument
+	var encryptedDocument models.EncryptedDocument
 
 	err := json.Unmarshal(v, &encryptedDocument)
 	if err != nil {
 		return fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
 	}
 
-	indexedAttributeCollection, err := r.createIndexedAttribute(k)
+	indexedAttributeCollection, err := r.createIndexedAttributes(k)
 	if err != nil {
 		return fmt.Errorf(failCreateIndexedAttribute, err)
 	}
@@ -182,14 +197,14 @@ func (r *restStore) Put(k string, v []byte) error {
 }
 
 func (r *restStore) Get(k string) ([]byte, error) {
-	indexValueMACBase64Encoded, err := r.computeIndexValueMACBase64Encoded(k)
+	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
 	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedIndexValueMAC, err)
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
 	}
 
-	matchingDocumentIDs, err := r.restClient.queryVault(r.vaultID, &Query{
-		Name:  r.indexKeyMACBase64Encoded,
-		Value: indexValueMACBase64Encoded,
+	matchingDocumentIDs, err := r.restClient.queryVault(r.vaultID, &models.Query{
+		Name:  r.storeAndKeyIndexNameMACBase64Encoded,
+		Value: storeAndKeyIndexValueMACBase64Encoded,
 	})
 	if err != nil {
 		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
@@ -199,7 +214,7 @@ func (r *restStore) Get(k string) ([]byte, error) {
 		return nil, fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
 	} else if len(matchingDocumentIDs) > 1 {
 		// This should only be possible if the EDV server is not able to maintain the uniqueness property of the
-		// indexedAttribute created in the createIndexedAttribute method.
+		// storeAndKeyIndexName indexedAttribute created in the createIndexedAttributes method.
 		// TODO (#2287): Check each of the documents to see if they all have the same content
 		// (other than the document ID). If so, we should delete the extras and just return one of them arbitrarily.
 		return nil, errMultipleDocumentsMatchingQuery
@@ -213,10 +228,36 @@ func (r *restStore) Get(k string) ([]byte, error) {
 	return encryptedDocumentBytes, nil
 }
 
-// Not support by restStore. The EDV data vault HTTPS API doesn't support this type of operation,
-// nor is there a feasible way to emulate it. The iterator returned always is always in an error state.
-func (r *restStore) Iterator(string, string) storage.StoreIterator {
-	return &restStoreIterator{}
+// Iterator returns all documents within the store. It does not support start and end key filtering.
+func (r *restStore) Iterator(_, _ string) storage.StoreIterator {
+	allDocumentLocations, err := r.getAllDocumentLocations()
+	if err != nil {
+		return &restStoreIterator{err: fmt.Errorf(failGetAllDocumentLocations, err)}
+	}
+
+	allDocuments, err := r.getAllDocuments(allDocumentLocations)
+	if err != nil {
+		return &restStoreIterator{err: fmt.Errorf(failGetAllDocuments, err)}
+	}
+
+	return &restStoreIterator{documents: allDocuments}
+}
+
+func (r *restStore) getAllDocuments(allDocumentLocations []string) ([][]byte, error) {
+	allDocuments := make([][]byte, len(allDocumentLocations))
+
+	for index, documentLocation := range allDocumentLocations {
+		documentID := getDocIDFromURL(documentLocation)
+
+		encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, documentID)
+		if err != nil {
+			return nil, fmt.Errorf(failRetrieveDocumentFromEDVServer, err)
+		}
+
+		allDocuments[index] = encryptedDocumentBytes
+	}
+
+	return allDocuments, nil
 }
 
 // TODO (#2286): Implement this.
@@ -224,59 +265,134 @@ func (r *restStore) Delete(string) error {
 	return errDeleteNotSupported
 }
 
-func (r *restStore) createIndexedAttribute(keyName string) ([]IndexedAttributeCollection, error) {
-	indexValueMACBase64Encoded, err := r.computeIndexValueMACBase64Encoded(keyName)
+// TODO (#2262): This could be done in a slightly cleaner way eventually. Once the EDV spec has the finalized query
+// syntax, it should be possible to have an index for the store name and an index for the key name, and when we query
+// for both we would just make a query that requires both indices to be present. Right now with the simplified query
+// format we use, we only allow one index per query, hence the need for the concatenated store name + key index.
+func (r *restStore) createIndexedAttributes(keyName string) ([]models.IndexedAttributeCollection, error) {
+	storeIndexValueMAC, err := r.macCrypto.ComputeMAC(r.name)
 	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedIndexValueMAC, err)
+		return nil, fmt.Errorf(failComputeMACStoreIndexValue, err)
 	}
 
-	indexedAttribute := IndexedAttribute{
-		Name:   r.indexKeyMACBase64Encoded,
-		Value:  indexValueMACBase64Encoded,
+	storeIndexedAttribute := models.IndexedAttribute{
+		Name:   r.storeIndexNameMACBase64Encoded,
+		Value:  base64.URLEncoding.EncodeToString([]byte(storeIndexValueMAC)),
 		Unique: true,
 	}
 
-	indexedAttributeCollection := IndexedAttributeCollection{
-		HMAC:              IDTypePair{},
-		IndexedAttributes: []IndexedAttribute{indexedAttribute},
+	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(keyName)
+	if err != nil {
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
 	}
 
-	indexedAttributeCollections := []IndexedAttributeCollection{indexedAttributeCollection}
+	storeAndKeyIndexedAttribute := models.IndexedAttribute{
+		Name:   r.storeAndKeyIndexNameMACBase64Encoded,
+		Value:  storeAndKeyIndexValueMACBase64Encoded,
+		Unique: true,
+	}
+
+	indexedAttributeCollection := models.IndexedAttributeCollection{
+		HMAC:              models.IDTypePair{},
+		IndexedAttributes: []models.IndexedAttribute{storeIndexedAttribute, storeAndKeyIndexedAttribute},
+	}
+
+	indexedAttributeCollections := []models.IndexedAttributeCollection{indexedAttributeCollection}
 
 	return indexedAttributeCollections, nil
 }
 
-func (r *restStore) computeIndexValueMACBase64Encoded(keyName string) (string, error) {
+func (r *restStore) computeStoreAndKeyIndexValueMACBase64Encoded(keyName string) (string, error) {
 	indexValueMAC, err := r.macCrypto.ComputeMAC(fmt.Sprintf(indexValueFormat, r.name, keyName))
 	if err != nil {
-		return "", fmt.Errorf(failComputeMACIndexValue, err)
+		return "", fmt.Errorf(failComputeMACStoreAndKeyIndexValue, err)
 	}
 
 	return base64.URLEncoding.EncodeToString([]byte(indexValueMAC)), nil
 }
 
-var errIteratorNotSupported = errors.New("EDV REST store does not support the Iterator method")
+func (r *restStore) getAllDocumentLocations() ([]string, error) {
+	storeNameIndexValueMACBase64Encoded, err := r.computeStoreIndexValueMACBase64Encoded()
+	if err != nil {
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
+	}
 
-// Iterating through a restStore is not supported, so this type always returns an error.
+	allDocumentLocations, err := r.restClient.queryVault(r.vaultID, &models.Query{
+		Name:  r.storeIndexNameMACBase64Encoded,
+		Value: storeNameIndexValueMACBase64Encoded,
+	})
+	if err != nil {
+		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
+	}
+
+	return allDocumentLocations, nil
+}
+
+func (r *restStore) computeStoreIndexValueMACBase64Encoded() (string, error) {
+	indexValueMAC, err := r.macCrypto.ComputeMAC(r.name)
+	if err != nil {
+		return "", fmt.Errorf(failComputeMACStoreIndexValue, err)
+	}
+
+	return base64.URLEncoding.EncodeToString([]byte(indexValueMAC)), nil
+}
+
 type restStoreIterator struct {
+	documents       [][]byte
+	currentDocument []byte
+	currentIndex    int
+	err             error
 }
 
 func (r *restStoreIterator) Next() bool {
-	return false
+	if r.isExhausted() {
+		return false
+	}
+
+	r.currentDocument = r.documents[r.currentIndex]
+	r.currentIndex++
+
+	return true
 }
 
-func (r *restStoreIterator) Release() {}
+func (r *restStoreIterator) Release() {
+	r.currentIndex = 0
+	r.documents = make([][]byte, 0)
+	r.currentDocument = make([]byte, 0)
+
+	r.err = errors.New("iterator released")
+}
 
 func (r *restStoreIterator) Error() error {
-	return errIteratorNotSupported
+	return r.err
 }
 
 func (r *restStoreIterator) Key() []byte {
-	return nil
+	if len(r.documents) == 0 || len(r.currentDocument) == 0 {
+		return nil
+	}
+
+	var encryptedDocument models.EncryptedDocument
+
+	err := json.Unmarshal(r.currentDocument, &encryptedDocument)
+	if err != nil {
+		r.err = fmt.Errorf("failed to unmarshal current document in iterator "+
+			"into an encrypted document: %w", err)
+	}
+
+	return []byte(encryptedDocument.ID)
 }
 
 func (r *restStoreIterator) Value() []byte {
-	return nil
+	if len(r.documents) == 0 || len(r.currentDocument) < 1 {
+		return nil
+	}
+
+	return r.currentDocument
+}
+
+func (r *restStoreIterator) isExhausted() bool {
+	return len(r.documents) == 0 || len(r.documents) == r.currentIndex
 }
 
 // restClient is used to make HTTP REST calls to a server supporting the
@@ -298,7 +414,7 @@ func WithTLSConfig(tlsConfig *tls.Config) Option {
 
 // createDocument sends the EDV server a request to store the specified document.
 // The location of the newly created document is returned.
-func (c *restClient) createDocument(vaultID string, document *EncryptedDocument) (string, error) {
+func (c *restClient) createDocument(vaultID string, document *models.EncryptedDocument) (string, error) {
 	jsonToSend, err := json.Marshal(document)
 	if err != nil {
 		return "", fmt.Errorf(failMarshalEncryptedDocument, err)
@@ -361,7 +477,7 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 }
 
 // queryVault queries the given vault and returns the URLs of all documents that match the given query.
-func (c *restClient) queryVault(vaultID string, query *Query) ([]string, error) {
+func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, error) {
 	jsonToSend, err := json.Marshal(query)
 	if err != nil {
 		return nil, fmt.Errorf(failMarshalQuery, err)
