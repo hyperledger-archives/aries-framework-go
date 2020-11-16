@@ -27,6 +27,8 @@ import (
 
 var errTest = errors.New("test error")
 
+const sampleEncryptedDocumentID = "zMbxmSDn2Xzz"
+
 func TestNewRESTProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		createRESTProvider(t, "EDVServerURL")
@@ -77,7 +79,7 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := models.EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -104,7 +106,7 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := models.EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -129,7 +131,7 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		encryptedDocument := models.EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -143,7 +145,7 @@ func TestRestStore_Put(t *testing.T) {
 
 func TestRestStore_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		encryptedDocument := models.EncryptedDocument{}
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
 
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
@@ -183,8 +185,9 @@ func TestRestStore_Get(t *testing.T) {
 
 		encryptedDocumentBytes, err := store.Get(testKey)
 		require.EqualError(t, err,
-			fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
-				fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest)).Error())
+			fmt.Errorf(failRetrieveEDVDocumentID,
+				fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
+					fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest))).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
 	t.Run("Receive error response from EDV server query endpoint", func(t *testing.T) {
@@ -204,8 +207,9 @@ func TestRestStore_Get(t *testing.T) {
 
 		encryptedDocumentBytes, err := store.Get(testKey)
 		require.EqualError(t, err,
-			fmt.Errorf(failQueryVaultInEDVServer,
-				fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error())).Error())
+			fmt.Errorf(failRetrieveEDVDocumentID,
+				fmt.Errorf(failQueryVaultInEDVServer,
+					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
 	t.Run("No document was found matching the query", func(t *testing.T) {
@@ -229,7 +233,9 @@ func TestRestStore_Get(t *testing.T) {
 		require.NotNil(t, store)
 
 		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err, fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound).Error())
+		require.EqualError(t, err,
+			fmt.Errorf(failRetrieveEDVDocumentID,
+				fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
 	t.Run("Multiple documents found matching the query", func(t *testing.T) {
@@ -256,10 +262,12 @@ func TestRestStore_Get(t *testing.T) {
 		require.NotNil(t, store)
 
 		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err, errMultipleDocumentsMatchingQuery.Error())
+		require.EqualError(t, err,
+			fmt.Errorf(failRetrieveEDVDocumentID,
+				errMultipleDocumentsMatchingQuery).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
-	t.Run("Receive error response from EDV server read document endpoint", func(t *testing.T) {
+	t.Run("Receive error response from EDV server delete document endpoint", func(t *testing.T) {
 		queryResults := []string{"z19x9iFMnfo4YLsShKAvnJk4L"}
 
 		queryResultsBytes, err := json.Marshal(queryResults)
@@ -377,14 +385,91 @@ func TestRestStore_Iterator(t *testing.T) {
 }
 
 func TestRestStore_Delete(t *testing.T) {
-	provider := createRESTProvider(t, "EDVServerURL")
+	t.Run("Success", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			CreateDocumentReturnStatusCode: http.StatusCreated,
+			QueryVaultReturnStatusCode:     http.StatusOK,
+			DeleteDocumentReturnStatusCode: http.StatusOK,
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
 
-	store, err := provider.OpenStore("StoreName")
-	require.NoError(t, err)
-	require.NotNil(t, store)
+		provider := createRESTProvider(t, edvSrv.URL)
 
-	err = store.Delete(testKey)
-	require.Equal(t, errDeleteNotSupported, err)
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
+
+		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
+		require.NoError(t, err)
+
+		err = store.Put(testKey, encryptedDocumentBytes)
+		require.NoError(t, err)
+
+		err = store.Delete(testKey)
+		require.NoError(t, err)
+	})
+	t.Run("Fail to retrieve EDV document ID", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			QueryVaultReturnStatusCode:     http.StatusOK,
+			DeleteDocumentReturnStatusCode: http.StatusOK,
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(t, edvSrv.URL)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Delete(testKey)
+		require.EqualError(t, err,
+			fmt.Errorf(failRetrieveEDVDocumentID,
+				fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)).Error())
+	})
+	t.Run("Fail to delete document in EDV server", func(t *testing.T) {
+		deleteDocReturnBody := "delete document failure"
+
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			CreateDocumentReturnStatusCode: http.StatusCreated,
+			QueryVaultReturnStatusCode:     http.StatusOK,
+			DeleteDocumentReturnStatusCode: http.StatusInternalServerError,
+			DeleteDocumentReturnBody:       []byte(deleteDocReturnBody),
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(t, edvSrv.URL)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
+
+		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
+		require.NoError(t, err)
+
+		err = store.Put(testKey, encryptedDocumentBytes)
+		require.NoError(t, err)
+
+		err = store.Delete(testKey)
+		require.EqualError(t, err,
+			fmt.Errorf(failDeleteDocumentInEDVServer,
+				fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, deleteDocReturnBody)).Error())
+	})
 }
 
 func createRESTProvider(t *testing.T, edvServerURL string) *RESTProvider {
