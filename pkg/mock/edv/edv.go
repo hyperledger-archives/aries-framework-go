@@ -26,6 +26,7 @@ const (
 	queryVaultEndpoint     = "/{" + vaultIDPathVariable + "}/query"
 	createDocumentEndpoint = "/{" + vaultIDPathVariable + "}/documents"
 	readDocumentEndpoint   = "/{" + vaultIDPathVariable + "}/documents/{" + docIDPathVariable + "}"
+	deleteDocumentEndpoint = readDocumentEndpoint
 )
 
 // MockServerOperation represents a mocked EDV server that is useful for testing.
@@ -40,6 +41,8 @@ type MockServerOperation struct {
 	ReadDocumentReturnBody         []byte
 	QueryVaultReturnStatusCode     int
 	QueryVaultReturnBody           []byte
+	DeleteDocumentReturnStatusCode int
+	DeleteDocumentReturnBody       []byte
 }
 
 // StartNewMockEDVServer starts the MockServerOperation.
@@ -50,6 +53,7 @@ func (o *MockServerOperation) StartNewMockEDVServer() *httptest.Server {
 	router.HandleFunc(createDocumentEndpoint, o.mockCreateDocumentHandler).Methods(http.MethodPost)
 	router.HandleFunc(readDocumentEndpoint, o.mockReadDocumentHandler).Methods(http.MethodGet)
 	router.HandleFunc(queryVaultEndpoint, o.mockQueryVaultHandler).Methods(http.MethodPost)
+	router.HandleFunc(deleteDocumentEndpoint, o.mockDeleteDocumentHandler).Methods(http.MethodDelete)
 
 	return httptest.NewServer(router)
 }
@@ -94,6 +98,7 @@ func (o *MockServerOperation) mockReadDocumentHandler(rw http.ResponseWriter, re
 	}
 }
 
+// Always returns all the document IDs.
 func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(o.QueryVaultReturnStatusCode)
 
@@ -111,6 +116,20 @@ func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, _ *h
 		require.NoError(o.T, err)
 	} else {
 		_, err := rw.Write(o.QueryVaultReturnBody)
+		require.NoError(o.T, err)
+	}
+}
+
+func (o *MockServerOperation) mockDeleteDocumentHandler(rw http.ResponseWriter, req *http.Request) {
+	rw.WriteHeader(o.DeleteDocumentReturnStatusCode)
+
+	if o.DeleteDocumentReturnStatusCode == http.StatusOK && o.UseDB {
+		docID, err := url.PathUnescape(mux.Vars(req)[docIDPathVariable])
+		require.NoError(o.T, err)
+
+		delete(o.DB, docID)
+	} else {
+		_, err := rw.Write(o.DeleteDocumentReturnBody)
 		require.NoError(o.T, err)
 	}
 }

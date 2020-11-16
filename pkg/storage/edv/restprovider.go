@@ -38,14 +38,18 @@ const (
 	failCreateIndexedAttribute                       = "failed to create indexed attribute: %w"
 	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
 	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
+	failRetrieveEDVDocumentID                        = "failed to retrieve EDV document ID: %w"
 	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
 	noDocumentMatchingQueryFound                     = "no document matching the query was found: %w"
 	failRetrieveDocumentFromEDVServer                = "failed to retrieve document from EDV server: %w"
+	failDeleteDocumentInEDVServer                    = "failed to delete document in EDV server: %w"
 	failGetAllDocumentLocations                      = "failed to get all document locations: %w"
 	failGetAllDocuments                              = "failed to get all documents: %w"
 
 	failSendGETRequest             = "failed to send GET request: %w"
 	failSendPOSTRequest            = "failed to send POST request: %w"
+	failCreateDELETERequest        = "failed to create DELETE request: %w"
+	failSendDELETERequest          = "failed to send DELETE request: %w"
 	failReadResponseBody           = "failed to read response body: %w"
 	failMarshalQuery               = "failed to marshal query: %w"
 	failResponseFromEDVServer      = "status code %d was returned along with the following message: %s"
@@ -60,13 +64,15 @@ Request body: %s
 
 Response status code: %d
 Response body: %s`
+	sendDELETERequestLogMsg = `Sent DELETE request to %s.
+Response status code: %d
+Response body: %s`
 	failCloseResponseBodyLogMsg = "Failed to close response body: %s"
 )
 
 var (
 	logger                            = log.New("EDV-REST-Provider")
-	errDeleteNotSupported             = errors.New("EDV REST store delete functionality not yet implemented")
-	errMultipleDocumentsMatchingQuery = errors.New("multiple documents matching the query were found." +
+	errMultipleDocumentsMatchingQuery = errors.New("multiple documents matching the query were found. " +
 		"This probably indicates an issue with the EDV server's database")
 )
 
@@ -197,30 +203,12 @@ func (r *restStore) Put(k string, v []byte) error {
 }
 
 func (r *restStore) Get(k string) ([]byte, error) {
-	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
+	edvDocumentID, err := r.retrieveEDVDocumentID(k)
 	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
+		return nil, fmt.Errorf(failRetrieveEDVDocumentID, err)
 	}
 
-	matchingDocumentIDs, err := r.restClient.queryVault(r.vaultID, &models.Query{
-		Name:  r.storeAndKeyIndexNameMACBase64Encoded,
-		Value: storeAndKeyIndexValueMACBase64Encoded,
-	})
-	if err != nil {
-		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
-	}
-
-	if len(matchingDocumentIDs) == 0 {
-		return nil, fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
-	} else if len(matchingDocumentIDs) > 1 {
-		// This should only be possible if the EDV server is not able to maintain the uniqueness property of the
-		// storeAndKeyIndexName indexedAttribute created in the createIndexedAttributes method.
-		// TODO (#2287): Check each of the documents to see if they all have the same content
-		// (other than the document ID). If so, we should delete the extras and just return one of them arbitrarily.
-		return nil, errMultipleDocumentsMatchingQuery
-	}
-
-	encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, getDocIDFromURL(matchingDocumentIDs[0]))
+	encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, edvDocumentID)
 	if err != nil {
 		return nil, fmt.Errorf(failRetrieveDocumentFromEDVServer, err)
 	}
@@ -260,9 +248,18 @@ func (r *restStore) getAllDocuments(allDocumentLocations []string) ([][]byte, er
 	return allDocuments, nil
 }
 
-// TODO (#2286): Implement this.
-func (r *restStore) Delete(string) error {
-	return errDeleteNotSupported
+func (r *restStore) Delete(k string) error {
+	edvDocumentID, err := r.retrieveEDVDocumentID(k)
+	if err != nil {
+		return fmt.Errorf(failRetrieveEDVDocumentID, err)
+	}
+
+	err = r.restClient.DeleteDocument(r.vaultID, edvDocumentID)
+	if err != nil {
+		return fmt.Errorf(failDeleteDocumentInEDVServer, err)
+	}
+
+	return nil
 }
 
 // TODO (#2262): This could be done in a slightly cleaner way eventually. Once the EDV spec has the finalized query
@@ -302,13 +299,31 @@ func (r *restStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 	return indexedAttributeCollections, nil
 }
 
-func (r *restStore) computeStoreAndKeyIndexValueMACBase64Encoded(keyName string) (string, error) {
-	indexValueMAC, err := r.macCrypto.ComputeMAC(fmt.Sprintf(indexValueFormat, r.name, keyName))
+func (r *restStore) retrieveEDVDocumentID(k string) (string, error) {
+	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
 	if err != nil {
-		return "", fmt.Errorf(failComputeMACStoreAndKeyIndexValue, err)
+		return "", fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
 	}
 
-	return base64.URLEncoding.EncodeToString([]byte(indexValueMAC)), nil
+	matchingDocumentURLs, err := r.restClient.queryVault(r.vaultID, &models.Query{
+		Name:  r.storeAndKeyIndexNameMACBase64Encoded,
+		Value: storeAndKeyIndexValueMACBase64Encoded,
+	})
+	if err != nil {
+		return "", fmt.Errorf(failQueryVaultInEDVServer, err)
+	}
+
+	if len(matchingDocumentURLs) == 0 {
+		return "", fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
+	} else if len(matchingDocumentURLs) > 1 {
+		// This should only be possible if the EDV server is not able to maintain the uniqueness property of the
+		// storeAndKeyIndexName indexedAttribute created in the createIndexedAttributes method.
+		// TODO (#2287): Check each of the documents to see if they all have the same content
+		// (other than the document ID). If so, we should delete the extras and just return one of them arbitrarily.
+		return "", errMultipleDocumentsMatchingQuery
+	}
+
+	return getDocIDFromURL(matchingDocumentURLs[0]), nil
 }
 
 func (r *restStore) getAllDocumentLocations() ([]string, error) {
@@ -326,6 +341,15 @@ func (r *restStore) getAllDocumentLocations() ([]string, error) {
 	}
 
 	return allDocumentLocations, nil
+}
+
+func (r *restStore) computeStoreAndKeyIndexValueMACBase64Encoded(keyName string) (string, error) {
+	indexValueMAC, err := r.macCrypto.ComputeMAC(fmt.Sprintf(indexValueFormat, r.name, keyName))
+	if err != nil {
+		return "", fmt.Errorf(failComputeMACStoreAndKeyIndexValue, err)
+	}
+
+	return base64.URLEncoding.EncodeToString([]byte(indexValueMAC)), nil
 }
 
 func (r *restStore) computeStoreIndexValueMACBase64Encoded() (string, error) {
@@ -514,6 +538,36 @@ func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, 
 	}
 
 	return nil, fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+}
+
+// DeleteDocument sends the EDV server a request to delete the specified document.
+func (c *restClient) DeleteDocument(vaultID, docID string) error {
+	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
+
+	req, err := http.NewRequest(http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf(failCreateDELETERequest, err)
+	}
+
+	resp, err := c.httpClient.Do(req) //nolint: bodyclose
+	if err != nil {
+		return fmt.Errorf(failSendDELETERequest, err)
+	}
+
+	defer closeReadCloser(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf(failReadResponseBody, err)
+	}
+
+	logger.Debugf(sendDELETERequestLogMsg, endpoint, resp.StatusCode, respBytes)
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
+	return fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
 }
 
 func closeReadCloser(respBody io.ReadCloser) {
