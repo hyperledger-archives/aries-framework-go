@@ -9,30 +9,19 @@ package webkms
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
-	// Namespace of the remoteKMS local config storage.
-	Namespace = "remotekmsdb"
-
-	// KeystoreURLField representing the user's keystore URL field in the remoteKMS local storage.
-	KeystoreURLField = "keystoreurl"
-
-	// ControllerField representing the user's Controller field in the remoteKMS local storage.
-	ControllerField = "controller"
-
-	// SecretField representing the user's secret field in the remoteKMS local storage.
-	SecretField = "secret"
-
 	createKeystoreEndpoint = "{serverEndpoint}/kms/keystores"
 
 	// ContentType is remoteKMS http content-type.
@@ -40,93 +29,69 @@ const (
 
 	// LocationHeader is remoteKMS http header set by the key server (usually to identify a keystore or key url).
 	LocationHeader = "Location"
-
-	// KeyBytesHeader is remoteKMS http header set by the key server (to contain an base64URL encoded public key).
-	KeyBytesHeader = "KeyBytes"
 )
 
 var logger = log.New("aries-framework/kms/webkms")
 
 type createKeystoreReq struct {
-	Controller string `json:"controller,omitempty"`
-	Passphrase string `json:"passphrase,omitempty"`
+	Controller         string `json:"controller,omitempty"`
+	OperationalVaultID string `json:"pperationalvaultid,omitempty"`
 }
 
 type createKeyReq struct {
-	KeyType    string `json:"keytype,omitempty"`
-	Passphrase string `json:"passphrase,omitempty"`
+	KeyType string `json:"keytype,omitempty"`
 }
 
-type exportKeyReq struct {
-	KeyID      string `json:"keyid,omitempty"`
-	Passphrase string `json:"passphrase,omitempty"`
+type exportKeyResp struct {
+	KeyBytes string `json:"keyid,omitempty"`
 }
 
 type marshalFunc func(interface{}) ([]byte, error)
 
+type unmarshalFunc func([]byte, interface{}) error
+
 // RemoteKMS implementation of kms.KeyManager api.
 type RemoteKMS struct {
-	httpClient  *http.Client
-	secret      string
-	configStore storage.Store
-	keystoreURL string
-	marshalFunc marshalFunc
+	httpClient     *http.Client
+	keystoreURL    string
+	marshalFunc    marshalFunc
+	unmarshalFunc  unmarshalFunc
+	addHeadersOpts *headersOpts
 }
 
-// New creates a new remoteKMS instance using http client connecting to a server at a url saved in a local remoteKMS
-// configuration configStore called as in Namespace const.
-// The marshaller function is used to marshal content in the client, it should usually be `json.Marshal`.
-func New(provider storage.Provider, client *http.Client, marshaller marshalFunc) (*RemoteKMS, error) {
-	configStore, err := provider.OpenStore(Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	keystoreURL, err := configStore.Get(KeystoreURLField)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch keystore url from remoteKMS config storage: %s", err)
-	}
-
-	secret, err := configStore.Get(SecretField)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch keystore secret from remoteKMS config storage: %s", err)
-	}
-
-	return &RemoteKMS{
-		httpClient:  client,
-		secret:      string(secret),
-		configStore: configStore,
-		keystoreURL: string(keystoreURL),
-		marshalFunc: marshaller,
-	}, nil
-}
-
-// CreateKeyStore calls the key server's create keystore REST function and saves the resulting keystoreURL value in a
-// local remoteKMS configStore.
+// CreateKeyStore calls the key server's create keystore REST function and returns the resulting keystoreURL value.
 // Arguments of this function are described below:
-//   - configStore is where the keystoreURL, Controller and secret will be stored
 //   - httpClient used to POST the request
 //   - keyserverURL representing the key server url
-//   - Controller is the identifier of the keystore owner (usually a DID key ID)
-//   - secret represents the configStore secret for locking/unlocking the keystore
 //	 - marshaller the marshal function used for marshaling content in the client. Usually: `json.Marshal`
+//   - headersOpt optional function setting any necessary http headers for key server authorization
 // Returns:
 //  - keystore URL (if successful)
 //  - error (if error encountered)
-func CreateKeyStore(store storage.Store, httpClient *http.Client, keyserverURL, controller string,
-	secret []byte, marshaller marshalFunc) (string, error) {
+func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID string, marshaller marshalFunc,
+	headersOpts ...HeadersOpt) (string, error) {
 	destination := strings.ReplaceAll(createKeystoreEndpoint, "{serverEndpoint}", keyserverURL)
-	httpReq := &createKeystoreReq{
+	httpReqJSON := &createKeystoreReq{
 		Controller: controller,
-		Passphrase: base64.URLEncoding.EncodeToString(secret),
 	}
 
-	req, err := marshaller(httpReq)
+	if vaultID != "" {
+		httpReqJSON.OperationalVaultID = vaultID
+	}
+
+	mReq, err := marshaller(httpReqJSON)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
 	}
 
-	resp, err := httpClient.Post(destination, ContentType, bytes.NewBuffer(req))
+	httpReq, err := http.NewRequest(http.MethodPost, destination, bytes.NewBuffer(mReq))
+	if err != nil {
+		return "", fmt.Errorf("build request for Create keystore error: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", ContentType)
+
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
 	}
@@ -136,23 +101,54 @@ func CreateKeyStore(store storage.Store, httpClient *http.Client, keyserverURL, 
 
 	keystoreURL := resp.Header.Get(LocationHeader)
 
-	err = store.Put(KeystoreURLField, []byte(keystoreURL))
-	if err != nil {
-		return "", fmt.Errorf("failed to save keystoreURL in remoteKMS configStore: %w", err)
-	}
-
-	// the following can be stored earlier, but storing them after keystoreURL to ensure it was created
-	err = store.Put(ControllerField, []byte(controller))
-	if err != nil {
-		return "", fmt.Errorf("failed to save Controller in remoteKMS configStore: %w", err)
-	}
-
-	err = store.Put(SecretField, []byte(base64.URLEncoding.EncodeToString(secret)))
-	if err != nil {
-		return "", fmt.Errorf("failed to save secret in remoteKMS configStore: %w", err)
-	}
-
 	return keystoreURL, nil
+}
+
+// New creates a new remoteKMS instance using http client connecting to keystoreURL.
+func New(keystoreURL string, client *http.Client, headersOpts ...HeadersOpt) *RemoteKMS {
+	hOpts := NewOpt()
+
+	for _, opt := range headersOpts {
+		opt(hOpts)
+	}
+
+	return &RemoteKMS{
+		httpClient:     client,
+		keystoreURL:    keystoreURL,
+		marshalFunc:    json.Marshal,
+		unmarshalFunc:  json.Unmarshal,
+		addHeadersOpts: hOpts,
+	}
+}
+
+func (r *RemoteKMS) postHTTPRequest(destination string, mReq []byte) (*http.Response, error) {
+	return r.doHTTPRequest(http.MethodPost, destination, mReq)
+}
+
+func (r *RemoteKMS) getHTTPRequest(destination string) (*http.Response, error) {
+	return r.doHTTPRequest(http.MethodGet, destination, nil)
+}
+
+func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*http.Response, error) {
+	httpReq, err := http.NewRequest(method, destination, bytes.NewBuffer(mReq))
+	if err != nil {
+		return nil, fmt.Errorf("build request error: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", ContentType)
+
+	if r.addHeadersOpts.headersFunc != nil {
+		httpHeaders, err := r.addHeadersOpts.headersFunc(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("add optional request headers error: %w", err)
+		}
+
+		if httpHeaders != nil {
+			httpReq.Header = httpHeaders.Clone()
+		}
+	}
+
+	return r.httpClient.Do(httpReq)
 }
 
 // Create a new key/keyset/key handle for the type kt remotely
@@ -162,17 +158,16 @@ func CreateKeyStore(store storage.Store, httpClient *http.Client, keyserverURL, 
 //  - error if failure
 func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	destination := r.keystoreURL + "/keys"
-	httpReq := &createKeyReq{
-		KeyType:    string(kt),
-		Passphrase: r.secret,
+	httpReqJSON := &createKeyReq{
+		KeyType: string(kt),
 	}
 
-	req, err := r.marshalFunc(httpReq)
+	marshaledReq, err := r.marshalFunc(httpReqJSON)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to marshal Create key request [%s, %w]", destination, err)
 	}
 
-	resp, err := r.httpClient.Post(destination, ContentType, bytes.NewBuffer(req))
+	resp, err := r.postHTTPRequest(destination, marshaledReq)
 	if err != nil {
 		return "", nil, fmt.Errorf("posting Create key failed [%s, %w]", destination, err)
 	}
@@ -191,16 +186,11 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 //  - handle instance representing a remote keystore URL including KeyID
 //  - error if failure
 func (r *RemoteKMS) Get(keyID string) (interface{}, error) {
-	return r.buildKIDURL(keyID)
+	return r.buildKIDURL(keyID), nil
 }
 
-func (r *RemoteKMS) buildKIDURL(keyID string) (string, error) {
-	keystoreURL, err := r.configStore.Get(KeystoreURLField)
-	if err != nil {
-		return "", err
-	}
-
-	return string(keystoreURL) + "/keys/" + keyID, nil
+func (r *RemoteKMS) buildKIDURL(keyID string) string {
+	return r.keystoreURL + "/keys/" + keyID
 }
 
 // Rotate remotely a key referenced by KeyID and return a new handle of a keyset including old key and
@@ -219,24 +209,11 @@ func (r *RemoteKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, e
 //  - marshalled public key []byte
 //  - error if it fails to export the public key bytes
 func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
-	keyURL, err := r.buildKIDURL(keyID)
-	if err != nil {
-		return nil, err
-	}
+	keyURL := r.buildKIDURL(keyID)
 
 	destination := keyURL + "/export"
 
-	httpReq := &exportKeyReq{
-		KeyID:      keyID,
-		Passphrase: r.secret,
-	}
-
-	req, err := r.marshalFunc(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal ExportPubKeyBytes key request [%s, %w]", destination, err)
-	}
-
-	resp, err := r.httpClient.Post(destination, ContentType, bytes.NewBuffer(req))
+	resp, err := r.getHTTPRequest(destination)
 	if err != nil {
 		return nil, fmt.Errorf("posting ExportPubKeyBytes key failed [%s, %w]", destination, err)
 	}
@@ -244,7 +221,19 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ExportPubKeyBytes")
 
-	keyBytes, err := base64.URLEncoding.DecodeString(resp.Header.Get(KeyBytesHeader))
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read key response for ExportPubKeyBytes failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &exportKeyResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal key for ExportPubKeyBytes failed [%s, %w]", destination, err)
+	}
+
+	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.KeyBytes)
 	if err != nil {
 		return nil, err
 	}
