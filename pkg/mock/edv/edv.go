@@ -27,6 +27,7 @@ const (
 	createDocumentEndpoint = "/{" + vaultIDPathVariable + "}/documents"
 	readDocumentEndpoint   = "/{" + vaultIDPathVariable + "}/documents/{" + docIDPathVariable + "}"
 	deleteDocumentEndpoint = readDocumentEndpoint
+	updateDocumentEndpoint = readDocumentEndpoint
 )
 
 // MockServerOperation represents a mocked EDV server that is useful for testing.
@@ -37,6 +38,8 @@ type MockServerOperation struct {
 	CreateDocumentReturnStatusCode int
 	CreateDocumentReturnLocation   string
 	CreateDocumentReturnBody       []byte
+	UpdateDocumentReturnStatusCode int
+	UpdateDocumentReturnBody       []byte
 	ReadDocumentReturnStatusCode   int
 	ReadDocumentReturnBody         []byte
 	QueryVaultReturnStatusCode     int
@@ -54,6 +57,7 @@ func (o *MockServerOperation) StartNewMockEDVServer() *httptest.Server {
 	router.HandleFunc(readDocumentEndpoint, o.mockReadDocumentHandler).Methods(http.MethodGet)
 	router.HandleFunc(queryVaultEndpoint, o.mockQueryVaultHandler).Methods(http.MethodPost)
 	router.HandleFunc(deleteDocumentEndpoint, o.mockDeleteDocumentHandler).Methods(http.MethodDelete)
+	router.HandleFunc(updateDocumentEndpoint, o.mockUpdateDocumentHandler).Methods(http.MethodPost)
 
 	return httptest.NewServer(router)
 }
@@ -102,7 +106,7 @@ func (o *MockServerOperation) mockReadDocumentHandler(rw http.ResponseWriter, re
 func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(o.QueryVaultReturnStatusCode)
 
-	if o.UseDB {
+	if o.UseDB && o.QueryVaultReturnStatusCode == http.StatusOK && o.QueryVaultReturnBody == nil {
 		allDocumentLocations := make([]string, 0)
 
 		for docID := range o.DB {
@@ -132,4 +136,10 @@ func (o *MockServerOperation) mockDeleteDocumentHandler(rw http.ResponseWriter, 
 		_, err := rw.Write(o.DeleteDocumentReturnBody)
 		require.NoError(o.T, err)
 	}
+}
+
+func (o *MockServerOperation) mockUpdateDocumentHandler(rw http.ResponseWriter, req *http.Request) {
+	rw.WriteHeader(o.UpdateDocumentReturnStatusCode)
+	_, err := rw.Write(o.UpdateDocumentReturnBody)
+	require.NoError(o.T, err)
 }
