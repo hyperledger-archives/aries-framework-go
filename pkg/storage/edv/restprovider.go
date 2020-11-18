@@ -275,7 +275,7 @@ func (r *restStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 	storeIndexedAttribute := models.IndexedAttribute{
 		Name:   r.storeIndexNameMACBase64Encoded,
 		Value:  base64.URLEncoding.EncodeToString([]byte(storeIndexValueMAC)),
-		Unique: true,
+		Unique: false,
 	}
 
 	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(keyName)
