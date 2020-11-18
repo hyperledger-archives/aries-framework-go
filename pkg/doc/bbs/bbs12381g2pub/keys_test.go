@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	bbs "github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
@@ -73,6 +74,23 @@ func TestPublicKey_Marshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, pubKeyUnmarshalled)
 	require.Equal(t, pubKey, pubKeyUnmarshalled)
+}
+
+func TestParseMattrKeys(t *testing.T) {
+	privKeyB58 := "5D6Pa8dSwApdnfg7EZR8WnGfvLDCZPZGsZ5Y1ELL9VDj"
+	privKeyBytes := base58.Decode(privKeyB58)
+	t.Logf("priv key bytes length: %d", len(privKeyBytes))
+
+	pubKeyB58 := "oqpWYKaZD9M1Kbe94BVXpr8WTdFBNZyKv48cziTiQUeuhm7sBhCABMyYG4kcMrseC68YTFFgyhiNeBKjzdKk9MiRWuLv5H4FFujQsQK2KTAtzU8qTBiZqBHMmnLF4PL7Ytu" //nolint:lll
+	pubKeyBytes := base58.Decode(pubKeyB58)
+	t.Logf("pub key bytes length: %d", len(pubKeyBytes))
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+	signatureBytes, err := bbs.New().Sign(messagesBytes, privKeyBytes)
+	require.NoError(t, err)
+
+	err = bbs.New().Verify(messagesBytes, signatureBytes, pubKeyBytes)
+	require.NoError(t, err)
 }
 
 func generateKeyPairRandom() (*bbs.PublicKey, *bbs.PrivateKey, error) {

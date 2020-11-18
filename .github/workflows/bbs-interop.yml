@@ -1,0 +1,53 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+name: bbs-interop
+on:
+  push:
+    branches-ignore:
+    - 'dependabot/**'
+    paths:
+    - 'pkg/doc/verifiable/**'
+    - 'pkg/doc/bbs/**'
+    - 'pkg/doc/signature/suite/bbsblssignature2020/**'
+    - 'scripts/check_bbs_interop.sh'
+    - '.github/workflows/bbs-interop.yml'
+    - 'Makefile'
+  pull_request:
+    paths:
+    - 'pkg/doc/verifiable/**'
+    - 'pkg/doc/bbs/**'
+    - 'pkg/doc/signature/suite/bbsblssignature2020/**'
+    - 'scripts/check_bbs_interop.sh'
+    - '.github/workflows/bbs-interop.yml'
+    - 'Makefile'
+jobs:
+  bbsInteropTest:
+    name: BBS+ interop test
+    runs-on: ubuntu-18.04
+    timeout-minutes: 10
+    steps:
+
+    - name: Setup Go 1.15
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15
+      id: go
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v1.4.4
+      with:
+        node-version: 12.14.x
+        registry-url: "https://npm.pkg.github.com"
+
+    - name: Setup mocha
+      timeout-minutes: 10
+      run: npm install -g mocha
+
+    - uses: actions/checkout@v2
+
+    - name: Run test suite
+      timeout-minutes: 10
+      run: make bbs-interop-test
