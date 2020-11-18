@@ -918,7 +918,16 @@ const Aries = function (opts) {
              */
             batchPickup: async function (req) {
                 return invoke(aw, pending, this.pkgname, "BatchPickup", req, "timeout while performing batch pickup from router")
-            }
+            },
+
+            /**
+             * reconnectAll re-establishes all agent to mediator network connections.
+             *
+             * @returns {Promise<Object>}
+             */
+            reconnectAll: async function () {
+                return invoke(aw, pending, this.pkgname, "ReconnectAll", req, "timeout while reconnecting to mediator")
+            },
         },
 
         /**
