@@ -14,14 +14,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
 func TestMsgService_AcceptAndName(t *testing.T) {
 	tests := []struct {
 		name     string
-		service  *RegisterMsgSvcArgs
+		args     *testArgs
 		testdata []struct {
 			msgtype string
 			purpose []string
@@ -29,8 +28,8 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 		}
 	}{
 		{
-			name:    "msgService accept with message type and purpose",
-			service: &RegisterMsgSvcArgs{Name: "test-01", Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
+			name: "msgService accept with message type and purpose",
+			args: &testArgs{Name: "test-01", Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
 			testdata: []struct {
 				msgtype string
 				purpose []string
@@ -64,8 +63,8 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			},
 		},
 		{
-			name:    "msgService accept success with only purposes",
-			service: &RegisterMsgSvcArgs{Name: "test-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
+			name: "msgService accept success with only purposes",
+			args: &testArgs{Name: "test-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
 			testdata: []struct {
 				msgtype string
 				purpose []string
@@ -102,8 +101,8 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			},
 		},
 		{
-			name:    "msgService accept success with only message type",
-			service: &RegisterMsgSvcArgs{Name: "test-01", Type: "msg-type-01"},
+			name: "msgService accept success with only message type",
+			args: &testArgs{Name: "test-01", Type: "msg-type-01"},
 			testdata: []struct {
 				msgtype string
 				purpose []string
@@ -127,8 +126,8 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			},
 		},
 		{
-			name:    "msgService accept failure with no criteria",
-			service: &RegisterMsgSvcArgs{Name: "test-01"},
+			name: "msgService accept failure with no criteria",
+			args: &testArgs{Name: "test-01"},
 			testdata: []struct {
 				msgtype string
 				purpose []string
@@ -155,31 +154,31 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			msgsvc := newMessageService(tc.service, nil)
+			msgsvc := newMessageService(tc.args.Name, tc.args.Type, tc.args.Purpose, nil)
 			require.NotNil(t, msgsvc)
-			require.Equal(t, tc.service.Name, msgsvc.Name())
+			require.Equal(t, tc.args.Name, msgsvc.Name())
 
 			for _, testdata := range tc.testdata {
 				require.Equal(t, testdata.result, msgsvc.Accept(testdata.msgtype, testdata.purpose),
 					"test failed header[%s,%s] and criteria[%s]; expected[%v]",
-					testdata.msgtype, testdata.purpose, tc.service, testdata.result)
+					testdata.msgtype, testdata.purpose, tc.args, testdata.result)
 			}
 		})
 	}
 }
 
 func TestMsgService_HandleInbound(t *testing.T) {
-	const sampleName = "sample-msgsvc-01"
-
-	const myDID = "sample-mydid-01"
-
-	const theirDID = "sample-theriDID-01"
+	const (
+		sampleName = "sample-msgsvc-01"
+		myDID      = "sample-mydid-01"
+		theirDID   = "sample-theriDID-01"
+	)
 
 	t.Run("test message service handle inbound success with generic topic", func(t *testing.T) {
 		webhookCh := make(chan []byte)
 
-		msgsvc := newMessageService(&RegisterMsgSvcArgs{Name: sampleName},
-			&mockwebhook.Notifier{
+		msgsvc := newMessageService(sampleName, "", nil,
+			&mockNotifier{
 				NotifyFunc: func(topic string, message []byte) error {
 					require.Equal(t, sampleName, topic)
 					webhookCh <- message
@@ -213,7 +212,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("message service handle inbound failure", func(t *testing.T) {
-		msgsvc := newMessageService(&RegisterMsgSvcArgs{}, mockwebhook.NewMockWebhookNotifier())
+		msgsvc := newMessageService("", "", nil, &mockNotifier{})
 		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errTopicNotFound)
@@ -226,7 +225,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 			return nil, fmt.Errorf(sampleErr)
 		}
 
-		msgsvc := newCustomMessageService(sampleName, "test", nil, mockwebhook.NewMockWebhookNotifier(), topicHandle)
+		msgsvc := newCustomMessageService(sampleName, "test", nil, &mockNotifier{}, topicHandle)
 		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErr)
@@ -239,4 +238,10 @@ type mockTopic struct {
 	Message  service.DIDCommMsgMap `json:"message"`
 	MyDID    string                `json:"mydid"`
 	TheirDID string                `json:"theirdid"`
+}
+
+type testArgs struct {
+	Name    string
+	Purpose []string
+	Type    string
 }

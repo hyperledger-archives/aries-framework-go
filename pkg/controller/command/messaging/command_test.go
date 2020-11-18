@@ -325,7 +325,7 @@ func TestCommand_Services(t *testing.T) {
 		err = json.NewDecoder(buf).Decode(&response)
 		require.NoError(t, err)
 
-		require.NotEmpty(t, response)
+		require.NotNil(t, response)
 		require.Len(t, response.Names, count)
 	}
 
@@ -512,7 +512,7 @@ func TestCommand_Send(t *testing.T) {
 			{
 				name: "send message to destination",
 				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf",
-	"recipientKeys":["test"]}}`,
+			"recipientKeys":["test"]}}`,
 				messenger: &mocksvc.MockMessenger{ErrSendToDestination: fmt.Errorf("sample-err-01")},
 				errorCode: SendMsgError,
 				errorMsg:  "sample-err-01",
@@ -520,7 +520,7 @@ func TestCommand_Send(t *testing.T) {
 			{
 				name: "send message to destination",
 				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf",
-	"recipientKeys":["test"]}}`,
+			"recipientKeys":["test"]}}`,
 				kms:       &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("sample-kmserr-01")},
 				errorCode: SendMsgError,
 				errorMsg:  "sample-kmserr-01",
@@ -700,21 +700,4 @@ func TestCommand_Reply(t *testing.T) {
 		cmdErr := cmd.Reply(&b, bytes.NewBufferString(jsonMsg))
 		require.NoError(t, cmdErr)
 	})
-}
-
-func TestCommand_SendToDestinationFailures(t *testing.T) {
-	prov := &protocol.MockProvider{}
-	prov.CustomVDR = &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOpts) (doc *did.Doc, e error) {
-			return mockdiddoc.GetMockDIDDoc(), nil
-		},
-	}
-	cmd, err := New(prov, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
-
-	require.NoError(t, err)
-	require.NotNil(t, cmd)
-
-	cErr := cmd.sendToDestination(&SendNewMessageArgs{})
-	require.Error(t, cErr)
-	require.Equal(t, cErr.Error(), errMsgDestinationMissing)
 }

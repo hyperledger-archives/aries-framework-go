@@ -23,8 +23,8 @@ const (
 type handleFunc func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error)
 
 // newMessageService returns new message service instance.
-func newMessageService(params *RegisterMsgSvcArgs, notifier command.Notifier) *msgService {
-	return newCustomMessageService(params.Name, params.Type, params.Purpose, notifier, genericHandleFunc())
+func newMessageService(name, msgType string, purposes []string, notifier command.Notifier) *msgService {
+	return newCustomMessageService(name, msgType, purposes, notifier, genericHandleFunc())
 }
 
 // newCustomMessageService returns new message service instance with custom topic handle for
