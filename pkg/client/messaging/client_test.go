@@ -8,9 +8,11 @@ package messaging
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -139,7 +141,7 @@ func TestCommand_Services(t *testing.T) {
 	require.Len(t, svcs, len(testMsgSvcs))
 }
 
-func TestCommand_Send(t *testing.T) {
+func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 	t.Run("Test send new message success", func(t *testing.T) {
 		tests := []struct {
 			name           string
@@ -191,11 +193,135 @@ func TestCommand_Send(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				err = cmd.Send(json.RawMessage([]byte(`{"text":"sample"}`)), tc.option)
+				res, err := cmd.Send(json.RawMessage([]byte(`{"text":"sample"}`)), tc.option)
 				require.NoError(t, err)
 				require.Empty(t, b.String())
+				require.Empty(t, res)
 			})
 		}
+	})
+
+	const msgStr = `{"@id": "2d798168-8abf-4410-8535-bc1e8406a5ff","text":"sample"}`
+
+	const replyMsgStr = `{
+							"@id": "123456781",
+							"@type": "sample-response-type",
+							"~thread" : {"thid": "2d798168-8abf-4410-8535-bc1e8406a5ff"}
+					}`
+
+	t.Run("Test send new message and await response success", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			testConnection *connection.Record
+			msgBody        string
+			option         []SendMessageOpions
+		}{
+			{
+				name: "send message to connection ID",
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
+				option: []SendMessageOpions{
+					SendByConnectionID("sample-conn-ID-001"),
+					WaitForResponse(context.Background(), "sample-response-type"),
+				},
+			},
+			{
+				name: "send message to their DID",
+				testConnection: &connection.Record{
+					ConnectionID: "sample-conn-ID-001",
+					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+				},
+				option: []SendMessageOpions{
+					SendByTheirDID("theirDID-001"),
+					WaitForResponse(context.Background(), "sample-response-type"),
+				},
+			},
+			{
+				name: "send message to destination",
+				option: []SendMessageOpions{
+					SendByDestination(&service.Destination{
+						RecipientKeys:   []string{"test"},
+						ServiceEndpoint: "sdfsdf",
+						RoutingKeys:     []string{"test"},
+					}),
+					WaitForResponse(context.Background(), "sample-response-type"),
+				},
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+				if tc.testConnection != nil {
+					connBytes, err := json.Marshal(tc.testConnection)
+					require.NoError(t, err)
+					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
+				}
+
+				registrar := msghandler.NewMockMsgServiceProvider()
+
+				cmd, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
+					registrar, &mockNotifier{})
+				require.NoError(t, err)
+				require.NotNil(t, cmd)
+
+				replyMsg, err := service.ParseDIDCommMsgMap([]byte(replyMsgStr))
+				require.NoError(t, err)
+
+				go func() {
+					for {
+						if len(registrar.Services()) > 0 {
+							_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+							require.NoError(t, e)
+						}
+					}
+				}()
+
+				res, err := cmd.Send(
+					json.RawMessage([]byte(msgStr)),
+					tc.option...)
+				require.NoError(t, err)
+
+				var response map[string]interface{}
+				err = json.Unmarshal(res, &response)
+				require.NoError(t, err)
+				require.NotEmpty(t, response)
+				require.NotEmpty(t, response["message"])
+			})
+		}
+	})
+
+	t.Run("Test send new message failures with bad context", func(t *testing.T) {
+		badContext, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+		defer cancel()
+
+		connBytes, err := json.Marshal(&connection.Record{
+			ConnectionID: "sample-conn-ID-001",
+			State:        "completed", MyDID: "mydid", TheirDID: "theirDID-001",
+		})
+		require.NoError(t, err)
+
+		mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+		require.NoError(t, mockStore.Put("conn_sample-conn-ID-001", connBytes))
+
+		cmd, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
+			msghandler.NewMockMsgServiceProvider(), &mockNotifier{})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		res, err := cmd.Send(
+			json.RawMessage([]byte(msgStr)),
+			SendByConnectionID("sample-conn-ID-001"),
+			WaitForResponse(badContext, "sample-rep-type"),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get reply, context deadline exceeded")
+		require.Empty(t, res)
 	})
 
 	t.Run("Test send new message failures", func(t *testing.T) {
@@ -326,9 +452,10 @@ func TestCommand_Send(t *testing.T) {
 					msgBody = tc.msgBody
 				}
 
-				cmdErr := cmd.Send(msgBody, tc.option)
-				require.Error(t, cmdErr, "failed test : %s", tc.name)
-				require.Contains(t, cmdErr.Error(), tc.errorMsg)
+				res, err := cmd.Send(msgBody, tc.option)
+				require.Error(t, err, "failed test : %s", tc.name)
+				require.Contains(t, err.Error(), tc.errorMsg)
+				require.Empty(t, res)
 			})
 		}
 	})
@@ -371,9 +498,10 @@ func TestCommand_Reply(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
 
-				err = cmd.Reply(json.RawMessage([]byte(tc.msgBody)), tc.msgID, false)
+				res, err := cmd.Reply(context.Background(), json.RawMessage([]byte(tc.msgBody)), tc.msgID, false, "")
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorMsg)
+				require.Empty(t, res)
 			})
 		}
 	})
@@ -383,8 +511,9 @@ func TestCommand_Reply(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		err = cmd.Reply(json.RawMessage([]byte(`{"msg":"Hello !!"}`)), "msg-id", false)
+		res, err := cmd.Reply(context.Background(), json.RawMessage([]byte(`{"msg":"Hello !!"}`)), "msg-id", false, "")
 		require.NoError(t, err)
+		require.Empty(t, res)
 	})
 
 	t.Run("Test send message reply by starting new thread", func(t *testing.T) {
@@ -392,8 +521,75 @@ func TestCommand_Reply(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		err = cmd.Reply(json.RawMessage([]byte(`{"msg":"Hello !!"}`)), "msg-id", true)
+		res, err := cmd.Reply(context.Background(), json.RawMessage([]byte(`{"msg":"Hello !!"}`)), "msg-id", true, "")
 		require.NoError(t, err)
+		require.Empty(t, res)
+	})
+
+	const msgStr = `{"@id": "2d798168-8abf-4410-8535-bc1e8406a5ff","text":"sample"}`
+
+	const replyMsgStr = `{
+							"@id": "123456781",
+							"@type": "sample-response-type",
+							"~thread" : {"thid": "2d798168-8abf-4410-8535-bc1e8406a5ff"}
+					}`
+
+	t.Run("Test send message reply and await response", func(t *testing.T) {
+		registrar := msghandler.NewMockMsgServiceProvider()
+
+		cmd, err := New(&protocol.MockProvider{}, registrar, &mockNotifier{})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		replyMsg, err := service.ParseDIDCommMsgMap([]byte(replyMsgStr))
+		require.NoError(t, err)
+
+		go func() {
+			for {
+				if len(registrar.Services()) > 0 {
+					_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+					require.NoError(t, e)
+				}
+			}
+		}()
+
+		res, err := cmd.Reply(context.Background(), json.RawMessage([]byte(msgStr)), "msg-id", false, "sample-response-type")
+		require.NoError(t, err)
+
+		var response map[string]interface{}
+		err = json.Unmarshal(res, &response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response["message"])
+	})
+
+	t.Run("Test send message reply by starting new thread  and await response", func(t *testing.T) {
+		registrar := msghandler.NewMockMsgServiceProvider()
+
+		cmd, err := New(&protocol.MockProvider{}, registrar, &mockNotifier{})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		replyMsg, err := service.ParseDIDCommMsgMap([]byte(replyMsgStr))
+		require.NoError(t, err)
+
+		go func() {
+			for {
+				if len(registrar.Services()) > 0 {
+					_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+					require.NoError(t, e)
+				}
+			}
+		}()
+
+		res, err := cmd.Reply(context.Background(), json.RawMessage([]byte(msgStr)), "msg-id", true, "sample-response-type")
+		require.NoError(t, err)
+
+		var response map[string]interface{}
+		err = json.Unmarshal(res, &response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response["message"])
 	})
 }
 

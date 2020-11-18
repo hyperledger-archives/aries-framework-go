@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package messaging
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -50,6 +52,9 @@ const (
 	// log constants.
 	replyTo       = "replyTo"
 	successString = "success"
+
+	// default timeout.
+	defaultTimeout = 20 * time.Second
 )
 
 // Error codes.
@@ -188,15 +193,21 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 		}
 	}
 
-	err = o.msgClient.Send(request.MessageBody,
+	ctx, cancel := prepareContext(request.AwaitReply.Timeout)
+	defer cancel()
+
+	res, err := o.msgClient.Send(request.MessageBody,
 		messaging.SendByConnectionID(request.ConnectionID),
 		messaging.SendByTheirDID(request.TheirDID),
-		messaging.SendByDestination(destination))
+		messaging.SendByDestination(destination),
+		messaging.WaitForResponse(ctx, request.AwaitReply.ReplyMessageType))
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error())
 
 		return command.NewExecuteError(SendMsgError, err)
 	}
+
+	command.WriteNillableResponse(rw, SendMessageResponse{Response: res}, logger)
 
 	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString)
 
@@ -223,12 +234,18 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgIDEmpty))
 	}
 
-	err = o.msgClient.Reply(request.MessageBody, request.MessageID, request.StartNewThread)
+	ctx, cancel := prepareContext(request.AwaitReply.Timeout)
+	defer cancel()
+
+	res, err := o.msgClient.Reply(ctx, request.MessageBody, request.MessageID, request.StartNewThread,
+		request.AwaitReply.ReplyMessageType)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(replyTo, request.MessageID))
 		return command.NewExecuteError(SendMsgReplyError, err)
 	}
+
+	command.WriteNillableResponse(rw, SendMessageResponse{Response: res}, logger)
 
 	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString)
 
@@ -298,4 +315,12 @@ func (o *Command) validateMessageDestination(dest *SendNewMessageArgs) error {
 	}
 
 	return nil
+}
+
+func prepareContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+
+	return context.WithTimeout(context.Background(), timeout)
 }

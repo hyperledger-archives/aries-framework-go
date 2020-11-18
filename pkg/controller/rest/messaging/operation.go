@@ -119,6 +119,7 @@ func (o *Operation) Services(rw http.ResponseWriter, req *http.Request) {
 //
 // Responses:
 //    default: genericError
+//    200: sendMessageResponse
 func (o *Operation) Send(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Send, rw, req.Body)
 }
@@ -129,6 +130,7 @@ func (o *Operation) Send(rw http.ResponseWriter, req *http.Request) {
 //
 // Responses:
 //    default: genericError
+//    200: sendMessageResponse
 func (o *Operation) Reply(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Reply, rw, req.Body)
 }
