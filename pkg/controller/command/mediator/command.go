@@ -14,11 +14,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/client/messagepickup"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 var logger = log.New("aries-framework/command/route")
@@ -57,6 +59,9 @@ const (
 
 	// BatchPickupRequestErrorCode for batch pick up error.
 	BatchPickupRequestErrorCode
+
+	// ReconnectAllError is typically a code for mediator reconnectAll errors.
+	ReconnectAllError
 )
 
 // constant for the mediator controller.
@@ -71,6 +76,7 @@ const (
 	ReconnectCommandMethod      = "Reconnect"
 	StatusCommandMethod         = "Status"
 	BatchPickupCommandMethod    = "BatchPickup"
+	ReconnectAllCommandMethod   = "ReconnectAll"
 
 	// log constants.
 	connectionID  = "connectionID"
@@ -80,12 +86,15 @@ const (
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
+	KMS() kms.KeyManager
+	ServiceEndpoint() string
 }
 
 // Command contains command operations provided by route controller.
 type Command struct {
 	routeClient   *mediator.Client
 	messageClient *messagepickup.Client
+	outOfBand     *outofband.Client
 }
 
 // New returns new route controller command instance.
@@ -116,9 +125,15 @@ func New(ctx provider, autoAccept bool) (*Command, error) {
 		return nil, fmt.Errorf("failed to create message client : %w", err)
 	}
 
+	outOfBandClient, err := outofband.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create out-of-band client : %w", err)
+	}
+
 	return &Command{
 		routeClient:   routeClient,
 		messageClient: messageClient,
+		outOfBand:     outOfBandClient,
 	}, nil
 }
 
@@ -129,6 +144,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, UnregisterCommandMethod, o.Unregister),
 		cmdutil.NewCommandHandler(CommandName, GetConnectionsCommandMethod, o.Connections),
 		cmdutil.NewCommandHandler(CommandName, ReconnectCommandMethod, o.Reconnect),
+		cmdutil.NewCommandHandler(CommandName, ReconnectAllCommandMethod, o.ReconnectAll),
 		cmdutil.NewCommandHandler(CommandName, StatusCommandMethod, o.Status),
 		cmdutil.NewCommandHandler(CommandName, BatchPickupCommandMethod, o.BatchPickup),
 	}
@@ -212,7 +228,7 @@ func (o *Command) Connections(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator
+// Reconnect sends noop message to re-establish a connection when there is no other reason to message the mediator
 // nolint:dupl
 func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterRoute
@@ -240,6 +256,32 @@ func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, CommandName, ReconnectCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
+
+	return nil
+}
+
+// ReconnectAll performs reconnection on all available mediator connections.
+// This command is useful in re-establishing lost connections (ex: lost websocket connection).
+func (o *Command) ReconnectAll(rw io.Writer, req io.Reader) command.Error {
+	connections, err := o.routeClient.GetConnections()
+	if err != nil {
+		logutil.LogError(logger, CommandName, ReconnectAllCommandMethod, err.Error())
+
+		return command.NewExecuteError(ReconnectAllError, err)
+	}
+
+	for _, connection := range connections {
+		err = o.messageClient.Noop(connection)
+		if err != nil {
+			logutil.LogError(logger, CommandName, ReconnectAllCommandMethod, err.Error(),
+				logutil.CreateKeyValueString(connectionID, connection))
+			return command.NewExecuteError(ReconnectRouterErrorCode, err)
+		}
+	}
+
+	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, CommandName, ReconnectAllCommandMethod, successString)
 
 	return nil
 }

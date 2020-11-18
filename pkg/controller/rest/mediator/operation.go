@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // constants for the mediator operations.
@@ -24,11 +25,14 @@ const (
 	ReconnectPath      = RouteOperationID + "/reconnect"
 	StatusPath         = RouteOperationID + "/status"
 	BatchPickupPath    = RouteOperationID + "/batchpickup"
+	ReconnectAllPath   = RouteOperationID + "/reconnect-all"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
 type provider interface {
 	Service(id string) (interface{}, error)
+	KMS() kms.KeyManager
+	ServiceEndpoint() string
 }
 
 // Operation contains basic common operations provided by controller REST API.
@@ -66,6 +70,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(ReconnectPath, http.MethodPost, o.Reconnect),
 		cmdutil.NewHTTPHandler(StatusPath, http.MethodPost, o.Status),
 		cmdutil.NewHTTPHandler(BatchPickupPath, http.MethodPost, o.BatchPickup),
+		cmdutil.NewHTTPHandler(ReconnectAllPath, http.MethodGet, o.ReconnectAll),
 	}
 }
 
@@ -132,4 +137,14 @@ func (o *Operation) Status(rw http.ResponseWriter, req *http.Request) {
 //    200: batchPickupResponse
 func (o *Operation) BatchPickup(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.BatchPickup, rw, req.Body)
+}
+
+// ReconnectAll swagger:route GET /mediator/reconnect-all mediator reconnectAll
+//
+// Re-establishes network connections for all mediator connections.
+//
+// Responses:
+//    default: genericError
+func (o *Operation) ReconnectAll(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.ReconnectAll, rw, req.Body)
 }
