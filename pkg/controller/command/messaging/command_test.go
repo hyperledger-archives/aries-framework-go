@@ -325,7 +325,7 @@ func TestCommand_Services(t *testing.T) {
 		err = json.NewDecoder(buf).Decode(&response)
 		require.NoError(t, err)
 
-		require.NotNil(t, response)
+		require.NotEmpty(t, response)
 		require.Len(t, response.Names, count)
 	}
 
@@ -465,7 +465,7 @@ func TestCommand_Send(t *testing.T) {
 				var b bytes.Buffer
 				cmdErr := cmd.Send(&b, bytes.NewBufferString(tc.requestJSON))
 				require.NoError(t, cmdErr)
-				require.Empty(t, b.String())
+				require.Contains(t, b.String(), "{}")
 			})
 		}
 	})

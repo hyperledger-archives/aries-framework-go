@@ -7,11 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package messaging
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -25,12 +28,10 @@ const (
 	stateNameCompleted = "completed"
 
 	// errors.
-	errMsgConnectionMatchingDIDNotFound = "unable to find connection matching DID"
-	errMsgDestinationMissing            = "missing message destination"
+	errMsgDestinationMissing = "missing message destination"
 )
 
-// errConnForDIDNotFound when matching connection ID not found.
-var errConnForDIDNotFound = fmt.Errorf(errMsgConnectionMatchingDIDNotFound)
+var logger = log.New("aries-framework/controller/common")
 
 // provider contains dependencies for the message client and is typically created by using aries.Context().
 type provider interface {
@@ -69,6 +70,13 @@ type sendMsgOpts struct {
 	// Destination is service endpoint destination.
 	// This param can be used to send messages outside connection.
 	destination *service.Destination
+
+	// Message type of the response for the message sent.
+	// If provided then messenger will wait for the response of this type after sending message.
+	responseMsgType string
+
+	// context for await reply operation.
+	waitForResponseCtx context.Context
 }
 
 // SendMessageOpions is the options for choosing message destinations.
@@ -94,6 +102,18 @@ func SendByDestination(destination *service.Destination) SendMessageOpions {
 		opts.destination = destination
 	}
 }
+
+// WaitForResponse option to set message response type.
+// Message reply will wait for the response of this message type and matching thread ID.
+func WaitForResponse(ctx context.Context, responseType string) SendMessageOpions {
+	return func(opts *sendMsgOpts) {
+		opts.waitForResponseCtx = ctx
+		opts.responseMsgType = responseType
+	}
+}
+
+// messageDispatcher is message dispatch action which returns id of the message sent or error if it fails.
+type messageDispatcher func() error
 
 // Client enable access to messaging features.
 type Client struct {
@@ -141,108 +161,185 @@ func (c *Client) Services() []string {
 }
 
 // Send sends new message based on destination options provided.
-func (c *Client) Send(msg json.RawMessage, opts ...SendMessageOpions) error {
+func (c *Client) Send(msg json.RawMessage, opts ...SendMessageOpions) (json.RawMessage, error) {
 	sendOpts := &sendMsgOpts{}
 
 	for _, opt := range opts {
 		opt(sendOpts)
 	}
 
-	if sendOpts.connectionID != "" {
-		conn, err := c.connectionLookup.GetConnectionRecord(sendOpts.connectionID)
-		if err != nil {
-			return err
-		}
+	var action messageDispatcher
 
-		return c.sendToConnection(msg, conn)
+	didCommMsg, err := prepareMessage(msg)
+	if err != nil {
+		return nil, err
 	}
 
-	if sendOpts.theirDID != "" {
-		conn, err := c.getConnectionByTheirDID(sendOpts.theirDID)
-
-		if err != nil && err != errConnForDIDNotFound {
-			return err
-		}
-
-		if conn != nil {
-			return c.sendToConnection(msg, conn)
-		}
+	switch {
+	case sendOpts.connectionID != "":
+		action, err = c.sendToConnection(didCommMsg, sendOpts.connectionID)
+	case sendOpts.theirDID != "":
+		action, err = c.sendToTheirDID(didCommMsg, sendOpts.theirDID)
+	case sendOpts.destination != nil:
+		action, err = c.sendToDestination(didCommMsg, sendOpts.destination)
+	default:
+		return nil, fmt.Errorf(errMsgDestinationMissing)
 	}
 
-	return c.sendToDestination(msg, sendOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.sendAndWaitForReply(sendOpts.waitForResponseCtx, action, didCommMsg.ID(), sendOpts.responseMsgType)
 }
 
 // Reply sends reply to existing message.
-func (c *Client) Reply(msg json.RawMessage, msgID string, startNewThread bool) error {
-	didCommMsg, err := service.ParseDIDCommMsgMap(msg)
+func (c *Client) Reply(ctx context.Context, msg json.RawMessage, msgID string, startNewThread bool,
+	waitForResponse string) (json.RawMessage, error) {
+	var action messageDispatcher
+
+	didCommMsg, err := prepareMessage(msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if startNewThread {
-		return c.ctx.Messenger().ReplyToNested(didCommMsg, &service.NestedReplyOpts{MsgID: msgID})
+		action = func() error {
+			return c.ctx.Messenger().ReplyToNested(didCommMsg, &service.NestedReplyOpts{MsgID: msgID})
+		}
+
+		return c.sendAndWaitForReply(ctx, action, didCommMsg.ID(), waitForResponse)
 	}
 
-	return c.ctx.Messenger().ReplyTo(msgID, didCommMsg)
+	action = func() error {
+		return c.ctx.Messenger().ReplyTo(msgID, didCommMsg)
+	}
+
+	return c.sendAndWaitForReply(ctx, action, "", waitForResponse)
 }
 
-func (c *Client) getConnectionByTheirDID(theirDID string) (*connection.Record, error) {
+func (c *Client) sendToConnection(msg service.DIDCommMsgMap, connectionID string) (messageDispatcher, error) {
+	conn, err := c.connectionLookup.GetConnectionRecord(connectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return func() error {
+		return c.ctx.Messenger().Send(msg, conn.MyDID, conn.TheirDID)
+	}, nil
+}
+
+func (c *Client) sendToTheirDID(msg service.DIDCommMsgMap, theirDID string) (messageDispatcher, error) {
 	records, err := c.connectionLookup.QueryConnectionRecords()
 	if err != nil {
 		return nil, err
 	}
 
+	var conn *connection.Record
+
 	for _, record := range records {
 		if record.State == stateNameCompleted && record.TheirDID == theirDID {
-			return record, nil
+			conn = record
+			break
 		}
 	}
 
-	return nil, errConnForDIDNotFound
+	if conn != nil {
+		return func() error {
+			return c.ctx.Messenger().Send(msg, conn.MyDID, conn.TheirDID)
+		}, nil
+	}
+
+	dest, err := service.GetDestination(theirDID, c.ctx.VDRegistry())
+	if err != nil {
+		return nil, err
+	}
+
+	return c.sendToDestination(msg, dest)
 }
 
-func (c *Client) sendToConnection(msg json.RawMessage, conn *connection.Record) error {
-	didCommMsg, err := service.ParseDIDCommMsgMap(msg)
-	if err != nil {
-		return err
-	}
-
-	err = c.ctx.Messenger().Send(didCommMsg, conn.MyDID, conn.TheirDID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) sendToDestination(msg json.RawMessage, rqst *sendMsgOpts) error {
-	var dest *service.Destination
-
-	// prepare destination
-	if rqst.theirDID != "" {
-		var err error
-
-		dest, err = service.GetDestination(rqst.theirDID, c.ctx.VDRegistry())
-		if err != nil {
-			return err
-		}
-	} else if rqst.destination != nil {
-		dest = rqst.destination
-	}
-
-	if dest == nil {
-		return fmt.Errorf(errMsgDestinationMissing)
-	}
-
+func (c *Client) sendToDestination(msg service.DIDCommMsgMap, dest *service.Destination) (messageDispatcher, error) {
 	_, sigPubKey, err := c.ctx.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return func() error {
+		return c.ctx.Messenger().SendToDestination(msg, base58.Encode(sigPubKey), dest)
+	}, nil
+}
+
+func (c *Client) sendAndWaitForReply(ctx context.Context, action messageDispatcher, thID string,
+	replyType string) (json.RawMessage, error) {
+	var notificationCh chan NotificationPayload
+
+	if replyType != "" {
+		topic := uuid.New().String()
+		notificationCh = make(chan NotificationPayload)
+
+		err := c.msgRegistrar.Register(newMessageService(topic, replyType, nil,
+			NewNotifier(notificationCh, func(topic string, msgBytes []byte) bool {
+				var message struct {
+					Message service.DIDCommMsgMap `json:"message"`
+				}
+
+				err := json.Unmarshal(msgBytes, &message)
+				if err != nil {
+					logger.Debugf("failed to unmarshal incoming message reply: %s", err)
+					return false
+				}
+
+				msgThID, err := message.Message.ThreadID()
+				if err != nil {
+					logger.Debugf("failed to read incoming message reply thread ID: %s", err)
+					return false
+				}
+
+				return thID == "" || thID == msgThID
+			})))
+		if err != nil {
+			return nil, err
+		}
+
+		defer func() {
+			e := c.msgRegistrar.Unregister(topic)
+			if e != nil {
+				logger.Warnf("Failed to unregister wait for reply notifier: %w", e)
+			}
+		}()
+	}
+
+	err := action()
+	if err != nil {
+		return nil, err
+	}
+
+	if notificationCh != nil {
+		return waitForResponse(ctx, notificationCh)
+	}
+
+	return json.RawMessage{}, nil
+}
+
+func waitForResponse(ctx context.Context, notificationCh chan NotificationPayload) (json.RawMessage, error) {
+	select {
+	case payload := <-notificationCh:
+		return json.RawMessage(payload.Raw), nil
+
+	case <-ctx.Done():
+		return nil, fmt.Errorf("failed to get reply, context deadline exceeded")
+	}
+}
+
+func prepareMessage(msg json.RawMessage) (service.DIDCommMsgMap, error) {
 	didCommMsg, err := service.ParseDIDCommMsgMap(msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.ctx.Messenger().SendToDestination(didCommMsg, base58.Encode(sigPubKey), dest)
+	if didCommMsg.ID() == "" {
+		err = didCommMsg.SetID(uuid.New().String())
+	}
+
+	return didCommMsg, err
 }
