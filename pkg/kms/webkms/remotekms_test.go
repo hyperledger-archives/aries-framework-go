@@ -56,7 +56,7 @@ func TestRemoteKeyStore(t *testing.T) {
 	})
 
 	server, url, client := CreateMockHTTPServerAndClient(t, hf)
-	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(createKeystoreEndpoint,
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(KeystoreEndpoint,
 		"{serverEndpoint}", url), defaultKeyStoreID)
 
 	defer func() {
@@ -68,6 +68,10 @@ func TestRemoteKeyStore(t *testing.T) {
 		blankClient := &http.Client{}
 		_, err = CreateKeyStore(blankClient, url, controller, "", json.Marshal)
 		require.Contains(t, err.Error(), "posting Create keystore failed")
+
+		_, err = CreateKeyStore(blankClient, "``#$%", controller, "", json.Marshal)
+		require.EqualError(t, err, "build request for Create keystore error: parse \"``#$%/kms/keystores\": "+
+			"invalid URL escape \"%/k\"")
 	})
 
 	t.Run("CreateKeyStore json marshal failure", func(t *testing.T) {
@@ -77,7 +81,7 @@ func TestRemoteKeyStore(t *testing.T) {
 	})
 
 	t.Run("CreateKeyStore success", func(t *testing.T) {
-		ksID, e := CreateKeyStore(client, url, controller, "", json.Marshal)
+		ksID, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal)
 		require.NoError(t, e)
 
 		require.EqualValues(t, defaultKeystoreURL, ksID)
@@ -92,6 +96,11 @@ func TestRemoteKeyStore(t *testing.T) {
 
 		_, _, err = tmpKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.Contains(t, err.Error(), "posting Create key failed")
+
+		tmpKMS = New("``#$%", blankClient)
+		_, _, err = tmpKMS.Create(kms.ED25519Type)
+		require.EqualError(t, err, "posting Create key failed [``#$%/keys, build request error: parse"+
+			" \"``#$%/keys\": invalid URL escape \"%/k\"]")
 	})
 
 	t.Run("New, Create, Get and export success, all other functions not implemented should "+
@@ -179,7 +188,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	})
 
 	server, url, client := CreateMockHTTPServerAndClient(t, hf)
-	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(createKeystoreEndpoint,
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(KeystoreEndpoint,
 		"{serverEndpoint}", url), defaultKeyStoreID)
 
 	defer func() {
@@ -187,11 +196,19 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 		require.NoError(t, e)
 	}()
 
-	// keystore must be created prior to testing New() with header function option
-	ksID, err := CreateKeyStore(client, url, controller, "", json.Marshal)
-	require.NoError(t, err)
+	t.Run("CreateKeyStore with http header opt success", func(t *testing.T) {
+		ksID, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal,
+			WithHeaders(mockAddHeadersFuncSuccess))
+		require.NoError(t, e)
 
-	require.EqualValues(t, defaultKeystoreURL, ksID)
+		require.EqualValues(t, defaultKeystoreURL, ksID)
+	})
+
+	t.Run("CreateKeyStore with http header opt failure", func(t *testing.T) {
+		_, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal,
+			WithHeaders(mockAddHeadersFuncError))
+		require.EqualError(t, e, fmt.Errorf("add optional request headers error: %w", errAddHeadersFunc).Error())
+	})
 
 	t.Run("test New with valid http header func option", func(t *testing.T) {
 		remoteKMS := New(defaultKeystoreURL, client, WithHeaders(mockAddHeadersFuncSuccess))
@@ -261,7 +278,7 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	ct := r.Header.Get("Content-type")
-	if ct != ContentType {
+	if ct != ContentType && r.Method == http.MethodPost {
 		http.Error(w, fmt.Sprintf("Unsupported Content-type \"%s\"", ct), http.StatusUnsupportedMediaType)
 		return false
 	}

@@ -205,7 +205,7 @@ func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
 // WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
 // The optional 'wrapKeyOpts' specifies the sender kh for 1PU key wrapping.
 // This function is used with the following parameters:
-//  - Key Wrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSenderKH() option) over A256KW as
+//  - Key Wrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSender() option) over A256KW as
 // 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
 //  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
 // returns the resulting key wrapping info as *composite.RecipientWrappedKey or error in case of wrapping failure.
@@ -237,14 +237,14 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 		return nil, fmt.Errorf("wrapKey: failed to generate EPK: %w", err)
 	}
 
-	return t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKH(), ephemeralPriv, pubKey, recPubKey.KID)
+	return t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKey(), ephemeralPriv, pubKey, recPubKey.KID)
 }
 
 // UnwrapKey unwraps a key in recWK using ECDH (ES or 1PU) with recipient private key kh.
 // The optional 'wrapKeyOpts' specifies the sender kh for 1PU key unwrapping.
 // Note, if the option was used in WrapKey(), then it must be set here as well for a successful unwrapping.
 // This function is used with the following parameters:
-//  - Key Unwrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSenderKH() option) over A256KW as
+//  - Key Unwrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSender() option) over A256KW as
 // 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
 //  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
 // returns the resulting unwrapping key or error in case of unwrapping failure.
@@ -288,6 +288,6 @@ func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
 		Y:     new(big.Int).SetBytes(recWK.EPK.Y),
 	}
 
-	return t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, pOpts.SenderKH(),
+	return t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, pOpts.SenderKey(),
 		epkPubKey, recPrivKey)
 }

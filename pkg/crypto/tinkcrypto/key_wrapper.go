@@ -224,6 +224,17 @@ func ksToPublicECDSAKey(ks interface{}, kw keyWrapper) (*ecdsa.PublicKey, error)
 			X:     new(big.Int).SetBytes(sPubKey.X),
 			Y:     new(big.Int).SetBytes(sPubKey.Y),
 		}, nil
+	case *cryptoapi.PublicKey:
+		sCurve, err := kw.getCurve(kst.Curve)
+		if err != nil {
+			return nil, fmt.Errorf("ksToPublicECDSAKey: failed to GetCurve: %w", err)
+		}
+
+		return &ecdsa.PublicKey{
+			Curve: sCurve,
+			X:     new(big.Int).SetBytes(kst.X),
+			Y:     new(big.Int).SetBytes(kst.Y),
+		}, nil
 	case *ecdsa.PublicKey:
 		return kst, nil
 	default:

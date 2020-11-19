@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	createKeystoreEndpoint = "{serverEndpoint}/kms/keystores"
+	// KeystoreEndpoint represents a remote keystore endpoint with swappable {serverEndpoint} value.
+	KeystoreEndpoint = "{serverEndpoint}/kms/keystores"
 
 	// ContentType is remoteKMS http content-type.
 	ContentType = "application/json"
@@ -56,7 +57,7 @@ type RemoteKMS struct {
 	keystoreURL    string
 	marshalFunc    marshalFunc
 	unmarshalFunc  unmarshalFunc
-	addHeadersOpts *headersOpts
+	addHeadersOpts *HeadersOpts
 }
 
 // CreateKeyStore calls the key server's create keystore REST function and returns the resulting keystoreURL value.
@@ -70,7 +71,13 @@ type RemoteKMS struct {
 //  - error (if error encountered)
 func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID string, marshaller marshalFunc,
 	headersOpts ...HeadersOpt) (string, error) {
-	destination := strings.ReplaceAll(createKeystoreEndpoint, "{serverEndpoint}", keyserverURL)
+	hOpts := NewOpt()
+
+	for _, opt := range headersOpts {
+		opt(hOpts)
+	}
+
+	destination := strings.ReplaceAll(KeystoreEndpoint, "{serverEndpoint}", keyserverURL)
 	httpReqJSON := &createKeystoreReq{
 		Controller: controller,
 	}
@@ -90,6 +97,17 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 	}
 
 	httpReq.Header.Set("Content-Type", ContentType)
+
+	if hOpts.HeadersFunc != nil {
+		httpHeaders, e := hOpts.HeadersFunc(httpReq)
+		if e != nil {
+			return "", fmt.Errorf("add optional request headers error: %w", e)
+		}
+
+		if httpHeaders != nil {
+			httpReq.Header = httpHeaders.Clone()
+		}
+	}
 
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
@@ -135,10 +153,12 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 		return nil, fmt.Errorf("build request error: %w", err)
 	}
 
-	httpReq.Header.Set("Content-Type", ContentType)
+	if method == http.MethodPost {
+		httpReq.Header.Set("Content-Type", ContentType)
+	}
 
-	if r.addHeadersOpts.headersFunc != nil {
-		httpHeaders, err := r.addHeadersOpts.headersFunc(httpReq)
+	if r.addHeadersOpts.HeadersFunc != nil {
+		httpHeaders, err := r.addHeadersOpts.HeadersFunc(httpReq)
 		if err != nil {
 			return nil, fmt.Errorf("add optional request headers error: %w", err)
 		}

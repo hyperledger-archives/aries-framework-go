@@ -74,7 +74,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 			return nil, fmt.Errorf("jwedecrypt: failed to add sender public key for skid: %w", e)
 		}
 
-		senderOpt = cryptoapi.WithSenderKH(senderKH)
+		senderOpt = cryptoapi.WithSender(senderKH)
 	}
 
 	recWK, err := buildRecipientsWrappedKey(jwe)

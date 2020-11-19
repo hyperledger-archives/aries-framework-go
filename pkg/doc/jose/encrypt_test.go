@@ -35,7 +35,7 @@ func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
 	require.EqualError(t, err, "unsupported curve")
 }
 
-func TestBadSenderKH(t *testing.T) {
+func TestBadSenderKeyType(t *testing.T) {
 	c, err := tinkcrypto.New()
 	require.NoError(t, err)
 
