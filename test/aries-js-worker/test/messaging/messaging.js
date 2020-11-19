@@ -8,6 +8,7 @@ import {newDIDExchangeClient} from "../didexchange/didexchange_e2e.js";
 import {newAries} from "../common";
 
 const basicMsgType = "https://didcomm.org/basicmessage/1.0/message"
+const basicMsgType2 = "https://didcomm.org/basicmessage/1.0/message2"
 const basicMsgSvcName = "basic-msg-svc-demo"
 const sampleMsg = {
     "@id": "1d9a1589-9d7b-4308-9fab-8ee9730720c2",
@@ -18,11 +19,19 @@ const sampleMsg = {
 }
 
 const sampleReplyMsg = {
-    "@id": "1d9a1589-9d7b-4308-9fab-8ee9730720c2",
+    "@id": "2e9a1589-9d7b-4308-9fab-9ff4521986b3",
     "@type": basicMsgType,
     "~l10n": {"locale": "en"},
     "sent_time": "2020-03-05T16:59:47.489789-05:00",
     "content": "Hold my beer, I got this."
+}
+
+const sampleReplyMsg2 = {
+    "@id": "2r9c4563-9d7b-4308-9fab-7gg7898533v8",
+    "@type": basicMsgType2,
+    "~l10n": {"locale": "en"},
+    "sent_time": "2020-03-05T16:59:47.489789-05:00",
+    "content": "Hold my drink, I got this."
 }
 
 // scenarios
@@ -94,6 +103,29 @@ describe("Basic Messaging", function () {
         assert.equal(incomingMsg.content, sampleMsg.content)
     })
 
+    it("sender sends basic message to receiver and await reply", async function () {
+        let sendMsg = sender.messaging.send({"connection_ID": `${destinationConnID}`, "message_body": sampleMsg,
+            "await_reply": {messageType: basicMsgType, timeout: 2000000000}})
+
+        const incomingMsg = await new Promise((resolve, reject) => {
+            const timer = setTimeout(_ => reject(new Error("time out waiting for incoming message")), 5000)
+            const stop = receiver.startNotifier(msg => {
+                stop()
+                lastReceivedMsgID = msg.payload.message["@id"]
+                resolve(msg.payload.message)
+            }, [basicMsgSvcName])
+        })
+
+        receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg})
+
+        let replyMsg = (await sendMsg).response.message
+
+        assert.equal(replyMsg["@id"], sampleReplyMsg["@id"])
+        assert.equal(replyMsg["@type"], sampleReplyMsg["@type"])
+        assert.equal(replyMsg["~thread"].thid, sampleMsg["@id"])
+        assert.equal(replyMsg.content, sampleReplyMsg.content)
+    })
+
     it("sender registers basic message service", function (done) {
         sender.messaging.registerService({
             "name": `${basicMsgSvcName}`,
@@ -144,6 +176,53 @@ describe("Basic Messaging", function () {
         assert.deepEqual(incomingMsg["~thread"], {
             "pthid": "1d9a1589-9d7b-4308-9fab-8ee9730720c2"
         })
+    })
+
+    it("receiver replies to last received basic message and awaits response", async function () {
+        let replyMsgPromise = receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg,
+            "await_reply": {messageType: basicMsgType2, timeout: 20000000000}})
+
+        let lastID
+        const incomingMsg = await new Promise((resolve, reject) => {
+            const timer = setTimeout(_ => reject(new Error("time out waiting for incoming message")), 5000)
+            const stop = sender.startNotifier(msg => {
+                stop()
+                lastID = msg.payload.message["@id"]
+                resolve(msg.payload.message)
+            }, [basicMsgSvcName])
+        })
+
+        sender.messaging.reply({"message_ID": `${lastID}`, "message_body": sampleReplyMsg2})
+
+        let replyMsg = (await replyMsgPromise).response.message
+
+        assert.equal(replyMsg["@id"], sampleReplyMsg2["@id"])
+        assert.equal(replyMsg["@type"], sampleReplyMsg2["@type"])
+        assert.equal(replyMsg.content, sampleReplyMsg2.content)
+    })
+
+    it("receiver replies to last received basic message and awaits response", async function () {
+        let replyMsgPromise = receiver.messaging.reply({"message_ID": `${lastReceivedMsgID}`, "message_body": sampleReplyMsg,
+            "await_reply": {messageType: basicMsgType2, timeout: 20000000000}, "start_new_thread": true})
+
+        let lastID
+        const incomingMsg = await new Promise((resolve, reject) => {
+            const timer = setTimeout(_ => reject(new Error("time out waiting for incoming message")), 5000)
+            const stop = sender.startNotifier(msg => {
+                stop()
+                lastID = msg.payload.message["@id"]
+                resolve(msg.payload.message)
+            }, [basicMsgSvcName])
+        })
+
+        sender.messaging.reply({"message_ID": `${lastID}`, "message_body": sampleReplyMsg2})
+
+        let replyMsg = (await replyMsgPromise).response.message
+
+        assert.equal(replyMsg["@id"], sampleReplyMsg2["@id"])
+        assert.equal(replyMsg["@type"], sampleReplyMsg2["@type"])
+        assert.equal(replyMsg["~thread"].thid, sampleReplyMsg["@id"])
+        assert.equal(replyMsg.content, sampleReplyMsg2.content)
     })
 
     it("receiver loses connection from router", async function () {

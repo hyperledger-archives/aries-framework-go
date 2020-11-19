@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package messaging
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 )
 
@@ -78,4 +80,15 @@ type registerHTTPMessageServiceRequest struct { // nolint: unused,deadcode
 type registeredServicesResponse struct {
 	// in: body
 	messaging.RegisteredServicesResponse
+}
+
+// sendMessageResponse model
+//
+// Response of send/reply message features.
+// Usually contains reply for the message sent if await reply feature is used.
+//
+// swagger:response sendMessageResponse
+type sendMessageResponse struct { // nolint: unused,deadcode
+	// in: body
+	Response json.RawMessage `json:"response,omitempty"`
 }

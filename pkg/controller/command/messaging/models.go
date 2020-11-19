@@ -8,6 +8,7 @@ package messaging
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // RegisterMsgSvcArgs contains parameters for registering a message service to message handler.
@@ -61,6 +62,10 @@ type SendNewMessageArgs struct {
 
 	// Message body of the message
 	MessageBody json.RawMessage `json:"message_body"`
+
+	// Await reply from receiver of this message
+	// If provided, then send message feature will wait response of this type for same thread
+	AwaitReply AwaitReply `json:"await_reply"`
 }
 
 // ServiceEndpointDestinationParams contains service endpoint params.
@@ -75,6 +80,14 @@ type ServiceEndpointDestinationParams struct {
 	RoutingKeys []string `json:"routingKeys,omitempty"`
 }
 
+// AwaitReply contains await for reply parameters.
+type AwaitReply struct {
+	// ReplyMessageType message type of incoming reply
+	ReplyMessageType string `json:"messageType,omitempty"`
+	// Timeout (in milliseconds) waiting for reply
+	Timeout time.Duration `json:"timeout,omitempty"`
+}
+
 // SendReplyMessageArgs contains parameters for sending message reply.
 type SendReplyMessageArgs struct {
 	// ID of the message replying to
@@ -85,6 +98,16 @@ type SendReplyMessageArgs struct {
 
 	// StartNewThread if provided, replies to message by starting a new thread.
 	StartNewThread bool `json:"start_new_thread"`
+
+	// Await reply from receiver of this message
+	// If provided, then reply message feature will wait response of this type for same thread
+	AwaitReply AwaitReply `json:"await_reply"`
+}
+
+// SendMessageResponse is response for send/reply message feature.
+type SendMessageResponse struct {
+	// Response will contain raw message reply content if AwaitReply is used in send message request.
+	Response json.RawMessage `json:"response,omitempty"`
 }
 
 // RegisterHTTPMsgSvcArgs contains parameters for registering an HTTP over DIDComm message service to message handler.

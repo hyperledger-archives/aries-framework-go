@@ -488,7 +488,7 @@ func TestOperation_Send(t *testing.T) {
 				handler := lookupCreatePublicDIDHandler(t, svc, SendNewMsg)
 				buf, err := getSuccessResponseFromHandler(handler, bytes.NewBufferString(tc.requestJSON), handler.Path())
 				require.NoError(t, err)
-				require.Empty(t, buf)
+				require.Contains(t, buf.String(), "{}")
 			})
 		}
 	})
@@ -711,7 +711,7 @@ func TestOperation_Reply(t *testing.T) {
 		handler := lookupCreatePublicDIDHandler(t, svc, SendReplyMsg)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBufferString(jsonMsg), handler.Path())
 		require.NoError(t, err)
-		require.Empty(t, buf)
+		require.Contains(t, buf.String(), "{}")
 		require.Equal(t, http.StatusOK, code)
 	})
 }
