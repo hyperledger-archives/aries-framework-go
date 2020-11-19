@@ -11,8 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcsuite/btcutil/base58"
-
+	"github.com/hyperledger/aries-framework-go/pkg/client/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -22,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 var logger = log.New("aries-framework/controller/common")
@@ -32,18 +30,14 @@ const (
 	// command name.
 	CommandName = "messaging"
 
-	// states.
-	stateNameCompleted = "completed"
-
 	// error messages.
-	errMsgSvcNameRequired               = "service name is required"
-	errMsgInvalidAcceptanceCrit         = "invalid acceptance criteria"
-	errMsgBodyEmpty                     = "empty message body"
-	errMsgDestinationMissing            = "missing message destination"
-	errMsgDestSvcEndpointMissing        = "missing service endpoint in message destination"
-	errMsgDestSvcEndpointKeysMissing    = "missing service endpoint recipient/routing keys in message destination"
-	errMsgConnectionMatchingDIDNotFound = "unable to find connection matching DID"
-	errMsgIDEmpty                       = "empty message ID"
+	errMsgSvcNameRequired            = "service name is required"
+	errMsgInvalidAcceptanceCrit      = "invalid acceptance criteria"
+	errMsgBodyEmpty                  = "empty message body"
+	errMsgDestinationMissing         = "missing message destination"
+	errMsgDestSvcEndpointMissing     = "missing service endpoint in message destination"
+	errMsgDestSvcEndpointKeysMissing = "missing service endpoint recipient/routing keys in message destination"
+	errMsgIDEmpty                    = "empty message ID"
 
 	// command methods.
 	RegisteredServicesCommandMethod         = "Services"
@@ -54,11 +48,8 @@ const (
 	SendReplyMessageCommandMethod           = "Reply"
 
 	// log constants.
-	connectionIDString = "connectionID"
-	destinationString  = "destination"
-	destinationDID     = "destinationDID"
-	replyTo            = "replyTo"
-	successString      = "success"
+	replyTo       = "replyTo"
+	successString = "success"
 )
 
 // Error codes.
@@ -79,9 +70,6 @@ const (
 	SendMsgReplyError
 )
 
-// errConnForDIDNotFound when matching connection ID not found.
-var errConnForDIDNotFound = fmt.Errorf(errMsgConnectionMatchingDIDNotFound)
-
 // provider contains dependencies for the messaging controller command operations
 // and is typically created by using aries.Context().
 type provider interface {
@@ -94,27 +82,17 @@ type provider interface {
 
 // Command contains basic command operations provided by messaging controller command.
 type Command struct {
-	ctx              provider
-	msgRegistrar     command.MessageHandler
-	notifier         command.Notifier
-	connectionLookup *connection.Lookup
+	msgClient *messaging.Client
 }
 
 // New returns new command instance for messaging controller API.
 func New(ctx provider, registrar command.MessageHandler, notifier command.Notifier) (*Command, error) {
-	connectionLookup, err := connection.NewLookup(ctx)
+	msgClient, err := messaging.New(ctx, registrar, notifier)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize connection lookup : %w", err)
+		return nil, fmt.Errorf("failed to initialize message client : %w", err)
 	}
 
-	o := &Command{
-		ctx:              ctx,
-		msgRegistrar:     registrar,
-		notifier:         notifier,
-		connectionLookup: connectionLookup,
-	}
-
-	return o, nil
+	return &Command{msgClient}, nil
 }
 
 // GetHandlers returns list of all commands supported by this controller command.
@@ -157,7 +135,7 @@ func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgSvcNameRequired))
 	}
 
-	err = o.msgRegistrar.Unregister(request.Name)
+	err = o.msgClient.UnregisterService(request.Name)
 	if err != nil {
 		logutil.LogError(logger, CommandName, UnregisterMessageServiceCommandMethod, err.Error(),
 			logutil.CreateKeyValueString("name", request.Name))
@@ -173,12 +151,7 @@ func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 
 // Services returns list of registered service names.
 func (o *Command) Services(rw io.Writer, req io.Reader) command.Error {
-	names := []string{}
-	for _, svc := range o.msgRegistrar.Services() {
-		names = append(names, svc.Name())
-	}
-
-	command.WriteNillableResponse(rw, RegisteredServicesResponse{Names: names}, logger)
+	command.WriteNillableResponse(rw, RegisteredServicesResponse{Names: o.msgClient.Services()}, logger)
 
 	logutil.LogDebug(logger, CommandName, RegisteredServicesCommandMethod, successString)
 
@@ -206,31 +179,28 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	if request.ConnectionID != "" {
-		conn, err := o.connectionLookup.GetConnectionRecord(request.ConnectionID)
-		if err != nil {
-			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-				logutil.CreateKeyValueString(connectionIDString, request.ConnectionID))
-
-			return command.NewExecuteError(SendMsgError, err)
-		}
-
-		return o.sendToConnection(request.MessageBody, conn)
-	}
-
-	if request.TheirDID != "" {
-		conn, err := o.getConnectionByTheirDID(request.TheirDID)
-		if err != nil && err != errConnForDIDNotFound {
-			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error())
-			return command.NewExecuteError(SendMsgError, err)
-		}
-
-		if conn != nil {
-			return o.sendToConnection(request.MessageBody, conn)
+	var destination *service.Destination
+	if request.ServiceEndpointDestination != nil {
+		destination = &service.Destination{
+			RoutingKeys:     request.ServiceEndpointDestination.RoutingKeys,
+			ServiceEndpoint: request.ServiceEndpointDestination.ServiceEndpoint,
+			RecipientKeys:   request.ServiceEndpointDestination.RecipientKeys,
 		}
 	}
 
-	return o.sendToDestination(&request)
+	err = o.msgClient.Send(request.MessageBody,
+		messaging.SendByConnectionID(request.ConnectionID),
+		messaging.SendByTheirDID(request.TheirDID),
+		messaging.SendByDestination(destination))
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error())
+
+		return command.NewExecuteError(SendMsgError, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString)
+
+	return nil
 }
 
 // Reply sends reply to existing message.
@@ -253,24 +223,14 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgIDEmpty))
 	}
 
-	msg, err := service.ParseDIDCommMsgMap(request.MessageBody)
+	err = o.msgClient.Reply(request.MessageBody, request.MessageID, request.StartNewThread)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
 			logutil.CreateKeyValueString(replyTo, request.MessageID))
 		return command.NewExecuteError(SendMsgReplyError, err)
 	}
 
-	if request.StartNewThread {
-		err = o.ctx.Messenger().ReplyToNested(msg, &service.NestedReplyOpts{MsgID: request.MessageID})
-	} else {
-		err = o.ctx.Messenger().ReplyTo(request.MessageID, msg)
-	}
-
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendReplyMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(replyTo, request.MessageID))
-		return command.NewExecuteError(SendMsgReplyError, err)
-	}
+	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString)
 
 	return nil
 }
@@ -303,7 +263,7 @@ func (o *Command) registerMessageService(params *RegisterMsgSvcArgs) command.Err
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgInvalidAcceptanceCrit))
 	}
 
-	err := o.msgRegistrar.Register(newMessageService(params, o.notifier))
+	err := o.msgClient.RegisterService(params.Name, params.Type, params.Purpose...)
 	if err != nil {
 		logutil.LogError(logger, CommandName, RegisterMessageServiceCommandMethod, err.Error(),
 			logutil.CreateKeyValueString("name", params.Name),
@@ -336,99 +296,6 @@ func (o *Command) validateMessageDestination(dest *SendNewMessageArgs) error {
 		len(dest.ServiceEndpointDestination.RoutingKeys) == 0 {
 		return fmt.Errorf(errMsgDestSvcEndpointKeysMissing)
 	}
-
-	return nil
-}
-
-func (o *Command) getConnectionByTheirDID(theirDID string) (*connection.Record, error) {
-	records, err := o.connectionLookup.QueryConnectionRecords()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, record := range records {
-		if record.State == stateNameCompleted && record.TheirDID == theirDID {
-			return record, nil
-		}
-	}
-
-	return nil, errConnForDIDNotFound
-}
-
-func (o *Command) sendToConnection(msg json.RawMessage, conn *connection.Record) command.Error {
-	didcommMsg, err := service.ParseDIDCommMsgMap(msg)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	err = o.ctx.Messenger().Send(didcommMsg, conn.MyDID, conn.TheirDID)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString,
-		logutil.CreateKeyValueString(connectionIDString, conn.ConnectionID))
-
-	return nil
-}
-
-func (o *Command) sendToDestination(rqst *SendNewMessageArgs) command.Error {
-	var dest *service.Destination
-
-	// prepare destination
-	if rqst.TheirDID != "" {
-		var err error
-
-		dest, err = service.GetDestination(rqst.TheirDID, o.ctx.VDRegistry())
-		if err != nil {
-			logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-				logutil.CreateKeyValueString(destinationDID, rqst.TheirDID))
-
-			return command.NewExecuteError(SendMsgError, err)
-		}
-	} else if rqst.ServiceEndpointDestination != nil {
-		dest = &service.Destination{
-			RoutingKeys:     rqst.ServiceEndpointDestination.RoutingKeys,
-			RecipientKeys:   rqst.ServiceEndpointDestination.RecipientKeys,
-			ServiceEndpoint: rqst.ServiceEndpointDestination.ServiceEndpoint,
-		}
-	}
-
-	if dest == nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, errMsgDestinationMissing)
-
-		return command.NewExecuteError(SendMsgError, fmt.Errorf(errMsgDestinationMissing))
-	}
-
-	_, sigPubKey, err := o.ctx.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
-
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	didcommMsg, err := service.ParseDIDCommMsgMap(rqst.MessageBody)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	err = o.ctx.Messenger().SendToDestination(didcommMsg, base58.Encode(sigPubKey), dest)
-	if err != nil {
-		logutil.LogError(logger, CommandName, SendNewMessageCommandMethod, err.Error(),
-			logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
-
-		return command.NewExecuteError(SendMsgError, err)
-	}
-
-	logutil.LogDebug(logger, CommandName, SendNewMessageCommandMethod, successString,
-		logutil.CreateKeyValueString(destinationString, dest.ServiceEndpoint))
 
 	return nil
 }

@@ -72,6 +72,10 @@ bdd-test-js-local:
 vc-test-suite: clean
 	@scripts/run_vc_test_suite.sh
 
+.PHONY: bbs-interop-test
+bbs-interop-test:
+	@scripts/check_bbs_interop.sh
+
 generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
 	@docker run -i --rm \

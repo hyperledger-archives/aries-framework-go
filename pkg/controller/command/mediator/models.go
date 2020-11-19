@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package mediator
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+)
 
 // RegisterRoute contains parameters for registering/reconnecting router.
 type RegisterRoute struct {
@@ -40,4 +43,25 @@ type BatchPickupRequest struct {
 type BatchPickupResponse struct {
 	// Count of messages dispatched.
 	MessageCount int `json:"message_count"`
+}
+
+// CreateInvitationRequest model
+//
+// This is used for creating an invitation using mediator
+//
+type CreateInvitationRequest struct {
+	Label     string        `json:"label"`
+	Goal      string        `json:"goal"`
+	GoalCode  string        `json:"goal_code"`
+	Service   []interface{} `json:"service"`
+	Protocols []string      `json:"protocols"`
+}
+
+// CreateInvitationResponse model
+//
+// Response for creating invitation through mediator
+//
+type CreateInvitationResponse struct {
+	// Invitation is out-of-band invitation from mediator.
+	Invitation *outofband.Invitation `json:"invitation"`
 }

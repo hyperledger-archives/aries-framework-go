@@ -24,24 +24,22 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mediatorSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	messagepickupSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+	oobsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
+	mockoob "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/outofband"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
-const connIDRequest = `{"connectionID":"abc-123"}`
+const (
+	connIDRequest = `{"connectionID":"abc-123"}`
+)
 
 func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
-		cmd, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		cmd, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 	})
@@ -58,33 +56,17 @@ func TestNew(t *testing.T) {
 }
 
 func TestOperation_GetRESTHandlers(t *testing.T) {
-	svc, err := New(
-		&mockprovider.Provider{
-			ServiceMap: map[string]interface{}{
-				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-				mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-			},
-		},
-		false,
-	)
+	svc, err := New(newMockProvider(nil), false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
-	require.Equal(t, len(handlers), 6)
+	require.Equal(t, len(handlers), 7)
 }
 
 func TestOperation_Register(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -103,15 +85,7 @@ func TestOperation_Register(t *testing.T) {
 	})
 
 	t.Run("test register route - missing connectionID", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -130,15 +104,7 @@ func TestOperation_Register(t *testing.T) {
 
 func TestOperation_Unregister(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -150,14 +116,13 @@ func TestOperation_Unregister(t *testing.T) {
 
 	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
-						UnregisterErr: errors.New("unregister error"),
-					},
+			newMockProvider(map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+				mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+					UnregisterErr: errors.New("unregister error"),
 				},
-			},
+				oobsvc.Name: &mockoob.MockOobService{},
+			}),
 			false,
 		)
 		require.NoError(t, err)
@@ -179,14 +144,13 @@ func TestOperation_Connection(t *testing.T) {
 	t.Run("test get connection - success", func(t *testing.T) {
 		routerConnectionID := "conn-abc"
 		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
-						Connections: []string{routerConnectionID},
-					},
+			newMockProvider(map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+				mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+					Connections: []string{routerConnectionID},
 				},
-			},
+				oobsvc.Name: &mockoob.MockOobService{},
+			}),
 			false,
 		)
 		require.NoError(t, err)
@@ -206,14 +170,13 @@ func TestOperation_Connection(t *testing.T) {
 
 	t.Run("test get connection - missing connectionID", func(t *testing.T) {
 		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
-						GetConnectionsErr: errors.New("get connections error"),
-					},
+			newMockProvider(map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+				mediatorSvc.Coordination: &mockroute.MockMediatorSvc{
+					GetConnectionsErr: errors.New("get connections error"),
 				},
-			},
+				oobsvc.Name: &mockoob.MockOobService{},
+			}),
 			false,
 		)
 		require.NoError(t, err)
@@ -234,15 +197,7 @@ func TestOperation_Connection(t *testing.T) {
 
 func TestOperation_Reconnect(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -254,15 +209,7 @@ func TestOperation_Reconnect(t *testing.T) {
 	})
 
 	t.Run("test register route - missing connectionID", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -284,16 +231,15 @@ func TestOperation_Status(t *testing.T) {
 		const sampleID = "sample-status-id"
 		const size = 64
 		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
-						StatusRequestFunc: func(connectionID string) (*messagepickupSvc.Status, error) {
-							return &messagepickupSvc.Status{ID: sampleID, TotalSize: size, MessageCount: size - 10}, nil
-						},
+			newMockProvider(map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+					StatusRequestFunc: func(connectionID string) (*messagepickupSvc.Status, error) {
+						return &messagepickupSvc.Status{ID: sampleID, TotalSize: size, MessageCount: size - 10}, nil
 					},
-					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
 				},
-			},
+				mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
+				oobsvc.Name:              &mockoob.MockOobService{},
+			}),
 			false,
 		)
 		require.NoError(t, err)
@@ -313,15 +259,7 @@ func TestOperation_Status(t *testing.T) {
 	})
 
 	t.Run("test status - missing connectionID", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -339,16 +277,15 @@ func TestOperation_BatchPickup(t *testing.T) {
 	t.Run("test batchpickup - success", func(t *testing.T) {
 		const count = 64
 		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
-						BatchPickupFunc: func(connectionID string, size int) (int, error) {
-							return count, nil
-						},
+			newMockProvider(map[string]interface{}{
+				messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{
+					BatchPickupFunc: func(connectionID string, size int) (int, error) {
+						return count, nil
 					},
-					mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
 				},
-			},
+				mediatorSvc.Coordination: &mockroute.MockMediatorSvc{},
+				oobsvc.Name:              &mockoob.MockOobService{},
+			}),
 			false,
 		)
 		require.NoError(t, err)
@@ -366,15 +303,7 @@ func TestOperation_BatchPickup(t *testing.T) {
 	})
 
 	t.Run("test status - missing connectionID", func(t *testing.T) {
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
-					mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
-				},
-			},
-			false,
-		)
+		svc, err := New(newMockProvider(nil), false)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -386,6 +315,23 @@ func TestOperation_BatchPickup(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, mediator.BatchPickupMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
 	})
+}
+
+func newMockProvider(serviceMap map[string]interface{}) *mockprovider.Provider {
+	if serviceMap == nil {
+		serviceMap = map[string]interface{}{
+			mediatorSvc.Coordination:       &mockroute.MockMediatorSvc{},
+			oobsvc.Name:                    &mockoob.MockOobService{},
+			messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+		}
+	}
+
+	return &mockprovider.Provider{
+		ServiceMap:                        serviceMap,
+		StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
+		KMSValue:                          &mockkms.KeyManager{},
+	}
 }
 
 func lookupHandler(t *testing.T, op *Operation, path string) rest.Handler {

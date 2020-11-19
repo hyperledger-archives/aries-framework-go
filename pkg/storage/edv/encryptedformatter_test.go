@@ -28,6 +28,7 @@ import (
 const (
 	testKey                       = "key"
 	testValue                     = "data"
+	testValue2                    = "data2"
 	jweCreatedUsingKeyWeDoNotHave = `{"protected":"eyJhbGciOiJFQ0RILUVTK0EyNTZLVyIsImVuYyI6IkEyNT` +
 		`ZHQ00iLCJlcGsiOnsidXNlIjoiZW5jIiwia3R5IjoiRUMiLCJjcnYiOiJQLTI1NiIsIngiOiJCNDYzRVYyd0tfYzFF` +
 		`OFJvMk91MVFmNkJvZGZzcXJmbHJjcXdrMVR5YkZjIiwieSI6Ik5rNzhSRjVwSmUxWTF1T0lPVG4ySXJjWHJnYjVoeE` +

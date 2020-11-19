@@ -31,13 +31,16 @@ const (
 	contentTypeApplicationJSON = "application/json"
 	locationHeaderName         = "Location"
 
+	failCheckForExistingEDVDocument                  = "failed to check for existing EDV document: %w"
+	failStoreEDVDocument                             = "failed to store EDV document: %w"
 	failComputeMACStoreIndexName                     = "failed to compute MAC for the store index name: %w"
 	failComputeMACStoreIndexValue                    = "failed to compute MAC for the store index value: %w"
 	failComputeMACStoreAndKeyIndexName               = "failed to compute MAC for the store+key index name: %w"
 	failComputeMACStoreAndKeyIndexValue              = "failed to compute MAC for the store+key index value: %w"
-	failCreateIndexedAttribute                       = "failed to create indexed attribute: %w"
+	failCreateIndexedAttributes                      = "failed to create indexed attributes: %w"
 	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
 	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
+	failUpdateDocumentInEDVServer                    = "failed to update existing document in EDV server: %w"
 	failRetrieveEDVDocumentID                        = "failed to retrieve EDV document ID: %w"
 	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
 	noDocumentMatchingQueryFound                     = "no document matching the query was found: %w"
@@ -56,17 +59,10 @@ const (
 	failUnmarshalDocumentLocations = "failed to unmarshal response bytes into document locations: %w"
 
 	createDocumentRequestLogMsg = "Sending request to create the following document: %s"
-	sendGETRequestLogMsg        = `Sent GET request to %s.
-Response status code: %d
-Response body: %s`
-	sendPOSTRequestLogMsg = `Sent POST request to %s.
-Request body: %s
-
-Response status code: %d
-Response body: %s`
-	sendDELETERequestLogMsg = `Sent DELETE request to %s.
-Response status code: %d
-Response body: %s`
+	updateDocumentRequestLogMsg = "Sending request to update the following document: %s"
+	sendGETRequestLogMsg        = `Sent GET request to %s. Response status code: %d Response body: %s`
+	sendPOSTRequestLogMsg       = `Sent POST request to %s. Request body: %s Response status code: %d Response body: %s`
+	sendDELETERequestLogMsg     = `Sent DELETE request to %s. Response status code: %d Response body: %s`
 	failCloseResponseBodyLogMsg = "Failed to close response body: %s"
 )
 
@@ -104,11 +100,11 @@ func NewMACCrypto(kh interface{}, macDigester MACDigester) *MACCrypto {
 // RESTProvider is a store provider that can be used to store data in a server supporting the
 // data vault HTTPS API as defined in https://identity.foundation/secure-data-store/#data-vault-https-api.
 type RESTProvider struct {
-	vaultID                               string
-	macCrypto                             *MACCrypto
-	storeIndexNameMACBase64Encoded        string
-	storeAndKeyIndexNNameMACBase64Encoded string
-	restClient                            restClient
+	vaultID                              string
+	macCrypto                            *MACCrypto
+	storeIndexNameMACBase64Encoded       string
+	storeAndKeyIndexNameMACBase64Encoded string
+	restClient                           restClient
 }
 
 // NewRESTProvider returns a new RESTProvider. edvServerURL is the base URL for the data vault HTTPS API.
@@ -139,11 +135,11 @@ func NewRESTProvider(edvServerURL, vaultID string,
 	}
 
 	return &RESTProvider{
-		vaultID:                               vaultID,
-		macCrypto:                             macCrypto,
-		storeIndexNameMACBase64Encoded:        base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
-		storeAndKeyIndexNNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeAndKeyIndexNameMAC)),
-		restClient:                            client,
+		vaultID:                              vaultID,
+		macCrypto:                            macCrypto,
+		storeIndexNameMACBase64Encoded:       base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
+		storeAndKeyIndexNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeAndKeyIndexNameMAC)),
+		restClient:                           client,
 	}, nil
 }
 
@@ -154,7 +150,7 @@ func (r *RESTProvider) OpenStore(name string) (storage.Store, error) {
 		name:                                 name,
 		macCrypto:                            r.macCrypto,
 		storeIndexNameMACBase64Encoded:       r.storeIndexNameMACBase64Encoded,
-		storeAndKeyIndexNameMACBase64Encoded: r.storeAndKeyIndexNNameMACBase64Encoded,
+		storeAndKeyIndexNameMACBase64Encoded: r.storeAndKeyIndexNameMACBase64Encoded,
 		restClient:                           r.restClient,
 	}, nil
 }
@@ -179,24 +175,20 @@ type restStore struct {
 }
 
 // v must be a marshalled EncryptedDocument.
+// Important: If updating an existing k, v pair, then the document ID in v will be replaced with the
+// existing encrypted document's ID.
 func (r *restStore) Put(k string, v []byte) error {
-	var encryptedDocument models.EncryptedDocument
-
-	err := json.Unmarshal(v, &encryptedDocument)
-	if err != nil {
-		return fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
+	// See if this key is already being used in an encrypted index tag in an existing document.
+	existingEDVDocumentID, err := r.retrieveEDVDocumentID(k)
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf(failCheckForExistingEDVDocument, err)
 	}
 
-	indexedAttributeCollection, err := r.createIndexedAttributes(k)
+	// If existingEDVDocumentID was set, then this means that there is already an existing document that
+	// well get updated.
+	err = r.createEDVDocument(k, v, existingEDVDocumentID)
 	if err != nil {
-		return fmt.Errorf(failCreateIndexedAttribute, err)
-	}
-
-	encryptedDocument.IndexedAttributeCollections = indexedAttributeCollection
-
-	_, err = r.restClient.createDocument(r.vaultID, &encryptedDocument)
-	if err != nil {
-		return fmt.Errorf(failCreateDocumentInEDVServer, err)
+		return fmt.Errorf(failStoreEDVDocument, err)
 	}
 
 	return nil
@@ -231,23 +223,6 @@ func (r *restStore) Iterator(_, _ string) storage.StoreIterator {
 	return &restStoreIterator{documents: allDocuments}
 }
 
-func (r *restStore) getAllDocuments(allDocumentLocations []string) ([][]byte, error) {
-	allDocuments := make([][]byte, len(allDocumentLocations))
-
-	for index, documentLocation := range allDocumentLocations {
-		documentID := getDocIDFromURL(documentLocation)
-
-		encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, documentID)
-		if err != nil {
-			return nil, fmt.Errorf(failRetrieveDocumentFromEDVServer, err)
-		}
-
-		allDocuments[index] = encryptedDocumentBytes
-	}
-
-	return allDocuments, nil
-}
-
 func (r *restStore) Delete(k string) error {
 	edvDocumentID, err := r.retrieveEDVDocumentID(k)
 	if err != nil {
@@ -257,6 +232,39 @@ func (r *restStore) Delete(k string) error {
 	err = r.restClient.DeleteDocument(r.vaultID, edvDocumentID)
 	if err != nil {
 		return fmt.Errorf(failDeleteDocumentInEDVServer, err)
+	}
+
+	return nil
+}
+
+// If existingEDVDocumentID is set, then the document on the server with that ID will be updated instead.
+func (r *restStore) createEDVDocument(k string, v []byte, existingEDVDocumentID string) error {
+	var encryptedDocument models.EncryptedDocument
+
+	err := json.Unmarshal(v, &encryptedDocument)
+	if err != nil {
+		return fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
+	}
+
+	indexedAttributeCollection, err := r.createIndexedAttributes(k)
+	if err != nil {
+		return fmt.Errorf(failCreateIndexedAttributes, err)
+	}
+
+	encryptedDocument.IndexedAttributeCollections = indexedAttributeCollection
+
+	if existingEDVDocumentID == "" {
+		_, err = r.restClient.createDocument(r.vaultID, &encryptedDocument)
+		if err != nil {
+			return fmt.Errorf(failCreateDocumentInEDVServer, err)
+		}
+	} else {
+		encryptedDocument.ID = existingEDVDocumentID
+
+		err = r.restClient.updateDocument(r.vaultID, existingEDVDocumentID, &encryptedDocument)
+		if err != nil {
+			return fmt.Errorf(failUpdateDocumentInEDVServer, err)
+		}
 	}
 
 	return nil
@@ -275,7 +283,7 @@ func (r *restStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 	storeIndexedAttribute := models.IndexedAttribute{
 		Name:   r.storeIndexNameMACBase64Encoded,
 		Value:  base64.URLEncoding.EncodeToString([]byte(storeIndexValueMAC)),
-		Unique: true,
+		Unique: false,
 	}
 
 	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(keyName)
@@ -341,6 +349,23 @@ func (r *restStore) getAllDocumentLocations() ([]string, error) {
 	}
 
 	return allDocumentLocations, nil
+}
+
+func (r *restStore) getAllDocuments(allDocumentLocations []string) ([][]byte, error) {
+	allDocuments := make([][]byte, len(allDocumentLocations))
+
+	for index, documentLocation := range allDocumentLocations {
+		documentID := getDocIDFromURL(documentLocation)
+
+		encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, documentID)
+		if err != nil {
+			return nil, fmt.Errorf(failRetrieveDocumentFromEDVServer, err)
+		}
+
+		allDocuments[index] = encryptedDocumentBytes
+	}
+
+	return allDocuments, nil
 }
 
 func (r *restStore) computeStoreAndKeyIndexValueMACBase64Encoded(keyName string) (string, error) {
@@ -469,6 +494,40 @@ func (c *restClient) createDocument(vaultID string, document *models.EncryptedDo
 	}
 
 	return "", fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+}
+
+// updateDocument sends the EDV server a request to update the specified document.
+func (c *restClient) updateDocument(vaultID, docID string, document *models.EncryptedDocument) error {
+	jsonToSend, err := json.Marshal(document)
+	if err != nil {
+		return fmt.Errorf(failMarshalEncryptedDocument, err)
+	}
+
+	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
+
+	logger.Debugf(updateDocumentRequestLogMsg, jsonToSend)
+
+	resp, err := c.httpClient.Post(endpoint, contentTypeApplicationJSON, //nolint: bodyclose
+		bytes.NewBuffer(jsonToSend))
+	if err != nil {
+		return fmt.Errorf(failSendPOSTRequest, err)
+	}
+
+	defer closeReadCloser(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf(failReadResponseBody, err)
+	}
+
+	logger.Debugf(sendPOSTRequestLogMsg, endpoint, jsonToSend, resp.StatusCode, respBytes)
+
+	// TODO (#2331): StatusNoContent added for now since Transmute's EDV implementation uses it
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
+	return fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
 }
 
 // readDocument sends the EDV server a request to retrieve the specified document.
