@@ -288,6 +288,11 @@ func Test_formatStore_Iterator(t *testing.T) {
 	})
 	t.Run("Success with EDV REST provider as the underlying provider", func(t *testing.T) {
 		t.Run("skipIteratorFiltering set to false", func(t *testing.T) {
+			queryResults := make([]string, 0)
+
+			queryResultsBytes, err := json.Marshal(queryResults)
+			require.NoError(t, err)
+
 			mockEDVServerOp := mockedv.MockServerOperation{
 				T:                              t,
 				DB:                             make(map[string][]byte),
@@ -295,6 +300,7 @@ func Test_formatStore_Iterator(t *testing.T) {
 				CreateDocumentReturnStatusCode: http.StatusCreated,
 				ReadDocumentReturnStatusCode:   http.StatusOK,
 				QueryVaultReturnStatusCode:     http.StatusOK,
+				QueryVaultReturnBody:           queryResultsBytes,
 			}
 			edvSrv := mockEDVServerOp.StartNewMockEDVServer()
 			defer edvSrv.Close()
@@ -315,6 +321,9 @@ func Test_formatStore_Iterator(t *testing.T) {
 				err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
 				require.NoError(t, err)
 			}
+
+			// Allow the mock EDV server to return all documents in query
+			mockEDVServerOp.QueryVaultReturnBody = nil
 
 			// The underlying EDV REST provider's Iterator(startKey, endKey string) method does not do any filtering
 			// based on the startKey and endKey arguments. It always contains every document in the store.
@@ -341,6 +350,11 @@ func Test_formatStore_Iterator(t *testing.T) {
 			verifyIterator(t, itr, 0, "")
 		})
 		t.Run("skipIteratorFiltering set to true", func(t *testing.T) {
+			queryResults := make([]string, 0)
+
+			queryResultsBytes, err := json.Marshal(queryResults)
+			require.NoError(t, err)
+
 			mockEDVServerOp := mockedv.MockServerOperation{
 				T:                              t,
 				DB:                             make(map[string][]byte),
@@ -348,6 +362,7 @@ func Test_formatStore_Iterator(t *testing.T) {
 				CreateDocumentReturnStatusCode: http.StatusCreated,
 				ReadDocumentReturnStatusCode:   http.StatusOK,
 				QueryVaultReturnStatusCode:     http.StatusOK,
+				QueryVaultReturnBody:           queryResultsBytes,
 			}
 			edvSrv := mockEDVServerOp.StartNewMockEDVServer()
 			defer edvSrv.Close()
@@ -368,6 +383,9 @@ func Test_formatStore_Iterator(t *testing.T) {
 				err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
 				require.NoError(t, err)
 			}
+
+			// Allow the mock EDV server to return all documents in query
+			mockEDVServerOp.QueryVaultReturnBody = nil
 
 			// The underlying EDV REST provider's Iterator(startKey, endKey string) method does not do any filtering
 			// based on the startKey and endKey arguments. The iterator is returns always contains every document
