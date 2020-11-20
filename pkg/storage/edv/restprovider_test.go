@@ -109,6 +109,27 @@ func TestRestStore_Put(t *testing.T) {
 		err = store.Put(testKey, newEncryptedDocument)
 		require.NoError(t, err)
 	})
+	t.Run("Test error from injecting header", func(t *testing.T) {
+		provider := createRESTProvider(t, "EDVServerURL")
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+		s, ok := store.(*restStore)
+		require.True(t, ok)
+		s.restClient.headersFunc = func(req *http.Request) (*http.Header, error) {
+			return nil, fmt.Errorf("failed to add header")
+		}
+
+		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
+
+		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
+		require.NoError(t, err)
+
+		err = s.Put(testKey, encryptedDocumentBytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to add header")
+	})
 	t.Run("Fail to check for existing document", func(t *testing.T) {
 		provider := createRESTProvider(t, "EDVServerURL")
 		provider.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
@@ -443,8 +464,8 @@ func TestRestStore_Iterator(t *testing.T) {
 		require.EqualError(t, itr.Error(),
 			fmt.Errorf(failGetAllDocumentLocations,
 				fmt.Errorf(failQueryVaultInEDVServer,
-					errors.New(`failed to send POST request: Post "EDVServerURL/vaultID/query": `+
-						`unsupported protocol scheme ""`))).Error())
+					errors.New(`failed to send POST request: failed to send request: Post "EDVServerURL/vaultID/query":`+
+						` unsupported protocol scheme ""`))).Error())
 	})
 	t.Run("Fail to get all original key document pairs", func(t *testing.T) {
 		queryResults := make([]string, 0)
@@ -600,7 +621,11 @@ func TestRestStore_CreateEDVDocument(t *testing.T) {
 
 func createRESTProvider(t *testing.T, edvServerURL string) *RESTProvider {
 	provider, err := NewRESTProvider(edvServerURL, "vaultID", newMACCrypto(t),
-		WithTLSConfig(&tls.Config{ServerName: "name", MinVersion: tls.VersionTLS13}))
+		WithTLSConfig(&tls.Config{ServerName: "name", MinVersion: tls.VersionTLS13}),
+		WithHeaders(func(req *http.Request) (*http.Header, error) {
+			req.Header.Set("h1", "v1")
+			return &req.Header, nil
+		}))
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 

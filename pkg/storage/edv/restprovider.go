@@ -51,8 +51,8 @@ const (
 
 	failSendGETRequest             = "failed to send GET request: %w"
 	failSendPOSTRequest            = "failed to send POST request: %w"
-	failCreateDELETERequest        = "failed to create DELETE request: %w"
-	failSendDELETERequest          = "failed to send DELETE request: %w"
+	failCreateRequest              = "failed to create request: %w"
+	failSendRequest                = "failed to send request: %w"
 	failReadResponseBody           = "failed to read response body: %w"
 	failMarshalQuery               = "failed to marshal query: %w"
 	failResponseFromEDVServer      = "status code %d was returned along with the following message: %s"
@@ -60,9 +60,7 @@ const (
 
 	createDocumentRequestLogMsg = "Sending request to create the following document: %s"
 	updateDocumentRequestLogMsg = "Sending request to update the following document: %s"
-	sendGETRequestLogMsg        = `Sent GET request to %s. Response status code: %d Response body: %s`
-	sendPOSTRequestLogMsg       = `Sent POST request to %s. Request body: %s Response status code: %d Response body: %s`
-	sendDELETERequestLogMsg     = `Sent DELETE request to %s. Response status code: %d Response body: %s`
+	sendRequestLogMsg           = `Sent %s request to %s. Response status code: %d Response body: %s`
 	failCloseResponseBodyLogMsg = "Failed to close response body: %s"
 )
 
@@ -449,15 +447,27 @@ func (r *restStoreIterator) isExhausted() bool {
 type restClient struct {
 	edvServerURL string
 	httpClient   *http.Client
+	headersFunc  addHeaders
 }
 
 // Option configures the EDV client.
 type Option func(opts *restClient)
 
+// addHeaders function supports adding custom http headers.
+type addHeaders func(req *http.Request) (*http.Header, error)
+
 // WithTLSConfig option is for definition of secured HTTP transport using a tls.Config instance.
 func WithTLSConfig(tlsConfig *tls.Config) Option {
 	return func(opts *restClient) {
 		opts.httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	}
+}
+
+// WithHeaders option is for setting additional http request headers (since it's a function, it can call a remote
+// authorization server to fetch the necessary info needed in these headers).
+func WithHeaders(addHeadersFunc addHeaders) Option {
+	return func(opts *restClient) {
+		opts.headersFunc = addHeadersFunc
 	}
 }
 
@@ -473,27 +483,16 @@ func (c *restClient) createDocument(vaultID string, document *models.EncryptedDo
 
 	endpoint := fmt.Sprintf("%s/%s/documents", c.edvServerURL, vaultID)
 
-	// The linter falsely claims that the body is not being closed
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := c.httpClient.Post(endpoint, contentTypeApplicationJSON, bytes.NewBuffer(jsonToSend)) //nolint: bodyclose
+	statusCode, hdr, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
 	if err != nil {
 		return "", fmt.Errorf(failSendPOSTRequest, err)
 	}
 
-	defer closeReadCloser(resp.Body)
-
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf(failReadResponseBody, err)
+	if statusCode == http.StatusCreated {
+		return hdr.Get(locationHeaderName), nil
 	}
 
-	logger.Debugf(sendPOSTRequestLogMsg, endpoint, jsonToSend, resp.StatusCode, respBytes)
-
-	if resp.StatusCode == http.StatusCreated {
-		return resp.Header.Get(locationHeaderName), nil
-	}
-
-	return "", fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+	return "", fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
 // updateDocument sends the EDV server a request to update the specified document.
@@ -507,27 +506,17 @@ func (c *restClient) updateDocument(vaultID, docID string, document *models.Encr
 
 	logger.Debugf(updateDocumentRequestLogMsg, jsonToSend)
 
-	resp, err := c.httpClient.Post(endpoint, contentTypeApplicationJSON, //nolint: bodyclose
-		bytes.NewBuffer(jsonToSend))
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
 	if err != nil {
 		return fmt.Errorf(failSendPOSTRequest, err)
 	}
 
-	defer closeReadCloser(resp.Body)
-
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf(failReadResponseBody, err)
-	}
-
-	logger.Debugf(sendPOSTRequestLogMsg, endpoint, jsonToSend, resp.StatusCode, respBytes)
-
 	// TODO (#2331): StatusNoContent added for now since Transmute's EDV implementation uses it
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+	if statusCode == http.StatusOK || statusCode == http.StatusNoContent {
 		return nil
 	}
 
-	return fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
 // readDocument sends the EDV server a request to retrieve the specified document.
@@ -535,27 +524,16 @@ func (c *restClient) updateDocument(vaultID, docID string, document *models.Encr
 func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
 
-	// The linter falsely claims that the body is not being closed
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := c.httpClient.Get(endpoint) //nolint: bodyclose
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodGet, endpoint, nil, c.headersFunc)
 	if err != nil {
 		return nil, fmt.Errorf(failSendGETRequest, err)
 	}
 
-	defer closeReadCloser(resp.Body)
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(failReadResponseBody, err)
-	}
-
-	logger.Debugf(sendGETRequestLogMsg, endpoint, resp.StatusCode, respBody)
-
-	switch resp.StatusCode {
+	switch statusCode {
 	case http.StatusOK:
-		return respBody, nil
+		return respBytes, nil
 	default:
-		return nil, fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBody)
+		return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 	}
 }
 
@@ -568,24 +546,12 @@ func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, 
 
 	endpoint := fmt.Sprintf("%s/%s/query", c.edvServerURL, url.PathEscape(vaultID))
 
-	// The linter falsely claims that the body is not being closed
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := c.httpClient.Post(endpoint, contentTypeApplicationJSON, //nolint: bodyclose
-		bytes.NewBuffer(jsonToSend))
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
 	if err != nil {
 		return nil, fmt.Errorf(failSendPOSTRequest, err)
 	}
 
-	defer closeReadCloser(resp.Body)
-
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(failReadResponseBody, err)
-	}
-
-	logger.Debugf(sendPOSTRequestLogMsg, endpoint, jsonToSend, resp.StatusCode, respBytes)
-
-	if resp.StatusCode == http.StatusOK {
+	if statusCode == http.StatusOK {
 		var docLocations []string
 
 		err = json.Unmarshal(respBytes, &docLocations)
@@ -596,37 +562,63 @@ func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, 
 		return docLocations, nil
 	}
 
-	return nil, fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
 // DeleteDocument sends the EDV server a request to delete the specified document.
 func (c *restClient) DeleteDocument(vaultID, docID string) error {
 	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
 
-	req, err := http.NewRequest(http.MethodDelete, endpoint, nil)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodDelete, endpoint, nil, c.headersFunc)
 	if err != nil {
-		return fmt.Errorf(failCreateDELETERequest, err)
+		return err
+	}
+
+	if statusCode == http.StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
+}
+
+func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,
+	addHeadersFunc addHeaders) (int, http.Header, []byte, error) {
+	req, errReq := http.NewRequest(method, endpoint, bytes.NewBuffer(body))
+	if errReq != nil {
+		return -1, nil, nil, fmt.Errorf(failCreateRequest, errReq)
+	}
+
+	if addHeadersFunc != nil {
+		httpHeaders, err := addHeadersFunc(req)
+		if err != nil {
+			return -1, nil, nil, fmt.Errorf("add optional request headers error: %w", err)
+		}
+
+		if httpHeaders != nil {
+			req.Header = httpHeaders.Clone()
+		}
+	}
+
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", contentTypeApplicationJSON)
 	}
 
 	resp, err := c.httpClient.Do(req) //nolint: bodyclose
 	if err != nil {
-		return fmt.Errorf(failSendDELETERequest, err)
+		return -1, nil, nil, fmt.Errorf(failSendRequest, err)
 	}
 
 	defer closeReadCloser(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf(failReadResponseBody, err)
+		return -1, nil, nil, fmt.Errorf(failReadResponseBody, err)
 	}
 
-	logger.Debugf(sendDELETERequestLogMsg, endpoint, resp.StatusCode, respBytes)
+	logger.Debugf(sendRequestLogMsg, method, endpoint,
+		resp.StatusCode, respBytes)
 
-	if resp.StatusCode == http.StatusOK {
-		return nil
-	}
-
-	return fmt.Errorf(failResponseFromEDVServer, resp.StatusCode, respBytes)
+	return resp.StatusCode, resp.Header, respBytes, nil
 }
 
 func closeReadCloser(respBody io.ReadCloser) {
