@@ -332,11 +332,11 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
 	// test with bad senderKH value
-	_, err = c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSenderKH("badKey"))
+	_, err = c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSender("badKey"))
 	require.EqualError(t, err, "wrapKey: failed to retrieve sender key: ksToPrivateECDSAKey: bad key handle format")
 
 	// now test WrapKey with good key
-	wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSenderKH(senderKH))
+	wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSender(senderKH))
 	require.NoError(t, err)
 	require.NotEmpty(t, wrappedKey.EncryptedCEK)
 	require.NotEmpty(t, wrappedKey.EPK)
@@ -348,7 +348,7 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 	senderPubKH, err := senderKH.Public()
 	require.NoError(t, err)
 
-	uCEK, err := c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSenderKH(senderPubKH))
+	uCEK, err := c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSender(senderPubKH))
 	require.NoError(t, err)
 	require.EqualValues(t, cek, uCEK)
 
@@ -365,7 +365,57 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 		Y:     new(big.Int).SetBytes(senderPubKey.Y),
 	}
 
-	uCEK, err = c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSenderKH(senderECPubKey))
+	uCEK, err = c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSender(senderECPubKey))
+	require.NoError(t, err)
+	require.EqualValues(t, cek, uCEK)
+}
+
+func TestCrypto_ECDH1PU_Wrap_Unwrap_Key_Using_CryptoPubKey_as_SenderKey(t *testing.T) {
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
+	require.NoError(t, err)
+
+	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
+	c, err := New()
+	require.NoError(t, err)
+
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	apu := random.GetRandomBytes(uint32(10)) // or sender name
+	apv := random.GetRandomBytes(uint32(10)) // or recipient name
+
+	// extract sender public key as crypto.Public key to be used in WithSender()
+	senderPubKey, err := keyio.ExtractPrimaryPublicKey(senderKH)
+	require.NoError(t, err)
+
+	// test WrapKey with extacted crypto.PublicKey above directly
+	// WrapKey() only accepts senderKH as keyset.Handle because it will use its private key.
+	wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSender(senderKH))
+	require.NoError(t, err)
+	require.NotEmpty(t, wrappedKey.EncryptedCEK)
+	require.NotEmpty(t, wrappedKey.EPK)
+	require.EqualValues(t, wrappedKey.APU, apu)
+	require.EqualValues(t, wrappedKey.APV, apv)
+	require.Equal(t, wrappedKey.Alg, ECDH1PUA256KWAlg)
+
+	// UnwrapKey require sender public key used here or keyset.Handle which was tested in the previous function above
+	uCEK, err := c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSender(senderPubKey))
+	require.NoError(t, err)
+	require.EqualValues(t, cek, uCEK)
+
+	crv, err := hybrid.GetCurve(senderPubKey.Curve)
+	require.NoError(t, err)
+
+	senderECPubKey := &ecdsa.PublicKey{
+		Curve: crv,
+		X:     new(big.Int).SetBytes(senderPubKey.X),
+		Y:     new(big.Int).SetBytes(senderPubKey.Y),
+	}
+
+	uCEK, err = c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSender(senderECPubKey))
 	require.NoError(t, err)
 	require.EqualValues(t, cek, uCEK)
 }

@@ -199,7 +199,7 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 
 	if je.skid != "" && je.senderKH != nil {
 		kwAlg = tinkcrypto.ECDH1PUA256KWAlg
-		senderOpt = cryptoapi.WithSenderKH(je.senderKH)
+		senderOpt = cryptoapi.WithSender(je.senderKH)
 	}
 
 	for i, recPubKey := range je.recipientsKeys {
