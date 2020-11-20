@@ -1074,6 +1074,38 @@ func TestJSONConversion(t *testing.T) {
 	}
 }
 
+func TestMarshalJSON(t *testing.T) {
+	docs := []string{
+		validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships, validDocWithBase,
+	}
+	for _, d := range docs {
+		// setup -> create Document from json byte data
+		doc := &Doc{}
+		err := json.Unmarshal([]byte(d), doc)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+
+		// convert Document to json byte data
+		byteDoc, err := json.Marshal(doc)
+		require.NoError(t, err)
+		require.NotEmpty(t, byteDoc)
+
+		if d != validDocWithBase {
+			require.NotContains(t, string(byteDoc), "@base")
+		} else {
+			require.Contains(t, string(byteDoc), "@base")
+		}
+
+		// convert json byte data to document
+		doc2, err := ParseDocument(byteDoc)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc2)
+
+		// verify documents created by ParseDocument and JSONBytes function matches
+		require.Equal(t, doc, doc2)
+	}
+}
+
 func TestNewPublicKeyFromJWK(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
