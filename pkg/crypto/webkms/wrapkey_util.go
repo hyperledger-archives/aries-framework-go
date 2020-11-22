@@ -17,8 +17,8 @@ type wrapKeyReq struct {
 	CEK       string       `json:"cek,omitempty"`
 	APU       string       `json:"apu,omitempty"`
 	APV       string       `json:"apv,omitempty"`
-	RecPubKey publicKeyReq `json:"recpubkey,omitempty"`
-	SenderKID string       `json:"senderkid,omitempty"`
+	RecPubKey publicKeyReq `json:"recPubKey,omitempty"`
+	SenderKID string       `json:"senderKID,omitempty"`
 }
 
 // wrapKeyResp serializable WrapKey response.
@@ -29,7 +29,7 @@ type wrapKeyResp struct {
 // unwrapKeyReq serializable UnwrapKey request.
 type unwrapKeyReq struct {
 	WrappedKey recipientWrappedKeyReq `json:"wrappedKey,omitempty"`
-	SenderKID  string                 `json:"senderkid,omitempty"`
+	SenderKID  string                 `json:"senderKID,omitempty"`
 }
 
 // unwrapKeyResp serializable UnwrapKey response.
@@ -40,7 +40,7 @@ type unwrapKeyResp struct {
 // recipientWrappedKeyReq contains recipient key material required to unwrap CEK for HTTP requests.
 type recipientWrappedKeyReq struct {
 	KID          string       `json:"kid,omitempty"`
-	EncryptedCEK string       `json:"encryptedcek,omitempty"`
+	EncryptedCEK string       `json:"encryptedCEK,omitempty"`
 	EPK          publicKeyReq `json:"epk,omitempty"`
 	Alg          string       `json:"alg,omitempty"`
 	APU          string       `json:"apu,omitempty"`

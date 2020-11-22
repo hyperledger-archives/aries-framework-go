@@ -35,16 +35,16 @@ const (
 var logger = log.New("aries-framework/kms/webkms")
 
 type createKeystoreReq struct {
-	Controller         string `json:"controller,omitempty"`
-	OperationalVaultID string `json:"pperationalvaultid,omitempty"`
+	Controller string `json:"controller,omitempty"`
+	VaultID    string `json:"vaultID,omitempty"`
 }
 
 type createKeyReq struct {
-	KeyType string `json:"keytype,omitempty"`
+	KeyType string `json:"keyType,omitempty"`
 }
 
 type exportKeyResp struct {
-	KeyBytes string `json:"keyid,omitempty"`
+	KeyBytes string `json:"publicKey,omitempty"`
 }
 
 type marshalFunc func(interface{}) ([]byte, error)
@@ -83,7 +83,7 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 	}
 
 	if vaultID != "" {
-		httpReqJSON.OperationalVaultID = vaultID
+		httpReqJSON.VaultID = vaultID
 	}
 
 	mReq, err := marshaller(httpReqJSON)
