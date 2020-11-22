@@ -20,8 +20,11 @@ type MediatorController interface {
 	// Connections returns router`s connections.
 	Connections(request *models.RequestEnvelope) *models.ResponseEnvelope
 
-	// Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator.
+	// Reconnect sends noop message to given mediator connection to re-establish network connection
 	Reconnect(request *models.RequestEnvelope) *models.ResponseEnvelope
+
+	// ReconnectAll Reconnect sends noop message to all mediator connection to re-establish network connections.
+	ReconnectAll(request *models.RequestEnvelope) *models.ResponseEnvelope
 
 	// Status returns details about pending messages for given connection.
 	Status(request *models.RequestEnvelope) *models.ResponseEnvelope

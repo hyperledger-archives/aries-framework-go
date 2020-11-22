@@ -228,7 +228,7 @@ func (o *Command) Connections(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// Reconnect sends noop message to re-establish a connection when there is no other reason to message the mediator
+// Reconnect sends noop message to given connection to re-establish a network connection.
 // nolint:dupl
 func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterRoute
