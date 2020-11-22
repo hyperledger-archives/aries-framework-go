@@ -95,6 +95,22 @@ func TestMediator_Reconnect(t *testing.T) {
 	})
 }
 
+func TestMediator_ReconnectAll(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mediatorController := getMediatorController(t)
+
+		mockResponse := emptyJSON
+		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
+		mediatorController.handlers[mediator.ReconnectCommandMethod] = fakeHandler.exec
+
+		req := &models.RequestEnvelope{Payload: []byte("")}
+		resp := mediatorController.ReconnectAll(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Contains(t, string(resp.Payload), mockResponse)
+	})
+}
+
 func TestMediator_Register(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mediatorController := getMediatorController(t)

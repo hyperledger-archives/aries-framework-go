@@ -55,7 +55,7 @@ func (m *Mediator) Connections(request *models.RequestEnvelope) *models.Response
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// Reconnect sends noop message to reestablish a connection when there is no other reason to message the mediator.
+// Reconnect ends noop message to given mediator connection to re-establish network connection.
 func (m *Mediator) Reconnect(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := mediator.RegisterRoute{}
 
@@ -64,6 +64,16 @@ func (m *Mediator) Reconnect(request *models.RequestEnvelope) *models.ResponseEn
 	}
 
 	response, cmdErr := exec(m.handlers[mediator.ReconnectCommandMethod], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
+// ReconnectAll sends noop message to all mediator connections to re-establish a network connections.
+func (m *Mediator) ReconnectAll(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	response, cmdErr := exec(m.handlers[mediator.ReconnectAllCommandMethod], request.Payload)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

@@ -350,6 +350,10 @@ func getMediatorEndpoints() map[string]*endpoint {
 			Path:   opmediator.ReconnectPath,
 			Method: http.MethodPost,
 		},
+		cmdmediator.ReconnectAllCommandMethod: {
+			Path:   opmediator.ReconnectAllPath,
+			Method: http.MethodGet,
+		},
 		cmdmediator.StatusCommandMethod: {
 			Path:   opmediator.StatusPath,
 			Method: http.MethodPost,
