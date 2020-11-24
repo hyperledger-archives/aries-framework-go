@@ -583,15 +583,26 @@ func (c *restClient) DeleteDocument(vaultID, docID string) error {
 
 func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,
 	addHeadersFunc addHeaders) (int, http.Header, []byte, error) {
-	req, errReq := http.NewRequest(method, endpoint, bytes.NewBuffer(body))
-	if errReq != nil {
-		return -1, nil, nil, fmt.Errorf(failCreateRequest, errReq)
+	var req *http.Request
+
+	var err error
+
+	if len(body) == 0 {
+		req, err = http.NewRequest(method, endpoint, nil)
+		if err != nil {
+			return -1, nil, nil, fmt.Errorf(failCreateRequest, err)
+		}
+	} else {
+		req, err = http.NewRequest(method, endpoint, bytes.NewBuffer(body))
+		if err != nil {
+			return -1, nil, nil, fmt.Errorf(failCreateRequest, err)
+		}
 	}
 
 	if addHeadersFunc != nil {
-		httpHeaders, err := addHeadersFunc(req)
-		if err != nil {
-			return -1, nil, nil, fmt.Errorf("add optional request headers error: %w", err)
+		httpHeaders, errAddHdr := addHeadersFunc(req)
+		if errAddHdr != nil {
+			return -1, nil, nil, fmt.Errorf("add optional request headers error: %w", errAddHdr)
 		}
 
 		if httpHeaders != nil {
