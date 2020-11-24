@@ -21,7 +21,7 @@ func TestComputeDID(t *testing.T) {
 	peerDID, err := computeDidMethod1(storedDoc)
 	require.NoError(t, err)
 	require.Len(t, peerDID, 57)
-	require.Equal(t, "did:peer:1zQmezSbKyEq899oNbCqrDL7wfVvhGSmJghApykB1Jr2X6hu", peerDID)
+	require.Equal(t, "did:peer:1zQmZdT2jawCX5T1RKUB7ro83gQuiKbuHwuHi8G1NypB8BTr", peerDID)
 }
 
 func TestComputeDIDError(t *testing.T) {

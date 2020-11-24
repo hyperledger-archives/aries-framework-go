@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 func TestDIDCommMsgMap_ID(t *testing.T) {
@@ -269,4 +271,34 @@ func TestDIDCommMsgMap_UnmarshalJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(expected), &msg))
 	_, ok := msg[jsonMetadata]
 	require.True(t, ok)
+}
+
+func TestDIDCommMsgMap_ToJsonDIDDoc(t *testing.T) {
+	const sample = `{
+       "connection": {
+          "did_doc": {
+            "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+			"id": "ac881ac9-47b1-485f-8509-cd1e382bfe59",
+			"@type": "https://sampleorg.io/sample-type/1.0/sample-request",
+			"~purpose": ["sample-purpose"],
+			"~thread": {"thid": "ac881ac9-47b1-485f-8509-cd1e382bfe59"},
+			"~transport": {"~return_route": "all"}
+          }
+       }
+	}`
+
+	msg := DIDCommMsgMap{}
+
+	err := msg.UnmarshalJSON([]byte(sample))
+	require.NoError(t, err)
+
+	req := struct {
+		Connection *struct {
+			Doc did.Doc `json:"did_doc"`
+		} `json:"connection"`
+	}{}
+
+	err = msg.Decode(&req)
+	require.NoError(t, err)
+	require.NotEmpty(t, req.Connection.Doc)
 }

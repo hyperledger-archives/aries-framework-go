@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 const (
@@ -194,21 +196,7 @@ func (m DIDCommMsgMap) SetID(id string) error {
 // Decode converts message to  struct.
 func (m DIDCommMsgMap) Decode(v interface{}) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: func(rt1 reflect.Type, rt2 reflect.Type, v interface{}) (interface{}, error) {
-			if rt1.Kind() == reflect.String && rt2 == reflect.TypeOf(time.Time{}) {
-				return time.Parse(time.RFC3339, v.(string))
-			}
-
-			if rt1.Kind() == reflect.String && rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
-				return base64.StdEncoding.DecodeString(v.(string))
-			}
-
-			if rt1.Kind() == reflect.Map && rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
-				return json.Marshal(v)
-			}
-
-			return v, nil
-		},
+		DecodeHook:       decodeHook,
 		WeaklyTypedInput: true,
 		Result:           v,
 		TagName:          "json",
@@ -327,4 +315,31 @@ func convert(val reflect.Value) interface{} {
 	}
 
 	return val.Interface()
+}
+
+func decodeHook(rt1, rt2 reflect.Type, v interface{}) (interface{}, error) {
+	if rt1.Kind() == reflect.String {
+		if rt2 == reflect.TypeOf(time.Time{}) {
+			return time.Parse(time.RFC3339, v.(string))
+		}
+
+		if rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
+			return base64.StdEncoding.DecodeString(v.(string))
+		}
+	}
+
+	if rt1.Kind() == reflect.Map && rt2.Kind() == reflect.Slice && rt2.Elem().Kind() == reflect.Uint8 {
+		return json.Marshal(v)
+	}
+
+	if rt2 == reflect.TypeOf(did.Doc{}) {
+		didDoc, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("error remarshaling to json: %w", err)
+		}
+
+		return did.ParseDocument(didDoc)
+	}
+
+	return v, nil
 }

@@ -270,6 +270,14 @@ type Proof struct {
 	relativeURL  bool
 }
 
+// UnmarshalJSON unmarshals a DID Document.
+func (doc *Doc) UnmarshalJSON(data []byte) error {
+	_doc, err := ParseDocument(data)
+	*doc = *_doc
+
+	return err
+}
+
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
 func ParseDocument(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
@@ -892,6 +900,11 @@ func contextWithBase(doc *Doc) []interface{} {
 	m = append(m, baseObject)
 
 	return m
+}
+
+// MarshalJSON marshals the DID Document.
+func (doc *Doc) MarshalJSON() ([]byte, error) {
+	return doc.JSONBytes()
 }
 
 // VerifyProof verifies document proofs.
