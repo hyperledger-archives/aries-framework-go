@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -27,15 +28,28 @@ const (
 	failGetIteratorFromUnderlyingStore = "failed to get iterator from underlying store: %w"
 )
 
+var logger = log.New("formatted-store")
+
 // Formatter represents a type that can convert data between two formats.
 type Formatter interface {
 	FormatPair(k string, v []byte) ([]byte, error)
 	ParsePair([]byte) (k string, v []byte, err error)
 }
 
+// Option configures the formatted store.
+type Option func(opts *FormattedProvider)
+
+// WithCacheProvider option is for using caching provider.
+func WithCacheProvider(cacheProvider storage.Provider) Option {
+	return func(opts *FormattedProvider) {
+		opts.cacheProvider = cacheProvider
+	}
+}
+
 // FormattedProvider is a storage provider that allows for data to be formatted in an underlying provider.
 type FormattedProvider struct {
 	provider              storage.Provider
+	cacheProvider         storage.Provider
 	formatter             Formatter
 	skipIteratorFiltering bool
 }
@@ -47,12 +61,18 @@ type FormattedProvider struct {
 // Iterator(startKey, endKey string) method, then set skipIteratorFiltering to true to avoid redundant
 // filtering in FormattedProvider.
 func NewFormattedProvider(provider storage.Provider, formatter Formatter,
-	skipIteratorFiltering bool) *FormattedProvider {
-	return &FormattedProvider{
+	skipIteratorFiltering bool, opts ...Option) *FormattedProvider {
+	formattedProvider := &FormattedProvider{
 		provider:              provider,
 		formatter:             formatter,
 		skipIteratorFiltering: skipIteratorFiltering,
 	}
+
+	for _, opt := range opts {
+		opt(formattedProvider)
+	}
+
+	return formattedProvider
 }
 
 // OpenStore opens a store in the underlying provider with the given name and returns a handle to it.
@@ -68,6 +88,15 @@ func (p *FormattedProvider) OpenStore(name string) (storage.Store, error) {
 		skipIteratorFiltering: p.skipIteratorFiltering,
 	}
 
+	if p.cacheProvider != nil {
+		cacheStore, err := p.cacheProvider.OpenStore(name)
+		if err != nil {
+			return nil, fmt.Errorf(failOpenUnderlyingStore, err)
+		}
+
+		formatStore.cacheStore = cacheStore
+	}
+
 	return &formatStore, nil
 }
 
@@ -78,7 +107,13 @@ func (p *FormattedProvider) CloseStore(name string) error {
 		return fmt.Errorf(failCloseUnderlyingStore, err)
 	}
 
-	return p.provider.CloseStore(name)
+	if p.cacheProvider != nil {
+		if err := p.cacheProvider.CloseStore(name); err != nil {
+			return fmt.Errorf(failCloseUnderlyingStore, err)
+		}
+	}
+
+	return nil
 }
 
 // Close closes all stores created in the underlying provider.
@@ -88,11 +123,18 @@ func (p *FormattedProvider) Close() error {
 		return fmt.Errorf(failCloseAllUnderlyingStores, err)
 	}
 
-	return p.provider.Close()
+	if p.cacheProvider != nil {
+		if err := p.cacheProvider.Close(); err != nil {
+			return fmt.Errorf(failCloseAllUnderlyingStores, err)
+		}
+	}
+
+	return nil
 }
 
 type formatStore struct {
 	store                 storage.Store
+	cacheStore            storage.Store
 	formatter             Formatter
 	skipIteratorFiltering bool
 }
@@ -108,10 +150,26 @@ func (s *formatStore) Put(k string, v []byte) error {
 		return fmt.Errorf(failPutInUnderlyingStore, err)
 	}
 
+	// put data in cache to retrieve it from Get
+	if s.cacheStore != nil {
+		if err := s.cacheStore.Put(k, v); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (s *formatStore) Get(k string) ([]byte, error) {
+	if s.cacheStore != nil {
+		v, err := s.cacheStore.Get(k)
+		if err == nil {
+			return v, nil
+		}
+
+		logger.Debugf("failed to get key %s from cache store", k)
+	}
+
 	formattedValue, err := s.store.Get(k)
 	if err != nil {
 		return nil, fmt.Errorf(failGetFromUnderlyingStore, err)
@@ -122,6 +180,13 @@ func (s *formatStore) Get(k string) ([]byte, error) {
 		return nil, fmt.Errorf(failParseFormattedValue, err)
 	}
 
+	// put data in cache to retrieve it next time
+	if s.cacheStore != nil {
+		if err := s.cacheStore.Put(k, value); err != nil {
+			return nil, err
+		}
+	}
+
 	return value, nil
 }
 
@@ -129,7 +194,16 @@ func (s *formatStore) Get(k string) ([]byte, error) {
 // the filtering, in which case it would be redundant to do it here too.
 // TODO (#2315) While doing the storage interface rework, see if the skipIteratorFiltering switch is still
 //  needed.
-func (s *formatStore) Iterator(startKey, endKey string) storage.StoreIterator {
+func (s *formatStore) Iterator(startKey, endKey string) storage.StoreIterator { //nolint: gocyclo
+	if s.cacheStore != nil {
+		r := s.cacheStore.Iterator(startKey, endKey)
+		if r.Error() == nil {
+			return r
+		}
+
+		logger.Debugf("failed to get iterator startKey %s endKey %s from cache store", startKey, endKey)
+	}
+
 	formattedIterator := s.store.Iterator(startKey, endKey)
 
 	err := formattedIterator.Error()
@@ -172,6 +246,12 @@ func (s *formatStore) Delete(k string) error {
 	err := s.store.Delete(k)
 	if err != nil {
 		return fmt.Errorf(failDeleteInUnderlyingStore, err)
+	}
+
+	if s.cacheStore != nil {
+		if err := s.cacheStore.Delete(k); err != nil {
+			return err
+		}
 	}
 
 	return nil
