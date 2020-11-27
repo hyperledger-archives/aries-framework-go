@@ -49,14 +49,17 @@ framework := aries.New(aries.WithTransportReturnRoute("all"), aries.WithOutbound
 
 ## Limitations
 Currently, framework supports limited set of features. 
-1. Supports only [`all`](https://github.com/hyperledger/aries-framework-go/blob/226f142f212e3a18d72220387a30bd161dd3b8c4/pkg/framework/aries/framework.go#L147) transport route option.
+1. Supports only [`all`](https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route#reference) transport route option.
 2. Supports only [`websocket`](https://github.com/hyperledger/aries-framework-go/blob/226f142f212e3a18d72220387a30bd161dd3b8c4/pkg/didcomm/transport/ws/outbound.go#L30) for duplex communication. ie, websocket needs to be used 
 as the Outbound transport while initializing the framework for agents without inbound capabilities.
+3. [Aries RFC 0211: Mediator Coordination Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination) : No support for Key List Query and Key List messages - [Issue #942](https://github.com/hyperledger/aries-framework-go/issues/942). 
+4. [Aries RFC 0094: Forward Message](https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0094-cross-domain-messaging/README.md#corerouting10forward) : Uses recipient key in the `to` field instead of DID keyid - [Issue #965](https://github.com/hyperledger/aries-framework-go/issues/965). 
+5. [Aries RFC 0212: Pickup Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0212-pickup) : No support for Message Query With Message Id List message - [Issue #2351](https://github.com/hyperledger/aries-framework-go/issues/2351).
 
 ## References
 - [DIDComm Router/Mediator Design - Hyperledger Wiki](https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter)
 - [DIDComm Router/Mediator BDD Tests](https://github.com/hyperledger/aries-framework-go/blob/master/test/bdd/features/aries_mediator_e2e_sdk.feature)
 - [Aries RFC 0092: Transports Return Route](https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route)
-- [Aries RFC 0211: Route Coordination Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination)
+- [Aries RFC 0211: Mediator Coordination Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination)
 - [Aries RFC 0094: Forward Message](https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0094-cross-domain-messaging/README.md#corerouting10forward)
-
+- [Aries RFC 0212: Pickup Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0212-pickup)
