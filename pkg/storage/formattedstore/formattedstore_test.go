@@ -50,7 +50,8 @@ func TestNew(t *testing.T) {
 
 func TestFormatProvider_OpenStore(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -67,11 +68,24 @@ func TestFormatProvider_OpenStore(t *testing.T) {
 		require.EqualError(t, err, fmt.Errorf("failed to open underlying store: %w", errTest).Error())
 		require.Nil(t, store)
 	})
+
+	t.Run("Fail to open store in cache provider", func(t *testing.T) {
+		mockStoreProvider := mockstorage.MockStoreProvider{ErrOpenStoreHandle: errTest}
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(&mockStoreProvider))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.EqualError(t, err, fmt.Errorf("failed to open underlying store: %w", errTest).Error())
+		require.Nil(t, store)
+	})
 }
 
 func TestFormatProvider_CloseStore(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		err := provider.CloseStore("testName")
@@ -87,11 +101,23 @@ func TestFormatProvider_CloseStore(t *testing.T) {
 		err := provider.CloseStore("testName")
 		require.EqualError(t, err, fmt.Errorf("failed to close underlying store: %w", errTest).Error())
 	})
+	t.Run("Fail to close store in cache provider", func(t *testing.T) {
+		mockStoreProvider := mockstorage.NewMockStoreProvider()
+		mockStoreProvider.ErrCloseStore = errTest
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mockStoreProvider))
+		require.NotNil(t, provider)
+
+		err := provider.CloseStore("testName")
+		require.EqualError(t, err, fmt.Errorf("failed to close underlying store: %w", errTest).Error())
+	})
 }
 
 func TestFormatProvider_Close(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -107,11 +133,23 @@ func TestFormatProvider_Close(t *testing.T) {
 		err := provider.Close()
 		require.EqualError(t, err, fmt.Errorf("failed to close all underlying stores: %w", errTest).Error())
 	})
+	t.Run("Fail to close all stores in cache provider", func(t *testing.T) {
+		mockStoreProvider := mockstorage.NewMockStoreProvider()
+		mockStoreProvider.ErrClose = errTest
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mockStoreProvider))
+		require.NotNil(t, provider)
+
+		err := provider.Close()
+		require.EqualError(t, err, fmt.Errorf("failed to close all underlying stores: %w", errTest).Error())
+	})
 }
 
 func Test_formatStore_Put(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -148,11 +186,43 @@ func Test_formatStore_Put(t *testing.T) {
 		require.EqualError(t, err,
 			fmt.Errorf("failed to put encrypted document in underlying store: %w", errTest).Error())
 	})
+	t.Run("Fail to put in cache store", func(t *testing.T) {
+		mockStoreProvider := mockstorage.NewMockStoreProvider()
+		mockStoreProvider.Store.ErrPut = errTest
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mockStoreProvider))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put(testKey, []byte(testValue))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errTest.Error())
+	})
 }
 
 func Test_formatStore_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put(testKey, []byte(testValue))
+		require.NoError(t, err)
+
+		value, err := store.Get(testKey)
+		require.NoError(t, err)
+		require.Equal(t, testValue, string(value))
+	})
+	t.Run("Success cache", func(t *testing.T) {
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -192,7 +262,8 @@ func Test_formatStore_Get(t *testing.T) {
 		require.Nil(t, value)
 	})
 	t.Run("Fail to get formatted value from underlying store", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -209,7 +280,8 @@ func Test_formatStore_Get(t *testing.T) {
 func Test_formatStore_Iterator(t *testing.T) {
 	t.Run("Success with in-memory provider as the underlying provider", func(t *testing.T) {
 		t.Run("skipIteratorFiltering set to false", func(t *testing.T) {
-			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), false)
+			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), false,
+				formattedstore.WithCacheProvider(mem.NewProvider()))
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -453,7 +525,8 @@ func Test_formatStore_Iterator(t *testing.T) {
 
 func Test_formatStore_Delete(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -477,6 +550,22 @@ func Test_formatStore_Delete(t *testing.T) {
 		err = store.Delete(testKey)
 		require.EqualError(t, err,
 			fmt.Errorf("failed to delete key-value pair in underlying store: %w", errTest).Error())
+	})
+	t.Run("Fail to delete cache store", func(t *testing.T) {
+		mockStoreProvider := mockstorage.NewMockStoreProvider()
+		mockStoreProvider.Store.ErrDelete = errTest
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mockStoreProvider))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Delete(testKey)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errTest.Error())
 	})
 }
 
