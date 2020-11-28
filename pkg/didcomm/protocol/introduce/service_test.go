@@ -1598,6 +1598,7 @@ func TestService_HandleInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -1623,11 +1624,44 @@ func TestService_HandleInbound(t *testing.T) {
 		require.EqualError(t, err, "doHandle: currentStateName: test err")
 	})
 
+	t.Run("Populate metadata error", func(t *testing.T) {
+		const errMsg = "test err"
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
+		provider := introduceMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
+
+		svc, err := introduce.New(provider)
+		require.NoError(t, err)
+
+		msg, err := service.ParseDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		require.NoError(t, err)
+		ch := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(msg, "", "")
+		require.EqualError(t, err, "doHandle: get record: test err")
+	})
+
 	t.Run("Bad transition", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"state_name":"noop","wait_count":1}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -1658,6 +1692,7 @@ func TestService_HandleInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)

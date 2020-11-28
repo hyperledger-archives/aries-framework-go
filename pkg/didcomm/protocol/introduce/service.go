@@ -47,6 +47,8 @@ const (
 	participantsKey        = "participants_%s_%s"
 	stateNameKey           = "state_name_"
 	transitionalPayloadKey = "transitionalPayload_%s"
+	metadataKey            = "metadata_%s"
+	jsonMetadata           = "_internal_metadata"
 )
 
 var (
@@ -92,6 +94,7 @@ type metaData struct {
 	participants []*participant
 	rejected     bool
 	inbound      bool
+	saveMetadata func(msg service.DIDCommMsgMap, thID string) error
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -240,8 +243,9 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 				PIID: piID,
 			},
 		},
-		state:    next,
-		msgClone: msgMap.Clone(),
+		saveMetadata: s.saveMetadata,
+		state:        next,
+		msgClone:     msgMap.Clone(),
 	}, nil
 }
 
@@ -270,6 +274,10 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	// throw error if there is no action event registered for inbound messages
 	if aEvent == nil {
 		return "", errors.New("no clients are registered to handle the message")
+	}
+
+	if err := s.populateMetadata(msg.(service.DIDCommMsgMap)); err != nil {
+		return "", fmt.Errorf("doHandle: %w", err)
 	}
 
 	md, err := s.doHandle(msg, false)
@@ -383,6 +391,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
+		saveMetadata:        s.saveMetadata,
 	}
 
 	if opt != nil {
@@ -416,6 +425,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
+		saveMetadata:        s.saveMetadata,
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
@@ -757,6 +767,47 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 	}
 
 	return followup, action, nil
+}
+
+func (s *Service) populateMetadata(msg service.DIDCommMsgMap) error {
+	thID, err := msg.ThreadID()
+	if err != nil {
+		return fmt.Errorf("threadID: %w", err)
+	}
+
+	rec, err := s.store.Get(fmt.Sprintf(metadataKey, thID))
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("get record: %w", err)
+	}
+
+	res := map[string]interface{}{}
+
+	err = json.Unmarshal(rec, &res)
+	if err != nil {
+		return fmt.Errorf("get record: %w", err)
+	}
+
+	msg[jsonMetadata] = res
+
+	return nil
+}
+
+func (s *Service) saveMetadata(msg service.DIDCommMsgMap, thID string) error {
+	metadata := msg.Metadata()
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	src, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	return s.store.Put(fmt.Sprintf(metadataKey, thID), src)
 }
 
 // Name returns service name.

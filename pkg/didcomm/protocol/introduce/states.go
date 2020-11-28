@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -182,6 +184,7 @@ func getMetaRecipients(md *metaData) []*Recipient {
 // CreateProposal creates a DIDCommMsgMap proposal.
 func CreateProposal(r *Recipient) service.DIDCommMsgMap {
 	return service.NewDIDCommMsgMap(Proposal{
+		ID:       uuid.New().String(),
 		Type:     ProposalMsgType,
 		To:       r.To,
 		GoalCode: r.GoalCode,
@@ -195,10 +198,27 @@ func sendProposals(messenger service.Messenger, md *metaData) error {
 		proposal.Metadata()[metaPIID] = md.PIID
 		copyMetadata(md.Msg, proposal)
 
-		var err error
+		var (
+			err  error
+			thID string
+		)
+
 		if recipient.MyDID == "" && recipient.TheirDID == "" {
+			thID, err = md.Msg.ThreadID()
+			if err != nil {
+				return fmt.Errorf("get threadID: %w", err)
+			}
+
+			if err = md.saveMetadata(proposal, thID); err != nil {
+				return fmt.Errorf("save metadata: %w", err)
+			}
+
 			err = messenger.ReplyTo(md.Msg.ID(), proposal)
 		} else {
+			if err = md.saveMetadata(proposal, proposal.ID()); err != nil {
+				return fmt.Errorf("save metadata: %w", err)
+			}
+
 			err = messenger.Send(proposal, recipient.MyDID, recipient.TheirDID)
 		}
 
@@ -238,7 +258,20 @@ func (s *arranging) ExecuteInbound(messenger service.Messenger, md *metaData) (s
 }
 
 func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
-	return &noOp{}, func() error { return messenger.Send(md.Msg, md.MyDID, md.TheirDID) }, nil
+	return &noOp{}, func() error {
+		if md.Msg.ID() == "" {
+			if err := md.Msg.SetID(uuid.New().String()); err != nil {
+				return fmt.Errorf("set ID: %w", err)
+			}
+		}
+
+		err := md.saveMetadata(md.Msg, md.Msg.ID())
+		if err != nil {
+			return fmt.Errorf("outbound send: %w", err)
+		}
+
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}, nil
 }
 
 // delivering state.
