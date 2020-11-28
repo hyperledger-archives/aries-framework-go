@@ -19,7 +19,6 @@ import (
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -70,26 +69,6 @@ func TestMessenger_HandleInbound(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
 		store.EXPECT().Put(ID, gomock.Any()).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		require.NoError(t, msgr.HandleInbound(service.DIDCommMsgMap{jsonID: ID}, myDID, theirDID))
-	})
-
-	t.Run("success without metadata", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(ID, gomock.Any()).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
@@ -120,71 +99,6 @@ func TestMessenger_HandleInbound(t *testing.T) {
 		err = msgr.HandleInbound(service.DIDCommMsgMap{}, myDID, theirDID)
 		require.Contains(t, fmt.Sprintf("%v", err), "message-id is absent")
 	})
-
-	t.Run("metadata with error", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		err = msgr.HandleInbound(service.DIDCommMsgMap{jsonID: ID}, myDID, theirDID)
-		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
-	})
-
-	t.Run("success with metadata", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		payload := []byte(`{"my_did":"myDID","their_did":"theirDID","thread_id":"thID","parent_thread_id":"pthID"}`)
-		store.EXPECT().Put(ID, payload).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"metadata":{"key":"val"}}`), nil)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		msg := service.DIDCommMsgMap{jsonID: ID, jsonThread: map[string]interface{}{
-			jsonThreadID:       "thID",
-			jsonParentThreadID: "pthID",
-		}}
-		require.NoError(t, msgr.HandleInbound(msg, myDID, theirDID))
-		require.Equal(t, "val", msg.Metadata()["key"])
-	})
-
-	t.Run("success with metadata (thread is nil)", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(ID, gomock.Any()).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"metadata":{"key":"val"}}`), nil)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		msg := service.DIDCommMsgMap{jsonID: ID}
-		require.NoError(t, msgr.HandleInbound(msg, myDID, theirDID))
-		require.Equal(t, "val", msg.Metadata()["key"])
-	})
 }
 
 func sendToDIDCheck(t *testing.T, checks ...string) func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
@@ -198,9 +112,6 @@ func sendToDIDCheck(t *testing.T, checks ...string) func(msg service.DIDCommMsgM
 
 		for _, check := range checks {
 			switch check {
-			case jsonMetadata:
-				// metadata always should be absent
-				require.Empty(t, msg.Metadata())
 			case jsonID:
 				// ID always should be in the message
 				require.NotEmpty(t, v.ID)
@@ -225,7 +136,7 @@ func TestMessenger_Send(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), myDID, theirDID).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata))
+			Do(sendToDIDCheck(t, jsonID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -263,7 +174,7 @@ func TestMessenger_Send(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), myDID, theirDID).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata))
+			Do(sendToDIDCheck(t, jsonID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -274,32 +185,6 @@ func TestMessenger_Send(t *testing.T) {
 		require.NotNil(t, msgr)
 
 		require.NoError(t, msgr.Send(service.DIDCommMsgMap{}, myDID, theirDID))
-	})
-
-	t.Run("save metadata error", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg)).AnyTimes()
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		err = msgr.Send(service.DIDCommMsgMap{
-			jsonMetadata: map[string]interface{}{"key": "val"},
-		}, myDID, theirDID)
-		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
-
-		err = msgr.SendToDestination(service.DIDCommMsgMap{
-			jsonMetadata: map[string]interface{}{"key": "val"},
-		}, "", nil)
-		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	})
 }
 
@@ -316,7 +201,7 @@ func TestMessenger_ReplyTo(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonThreadID, jsonParentThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonThreadID, jsonParentThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -356,7 +241,7 @@ func TestMessenger_ReplyTo(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -367,28 +252,6 @@ func TestMessenger_ReplyTo(t *testing.T) {
 		require.NotNil(t, msgr)
 
 		require.NoError(t, msgr.ReplyTo(ID, service.DIDCommMsgMap{}))
-	})
-
-	t.Run("save metadata error", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(ID).Return([]byte(`{}`), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		err = msgr.ReplyTo(ID, service.DIDCommMsgMap{
-			jsonMetadata: map[string]interface{}{"key": "val"},
-		})
-		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	})
 }
 
@@ -404,7 +267,7 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonParentThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonParentThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -426,7 +289,7 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonParentThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonParentThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -445,7 +308,7 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonParentThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonParentThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -457,27 +320,6 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 
 		require.NoError(t, msgr.ReplyToNested(service.DIDCommMsgMap{},
 			&service.NestedReplyOpts{ThreadID: thID, TheirDID: theirDID, MyDID: myDID}))
-	})
-
-	t.Run("save metadata error", func(t *testing.T) {
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := messengerMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		msgr, err := NewMessenger(provider)
-		require.NoError(t, err)
-		require.NotNil(t, msgr)
-
-		err = msgr.ReplyToNested(service.DIDCommMsgMap{
-			jsonMetadata: map[string]interface{}{"key": "val"},
-		}, &service.NestedReplyOpts{ThreadID: "thID", TheirDID: theirDID, MyDID: myDID})
-		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	})
 
 	t.Run("failure with message ID issues", func(t *testing.T) {

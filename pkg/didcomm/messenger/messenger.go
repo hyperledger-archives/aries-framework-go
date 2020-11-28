@@ -23,22 +23,18 @@ const (
 	// MessengerStore is messenger store name.
 	MessengerStore = "messenger_store"
 
-	metadataKey = "metadata_%s"
-
 	jsonID             = "@id"
 	jsonThread         = "~thread"
 	jsonThreadID       = "thid"
 	jsonParentThreadID = "pthid"
-	jsonMetadata       = "_internal_metadata"
 )
 
 // record is an internal structure and keeps payload about inbound message.
 type record struct {
-	MyDID          string                 `json:"my_did,omitempty"`
-	TheirDID       string                 `json:"their_did,omitempty"`
-	ThreadID       string                 `json:"thread_id,omitempty"`
-	ParentThreadID string                 `json:"parent_thread_id,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	MyDID          string `json:"my_did,omitempty"`
+	TheirDID       string `json:"their_did,omitempty"`
+	ThreadID       string `json:"thread_id,omitempty"`
+	ParentThreadID string `json:"parent_thread_id,omitempty"`
 }
 
 // Provider contains dependencies for the Messenger.
@@ -83,10 +79,6 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID str
 		return fmt.Errorf("threadID: %w", err)
 	}
 
-	if err := m.populateMetadata(thID, msg); err != nil {
-		return fmt.Errorf("with metadata: %w", err)
-	}
-
 	// saves message payload
 	return m.saveRecord(msg.ID(), record{
 		ParentThreadID: msg.ParentThreadID(),
@@ -96,49 +88,12 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID str
 	})
 }
 
-func (m *Messenger) saveMetadata(msg service.DIDCommMsgMap) error {
-	metadata := msg.Metadata()
-	if len(metadata) == 0 {
-		return nil
-	}
-
-	thID, err := msg.ThreadID()
-	if err != nil {
-		return fmt.Errorf("threadID: %w", err)
-	}
-
-	return m.saveRecord(fmt.Sprintf(metadataKey, thID), record{Metadata: metadata})
-}
-
-func (m *Messenger) populateMetadata(thID string, msg service.DIDCommMsgMap) error {
-	rec, err := m.getRecord(fmt.Sprintf(metadataKey, thID))
-	if errors.Is(err, storage.ErrDataNotFound) {
-		return nil
-	}
-
-	if err != nil {
-		return fmt.Errorf("get record: %w", err)
-	}
-
-	if rec.Metadata == nil {
-		return nil
-	}
-
-	msg[jsonMetadata] = rec.Metadata
-
-	return nil
-}
-
 // Send sends the message by starting a new thread.
 // Do not provide a message with ~thread decorator. It will be removed.
 // Use ReplyTo function instead. It will keep ~thread decorator automatically.
 func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) error {
 	// fills missing fields
 	fillIfMissing(msg)
-
-	if err := m.saveMetadata(msg); err != nil {
-		return fmt.Errorf("save metadata: %w", err)
-	}
 
 	msg[jsonThread] = map[string]interface{}{
 		jsonThreadID: msg.ID(),
@@ -154,10 +109,6 @@ func (m *Messenger) SendToDestination(msg service.DIDCommMsgMap, sender string,
 	destination *service.Destination) error {
 	// fills missing fields
 	fillIfMissing(msg)
-
-	if err := m.saveMetadata(msg); err != nil {
-		return fmt.Errorf("save metadata: %w", err)
-	}
 
 	delete(msg, jsonThread)
 
@@ -188,10 +139,6 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 
 	msg[jsonThread] = thread
 
-	if err := m.saveMetadata(msg); err != nil {
-		return fmt.Errorf("save metadata: %w", err)
-	}
-
 	return m.dispatcher.SendToDID(msg, rec.MyDID, rec.TheirDID)
 }
 
@@ -202,10 +149,6 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 func (m *Messenger) ReplyToNested(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 	// fills missing fields
 	fillIfMissing(msg)
-
-	if err := m.saveMetadata(msg); err != nil {
-		return fmt.Errorf("save metadata: %w", err)
-	}
 
 	if err := m.fillNestedReplyOption(opts); err != nil {
 		return fmt.Errorf("failed to prepare nested reply options: %w", err)

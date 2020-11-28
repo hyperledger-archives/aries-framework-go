@@ -47,6 +47,10 @@ func TestNoOp_ExecuteInbound(t *testing.T) {
 	require.Nil(t, followup)
 }
 
+func TestNoOp_saveMetadata(t *testing.T) {
+	require.NoError(t, (&Service{}).saveMetadata(nil, ""))
+}
+
 func TestNoOp_ExecuteOutbound(t *testing.T) {
 	followup, _, err := (&noOp{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
@@ -129,6 +133,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 
 	followup, action, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
 		transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return nil },
 	})
 	require.NoError(t, err)
 	require.NoError(t, action())
@@ -137,9 +142,25 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	// Send an error
 	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
 		transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return nil },
 	})
 	require.NoError(t, err)
 	require.Contains(t, fmt.Sprintf("%v", action()), errMsg)
+	require.Equal(t, &noOp{}, followup)
+
+	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
+		transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return errors.New(errMsg) },
+	})
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprintf("%v", action()), errMsg)
+	require.Equal(t, &noOp{}, followup)
+
+	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
+		transitionalPayload: transitionalPayload{Action: Action{Msg: nil}},
+	})
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprintf("%v", action()), "set ID: message is nil")
 	require.Equal(t, &noOp{}, followup)
 }
 
@@ -388,6 +409,8 @@ func Test_sendProposals(t *testing.T) {
 	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 	msg := service.NewDIDCommMsgMap(struct{}{})
+	require.NoError(t, msg.SetID(uuid.New().String()))
+
 	msg.Metadata()[metaRecipients] = map[string]int{}
 
 	require.NoError(t, sendProposals(messenger, &metaData{
@@ -397,5 +420,24 @@ func Test_sendProposals(t *testing.T) {
 	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{}}
 	require.Contains(t, fmt.Sprintf("%v", sendProposals(messenger, &metaData{
 		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return nil },
 	})), errMsg)
+
+	require.Contains(t, fmt.Sprintf("%v", sendProposals(messenger, &metaData{
+		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return errors.New(errMsg) },
+	})), errMsg)
+
+	msg = service.NewDIDCommMsgMap(struct{}{})
+	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{}}
+	require.EqualError(t, sendProposals(messenger, &metaData{
+		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
+	}), "get threadID: threadID not found")
+
+	msg = service.NewDIDCommMsgMap(struct{}{})
+	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{MyDID: "my_did"}}
+	require.EqualError(t, sendProposals(messenger, &metaData{
+		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
+		saveMetadata:        func(_ service.DIDCommMsgMap, _ string) error { return errors.New(errMsg) },
+	}), "save metadata: test error")
 }
