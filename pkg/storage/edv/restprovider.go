@@ -38,15 +38,18 @@ const (
 	failComputeMACStoreAndKeyIndexName               = "failed to compute MAC for the store+key index name: %w"
 	failComputeMACStoreAndKeyIndexValue              = "failed to compute MAC for the store+key index value: %w"
 	failCreateIndexedAttributes                      = "failed to create indexed attributes: %w"
+	failComputeBase64EncodedStoreIndexValueMAC       = "failed to compute Base64-encoded store index value MAC: %w"
 	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
 	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
 	failGetFullDocumentViaQuery                      = "failed to get full document via query: %w"
 	failUpdateDocumentInEDVServer                    = "failed to update existing document in EDV server: %w"
 	failRetrieveEDVDocumentID                        = "failed to retrieve EDV document ID: %w"
+	failQueryVaultForFullDocumentsInEDVServer        = "failed to query vault for full documents in EDV server: %w"
 	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
 	noDocumentMatchingQueryFound                     = "no document matching the query was found: %w"
 	failRetrieveDocumentFromEDVServer                = "failed to retrieve document from EDV server: %w"
 	failDeleteDocumentInEDVServer                    = "failed to delete document in EDV server: %w"
+	failGetAllFullDocumentsViaQuery                  = "failed to get all full documents via query: %w"
 	failGetAllDocumentLocations                      = "failed to get all document locations: %w"
 	failGetAllDocuments                              = "failed to get all documents: %w"
 
@@ -118,7 +121,7 @@ func WithHeaders(addHeadersFunc addHeaders) Option {
 	}
 }
 
-// WithFullDocumentsReturnedFromQueries option is a performance optimization for Get calls that can be used only if
+// WithFullDocumentsReturnedFromQueries option is a performance optimization that can be used only if
 // the EDV server that this RESTProvider connects to supports returning full documents in query results instead of
 // only the document locations.
 func WithFullDocumentsReturnedFromQueries() Option {
@@ -259,6 +262,16 @@ func (r *restStore) Get(k string) ([]byte, error) {
 
 // Iterator returns all documents within the store. It does not support start and end key filtering.
 func (r *restStore) Iterator(_, _ string) storage.StoreIterator {
+	if r.returnFullDocumentsOnQuery {
+		// Take a shortcut and get all the full documents from the query in one REST call.
+		allDocuments, err := r.getAllFullDocumentsViaQuery()
+		if err != nil {
+			return &restStoreIterator{err: fmt.Errorf(failGetAllFullDocumentsViaQuery, err)}
+		}
+
+		return &restStoreIterator{documents: allDocuments}
+	}
+	// Get document IDs from query, then get the full document in successive calls.
 	allDocumentLocations, err := r.getAllDocumentLocations()
 	if err != nil {
 		return &restStoreIterator{err: fmt.Errorf(failGetAllDocumentLocations, err)}
@@ -365,7 +378,7 @@ func (r *restStore) getFullDocumentViaQuery(k string) ([]byte, error) {
 	matchingDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
 		r.storeAndKeyIndexNameMACBase64Encoded, storeAndKeyIndexValueMACBase64Encoded)
 	if err != nil {
-		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
+		return nil, fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer, err)
 	}
 
 	if len(matchingDocuments) == 0 {
@@ -403,10 +416,36 @@ func (r *restStore) retrieveEDVDocumentID(k string) (string, error) {
 	return getDocIDFromURL(matchingDocumentURLs[0]), nil
 }
 
+func (r *restStore) getAllFullDocumentsViaQuery() ([][]byte, error) {
+	storeNameIndexValueMACBase64Encoded, err := r.computeStoreIndexValueMACBase64Encoded()
+	if err != nil {
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreIndexValueMAC, err)
+	}
+
+	allDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
+		r.storeIndexNameMACBase64Encoded, storeNameIndexValueMACBase64Encoded)
+	if err != nil {
+		return nil, fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer, err)
+	}
+
+	allDocumentsBytes := make([][]byte, len(allDocuments))
+
+	for i, document := range allDocuments {
+		documentBytes, err := json.Marshal(document)
+		if err != nil {
+			return nil, fmt.Errorf(failMarshalEncryptedDocument, err)
+		}
+
+		allDocumentsBytes[i] = documentBytes
+	}
+
+	return allDocumentsBytes, nil
+}
+
 func (r *restStore) getAllDocumentLocations() ([]string, error) {
 	storeNameIndexValueMACBase64Encoded, err := r.computeStoreIndexValueMACBase64Encoded()
 	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreIndexValueMAC, err)
 	}
 
 	allDocumentLocations, err := r.restClient.queryVault(r.vaultID,
@@ -623,7 +662,7 @@ func (c *restClient) queryVault(vaultID, name, value string) ([]string, error) {
 // Requires the EDV server to support this functionality, which is currently non-standard.
 func (c *restClient) queryVaultForFullDocuments(vaultID, name, value string) ([]models.EncryptedDocument, error) {
 	query := models.Query{
-		ReturnFullDocuments: false,
+		ReturnFullDocuments: true,
 		Name:                name,
 		Value:               value,
 	}
