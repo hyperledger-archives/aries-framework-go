@@ -40,6 +40,7 @@ const (
 	failCreateIndexedAttributes                      = "failed to create indexed attributes: %w"
 	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
 	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
+	failGetFullDocumentViaQuery                      = "failed to get full document via query: %w"
 	failUpdateDocumentInEDVServer                    = "failed to update existing document in EDV server: %w"
 	failRetrieveEDVDocumentID                        = "failed to retrieve EDV document ID: %w"
 	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
@@ -49,14 +50,15 @@ const (
 	failGetAllDocumentLocations                      = "failed to get all document locations: %w"
 	failGetAllDocuments                              = "failed to get all documents: %w"
 
-	failSendGETRequest             = "failed to send GET request: %w"
-	failSendPOSTRequest            = "failed to send POST request: %w"
-	failCreateRequest              = "failed to create request: %w"
-	failSendRequest                = "failed to send request: %w"
-	failReadResponseBody           = "failed to read response body: %w"
-	failMarshalQuery               = "failed to marshal query: %w"
-	failResponseFromEDVServer      = "status code %d was returned along with the following message: %s"
-	failUnmarshalDocumentLocations = "failed to unmarshal response bytes into document locations: %w"
+	failSendGETRequest              = "failed to send GET request: %w"
+	failSendPOSTRequest             = "failed to send POST request: %w"
+	failCreateRequest               = "failed to create request: %w"
+	failSendRequest                 = "failed to send request: %w"
+	failReadResponseBody            = "failed to read response body: %w"
+	failMarshalQuery                = "failed to marshal query: %w"
+	failUnmarshalEncryptedDocuments = "failed to unmarshal encrypted documents: %w"
+	failResponseFromEDVServer       = "status code %d was returned along with the following message: %s"
+	failUnmarshalDocumentLocations  = "failed to unmarshal response bytes into document locations: %w"
 
 	createDocumentRequestLogMsg = "Sending request to create the following document: %s"
 	updateDocumentRequestLogMsg = "Sending request to update the following document: %s"
@@ -95,6 +97,36 @@ func NewMACCrypto(kh interface{}, macDigester MACDigester) *MACCrypto {
 	}
 }
 
+// Option configures the EDV REST provider.
+type Option func(opts *RESTProvider)
+
+// addHeaders function supports adding custom HTTP headers.
+type addHeaders func(req *http.Request) (*http.Header, error)
+
+// WithTLSConfig option is for definition of secured HTTP transport using a tls.Config instance.
+func WithTLSConfig(tlsConfig *tls.Config) Option {
+	return func(opts *RESTProvider) {
+		opts.restClient.httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	}
+}
+
+// WithHeaders option is for setting additional http request headers (since it's a function, it can call a remote
+// authorization server to fetch the necessary info needed in these headers).
+func WithHeaders(addHeadersFunc addHeaders) Option {
+	return func(opts *RESTProvider) {
+		opts.restClient.headersFunc = addHeadersFunc
+	}
+}
+
+// WithFullDocumentsReturnedFromQueries option is a performance optimization for Get calls that can be used only if
+// the EDV server that this RESTProvider connects to supports returning full documents in query results instead of
+// only the document locations.
+func WithFullDocumentsReturnedFromQueries() Option {
+	return func(opts *RESTProvider) {
+		opts.returnFullDocumentsOnQuery = true
+	}
+}
+
 // RESTProvider is a store provider that can be used to store data in a server supporting the
 // data vault HTTPS API as defined in https://identity.foundation/secure-data-store/#data-vault-https-api.
 type RESTProvider struct {
@@ -102,7 +134,12 @@ type RESTProvider struct {
 	macCrypto                            *MACCrypto
 	storeIndexNameMACBase64Encoded       string
 	storeAndKeyIndexNameMACBase64Encoded string
-	restClient                           restClient
+	restClient                           *restClient
+
+	// Requires an EDV server that supports this capability, which is not currently in the spec,
+	// but has been requested: https://github.com/decentralized-identity/confidential-storage/issues/137.
+	// If enabled, allows for the Put method to execute faster by reducing the number of REST calls from 2 down to 1.
+	returnFullDocumentsOnQuery bool
 }
 
 // NewRESTProvider returns a new RESTProvider. edvServerURL is the base URL for the data vault HTTPS API.
@@ -112,7 +149,7 @@ type RESTProvider struct {
 // macCrypto is used to create an encrypted indices, which allow for documents to be queries based on a key
 // without leaking that key to the EDV server.
 func NewRESTProvider(edvServerURL, vaultID string,
-	macCrypto *MACCrypto, httpClientOpts ...Option) (*RESTProvider, error) {
+	macCrypto *MACCrypto, options ...Option) (*RESTProvider, error) {
 	storeAndKeyIndexNameMAC, err := macCrypto.ComputeMAC(storeAndKeyIndexName)
 	if err != nil {
 		return nil, fmt.Errorf(failComputeMACStoreAndKeyIndexName, err)
@@ -128,17 +165,19 @@ func NewRESTProvider(edvServerURL, vaultID string,
 		httpClient:   &http.Client{},
 	}
 
-	for _, opt := range httpClientOpts {
-		opt(&client)
-	}
-
-	return &RESTProvider{
+	restProvider := RESTProvider{
 		vaultID:                              vaultID,
 		macCrypto:                            macCrypto,
 		storeIndexNameMACBase64Encoded:       base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
 		storeAndKeyIndexNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeAndKeyIndexNameMAC)),
-		restClient:                           client,
-	}, nil
+		restClient:                           &client,
+	}
+
+	for _, opt := range options {
+		opt(&restProvider)
+	}
+
+	return &restProvider, nil
 }
 
 // OpenStore opens a new restStore, using name as the namespace.
@@ -150,6 +189,7 @@ func (r *RESTProvider) OpenStore(name string) (storage.Store, error) {
 		storeIndexNameMACBase64Encoded:       r.storeIndexNameMACBase64Encoded,
 		storeAndKeyIndexNameMACBase64Encoded: r.storeAndKeyIndexNameMACBase64Encoded,
 		restClient:                           r.restClient,
+		returnFullDocumentsOnQuery:           r.returnFullDocumentsOnQuery,
 	}, nil
 }
 
@@ -166,10 +206,11 @@ func (r *RESTProvider) Close() error {
 type restStore struct {
 	vaultID                              string
 	name                                 string
-	restClient                           restClient
+	restClient                           *restClient
 	macCrypto                            *MACCrypto
 	storeIndexNameMACBase64Encoded       string
 	storeAndKeyIndexNameMACBase64Encoded string
+	returnFullDocumentsOnQuery           bool
 }
 
 // v must be a marshalled EncryptedDocument.
@@ -183,7 +224,7 @@ func (r *restStore) Put(k string, v []byte) error {
 	}
 
 	// If existingEDVDocumentID was set, then this means that there is already an existing document that
-	// well get updated.
+	// we need to update.
 	err = r.createEDVDocument(k, v, existingEDVDocumentID)
 	if err != nil {
 		return fmt.Errorf(failStoreEDVDocument, err)
@@ -193,6 +234,16 @@ func (r *restStore) Put(k string, v []byte) error {
 }
 
 func (r *restStore) Get(k string) ([]byte, error) {
+	if r.returnFullDocumentsOnQuery {
+		// Take a shortcut and get the full document from the query in one REST call.
+		encryptedDocumentBytes, err := r.getFullDocumentViaQuery(k)
+		if err != nil {
+			return nil, fmt.Errorf(failGetFullDocumentViaQuery, err)
+		}
+
+		return encryptedDocumentBytes, nil
+	}
+	// Get document ID from query, then do another call to get the full document.
 	edvDocumentID, err := r.retrieveEDVDocumentID(k)
 	if err != nil {
 		return nil, fmt.Errorf(failRetrieveEDVDocumentID, err)
@@ -305,16 +356,40 @@ func (r *restStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 	return indexedAttributeCollections, nil
 }
 
+func (r *restStore) getFullDocumentViaQuery(k string) ([]byte, error) {
+	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
+	if err != nil {
+		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
+	}
+
+	matchingDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
+		r.storeAndKeyIndexNameMACBase64Encoded, storeAndKeyIndexValueMACBase64Encoded)
+	if err != nil {
+		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
+	}
+
+	if len(matchingDocuments) == 0 {
+		return nil, fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
+	} else if len(matchingDocuments) > 1 {
+		return nil, errMultipleDocumentsMatchingQuery
+	}
+
+	encryptedDocumentBytes, err := json.Marshal(matchingDocuments[0])
+	if err != nil {
+		return nil, fmt.Errorf(failMarshalEncryptedDocument, err)
+	}
+
+	return encryptedDocumentBytes, nil
+}
+
 func (r *restStore) retrieveEDVDocumentID(k string) (string, error) {
 	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
 	if err != nil {
 		return "", fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
 	}
 
-	matchingDocumentURLs, err := r.restClient.queryVault(r.vaultID, &models.Query{
-		Name:  r.storeAndKeyIndexNameMACBase64Encoded,
-		Value: storeAndKeyIndexValueMACBase64Encoded,
-	})
+	matchingDocumentURLs, err := r.restClient.queryVault(r.vaultID,
+		r.storeAndKeyIndexNameMACBase64Encoded, storeAndKeyIndexValueMACBase64Encoded)
 	if err != nil {
 		return "", fmt.Errorf(failQueryVaultInEDVServer, err)
 	}
@@ -322,10 +397,6 @@ func (r *restStore) retrieveEDVDocumentID(k string) (string, error) {
 	if len(matchingDocumentURLs) == 0 {
 		return "", fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
 	} else if len(matchingDocumentURLs) > 1 {
-		// This should only be possible if the EDV server is not able to maintain the uniqueness property of the
-		// storeAndKeyIndexName indexedAttribute created in the createIndexedAttributes method.
-		// TODO (#2287): Check each of the documents to see if they all have the same content
-		// (other than the document ID). If so, we should delete the extras and just return one of them arbitrarily.
 		return "", errMultipleDocumentsMatchingQuery
 	}
 
@@ -338,10 +409,8 @@ func (r *restStore) getAllDocumentLocations() ([]string, error) {
 		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
 	}
 
-	allDocumentLocations, err := r.restClient.queryVault(r.vaultID, &models.Query{
-		Name:  r.storeIndexNameMACBase64Encoded,
-		Value: storeNameIndexValueMACBase64Encoded,
-	})
+	allDocumentLocations, err := r.restClient.queryVault(r.vaultID,
+		r.storeIndexNameMACBase64Encoded, storeNameIndexValueMACBase64Encoded)
 	if err != nil {
 		return nil, fmt.Errorf(failQueryVaultInEDVServer, err)
 	}
@@ -450,27 +519,6 @@ type restClient struct {
 	headersFunc  addHeaders
 }
 
-// Option configures the EDV client.
-type Option func(opts *restClient)
-
-// addHeaders function supports adding custom http headers.
-type addHeaders func(req *http.Request) (*http.Header, error)
-
-// WithTLSConfig option is for definition of secured HTTP transport using a tls.Config instance.
-func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(opts *restClient) {
-		opts.httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-	}
-}
-
-// WithHeaders option is for setting additional http request headers (since it's a function, it can call a remote
-// authorization server to fetch the necessary info needed in these headers).
-func WithHeaders(addHeadersFunc addHeaders) Option {
-	return func(opts *restClient) {
-		opts.headersFunc = addHeadersFunc
-	}
-}
-
 // createDocument sends the EDV server a request to store the specified document.
 // The location of the newly created document is returned.
 func (c *restClient) createDocument(vaultID string, document *models.EncryptedDocument) (string, error) {
@@ -538,7 +586,13 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 }
 
 // queryVault queries the given vault and returns the URLs of all documents that match the given query.
-func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, error) {
+func (c *restClient) queryVault(vaultID, name, value string) ([]string, error) {
+	query := models.Query{
+		ReturnFullDocuments: false,
+		Name:                name,
+		Value:               value,
+	}
+
 	jsonToSend, err := json.Marshal(query)
 	if err != nil {
 		return nil, fmt.Errorf(failMarshalQuery, err)
@@ -560,6 +614,41 @@ func (c *restClient) queryVault(vaultID string, query *models.Query) ([]string, 
 		}
 
 		return docLocations, nil
+	}
+
+	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
+}
+
+// queryVaultForFullDocuments queries the given vault and returns all documents that match the given query.
+// Requires the EDV server to support this functionality, which is currently non-standard.
+func (c *restClient) queryVaultForFullDocuments(vaultID, name, value string) ([]models.EncryptedDocument, error) {
+	query := models.Query{
+		ReturnFullDocuments: false,
+		Name:                name,
+		Value:               value,
+	}
+
+	jsonToSend, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf(failMarshalQuery, err)
+	}
+
+	endpoint := fmt.Sprintf("%s/%s/query", c.edvServerURL, url.PathEscape(vaultID))
+
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
+	if err != nil {
+		return nil, fmt.Errorf(failSendPOSTRequest, err)
+	}
+
+	if statusCode == http.StatusOK {
+		var documents []models.EncryptedDocument
+
+		err = json.Unmarshal(respBytes, &documents)
+		if err != nil {
+			return nil, fmt.Errorf(failUnmarshalEncryptedDocuments, err)
+		}
+
+		return documents, nil
 	}
 
 	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
