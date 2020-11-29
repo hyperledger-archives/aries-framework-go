@@ -54,7 +54,9 @@ type IDTypePair struct {
 // Query represents a name+value pair that can be used to query the encrypted indices for specific data.
 // TODO: #2262 This is a simplified version of the actual EDV query format, which is still not finalized
 // in the spec as of writing. See: https://github.com/decentralized-identity/secure-data-store/issues/34.
+// ReturnFullDocuments is currently non-standard and should only be used with an EDV server that supports it.
 type Query struct {
-	Name  string `json:"index"`
-	Value string `json:"equals"`
+	ReturnFullDocuments bool   `json:"returnFullDocuments"`
+	Name                string `json:"index"`
+	Value               string `json:"equals"`
 }
