@@ -387,7 +387,7 @@ func TestRestStore_Get(t *testing.T) {
 		encryptedDocumentBytes, err := store.Get(testKey)
 		require.EqualError(t, err,
 			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(failQueryVaultInEDVServer,
+				fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer,
 					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
 		require.Nil(t, encryptedDocumentBytes)
 	})
@@ -547,7 +547,7 @@ func TestRestStore_Get(t *testing.T) {
 		encryptedDocumentBytesFromServer, err := store.Get(testKey)
 		require.EqualError(t, err,
 			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(failQueryVaultInEDVServer,
+				fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer,
 					fmt.Errorf(failUnmarshalEncryptedDocuments,
 						errors.New("invalid character 'C' looking for beginning of value")))).Error())
 		require.Empty(t, encryptedDocumentBytesFromServer)
@@ -597,6 +597,48 @@ func TestRestStore_Iterator(t *testing.T) {
 		iterator := store.Iterator("Start key doesn't matter", "End key doesn't matter")
 		verifyIterator(t, iterator, len(keys))
 	})
+	t.Run(`Success (using "return full docs on query" option)`, func(t *testing.T) {
+		queryResults := make([]string, 0)
+
+		queryResultsBytes, err := json.Marshal(queryResults)
+		require.NoError(t, err)
+
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:                              t,
+			DB:                             make(map[string][]byte),
+			UseDB:                          true,
+			CreateDocumentReturnStatusCode: http.StatusCreated,
+			ReadDocumentReturnStatusCode:   http.StatusOK,
+			QueryVaultReturnStatusCode:     http.StatusOK,
+			QueryVaultReturnBody:           queryResultsBytes,
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(edvSrv.URL, t, true)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
+		encryptedFormatter := createEncryptedFormatter(t)
+
+		for _, key := range keys {
+			encryptedDocument, err := encryptedFormatter.FormatPair(key, []byte(fmt.Sprintf(valPrefix, key)))
+			require.NoError(t, err)
+
+			err = store.Put(key, encryptedDocument)
+			require.NoError(t, err)
+		}
+
+		// Allow the mock EDV server to return all documents in query
+		mockEDVServerOperation.QueryVaultReturnBody = nil
+
+		iterator := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		verifyIterator(t, iterator, len(keys))
+	})
 	t.Run("Fail to get all document locations", func(t *testing.T) {
 		provider := createRESTProvider("EDVServerURL", t, false)
 
@@ -610,6 +652,34 @@ func TestRestStore_Iterator(t *testing.T) {
 				fmt.Errorf(failQueryVaultInEDVServer,
 					errors.New(`failed to send POST request: failed to send request: Post "EDVServerURL/vaultID/query":`+
 						` unsupported protocol scheme ""`))).Error())
+	})
+	t.Run(`Fail to get all full documents via query: server unreachable`, func(t *testing.T) {
+		provider := createRESTProvider("EDVServerURL", t, true)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		itr := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		require.EqualError(t, itr.Error(),
+			fmt.Errorf(failGetAllFullDocumentsViaQuery,
+				fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer,
+					errors.New(`failed to send POST request: failed to send request: Post "EDVServerURL/vaultID/query":`+
+						` unsupported protocol scheme ""`))).Error())
+	})
+	t.Run(`Fail to get all full documents via query: fail to compute store index value MAC`, func(t *testing.T) {
+		provider := createRESTProvider("EDVServerURL", t, true)
+		provider.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		itr := store.Iterator("Start key doesn't matter", "End key doesn't matter")
+		require.EqualError(t, itr.Error(),
+			fmt.Errorf(failGetAllFullDocumentsViaQuery,
+				fmt.Errorf(failComputeBase64EncodedStoreIndexValueMAC,
+					fmt.Errorf(failComputeMACStoreIndexValue, errTest))).Error())
 	})
 	t.Run("Fail to get all original key document pairs", func(t *testing.T) {
 		queryResults := make([]string, 0)

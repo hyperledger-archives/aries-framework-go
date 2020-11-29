@@ -102,22 +102,49 @@ func (o *MockServerOperation) mockReadDocumentHandler(rw http.ResponseWriter, re
 	}
 }
 
-// Always returns all the document IDs.
-func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, _ *http.Request) {
+// Always returns all the document IDs or full documents depending on the ReturnFullDocuments field in the query.
+func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, req *http.Request) {
 	rw.WriteHeader(o.QueryVaultReturnStatusCode)
 
+	requestBody, err := ioutil.ReadAll(req.Body)
+	require.NoError(o.T, err)
+
+	var incomingQuery models.Query
+
+	err = json.Unmarshal(requestBody, &incomingQuery)
+	require.NoError(o.T, err)
+
 	if o.UseDB && o.QueryVaultReturnStatusCode == http.StatusOK && o.QueryVaultReturnBody == nil {
-		allDocumentLocations := make([]string, 0)
+		if incomingQuery.ReturnFullDocuments {
+			var allDocuments []models.EncryptedDocument
 
-		for docID := range o.DB {
-			allDocumentLocations = append(allDocumentLocations, "SomeURLPart/"+docID)
+			for _, documentBytes := range o.DB {
+				var document models.EncryptedDocument
+
+				err := json.Unmarshal(documentBytes, &document)
+				require.NoError(o.T, err)
+
+				allDocuments = append(allDocuments, document)
+			}
+
+			allDocumentsBytes, err := json.Marshal(allDocuments)
+			require.NoError(o.T, err)
+
+			_, err = rw.Write(allDocumentsBytes)
+			require.NoError(o.T, err)
+		} else {
+			allDocumentLocations := make([]string, 0)
+
+			for docID := range o.DB {
+				allDocumentLocations = append(allDocumentLocations, "SomeURLPart/"+docID)
+			}
+
+			allDocumentLocationsBytes, err := json.Marshal(allDocumentLocations)
+			require.NoError(o.T, err)
+
+			_, err = rw.Write(allDocumentLocationsBytes)
+			require.NoError(o.T, err)
 		}
-
-		allDocumentLocationsBytes, err := json.Marshal(allDocumentLocations)
-		require.NoError(o.T, err)
-
-		_, err = rw.Write(allDocumentLocationsBytes)
-		require.NoError(o.T, err)
 	} else {
 		_, err := rw.Write(o.QueryVaultReturnBody)
 		require.NoError(o.T, err)
