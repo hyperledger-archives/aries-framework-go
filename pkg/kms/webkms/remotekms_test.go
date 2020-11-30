@@ -31,15 +31,14 @@ import (
 )
 
 const (
-	certPrefix    = "../../didcomm/transport/http/testdata/crypto/"
-	clientTimeout = 5 * time.Second
+	certPrefix        = "../../didcomm/transport/http/testdata/crypto/"
+	clientTimeout     = 5 * time.Second
+	controller        = "did:example:123456789"
+	defaultKeyStoreID = "12345"
+	defaultKID        = "99999"
 )
 
 func TestRemoteKeyStore(t *testing.T) {
-	controller := "did:example:123456789"
-	defaultKeyStoreID := "12345"
-	defaultKID := "99999"
-
 	secret := make([]byte, 10)
 	_, err := rand.Read(secret)
 	require.NoError(t, err)
@@ -103,8 +102,7 @@ func TestRemoteKeyStore(t *testing.T) {
 			" \"``#$%/keys\": invalid URL escape \"%/k\"]")
 	})
 
-	t.Run("New, Create, Get and export success, all other functions not implemented should "+
-		"fail", func(t *testing.T) {
+	t.Run("New, Create, Get and export success, all other functions not implemented should fail", func(t *testing.T) {
 		remoteKMS := New(defaultKeystoreURL, client)
 
 		kid, keyURL, err := remoteKMS.Create(kms.ED25519Type)
@@ -177,11 +175,39 @@ func TestRemoteKeyStore(t *testing.T) {
 	})
 }
 
-func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
-	controller := "did:example:123456789"
-	defaultKeyStoreID := "12345"
-	defaultKID := "99999"
+func TestCreateKeyWithLocationInResponseBody(t *testing.T) {
+	secret := make([]byte, 10)
+	_, err := rand.Read(secret)
+	require.NoError(t, err)
 
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err = processPOSTRequestForCreateWithResponseBody(w, r, defaultKeyStoreID, defaultKID)
+		require.NoError(t, err)
+	})
+
+	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(KeystoreEndpoint,
+		"{serverEndpoint}", url), defaultKeyStoreID)
+
+	defer func() {
+		e := server.Close()
+		require.NoError(t, e)
+	}()
+
+	remoteKMS := New(defaultKeystoreURL, client)
+
+	kid1, keyURL1, err := remoteKMS.Create(kms.ED25519Type)
+	require.NoError(t, err)
+	require.Equal(t, defaultKID, kid1)
+	require.Contains(t, keyURL1, fmt.Sprintf("%s/keys/%s", defaultKeystoreURL, defaultKID))
+
+	remoteKMS.unmarshalFunc = failingUnmarshal
+	_, _, err = remoteKMS.Create(kms.ED25519Type)
+	require.Contains(t, err.Error(), "unmarshal key for Create failed")
+	require.Contains(t, err.Error(), "failingUnmarshal always fails")
+}
+
+func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	secret := make([]byte, 10)
 	_, err := rand.Read(secret)
 	require.NoError(t, err)
@@ -262,6 +288,38 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 	if strings.LastIndex(r.URL.Path, "/export") == len(r.URL.Path)-len("/export") {
 		resp := &exportKeyResp{
 			KeyBytes: defaultExportPubKey,
+		}
+
+		mResp, err := json.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		_, err = w.Write(mResp)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processPOSTRequestForCreateWithResponseBody(w http.ResponseWriter, r *http.Request, keysetID, kid string) error {
+	if valid := validateHTTPMethod(w, r); !valid {
+		return errors.New("http method invalid")
+	}
+
+	if valid := validatePostPayload(r, w); !valid {
+		return errors.New("http request body invalid")
+	}
+
+	locationHeaderURL := "https://" + r.Host + "/kms/keystores/" + keysetID
+
+	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
+		locationHeaderURL += "/keys/" + kid
+
+		resp := &createResp{
+			Location: locationHeaderURL,
 		}
 
 		mResp, err := json.Marshal(resp)

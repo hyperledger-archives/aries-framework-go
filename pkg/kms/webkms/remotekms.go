@@ -43,6 +43,10 @@ type createKeyReq struct {
 	KeyType string `json:"keyType,omitempty"`
 }
 
+type createResp struct {
+	Location string `json:"location,omitempty"`
+}
+
 type exportKeyResp struct {
 	KeyBytes string `json:"publicKey,omitempty"`
 }
@@ -209,6 +213,25 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 
 	kidURL := resp.Header.Get(LocationHeader)
 	kid := kidURL[strings.LastIndex(kidURL, "/")+1:]
+
+	if kidURL == "" {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", nil, fmt.Errorf("read key response for Create failed [%s, %w]", destination, err)
+		}
+
+		httpResp := &createResp{}
+
+		err = r.unmarshalFunc(respBody, httpResp)
+		if err != nil {
+			return "", nil, fmt.Errorf("unmarshal key for Create failed [%s, %w]", destination, err)
+		}
+
+		logger.Infof("received resp body: %s", httpResp)
+
+		kidURL = httpResp.Location
+		kid = kidURL[strings.LastIndex(kidURL, "/")+1:]
+	}
 
 	return kid, kidURL, nil
 }
