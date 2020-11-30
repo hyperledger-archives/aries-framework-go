@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 )
 
 const (
-	failGenerateEDVCompatibleID   = "failed to generate EDV compatible ID: %w"
 	failMarshalStructuredDocument = "failed to marshal structured document into bytes: %w"
 	failEncryptStructuredDocument = "failed to encrypt structured document into JWE form: %w"
 	failJWESerialize              = "failed to serialize JWE: %w"
@@ -46,19 +44,20 @@ type marshalFunc func(interface{}) ([]byte, error)
 // EncryptedFormatter uses Aries crypto to encrypt and decrypt between
 // Structured Documents and Encrypted Documents.
 type EncryptedFormatter struct {
-	jweEncrypter    jose.Encrypter
-	jweDecrypter    jose.Decrypter
-	marshal         marshalFunc
-	randomBytesFunc generateRandomBytesFunc
+	jweEncrypter jose.Encrypter
+	jweDecrypter jose.Decrypter
+	marshal      marshalFunc
+	macCrypto    *MACCrypto
 }
 
 // NewEncryptedFormatter returns a new instance of an EncryptedFormatter.
-func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decrypter) *EncryptedFormatter {
+func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decrypter,
+	macCrypto *MACCrypto) *EncryptedFormatter {
 	return &EncryptedFormatter{
-		jweEncrypter:    jweEncrypter,
-		jweDecrypter:    jweDecrypter,
-		marshal:         json.Marshal,
-		randomBytesFunc: rand.Read,
+		jweEncrypter: jweEncrypter,
+		jweDecrypter: jweDecrypter,
+		marshal:      json.Marshal,
+		macCrypto:    macCrypto,
 	}
 }
 
@@ -68,9 +67,9 @@ func (f *EncryptedFormatter) FormatPair(k string, v []byte) ([]byte, error) {
 	content[originalKeyContentKey] = k
 	content[payloadContentKey] = string(v)
 
-	structuredDocumentID, err := generateEDVCompatibleID(f.randomBytesFunc)
+	structuredDocumentID, err := f.GenerateEDVCompatibleID(k)
 	if err != nil {
-		return nil, fmt.Errorf(failGenerateEDVCompatibleID, err)
+		return nil, err
 	}
 
 	structuredDocument := models.StructuredDocument{
@@ -167,15 +166,12 @@ func (f *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
 	return structuredDocument, nil
 }
 
-type generateRandomBytesFunc func([]byte) (int, error)
-
-func generateEDVCompatibleID(generateRandomBytes generateRandomBytesFunc) (string, error) {
-	randomBytes := make([]byte, 16)
-
-	_, err := generateRandomBytes(randomBytes)
+// GenerateEDVCompatibleID generate edv compatible id.
+func (f *EncryptedFormatter) GenerateEDVCompatibleID(k string) (string, error) {
+	hashKey, err := f.macCrypto.ComputeMAC(k)
 	if err != nil {
 		return "", err
 	}
 
-	return base58.Encode(randomBytes), nil
+	return base58.Encode([]byte(hashKey[0:16])), nil
 }
