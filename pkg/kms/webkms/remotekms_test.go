@@ -99,7 +99,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 		tmpKMS = New("``#$%", blankClient)
 		_, _, err = tmpKMS.Create(kms.ED25519Type)
-		require.EqualError(t, err, "posting Create key failed [``#$%/keys, build request error: parse"+
+		require.EqualError(t, err, "posting Create key failed [``#$%/keys, build post request error: parse"+
 			" \"``#$%/keys\": invalid URL escape \"%/k\"]")
 	})
 
@@ -142,6 +142,16 @@ func TestRemoteKeyStore(t *testing.T) {
 			_, err = remoteKMS3.ExportPubKeyBytes(kid1)
 			require.Contains(t, err.Error(), "unmarshal key for ExportPubKeyBytes failed")
 			require.Contains(t, err.Error(), "failingUnmarshal always fails")
+
+			remoteKMS3.unmarshalFunc = json.Unmarshal
+
+			t.Logf("kid1 : %v", kid1)
+
+			// test GET http function failure
+			remoteKMS3.keystoreURL = "``#$%"
+			_, err = remoteKMS3.ExportPubKeyBytes(kid1)
+			require.Contains(t, err.Error(), "posting GET ExportPubKeyBytes key failed")
+			require.Contains(t, err.Error(), "build get request error")
 		})
 
 		nKID, _, err := remoteKMS.CreateAndExportPubKeyBytes(kms.AES128GCMType)
@@ -153,7 +163,7 @@ func TestRemoteKeyStore(t *testing.T) {
 			remoteKMS2 := New(defaultKeystoreURL, blankClient)
 
 			_, err = remoteKMS2.ExportPubKeyBytes(kid)
-			require.Contains(t, err.Error(), "posting ExportPubKeyBytes key failed")
+			require.Contains(t, err.Error(), "posting GET ExportPubKeyBytes key failed")
 		})
 
 		_, _, err = remoteKMS.Rotate(kms.AES128GCMType, "")

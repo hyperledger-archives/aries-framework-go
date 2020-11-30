@@ -148,9 +148,21 @@ func (r *RemoteKMS) getHTTPRequest(destination string) (*http.Response, error) {
 }
 
 func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*http.Response, error) {
-	httpReq, err := http.NewRequest(method, destination, bytes.NewBuffer(mReq))
-	if err != nil {
-		return nil, fmt.Errorf("build request error: %w", err)
+	var (
+		httpReq *http.Request
+		err     error
+	)
+
+	if mReq != nil {
+		httpReq, err = http.NewRequest(method, destination, bytes.NewBuffer(mReq))
+		if err != nil {
+			return nil, fmt.Errorf("build post request error: %w", err)
+		}
+	} else {
+		httpReq, err = http.NewRequest(method, destination, nil)
+		if err != nil {
+			return nil, fmt.Errorf("build get request error: %w", err)
+		}
 	}
 
 	if method == http.MethodPost {
@@ -235,7 +247,7 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 
 	resp, err := r.getHTTPRequest(destination)
 	if err != nil {
-		return nil, fmt.Errorf("posting ExportPubKeyBytes key failed [%s, %w]", destination, err)
+		return nil, fmt.Errorf("posting GET ExportPubKeyBytes key failed [%s, %w]", destination, err)
 	}
 
 	// handle response
