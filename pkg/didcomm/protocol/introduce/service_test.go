@@ -1653,7 +1653,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
 		_, err = svc.HandleInbound(msg, "", "")
-		require.EqualError(t, err, "doHandle: get record: test err")
+		require.EqualError(t, err, "populate metadata: get record: test err")
 	})
 
 	t.Run("Bad transition", func(t *testing.T) {

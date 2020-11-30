@@ -342,3 +342,70 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		require.Contains(t, err.Error(), errMsg)
 	})
 }
+
+func TestMessenger_ReplyToMsg(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("success", func(t *testing.T) {
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(sendToDIDCheck(t, jsonID, jsonThreadID, jsonParentThreadID))
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(outbound)
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+		require.NoError(t, msgr.ReplyToMsg(service.DIDCommMsgMap{
+			jsonID:     "id",
+			jsonThread: map[string]interface{}{jsonThreadID: "thID", jsonParentThreadID: "pthID"},
+		}, service.DIDCommMsgMap{}, "", ""))
+	})
+
+	t.Run("success msg without id", func(t *testing.T) {
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(sendToDIDCheck(t, jsonID, jsonThreadID))
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(outbound)
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+
+		require.NoError(t, msgr.ReplyToMsg(service.DIDCommMsgMap{
+			jsonID:     "id",
+			jsonThread: map[string]interface{}{jsonThreadID: "thID"},
+		}, service.DIDCommMsgMap{}, "", ""))
+	})
+
+	t.Run("invalid message", func(t *testing.T) {
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(outbound)
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+
+		require.EqualError(t, msgr.ReplyToMsg(service.DIDCommMsgMap{
+			jsonThread: map[string]interface{}{jsonThreadID: "thID"},
+		}, service.DIDCommMsgMap{}, "", ""), "get threadID: invalid message")
+	})
+}

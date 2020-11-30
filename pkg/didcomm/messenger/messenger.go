@@ -142,6 +142,33 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 	return m.dispatcher.SendToDID(msg, rec.MyDID, rec.TheirDID)
 }
 
+// ReplyToMsg replies to the given message.
+// The function adds ~thread decorator to the message according to the given msgID.
+// Do not provide a message with ~thread decorator. It will be rewritten.
+func (m *Messenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string) error {
+	// fills missing fields
+	fillIfMissing(out)
+
+	thID, err := in.ThreadID()
+	if err != nil {
+		return fmt.Errorf("get threadID: %w", err)
+	}
+
+	// sets threadID
+	thread := map[string]interface{}{
+		jsonThreadID: thID,
+	}
+
+	// sets parent threadID
+	if in.ParentThreadID() != "" {
+		thread[jsonParentThreadID] = in.ParentThreadID()
+	}
+
+	out[jsonThread] = thread
+
+	return m.dispatcher.SendToDID(out, myDID, theirDID)
+}
+
 // ReplyToNested sends the message by starting a new thread.
 // Do not provide a message with ~thread decorator. It will be rewritten.
 // The function adds ~thread decorator to the message according to the given threadID.
@@ -199,12 +226,12 @@ func (m *Messenger) fillNestedReplyOption(opts *service.NestedReplyOpts) error {
 		return nil
 	}
 
-	if opts.MsgID == "" {
+	if opts.MsgID == "" { // nolint: staticcheck
 		logger.Debugf("failed to prepare fill nested reply options, missing message ID")
 		return nil
 	}
 
-	rec, err := m.getRecord(opts.MsgID)
+	rec, err := m.getRecord(opts.MsgID) // nolint: staticcheck
 	if err != nil {
 		return err
 	}

@@ -94,7 +94,7 @@ func (d *messagingSDKSteps) sendMessageReply(fromAgentID, toAgentID, msgID strin
 	logger.Debugf("Sending message from [%s] to [%s], message ID[%s], message:[%v]", fromAgentID, toAgentID, msgID, msg)
 
 	// send message
-	err := messenger.ReplyTo(msgID, msg)
+	err := messenger.ReplyTo(msgID, msg) // nolint: staticcheck
 	if err != nil {
 		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
 	}

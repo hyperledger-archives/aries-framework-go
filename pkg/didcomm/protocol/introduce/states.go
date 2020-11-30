@@ -213,7 +213,7 @@ func sendProposals(messenger service.Messenger, md *metaData) error {
 				return fmt.Errorf("save metadata: %w", err)
 			}
 
-			err = messenger.ReplyTo(md.Msg.ID(), proposal)
+			err = messenger.ReplyToMsg(md.Msg, proposal, md.MyDID, md.TheirDID)
 		} else {
 			if err = md.saveMetadata(proposal, proposal.ID()); err != nil {
 				return fmt.Errorf("save metadata: %w", err)
@@ -367,7 +367,7 @@ func (s *confirming) ExecuteInbound(messenger service.Messenger, md *metaData) (
 		break
 	}
 
-	return &done{}, func() error { return messenger.ReplyTo(p.MessageID, msgMap) }, nil
+	return &done{}, func() error { return messenger.ReplyToMsg(p.Message, msgMap, md.MyDID, p.TheirDID) }, nil
 }
 
 func (s *confirming) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
@@ -496,12 +496,12 @@ func (s *deciding) ExecuteInbound(messenger service.Messenger, md *metaData) (st
 			}
 		}
 
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(Response{
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(Response{
 			Type:        ResponseMsgType,
 			OOBMessage:  msg,
 			Approve:     !md.rejected,
 			Attachments: attch,
-		}))
+		}), md.MyDID, md.TheirDID)
 	}, nil
 }
 

@@ -277,7 +277,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}
 
 	if err := s.populateMetadata(msg.(service.DIDCommMsgMap)); err != nil {
-		return "", fmt.Errorf("doHandle: %w", err)
+		return "", fmt.Errorf("populate metadata: %w", err)
 	}
 
 	md, err := s.doHandle(msg, false)
@@ -660,7 +660,7 @@ func contextOOBMessage(msg service.DIDCommMsg) map[string]interface{} {
 type participant struct {
 	OOBMessage map[string]interface{}
 	Approve    bool
-	MessageID  string
+	Message    service.DIDCommMsgMap
 	MyDID      string
 	TheirDID   string
 	ThreadID   string
@@ -675,7 +675,7 @@ func (s *Service) saveResponse(md *metaData) error {
 
 	// checks whether response was already handled
 	for _, p := range md.participants {
-		if p.MessageID == md.Msg.ID() {
+		if p.Message.ID() == md.Msg.ID() {
 			return nil
 		}
 	}
@@ -693,7 +693,7 @@ func (s *Service) saveResponse(md *metaData) error {
 	err = s.saveParticipant(md.PIID, &participant{
 		OOBMessage: r.OOBMessage,
 		Approve:    r.Approve,
-		MessageID:  md.Msg.ID(),
+		Message:    md.Msg,
 		MyDID:      md.MyDID,
 		TheirDID:   md.TheirDID,
 		ThreadID:   thID,

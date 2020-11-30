@@ -281,7 +281,7 @@ func TestRequestSent_Execute(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
 	})
@@ -354,7 +354,7 @@ func TestPresentationSent_Execute(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
 	})
@@ -370,7 +370,7 @@ func TestPresentationSent_Execute(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
 	})
@@ -415,7 +415,7 @@ func TestPresentationReceived_Execute(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
 	})
@@ -464,7 +464,7 @@ func TestProposePresentationSent_Execute(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
 	})

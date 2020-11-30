@@ -152,14 +152,17 @@ func TestNewProvider(t *testing.T) {
 			Return(errTest).
 			Times(1)
 
+		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+
 		ctx, err := New(
-			WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{}),
-			WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessageServiceProvider(mockMsgHandler),
 			WithMessengerHandler(messengerHandler),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 		require.NotEmpty(t, ctx.Messenger())
+
+		require.NoError(t, mockMsgHandler.Register(&generic.MockMessageSvc{}))
 
 		inboundHandler := ctx.InboundMessageHandler()
 

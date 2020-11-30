@@ -218,7 +218,7 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 
 	return &noOp{}, func(messenger service.Messenger) error {
 		md.request.Type = RequestPresentationMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.request))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.request), md.MyDID, md.TheirDID)
 	}, nil
 }
 
@@ -245,7 +245,7 @@ func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
 	action := func(messenger service.Messenger) error {
 		// sets message type
 		md.presentation.Type = PresentationMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.presentation))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.presentation), md.MyDID, md.TheirDID)
 	}
 
 	if !s.WillConfirm {
@@ -274,9 +274,9 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
 			Type: AckMsgType,
-		}))
+		}), md.MyDID, md.TheirDID)
 	}
 
 	return &done{}, action, nil
@@ -310,7 +310,7 @@ func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
 
 	return &noOp{}, func(messenger service.Messenger) error {
 		md.proposePresentation.Type = ProposePresentationMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.proposePresentation))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposePresentation), md.MyDID, md.TheirDID)
 	}, nil
 }
 
