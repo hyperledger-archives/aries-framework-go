@@ -300,8 +300,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &OfferCredential{}
@@ -360,8 +360,8 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &OfferCredential{}
@@ -514,8 +514,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Proposal", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &ProposeCredential{}
@@ -570,8 +570,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Request", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &RequestCredential{}
@@ -627,8 +627,8 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 		attachment := []decorator.Attachment{{ID: "ID1"}, {ID: "ID2"}}
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &RequestCredential{}
@@ -743,8 +743,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Request Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &IssueCredential{}
@@ -893,8 +893,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Issue Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &model.Ack{}

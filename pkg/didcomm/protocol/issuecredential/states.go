@@ -208,7 +208,7 @@ func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
 	action := func(messenger service.Messenger) error {
 		// sets message type.
 		md.offerCredential.Type = OfferCredentialMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.offerCredential))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredential), md.MyDID, md.TheirDID)
 	}
 
 	return &noOp{}, action, nil
@@ -243,7 +243,7 @@ func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, erro
 	action := func(messenger service.Messenger) error {
 		// sets message type
 		md.issueCredential.Type = IssueCredentialMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.issueCredential))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredential), md.MyDID, md.TheirDID)
 	}
 
 	return &credentialIssued{}, action, nil
@@ -292,7 +292,7 @@ func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) 
 	action := func(messenger service.Messenger) error {
 		// sets message type
 		md.proposeCredential.Type = ProposeCredentialMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.proposeCredential))
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredential), md.MyDID, md.TheirDID)
 	}
 
 	return &noOp{}, action, nil
@@ -333,10 +333,10 @@ func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error)
 
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(RequestCredential{
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(RequestCredential{
 			Type:           RequestCredentialMsgType,
 			RequestsAttach: offer.OffersAttach,
-		}))
+		}), md.MyDID, md.TheirDID)
 	}
 
 	return &requestSent{}, action, nil
@@ -384,9 +384,9 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
 			Type: AckMsgType,
-		}))
+		}), md.MyDID, md.TheirDID)
 	}
 
 	return &done{}, action, nil

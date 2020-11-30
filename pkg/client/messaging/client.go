@@ -212,7 +212,7 @@ func (c *Client) Reply(ctx context.Context, msg json.RawMessage, msgID string, s
 	}
 
 	action = func() error {
-		return c.ctx.Messenger().ReplyTo(msgID, didCommMsg)
+		return c.ctx.Messenger().ReplyTo(msgID, didCommMsg) // nolint: staticcheck
 	}
 
 	return c.sendAndWaitForReply(ctx, action, "", waitForResponse)

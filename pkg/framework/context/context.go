@@ -168,7 +168,9 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Type()) {
-				return p.tryToHandle(svc, msg, myDID, theirDID)
+				_, err = svc.HandleInbound(msg, myDID, theirDID)
+
+				return err
 			}
 		}
 

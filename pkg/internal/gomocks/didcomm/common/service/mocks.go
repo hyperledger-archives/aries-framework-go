@@ -235,6 +235,20 @@ func (mr *MockMessengerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessenger)(nil).ReplyTo), arg0, arg1)
 }
 
+// ReplyToMsg mocks base method
+func (m *MockMessenger) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplyToMsg", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplyToMsg indicates an expected call of ReplyToMsg
+func (mr *MockMessengerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessenger)(nil).ReplyToMsg), arg0, arg1, arg2, arg3)
+}
+
 // ReplyToNested mocks base method
 func (m *MockMessenger) ReplyToNested(arg0 service.DIDCommMsgMap, arg1 *service.NestedReplyOpts) error {
 	m.ctrl.T.Helper()
@@ -326,6 +340,20 @@ func (m *MockMessengerHandler) ReplyTo(arg0 string, arg1 service.DIDCommMsgMap) 
 func (mr *MockMessengerHandlerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyTo), arg0, arg1)
+}
+
+// ReplyToMsg mocks base method
+func (m *MockMessengerHandler) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplyToMsg", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplyToMsg indicates an expected call of ReplyToMsg
+func (mr *MockMessengerHandlerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyToMsg), arg0, arg1, arg2, arg3)
 }
 
 // ReplyToNested mocks base method

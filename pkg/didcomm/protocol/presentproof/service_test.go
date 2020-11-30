@@ -400,8 +400,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Request Presentation (continue with presentation)", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &Presentation{}
@@ -466,8 +466,8 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger)
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &Presentation{}
@@ -553,8 +553,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Request Presentation (continue with proposal)", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &ProposePresentation{}
@@ -612,8 +612,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Propose Presentation (continue)", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				defer close(done)
 
 				r := &RequestPresentation{}
@@ -826,8 +826,8 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Presentation (continue)", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
-			Do(func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				r := &model.Ack{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, AckMsgType, r.Type)

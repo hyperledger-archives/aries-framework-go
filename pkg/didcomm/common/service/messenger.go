@@ -31,7 +31,14 @@ type Messenger interface {
 	// ReplyTo replies to the message by given msgID.
 	// Keeps threadID in the *decorator.Thread.
 	// Using this function means that communication will be on the same thread.
+	//
+	// Deprecated: Please do not use it anymore. The function can be removed in future release.
 	ReplyTo(msgID string, msg DIDCommMsgMap) error
+
+	// ReplyToMsg replies to the given message.
+	// Keeps threadID in the *decorator.Thread.
+	// Using this function means that communication will be on the same thread.
+	ReplyToMsg(in, out DIDCommMsgMap, myDID, theirDID string) error
 
 	// Send sends the message by starting a new thread.
 	Send(msg DIDCommMsgMap, myDID, theirDID string) error
@@ -64,5 +71,7 @@ type NestedReplyOpts struct {
 	TheirDID string
 	// MsgID to which nested reply to be sent,
 	// optional when all the above parameters are provided.
+	//
+	// Deprecated: Please do not use it anymore. The field can be removed in future release.
 	MsgID string
 }

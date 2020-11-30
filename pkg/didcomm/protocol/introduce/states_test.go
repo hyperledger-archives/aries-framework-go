@@ -256,7 +256,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 
 	t.Run("handles inbound message", func(t *testing.T) {
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
 			transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
@@ -272,8 +272,8 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 			ID: uuid.New().String(),
 		}
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ string, msg service.DIDCommMsgMap) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_, msg service.DIDCommMsgMap, _, _ string) error {
 				result := &Response{}
 				err := msg.Decode(result)
 				require.NoError(t, err)
@@ -294,7 +294,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 
 	t.Run("fails if attachments used improperly", func(t *testing.T) {
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).MaxTimes(0)
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(0)
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		msg.Metadata()[metaAttachment] = []struct{}{}
 		_, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
@@ -406,7 +406,7 @@ func Test_sendProposals(t *testing.T) {
 	defer ctrl.Finish()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+	messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 	msg := service.NewDIDCommMsgMap(struct{}{})
 	require.NoError(t, msg.SetID(uuid.New().String()))
