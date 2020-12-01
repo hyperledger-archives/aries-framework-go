@@ -71,32 +71,26 @@ func TestRESTProvider_Batch(t *testing.T) {
 
 	upsertNewDoc1 := models.VaultOperation{
 		Operation:         models.UpsertDocumentVaultOperation,
-		DocumentID:        docID1,
-		EncryptedDocument: models.EncryptedDocument{},
+		EncryptedDocument: models.EncryptedDocument{ID: docID1},
 	}
 
 	upsertNewDoc2 := models.VaultOperation{
 		Operation:         models.UpsertDocumentVaultOperation,
-		DocumentID:        docID2,
-		EncryptedDocument: models.EncryptedDocument{},
+		EncryptedDocument: models.EncryptedDocument{ID: docID2},
 	}
 
 	upsertExistingDoc1 := models.VaultOperation{
 		Operation:         models.UpsertDocumentVaultOperation,
-		DocumentID:        docID1,
-		EncryptedDocument: models.EncryptedDocument{},
+		EncryptedDocument: models.EncryptedDocument{ID: docID1},
 	}
 
 	deleteExistingDoc1 := models.VaultOperation{
-		Operation:         models.DeleteDocumentVaultOperation,
-		DocumentID:        docID1,
-		EncryptedDocument: models.EncryptedDocument{},
+		Operation:  models.DeleteDocumentVaultOperation,
+		DocumentID: docID1,
 	}
 
 	invalidOperation := models.VaultOperation{
-		Operation:         "invalidOperationName",
-		DocumentID:        docID1,
-		EncryptedDocument: models.EncryptedDocument{},
+		Operation: "invalidOperationName",
 	}
 
 	t.Run("Success: upsert,upsert,upsert", func(t *testing.T) {
