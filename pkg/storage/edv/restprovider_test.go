@@ -65,6 +65,103 @@ func TestRESTProvider_Close(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRESTProvider_Batch(t *testing.T) {
+	docID1 := "AJYHHJx4C8J9Fsgz7rZqAE"
+	docID2 := "BJYHHJx4C8J9Fsgz7rZqAE"
+
+	upsertNewDoc1 := models.VaultOperation{
+		Operation:         models.UpsertDocumentVaultOperation,
+		DocumentID:        docID1,
+		EncryptedDocument: models.EncryptedDocument{},
+	}
+
+	upsertNewDoc2 := models.VaultOperation{
+		Operation:         models.UpsertDocumentVaultOperation,
+		DocumentID:        docID2,
+		EncryptedDocument: models.EncryptedDocument{},
+	}
+
+	upsertExistingDoc1 := models.VaultOperation{
+		Operation:         models.UpsertDocumentVaultOperation,
+		DocumentID:        docID1,
+		EncryptedDocument: models.EncryptedDocument{},
+	}
+
+	deleteExistingDoc1 := models.VaultOperation{
+		Operation:         models.DeleteDocumentVaultOperation,
+		DocumentID:        docID1,
+		EncryptedDocument: models.EncryptedDocument{},
+	}
+
+	invalidOperation := models.VaultOperation{
+		Operation:         "invalidOperationName",
+		DocumentID:        docID1,
+		EncryptedDocument: models.EncryptedDocument{},
+	}
+
+	t.Run("Success: upsert,upsert,upsert", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:  t,
+			DB: make(map[string][]byte),
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(edvSrv.URL, t, false)
+
+		batch := models.Batch{upsertNewDoc1, upsertNewDoc2, upsertExistingDoc1}
+
+		err := provider.Batch(&batch)
+		require.NoError(t, err)
+	})
+	t.Run("Success: upsert,upsert,delete", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:  t,
+			DB: make(map[string][]byte),
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(edvSrv.URL, t, false)
+
+		batch := models.Batch{upsertNewDoc1, upsertNewDoc2, deleteExistingDoc1}
+
+		err := provider.Batch(&batch)
+		require.NoError(t, err)
+	})
+	t.Run("Failure: upsert,delete,invalidOperationName", func(t *testing.T) {
+		mockEDVServerOperation := edv.MockServerOperation{
+			T:  t,
+			DB: make(map[string][]byte),
+		}
+		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
+		defer edvSrv.Close()
+
+		provider := createRESTProvider(edvSrv.URL, t, false)
+
+		batch := models.Batch{upsertNewDoc1, deleteExistingDoc1, invalidOperation}
+
+		err := provider.Batch(&batch)
+		require.EqualError(t, err,
+			fmt.Errorf(failBatchInEDVServer,
+				fmt.Errorf(failResponseFromEDVServer, http.StatusBadRequest,
+					`["mockServerBaseURL/AJYHHJx4C8J9Fsgz7rZqAE","",`+
+						`"invalidOperationName is not a valid vault operation"]`)).Error())
+	})
+	t.Run("Failure: invalid URL", func(t *testing.T) {
+		provider := createRESTProvider("EDVServerURL", t, false)
+
+		batch := models.Batch{upsertNewDoc1, upsertNewDoc2, upsertExistingDoc1}
+
+		err := provider.Batch(&batch)
+		// Can't use actual error message constants since it would require doing error.New() with a string that
+		// starts with a capital letter, which causes warnings
+		require.EqualError(t, err, `failed to do batch operations in EDV server: `+
+			`failed to send POST request: failed to send request: Post "EDVServerURL/vaultID/batch": `+
+			`unsupported protocol scheme ""`)
+	})
+}
+
 func TestRestStore_Put(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		queryResults := make([]string, 0)
@@ -115,7 +212,7 @@ func TestRestStore_Put(t *testing.T) {
 		store, err := provider.OpenStore("StoreName")
 		require.NoError(t, err)
 		require.NotNil(t, store)
-		s, ok := store.(*restStore)
+		s, ok := store.(*RESTStore)
 		require.True(t, ok)
 		s.restClient.headersFunc = func(req *http.Request) (*http.Header, error) {
 			return nil, fmt.Errorf("failed to add header")
@@ -172,8 +269,9 @@ func TestRestStore_Put(t *testing.T) {
 		err = store.Put(testKey, []byte("this can't be unmarshalled to an EncryptedDocument"))
 		require.EqualError(t, err,
 			fmt.Errorf(failStoreEDVDocument,
-				fmt.Errorf(failUnmarshalValueIntoEncryptedDocument,
-					errors.New("invalid character 'h' in literal true (expecting 'r')"))).Error())
+				fmt.Errorf(failAddEncryptedIndices,
+					fmt.Errorf(failUnmarshalValueIntoEncryptedDocument,
+						errors.New("invalid character 'h' in literal true (expecting 'r')")))).Error())
 	})
 	t.Run("Receive error response from EDV server's create document endpoint", func(t *testing.T) {
 		queryResults := make([]string, 0)
@@ -819,7 +917,7 @@ func TestRestStore_Delete(t *testing.T) {
 
 func TestRestStore_CreateEDVDocument(t *testing.T) {
 	t.Run("Fail to create indexed attributes", func(t *testing.T) {
-		store := &restStore{macCrypto: NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})}
+		store := &RESTStore{macCrypto: NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})}
 
 		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
 
@@ -828,8 +926,9 @@ func TestRestStore_CreateEDVDocument(t *testing.T) {
 
 		err = store.createEDVDocument(testKey, encryptedDocumentBytes, "")
 		require.EqualError(t, err,
-			fmt.Errorf(failCreateIndexedAttributes,
-				fmt.Errorf(failComputeMACStoreIndexValue, errTest)).Error())
+			fmt.Errorf(failAddEncryptedIndices,
+				fmt.Errorf(failCreateIndexedAttributes,
+					fmt.Errorf(failComputeMACStoreIndexValue, errTest))).Error())
 	})
 }
 
