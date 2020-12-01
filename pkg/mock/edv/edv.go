@@ -8,10 +8,12 @@ package edv
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -24,6 +26,7 @@ const (
 	vaultIDPathVariable    = "vaultID"
 	docIDPathVariable      = "docID"
 	queryVaultEndpoint     = "/{" + vaultIDPathVariable + "}/query"
+	batchEndpoint          = "/{" + vaultIDPathVariable + "}/batch"
 	createDocumentEndpoint = "/{" + vaultIDPathVariable + "}/documents"
 	readDocumentEndpoint   = "/{" + vaultIDPathVariable + "}/documents/{" + docIDPathVariable + "}"
 	deleteDocumentEndpoint = readDocumentEndpoint
@@ -56,6 +59,7 @@ func (o *MockServerOperation) StartNewMockEDVServer() *httptest.Server {
 	router.HandleFunc(createDocumentEndpoint, o.mockCreateDocumentHandler).Methods(http.MethodPost)
 	router.HandleFunc(readDocumentEndpoint, o.mockReadDocumentHandler).Methods(http.MethodGet)
 	router.HandleFunc(queryVaultEndpoint, o.mockQueryVaultHandler).Methods(http.MethodPost)
+	router.HandleFunc(batchEndpoint, o.mockBatchHandler).Methods(http.MethodPost)
 	router.HandleFunc(deleteDocumentEndpoint, o.mockDeleteDocumentHandler).Methods(http.MethodDelete)
 	router.HandleFunc(updateDocumentEndpoint, o.mockUpdateDocumentHandler).Methods(http.MethodPost)
 
@@ -149,6 +153,48 @@ func (o *MockServerOperation) mockQueryVaultHandler(rw http.ResponseWriter, req 
 		_, err := rw.Write(o.QueryVaultReturnBody)
 		require.NoError(o.T, err)
 	}
+}
+
+func (o *MockServerOperation) mockBatchHandler(rw http.ResponseWriter, req *http.Request) {
+	requestBody, err := ioutil.ReadAll(req.Body)
+	require.NoError(o.T, err)
+
+	var incomingBatch models.Batch
+
+	err = json.Unmarshal(requestBody, &incomingBatch)
+	require.NoError(o.T, err)
+
+	responses := make([]string, len(incomingBatch))
+
+	statusCode := http.StatusOK
+
+loopOverOperations:
+	for i, vaultOperation := range incomingBatch {
+		switch {
+		case strings.EqualFold(vaultOperation.Operation, models.UpsertDocumentVaultOperation):
+			encryptedDocumentBytes, errMarshal := json.Marshal(vaultOperation.EncryptedDocument)
+			require.NoError(o.T, errMarshal)
+
+			o.DB[vaultOperation.DocumentID] = encryptedDocumentBytes
+			responses[i] = "mockServerBaseURL/" + vaultOperation.DocumentID
+		case strings.EqualFold(vaultOperation.Operation, models.DeleteDocumentVaultOperation):
+			delete(o.DB, vaultOperation.DocumentID)
+		default:
+			errInvalidOperation := fmt.Errorf("%s is not a valid vault operation", vaultOperation.Operation)
+			responses[i] = errInvalidOperation.Error()
+			statusCode = http.StatusBadRequest
+
+			break loopOverOperations
+		}
+	}
+
+	rw.WriteHeader(statusCode)
+
+	responsesBytes, err := json.Marshal(responses)
+	require.NoError(o.T, err)
+
+	_, err = rw.Write(responsesBytes)
+	require.NoError(o.T, err)
 }
 
 func (o *MockServerOperation) mockDeleteDocumentHandler(rw http.ResponseWriter, req *http.Request) {

@@ -60,3 +60,21 @@ type Query struct {
 	Name                string `json:"index"`
 	Value               string `json:"equals"`
 }
+
+// Batch represents a batch of operations to be performed in a vault.
+type Batch []VaultOperation
+
+const (
+	// UpsertDocumentVaultOperation represents an upsert operation to be performed in a batch.
+	UpsertDocumentVaultOperation = "upsert"
+	// DeleteDocumentVaultOperation represents a delete operation to be performed in a batch.
+	DeleteDocumentVaultOperation = "delete"
+)
+
+// VaultOperation represents an upsert or delete operation to be performed in a vault.
+// This is currently non-standard and should only be used with an EDV server that supports it.
+type VaultOperation struct {
+	Operation         string            `json:"operation"`          // Valid values: upsert,delete
+	DocumentID        string            `json:"id,omitempty"`       // Only used if Operation=delete
+	EncryptedDocument EncryptedDocument `json:"document,omitempty"` // Only used if Operation=createOrUpdate
+}
