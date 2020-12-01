@@ -175,8 +175,13 @@ loopOverOperations:
 			encryptedDocumentBytes, errMarshal := json.Marshal(vaultOperation.EncryptedDocument)
 			require.NoError(o.T, errMarshal)
 
-			o.DB[vaultOperation.DocumentID] = encryptedDocumentBytes
-			responses[i] = "mockServerBaseURL/" + vaultOperation.DocumentID
+			_, isUpdate := o.DB[vaultOperation.EncryptedDocument.ID]
+
+			o.DB[vaultOperation.EncryptedDocument.ID] = encryptedDocumentBytes
+
+			if !isUpdate {
+				responses[i] = "mockServerBaseURL/" + vaultOperation.EncryptedDocument.ID
+			}
 		case strings.EqualFold(vaultOperation.Operation, models.DeleteDocumentVaultOperation):
 			delete(o.DB, vaultOperation.DocumentID)
 		default:
