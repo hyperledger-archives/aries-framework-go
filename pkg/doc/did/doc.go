@@ -79,7 +79,7 @@ func (d *DID) String() string {
 func Parse(did string) (*DID, error) {
 	// I could not find a good ABNF parser :(
 	const idchar = `a-zA-Z0-9-_\.`
-	regex := fmt.Sprintf(`^did:[a-z0-9]+:(:+|[:%s]+)*[%s]+$`, idchar, idchar)
+	regex := fmt.Sprintf(`^did:[a-z0-9]+:(:+|[:%s]+)*[%%:%s]+[^:]$`, idchar, idchar)
 
 	r, err := regexp.Compile(regex)
 	if err != nil {
