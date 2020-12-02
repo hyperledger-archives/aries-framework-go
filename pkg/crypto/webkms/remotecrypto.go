@@ -411,9 +411,12 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 		RecPubKey: recipientPubKey,
 	}
 
+	senderURLStr := fmt.Sprintf("%s", senderURL)
+
+	var nilVal interface{}
+
 	// if senderURL is set, extract keyID and add it to the request (for ECDH-1PU wrapping)
-	if senderURL != "" {
-		senderURLStr := fmt.Sprintf("%s", senderURL)
+	if senderURLStr != "" && senderURLStr != fmt.Sprintf("%s", nilVal) {
 		senderKID := senderURLStr[strings.LastIndex(senderURLStr, keysURI)+len(keysURI):]
 		// TODO key server must store the sender public key in the recipient's keystore (or by means of a
 		//  third party store). Need to confirm what needs to be done to make Authcrypt key wrapping work on the
@@ -439,16 +442,20 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 		return nil, fmt.Errorf("read wrap key response for WrapKey failed [%s, %w]", destination, err)
 	}
 
+	return r.buildWrappedKeyResponse(respBody, destination)
+}
+
+func (r *RemoteCrypto) buildWrappedKeyResponse(respBody []byte, dest string) (*crypto.RecipientWrappedKey, error) {
 	httpResp := &wrapKeyResp{}
 
-	err = r.unmarshalFunc(respBody, httpResp)
+	err := r.unmarshalFunc(respBody, httpResp)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal wrapKeyResp for WrapKey failed [%s, %w]", destination, err)
+		return nil, fmt.Errorf("unmarshal wrapKeyResp for WrapKey failed [%s, %w]", dest, err)
 	}
 
 	wrappedKey, err := serializableToWrappedKey(&httpResp.WrappedKey)
 	if err != nil {
-		return nil, fmt.Errorf("convert http request of wrapKeyResp for WrapKey failed [%s, %w]", destination, err)
+		return nil, fmt.Errorf("convert http request of wrapKeyResp for WrapKey failed [%s, %w]", dest, err)
 	}
 
 	return wrappedKey, nil
@@ -477,9 +484,12 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 		WrappedKey: httpWK,
 	}
 
+	senderURLStr := fmt.Sprintf("%s", senderURL)
+
+	var nilVal interface{}
+
 	// is senderURL is set, extract keyID and add it to the request (for ECDH-1PU unwrapping)
-	if senderURL != "" {
-		senderURLStr := fmt.Sprintf("%s", senderURL)
+	if senderURLStr != "" && senderURLStr != fmt.Sprintf("%s", nilVal) {
 		senderKID := senderURLStr[strings.LastIndex(senderURLStr, keysURI)+len(keysURI):]
 		uReq.SenderKID = base64.URLEncoding.EncodeToString([]byte(senderKID))
 	}

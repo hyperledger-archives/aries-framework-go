@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 )
 
 // Pack will encode the payload argument
@@ -134,7 +135,7 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 		return nil, fmt.Errorf("buildRecipient: failed to convert public Ed25519 to Curve25519: %w", err)
 	}
 
-	box, err := localkms.NewCryptoBox(p.kms)
+	box, err := newCryptoBox(p.kms)
 	if err != nil {
 		return nil, fmt.Errorf("buildRecipient: failed to create new CryptoBox: %w", err)
 	}
@@ -158,4 +159,15 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 			IV:     base64.URLEncoding.EncodeToString(nonce[:]),
 		},
 	}, nil
+}
+
+func newCryptoBox(manager kms.KeyManager) (kms.CryptoBox, error) {
+	switch manager.(type) {
+	case *localkms.LocalKMS:
+		return localkms.NewCryptoBox(manager)
+	case *webkms.RemoteKMS:
+		return webkms.NewCryptoBox(manager)
+	default:
+		return localkms.NewCryptoBox(manager)
+	}
 }

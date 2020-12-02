@@ -7,6 +7,8 @@
 package kms
 
 import (
+	"io"
+
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -159,3 +161,16 @@ const (
 	// ECDH521KWAES256GCMType key type value.
 	ECDH521KWAES256GCMType = KeyType(ECDH521KWAES256GCM)
 )
+
+// CryptoBox is a libsodium crypto service used by legacy authcrypt packer.
+// TODO remove this service when legacy packer is retired from the framework.
+type CryptoBox interface {
+	// Easy seals a payload with a provided nonce
+	Easy(payload, nonce, theirPub []byte, myKID string) ([]byte, error)
+	// EashOpen unseals a cipherText sealed with Easy, where the nonce is provided
+	EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error)
+	// Seal seals a payload using the equivalent logic of libsodium box_seal
+	Seal(payload, theirEncPub []byte, randSource io.Reader) ([]byte, error)
+	// SealOpen decrypts a payload encrypted with Seal
+	SealOpen(cipherText, myPub []byte) ([]byte, error)
+}

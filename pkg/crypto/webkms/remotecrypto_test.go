@@ -751,6 +751,24 @@ func TestWrapUnWrapKey(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, cek, dCEK)
 	})
+
+	t.Run("Wrap/Unwrap with Sender key option containing empty key", func(t *testing.T) {
+		wrappedKey, err := rCrypto.WrapKey(cek, apu, apv, recipentPubKey, crypto.WithSender(""))
+		require.NoError(t, err)
+
+		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL, crypto.WithSender(""))
+		require.NoError(t, err)
+		require.EqualValues(t, cek, dCEK)
+	})
+
+	t.Run("Wrap/Unwrap with Sender key option containing nil key", func(t *testing.T) {
+		wrappedKey, err := rCrypto.WrapKey(cek, apu, apv, recipentPubKey, crypto.WithSender(nil))
+		require.NoError(t, err)
+
+		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL, crypto.WithSender(nil))
+		require.NoError(t, err)
+		require.EqualValues(t, cek, dCEK)
+	})
 }
 
 func TestRemoteCryptoWithHeadersFunc(t *testing.T) {

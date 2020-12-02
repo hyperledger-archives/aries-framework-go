@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -667,4 +668,12 @@ func Test_getCEK(t *testing.T) {
 
 	_, err := getCEK(recs, &k)
 	require.EqualError(t, err, "getCEK: no key accessible none of the recipient keys were found in kms")
+}
+
+func Test_newCryptoBox(t *testing.T) {
+	_, err := newCryptoBox(&mockkms.KeyManager{})
+	require.EqualError(t, err, "cannot use parameter argument as KMS")
+
+	_, err = newCryptoBox(&webkms.RemoteKMS{})
+	require.NoError(t, err)
 }

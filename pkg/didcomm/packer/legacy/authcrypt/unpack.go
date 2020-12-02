@@ -104,7 +104,7 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
 		return nil, err
 	}
 
-	b, err := localkms.NewCryptoBox(km)
+	b, err := newCryptoBox(km)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, []byt
 		return nil, nil, err
 	}
 
-	b, err := localkms.NewCryptoBox(km)
+	b, err := newCryptoBox(km)
 	if err != nil {
 		return nil, nil, err
 	}
