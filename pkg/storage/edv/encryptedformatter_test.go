@@ -50,15 +50,6 @@ func TestEncryptedFormatter_FormatPair(t *testing.T) {
 
 		createEncryptedDocument(t, formatter)
 	})
-	t.Run("Fail to generate EDV compatible ID", func(t *testing.T) {
-		formatter := createEncryptedFormatter(t)
-
-		formatter.randomBytesFunc = failingGenerateRandomBytesFunc
-
-		value, err := formatter.FormatPair(testKey, []byte(testValue))
-		require.EqualError(t, err, fmt.Errorf(failGenerateEDVCompatibleID, errGenerateRandomBytes).Error())
-		require.Nil(t, value)
-	})
 	t.Run("Fail to marshal structured document", func(t *testing.T) {
 		formatter := createEncryptedFormatter(t)
 		formatter.marshal = failingMarshal
@@ -195,7 +186,7 @@ func TestEncryptedFormatter_ParseValue(t *testing.T) {
 func createEncryptedFormatter(t *testing.T) *EncryptedFormatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter := NewEncryptedFormatter(encrypter, decrypter)
+	formatter := NewEncryptedFormatter(encrypter, decrypter, newMACCrypto(t))
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -260,12 +251,6 @@ func (f *failingEncrypter) EncryptWithAuthData([]byte, []byte) (*jose.JSONWebEnc
 
 func (f *failingEncrypter) Encrypt([]byte) (*jose.JSONWebEncryption, error) {
 	return nil, errFailingEncrypter
-}
-
-var errGenerateRandomBytes = errors.New("failingGenerateRandomBytesFunc always fails")
-
-func failingGenerateRandomBytesFunc([]byte) (int, error) {
-	return -1, errGenerateRandomBytes
 }
 
 type mockJWEDecrypter struct {

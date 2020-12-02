@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package formattedstore
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -34,6 +36,13 @@ var logger = log.New("formatted-store")
 type Formatter interface {
 	FormatPair(k string, v []byte) ([]byte, error)
 	ParsePair([]byte) (k string, v []byte, err error)
+	GenerateEDVCompatibleID(k string) (string, error)
+}
+
+type batchSvc interface {
+	Get(k string) ([]byte, error)
+	Delete(k string)
+	Put(s batchStore, k string, v []byte) error
 }
 
 // Option configures the formatted store.
@@ -46,12 +55,23 @@ func WithCacheProvider(cacheProvider storage.Provider) Option {
 	}
 }
 
+// WithBatchWrite option is for batch write.
+func WithBatchWrite(batchSize int, batchTime time.Duration) Option {
+	return func(opts *FormattedProvider) {
+		opts.batchSize = batchSize
+		opts.batchTime = batchTime
+	}
+}
+
 // FormattedProvider is a storage provider that allows for data to be formatted in an underlying provider.
 type FormattedProvider struct {
 	provider              storage.Provider
 	cacheProvider         storage.Provider
 	formatter             Formatter
 	skipIteratorFiltering bool
+	batchSize             int
+	batchTime             time.Duration
+	batchSvc              batchSvc
 }
 
 // NewFormattedProvider instantiates a new FormattedProvider with the given Provider and Formatter.
@@ -72,6 +92,11 @@ func NewFormattedProvider(provider storage.Provider, formatter Formatter,
 		opt(formattedProvider)
 	}
 
+	if formattedProvider.batchSize > 0 {
+		formattedProvider.batchSvc = NewBatchWrite(formattedProvider.batchSize, formattedProvider.batchTime,
+			formatter, provider.(batchProvider))
+	}
+
 	return formattedProvider
 }
 
@@ -86,6 +111,7 @@ func (p *FormattedProvider) OpenStore(name string) (storage.Store, error) {
 		store:                 store,
 		formatter:             p.formatter,
 		skipIteratorFiltering: p.skipIteratorFiltering,
+		batchSvc:              p.batchSvc,
 	}
 
 	if p.cacheProvider != nil {
@@ -137,17 +163,24 @@ type formatStore struct {
 	cacheStore            storage.Store
 	formatter             Formatter
 	skipIteratorFiltering bool
+	batchSvc              batchSvc
 }
 
 func (s *formatStore) Put(k string, v []byte) error {
-	formattedValue, err := s.formatter.FormatPair(k, v)
-	if err != nil {
-		return fmt.Errorf(failFormat, err)
-	}
+	if s.batchSvc != nil {
+		if err := s.batchSvc.Put(s.store.(batchStore), k, v); err != nil {
+			return err
+		}
+	} else {
+		formattedValue, err := s.formatter.FormatPair(k, v)
+		if err != nil {
+			return fmt.Errorf(failFormat, err)
+		}
 
-	err = s.store.Put(k, formattedValue)
-	if err != nil {
-		return fmt.Errorf(failPutInUnderlyingStore, err)
+		err = s.store.Put(k, formattedValue)
+		if err != nil {
+			return fmt.Errorf(failPutInUnderlyingStore, err)
+		}
 	}
 
 	// put data in cache to retrieve it from Get
@@ -168,6 +201,19 @@ func (s *formatStore) Get(k string) ([]byte, error) {
 		}
 
 		logger.Debugf("failed to get key %s from cache store", k)
+	}
+
+	if s.batchSvc != nil {
+		v, err := s.batchSvc.Get(k)
+		if err == nil {
+			return v, nil
+		}
+
+		if errors.Is(err, ErrValueIsDeleted) {
+			return nil, storage.ErrDataNotFound
+		}
+
+		logger.Debugf("failed to get key %s from batch", k)
 	}
 
 	formattedValue, err := s.store.Get(k)
@@ -243,9 +289,13 @@ func (s *formatStore) Iterator(startKey, endKey string) storage.StoreIterator { 
 }
 
 func (s *formatStore) Delete(k string) error {
-	err := s.store.Delete(k)
-	if err != nil {
-		return fmt.Errorf(failDeleteInUnderlyingStore, err)
+	if s.batchSvc != nil {
+		s.batchSvc.Delete(k)
+	} else {
+		err := s.store.Delete(k)
+		if err != nil {
+			return fmt.Errorf(failDeleteInUnderlyingStore, err)
+		}
 	}
 
 	if s.cacheStore != nil {

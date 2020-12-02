@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
@@ -30,6 +31,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/edv"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/formattedstore"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -159,6 +161,19 @@ func Test_formatStore_Put(t *testing.T) {
 		err = store.Put(testKey, []byte(testValue))
 		require.NoError(t, err)
 	})
+	t.Run("Success batch", func(t *testing.T) {
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()),
+			formattedstore.WithBatchWrite(10, 100*time.Second))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put(testKey, []byte(testValue))
+		require.NoError(t, err)
+	})
 	t.Run("Fail to format value", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), &failingFormatter{}, true)
 		require.NotNil(t, provider)
@@ -220,6 +235,22 @@ func Test_formatStore_Get(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, testValue, string(value))
 	})
+	t.Run("Success batch", func(t *testing.T) {
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
+			formattedstore.WithBatchWrite(10, 100*time.Second))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put(testKey, []byte(testValue))
+		require.NoError(t, err)
+
+		value, err := store.Get(testKey)
+		require.NoError(t, err)
+		require.Equal(t, testValue, string(value))
+	})
 	t.Run("Success cache", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()))
@@ -248,6 +279,7 @@ func Test_formatStore_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), true)
+		require.NoError(t, err)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore(testStoreName)
@@ -380,6 +412,7 @@ func Test_formatStore_Iterator(t *testing.T) {
 			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL)
 
 			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), false)
+			require.NoError(t, err)
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -442,6 +475,7 @@ func Test_formatStore_Iterator(t *testing.T) {
 			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL)
 
 			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), true)
+			require.NoError(t, err)
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -511,6 +545,7 @@ func Test_formatStore_Iterator(t *testing.T) {
 		require.NoError(t, err)
 
 		provider := formattedstore.NewFormattedProvider(underlyingProvider, &failingFormatter{}, true)
+		require.NoError(t, err)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -527,6 +562,18 @@ func Test_formatStore_Delete(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()))
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("testName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Delete(testKey)
+		require.NoError(t, err)
+	})
+	t.Run("Success batch", func(t *testing.T) {
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
+			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite(1, 1*time.Second))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -572,7 +619,7 @@ func Test_formatStore_Delete(t *testing.T) {
 func createEDVFormatter(t *testing.T) formattedstore.Formatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter := edv.NewEncryptedFormatter(encrypter, decrypter)
+	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, newMACCrypto(t))
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -665,4 +712,64 @@ func (f *failingFormatter) FormatPair(string, []byte) ([]byte, error) {
 
 func (f *failingFormatter) ParsePair([]byte) (string, []byte, error) {
 	return "", nil, errFailingFormatter
+}
+
+func (f *failingFormatter) GenerateEDVCompatibleID(k string) (string, error) {
+	return "", nil
+}
+
+type mockStoreProvider struct {
+	store    *mockStore
+	batchErr error
+}
+
+func newMockStoreProvider() *mockStoreProvider {
+	return &mockStoreProvider{store: &mockStore{
+		mock: &mockstorage.MockStore{Store: make(map[string][]byte)},
+	}}
+}
+
+// OpenStore opens and returns a store for given name space.
+func (s *mockStoreProvider) OpenStore(name string) (storage.Store, error) {
+	return s.store, nil
+}
+
+// Close closes all stores created under this store provider.
+func (s *mockStoreProvider) Close() error {
+	return nil
+}
+
+// CloseStore closes store for given name space.
+func (s *mockStoreProvider) CloseStore(name string) error {
+	return nil
+}
+
+// Batch data.
+func (s *mockStoreProvider) Batch(batch *models.Batch) error {
+	return s.batchErr
+}
+
+type mockStore struct {
+	mock *mockstorage.MockStore
+}
+
+// Put stores the key and the record.
+func (s *mockStore) Put(k string, v []byte) error {
+	return s.mock.Put(k, v)
+}
+
+func (s *mockStore) Get(k string) ([]byte, error) {
+	return s.mock.Get(k)
+}
+
+func (s *mockStore) Iterator(start, limit string) storage.StoreIterator {
+	return s.mock.Iterator(start, limit)
+}
+
+func (s *mockStore) Delete(k string) error {
+	return s.mock.Delete(k)
+}
+
+func (s *mockStore) AddEncryptedIndices(k string, encryptedDocumentBytes []byte) (*models.EncryptedDocument, error) {
+	return &models.EncryptedDocument{}, nil
 }
