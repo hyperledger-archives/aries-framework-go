@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
@@ -164,7 +163,7 @@ func Test_formatStore_Put(t *testing.T) {
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()),
-			formattedstore.WithBatchWrite(10, 100*time.Second))
+			formattedstore.WithBatchWrite(10))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -172,6 +171,9 @@ func Test_formatStore_Put(t *testing.T) {
 		require.NotNil(t, store)
 
 		err = store.Put(testKey, []byte(testValue))
+		require.NoError(t, err)
+
+		err = provider.Flush()
 		require.NoError(t, err)
 	})
 	t.Run("Fail to format value", func(t *testing.T) {
@@ -237,7 +239,7 @@ func Test_formatStore_Get(t *testing.T) {
 	})
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
-			formattedstore.WithBatchWrite(10, 100*time.Second))
+			formattedstore.WithBatchWrite(10))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -573,7 +575,7 @@ func Test_formatStore_Delete(t *testing.T) {
 	})
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite(1, 1*time.Second))
+			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite(1))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
