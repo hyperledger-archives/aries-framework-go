@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -43,6 +42,7 @@ type batchSvc interface {
 	Get(k string) ([]byte, error)
 	Delete(k string)
 	Put(s batchStore, k string, v []byte) error
+	Flush() error
 }
 
 // Option configures the formatted store.
@@ -56,10 +56,9 @@ func WithCacheProvider(cacheProvider storage.Provider) Option {
 }
 
 // WithBatchWrite option is for batch write.
-func WithBatchWrite(batchSize int, batchTime time.Duration) Option {
+func WithBatchWrite(batchThreadLimit int) Option {
 	return func(opts *FormattedProvider) {
-		opts.batchSize = batchSize
-		opts.batchTime = batchTime
+		opts.batchThreadLimit = batchThreadLimit
 	}
 }
 
@@ -69,8 +68,7 @@ type FormattedProvider struct {
 	cacheProvider         storage.Provider
 	formatter             Formatter
 	skipIteratorFiltering bool
-	batchSize             int
-	batchTime             time.Duration
+	batchThreadLimit      int
 	batchSvc              batchSvc
 }
 
@@ -92,12 +90,22 @@ func NewFormattedProvider(provider storage.Provider, formatter Formatter,
 		opt(formattedProvider)
 	}
 
-	if formattedProvider.batchSize > 0 {
-		formattedProvider.batchSvc = NewBatchWrite(formattedProvider.batchSize, formattedProvider.batchTime,
+	if formattedProvider.batchThreadLimit > 0 {
+		formattedProvider.batchSvc = NewBatchWrite(formattedProvider.batchThreadLimit,
 			formatter, provider.(batchProvider))
 	}
 
 	return formattedProvider
+}
+
+// Flush call batch svc to flush data.
+// TODO this method need to be refactored.
+func (p *FormattedProvider) Flush() error {
+	if p.batchSvc != nil {
+		return p.batchSvc.Flush()
+	}
+
+	return nil
 }
 
 // OpenStore opens a store in the underlying provider with the given name and returns a handle to it.

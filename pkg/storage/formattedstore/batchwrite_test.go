@@ -9,7 +9,6 @@ package formattedstore_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +17,7 @@ import (
 
 func TestNewBatchWrite(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		s := formattedstore.NewBatchWrite(1, 10*time.Second, createEDVFormatter(t), newMockStoreProvider())
+		s := formattedstore.NewBatchWrite(1, createEDVFormatter(t), newMockStoreProvider())
 
 		err := s.Put(&mockStore{}, "k1", []byte("v1"))
 		require.NoError(t, err)
@@ -27,9 +26,7 @@ func TestNewBatchWrite(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "v1", string(v))
 
-		time.Sleep(2 * time.Second)
-
-		err = s.Put(&mockStore{}, "k2", []byte("v2"))
+		err = s.Flush()
 		require.NoError(t, err)
 
 		_, err = s.Get("k1")
@@ -38,7 +35,7 @@ func TestNewBatchWrite(t *testing.T) {
 	})
 
 	t.Run("success delete", func(t *testing.T) {
-		s := formattedstore.NewBatchWrite(1, 10*time.Second, createEDVFormatter(t), newMockStoreProvider())
+		s := formattedstore.NewBatchWrite(1, createEDVFormatter(t), newMockStoreProvider())
 
 		err := s.Put(&mockStore{}, "k1", []byte("v1"))
 		require.NoError(t, err)
@@ -54,38 +51,23 @@ func TestNewBatchWrite(t *testing.T) {
 		require.Contains(t, err.Error(), "value is deleted")
 	})
 
-	t.Run("success flush using time batch", func(t *testing.T) {
-		s := formattedstore.NewBatchWrite(4, 1*time.Second, createEDVFormatter(t), newMockStoreProvider())
-
-		err := s.Put(&mockStore{}, "k1", []byte("v1"))
-		require.NoError(t, err)
-
-		v, err := s.Get("k1")
-		require.NoError(t, err)
-		require.Equal(t, "v1", string(v))
-
-		time.Sleep(2 * time.Second)
-
-		_, err = s.Get("k1")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "k k1 not found")
-	})
-
 	t.Run("error from flush", func(t *testing.T) {
-		s := formattedstore.NewBatchWrite(1, 10*time.Second, createEDVFormatter(t),
+		s := formattedstore.NewBatchWrite(1, createEDVFormatter(t),
 			&mockStoreProvider{batchErr: fmt.Errorf("failed to put")})
 
-		err := s.Put(&mockStore{}, "k1", []byte("v1"))
+		err := s.Put(&mockStore{}, "k2", []byte("v2"))
 		require.NoError(t, err)
 
-		v, err := s.Get("k1")
+		v, err := s.Get("k2")
 		require.NoError(t, err)
-		require.Equal(t, "v1", string(v))
+		require.Equal(t, "v2", string(v))
 
-		time.Sleep(1 * time.Second)
-
-		err = s.Put(&mockStore{}, "k2", []byte("v2"))
+		err = s.Flush()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to put")
+
+		_, err = s.Get("k2")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "k k2 not found")
 	})
 }
