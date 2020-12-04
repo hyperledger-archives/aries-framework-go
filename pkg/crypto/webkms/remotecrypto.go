@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -116,6 +117,8 @@ func (r *RemoteCrypto) postHTTPRequest(destination string, mReq []byte) (*http.R
 }
 
 func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*http.Response, error) {
+	start := time.Now()
+
 	httpReq, err := http.NewRequest(method, destination, bytes.NewBuffer(mReq))
 	if err != nil {
 		return nil, fmt.Errorf("build request error: %w", err)
@@ -126,9 +129,9 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 	}
 
 	if r.addHeadersOpts.HeadersFunc != nil {
-		httpHeaders, err := r.addHeadersOpts.HeadersFunc(httpReq)
-		if err != nil {
-			return nil, fmt.Errorf("add optional request headers error: %w", err)
+		httpHeaders, e := r.addHeadersOpts.HeadersFunc(httpReq)
+		if e != nil {
+			return nil, fmt.Errorf("add optional request headers error: %w", e)
 		}
 
 		if httpHeaders != nil {
@@ -136,7 +139,11 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 		}
 	}
 
-	return r.httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq)
+
+	logger.Infof("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
+
+	return resp, err
 }
 
 // Encrypt will remotely encrypt msg and aad using a matching AEAD primitive in a remote key handle at keyURL of
@@ -146,6 +153,7 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 //		nonce in []byte
 //		error in case of errors during encryption
 func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []byte, error) {
+	startEncrypt := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + encryptURI
 
 	eReq := encryptReq{
@@ -188,6 +196,8 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 		return nil, nil, err
 	}
 
+	logger.Infof("overall Encrypt duration: %s", time.Since(startEncrypt))
+
 	return keyBytes, nonceBytes, nil
 }
 
@@ -197,6 +207,7 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 //		plainText in []byte
 //		error in case of errors
 func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([]byte, error) {
+	startDecrypt := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + decryptURI
 
 	dReq := decryptReq{
@@ -235,6 +246,8 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 		return nil, err
 	}
 
+	logger.Infof("overall Decrypt duration: %s", time.Since(startDecrypt))
+
 	return plaintTextBytes, nil
 }
 
@@ -243,6 +256,7 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 // 		signature in []byte
 //		error in case of errors
 func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
+	startSign := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + signURI
 
 	sReq := signReq{
@@ -279,6 +293,8 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 		return nil, err
 	}
 
+	logger.Infof("overall Sign duration: %s", time.Since(startSign))
+
 	return keyBytes, nil
 }
 
@@ -287,6 +303,7 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 // returns:
 // 		error in case of errors or nil if signature verification was successful
 func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
+	startVerify := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + verifyURI
 
 	vReq := verifyReq{
@@ -311,12 +328,15 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting Verify signature returned http error: %s", resp.Status)
 	}
 
+	logger.Infof("overall Verify duration: %s", time.Since(startVerify))
+
 	return nil
 }
 
 // ComputeMAC remotely computes message authentication code (MAC) for code data with key at keyURL.
 // using a matching MAC primitive in kh key handle.
 func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, error) {
+	startComputeMAC := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + computeMACURI
 
 	mReq := computeMACReq{
@@ -353,12 +373,15 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 		return nil, err
 	}
 
+	logger.Infof("overall ComputeMAC duration: %s", time.Since(startComputeMAC))
+
 	return macBytes, nil
 }
 
 // VerifyMAC remotely determines if mac is a correct authentication code (MAC) for data using a key at KeyURL
 // using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
 func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
+	startVerifyMAC := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + verifyMACURI
 
 	vReq := verifyMACReq{
@@ -383,6 +406,8 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting VerifyMAC request returned http error: %s", resp.Status)
 	}
 
+	logger.Infof("overall VerifyMAC duration: %s", time.Since(startVerifyMAC))
+
 	return nil
 }
 
@@ -394,6 +419,7 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 // 		error in case of errors
 func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey,
 	opts ...crypto.WrapKeyOpts) (*crypto.RecipientWrappedKey, error) {
+	startWrapKey := time.Now()
 	destination := r.keystoreURL + wrapURI
 
 	pOpts := crypto.NewOpt()
@@ -442,7 +468,11 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 		return nil, fmt.Errorf("read wrap key response for WrapKey failed [%s, %w]", destination, err)
 	}
 
-	return r.buildWrappedKeyResponse(respBody, destination)
+	rwk, err := r.buildWrappedKeyResponse(respBody, destination)
+
+	logger.Infof("overall WrapKey duration: %s", time.Since(startWrapKey))
+
+	return rwk, err
 }
 
 func (r *RemoteCrypto) buildWrappedKeyResponse(respBody []byte, dest string) (*crypto.RecipientWrappedKey, error) {
@@ -470,6 +500,7 @@ func (r *RemoteCrypto) buildWrappedKeyResponse(respBody []byte, dest string) (*c
 // 		error in case of errors
 func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL interface{},
 	opts ...crypto.WrapKeyOpts) ([]byte, error) {
+	startUnwrapKey := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + unwrapURI
 
 	pOpts := crypto.NewOpt()
@@ -520,11 +551,10 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 	}
 
 	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Key)
-	if err != nil {
-		return nil, err
-	}
 
-	return keyBytes, nil
+	logger.Infof("overall UnwrapKey duration: %s", time.Since(startUnwrapKey))
+
+	return keyBytes, err
 }
 
 // closeResponseBody closes the response body.

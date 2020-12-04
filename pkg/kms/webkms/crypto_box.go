@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"golang.org/x/crypto/nacl/box"
 
@@ -19,7 +20,7 @@ import (
 )
 
 // TODO move CryptoBox out of webkms package.
-//  this currently only sits inside LocalKMS so it can access private keys. See issue #511
+//  this currently only sits inside webkms so it can execute crypto with private keys remotely. See issue #511
 // TODO delete this file and its corresponding test file when LegacyPacker is removed.
 
 type easyReq struct {
@@ -84,6 +85,7 @@ func NewCryptoBox(w kms.KeyManager) (*CryptoBox, error) {
 // Easy remotely seals a message with a provided nonce
 // theirPub is used as a public key, while myPub is used to identify the private key that should be used.
 func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte, error) {
+	easyStart := time.Now()
 	keyURL := b.km.buildKIDURL(myKID)
 
 	destination := keyURL + easyURL
@@ -124,12 +126,15 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 		return nil, err
 	}
 
+	logger.Infof("overall Easy duration: %s", time.Since(easyStart))
+
 	return ciphertext, nil
 }
 
 // EasyOpen remotely unseals a message sealed with Easy, where the nonce is provided.
 // theirPub is the public key used to decrypt directly, while myPub is used to identify the private key to be used.
 func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error) {
+	easyOpenStart := time.Now()
 	destination := b.km.keystoreURL + easyOpenURL
 
 	httpReqJSON := &easyOpenReq{
@@ -169,6 +174,8 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 		return nil, err
 	}
 
+	logger.Infof("overall easyOpen duration: %s", time.Since(easyOpenStart))
+
 	return plainText, nil
 }
 
@@ -178,6 +185,7 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 // Generates an ephemeral keypair to use for the sender, and includes
 // the ephemeral sender public key in the message.
 func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]byte, error) {
+	sealStart := time.Now()
 	// generate ephemeral curve25519 asymmetric keys
 	epk, esk, err := box.GenerateKey(randSource)
 	if err != nil {
@@ -196,6 +204,8 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 	// now seal the msg with the ephemeral key, nonce and recPub (which is recipient's publicKey)
 	ret := box.Seal(epk[:], payload, nonce, &recPubBytes, esk)
 
+	logger.Infof("overall Seal (non remote call) duration: %s", time.Since(sealStart))
+
 	return ret, nil
 }
 
@@ -204,6 +214,7 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 // Reads the ephemeral sender public key, prepended to a properly-formatted message,
 // and uses that along with the recipient private key corresponding to myPub to decrypt the message.
 func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
+	sealOpenStart := time.Now()
 	destination := b.km.keystoreURL + sealOpenURL
 
 	httpReqJSON := &sealOpenReq{
@@ -240,6 +251,8 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Infof("overall SealOpen duration: %s", time.Since(sealOpenStart))
 
 	return plaintext, nil
 }

@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -75,6 +76,7 @@ type RemoteKMS struct {
 //  - error (if error encountered)
 func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID string, marshaller marshalFunc,
 	headersOpts ...HeadersOpt) (string, error) {
+	createKeyStoreStart := time.Now()
 	hOpts := NewOpt()
 
 	for _, opt := range headersOpts {
@@ -113,15 +115,21 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 		}
 	}
 
+	start := time.Now()
+
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
 	}
 
+	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
+
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "CreateKeyStore")
 
 	keystoreURL := resp.Header.Get(LocationHeader)
+
+	logger.Infof("overall CreateStore duration: %s", time.Since(createKeyStoreStart))
 
 	return keystoreURL, nil
 }
@@ -152,6 +160,8 @@ func (r *RemoteKMS) getHTTPRequest(destination string) (*http.Response, error) {
 }
 
 func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*http.Response, error) {
+	start := time.Now()
+
 	var (
 		httpReq *http.Request
 		err     error
@@ -174,9 +184,9 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 	}
 
 	if r.addHeadersOpts.HeadersFunc != nil {
-		httpHeaders, err := r.addHeadersOpts.HeadersFunc(httpReq)
-		if err != nil {
-			return nil, fmt.Errorf("add optional request headers error: %w", err)
+		httpHeaders, e := r.addHeadersOpts.HeadersFunc(httpReq)
+		if e != nil {
+			return nil, fmt.Errorf("add optional request headers error: %w", e)
 		}
 
 		if httpHeaders != nil {
@@ -184,7 +194,11 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 		}
 	}
 
-	return r.httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq)
+
+	logger.Infof("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
+
+	return resp, err
 }
 
 // Create a new key/keyset/key handle for the type kt remotely
@@ -193,6 +207,7 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 //  - handle instance representing a remote keystore URL including KeyID
 //  - error if failure
 func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
+	startCreate := time.Now()
 	destination := r.keystoreURL + "/keys"
 	httpReqJSON := &createKeyReq{
 		KeyType: string(kt),
@@ -227,11 +242,13 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 			return "", nil, fmt.Errorf("unmarshal key for Create failed [%s, %w]", destination, err)
 		}
 
-		logger.Infof("received resp body: %s", httpResp)
+		logger.Debugf("received resp body: %s", httpResp)
 
 		kidURL = httpResp.Location
 		kid = kidURL[strings.LastIndex(kidURL, "/")+1:]
 	}
+
+	logger.Infof("overall Create key duration: %s", time.Since(startCreate))
 
 	return kid, kidURL, nil
 }
@@ -264,6 +281,7 @@ func (r *RemoteKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, e
 //  - marshalled public key []byte
 //  - error if it fails to export the public key bytes
 func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
+	startExport := time.Now()
 	keyURL := r.buildKIDURL(keyID)
 
 	destination := keyURL + "/export"
@@ -293,6 +311,8 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 		return nil, err
 	}
 
+	logger.Infof("overall ExportPubKeyBytes duration: %s", time.Since(startExport))
+
 	return keyBytes, nil
 }
 
@@ -303,6 +323,8 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 //  - marshalled public key []byte
 //  - error if it fails to export the public key bytes
 func (r *RemoteKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, error) {
+	start := time.Now()
+
 	kid, _, err := r.Create(kt)
 	if err != nil {
 		return "", nil, err
@@ -312,6 +334,8 @@ func (r *RemoteKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, 
 	if err != nil {
 		return "", nil, err
 	}
+
+	logger.Infof("overall CreateAndExportPubKeyBytes duration: %s", time.Since(start))
 
 	return kid, pubKey, nil
 }
