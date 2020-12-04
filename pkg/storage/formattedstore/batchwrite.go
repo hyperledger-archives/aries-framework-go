@@ -51,7 +51,7 @@ type batch struct {
 
 // NewBatchWrite new batch write.
 //nolint: funlen
-func NewBatchWrite(batchThreadLimit int, formatter Formatter, provider batchProvider) *BatchService {
+func NewBatchWrite(formatter Formatter, provider batchProvider) *BatchService {
 	b := &BatchService{
 		futureValues: make(map[string]*batch), formatter: formatter, provider: provider,
 		current: newPendingBatch(provider, formatter),

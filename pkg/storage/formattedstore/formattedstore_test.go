@@ -163,7 +163,7 @@ func Test_formatStore_Put(t *testing.T) {
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()),
-			formattedstore.WithBatchWrite(10))
+			formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -239,7 +239,7 @@ func Test_formatStore_Get(t *testing.T) {
 	})
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
-			formattedstore.WithBatchWrite(10))
+			formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -575,7 +575,7 @@ func Test_formatStore_Delete(t *testing.T) {
 	})
 	t.Run("Success batch", func(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite(1))
+			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")

@@ -56,9 +56,9 @@ func WithCacheProvider(cacheProvider storage.Provider) Option {
 }
 
 // WithBatchWrite option is for batch write.
-func WithBatchWrite(batchThreadLimit int) Option {
+func WithBatchWrite() Option {
 	return func(opts *FormattedProvider) {
-		opts.batchThreadLimit = batchThreadLimit
+		opts.enableBatch = true
 	}
 }
 
@@ -68,7 +68,7 @@ type FormattedProvider struct {
 	cacheProvider         storage.Provider
 	formatter             Formatter
 	skipIteratorFiltering bool
-	batchThreadLimit      int
+	enableBatch           bool
 	batchSvc              batchSvc
 }
 
@@ -90,9 +90,8 @@ func NewFormattedProvider(provider storage.Provider, formatter Formatter,
 		opt(formattedProvider)
 	}
 
-	if formattedProvider.batchThreadLimit > 0 {
-		formattedProvider.batchSvc = NewBatchWrite(formattedProvider.batchThreadLimit,
-			formatter, provider.(batchProvider))
+	if formattedProvider.enableBatch {
+		formattedProvider.batchSvc = NewBatchWrite(formatter, provider.(batchProvider))
 	}
 
 	return formattedProvider
