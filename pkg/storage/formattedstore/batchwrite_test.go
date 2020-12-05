@@ -19,7 +19,7 @@ func TestNewBatchWrite(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		macCrypto := newMACCrypto(t)
 
-		s := formattedstore.NewBatchWrite(createEDVFormatter(t, macCrypto), newMockStoreProvider())
+		s := formattedstore.NewBatchWrite(0, createEDVFormatter(t, macCrypto), newMockStoreProvider())
 
 		err := s.Put(&mockStore{}, "k1", []byte("v1"))
 		require.NoError(t, err)
@@ -36,10 +36,23 @@ func TestNewBatchWrite(t *testing.T) {
 		require.Contains(t, err.Error(), "k k1 not found")
 	})
 
+	t.Run("success batch size", func(t *testing.T) {
+		macCrypto := newMACCrypto(t)
+
+		s := formattedstore.NewBatchWrite(1, createEDVFormatter(t, macCrypto), newMockStoreProvider())
+
+		err := s.Put(&mockStore{}, "k1", []byte("v1"))
+		require.NoError(t, err)
+
+		_, err = s.Get("k1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "k k1 not found")
+	})
+
 	t.Run("success delete", func(t *testing.T) {
 		macCrypto := newMACCrypto(t)
 
-		s := formattedstore.NewBatchWrite(createEDVFormatter(t, macCrypto), newMockStoreProvider())
+		s := formattedstore.NewBatchWrite(10, createEDVFormatter(t, macCrypto), newMockStoreProvider())
 
 		err := s.Put(&mockStore{}, "k1", []byte("v1"))
 		require.NoError(t, err)
@@ -48,7 +61,8 @@ func TestNewBatchWrite(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "v1", string(v))
 
-		s.Delete("k1")
+		err = s.Delete("k1")
+		require.NoError(t, err)
 
 		_, err = s.Get("k1")
 		require.Error(t, err)
@@ -58,7 +72,7 @@ func TestNewBatchWrite(t *testing.T) {
 	t.Run("error from flush", func(t *testing.T) {
 		macCrypto := newMACCrypto(t)
 
-		s := formattedstore.NewBatchWrite(createEDVFormatter(t, macCrypto),
+		s := formattedstore.NewBatchWrite(10, createEDVFormatter(t, macCrypto),
 			&mockStoreProvider{batchErr: fmt.Errorf("failed to put")})
 
 		err := s.Put(&mockStore{}, "k2", []byte("v2"))
