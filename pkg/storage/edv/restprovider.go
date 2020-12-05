@@ -19,6 +19,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
@@ -26,46 +28,40 @@ import (
 
 const (
 	storeIndexName             = "StoreName"
-	storeAndKeyIndexName       = "StoreName-FriendlyKeyName"
-	indexValueFormat           = "%s-%s"
 	contentTypeApplicationJSON = "application/json"
 	locationHeaderName         = "Location"
 
-	failCheckForExistingEDVDocument                  = "failed to check for existing EDV document: %w"
-	failStoreEDVDocument                             = "failed to store EDV document: %w"
-	failComputeMACStoreIndexName                     = "failed to compute MAC for the store index name: %w"
-	failComputeMACStoreIndexValue                    = "failed to compute MAC for the store index value: %w"
-	failComputeMACStoreAndKeyIndexName               = "failed to compute MAC for the store+key index name: %w"
-	failComputeMACStoreAndKeyIndexValue              = "failed to compute MAC for the store+key index value: %w"
-	failCreateIndexedAttributes                      = "failed to create indexed attributes: %w"
-	failComputeBase64EncodedStoreIndexValueMAC       = "failed to compute Base64-encoded store index value MAC: %w"
-	failComputeBase64EncodedStoreAndKeyIndexValueMAC = "failed to compute Base64-encoded store+key index value MAC: %w"
-	failAddEncryptedIndices                          = "failed to add encrypted indices to encrypted document: %w"
-	failCreateDocumentInEDVServer                    = "failed to create document in EDV server: %w"
-	failGetFullDocumentViaQuery                      = "failed to get full document via query: %w"
-	failUpdateDocumentInEDVServer                    = "failed to update existing document in EDV server: %w"
-	failRetrieveEDVDocumentID                        = "failed to retrieve EDV document ID: %w"
-	failQueryVaultForFullDocumentsInEDVServer        = "failed to query vault for full documents in EDV server: %w"
-	failQueryVaultInEDVServer                        = "failed to query vault in EDV server: %w"
-	noDocumentMatchingQueryFound                     = "no document matching the query was found: %w"
-	failRetrieveDocumentFromEDVServer                = "failed to retrieve document from EDV server: %w"
-	failDeleteDocumentInEDVServer                    = "failed to delete document in EDV server: %w"
-	failGetAllFullDocumentsViaQuery                  = "failed to get all full documents via query: %w"
-	failGetAllDocumentLocations                      = "failed to get all document locations: %w"
-	failGetAllDocuments                              = "failed to get all documents: %w"
-	failBatchInEDVServer                             = "failed to do batch operations in EDV server: %w"
+	failStoreEDVDocument                       = "failed to store EDV document: %w"
+	failComputeMACStoreIndexName               = "failed to compute MAC for the store index name: %w"
+	failComputeMACStoreIndexValue              = "failed to compute MAC for the store index value: %w"
+	failCreateIndexedAttributes                = "failed to create indexed attributes: %w"
+	failComputeBase64EncodedStoreIndexValueMAC = "failed to compute Base64-encoded store index value MAC: %w"
+	failAddEncryptedIndices                    = "failed to add encrypted indices to encrypted document: %w"
+	failCreateDocumentInEDVServer              = "failed to create document in EDV server: %w"
+	failUpdateDocumentInEDVServer              = "failed to update existing document in EDV server: %w"
+	failGenerateEDVDocumentID                  = "failed to generate the EDV document ID for key %s: %w"
+	failQueryVaultForFullDocumentsInEDVServer  = "failed to query vault for full documents in EDV server: %w"
+	failQueryVaultInEDVServer                  = "failed to query vault in EDV server: %w"
+	failRetrieveDocumentFromEDVServer          = "failed to retrieve document from EDV server: %w"
+	failDeleteDocumentInEDVServer              = "failed to delete document in EDV server: %w"
+	failGetAllFullDocumentsViaQuery            = "failed to get all full documents via query: %w"
+	failGetAllDocumentLocations                = "failed to get all document locations: %w"
+	failGetAllDocuments                        = "failed to get all documents: %w"
+	failBatchInEDVServer                       = "failed to do batch operations in EDV server: %w"
+	failComputeMACBasedOnKey                   = "failed to compute MAC based on key %s: %w"
 
-	failSendGETRequest              = "failed to send GET request: %w"
-	failSendPOSTRequest             = "failed to send POST request: %w"
-	failCreateRequest               = "failed to create request: %w"
-	failSendRequest                 = "failed to send request: %w"
-	failReadResponseBody            = "failed to read response body: %w"
-	failMarshalQuery                = "failed to marshal query: %w"
-	failMarshalBatch                = "failed to marshal batch: %w"
-	failUnmarshalEncryptedDocuments = "failed to unmarshal encrypted documents: %w"
-	failUnmarshalBatchResponses     = "failed to unmarshal batch responses: %w"
-	failResponseFromEDVServer       = "status code %d was returned along with the following message: %s"
-	failUnmarshalDocumentLocations  = "failed to unmarshal response bytes into document locations: %w"
+	failSendGETRequest                 = "failed to send GET request: %w"
+	failSendPOSTRequest                = "failed to send POST request: %w"
+	failCreateRequest                  = "failed to create request: %w"
+	failSendRequest                    = "failed to send request: %w"
+	failReadResponseBody               = "failed to read response body: %w"
+	failMarshalQuery                   = "failed to marshal query: %w"
+	failMarshalBatch                   = "failed to marshal batch: %w"
+	failUnmarshalEncryptedDocuments    = "failed to unmarshal encrypted documents: %w"
+	failUnmarshalBatchResponses        = "failed to unmarshal batch responses: %w"
+	failResponseFromEDVServer          = "status code %d was returned along with the following message: %s"
+	failResponseFromEDVServerWithError = "error: %w, status code %d was returned along with the following message: %s"
+	failUnmarshalDocumentLocations     = "failed to unmarshal response bytes into document locations: %w"
 
 	createDocumentRequestLogMsg = "Sending request to create the following document: %s"
 	updateDocumentRequestLogMsg = "Sending request to update the following document: %s"
@@ -73,11 +69,7 @@ const (
 	failCloseResponseBodyLogMsg = "Failed to close response body: %s"
 )
 
-var (
-	logger                            = log.New("EDV-REST-Provider")
-	errMultipleDocumentsMatchingQuery = errors.New("multiple documents matching the query were found. " +
-		"This probably indicates an issue with the EDV server's database")
-)
+var logger = log.New("EDV-REST-Provider")
 
 // MACDigester represents a type that can compute MACs.
 type MACDigester interface {
@@ -137,11 +129,10 @@ func WithFullDocumentsReturnedFromQueries() Option {
 // RESTProvider is a store provider that can be used to store data in a server supporting the
 // data vault HTTPS API as defined in https://identity.foundation/secure-data-store/#data-vault-https-api.
 type RESTProvider struct {
-	vaultID                              string
-	macCrypto                            *MACCrypto
-	storeIndexNameMACBase64Encoded       string
-	storeAndKeyIndexNameMACBase64Encoded string
-	restClient                           *restClient
+	vaultID                        string
+	macCrypto                      *MACCrypto
+	storeIndexNameMACBase64Encoded string
+	restClient                     *restClient
 
 	// Requires an EDV server that supports this capability, which is not currently in the spec,
 	// but has been requested: https://github.com/decentralized-identity/confidential-storage/issues/137.
@@ -157,11 +148,6 @@ type RESTProvider struct {
 // without leaking that key to the EDV server.
 func NewRESTProvider(edvServerURL, vaultID string,
 	macCrypto *MACCrypto, options ...Option) (*RESTProvider, error) {
-	storeAndKeyIndexNameMAC, err := macCrypto.ComputeMAC(storeAndKeyIndexName)
-	if err != nil {
-		return nil, fmt.Errorf(failComputeMACStoreAndKeyIndexName, err)
-	}
-
 	storeIndexNameMAC, err := macCrypto.ComputeMAC(storeIndexName)
 	if err != nil {
 		return nil, fmt.Errorf(failComputeMACStoreIndexName, err)
@@ -173,11 +159,10 @@ func NewRESTProvider(edvServerURL, vaultID string,
 	}
 
 	restProvider := RESTProvider{
-		vaultID:                              vaultID,
-		macCrypto:                            macCrypto,
-		storeIndexNameMACBase64Encoded:       base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
-		storeAndKeyIndexNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeAndKeyIndexNameMAC)),
-		restClient:                           &client,
+		vaultID:                        vaultID,
+		macCrypto:                      macCrypto,
+		storeIndexNameMACBase64Encoded: base64.URLEncoding.EncodeToString([]byte(storeIndexNameMAC)),
+		restClient:                     &client,
 	}
 
 	for _, opt := range options {
@@ -190,13 +175,12 @@ func NewRESTProvider(edvServerURL, vaultID string,
 // OpenStore opens a new RESTStore, using name as the namespace.
 func (r *RESTProvider) OpenStore(name string) (storage.Store, error) {
 	return &RESTStore{
-		vaultID:                              r.vaultID,
-		name:                                 name,
-		macCrypto:                            r.macCrypto,
-		storeIndexNameMACBase64Encoded:       r.storeIndexNameMACBase64Encoded,
-		storeAndKeyIndexNameMACBase64Encoded: r.storeAndKeyIndexNameMACBase64Encoded,
-		restClient:                           r.restClient,
-		returnFullDocumentsOnQuery:           r.returnFullDocumentsOnQuery,
+		vaultID:                        r.vaultID,
+		name:                           name,
+		macCrypto:                      r.macCrypto,
+		storeIndexNameMACBase64Encoded: r.storeIndexNameMACBase64Encoded,
+		restClient:                     r.restClient,
+		returnFullDocumentsOnQuery:     r.returnFullDocumentsOnQuery,
 	}, nil
 }
 
@@ -227,28 +211,27 @@ func (r *RESTProvider) Batch(batch *models.Batch) error {
 // TODO (#2315) RESTStore shouldn't be exported - it was exported to allow for batch operations. When refactoring
 // the storage interface, fix this.
 type RESTStore struct {
-	vaultID                              string
-	name                                 string
-	restClient                           *restClient
-	macCrypto                            *MACCrypto
-	storeIndexNameMACBase64Encoded       string
-	storeAndKeyIndexNameMACBase64Encoded string
-	returnFullDocumentsOnQuery           bool
+	vaultID                        string
+	name                           string
+	restClient                     *restClient
+	macCrypto                      *MACCrypto
+	storeIndexNameMACBase64Encoded string
+	returnFullDocumentsOnQuery     bool
 }
 
-// Put stores the marshalled EncryptedDocument v into the EDV server. Encrypted indices will be added to v so that we
-// are able to retrieve the document later in the Get method. Important: If updating an existing k,v pair, then
-// the document ID in v will be replaced with the existing encrypted document's ID.
+// Put stores the marshalled EncryptedDocument v into the EDV server. An encrypted index will be added to v so that we
+// are able to identify which documents in the vault belong to the store r.name.
 func (r *RESTStore) Put(k string, v []byte) error {
-	// See if this key is already being used in an encrypted index tag in an existing document.
-	existingEDVDocumentID, err := r.RetrieveEDVDocumentID(k)
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return fmt.Errorf(failCheckForExistingEDVDocument, err)
+	var needsUpdate bool
+
+	_, err := r.Get(k)
+	if err == nil {
+		needsUpdate = true
+	} else if !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf("failed to determine if an EDV document for key %s already exists: %w", k, err)
 	}
 
-	// If existingEDVDocumentID was set, then this means that there is already an existing document that
-	// we need to update.
-	err = r.createEDVDocument(k, v, existingEDVDocumentID)
+	err = r.saveEDVDocumentToServer(v, needsUpdate)
 	if err != nil {
 		return fmt.Errorf(failStoreEDVDocument, err)
 	}
@@ -256,23 +239,11 @@ func (r *RESTStore) Put(k string, v []byte) error {
 	return nil
 }
 
-// Get retrieves the encrypted document from the EDV server tagged with the key k.
+// Get retrieves the encrypted document from the EDV server saved under key k.
 func (r *RESTStore) Get(k string) ([]byte, error) {
-	// If the "ReturnFullDocumentsOnQuery" optimization has been enabled, then we can take a shortcut
-	// and get the full document from the query in one REST call.
-	if r.returnFullDocumentsOnQuery {
-		encryptedDocumentBytes, err := r.getFullDocumentViaQuery(k)
-		if err != nil {
-			return nil, fmt.Errorf(failGetFullDocumentViaQuery, err)
-		}
-
-		return encryptedDocumentBytes, nil
-	}
-	// If the optimization has not been enabled, then we have to get the document the standard (but slow) way.
-	// First we get document ID from query, then do another call to get the full document.
-	edvDocumentID, err := r.RetrieveEDVDocumentID(k)
+	edvDocumentID, err := r.generateEDVDocumentID(k)
 	if err != nil {
-		return nil, fmt.Errorf(failRetrieveEDVDocumentID, err)
+		return nil, fmt.Errorf(failGenerateEDVDocumentID, k, err)
 	}
 
 	encryptedDocumentBytes, err := r.restClient.readDocument(r.vaultID, edvDocumentID)
@@ -310,9 +281,9 @@ func (r *RESTStore) Iterator(_, _ string) storage.StoreIterator {
 
 // Delete deletes the encrypted document in the EDV server that is tagged with the key k.
 func (r *RESTStore) Delete(k string) error {
-	edvDocumentID, err := r.RetrieveEDVDocumentID(k)
+	edvDocumentID, err := r.generateEDVDocumentID(k)
 	if err != nil {
-		return fmt.Errorf(failRetrieveEDVDocumentID, err)
+		return fmt.Errorf(failGenerateEDVDocumentID, k, err)
 	}
 
 	err = r.restClient.DeleteDocument(r.vaultID, edvDocumentID)
@@ -323,35 +294,40 @@ func (r *RESTStore) Delete(k string) error {
 	return nil
 }
 
-// If existingEDVDocumentID is set, then the document on the server with that ID will be updated instead.
-func (r *RESTStore) createEDVDocument(k string, v []byte, existingEDVDocumentID string) error {
-	encryptedDocument, err := r.AddEncryptedIndices(k, v)
+// GenerateEDVCompatibleID generates the EDV document ID based on k and the MAC crypto key.
+// TODO (#2376) Revisit how we're generating EDV document IDs, since it's technically not 100% in line with the spec.
+//  (Spec requires randomly generated IDs)
+func (r *RESTStore) generateEDVDocumentID(k string) (string, error) {
+	hashKey, err := r.macCrypto.ComputeMAC(k)
+	if err != nil {
+		return "", fmt.Errorf(failComputeMACBasedOnKey, k, err)
+	}
+
+	return base58.Encode([]byte(hashKey[0:16])), nil
+}
+
+func (r *RESTStore) saveEDVDocumentToServer(v []byte, needsUpdate bool) error {
+	encryptedDocument, err := r.AddEncryptedIndexTagForStoreName(v)
 	if err != nil {
 		return fmt.Errorf(failAddEncryptedIndices, err)
 	}
 
-	if existingEDVDocumentID == "" {
+	if needsUpdate {
+		err = r.restClient.updateDocument(r.vaultID, encryptedDocument.ID, encryptedDocument)
+		if err != nil {
+			return fmt.Errorf(failUpdateDocumentInEDVServer, err)
+		}
+	} else {
 		_, err = r.restClient.createDocument(r.vaultID, encryptedDocument)
 		if err != nil {
 			return fmt.Errorf(failCreateDocumentInEDVServer, err)
-		}
-	} else {
-		encryptedDocument.ID = existingEDVDocumentID
-
-		err = r.restClient.updateDocument(r.vaultID, existingEDVDocumentID, encryptedDocument)
-		if err != nil {
-			return fmt.Errorf(failUpdateDocumentInEDVServer, err)
 		}
 	}
 
 	return nil
 }
 
-// TODO (#2262): This could be done in a slightly cleaner way eventually. Once the EDV spec has the finalized query
-// syntax, it should be possible to have an index for the store name and an index for the key name, and when we query
-// for both we would just make a query that requires both indices to be present. Right now with the simplified query
-// format we use, we only allow one index per query, hence the need for the concatenated store name + key index.
-func (r *RESTStore) createIndexedAttributes(keyName string) ([]models.IndexedAttributeCollection, error) {
+func (r *RESTStore) createIndexedAttribute() ([]models.IndexedAttributeCollection, error) {
 	storeIndexValueMAC, err := r.macCrypto.ComputeMAC(r.name)
 	if err != nil {
 		return nil, fmt.Errorf(failComputeMACStoreIndexValue, err)
@@ -363,20 +339,9 @@ func (r *RESTStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 		Unique: false,
 	}
 
-	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(keyName)
-	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
-	}
-
-	storeAndKeyIndexedAttribute := models.IndexedAttribute{
-		Name:   r.storeAndKeyIndexNameMACBase64Encoded,
-		Value:  storeAndKeyIndexValueMACBase64Encoded,
-		Unique: true,
-	}
-
 	indexedAttributeCollection := models.IndexedAttributeCollection{
 		HMAC:              models.IDTypePair{},
-		IndexedAttributes: []models.IndexedAttribute{storeIndexedAttribute, storeAndKeyIndexedAttribute},
+		IndexedAttributes: []models.IndexedAttribute{storeIndexedAttribute},
 	}
 
 	indexedAttributeCollections := []models.IndexedAttributeCollection{indexedAttributeCollection}
@@ -384,61 +349,11 @@ func (r *RESTStore) createIndexedAttributes(keyName string) ([]models.IndexedAtt
 	return indexedAttributeCollections, nil
 }
 
-func (r *RESTStore) getFullDocumentViaQuery(k string) ([]byte, error) {
-	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
-	if err != nil {
-		return nil, fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
-	}
-
-	matchingDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
-		r.storeAndKeyIndexNameMACBase64Encoded, storeAndKeyIndexValueMACBase64Encoded)
-	if err != nil {
-		return nil, fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer, err)
-	}
-
-	if len(matchingDocuments) == 0 {
-		return nil, fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
-	} else if len(matchingDocuments) > 1 {
-		return nil, errMultipleDocumentsMatchingQuery
-	}
-
-	encryptedDocumentBytes, err := json.Marshal(matchingDocuments[0])
-	if err != nil {
-		return nil, fmt.Errorf(failMarshalEncryptedDocument, err)
-	}
-
-	return encryptedDocumentBytes, nil
-}
-
-// RetrieveEDVDocumentID determines which EDV document is tagged with k and returns that encrypted document's ID.
-// TODO (#2315) RetrieveEDVDocumentID shouldn't be exported - it was exported to allow for batch operations.
-// When refactoring the storage interface, fix this.
-func (r *RESTStore) RetrieveEDVDocumentID(k string) (string, error) {
-	storeAndKeyIndexValueMACBase64Encoded, err := r.computeStoreAndKeyIndexValueMACBase64Encoded(k)
-	if err != nil {
-		return "", fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC, err)
-	}
-
-	matchingDocumentURLs, err := r.restClient.queryVault(r.vaultID,
-		r.storeAndKeyIndexNameMACBase64Encoded, storeAndKeyIndexValueMACBase64Encoded)
-	if err != nil {
-		return "", fmt.Errorf(failQueryVaultInEDVServer, err)
-	}
-
-	if len(matchingDocumentURLs) == 0 {
-		return "", fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)
-	} else if len(matchingDocumentURLs) > 1 {
-		return "", errMultipleDocumentsMatchingQuery
-	}
-
-	return getDocIDFromURL(matchingDocumentURLs[0]), nil
-}
-
-// AddEncryptedIndices takes encryptedDocumentBytes and adds the necessary encrypted indices that allow us to
-// retrieve it later based on k.
+// AddEncryptedIndexTagForStoreName takes encryptedDocumentBytes and adds an encrypted index tag so that we can
+// later identify the document as belonging to the store r.name.
 // TODO (#2315) AddEncryptedIndices shouldn't be exported - it was exported to allow for batch operations.
 // When refactoring the storage interface, fix this.
-func (r *RESTStore) AddEncryptedIndices(k string, encryptedDocumentBytes []byte) (*models.EncryptedDocument, error) {
+func (r *RESTStore) AddEncryptedIndexTagForStoreName(encryptedDocumentBytes []byte) (*models.EncryptedDocument, error) {
 	var encryptedDocument models.EncryptedDocument
 
 	err := json.Unmarshal(encryptedDocumentBytes, &encryptedDocument)
@@ -446,7 +361,7 @@ func (r *RESTStore) AddEncryptedIndices(k string, encryptedDocumentBytes []byte)
 		return nil, fmt.Errorf(failUnmarshalValueIntoEncryptedDocument, err)
 	}
 
-	indexedAttributeCollection, err := r.createIndexedAttributes(k)
+	indexedAttributeCollection, err := r.createIndexedAttribute()
 	if err != nil {
 		return nil, fmt.Errorf(failCreateIndexedAttributes, err)
 	}
@@ -512,15 +427,6 @@ func (r *RESTStore) getAllDocuments(allDocumentLocations []string) ([][]byte, er
 	}
 
 	return allDocuments, nil
-}
-
-func (r *RESTStore) computeStoreAndKeyIndexValueMACBase64Encoded(keyName string) (string, error) {
-	indexValueMAC, err := r.macCrypto.ComputeMAC(fmt.Sprintf(indexValueFormat, r.name, keyName))
-	if err != nil {
-		return "", fmt.Errorf(failComputeMACStoreAndKeyIndexValue, err)
-	}
-
-	return base64.URLEncoding.EncodeToString([]byte(indexValueMAC)), nil
 }
 
 func (r *RESTStore) computeStoreIndexValueMACBase64Encoded() (string, error) {
@@ -659,6 +565,8 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 	switch statusCode {
 	case http.StatusOK:
 		return respBytes, nil
+	case http.StatusNotFound:
+		return nil, fmt.Errorf(failResponseFromEDVServerWithError, storage.ErrDataNotFound, statusCode, respBytes)
 	default:
 		return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 	}

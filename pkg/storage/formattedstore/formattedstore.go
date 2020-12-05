@@ -35,7 +35,7 @@ var logger = log.New("formatted-store")
 type Formatter interface {
 	FormatPair(k string, v []byte) ([]byte, error)
 	ParsePair([]byte) (k string, v []byte, err error)
-	GenerateEDVCompatibleID(k string) (string, error)
+	GenerateEDVDocumentID(k string) (string, error)
 }
 
 type batchSvc interface {

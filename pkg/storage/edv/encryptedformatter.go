@@ -67,7 +67,7 @@ func (f *EncryptedFormatter) FormatPair(k string, v []byte) ([]byte, error) {
 	content[originalKeyContentKey] = k
 	content[payloadContentKey] = string(v)
 
-	structuredDocumentID, err := f.GenerateEDVCompatibleID(k)
+	structuredDocumentID, err := f.GenerateEDVDocumentID(k)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +166,10 @@ func (f *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
 	return structuredDocument, nil
 }
 
-// GenerateEDVCompatibleID generate edv compatible id.
-func (f *EncryptedFormatter) GenerateEDVCompatibleID(k string) (string, error) {
+// GenerateEDVDocumentID generates the EDV document ID based on k and the MAC crypto key.
+// TODO (#2376) Revisit how we're generating EDV document IDs, since it's technically not 100% in line with the spec.
+//  (Spec requires randomly generated IDs)
+func (f *EncryptedFormatter) GenerateEDVDocumentID(k string) (string, error) {
 	hashKey, err := f.macCrypto.ComputeMAC(k)
 	if err != nil {
 		return "", err

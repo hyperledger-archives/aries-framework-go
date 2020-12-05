@@ -35,12 +35,6 @@ func TestNewRESTProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		createRESTProvider("EDVServerURL", t, false)
 	})
-	t.Run("Fail to compute index name MAC", func(t *testing.T) {
-		provider, err := NewRESTProvider("EDVServerURL", "vaultID",
-			NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest}))
-		require.EqualError(t, err, fmt.Errorf(failComputeMACStoreAndKeyIndexName, errTest).Error())
-		require.Nil(t, provider)
-	})
 }
 
 func TestRESTProvider_OpenStore(t *testing.T) {
@@ -158,19 +152,14 @@ func TestRESTProvider_Batch(t *testing.T) {
 
 func TestRestStore_Put(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnLocation:   "documentLocation",
 			CreateDocumentReturnStatusCode: http.StatusCreated,
-			QueryVaultReturnStatusCode:     http.StatusOK,
-			QueryVaultReturnBody:           queryResultsBytes,
 			UpdateDocumentReturnStatusCode: http.StatusOK,
 		}
 		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
@@ -221,35 +210,11 @@ func TestRestStore_Put(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to add header")
 	})
-	t.Run("Fail to check for existing document", func(t *testing.T) {
-		provider := createRESTProvider("EDVServerURL", t, false)
-		provider.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocument := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
-
-		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
-		require.NoError(t, err)
-
-		err = store.Put(testKey, encryptedDocumentBytes)
-		require.EqualError(t, err,
-			fmt.Errorf(failCheckForExistingEDVDocument,
-				fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
-					fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest))).Error())
-	})
 	t.Run("Fail to unmarshal value into an encrypted document", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
+			T:                            t,
+			ReadDocumentReturnStatusCode: http.StatusNotFound,
+			ReadDocumentReturnBody:       []byte("document not found"),
 		}
 		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
 		defer edvSrv.Close()
@@ -268,17 +233,12 @@ func TestRestStore_Put(t *testing.T) {
 						errors.New("invalid character 'h' in literal true (expecting 'r')")))).Error())
 	})
 	t.Run("Receive error response from EDV server's create document endpoint", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
 			T:                              t,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusInternalServerError,
 			CreateDocumentReturnBody:       []byte(errTest.Error()),
-			QueryVaultReturnStatusCode:     http.StatusOK,
-			QueryVaultReturnBody:           queryResultsBytes,
 		}
 		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
 		defer edvSrv.Close()
@@ -301,19 +261,14 @@ func TestRestStore_Put(t *testing.T) {
 					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
 	})
 	t.Run("Fail to update document in EDV server", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusOK,
+			ReadDocumentReturnBody:         []byte("SomeDocumentID"),
 			CreateDocumentReturnLocation:   "documentLocation",
 			CreateDocumentReturnStatusCode: http.StatusCreated,
-			QueryVaultReturnStatusCode:     http.StatusOK,
-			QueryVaultReturnBody:           queryResultsBytes,
 			UpdateDocumentReturnStatusCode: http.StatusInternalServerError,
 			UpdateDocumentReturnBody:       []byte(errTest.Error()),
 		}
@@ -332,16 +287,6 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 
 		err = store.Put(testKey, encryptedDocument)
-		require.NoError(t, err)
-
-		newEncryptedDocument, err := encryptedFormatter.FormatPair(testKey, []byte(testValue2))
-		require.NoError(t, err)
-
-		// Allow the mock EDV server to return the previously stored document ID when being queried
-		mockEDVServerOperation.QueryVaultReturnBody = nil
-
-		// Now attempt to update the existing document with a new one
-		err = store.Put(testKey, newEncryptedDocument)
 		require.EqualError(t, err, fmt.Errorf(failStoreEDVDocument,
 			fmt.Errorf(failUpdateDocumentInEDVServer,
 				fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
@@ -380,219 +325,6 @@ func TestRestStore_Get(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, string(encryptedDocumentBytes), string(encryptedDocumentBytesFromServer))
 	})
-	t.Run(`Success, with the "return full documents on query" option enabled`, func(t *testing.T) {
-		encryptedDocumentToReturnFromQuery := models.EncryptedDocument{ID: sampleEncryptedDocumentID}
-		queryResults := []models.EncryptedDocument{encryptedDocumentToReturnFromQuery}
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
-		mockEDVServerOp := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
-		}
-		edvSrv := mockEDVServerOp.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, true)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytesFromServer, err := store.Get(testKey)
-		require.NoError(t, err)
-
-		encryptedDocumentToReturnFromQueryBytes, err := json.Marshal(encryptedDocumentToReturnFromQuery)
-		require.NoError(t, err)
-
-		require.Equal(t, string(encryptedDocumentToReturnFromQueryBytes), string(encryptedDocumentBytesFromServer))
-	})
-	t.Run("Fail to get full document via query", func(t *testing.T) {
-		provider := createRESTProvider("EDVServerURL", t, true)
-		provider.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
-					fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest))).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run("Fail to compute Base64 encoded index value MAC", func(t *testing.T) {
-		provider := createRESTProvider("EDVServerURL", t, false)
-		provider.macCrypto = NewMACCrypto(nil, &mockcrypto.Crypto{ComputeMACErr: errTest})
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failRetrieveEDVDocumentID,
-				fmt.Errorf(failComputeBase64EncodedStoreAndKeyIndexValueMAC,
-					fmt.Errorf(failComputeMACStoreAndKeyIndexValue, errTest))).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run("Error response from query endpoint", func(t *testing.T) {
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusInternalServerError,
-			QueryVaultReturnBody:       []byte(errTest.Error()),
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, false)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failRetrieveEDVDocumentID,
-				fmt.Errorf(failQueryVaultInEDVServer,
-					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run(`Error response from query endpoint (using "return full docs on query" option)`, func(t *testing.T) {
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusInternalServerError,
-			QueryVaultReturnBody:       []byte(errTest.Error()),
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, true)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer,
-					fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error()))).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run("No doc was found matching the query", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, false)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failRetrieveEDVDocumentID,
-				fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run(`No doc was found matching the query (using "return full docs on query" option)`, func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, true)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run("Two docs found matching the query", func(t *testing.T) {
-		queryResults := []string{
-			"https://example.com/encrypted-data-vaults/z4sRgBJJLnYy/docs/zMbxmSDn2Xzz",
-			"https://example.com/encrypted-data-vaults/z4sRgBJJLnYy/docs/AJYHHJx4C8J9Fsgz7rZqSp",
-		}
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, false)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failRetrieveEDVDocumentID,
-				errMultipleDocumentsMatchingQuery).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
-	t.Run(`Two docs found matching the query (using "return full docs on query" option)`, func(t *testing.T) {
-		encryptedDoc1 := models.EncryptedDocument{ID: "docID1"}
-		encryptedDoc2 := models.EncryptedDocument{ID: "docID2"}
-
-		queryResults := []models.EncryptedDocument{encryptedDoc1, encryptedDoc2}
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       queryResultsBytes,
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, true)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytes, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failGetFullDocumentViaQuery,
-				errMultipleDocumentsMatchingQuery).Error())
-		require.Nil(t, encryptedDocumentBytes)
-	})
 	t.Run("Receive error response from EDV server delete document endpoint", func(t *testing.T) {
 		queryResults := []string{"z19x9iFMnfo4YLsShKAvnJk4L"}
 
@@ -621,46 +353,18 @@ func TestRestStore_Get(t *testing.T) {
 				fmt.Errorf(failResponseFromEDVServer, http.StatusInternalServerError, errTest.Error())).Error())
 		require.Nil(t, encryptedDocumentBytesFromServer)
 	})
-	t.Run(`Query endpoint returns invalid format (using "return full docs on query" option)`, func(t *testing.T) {
-		mockEDVServerOp := edv.MockServerOperation{
-			T:                          t,
-			QueryVaultReturnStatusCode: http.StatusOK,
-			QueryVaultReturnBody:       []byte("Can't marshal this to an array of Encrypted Documents"),
-		}
-		edvSrv := mockEDVServerOp.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, true)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		encryptedDocumentBytesFromServer, err := store.Get(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failGetFullDocumentViaQuery,
-				fmt.Errorf(failQueryVaultForFullDocumentsInEDVServer,
-					fmt.Errorf(failUnmarshalEncryptedDocuments,
-						errors.New("invalid character 'C' looking for beginning of value")))).Error())
-		require.Empty(t, encryptedDocumentBytesFromServer)
-	})
 }
 
 func TestRestStore_Iterator(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusCreated,
-			ReadDocumentReturnStatusCode:   http.StatusOK,
 			QueryVaultReturnStatusCode:     http.StatusOK,
-			QueryVaultReturnBody:           queryResultsBytes,
 		}
 		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
 		defer edvSrv.Close()
@@ -683,26 +387,22 @@ func TestRestStore_Iterator(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// Allow the mock EDV server to return all documents in query
-		mockEDVServerOperation.QueryVaultReturnBody = nil
+		// Allow the mock EDV server read endpoint to return documents
+		mockEDVServerOperation.ReadDocumentReturnStatusCode = http.StatusOK
+		mockEDVServerOperation.ReadDocumentReturnBody = nil
 
 		iterator := store.Iterator("Start key doesn't matter", "End key doesn't matter")
 		verifyIterator(t, iterator, len(keys))
 	})
 	t.Run(`Success (using "return full docs on query" option)`, func(t *testing.T) {
-		queryResults := make([]string, 0)
-
-		queryResultsBytes, err := json.Marshal(queryResults)
-		require.NoError(t, err)
-
 		mockEDVServerOperation := edv.MockServerOperation{
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusCreated,
-			ReadDocumentReturnStatusCode:   http.StatusOK,
 			QueryVaultReturnStatusCode:     http.StatusOK,
-			QueryVaultReturnBody:           queryResultsBytes,
 		}
 		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
 		defer edvSrv.Close()
@@ -783,9 +483,9 @@ func TestRestStore_Iterator(t *testing.T) {
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusCreated,
-			ReadDocumentReturnStatusCode:   http.StatusInternalServerError,
-			ReadDocumentReturnBody:         []byte(errTest.Error()),
 			QueryVaultReturnStatusCode:     http.StatusOK,
 			QueryVaultReturnBody:           queryResultsBytes,
 		}
@@ -813,6 +513,9 @@ func TestRestStore_Iterator(t *testing.T) {
 		// Allow the mock EDV server to return all documents in query
 		mockEDVServerOperation.QueryVaultReturnBody = nil
 
+		mockEDVServerOperation.ReadDocumentReturnStatusCode = http.StatusInternalServerError
+		mockEDVServerOperation.ReadDocumentReturnBody = []byte(errTest.Error())
+
 		itr := store.Iterator("Start key doesn't matter", "End key doesn't matter")
 		require.EqualError(t, itr.Error(),
 			fmt.Errorf(failGetAllDocuments,
@@ -827,6 +530,8 @@ func TestRestStore_Delete(t *testing.T) {
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusCreated,
 			QueryVaultReturnStatusCode:     http.StatusOK,
 			DeleteDocumentReturnStatusCode: http.StatusOK,
@@ -851,28 +556,6 @@ func TestRestStore_Delete(t *testing.T) {
 		err = store.Delete(testKey)
 		require.NoError(t, err)
 	})
-	t.Run("Fail to retrieve EDV document ID", func(t *testing.T) {
-		mockEDVServerOperation := edv.MockServerOperation{
-			T:                              t,
-			DB:                             make(map[string][]byte),
-			UseDB:                          true,
-			QueryVaultReturnStatusCode:     http.StatusOK,
-			DeleteDocumentReturnStatusCode: http.StatusOK,
-		}
-		edvSrv := mockEDVServerOperation.StartNewMockEDVServer()
-		defer edvSrv.Close()
-
-		provider := createRESTProvider(edvSrv.URL, t, false)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		err = store.Delete(testKey)
-		require.EqualError(t, err,
-			fmt.Errorf(failRetrieveEDVDocumentID,
-				fmt.Errorf(noDocumentMatchingQueryFound, storage.ErrDataNotFound)).Error())
-	})
 	t.Run("Fail to delete document in EDV server", func(t *testing.T) {
 		deleteDocReturnBody := "delete document failure"
 
@@ -880,6 +563,8 @@ func TestRestStore_Delete(t *testing.T) {
 			T:                              t,
 			DB:                             make(map[string][]byte),
 			UseDB:                          true,
+			ReadDocumentReturnStatusCode:   http.StatusNotFound,
+			ReadDocumentReturnBody:         []byte("document not found"),
 			CreateDocumentReturnStatusCode: http.StatusCreated,
 			QueryVaultReturnStatusCode:     http.StatusOK,
 			DeleteDocumentReturnStatusCode: http.StatusInternalServerError,
@@ -918,7 +603,7 @@ func TestRestStore_CreateEDVDocument(t *testing.T) {
 		encryptedDocumentBytes, err := json.Marshal(encryptedDocument)
 		require.NoError(t, err)
 
-		err = store.createEDVDocument(testKey, encryptedDocumentBytes, "")
+		err = store.saveEDVDocumentToServer(encryptedDocumentBytes, false)
 		require.EqualError(t, err,
 			fmt.Errorf(failAddEncryptedIndices,
 				fmt.Errorf(failCreateIndexedAttributes,

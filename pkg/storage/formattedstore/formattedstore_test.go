@@ -44,15 +44,19 @@ var errTest = errors.New("test error")
 
 func TestNew(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 	})
 }
 
 func TestFormatProvider_OpenStore(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -60,9 +64,12 @@ func TestFormatProvider_OpenStore(t *testing.T) {
 		require.NotNil(t, store)
 	})
 	t.Run("Fail to open store in underlying provider", func(t *testing.T) {
+		macCrypto := newMACCrypto(t)
+
 		mockStoreProvider := mockstorage.MockStoreProvider{ErrOpenStoreHandle: errTest}
 
-		provider := formattedstore.NewFormattedProvider(&mockStoreProvider, createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(&mockStoreProvider, createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -71,10 +78,12 @@ func TestFormatProvider_OpenStore(t *testing.T) {
 	})
 
 	t.Run("Fail to open store in cache provider", func(t *testing.T) {
+		macCrypto := newMACCrypto(t)
+
 		mockStoreProvider := mockstorage.MockStoreProvider{ErrOpenStoreHandle: errTest}
 
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(&mockStoreProvider))
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(&mockStoreProvider))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -85,8 +94,10 @@ func TestFormatProvider_OpenStore(t *testing.T) {
 
 func TestFormatProvider_CloseStore(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		err := provider.CloseStore("testName")
@@ -96,7 +107,10 @@ func TestFormatProvider_CloseStore(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.ErrCloseStore = errTest
 
-		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 
 		err := provider.CloseStore("testName")
@@ -106,8 +120,10 @@ func TestFormatProvider_CloseStore(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.ErrCloseStore = errTest
 
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mockStoreProvider))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mockStoreProvider))
 		require.NotNil(t, provider)
 
 		err := provider.CloseStore("testName")
@@ -117,8 +133,10 @@ func TestFormatProvider_CloseStore(t *testing.T) {
 
 func TestFormatProvider_Close(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -128,7 +146,10 @@ func TestFormatProvider_Close(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.ErrClose = errTest
 
-		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -138,8 +159,10 @@ func TestFormatProvider_Close(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.ErrClose = errTest
 
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mockStoreProvider))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mockStoreProvider))
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -149,7 +172,10 @@ func TestFormatProvider_Close(t *testing.T) {
 
 func Test_formatStore_Put(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true,
 			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
@@ -161,7 +187,10 @@ func Test_formatStore_Put(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("Success batch", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto),
+			true,
 			formattedstore.WithCacheProvider(mem.NewProvider()),
 			formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
@@ -192,7 +221,10 @@ func Test_formatStore_Put(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
-		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -207,7 +239,9 @@ func Test_formatStore_Put(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto), true,
 			formattedstore.WithCacheProvider(mockStoreProvider))
 		require.NotNil(t, provider)
 
@@ -223,7 +257,10 @@ func Test_formatStore_Put(t *testing.T) {
 
 func Test_formatStore_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -238,8 +275,10 @@ func Test_formatStore_Get(t *testing.T) {
 		require.Equal(t, testValue, string(value))
 	})
 	t.Run("Success batch", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
-			formattedstore.WithBatchWrite())
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -254,8 +293,10 @@ func Test_formatStore_Get(t *testing.T) {
 		require.Equal(t, testValue, string(value))
 	})
 	t.Run("Success cache", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -277,10 +318,13 @@ func Test_formatStore_Get(t *testing.T) {
 		underlyingStore, err := underlyingProvider.OpenStore(testStoreName)
 		require.NoError(t, err)
 
+		macCrypto := newMACCrypto(t)
+
 		err = underlyingStore.Put(testKey, []byte("not EDV encrypted document formatted data"))
 		require.NoError(t, err)
 
-		provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), true)
+		provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t, macCrypto),
+			true)
 		require.NoError(t, err)
 		require.NotNil(t, provider)
 
@@ -296,8 +340,10 @@ func Test_formatStore_Get(t *testing.T) {
 		require.Nil(t, value)
 	})
 	t.Run("Fail to get formatted value from underlying store", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()))
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+			true, formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -314,8 +360,10 @@ func Test_formatStore_Get(t *testing.T) {
 func Test_formatStore_Iterator(t *testing.T) {
 	t.Run("Success with in-memory provider as the underlying provider", func(t *testing.T) {
 		t.Run("skipIteratorFiltering set to false", func(t *testing.T) {
-			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), false,
-				formattedstore.WithCacheProvider(mem.NewProvider()))
+			macCrypto := newMACCrypto(t)
+
+			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto),
+				false, formattedstore.WithCacheProvider(mem.NewProvider()))
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -355,7 +403,9 @@ func Test_formatStore_Iterator(t *testing.T) {
 			verifyIterator(t, itr, 0, "")
 		})
 		t.Run("skipIteratorFiltering set to true", func(t *testing.T) {
-			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true)
+			macCrypto := newMACCrypto(t)
+
+			provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto), true)
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -394,27 +444,24 @@ func Test_formatStore_Iterator(t *testing.T) {
 	})
 	t.Run("Success with EDV REST provider as the underlying provider", func(t *testing.T) {
 		t.Run("skipIteratorFiltering set to false", func(t *testing.T) {
-			queryResults := make([]string, 0)
-
-			queryResultsBytes, err := json.Marshal(queryResults)
-			require.NoError(t, err)
-
 			mockEDVServerOp := mockedv.MockServerOperation{
 				T:                              t,
 				DB:                             make(map[string][]byte),
 				UseDB:                          true,
+				ReadDocumentReturnStatusCode:   http.StatusNotFound,
+				ReadDocumentReturnBody:         []byte("document not found"),
 				CreateDocumentReturnStatusCode: http.StatusCreated,
-				ReadDocumentReturnStatusCode:   http.StatusOK,
 				QueryVaultReturnStatusCode:     http.StatusOK,
-				QueryVaultReturnBody:           queryResultsBytes,
 			}
 			edvSrv := mockEDVServerOp.StartNewMockEDVServer()
 			defer edvSrv.Close()
 
-			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL)
+			macCrypto := newMACCrypto(t)
 
-			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), false)
-			require.NoError(t, err)
+			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL, macCrypto)
+
+			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t, macCrypto),
+				false)
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -431,6 +478,10 @@ func Test_formatStore_Iterator(t *testing.T) {
 
 			// Allow the mock EDV server to return all documents in query
 			mockEDVServerOp.QueryVaultReturnBody = nil
+
+			// Allow the mock EDV server read endpoint to return documents
+			mockEDVServerOp.ReadDocumentReturnStatusCode = http.StatusOK
+			mockEDVServerOp.ReadDocumentReturnBody = nil
 
 			// The underlying EDV REST provider's Iterator(startKey, endKey string) method does not do any filtering
 			// based on the startKey and endKey arguments. It always contains every document in the store.
@@ -466,18 +517,21 @@ func Test_formatStore_Iterator(t *testing.T) {
 				T:                              t,
 				DB:                             make(map[string][]byte),
 				UseDB:                          true,
+				ReadDocumentReturnStatusCode:   http.StatusNotFound,
+				ReadDocumentReturnBody:         []byte("document not found"),
 				CreateDocumentReturnStatusCode: http.StatusCreated,
-				ReadDocumentReturnStatusCode:   http.StatusOK,
 				QueryVaultReturnStatusCode:     http.StatusOK,
 				QueryVaultReturnBody:           queryResultsBytes,
 			}
 			edvSrv := mockEDVServerOp.StartNewMockEDVServer()
 			defer edvSrv.Close()
 
-			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL)
+			macCrypto := newMACCrypto(t)
 
-			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t), true)
-			require.NoError(t, err)
+			underlyingProvider := createEDVRESTProvider(t, edvSrv.URL, macCrypto)
+
+			provider := formattedstore.NewFormattedProvider(underlyingProvider, createEDVFormatter(t, macCrypto),
+				true)
 			require.NotNil(t, provider)
 
 			store, err := provider.OpenStore("testName")
@@ -494,6 +548,10 @@ func Test_formatStore_Iterator(t *testing.T) {
 
 			// Allow the mock EDV server to return all documents in query
 			mockEDVServerOp.QueryVaultReturnBody = nil
+
+			// Allow the mock EDV server read endpoint to return documents
+			mockEDVServerOp.ReadDocumentReturnStatusCode = http.StatusOK
+			mockEDVServerOp.ReadDocumentReturnBody = nil
 
 			// The underlying EDV REST provider's Iterator(startKey, endKey string) method does not do any filtering
 			// based on the startKey and endKey arguments. The iterator is returns always contains every document
@@ -526,7 +584,10 @@ func Test_formatStore_Iterator(t *testing.T) {
 		mockProvider := mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 			ErrItr: errTest,
 		})
-		provider := formattedstore.NewFormattedProvider(mockProvider, createEDVFormatter(t), true)
+
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mockProvider, createEDVFormatter(t, macCrypto), true)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -547,7 +608,6 @@ func Test_formatStore_Iterator(t *testing.T) {
 		require.NoError(t, err)
 
 		provider := formattedstore.NewFormattedProvider(underlyingProvider, &failingFormatter{}, true)
-		require.NoError(t, err)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -562,7 +622,9 @@ func Test_formatStore_Iterator(t *testing.T) {
 
 func Test_formatStore_Delete(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()))
 		require.NotNil(t, provider)
 
@@ -574,7 +636,9 @@ func Test_formatStore_Delete(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("Success batch", func(t *testing.T) {
-		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto), true,
 			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite())
 		require.NotNil(t, provider)
 
@@ -589,7 +653,9 @@ func Test_formatStore_Delete(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrDelete = errTest
 
-		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t), true)
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mockStoreProvider, createEDVFormatter(t, macCrypto), true)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -604,7 +670,9 @@ func Test_formatStore_Delete(t *testing.T) {
 		mockStoreProvider := mockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrDelete = errTest
 
-		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t), true,
+		macCrypto := newMACCrypto(t)
+
+		provider := formattedstore.NewFormattedProvider(mem.NewProvider(), createEDVFormatter(t, macCrypto), true,
 			formattedstore.WithCacheProvider(mockStoreProvider))
 		require.NotNil(t, provider)
 
@@ -618,10 +686,10 @@ func Test_formatStore_Delete(t *testing.T) {
 	})
 }
 
-func createEDVFormatter(t *testing.T) formattedstore.Formatter {
+func createEDVFormatter(t *testing.T, macCrypto *edv.MACCrypto) formattedstore.Formatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, newMACCrypto(t))
+	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, macCrypto)
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -661,8 +729,8 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	return encrypter, decrypter
 }
 
-func createEDVRESTProvider(t *testing.T, edvServerURL string) *edv.RESTProvider {
-	provider, err := edv.NewRESTProvider(edvServerURL, "vaultID", newMACCrypto(t),
+func createEDVRESTProvider(t *testing.T, edvServerURL string, macCrypto *edv.MACCrypto) *edv.RESTProvider {
+	provider, err := edv.NewRESTProvider(edvServerURL, "vaultID", macCrypto,
 		edv.WithTLSConfig(&tls.Config{ServerName: "name", MinVersion: tls.VersionTLS13}))
 	require.NoError(t, err)
 	require.NotNil(t, provider)
@@ -716,7 +784,7 @@ func (f *failingFormatter) ParsePair([]byte) (string, []byte, error) {
 	return "", nil, errFailingFormatter
 }
 
-func (f *failingFormatter) GenerateEDVCompatibleID(k string) (string, error) {
+func (f *failingFormatter) GenerateEDVDocumentID(k string) (string, error) {
 	return "", nil
 }
 
@@ -772,6 +840,6 @@ func (s *mockStore) Delete(k string) error {
 	return s.mock.Delete(k)
 }
 
-func (s *mockStore) AddEncryptedIndices(k string, encryptedDocumentBytes []byte) (*models.EncryptedDocument, error) {
+func (s *mockStore) AddEncryptedIndexTagForStoreName(encryptedDocumentBytes []byte) (*models.EncryptedDocument, error) {
 	return &models.EncryptedDocument{}, nil
 }

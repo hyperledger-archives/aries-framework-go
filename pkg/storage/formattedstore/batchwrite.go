@@ -24,7 +24,7 @@ type batchProvider interface {
 }
 
 type batchStore interface {
-	AddEncryptedIndices(k string, encryptedDocumentBytes []byte) (*models.EncryptedDocument, error)
+	AddEncryptedIndexTagForStoreName(encryptedDocumentBytes []byte) (*models.EncryptedDocument, error)
 }
 
 // BatchService is a batch service.
@@ -46,7 +46,7 @@ type batch struct {
 	keyID                   string
 	value                   []byte
 	isDeleted               bool
-	addEncryptedIndicesFunc func(k string, encryptedDocumentBytes []byte) (*models.EncryptedDocument, error)
+	addEncryptedIndicesFunc func(encryptedDocumentBytes []byte) (*models.EncryptedDocument, error)
 }
 
 // NewBatchWrite new batch write.
@@ -79,7 +79,7 @@ func (b *BatchService) Get(k string) ([]byte, error) {
 
 // Put in batch value.
 func (b *BatchService) Put(s batchStore, k string, v []byte) error {
-	addBatch := &batch{keyID: k, value: v, isDeleted: false, addEncryptedIndicesFunc: s.AddEncryptedIndices}
+	addBatch := &batch{keyID: k, value: v, isDeleted: false, addEncryptedIndicesFunc: s.AddEncryptedIndexTagForStoreName}
 	start := time.Now()
 
 	b.futureValuesLock.Lock()
@@ -176,7 +176,7 @@ func (p *pendingBatch) put(addBatch *batch) {
 			return
 		}
 
-		encryptedDocument, err := addBatch.addEncryptedIndicesFunc(addBatch.keyID, formattedValue)
+		encryptedDocument, err := addBatch.addEncryptedIndicesFunc(formattedValue)
 		if err != nil {
 			logger.Errorf("failed to add encrypted indices k=%s: %w", addBatch.keyID, err)
 
@@ -190,7 +190,7 @@ func (p *pendingBatch) put(addBatch *batch) {
 }
 
 func (p *pendingBatch) delete(addBatch *batch) {
-	id, err := p.formatter.GenerateEDVCompatibleID(addBatch.keyID)
+	id, err := p.formatter.GenerateEDVDocumentID(addBatch.keyID)
 	if err != nil {
 		logger.Errorf("failed to generate edv compatible id: %s", err)
 
