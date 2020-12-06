@@ -8,14 +8,18 @@ package webkms
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/bluele/gcache"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -76,11 +80,11 @@ type unmarshalFunc func([]byte, interface{}) error
 
 // RemoteCrypto implementation of kms.KeyManager api.
 type RemoteCrypto struct {
-	httpClient     *http.Client
-	keystoreURL    string
-	marshalFunc    marshalFunc
-	unmarshalFunc  unmarshalFunc
-	addHeadersOpts *webkmsimpl.HeadersOpts
+	httpClient    *http.Client
+	keystoreURL   string
+	marshalFunc   marshalFunc
+	unmarshalFunc unmarshalFunc
+	opts          *webkmsimpl.Opts
 }
 
 const (
@@ -96,19 +100,19 @@ const (
 )
 
 // New creates a new remoteCrypto instance using http client connecting to keystoreURL.
-func New(keystoreURL string, client *http.Client, headersOpts ...webkmsimpl.HeadersOpt) *RemoteCrypto {
-	hOpts := webkmsimpl.NewOpt()
+func New(keystoreURL string, client *http.Client, opts ...webkmsimpl.Opt) *RemoteCrypto {
+	rOpts := webkmsimpl.NewOpt()
 
-	for _, opt := range headersOpts {
-		opt(hOpts)
+	for _, opt := range opts {
+		opt(rOpts)
 	}
 
 	return &RemoteCrypto{
-		httpClient:     client,
-		keystoreURL:    keystoreURL,
-		marshalFunc:    json.Marshal,
-		unmarshalFunc:  json.Unmarshal,
-		addHeadersOpts: hOpts,
+		httpClient:    client,
+		keystoreURL:   keystoreURL,
+		marshalFunc:   json.Marshal,
+		unmarshalFunc: json.Unmarshal,
+		opts:          rOpts,
 	}
 }
 
@@ -128,8 +132,8 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 		httpReq.Header.Set("Content-Type", webkmsimpl.ContentType)
 	}
 
-	if r.addHeadersOpts.HeadersFunc != nil {
-		httpHeaders, e := r.addHeadersOpts.HeadersFunc(httpReq)
+	if r.opts.HeadersFunc != nil {
+		httpHeaders, e := r.opts.HeadersFunc(httpReq)
 		if e != nil {
 			return nil, fmt.Errorf("add optional request headers error: %w", e)
 		}
@@ -335,7 +339,20 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 
 // ComputeMAC remotely computes message authentication code (MAC) for code data with key at keyURL.
 // using a matching MAC primitive in kh key handle.
-func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, error) {
+func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, error) { //nolint: gocyclo
+	keyHash := string(sha256.New().Sum([]byte(fmt.Sprintf("%s_%s", keyURL, data))))
+
+	if r.opts.ComputeMACCache != nil {
+		v, err := r.opts.ComputeMACCache.Get(keyHash)
+		if err == nil {
+			return v.([]byte), nil
+		}
+
+		if !errors.Is(err, gcache.KeyNotFoundError) {
+			return nil, err
+		}
+	}
+
 	startComputeMAC := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + computeMACURI
 
@@ -371,6 +388,12 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 	macBytes, err := base64.URLEncoding.DecodeString(httpResp.MAC)
 	if err != nil {
 		return nil, err
+	}
+
+	if r.opts.ComputeMACCache != nil {
+		if err := r.opts.ComputeMACCache.Set(keyHash, macBytes); err != nil {
+			return nil, fmt.Errorf("failed to store in cache: %w", err)
+		}
 	}
 
 	logger.Infof("overall ComputeMAC duration: %s", time.Since(startComputeMAC))

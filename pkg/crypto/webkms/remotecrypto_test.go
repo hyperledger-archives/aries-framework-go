@@ -490,11 +490,17 @@ func TestComputeVerifyMAC(t *testing.T) {
 	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(webkmsimpl.KeystoreEndpoint,
 		"{serverEndpoint}", url), defaultKeyStoreID)
 	defaultKeyURL := defaultKeystoreURL + "/keys/" + defaultKID
-	rCrypto := New(defaultKeystoreURL, client)
+	rCrypto := New(defaultKeystoreURL, client, webkmsimpl.WithCache(2))
 	data := []byte("lorem ipsum")
 
 	// test successful ComputeMAC/VerifyMAC
 	dataMAC, err := rCrypto.ComputeMAC(data, defaultKeyURL)
+	require.NoError(t, err)
+
+	err = rCrypto.VerifyMAC(dataMAC, data, defaultKeyURL)
+	require.NoError(t, err)
+
+	dataMAC, err = rCrypto.ComputeMAC(data, defaultKeyURL)
 	require.NoError(t, err)
 
 	err = rCrypto.VerifyMAC(dataMAC, data, defaultKeyURL)

@@ -234,7 +234,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 
 	t.Run("CreateKeyStore with http header opt success", func(t *testing.T) {
 		ksID, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal,
-			WithHeaders(mockAddHeadersFuncSuccess))
+			WithHeaders(mockAddHeadersFuncSuccess), WithCache(1))
 		require.NoError(t, e)
 
 		require.EqualValues(t, defaultKeystoreURL, ksID)
