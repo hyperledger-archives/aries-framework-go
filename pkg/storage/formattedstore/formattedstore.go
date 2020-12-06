@@ -40,7 +40,7 @@ type Formatter interface {
 
 type batchSvc interface {
 	Get(k string) ([]byte, error)
-	Delete(k string)
+	Delete(k string) error
 	Put(s batchStore, k string, v []byte) error
 	Flush() error
 }
@@ -56,9 +56,9 @@ func WithCacheProvider(cacheProvider storage.Provider) Option {
 }
 
 // WithBatchWrite option is for batch write.
-func WithBatchWrite() Option {
+func WithBatchWrite(batchSize int) Option {
 	return func(opts *FormattedProvider) {
-		opts.enableBatch = true
+		opts.batchSize = batchSize
 	}
 }
 
@@ -68,7 +68,7 @@ type FormattedProvider struct {
 	cacheProvider         storage.Provider
 	formatter             Formatter
 	skipIteratorFiltering bool
-	enableBatch           bool
+	batchSize             int
 	batchSvc              batchSvc
 }
 
@@ -84,14 +84,15 @@ func NewFormattedProvider(provider storage.Provider, formatter Formatter,
 		provider:              provider,
 		formatter:             formatter,
 		skipIteratorFiltering: skipIteratorFiltering,
+		batchSize:             -1,
 	}
 
 	for _, opt := range opts {
 		opt(formattedProvider)
 	}
 
-	if formattedProvider.enableBatch {
-		formattedProvider.batchSvc = NewBatchWrite(formatter, provider.(batchProvider))
+	if formattedProvider.batchSize >= 0 {
+		formattedProvider.batchSvc = NewBatchWrite(formattedProvider.batchSize, formatter, provider.(batchProvider))
 	}
 
 	return formattedProvider
@@ -297,7 +298,9 @@ func (s *formatStore) Iterator(startKey, endKey string) storage.StoreIterator { 
 
 func (s *formatStore) Delete(k string) error {
 	if s.batchSvc != nil {
-		s.batchSvc.Delete(k)
+		if err := s.batchSvc.Delete(k); err != nil {
+			return err
+		}
 	} else {
 		err := s.store.Delete(k)
 		if err != nil {

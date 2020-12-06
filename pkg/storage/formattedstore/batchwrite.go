@@ -35,6 +35,7 @@ type BatchService struct {
 	formatter        Formatter
 	provider         batchProvider // TODO remove batch provider after refactoring edv batch
 	current          *pendingBatch
+	batchSizeLimit   int
 }
 
 type processBatch struct {
@@ -51,10 +52,10 @@ type batch struct {
 
 // NewBatchWrite new batch write.
 //nolint: funlen
-func NewBatchWrite(formatter Formatter, provider batchProvider) *BatchService {
+func NewBatchWrite(batchSizeLimit int, formatter Formatter, provider batchProvider) *BatchService {
 	b := &BatchService{
 		futureValues: make(map[string]*batch), formatter: formatter, provider: provider,
-		current: newPendingBatch(provider, formatter),
+		current: newPendingBatch(provider, formatter), batchSizeLimit: batchSizeLimit,
 	}
 
 	return b
@@ -88,13 +89,19 @@ func (b *BatchService) Put(s batchStore, k string, v []byte) error {
 
 	b.currentBatch().put(addBatch)
 
+	if b.batchSizeLimit > 0 && b.currentBatch().size >= b.batchSizeLimit {
+		if err := b.Flush(); err != nil {
+			return err
+		}
+	}
+
 	logger.Infof("batch write put duration %s", time.Since(start))
 
 	return nil
 }
 
 // Delete value.
-func (b *BatchService) Delete(k string) {
+func (b *BatchService) Delete(k string) error {
 	addBatch := &batch{keyID: k, isDeleted: true}
 
 	b.futureValuesLock.Lock()
@@ -102,6 +109,14 @@ func (b *BatchService) Delete(k string) {
 	b.futureValuesLock.Unlock()
 
 	b.currentBatch().delete(addBatch)
+
+	if b.batchSizeLimit > 0 && b.currentBatch().size >= b.batchSizeLimit {
+		if err := b.Flush(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Flush data.
@@ -140,6 +155,7 @@ type pendingBatch struct {
 	wg        sync.WaitGroup
 	mutex     sync.RWMutex
 	err       error
+	size      int
 }
 
 func newPendingBatch(provider batchProvider, formatter Formatter) *pendingBatch {
@@ -148,10 +164,13 @@ func newPendingBatch(provider batchProvider, formatter Formatter) *pendingBatch 
 	return &pendingBatch{
 		provider:  provider,
 		formatter: formatter,
+		size:      0,
 	}
 }
 
 func (p *pendingBatch) put(addBatch *batch) {
+	p.size++
+
 	p.wg.Add(1)
 
 	p.mutex.Lock()
@@ -190,6 +209,8 @@ func (p *pendingBatch) put(addBatch *batch) {
 }
 
 func (p *pendingBatch) delete(addBatch *batch) {
+	p.size++
+
 	id, err := p.formatter.GenerateEDVDocumentID(addBatch.keyID)
 	if err != nil {
 		logger.Errorf("failed to generate edv compatible id: %s", err)

@@ -192,7 +192,7 @@ func Test_formatStore_Put(t *testing.T) {
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto),
 			true,
 			formattedstore.WithCacheProvider(mem.NewProvider()),
-			formattedstore.WithBatchWrite())
+			formattedstore.WithBatchWrite(1))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -278,7 +278,7 @@ func Test_formatStore_Get(t *testing.T) {
 		macCrypto := newMACCrypto(t)
 
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto),
-			true, formattedstore.WithBatchWrite())
+			true, formattedstore.WithBatchWrite(10))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
@@ -639,7 +639,7 @@ func Test_formatStore_Delete(t *testing.T) {
 		macCrypto := newMACCrypto(t)
 
 		provider := formattedstore.NewFormattedProvider(newMockStoreProvider(), createEDVFormatter(t, macCrypto), true,
-			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite())
+			formattedstore.WithCacheProvider(mem.NewProvider()), formattedstore.WithBatchWrite(1))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("testName")
