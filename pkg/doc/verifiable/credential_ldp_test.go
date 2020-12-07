@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -529,6 +530,64 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(vcVerified)
 	r.Equal(vc, vcVerified)
+}
+
+//nolint:lll
+func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.T) {
+	r := require.New(t)
+
+	sigSuite := bbsblssignatureproof2020.New(
+		suite.WithCompactProof(),
+		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier([]byte("nonce"))))
+
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/citizenship/v1",
+    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+  ],
+  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+  "type": [
+	"VerifiableCredential",
+    "PermanentResidentCard"
+  ],
+  "description": "Government of Example Permanent Resident Card.",
+  "identifier": "83627465",
+  "name": "Permanent Resident Card",
+  "credentialSubject": {
+    "id": "did:example:b34ca6cd37bbf23",
+    "type": [
+      "Person",
+      "PermanentResident"
+    ],
+    "familyName": "SMITH",
+    "gender": "Male",
+    "givenName": "JOHN"
+  },
+  "expirationDate": "2029-12-03T12:19:52Z",
+  "issuanceDate": "2019-12-03T12:19:52Z",
+  "issuer": "did:example:489398593",
+  "proof": {
+    "type": "BbsBlsSignatureProof2020",
+    "created": "2020-12-06T19:23:10Z",
+    "nonce": "bm9uY2U=",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "ABkB/wbvi77V4fFx9Ewo4+52/X3Fdd79uRExQeet0PVrdP3wyExE5ib6fTVUGbnX6CK3UgNbli+RgYV21g9taTaIbS9g3HIX3csJRWm0sFNq2lxlXNF9I6skrRpJBt9VnjvXrFxTgEkuSbcrG4jaulj0mXLoZIuz8yrmXKBG+35TPiVXf1zh29RtXIKPHeZ7sWJ3RkKSAAAAdIx7On9kZkbGb9IECei4H4vjcZYJi7Q2Ywz4Bc/+4FCrMiu5C50T0nxScWFh4v2oHAAAAAI8/usecIohptQnf7ZO1UsTLH7u+NN5avFfxGTsmY9BVgS60Lbyzx89mmn2Ce5W3L9ZS4bkwS2CXeQXfl268oTWixysSv+L1q1+e6cdqlY/GA2LGWVCZoTli6mJ+EIDCNcSM75Hs8cTrDOfTuTmAwl9AAAACWyOb/UWrb1nWkbNTPpctXAUeuQjdbwogCTYKUiVK+LJbfpN+rU9WDpxRTjloBTrVttniuvb+mdatofrCCpFvKwowHK+W9/+AHSBteG0xfJoTvaa57PEsIm/Qf1N5WgB0ScpwyD1e6A0kPOqVI75+CkH5wa728ycOxS/upRp6GsMZgGP66yzZg7hIZrIj0LXWiP1nigcHzx3pImJHxwz3xhEB/4QGZwZB8VX1TlTrI5GSO3BuCIA5um/SJF09iPWAgF7KY0+XrcxXg808zDjuqMRgsD9gHlqomjVCeWUhzsFVAafbMJ9DsgcAKoaWg+0yJvvnTVEelS96uvwnKFrSTsmpQMsgEb9lRHKb+v/Xr4+0THjTn4n//uhCy51+tGU7g==",
+    "verificationMethod": "did:example:489398593#test"
+  }
+}
+`
+
+	pkBase58 := "oqpWYKaZD9M1Kbe94BVXpr8WTdFBNZyKv48cziTiQUeuhm7sBhCABMyYG4kcMrseC68YTFFgyhiNeBKjzdKk9MiRWuLv5H4FFujQsQK2KTAtzU8qTBiZqBHMmnLF4PL7Ytu"
+	pubKeyBytes := base58.Decode(pkBase58)
+
+	vcVerified, err := parseTestCredential([]byte(vcJSON),
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+	)
+	r.NoError(err)
+	r.NotNil(vcVerified)
 }
 
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {

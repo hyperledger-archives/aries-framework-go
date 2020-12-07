@@ -187,6 +187,36 @@ func (p *Processor) Compact(input, context map[string]interface{},
 	return proc.Compact(input, context, options)
 }
 
+// Frame makes a frame from the input view using frameDoc.
+func (p *Processor) Frame(view []string, frameDoc map[string]interface{},
+	opts ...ProcessorOpts) (map[string]interface{}, error) {
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.ProcessingMode = ld.JsonLd_1_1
+	options.Format = format
+	options.ProduceGeneralizedRdf = true
+
+	procOptions := prepareOpts(opts)
+
+	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+
+	filteredJSONLd, err := proc.FromRDF(strings.Join(view, "\n"), options)
+	if err != nil {
+		return nil, err
+	}
+
+	options.OmitGraph = true
+
+	frame, err := proc.Frame(filteredJSONLd, frameDoc, options)
+	if err != nil {
+		return nil, err
+	}
+
+	frame["@context"] = frameDoc["@context"]
+
+	return frame, err
+}
+
 // removeMatchingInvalidRDFs validates normalized view to find any invalid RDF and
 // returns filtered view after removing all invalid data except the ones given in rdfMatches argument.
 // [Note : handling invalid RDF data, by following pattern https://github.com/digitalbazaar/jsonld.js/issues/199]

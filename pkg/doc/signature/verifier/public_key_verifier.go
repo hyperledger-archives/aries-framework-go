@@ -389,10 +389,34 @@ type BBSG2SignatureVerifier struct {
 func (v *BBSG2SignatureVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
-	return bbs.Verify(v.splitMessageIntoLines(string(doc)), signature, pubKeyValue.Value)
+	return bbs.Verify(splitMessageIntoLines(string(doc)), signature, pubKeyValue.Value)
 }
 
-func (v *BBSG2SignatureVerifier) splitMessageIntoLines(msg string) [][]byte {
+// NewBBSG2SignatureProofVerifier creates a new BBSG2SignatureProofVerifier.
+func NewBBSG2SignatureProofVerifier(nonce []byte) *BBSG2SignatureProofVerifier {
+	return &BBSG2SignatureProofVerifier{
+		nonce: nonce,
+	}
+}
+
+// BBSG2SignatureProofVerifier is a signature verifier that verifies a BBS+ Signature Proof
+// taking Bls12381G2Key2020 public key bytes as input.
+// The reference implementation https://github.com/mattrglobal/bls12381-key-pair supports public key bytes only,
+// JWK is not supported.
+type BBSG2SignatureProofVerifier struct {
+	baseSignatureVerifier
+
+	nonce []byte
+}
+
+// Verify verifies the signature.
+func (v *BBSG2SignatureProofVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
+	bbs := bbs12381g2pub.New()
+
+	return bbs.VerifyProof(splitMessageIntoLines(string(doc)), signature, v.nonce, pubKeyValue.Value)
+}
+
+func splitMessageIntoLines(msg string) [][]byte {
 	rows := strings.Split(msg, "\n")
 
 	msgs := make([][]byte, 0, len(rows))

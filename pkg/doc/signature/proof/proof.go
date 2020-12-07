@@ -71,7 +71,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	)
 
 	if generalProof, ok := emap[jsonldProofValue]; ok {
-		proofValue, err = decodeProofValue(stringEntry(generalProof))
+		proofValue, err = decodeBase64(stringEntry(generalProof))
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		return nil, errors.New("signature is not defined")
 	}
 
-	nonce, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldNonce]))
+	nonce, err := decodeBase64(stringEntry(emap[jsonldNonce]))
 	if err != nil {
 		return nil, err
 	}
@@ -128,19 +128,19 @@ func decodeCapabilityChain(proof map[string]interface{}) ([]interface{}, error) 
 	return capabilityChain, nil
 }
 
-func decodeProofValue(proofStr string) ([]byte, error) {
+func decodeBase64(s string) ([]byte, error) {
 	allEncodings := []*base64.Encoding{
 		base64.RawURLEncoding, base64.StdEncoding,
 	}
 
 	for _, encoding := range allEncodings {
-		proofValue, err := encoding.DecodeString(proofStr)
+		value, err := encoding.DecodeString(s)
 		if err == nil {
-			return proofValue, nil
+			return value, nil
 		}
 	}
 
-	return nil, errors.New("unsupported proof encoding")
+	return nil, errors.New("unsupported encoding")
 }
 
 // stringEntry.

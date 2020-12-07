@@ -1490,3 +1490,45 @@ const trustblocExampleDoc = `
     }
 }
 `
+
+func TestProcessor_Frame(t *testing.T) {
+	processor := Default()
+
+	var doc map[string]interface{}
+
+	err := json.Unmarshal([]byte(jsonLdSample1), &doc)
+	require.NoError(t, err)
+
+	canonizedDoc, err := processor.GetCanonicalDocument(doc)
+	require.NoError(t, err)
+
+	t.Logf("canonizedDoc=\n%v", string(canonizedDoc))
+
+	frameJSON := `
+	{
+	 "@context": [
+	   "https://www.w3.org/2018/credentials/v1",
+	   "https://www.w3.org/2018/credentials/examples/v1"
+	 ],
+	 "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+	 "credentialSubject": {
+	   "@explicit": true,
+	   "spouse": {}
+	 }
+	}
+	`
+
+	var frameDoc map[string]interface{}
+
+	err = json.Unmarshal([]byte(frameJSON), &frameDoc)
+	require.NoError(t, err)
+
+	view := strings.Split(string(canonizedDoc), "\n")
+	framedView, err := processor.Frame(view, frameDoc)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]interface{}{
+		"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+	}, framedView["credentialSubject"])
+}
