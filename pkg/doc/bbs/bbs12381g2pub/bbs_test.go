@@ -127,3 +127,124 @@ func TestBBSG2Pub_Sign(t *testing.T) {
 	require.EqualError(t, err, "messages are not defined")
 	require.Nil(t, signatureBytes)
 }
+
+//nolint:lll
+func TestBBSG2Pub_VerifyProof(t *testing.T) {
+	pkBase64 := "sVEbbh9jDPGSBK/oT/EeXQwFvNuC+47rgq9cxXKrwo6G7k4JOY/vEcfgZw9Vf/TpArbIdIAJCFMDyTd7l2atS5zExAKX0B/9Z3E/mgIZeQJ81iZ/1HUnUCT2Om239KFx"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	require.NoError(t, err)
+
+	proofBase64 := "AAIBiN4EL9psRsIUlwQah7a5VROD369PPt09Z+jfzamP+/114a5RfWVMju3NCUl2Yv6ahyIdHGdEfxhC985ShlGQrRPLa+crFRiu2pfnAk+L6QMNooVMQhzJc2yYgktHen4QhsKV3IGoRRUs42zqPTP3BdqIPQeLgjDVi1d1LXEnP+WFQGEQmTKWTja4u1MsERdmAAAAdIb6HuFznhE3OByXN0Xp3E4hWQlocCdpExyNlSLh3LxK5duCI/WMM7ETTNS0Ozxe3gAAAAIuALkiwplgKW6YmvrEcllWSkG3H+uHEZzZGL6wq6Ac0SuktQ4n84tZPtMtR9vC1Rsu8f7Kwtbq1Kv4v02ct9cvj7LGcitzg3u/ZO516qLz+iitKeGeJhtFB8ggALcJOEsebPFl12cYwkieBbIHCBt4AAAAAxgEHt3iqKIyIQbTYJvtrMjGjT4zuimiZbtE3VXnqFmGaxVTeR7dh89PbPtsBI8LLMrCvFFpks9D/oTzxnw13RBmMgMlc1bcfQOmE9DZBGB7NCdwOnT7q4TVKhswOITKTQ=="
+	proofBytes, err := base64.StdEncoding.DecodeString(proofBase64)
+	require.NoError(t, err)
+
+	nonce := []byte("nonce")
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+	revealedMessagesBytes := messagesBytes[:1]
+
+	bls := bbs12381g2pub.New()
+
+	t.Run("valid signature proof", func(t *testing.T) {
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, pkBytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid size of signature proof payload", func(t *testing.T) {
+		err = bls.VerifyProof(revealedMessagesBytes, []byte("?"), nonce, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse signature proof: invalid size of PoK payload")
+	})
+
+	t.Run("invalid size of signature proof", func(t *testing.T) {
+		proofBytesCopy := make([]byte, 5)
+
+		copy(proofBytesCopy, proofBytes)
+
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse signature proof: invalid size of signature proof")
+	})
+
+	t.Run("invalid proof", func(t *testing.T) {
+		proofBytesCopy := make([]byte, len(proofBytes))
+
+		copy(proofBytesCopy, proofBytes)
+		proofBytesCopy[21] = 255 - proofBytesCopy[21]
+
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "parse signature proof: parse G1 point: point is not on curve")
+	})
+
+	t.Run("invalid input public key", func(t *testing.T) {
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, []byte("invalid public key"))
+		require.Error(t, err)
+		require.EqualError(t, err, "parse public key: invalid size of public key")
+	})
+}
+
+//nolint:lll
+func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
+	pkBase64 := "l0Wtf3gy5f140G5vCoCJw2420hwk6Xw65/DX3ycv1W7/eMky8DyExw+o1s2bmq3sEIJatkiN8f5D4k0766x0UvfbupFX+vVkeqnlOvT6o2cag2osQdMFbBQqAybOM4Gm"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	require.NoError(t, err)
+
+	proofBase64 := "AAQFpAE2VALtmriOzSMk/oqid4uJhPQRUVUuyenL/L4w4ykdyh0jCX64EFqCdLP+n8VrkOKXhHPKPoCOdHBOMv96aM15NFg867/MToMeNN0IFzZkzhs37qk1vWWFKReMF+cRsCAmkHO6An1goNHdY/4XquSV3LwykezraWt8+8bLvVn6ciaXBVxVcYkbIXRsVjqbAAAAdIl/C/W5G1pDbLMrUrBAYdpvzGHG25gktAuUFZb/SkIyy0uhtWJk2v6A+D3zkoEBsgAAAAJY/jfJR9kpGbSY5pfz+qPkqyNOTJbs6OEpfBwYGsyC7hspvBGUOYyvuKlS8SvKAXW7hVawAhYJbvnRwzeiP6P9kbZKtLQZIkRQB+mxRSbMk/0JgE1jApHOlPtgbqI9yIouhK9xT2wVZl79qTAwifonAAAABDTDo5VtXR2gloy+au7ai0wcnnzjMJ6ztQHRI1ApV5VuOQ19TYL7SW+C90p3QSZFQ5gtl90PHaUuEAHIb+7ZgbJvh5sc1DjKfThwPx0Ao0w8+xTbLhNlxvo6VE1cfbiuME+miCAibLgHjksQ8ctl322qnblYJLXiS4lvx/jtGvA3"
+	proofBytes, err := base64.StdEncoding.DecodeString(proofBase64)
+	require.NoError(t, err)
+
+	nonce := []byte("nonce")
+
+	messagesBytes := [][]byte{
+		[]byte("message1"),
+		[]byte("message2"),
+		[]byte("message3"),
+		[]byte("message4"),
+	}
+	revealedMessagesBytes := [][]byte{messagesBytes[0], messagesBytes[2]}
+
+	bls := bbs12381g2pub.New()
+
+	t.Run("valid signature", func(t *testing.T) {
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, pkBytes)
+		require.NoError(t, err)
+	})
+}
+
+func TestBBSG2Pub_DeriveProof(t *testing.T) {
+	pubKey, privKey, err := generateKeyPairRandom()
+	require.NoError(t, err)
+
+	privKeyBytes, err := privKey.Marshal()
+	require.NoError(t, err)
+
+	messagesBytes := [][]byte{
+		[]byte("message1"),
+		[]byte("message2"),
+		[]byte("message3"),
+		[]byte("message4"),
+	}
+	bls := bbs12381g2pub.New()
+
+	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
+	require.NoError(t, err)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+
+	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+
+	nonce := []byte("nonce")
+	revealedIndexes := []int{0, 2}
+	proofBytes, err := bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
+	require.NoError(t, err)
+	require.NotEmpty(t, proofBytes)
+
+	revealedMessages := make([][]byte, len(revealedIndexes))
+	for i, ind := range revealedIndexes {
+		revealedMessages[i] = messagesBytes[ind]
+	}
+
+	require.NoError(t, bls.VerifyProof(revealedMessages, proofBytes, nonce, pubKeyBytes))
+}

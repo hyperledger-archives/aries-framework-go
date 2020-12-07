@@ -16,10 +16,10 @@ type SignatureMessage struct {
 }
 
 // ParseSignatureMessage parses SignatureMessage from bytes.
-func ParseSignatureMessage(message []byte) (*SignatureMessage, error) {
+func ParseSignatureMessage(message []byte) *SignatureMessage {
 	elm := frFromOKM(message)
 
 	return &SignatureMessage{
 		FR: elm,
-	}, nil
+	}
 }
