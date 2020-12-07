@@ -33,6 +33,7 @@ require (
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634 // indirect
 	nhooyr.io/websocket v1.8.3
+	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 )
 
 replace (

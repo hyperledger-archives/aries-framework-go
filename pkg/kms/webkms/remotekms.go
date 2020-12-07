@@ -58,11 +58,11 @@ type unmarshalFunc func([]byte, interface{}) error
 
 // RemoteKMS implementation of kms.KeyManager api.
 type RemoteKMS struct {
-	httpClient     *http.Client
-	keystoreURL    string
-	marshalFunc    marshalFunc
-	unmarshalFunc  unmarshalFunc
-	addHeadersOpts *HeadersOpts
+	httpClient    *http.Client
+	keystoreURL   string
+	marshalFunc   marshalFunc
+	unmarshalFunc unmarshalFunc
+	opts          *Opts
 }
 
 // CreateKeyStore calls the key server's create keystore REST function and returns the resulting keystoreURL value.
@@ -75,12 +75,12 @@ type RemoteKMS struct {
 //  - keystore URL (if successful)
 //  - error (if error encountered)
 func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID string, marshaller marshalFunc,
-	headersOpts ...HeadersOpt) (string, error) {
+	opts ...Opt) (string, error) {
 	createKeyStoreStart := time.Now()
-	hOpts := NewOpt()
+	kOpts := NewOpt()
 
-	for _, opt := range headersOpts {
-		opt(hOpts)
+	for _, opt := range opts {
+		opt(kOpts)
 	}
 
 	destination := strings.ReplaceAll(KeystoreEndpoint, "{serverEndpoint}", keyserverURL)
@@ -104,8 +104,8 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 
 	httpReq.Header.Set("Content-Type", ContentType)
 
-	if hOpts.HeadersFunc != nil {
-		httpHeaders, e := hOpts.HeadersFunc(httpReq)
+	if kOpts.HeadersFunc != nil {
+		httpHeaders, e := kOpts.HeadersFunc(httpReq)
 		if e != nil {
 			return "", fmt.Errorf("add optional request headers error: %w", e)
 		}
@@ -135,19 +135,19 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 }
 
 // New creates a new remoteKMS instance using http client connecting to keystoreURL.
-func New(keystoreURL string, client *http.Client, headersOpts ...HeadersOpt) *RemoteKMS {
-	hOpts := NewOpt()
+func New(keystoreURL string, client *http.Client, opts ...Opt) *RemoteKMS {
+	kOpts := NewOpt()
 
-	for _, opt := range headersOpts {
-		opt(hOpts)
+	for _, opt := range opts {
+		opt(kOpts)
 	}
 
 	return &RemoteKMS{
-		httpClient:     client,
-		keystoreURL:    keystoreURL,
-		marshalFunc:    json.Marshal,
-		unmarshalFunc:  json.Unmarshal,
-		addHeadersOpts: hOpts,
+		httpClient:    client,
+		keystoreURL:   keystoreURL,
+		marshalFunc:   json.Marshal,
+		unmarshalFunc: json.Unmarshal,
+		opts:          kOpts,
 	}
 }
 
@@ -183,8 +183,8 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 		httpReq.Header.Set("Content-Type", ContentType)
 	}
 
-	if r.addHeadersOpts.HeadersFunc != nil {
-		httpHeaders, e := r.addHeadersOpts.HeadersFunc(httpReq)
+	if r.opts.HeadersFunc != nil {
+		httpHeaders, e := r.opts.HeadersFunc(httpReq)
 		if e != nil {
 			return nil, fmt.Errorf("add optional request headers error: %w", e)
 		}
