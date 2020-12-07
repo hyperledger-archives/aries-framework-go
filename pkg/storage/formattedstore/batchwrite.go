@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/storage/edv/models"
 )
 
@@ -36,11 +34,6 @@ type BatchService struct {
 	provider         batchProvider // TODO remove batch provider after refactoring edv batch
 	current          *pendingBatch
 	batchSizeLimit   int
-}
-
-type processBatch struct {
-	id             string
-	vaultOperation *models.VaultOperation
 }
 
 type batch struct {
@@ -87,7 +80,9 @@ func (b *BatchService) Put(s batchStore, k string, v []byte) error {
 	b.futureValues[k] = addBatch
 	b.futureValuesLock.Unlock()
 
-	b.currentBatch().put(addBatch)
+	if err := b.currentBatch().put(addBatch); err != nil {
+		return err
+	}
 
 	if b.batchSizeLimit > 0 && b.currentBatch().size >= b.batchSizeLimit {
 		if err := b.Flush(); err != nil {
@@ -108,7 +103,9 @@ func (b *BatchService) Delete(k string) error {
 	b.futureValues[k] = addBatch
 	b.futureValuesLock.Unlock()
 
-	b.currentBatch().delete(addBatch)
+	if err := b.currentBatch().delete(addBatch); err != nil {
+		return err
+	}
 
 	if b.batchSizeLimit > 0 && b.currentBatch().size >= b.batchSizeLimit {
 		if err := b.Flush(); err != nil {
@@ -151,10 +148,8 @@ func (b *BatchService) currentBatch() *pendingBatch {
 type pendingBatch struct {
 	provider  batchProvider
 	formatter Formatter
-	values    []*processBatch
-	wg        sync.WaitGroup
+	values    models.Batch
 	mutex     sync.RWMutex
-	err       error
 	size      int
 }
 
@@ -168,83 +163,56 @@ func newPendingBatch(provider batchProvider, formatter Formatter) *pendingBatch 
 	}
 }
 
-func (p *pendingBatch) put(addBatch *batch) {
+func (p *pendingBatch) put(addBatch *batch) error {
 	p.size++
 
-	p.wg.Add(1)
+	formattedValue, err := p.formatter.FormatPair(addBatch.keyID, addBatch.value)
+	if err != nil {
+		return err
+	}
+
+	encryptedDocument, err := addBatch.addEncryptedIndicesFunc(formattedValue)
+	if err != nil {
+		return err
+	}
 
 	p.mutex.Lock()
 
-	processID := uuid.New().String()
-
-	p.values = append(p.values, &processBatch{id: "ready_" + processID, vaultOperation: &models.VaultOperation{
-		Operation: models.UpsertDocumentVaultOperation,
-	}})
+	p.values = append(p.values, models.VaultOperation{
+		Operation:         models.UpsertDocumentVaultOperation,
+		EncryptedDocument: *encryptedDocument,
+	})
 
 	p.mutex.Unlock()
 
-	go func(addBatch *batch, processID string) {
-		logger.Infof("start format pair for put k %s", addBatch.keyID)
-
-		formattedValue, err := p.formatter.FormatPair(addBatch.keyID, addBatch.value)
-		if err != nil {
-			logger.Errorf("failed to format pair for k=%s: %w", addBatch.keyID, err)
-
-			p.doneWithError(err)
-
-			return
-		}
-
-		encryptedDocument, err := addBatch.addEncryptedIndicesFunc(formattedValue)
-		if err != nil {
-			logger.Errorf("failed to add encrypted indices k=%s: %w", addBatch.keyID, err)
-
-			p.doneWithError(err)
-
-			return
-		}
-
-		p.done(processID, encryptedDocument)
-	}(addBatch, processID)
+	return nil
 }
 
-func (p *pendingBatch) delete(addBatch *batch) {
+func (p *pendingBatch) delete(addBatch *batch) error {
 	p.size++
 
 	id, err := p.formatter.GenerateEDVDocumentID(addBatch.keyID)
 	if err != nil {
-		logger.Errorf("failed to generate edv compatible id: %s", err)
-
-		p.mutex.Lock()
-		p.err = err
-		p.mutex.Unlock()
-
-		return
+		return err
 	}
 
 	p.mutex.Lock()
 
-	p.values = append(p.values, &processBatch{id: "ready", vaultOperation: &models.VaultOperation{
+	p.values = append(p.values, models.VaultOperation{
 		Operation:  models.DeleteDocumentVaultOperation,
 		DocumentID: id,
-	}})
+	})
 
 	p.mutex.Unlock()
+
+	return nil
 }
 
 func (p *pendingBatch) flush() error {
-	p.wg.Wait()
-
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
 	logger.Debugf("Flushing %d items", len(p.values))
-
-	if p.err != nil {
-		logger.Infof("Pending batch has errors: %s", p.err)
-
-		return p.err
-	}
 
 	if len(p.values) == 0 {
 		// Nothing to do
@@ -253,41 +221,10 @@ func (p *pendingBatch) flush() error {
 
 	start := time.Now()
 
-	var readyBatch models.Batch
-
-	for _, v := range p.values {
-		readyBatch = append(readyBatch, *v.vaultOperation)
-	}
-
 	// call edv server to commit the batch
-	err := p.provider.Batch(&readyBatch)
+	err := p.provider.Batch(&p.values)
 
 	logger.Infof("batch write flush batch %d rest call duration %s", len(p.values), time.Since(start))
 
 	return err
-}
-
-func (p *pendingBatch) done(processID string, encryptedDocument *models.EncryptedDocument) {
-	p.mutex.Lock()
-
-	for i, v := range p.values {
-		if v.id == "ready_"+processID {
-			p.values[i].id = "ready"
-			p.values[i].vaultOperation.EncryptedDocument = *encryptedDocument
-
-			break
-		}
-	}
-
-	p.mutex.Unlock()
-
-	p.wg.Done()
-}
-
-func (p *pendingBatch) doneWithError(err error) {
-	p.mutex.Lock()
-	p.err = err
-	p.mutex.Unlock()
-
-	p.wg.Done()
 }
