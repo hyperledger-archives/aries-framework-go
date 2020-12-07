@@ -164,6 +164,9 @@ func newPendingBatch(provider batchProvider, formatter Formatter) *pendingBatch 
 }
 
 func (p *pendingBatch) put(addBatch *batch) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	p.size++
 
 	formattedValue, err := p.formatter.FormatPair(addBatch.keyID, addBatch.value)
@@ -176,19 +179,18 @@ func (p *pendingBatch) put(addBatch *batch) error {
 		return err
 	}
 
-	p.mutex.Lock()
-
 	p.values = append(p.values, models.VaultOperation{
 		Operation:         models.UpsertDocumentVaultOperation,
 		EncryptedDocument: *encryptedDocument,
 	})
 
-	p.mutex.Unlock()
-
 	return nil
 }
 
 func (p *pendingBatch) delete(addBatch *batch) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	p.size++
 
 	id, err := p.formatter.GenerateEDVDocumentID(addBatch.keyID)
@@ -196,14 +198,10 @@ func (p *pendingBatch) delete(addBatch *batch) error {
 		return err
 	}
 
-	p.mutex.Lock()
-
 	p.values = append(p.values, models.VaultOperation{
 		Operation:  models.DeleteDocumentVaultOperation,
 		DocumentID: id,
 	})
-
-	p.mutex.Unlock()
 
 	return nil
 }
