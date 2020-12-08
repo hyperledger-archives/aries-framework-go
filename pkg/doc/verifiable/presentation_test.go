@@ -328,6 +328,17 @@ func TestValidateVP_Type(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+	t.Run("accepts verifiable presentation with multiple types where VerifiablePresentation is not a first type",
+		func(t *testing.T) {
+			raw := &rawPresentation{}
+			require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
+			raw.Type = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			_, err = newTestPresentation(bytes)
+			require.NoError(t, err)
+		})
+
 	t.Run("rejects verifiable presentation with no type defined", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
@@ -351,19 +362,6 @@ func TestValidateVP_Type(t *testing.T) {
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
 		require.Nil(t, vp)
 	})
-
-	t.Run("rejects verifiable presentation where several types are defined and first one is not VerifiablePresentation", // nolint:lll
-		func(t *testing.T) {
-			raw := &rawPresentation{}
-			require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-			raw.Type = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
-			bytes, err := json.Marshal(raw)
-			require.NoError(t, err)
-			vp, err := newTestPresentation(bytes)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
-			require.Nil(t, vp)
-		})
 }
 
 func TestValidateVP_Holder(t *testing.T) {

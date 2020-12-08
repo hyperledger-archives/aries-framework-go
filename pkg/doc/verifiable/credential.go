@@ -71,22 +71,17 @@ const defaultSchema = `{
       "oneOf": [
         {
           "type": "array",
-          "items": [
-            {
-              "type": "string",
-              "pattern": "^VerifiableCredential$"
-            }
-          ]
+          "minItems": 1,
+          "contains": {
+            "type": "string",
+            "pattern": "^VerifiableCredential$"
+          }
         },
         {
           "type": "string",
           "pattern": "^VerifiableCredential$"
         }
-      ],
-      "additionalItems": {
-        "type": "string"
-      },
-      "minItems": 2
+      ]
     },
     "credentialSubject": {
       "anyOf": [
@@ -135,7 +130,7 @@ const defaultSchema = `{
           "items": {
             "$ref": "#/definitions/proof"
           }
-        },        
+        },
         {
           "type": "null"
         }

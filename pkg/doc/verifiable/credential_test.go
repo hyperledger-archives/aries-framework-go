@@ -226,7 +226,7 @@ func TestValidateVerCredType(t *testing.T) {
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Array must have at least 2 items")
+		require.Contains(t, err.Error(), "Array must have at least 1 items")
 	})
 
 	t.Run("test verifiable credential with not first VerifiableCredential type", func(t *testing.T) {
@@ -241,18 +241,6 @@ func TestValidateVerCredType(t *testing.T) {
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiableCredential$")
 	})
 
-	t.Run("test verifiable credential with VerifiableCredential type only", func(t *testing.T) {
-		var raw rawCredential
-
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Type = []string{"VerifiableCredential"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Array must have at least 2 items")
-	})
-
 	t.Run("test verifiable credential with VerifiableCredential type only as string", func(t *testing.T) {
 		var raw rawCredential
 
@@ -263,6 +251,18 @@ func TestValidateVerCredType(t *testing.T) {
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
+
+	t.Run("test verifiable credential with several types where VerifiableCredential is not a first type",
+		func(t *testing.T) {
+			var raw rawCredential
+
+			require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+			raw.Type = []string{"UniversityDegreeCredentail", "VerifiableCredential"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+			require.NoError(t, err)
+		})
 }
 
 func TestValidateVerCredCredentialSubject(t *testing.T) {

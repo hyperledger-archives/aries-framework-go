@@ -38,37 +38,10 @@ func (vc *Credential) GenerateBBSSelectiveDisclosure(revealDoc map[string]interf
 		return nil, fmt.Errorf("create VC selective disclosure: %w", err)
 	}
 
-	fixTypesOrder(vcWithSelectiveDisclosureDoc)
-
 	vcWithSelectiveDisclosureBytes, err := json.Marshal(vcWithSelectiveDisclosureDoc)
 	if err != nil {
 		return nil, err
 	}
 
 	return ParseUnverifiedCredential(vcWithSelectiveDisclosureBytes)
-}
-
-func fixTypesOrder(vcDoc map[string]interface{}) {
-	theType := vcDoc["type"]
-
-	t, ok := theType.([]interface{})
-	if !ok {
-		return
-	}
-
-	if t[0] == vcType {
-		return
-	}
-
-	vcTypes := make([]string, 1, len(t))
-
-	vcTypes[0] = vcType
-
-	for _, nextType := range t {
-		if nextType != vcType {
-			vcTypes = append(vcTypes, nextType.(string))
-		}
-	}
-
-	vcDoc["type"] = vcTypes
 }
