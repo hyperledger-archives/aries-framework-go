@@ -134,7 +134,7 @@ func TestInvalidProofValue(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Nil(t, p)
-	require.EqualError(t, err, "unsupported proof encoding")
+	require.EqualError(t, err, "unsupported encoding")
 
 	// proof is not defined (neither "proofValue" nor "jws" is defined)
 	p, err = NewProof(map[string]interface{}{
@@ -158,7 +158,7 @@ func TestInvalidNonce(t *testing.T) {
 	require.Error(t, err)
 
 	require.Nil(t, p)
-	require.Contains(t, err.Error(), "illegal base64 data")
+	require.Contains(t, err.Error(), "unsupported encoding")
 }
 
 func TestProof_JSONLdObject(t *testing.T) {

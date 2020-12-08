@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -24,6 +25,7 @@ const (
 	jsonWebSignature2020        = "JsonWebSignature2020"
 	ecdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
 	bbsBlsSignature2020         = "BbsBlsSignature2020"
+	bbsBlsSignatureProof2020    = "BbsBlsSignatureProof2020"
 )
 
 func getProofType(proofMap map[string]interface{}) (string, error) {
@@ -34,7 +36,8 @@ func getProofType(proofMap map[string]interface{}) (string, error) {
 
 	proofTypeStr := safeStringValue(proofType)
 	switch proofTypeStr {
-	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019, bbsBlsSignature2020:
+	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019,
+		bbsBlsSignature2020, bbsBlsSignatureProof2020:
 		return proofTypeStr, nil
 	default:
 		return "", fmt.Errorf("unsupported proof type: %s", proofType)
@@ -120,11 +123,23 @@ func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([
 			case bbsBlsSignature2020:
 				ldpSuites = append(ldpSuites, bbsblssignature2020.New(
 					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier())))
+			case bbsBlsSignatureProof2020:
+				nonce := []byte(getNonce(proofs[i]))
+				ldpSuites = append(ldpSuites, bbsblssignatureproof2020.New(
+					suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonce))))
 			}
 		}
 	}
 
 	return ldpSuites, nil
+}
+
+func getNonce(proof map[string]interface{}) string {
+	if nonce, ok := proof["nonce"]; ok {
+		return nonce.(string)
+	}
+
+	return ""
 }
 
 func getProofs(proofElement interface{}) ([]map[string]interface{}, error) {

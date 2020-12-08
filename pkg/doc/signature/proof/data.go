@@ -130,12 +130,13 @@ const (
 	proofID excludedKey = iota + 1
 	proofValue
 	jws
+	nonce
 )
 
 //nolint:gochecknoglobals
 var (
-	excludedKeysStr = [...]string{"id", "proofValue", "jws"}
-	excludedKeys    = [...]excludedKey{proofID, proofValue, jws}
+	excludedKeysStr = [...]string{"id", "proofValue", "jws", "nonce"}
+	excludedKeys    = [...]excludedKey{proofID, proofValue, jws, nonce}
 )
 
 func (ek excludedKey) String() string {
