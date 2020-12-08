@@ -7,16 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 const fs = require("fs");
 const assert = require('chai').assert;
 
-const {signAries, verifyAries} = require("../src/vc.js");
+const {signAries, verifyAries, deriveProofAries, verifyProofAries} = require("../src/vc.js");
 
-const {Bls12381G2KeyPair, BbsBlsSignature2020} = require("@mattrglobal/jsonld-signatures-bbs");
-const {extendContextLoader, sign: signMattr, verify: verifyMattr, purposes} = require("jsonld-signatures");
+const {Bls12381G2KeyPair, BbsBlsSignature2020, BbsBlsSignatureProof2020, deriveProof: deriveProofMattr} = require("@mattrglobal/jsonld-signatures-bbs");
+const {extendContextLoader, sign: signMattr, verify: verifyMattr, purposes,} = require("jsonld-signatures");
 const {documentLoaders} = require("jsonld");
 
 const bbsContext = JSON.parse(fs.readFileSync("data/context/ldp-bbs2020.jsonld", 'utf-8'));
 const citizenVocab = JSON.parse(fs.readFileSync("data/context/citizenship.jsonld", 'utf-8'));
-const vc = JSON.parse(fs.readFileSync("data/inputDocument.json", 'utf-8'));
 const keyPairOptions = JSON.parse(fs.readFileSync("data/keyPair.json", 'utf-8'));
+const revealDocument = JSON.parse(fs.readFileSync("data/revealDocument.json", 'utf-8'));
 
 const documents = {
     "did:example:489398593#test": keyPairOptions,
@@ -60,6 +60,8 @@ describe("BBS+ interop fixtures", function () {
     })
 
     it('sign with Aries and verify with Mattr', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/inputDocument.json", 'utf-8'));
+
         let signedVC = await signAries(keyPairOptions.privateKeyBase58, JSON.stringify(vc), "did:example:489398593#test");
 
         let verified = await verifyMattr(JSON.parse(signedVC), {
@@ -72,6 +74,7 @@ describe("BBS+ interop fixtures", function () {
     })
 
     it('sign with Mattr and verify with Aries', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/inputDocument.json", 'utf-8'));
         const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
 
         const signedDocument = await signMattr(vc, {
@@ -81,6 +84,40 @@ describe("BBS+ interop fixtures", function () {
         });
 
         await verifyAries(keyPairOptions.publicKeyBase58, JSON.stringify(signedDocument));
+    })
+
+    it('derive signature proof with Aries and verify with Mattr', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/inputDocument.json", 'utf-8'));
+
+        let signedVC = await signAries(keyPairOptions.privateKeyBase58, JSON.stringify(vc), "did:example:489398593#test");
+
+        const nonce = "nonce";
+        let derivedProof = await deriveProofAries(keyPairOptions.publicKeyBase58, signedVC, JSON.stringify(revealDocument), nonce);
+
+        let verified = await verifyMattr(JSON.parse(derivedProof), {
+            suite: new BbsBlsSignatureProof2020(),
+            purpose: new purposes.AssertionProofPurpose(),
+            documentLoader
+        });
+        assert.isTrue(verified.verified);
+    })
+
+    it('derive signature proof with Mattr and verify with Aries', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/inputDocument.json", 'utf-8'));
+        const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+
+        const signedDocument = await signMattr(vc, {
+            suite: new BbsBlsSignature2020({key: keyPair}),
+            purpose: new purposes.AssertionProofPurpose(),
+            documentLoader
+        });
+
+        const derivedProof = await deriveProofMattr(signedDocument, revealDocument, {
+            suite: new BbsBlsSignatureProof2020(),
+            documentLoader,
+        });
+
+        await verifyProofAries(keyPairOptions.publicKeyBase58, JSON.stringify(derivedProof));
     })
 })
 

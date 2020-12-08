@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,18 +21,21 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 func main() {
 	js.Global().Set("signVCAsync", js.FuncOf(signVCJS))
 	js.Global().Set("verifyVCAsync", js.FuncOf(verifyVCJS))
+	js.Global().Set("deriveVCProofAsync", js.FuncOf(deriveVCProofJS))
+	js.Global().Set("verifyProofVCAsync", js.FuncOf(verifyProofVCJS))
 
 	select {}
 }
 
 func signVCJS(_ js.Value, args []js.Value) interface{} {
-	vcObj, privKeyObj, verificationMethodObj, callback := args[0], args[1], args[2], args[3]
+	privKeyObj, vcObj, verificationMethodObj, callback := args[0], args[1], args[2], args[3]
 
 	go func(privKeyB64, vcJSON, verificationMethod string, callback js.Value) {
 		vcSigned, err := signVC(privKeyB64, vcJSON, verificationMethod)
@@ -40,13 +44,13 @@ func signVCJS(_ js.Value, args []js.Value) interface{} {
 		} else {
 			callback.Invoke(js.Null(), string(vcSigned))
 		}
-	}(vcObj.String(), privKeyObj.String(), verificationMethodObj.String(), callback)
+	}(privKeyObj.String(), vcObj.String(), verificationMethodObj.String(), callback)
 
 	return nil
 }
 
 func verifyVCJS(_ js.Value, args []js.Value) interface{} {
-	vcObj, pubKeyObj, callback := args[0], args[1], args[2]
+	pubKeyObj, vcObj, callback := args[0], args[1], args[2]
 
 	go func(pubKeyB64, vcJSON string, callback js.Value) {
 		err := verifyVC(pubKeyB64, vcJSON)
@@ -55,7 +59,37 @@ func verifyVCJS(_ js.Value, args []js.Value) interface{} {
 		} else {
 			callback.Invoke(js.Null())
 		}
-	}(vcObj.String(), pubKeyObj.String(), callback)
+	}(pubKeyObj.String(), vcObj.String(), callback)
+
+	return nil
+}
+
+func deriveVCProofJS(_ js.Value, args []js.Value) interface{} {
+	pubKeyObj, vcObj, revealJSON, nonce, callback := args[0], args[1], args[2], args[3], args[4]
+
+	go func(pubKeyB64, vcJSON, revealJSON, nonce string, callback js.Value) {
+		vcSigned, err := deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce)
+		if err != nil {
+			callback.Invoke(err.Error(), js.Null())
+		} else {
+			callback.Invoke(js.Null(), string(vcSigned))
+		}
+	}(pubKeyObj.String(), vcObj.String(), revealJSON.String(), nonce.String(), callback)
+
+	return nil
+}
+
+func verifyProofVCJS(_ js.Value, args []js.Value) interface{} {
+	pubKeyObj, vcObj, callback := args[0], args[1], args[2]
+
+	go func(pubKeyB64, vcJSON string, callback js.Value) {
+		err := verifyProofVC(pubKeyB64, vcJSON)
+		if err != nil {
+			callback.Invoke(err.Error())
+		} else {
+			callback.Invoke(js.Null())
+		}
+	}(pubKeyObj.String(), vcObj.String(), callback)
 
 	return nil
 }
@@ -68,12 +102,12 @@ func signVC(privKeyB64, vcJSON, verificationMethod string) ([]byte, error) {
 		return nil, errors.New("invalid private key")
 	}
 
-	bbsSigner, err := newBBSSigner(privKey)
+	signer, err := newBBSSigner(privKey)
 	if err != nil {
 		return nil, fmt.Errorf("create BBS signer: %w", err)
 	}
 
-	sigSuite := bbsblssignature2020.New(suite.WithSigner(bbsSigner))
+	sigSuite := bbsblssignature2020.New(suite.WithSigner(signer))
 
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "BbsBlsSignature2020",
@@ -117,4 +151,76 @@ func verifyVC(pubKeyB64, vcJSON string) error {
 	)
 
 	return err
+}
+
+func verifyProofVC(pubKeyB64, vcJSON string) error {
+	pubKeyBytes := base58.Decode(pubKeyB64)
+
+	var vcDoc map[string]interface{}
+
+	err := json.Unmarshal([]byte(vcJSON), &vcDoc)
+	if err != nil {
+		return fmt.Errorf("parse VC doc: %w", err)
+	}
+
+	proof, ok := vcDoc["proof"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("unexpected \"proof\" format: %w", err)
+	}
+
+	nonce, ok := proof["nonce"].(string)
+	if !ok {
+		return fmt.Errorf("unexpected \"nonce\" format: %w", err)
+	}
+
+	nonceBytes, err := base64.StdEncoding.DecodeString(nonce)
+	if err != nil {
+		return fmt.Errorf("nonce base64 format: %w", err)
+	}
+
+	sigSuite := bbsblssignatureproof2020.New(
+		suite.WithCompactProof(),
+		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonceBytes)))
+
+	jsonldDocLoader := createLDPBBS2020DocumentLoader()
+
+	_, err = verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
+		verifiable.WithEmbeddedSignatureSuites(sigSuite),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+	)
+
+	return err
+}
+
+func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) {
+	pubKeyBytes := base58.Decode(pubKeyB64)
+
+	jsonldLoader := createLDPBBS2020DocumentLoader()
+
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldLoader))
+	if err != nil {
+		return nil, err
+	}
+
+	var revealDoc map[string]interface{}
+
+	err = json.Unmarshal([]byte(revealJSON), &revealDoc)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal reveal doc: %w", err)
+	}
+
+	withJSONLDDocLoader := jsonld.WithDocumentLoader(jsonldLoader)
+
+	vcSD, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, pubKeyBytes, []byte(nonce), withJSONLDDocLoader)
+	if err != nil {
+		return nil, fmt.Errorf("create selective disclosure: %w", err)
+	}
+
+	vcSDBytes, err := json.Marshal(vcSD)
+	if err != nil {
+		return nil, err
+	}
+
+	return vcSDBytes, nil
 }

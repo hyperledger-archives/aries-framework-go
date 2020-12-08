@@ -536,12 +536,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.T) {
 	r := require.New(t)
 
-	sigSuite := bbsblssignatureproof2020.New(
-		suite.WithCompactProof(),
-		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier([]byte("nonce"))))
-
-	vcJSON := `
-{
+	vcJSON := `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://w3id.org/citizenship/v1",
@@ -549,7 +544,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.
   ],
   "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
   "type": [
-	"VerifiableCredential",
+    "VerifiableCredential",
     "PermanentResidentCard"
   ],
   "description": "Government of Example Permanent Resident Card.",
@@ -570,14 +565,20 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.
   "issuer": "did:example:489398593",
   "proof": {
     "type": "BbsBlsSignatureProof2020",
-    "created": "2020-12-06T19:23:10Z",
-    "nonce": "bm9uY2U=",
+    "created": "2020-12-08T09:13:30Z",
+    "nonce": "X2qLaTxoyidu7Z/TOBRNgPhbcgeIcOGMAXQrM65vP/ehcop2wwCeV4/HTcnF70zANOc=",
     "proofPurpose": "assertionMethod",
-    "proofValue": "ABkB/wbvi77V4fFx9Ewo4+52/X3Fdd79uRExQeet0PVrdP3wyExE5ib6fTVUGbnX6CK3UgNbli+RgYV21g9taTaIbS9g3HIX3csJRWm0sFNq2lxlXNF9I6skrRpJBt9VnjvXrFxTgEkuSbcrG4jaulj0mXLoZIuz8yrmXKBG+35TPiVXf1zh29RtXIKPHeZ7sWJ3RkKSAAAAdIx7On9kZkbGb9IECei4H4vjcZYJi7Q2Ywz4Bc/+4FCrMiu5C50T0nxScWFh4v2oHAAAAAI8/usecIohptQnf7ZO1UsTLH7u+NN5avFfxGTsmY9BVgS60Lbyzx89mmn2Ce5W3L9ZS4bkwS2CXeQXfl268oTWixysSv+L1q1+e6cdqlY/GA2LGWVCZoTli6mJ+EIDCNcSM75Hs8cTrDOfTuTmAwl9AAAACWyOb/UWrb1nWkbNTPpctXAUeuQjdbwogCTYKUiVK+LJbfpN+rU9WDpxRTjloBTrVttniuvb+mdatofrCCpFvKwowHK+W9/+AHSBteG0xfJoTvaa57PEsIm/Qf1N5WgB0ScpwyD1e6A0kPOqVI75+CkH5wa728ycOxS/upRp6GsMZgGP66yzZg7hIZrIj0LXWiP1nigcHzx3pImJHxwz3xhEB/4QGZwZB8VX1TlTrI5GSO3BuCIA5um/SJF09iPWAgF7KY0+XrcxXg808zDjuqMRgsD9gHlqomjVCeWUhzsFVAafbMJ9DsgcAKoaWg+0yJvvnTVEelS96uvwnKFrSTsmpQMsgEb9lRHKb+v/Xr4+0THjTn4n//uhCy51+tGU7g==",
+    "proofValue": "ABkB/wbvtko1Y9xNW55tg6AYrvZkJfcEGsTB3BDOJaDjfeUWtg0610W7IzPyWjy2BDX+9VLFo2KcVal2CPsRk0E98292Ocbotwby9hdStE1zFQrgrfeoiYNxTD0HrUa6DwZ4X9f/jhFHwvxEl681jjwcZJWHhbzLIzJf7ms68PgNpPG7saBOqi3IqK+pxg4bxG1dS8z2AAAAdK93JmDD/9JGPh6z+Ur5BenOfX6t9ineW1pFMg7kcwOFxHjQ6NOSk7UmwfVjunYk+QAAAAIjiRSXcTv/GBwgUDaUsFlLy5SZW91C9I1YiHwsIyTCxAhttkeWJzSaxq5ZhRaSfmzbfLZShkuXJmFTy/qRLYj5iNSGzPkS/AlRJU2MPr7MwViX3SHEmi/nejOSpxYn/oDc0c7TyFFpyshgEZxu2/S3AAAACQK2jcWuij0VZu7NvXEMnJ4LgnQPLH9IEiEhRD27+4FnHW4XOIvZSFyiMtyy+9FRJCO7RlabIhh2r9F8filWhcQxsm6iF2+fUmTykUzk8/rv0gdtbBy1/Oc3+yrsGlg4pByhm9Ze6mSns9caeosdWR6+A9kHy4aUlndXkV83pnrrKVmGcFxE03oxFHU6piwL1g2OCk3Qef1KV5QlIDjWKvk93zSh1QtPjvo8FKXMKF2DWxLSB9do874n2cW9Ae0qgh1vLRCp9Vf8Dh3EBApdxTTseiJ2Y97u+ktOJM/5qHOHP9sBRU+Y1W1HHC8dVl0QXedVdYk4uuKASD/zgpwjiSRIGRWpv6WRCioN+ItKtGQ55/aHCE8m9LpxpGAen/NnEg==",
     "verificationMethod": "did:example:489398593#test"
   }
-}
-`
+}`
+
+	nonceBytes, err := base64.StdEncoding.DecodeString("X2qLaTxoyidu7Z/TOBRNgPhbcgeIcOGMAXQrM65vP/ehcop2wwCeV4/HTcnF70zANOc=")
+	require.NoError(t, err)
+
+	sigSuite := bbsblssignatureproof2020.New(
+		suite.WithCompactProof(),
+		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonceBytes)))
 
 	pkBase58 := "oqpWYKaZD9M1Kbe94BVXpr8WTdFBNZyKv48cziTiQUeuhm7sBhCABMyYG4kcMrseC68YTFFgyhiNeBKjzdKk9MiRWuLv5H4FFujQsQK2KTAtzU8qTBiZqBHMmnLF4PL7Ytu"
 	pubKeyBytes := base58.Decode(pkBase58)

@@ -29,3 +29,29 @@ exports.verifyAries = function verifyAries(publicKey, vc) {
         });
     });
 }
+
+exports.deriveProofAries = function deriveProofAries(publicKey, vc, revealDoc, nonce) {
+    return new Promise((resolve, reject) => {
+        deriveVCProofAsync(publicKey, vc, revealDoc, nonce, (err, vcWithDerivedProof) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            resolve(vcWithDerivedProof);
+        });
+    });
+}
+
+exports.verifyProofAries = function verifyProofAries(publicKey, vc) {
+    return new Promise((resolve, reject) => {
+        verifyProofVCAsync(publicKey, vc, (err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            resolve();
+        });
+    });
+}
