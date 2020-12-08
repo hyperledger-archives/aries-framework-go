@@ -61,22 +61,17 @@ const basePresentationSchema = `
       "oneOf": [
         {
           "type": "array",
-          "items": [
-            {
-              "type": "string",
-              "pattern": "^VerifiablePresentation$"
-            }
-          ],
-          "minItems": 1
+          "minItems": 1,
+          "contains": {
+            "type": "string",
+            "pattern": "^VerifiablePresentation$"
+          }
         },
         {
           "type": "string",
           "pattern": "^VerifiablePresentation$"
         }
-      ],
-      "additionalItems": {
-        "type": "string"
-      }
+      ]
     },
     "verifiableCredential": {
       "anyOf": [
