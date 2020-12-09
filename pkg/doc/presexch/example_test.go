@@ -17,9 +17,9 @@ import (
 )
 
 // Example of a Verifier verifying the presentation submission of a Holder.
-func ExamplePresentationDefinitions_Match() {
+func ExamplePresentationDefinition_Match() {
 	// verifier sends their presentation definitions to the holder
-	verifierDefinitions := &PresentationDefinitions{
+	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{
 			{
 				ID: "banking",

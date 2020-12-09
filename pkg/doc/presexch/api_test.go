@@ -21,11 +21,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
-func TestPresentationDefinitions_Match(t *testing.T) {
+func TestPresentationDefinition_Match(t *testing.T) {
 	t.Run("match one credential", func(t *testing.T) {
 		uri := randomURI()
 		expected := newVC([]string{uri})
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -50,7 +50,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if vp does not have the right context", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -75,7 +75,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if vp does not have the right type", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -100,7 +100,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if descriptor_map has an invalid ID", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -121,7 +121,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if jsonpath in descriptor_map points to a nonexistent element", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -141,7 +141,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if cannot parse credential", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -161,7 +161,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if embedded credential has a type different than the input descriptor schema uri", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -186,7 +186,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 	t.Run("error when missing required credential", func(t *testing.T) {
 		uriOne := randomURI()
 		uriTwo := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{
 				{
 					ID: uuid.New().String(),
@@ -215,7 +215,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if embedded credential has a type different than the input descriptor schema uri", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -233,7 +233,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 	t.Run("error if descriptor_map has an invalid ID", func(t *testing.T) {
 		uri := randomURI()
-		defs := &PresentationDefinitions{
+		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: &Schema{
@@ -252,7 +252,7 @@ func TestPresentationDefinitions_Match(t *testing.T) {
 
 func TestE2E(t *testing.T) {
 	// verifier sends their presentation definitions to the holder
-	verifierDefinitions := &PresentationDefinitions{
+	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: &Schema{
