@@ -7,8 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package agent
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -20,12 +24,15 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -56,6 +63,58 @@ func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string)
 	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+}
+
+// CreateAgentWithRemoteKMS with the given parameters with a remote kms.
+func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme, ksURL, controller string) error {
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
+
+	cp, err := loadCertPool()
+	if err != nil {
+		return err
+	}
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: cp}, //nolint:gosec
+		},
+	}
+
+	keyStoreURL, err := webkms.CreateKeyStore(httpClient, ksURL, controller, "", json.Marshal)
+	if err != nil {
+		return fmt.Errorf("error calling CreateKeystore: %w", err)
+	}
+
+	rKMS := webkms.New(keyStoreURL, httpClient)
+
+	opts = append(opts, aries.WithKMS(func(provider kms.Provider) (kms.KeyManager, error) {
+		return rKMS, nil
+	}))
+
+	rCrypto := remotecrypto.New(keyStoreURL, httpClient)
+
+	opts = append(opts, aries.WithCrypto(rCrypto))
+
+	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+}
+
+func loadCertPool() (*x509.CertPool, error) {
+	cp := x509.NewCertPool()
+	certPrefix := "fixtures/keys/tls/"
+
+	pemPath := fmt.Sprintf("%sec-pubCert.pem", certPrefix)
+
+	pemData, err := ioutil.ReadFile(pemPath) //nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+
+	ok := cp.AppendCertsFromPEM(pemData)
+	if !ok {
+		return nil, errors.New("failed to append certs from PEM")
+	}
+
+	return cp, nil
 }
 
 func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
@@ -248,6 +307,8 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.CreateAgent)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
+		`using webkms with key server at "([^"]*)" URL, using "([^"]*)" controller`, a.CreateAgentWithRemoteKMS)
 	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
