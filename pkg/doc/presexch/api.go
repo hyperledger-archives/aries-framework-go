@@ -105,13 +105,19 @@ type PresentationDefinition struct {
 // PresentationSubmission is the container for the descriptor_map:
 // https://identity.foundation/presentation-exchange/#presentation-submission.
 type PresentationSubmission struct {
+	// ID unique resource identifier.
+	ID string `json:"id,omitempty"`
+	// DefinitionID links the submission to its definition and must be the id value of a valid Presentation Definition.
+	DefinitionID  string                    `json:"definition_id,omitempty"`
 	DescriptorMap []*InputDescriptorMapping `json:"descriptor_map"`
 }
 
 // InputDescriptorMapping maps an InputDescriptor to a verifiable credential pointed to by the JSONPath in `Path`.
 type InputDescriptorMapping struct {
-	ID   string `json:"id"`
-	Path string `json:"path"`
+	ID         string                  `json:"id,omitempty"`
+	Format     string                  `json:"format,omitempty"`
+	Path       string                  `json:"path,omitempty"`
+	PathNested *InputDescriptorMapping `json:"path_nested,omitempty"`
 }
 
 // MatchOptions is a holder of options that can set when matching a submission against definitions.
