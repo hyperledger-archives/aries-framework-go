@@ -31,7 +31,7 @@ func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
 		},
 	}
 
-	_, err := convertRecKeyToMarshalledJWK(recKey)
+	_, err := convertRecEPKToMarshalledJWK(recKey)
 	require.EqualError(t, err, "unsupported curve")
 }
 

@@ -262,7 +262,7 @@ func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 
 	rawHeaders["alg"] = alg
 
-	mEPK, err := convertRecKeyToMarshalledJWK(recipientWK)
+	mEPK, err := convertRecEPKToMarshalledJWK(recipientWK)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +319,7 @@ func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey) ([]*Rec
 }
 
 func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeaders, error) {
-	mRecJWK, err := convertRecKeyToMarshalledJWK(rec)
+	mRecJWK, err := convertRecEPKToMarshalledJWK(rec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert recipient key to marshalled JWK: %w", err)
 	}
@@ -331,7 +331,7 @@ func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeader
 	}, nil
 }
 
-func convertRecKeyToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, error) {
+func convertRecEPKToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, error) {
 	var c elliptic.Curve
 
 	c, err := hybrid.GetCurve(rec.EPK.Curve)
@@ -341,8 +341,7 @@ func convertRecKeyToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, e
 
 	recJWK := JWK{
 		JSONWebKey: jose.JSONWebKey{
-			KeyID: rec.KID,
-			Use:   HeaderEncryption,
+			Use: HeaderEncryption,
 			Key: &ecdsa.PublicKey{
 				Curve: c,
 				X:     new(big.Int).SetBytes(rec.EPK.X),
