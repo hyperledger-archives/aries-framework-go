@@ -67,9 +67,9 @@ func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(SaveDIDPath, http.MethodPost, o.SaveDID),
-		cmdutil.NewHTTPHandler(GetDIDPath, http.MethodGet, o.GetDID),
 		cmdutil.NewHTTPHandler(ResolveDIDPath, http.MethodGet, o.ResolveDID),
 		cmdutil.NewHTTPHandler(GetDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
+		cmdutil.NewHTTPHandler(GetDIDPath, http.MethodGet, o.GetDID),
 	}
 }
 
