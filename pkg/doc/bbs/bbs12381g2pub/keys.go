@@ -16,6 +16,8 @@ import (
 	bls12381 "github.com/kilic/bls12-381"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/hkdf"
+
+	bls12381intern "github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub/internal/kilic/bls12-381"
 )
 
 const (
@@ -96,13 +98,18 @@ func calcData(key *PublicKey, messagesCount int) []byte {
 func hashToG1(data []byte) (*bls12381.PointG1, error) {
 	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
 
-	newBlake2b := func() hash.Hash {
+	hashFunc := func() hash.Hash {
 		// We pass a null key so error is impossible here.
 		h, _ := blake2b.New512(nil) //nolint:errcheck
 		return h
 	}
 
-	return g1.HashToCurve(newBlake2b, data, dstG1)
+	g1Bytes, err := bls12381intern.HashToCurve(data, dstG1, hashFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	return g1.FromBytes(g1Bytes)
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.

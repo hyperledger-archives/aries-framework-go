@@ -10,7 +10,8 @@ run:
   issues-exit-code: 1
   tests: true
   build-tags: [""]
-  skip-dirs:  [""]
+  skip-dirs:
+    - pkg/doc/bbs/bbs12381g2pub/internal/kilic/bls12-381
 
 output:
   format: colored-line-number

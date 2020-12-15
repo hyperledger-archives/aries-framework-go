@@ -35,5 +35,4 @@ require (
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
-	github.com/kilic/bls12-381 => github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8
 )
