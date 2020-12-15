@@ -18,15 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
-type (
-	// Selection can be "all" or "pick".
-	Selection string
-	// Preference can be "required" or "preferred".
-	Preference string
-	// StrOrInt type that defines string or integer.
-	StrOrInt interface{}
-)
-
 const (
 	// PresentationSubmissionJSONLDContext is the JSONLD context of presentation submissions.
 	PresentationSubmissionJSONLDContext = "https://identity.foundation/presentation-exchange/submission/v1"
@@ -35,98 +26,7 @@ const (
 
 	submissionProperty    = "presentation_submission"
 	descriptorMapProperty = "descriptor_map"
-
-	// All rule`s value.
-	All Selection = "all"
-	// Pick rule`s value.
-	Pick Selection = "pick"
-
-	// Required predicate`s value.
-	Required Preference = "required"
-	// Preferred predicate`s value.
-	Preferred Preference = "preferred"
 )
-
-// SubmissionRequirement describes input that must be submitted via a Presentation Submission
-// to satisfy Verifier demands.
-type SubmissionRequirement struct {
-	Name       string                  `json:"name,omitempty"`
-	Purpose    string                  `json:"purpose,omitempty"`
-	Rule       Selection               `json:"rule,omitempty"`
-	Count      int                     `json:"count,omitempty"`
-	Min        int                     `json:"min,omitempty"`
-	Max        int                     `json:"max,omitempty"`
-	From       string                  `json:"from,omitempty"`
-	FromNested []SubmissionRequirement `json:"from_nested,omitempty"`
-}
-
-// Field describes Constraints`s Fields field.
-type Field struct {
-	Path      []string   `json:"path,omitempty"`
-	ID        string     `json:"id,omitempty"`
-	Purpose   string     `json:"purpose,omitempty"`
-	Filter    Filter     `json:"filter,omitempty"`
-	Predicate Preference `json:"predicate,omitempty"`
-}
-
-// Filter describes filter.
-type Filter struct {
-	Type             string                 `json:"type"`
-	Format           string                 `json:"format,omitempty"`
-	Pattern          string                 `json:"pattern,omitempty"`
-	Minimum          StrOrInt               `json:"minimum,omitempty"`
-	Maximum          StrOrInt               `json:"maximum,omitempty"`
-	MinLength        int                    `json:"minLength,omitempty"`
-	MaxLength        int                    `json:"maxLength,omitempty"`
-	ExclusiveMinimum StrOrInt               `json:"exclusiveMinimum,omitempty"`
-	ExclusiveMaximum StrOrInt               `json:"exclusiveMaximum,omitempty"`
-	Const            StrOrInt               `json:"const,omitempty"`
-	Enum             []StrOrInt             `json:"enum,omitempty"`
-	Not              map[string]interface{} `json:"not,omitempty"`
-}
-
-// Constraints describes InputDescriptor`s Constraints field.
-type Constraints struct {
-	LimitDisclosure bool       `json:"limit_disclosure,omitempty"`
-	SubjectIsIssuer Preference `json:"subject_is_issuer,omitempty"`
-	SubjectIsHolder Preference `json:"subject_is_holder,omitempty"`
-	Fields          []Field    `json:"fields,omitempty"`
-}
-
-// InputDescriptor input descriptors.
-type InputDescriptor struct {
-	ID          string                 `json:"id,omitempty"`
-	Group       []string               `json:"group,omitempty"`
-	Name        string                 `json:"name,omitempty"`
-	Purpose     string                 `json:"purpose,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	Schema      []Schema               `json:"schema,omitempty"`
-	Constraints Constraints            `json:"constraints,omitempty"`
-}
-
-// Schema input descriptor schema.
-type Schema struct {
-	URI      string `json:"uri,omitempty"`
-	Required bool   `json:"required,omitempty"`
-}
-
-// PresentationDefinition presentation definitions (https://identity.foundation/presentation-exchange/).
-type PresentationDefinition struct {
-	// ID unique resource identifier.
-	ID string `json:"id,omitempty"`
-	// Name human-friendly name that describes what the Presentation Definition pertains to.
-	Name string `json:"name,omitempty"`
-	// Purpose describes the purpose for which the Presentation Definition’s inputs are being requested.
-	Purpose string `json:"purpose,omitempty"`
-	Locale  string `json:"locale,omitempty"`
-	// Format is an object with one or more properties matching the registered Claim Format Designations
-	// (jwt, jwt_vc, jwt_vp, etc.) to inform the Holder of the claim format configurations the Verifier can process.
-	Format map[string]map[string][]string `json:"format,omitempty"`
-	// SubmissionRequirements must conform to the Submission Requirement Format.
-	// If not present, all inputs listed in the InputDescriptors array are required for submission.
-	SubmissionRequirements []SubmissionRequirement `json:"submission_requirements,omitempty"`
-	InputDescriptors       []*InputDescriptor      `json:"input_descriptors"`
-}
 
 // PresentationSubmission is the container for the descriptor_map:
 // https://identity.foundation/presentation-exchange/#presentation-submission.
@@ -163,7 +63,7 @@ func WithJSONLDDocumentLoader(l ld.DocumentLoader) MatchOption {
 }
 
 // Match returns the credentials matched against the InputDescriptors ids.
-func (p *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:gocyclo,funlen
+func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:gocyclo,funlen
 	options ...MatchOption) (map[string]*verifiable.Credential, error) {
 	opts := &MatchOptions{}
 
@@ -188,7 +88,7 @@ func (p *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:go
 		return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
 	}
 
-	descriptorIDs := descriptorIDs(p.InputDescriptors)
+	descriptorIDs := descriptorIDs(pd.InputDescriptors)
 
 	descriptorMap, err := parseDescriptorMap(vp)
 	if err != nil {
@@ -213,7 +113,7 @@ func (p *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:go
 			return nil, fmt.Errorf("failed to select vc from submission: %w", selectErr)
 		}
 
-		inputDescriptor := p.inputDescriptor(mapping.ID)
+		inputDescriptor := pd.inputDescriptor(mapping.ID)
 
 		var found bool
 		// The schema of the candidate input must match one of the Input Descriptor schema object uri values exactly.
@@ -234,7 +134,7 @@ func (p *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:go
 		result[mapping.ID] = vc
 	}
 
-	err = p.evalSubmissionRequirements(result)
+	err = pd.evalSubmissionRequirements(result)
 	if err != nil {
 		return nil, fmt.Errorf("failed submission requirements: %w", err)
 	}
@@ -243,9 +143,9 @@ func (p *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:go
 }
 
 // Ensures the matched credentials meet the submission requirements.
-func (p *PresentationDefinition) evalSubmissionRequirements(matched map[string]*verifiable.Credential) error {
+func (pd *PresentationDefinition) evalSubmissionRequirements(matched map[string]*verifiable.Credential) error {
 	// TODO support submission requirement rules: https://github.com/hyperledger/aries-framework-go/issues/2109
-	descriptorIDs := descriptorIDs(p.InputDescriptors)
+	descriptorIDs := descriptorIDs(pd.InputDescriptors)
 
 	for i := range descriptorIDs {
 		_, found := matched[descriptorIDs[i]]
@@ -257,10 +157,10 @@ func (p *PresentationDefinition) evalSubmissionRequirements(matched map[string]*
 	return nil
 }
 
-func (p *PresentationDefinition) inputDescriptor(id string) *InputDescriptor {
-	for i := range p.InputDescriptors {
-		if p.InputDescriptors[i].ID == id {
-			return p.InputDescriptors[i]
+func (pd *PresentationDefinition) inputDescriptor(id string) *InputDescriptor {
+	for i := range pd.InputDescriptors {
+		if pd.InputDescriptors[i].ID == id {
+			return pd.InputDescriptors[i]
 		}
 	}
 

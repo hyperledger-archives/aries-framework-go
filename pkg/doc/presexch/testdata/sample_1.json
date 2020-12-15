@@ -1,0 +1,57 @@
+{
+  "id":"32f54163-7166-48f1-93d8-ff217bdb0653",
+  "input_descriptors":[
+    {
+      "id":"banking_input",
+      "name":"Bank Account Information",
+      "purpose":"We need your bank and account information.",
+      "schema":[
+        {
+          "uri":"https://bank-standards.com/customer.json"
+        }
+      ],
+      "constraints":{
+        "limit_disclosure":true,
+        "fields":[
+          {
+            "path":[
+              "$.issuer",
+              "$.vc.issuer",
+              "$.iss"
+            ],
+            "purpose":"The claim must be from one of the specified issuers",
+            "filter":{
+              "type":"string",
+              "pattern":"did:example:123|did:example:456"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id":"citizenship_input",
+      "name":"US Passport",
+      "schema":[
+        {
+          "uri":"hub://did:foo:123/Collections/schema.us.gov/passport.json"
+        }
+      ],
+      "constraints":{
+        "fields":[
+          {
+            "path":[
+              "$.credentialSubject.birth_date",
+              "$.vc.credentialSubject.birth_date",
+              "$.birth_date"
+            ],
+            "filter":{
+              "type":"string",
+              "format":"date",
+              "minimum":"1999-5-16"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
