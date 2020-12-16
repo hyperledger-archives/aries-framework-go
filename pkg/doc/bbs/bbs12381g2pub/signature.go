@@ -67,5 +67,5 @@ func (s *Signature) Verify(messages []*SignatureMessage, pubKey *PublicKeyWithGe
 		return nil
 	}
 
-	return errors.New("BLS12-381: invalid signature")
+	return errors.New("invalid BLS12-381 signature")
 }

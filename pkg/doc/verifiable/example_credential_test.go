@@ -8,6 +8,7 @@ package verifiable_test
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -33,7 +35,42 @@ var (
 	issuerPubKey  = ed25519.PublicKey{234, 100, 192, 93, 251, 181, 198, 73, 122, 220, 27, 48, 93, 73, 166, 33, 152, 140, 168, 36, 9, 205, 59, 161, 137, 7, 164, 9, 176, 252, 1, 171}                                                                                                                                                   //nolint:lll
 	issued        = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 	expired       = time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
+
+	bbsPrivKeyB64 = "PcVroyzTlmnYIIq8In8QOZhpK72AdTjj3EitB9tSNrg"
+	bbsPubKeyB64  = "l0Wtf3gy5f140G5vCoCJw2420hwk6Xw65/DX3ycv1W7/eMky8DyExw+o1s2bmq3sEIJatkiN8f5D4k0766x0UvfbupFX+vVkeqnlOvT6o2cag2osQdMFbBQqAybOM4Gm" //nolint:lll
 )
+
+//nolint:lll
+const vcJSON = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialSchema": [],
+  "credentialSubject": {
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "expirationDate": "2020-01-01T19:23:24Z",
+  "id": "http://example.edu/credentials/1872",
+  "issuanceDate": "2009-01-01T19:23:24Z",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "referenceNumber": 83294849,
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}
+`
 
 //nolint:lll
 func ExampleCredential_embedding() {
@@ -261,39 +298,8 @@ func ExampleParseCredential() {
 
 //nolint:lll
 func ExampleCredential_JWTClaims() {
-	// The Holder kept the credential serialized to JSON in her personal verifiable credential wallet.
-	vcStrFromWallet := `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
-  ],
-  "credentialSubject": {
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "expirationDate": "2020-01-01T19:23:24Z",
-  "id": "http://example.edu/credentials/1872",
-  "issuanceDate": "2010-01-01T19:23:24Z",
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  },
-  "referenceNumber": 83294847,
-  "type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ]
-}
-`
-
 	// The Holder wants to send the credential to the Verifier in JWS.
-	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet),
+	vc, err := verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
@@ -314,42 +320,11 @@ func ExampleCredential_JWTClaims() {
 	// The Holder passes JWS to Verifier
 	fmt.Println(jws)
 
-	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJyZWZlcmVuY2VOdW1iZXIiOjguMzI5NDg0N2UrMDcsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfX0.a5yKMPmDnEXvM-fG3BaOqfdkqdvU4s2rzeZuOzLmkTH1y9sJT-mgTe7map5E9x7abrNVpyYbaH7JaAb9Yhr1DQ
+	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTIzMDgzNzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyMzA4Mzc4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJyZWZlcmVuY2VOdW1iZXIiOjguMzI5NDg0OWUrMDcsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfX0.9-hiifM2cvfAcK6Olk5JSEnhlcRAAe0LYlpZW4nHat_3jVP4rjvKhP6bLNfTEkJ0271-NZZRd0YsI9Dg_-uKAg
 }
 
 //nolint:lll
 func ExampleCredential_AddLinkedDataProof() {
-	vcJSON := `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
-  ],
-  "credentialSchema": [],
-  "credentialSubject": {
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "expirationDate": "2020-01-01T19:23:24Z",
-  "id": "http://example.edu/credentials/1872",
-  "issuanceDate": "2009-01-01T19:23:24Z",
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  },
-  "referenceNumber": 83294849,
-  "type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ]
-}
-`
-
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
@@ -412,40 +387,9 @@ func ExampleCredential_AddLinkedDataProof() {
 	//}
 }
 
-//nolint:lll,govet
+//nolint:lll,govet,gocyclo
 func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	log.SetLevel("aries-framework/json-ld-processor", log.ERROR)
-
-	vcJSON := `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
-  ],
-  "credentialSchema": [],
-  "credentialSubject": {
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "expirationDate": "2020-01-01T19:23:24Z",
-  "id": "http://example.edu/credentials/1872",
-  "issuanceDate": "2009-01-01T19:23:24Z",
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  },
-  "referenceNumber": 83294849,
-  "type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ]
-}
-`
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
@@ -522,4 +466,257 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		panic(err)
 	}
 	// Output:
+}
+
+//nolint:lll,govet,gocyclo
+func ExampleCredential_GenerateBBSSelectiveDisclosure() {
+	log.SetLevel("aries-framework/json-ld-processor", log.ERROR)
+
+	vcStr := `
+	{
+	 "@context": [
+	   "https://www.w3.org/2018/credentials/v1",
+	   "https://w3id.org/citizenship/v1",
+	   "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	 ],
+	 "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	 "type": [
+	   "VerifiableCredential",
+	   "PermanentResidentCard"
+	 ],
+	 "issuer": "did:example:489398593",
+	 "identifier": "83627465",
+	 "name": "Permanent Resident Card",
+	 "description": "Government of Example Permanent Resident Card.",
+	 "issuanceDate": "2019-12-03T12:19:52Z",
+	 "expirationDate": "2029-12-03T12:19:52Z",
+	 "credentialSubject": {
+	   "id": "did:example:b34ca6cd37bbf23",
+	   "type": [
+	     "PermanentResident",
+	     "Person"
+	   ],
+	   "givenName": "JOHN",
+	   "familyName": "SMITH",
+	   "gender": "Male",
+	   "image": "data:image/png;base64,iVBORw0KGgokJggg==",
+	   "residentSince": "2015-01-01",
+	   "lprCategory": "C09",
+	   "lprNumber": "999-999-999",
+	   "commuterClassification": "C1",
+	   "birthCountry": "Bahamas",
+	   "birthDate": "1958-07-17"
+	 }
+	}
+`
+
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcStr),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	ed25519Signer := signature.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(ed25519Signer)),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:123456#key1",
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(err)
+	}
+
+	pubKey, privKey, err := loadBBSKeyPair(bbsPubKeyB64, bbsPrivKeyB64)
+	if err != nil {
+		panic(err)
+	}
+
+	bbsSigner, err := newBBSSigner(privKey)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "BbsBlsSignature2020",
+		Suite:                   bbsblssignature2020.New(suite.WithSigner(bbsSigner)),
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		VerificationMethod:      "did:example:123456#key1",
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(err)
+	}
+
+	// BBS+ signature is generated each time unique, that's why we substitute it with some constant value
+	// for a reason of keeping constant test output.
+	originalProofValue := hideProofValue(vc.Proofs[1], "dummy signature value")
+
+	vcJSONWithProof, err := json.MarshalIndent(vc, "", "\t")
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+	}
+
+	fmt.Println(string(vcJSONWithProof))
+
+	restoreProofValue(vc.Proofs[1], originalProofValue)
+
+	// Create BBS+ selective disclosure. We explicitly state the fields we want to reveal in the output document.
+	// For example, "credentialSubject.birthDate" is not mentioned and thus will be hidden.
+	revealDoc := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/citizenship/v1",
+    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+  ],
+  "type": ["VerifiableCredential", "PermanentResidentCard"],
+  "credentialSubject": {
+    "@explicit": true,
+    "type": ["PermanentResident", "Person"],
+    "givenName": {},
+    "familyName": {},
+    "gender": {}
+  }
+}
+`
+
+	var revealDocMap map[string]interface{}
+
+	err = json.Unmarshal([]byte(revealDoc), &revealDocMap)
+	if err != nil {
+		panic(err)
+	}
+
+	pubKeyBytes, err := pubKey.Marshal()
+	if err != nil {
+		panic(err)
+	}
+
+	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDocMap, []byte("some nonce"),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")))
+	if err != nil {
+		panic(err)
+	}
+
+	hideProofValue(vcWithSelectiveDisclosure.Proofs[1], "dummy signature proof value")
+
+	vcJSONWithProof, err = json.MarshalIndent(vcWithSelectiveDisclosure, "", "\t")
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+	}
+
+	fmt.Println()
+	fmt.Println(string(vcJSONWithProof))
+	// Output:{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://w3id.org/citizenship/v1",
+	//		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	//	],
+	//	"credentialSubject": {
+	//		"birthCountry": "Bahamas",
+	//		"birthDate": "1958-07-17",
+	//		"commuterClassification": "C1",
+	//		"familyName": "SMITH",
+	//		"gender": "Male",
+	//		"givenName": "JOHN",
+	//		"id": "did:example:b34ca6cd37bbf23",
+	//		"image": "data:image/png;base64,iVBORw0KGgokJggg==",
+	//		"lprCategory": "C09",
+	//		"lprNumber": "999-999-999",
+	//		"residentSince": "2015-01-01",
+	//		"type": [
+	//			"PermanentResident",
+	//			"Person"
+	//		]
+	//	},
+	//	"description": "Government of Example Permanent Resident Card.",
+	//	"expirationDate": "2029-12-03T12:19:52Z",
+	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	//	"identifier": "83627465",
+	//	"issuanceDate": "2019-12-03T12:19:52Z",
+	//	"issuer": "did:example:489398593",
+	//	"name": "Permanent Resident Card",
+	//	"proof": [
+	//		{
+	//			"created": "2010-01-01T19:23:24Z",
+	//			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..eOf78dZntdhgtMMipTPYuylQYZLsgCDb9OIqIpbxUbMapAQ29ai0-f1VZHLe8m9DvDY3Mah8ndPI0bJ5a0j0Bg",
+	//			"proofPurpose": "assertionMethod",
+	//			"type": "Ed25519Signature2018",
+	//			"verificationMethod": "did:example:123456#key1"
+	//		},
+	//		{
+	//			"created": "2010-01-01T19:23:24Z",
+	//			"proofPurpose": "assertionMethod",
+	//			"proofValue": "ZHVtbXkgc2lnbmF0dXJlIHZhbHVl",
+	//			"type": "BbsBlsSignature2020",
+	//			"verificationMethod": "did:example:123456#key1"
+	//		}
+	//	],
+	//	"type": [
+	//		"VerifiableCredential",
+	//		"PermanentResidentCard"
+	//	]
+	//}
+	//
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://w3id.org/citizenship/v1",
+	//		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	//	],
+	//	"credentialSubject": {
+	//		"familyName": "SMITH",
+	//		"gender": "Male",
+	//		"givenName": "JOHN",
+	//		"id": "did:example:b34ca6cd37bbf23",
+	//		"type": [
+	//			"Person",
+	//			"PermanentResident"
+	//		]
+	//	},
+	//	"description": "Government of Example Permanent Resident Card.",
+	//	"expirationDate": "2029-12-03T12:19:52Z",
+	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	//	"identifier": "83627465",
+	//	"issuanceDate": "2019-12-03T12:19:52Z",
+	//	"issuer": "did:example:489398593",
+	//	"name": "Permanent Resident Card",
+	//	"proof": [
+	//		{
+	//			"created": "2010-01-01T19:23:24Z",
+	//			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..eOf78dZntdhgtMMipTPYuylQYZLsgCDb9OIqIpbxUbMapAQ29ai0-f1VZHLe8m9DvDY3Mah8ndPI0bJ5a0j0Bg",
+	//			"proofPurpose": "assertionMethod",
+	//			"type": "Ed25519Signature2018",
+	//			"verificationMethod": "did:example:123456#key1"
+	//		},
+	//		{
+	//			"created": "2010-01-01T19:23:24Z",
+	//			"nonce": "c29tZSBub25jZQ==",
+	//			"proofPurpose": "assertionMethod",
+	//			"proofValue": "ZHVtbXkgc2lnbmF0dXJlIHByb29mIHZhbHVl",
+	//			"type": "BbsBlsSignatureProof2020",
+	//			"verificationMethod": "did:example:123456#key1"
+	//		}
+	//	],
+	//	"type": [
+	//		"PermanentResidentCard",
+	//		"VerifiableCredential"
+	//	]
+	//}
+}
+
+func hideProofValue(proof verifiable.Proof, dummyValue string) interface{} {
+	oldProofValue := proof["proofValue"]
+	proof["proofValue"] = base64.StdEncoding.EncodeToString([]byte(dummyValue))
+
+	return oldProofValue
+}
+
+func restoreProofValue(proof verifiable.Proof, proofValue interface{}) {
+	proof["proofValue"] = proofValue
 }

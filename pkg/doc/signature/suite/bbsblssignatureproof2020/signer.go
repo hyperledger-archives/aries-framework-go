@@ -14,17 +14,25 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 const (
 	securityContext = "https://w3id.org/security/v2"
-	proofField      = "proofValue"
 )
+
+// keyResolver encapsulates key resolution.
+type keyResolver interface {
+
+	// Resolve will return public key bytes and the type of public key
+	Resolve(id string) (*sigverifier.PublicKey, error)
+}
 
 // SelectiveDisclosure creates selective disclosure from the input doc which must have a BBS+ proof
 // (with BbsBlsSignature2020 type).
 func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[string]interface{},
-	pubKeyBytes, nonce []byte, opts ...jsonld.ProcessorOpts) (map[string]interface{}, error) {
+	nonce []byte, resolver keyResolver, opts ...jsonld.ProcessorOpts) (map[string]interface{}, error) {
 	docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
 	if err != nil {
 		return nil, err
@@ -44,11 +52,9 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 
 	blsProof := proofInfo.blsProof
 
-	proofValue := blsProof[proofField].(string) //nolint:errcheck
-
-	signatureBytes, err := decodeBase64(proofValue)
+	pubKeyBytes, signatureBytes, err := getPublicKeyAndSignature(blsProof, resolver)
 	if err != nil {
-		return nil, fmt.Errorf("invalid %s format: %w", proofField, err)
+		return nil, err
 	}
 
 	verData, err := buildVerificationData(docCompacted, blsProof, revealDoc, opts...)
@@ -70,19 +76,38 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 		"verificationMethod": blsProof["verificationMethod"],
 		"proofPurpose":       blsProof["proofPurpose"],
 		"created":            blsProof["created"],
-		proofField:           base64.StdEncoding.EncodeToString(signatureProofBytes),
+		"proofValue":         base64.StdEncoding.EncodeToString(signatureProofBytes),
 	}
 
-	allProofs := insertProof(proofInfo.allProofs, proofInfo.blsProofInd, derivedProof)
+	allProofs := insertProof(proofInfo.allOtherProofs, proofInfo.blsProofInd, derivedProof)
 	verData.revealDocumentResult["proof"] = allProofs
 
 	return verData.revealDocumentResult, nil
 }
 
+func getPublicKeyAndSignature(blsProofMap map[string]interface{}, resolver keyResolver) ([]byte, []byte, error) {
+	blsProof, err := proof.NewProof(blsProofMap)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse BBS+ signature: %w", err)
+	}
+
+	keyID, err := blsProof.PublicKeyID()
+	if err != nil {
+		return nil, nil, fmt.Errorf("get public KID from BBS+ signature: %w", err)
+	}
+
+	publicKey, err := resolver.Resolve(keyID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve public key of BBS+ signature: %w", err)
+	}
+
+	return publicKey.Value, blsProof.ProofValue, nil
+}
+
 type blsProofInfo struct {
-	blsProof    map[string]interface{}
-	allProofs   []map[string]interface{}
-	blsProofInd int
+	blsProof       map[string]interface{}
+	allOtherProofs []map[string]interface{}
+	blsProofInd    int
 }
 
 func getBlsProof(rawProofs interface{}) (*blsProofInfo, error) {
@@ -109,9 +134,9 @@ func getBlsProof(rawProofs interface{}) (*blsProofInfo, error) {
 	}
 
 	return &blsProofInfo{
-		blsProof:    blsProof,
-		allProofs:   allProofs,
-		blsProofInd: blsProofInd,
+		blsProof:       blsProof,
+		allOtherProofs: allProofs,
+		blsProofInd:    blsProofInd,
 	}, nil
 }
 
@@ -238,10 +263,10 @@ func splitMessageIntoLines(msg string) []string {
 	return msgs
 }
 
-func createVerifyProofData(proof map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]string, error) {
-	delete(proof, proofField)
+func createVerifyProofData(proofMap map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]string, error) {
+	delete(proofMap, "proofValue")
 
-	proofBytes, err := jsonld.Default().GetCanonicalDocument(proof, opts...)
+	proofBytes, err := jsonld.Default().GetCanonicalDocument(proofMap, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -259,32 +284,17 @@ func toArrayOfBytes(messages []string) [][]byte {
 	return res
 }
 
-func insertProof(proofs []map[string]interface{}, index int, proof map[string]interface{}) []map[string]interface{} {
+func insertProof(proofs []map[string]interface{}, index int, proofMap map[string]interface{}) []map[string]interface{} {
 	if len(proofs) == index {
-		return append(proofs, proof)
+		return append(proofs, proofMap)
 	}
 
 	proofs = append(proofs[:index+1], proofs[index:]...) // index < len(a)
-	proofs[index] = proof
+	proofs[index] = proofMap
 
 	return proofs
 }
 
 func deleteProof(proofs []map[string]interface{}, index int) []map[string]interface{} {
 	return append(proofs[:index], proofs[index+1:]...)
-}
-
-func decodeBase64(s string) ([]byte, error) {
-	allEncodings := []*base64.Encoding{
-		base64.RawURLEncoding, base64.StdEncoding,
-	}
-
-	for _, encoding := range allEncodings {
-		value, err := encoding.DecodeString(s)
-		if err == nil {
-			return value, nil
-		}
-	}
-
-	return nil, errors.New("unsupported encoding")
 }

@@ -41,7 +41,7 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 
 		err = bls.Verify(invalidMessagesBytes, sigBytes, pkBytes)
 		require.Error(t, err)
-		require.EqualError(t, err, "BLS12-381: invalid signature")
+		require.EqualError(t, err, "invalid BLS12-381 signature")
 	})
 
 	t.Run("invalid input public key", func(t *testing.T) {

@@ -94,17 +94,19 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 
 	var revealDoc map[string]interface{}
 	err = json.Unmarshal([]byte(revealJSON), &revealDoc)
-	require.NoError(t, err)
+	r.NoError(err)
 
 	nonce := []byte("nonce")
 
-	vcWithSelectiveDisclosure, err := signedVC.GenerateBBSSelectiveDisclosure(revealDoc, pubKeyBytes, nonce,
-		jsonld.WithDocumentLoader(testDocumentLoader))
+	vcOptions := []CredentialOpt{WithJSONLDDocumentLoader(testDocumentLoader), WithPublicKeyFetcher(
+		SingleKey(pubKeyBytes, "Bls12381G2Key2020"))}
+
+	vcWithSelectiveDisclosure, err := signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 	r.NoError(err)
 	r.NotNil(vcWithSelectiveDisclosure)
 
 	vcSelectiveDisclosureBytes, err := json.Marshal(vcWithSelectiveDisclosure)
-	require.NoError(t, err)
+	r.NoError(err)
 
 	sigSuite := bbsblssignatureproof2020.New(
 		suite.WithCompactProof(),
@@ -116,6 +118,42 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	)
 	r.NoError(err)
 	r.NotNil(vcVerified)
+
+	// error cases
+	t.Run("failed generation of selective disclosure", func(t *testing.T) {
+		var (
+			anotherPubKey      *bbs12381g2pub.PublicKey
+			anotherPubKeyBytes []byte
+		)
+
+		anotherPubKey, _, err = bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+		r.NoError(err)
+
+		anotherPubKeyBytes, err = anotherPubKey.Marshal()
+		r.NoError(err)
+
+		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+			WithJSONLDDocumentLoader(testDocumentLoader),
+			WithPublicKeyFetcher(SingleKey(anotherPubKeyBytes, "Bls12381G2Key2020")))
+		r.Error(err)
+		r.Contains(err.Error(), "create VC selective disclosure")
+		r.Empty(vcWithSelectiveDisclosure)
+	})
+
+	t.Run("public key fetcher is not passed", func(t *testing.T) {
+		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce)
+		r.Error(err)
+		r.EqualError(err, "public key fetcher is not defined")
+		r.Empty(vcWithSelectiveDisclosure)
+	})
+
+	t.Run("VC with no embedded proof", func(t *testing.T) {
+		signedVC.Proofs = nil
+		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		r.Error(err)
+		r.EqualError(err, "expected at least one proof present")
+		r.Empty(vcWithSelectiveDisclosure)
+	})
 }
 
 func signVCWithBBS(r *require.Assertions, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes, vcBytes []byte) *Credential {
