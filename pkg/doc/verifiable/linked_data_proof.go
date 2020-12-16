@@ -73,6 +73,17 @@ func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
 		return fmt.Errorf("create new signature verifier: %w", err)
 	}
 
+	processorOpts := mapJSONLDProcessorOpts(jsonldOpts)
+
+	err = documentVerifier.Verify(jsonldBytes, processorOpts...)
+	if err != nil {
+		return fmt.Errorf("check linked data proof: %w", err)
+	}
+
+	return nil
+}
+
+func mapJSONLDProcessorOpts(jsonldOpts *jsonldCredentialOpts) []jsonld.ProcessorOpts {
 	var processorOpts []jsonld.ProcessorOpts
 
 	if jsonldOpts.jsonldDocumentLoader != nil {
@@ -85,12 +96,7 @@ func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
 		processorOpts = append(processorOpts, jsonld.WithValidateRDF())
 	}
 
-	err = documentVerifier.Verify(jsonldBytes, processorOpts...)
-	if err != nil {
-		return fmt.Errorf("check linked data proof: %w", err)
-	}
-
-	return nil
+	return processorOpts
 }
 
 type rawProof struct {

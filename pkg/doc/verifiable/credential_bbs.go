@@ -10,20 +10,21 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 )
 
 // GenerateBBSSelectiveDisclosure generate BBS+ selective disclosure from one BBS+ signature.
 func (vc *Credential) GenerateBBSSelectiveDisclosure(revealDoc map[string]interface{},
-	pubKeyBytes, nonce []byte, opts ...jsonld.ProcessorOpts) (*Credential, error) {
-	if vc.Proofs == nil || len(vc.Proofs) != 1 {
-		return nil, errors.New("expected one proof present")
+	nonce []byte, opts ...CredentialOpt) (*Credential, error) {
+	if len(vc.Proofs) == 0 {
+		return nil, errors.New("expected at least one proof present")
 	}
 
-	proof := vc.Proofs[0]
-	if proof["type"] != "BbsBlsSignature2020" {
-		return nil, errors.New("expected BbsBlsSignature2020 proof")
+	vcOpts := getCredentialOpts(opts)
+	jsonldProcessorOpts := mapJSONLDProcessorOpts(&vcOpts.jsonldCredentialOpts)
+
+	if vcOpts.publicKeyFetcher == nil {
+		return nil, errors.New("public key fetcher is not defined")
 	}
 
 	suite := bbsblssignatureproof2020.New()
@@ -33,7 +34,10 @@ func (vc *Credential) GenerateBBSSelectiveDisclosure(revealDoc map[string]interf
 		return nil, err
 	}
 
-	vcWithSelectiveDisclosureDoc, err := suite.SelectiveDisclosure(vcDoc, revealDoc, pubKeyBytes, nonce, opts...)
+	keyResolver := &keyResolverAdapter{vcOpts.publicKeyFetcher}
+
+	vcWithSelectiveDisclosureDoc, err := suite.SelectiveDisclosure(vcDoc, revealDoc, nonce,
+		keyResolver, jsonldProcessorOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("create VC selective disclosure: %w", err)
 	}

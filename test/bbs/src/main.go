@@ -210,9 +210,9 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 		return nil, fmt.Errorf("unmarshal reveal doc: %w", err)
 	}
 
-	withJSONLDDocLoader := jsonld.WithDocumentLoader(jsonldLoader)
-
-	vcSD, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, pubKeyBytes, []byte(nonce), withJSONLDDocLoader)
+	vcSD, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, []byte(nonce),
+		verifiable.WithJSONLDDocumentLoader(jsonldLoader),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")))
 	if err != nil {
 		return nil, fmt.Errorf("create selective disclosure: %w", err)
 	}
