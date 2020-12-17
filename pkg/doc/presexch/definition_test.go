@@ -12,9 +12,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 func TestPresentationDefinition_IsValid(t *testing.T) {
@@ -37,6 +39,314 @@ func TestPresentationDefinition_IsValid(t *testing.T) {
 		}
 		require.EqualError(t, pd.ValidateSchema(), errMsg)
 	})
+}
+
+func TestPresentationDefinition_CreateVP(t *testing.T) {
+	t.Run("Checks schema", func(t *testing.T) {
+		pd := &PresentationDefinition{ID: uuid.New().String()}
+
+		vp, err := pd.CreateVP()
+
+		require.EqualError(t, err, "presentation_definition: input_descriptors is required")
+		require.Nil(t, vp)
+	})
+
+	t.Run("Matches one credentials", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 1)
+		checkVP(t, vp)
+	})
+
+	t.Run("Matches two credentials", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 2)
+		checkVP(t, vp)
+	})
+
+	t.Run("Matches one credentials (one ignored)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 1)
+		checkVP(t, vp)
+	})
+
+	t.Run("No matches", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+			}},
+		})
+
+		errMsg := "credentials do not satisfy requirements with schema [https://www.w3.org/TR/vc-data-model/1.0/#types]"
+		require.EqualError(t, err, errMsg)
+		require.Nil(t, vp)
+	})
+
+	t.Run("Matches two descriptors", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 2)
+		checkVP(t, vp)
+	})
+
+	t.Run("Does not match one of descriptors", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+			}},
+		})
+
+		errMsg := "credentials do not satisfy requirements with schema [https://www.w3.org/TR/vc-data-model/2.0/#types]"
+		require.EqualError(t, err, errMsg)
+		require.Nil(t, vp)
+	})
+
+	t.Run("Does not match one of descriptors (required)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}, {
+					URI:      "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Required: true,
+				}},
+			}},
+		}
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			}},
+		})
+		errMsg := "credentials do not satisfy requirements with schema " +
+			"[https://www.w3.org/TR/vc-data-model/2.0/#types required:https://www.w3.org/TR/vc-data-model/3.0/#types]"
+		require.EqualError(t, err, errMsg)
+		require.Nil(t, vp)
+	})
+
+	t.Run("Ignores schema that is not required", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}, {
+					URI:      "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Required: true,
+				}},
+			}},
+		}
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 2)
+		checkVP(t, vp)
+	})
+
+	t.Run("Requires two schemas", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI:      "https://www.w3.org/TR/vc-data-model/2.0/#types",
+					Required: true,
+				}, {
+					URI:      "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Required: true,
+				}},
+			}},
+		}
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+			}},
+		}, &verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			}, {
+				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+			}},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 2)
+		checkVP(t, vp)
+	})
+}
+
+func checkVP(t *testing.T, vp *verifiable.Presentation) {
+	t.Helper()
+
+	src, err := json.Marshal(vp)
+	require.NoError(t, err)
+
+	_, err = verifiable.ParseUnverifiedPresentation(src)
+	require.NoError(t, err)
 }
 
 func parseJSONFile(t *testing.T, name string, v interface{}) {
