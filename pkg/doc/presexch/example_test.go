@@ -23,13 +23,13 @@ func ExamplePresentationDefinition_Match() {
 		InputDescriptors: []*InputDescriptor{
 			{
 				ID: "banking",
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: "https://example.context.jsonld/account",
 				}},
 			},
 			{
 				ID: "residence",
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: "https://example.context.jsonld/address",
 				}},
 			},

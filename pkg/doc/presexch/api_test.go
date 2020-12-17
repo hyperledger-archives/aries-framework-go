@@ -28,7 +28,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -53,7 +53,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -78,7 +78,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -103,7 +103,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -124,7 +124,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -144,7 +144,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -164,7 +164,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -190,13 +190,13 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{
 				{
 					ID: uuid.New().String(),
-					Schema: []Schema{{
+					Schema: []*Schema{{
 						URI: uriOne,
 					}},
 				},
 				{
 					ID: uuid.New().String(),
-					Schema: []Schema{{
+					Schema: []*Schema{{
 						URI: uriTwo,
 					}},
 				},
@@ -218,7 +218,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -236,7 +236,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
-				Schema: []Schema{{
+				Schema: []*Schema{{
 					URI: uri,
 				}},
 			}},
@@ -255,7 +255,7 @@ func TestE2E(t *testing.T) {
 	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{{
 			ID: uuid.New().String(),
-			Schema: []Schema{{
+			Schema: []*Schema{{
 				URI: randomURI(),
 			}},
 		}},
