@@ -8,9 +8,12 @@ package presexch
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 const (
@@ -23,6 +26,12 @@ const (
 	Required Preference = "required"
 	// Preferred predicate`s value.
 	Preferred Preference = "preferred"
+)
+
+// nolint: gochecknoglobals
+var (
+	defaultVPContext = []string{"https://www.w3.org/2018/credentials/v1"}
+	defaultVPType    = []string{"VerifiablePresentation", "PresentationSubmission"}
 )
 
 type (
@@ -102,6 +111,14 @@ type Schema struct {
 	Required bool   `json:"required,omitempty"`
 }
 
+func (s *Schema) String() string {
+	if s.Required {
+		return "required:" + s.URI
+	}
+
+	return s.URI
+}
+
 // Holder describes Constraints`s  holder object.
 type Holder struct {
 	FieldID   []string    `json:"field_id,omitempty"`
@@ -165,4 +182,94 @@ func (pd *PresentationDefinition) ValidateSchema() error {
 	}
 
 	return errors.New(strings.Join(errs, ","))
+}
+
+// CreateVP creates verifiable presentation.
+func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential) (*verifiable.Presentation, error) {
+	if err := pd.ValidateSchema(); err != nil {
+		return nil, err
+	}
+
+	if len(pd.SubmissionRequirements) > 0 {
+		// TODO: handle submission requirements
+		return nil, errors.New("submission requirements not supported yet")
+	}
+
+	var result []*verifiable.Credential
+
+	for _, descriptor := range pd.InputDescriptors {
+		filtered := filterSchema(descriptor.Schema, credentials)
+		if len(filtered) == 0 {
+			return nil, fmt.Errorf("credentials do not satisfy requirements with schema %+v", descriptor.Schema)
+		}
+
+		result = append(result, filtered...)
+	}
+
+	vp := &verifiable.Presentation{
+		Context: defaultVPContext,
+		Type:    defaultVPType,
+	}
+
+	err := vp.SetCredentials(credentialsToInterface(merge(result))...)
+	if err != nil {
+		return nil, err
+	}
+
+	return vp, nil
+}
+
+func merge(credentials []*verifiable.Credential) []*verifiable.Credential {
+	set := make(map[string]struct{})
+
+	var result []*verifiable.Credential
+
+	for _, credential := range credentials {
+		if _, ok := set[credential.ID]; !ok {
+			result = append(result, credential)
+			set[credential.ID] = struct{}{}
+		}
+	}
+
+	return result
+}
+
+func credentialsToInterface(credentials []*verifiable.Credential) []interface{} {
+	var result []interface{}
+	for i := range credentials {
+		result = append(result, credentials[i])
+	}
+
+	return result
+}
+
+func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*verifiable.Credential {
+	var result []*verifiable.Credential
+
+	for _, cred := range credentials {
+		var applicable bool
+
+		for _, schema := range schemas {
+			applicable = credentialMatchSchema(cred, schema.URI)
+			if schema.Required && !applicable {
+				break
+			}
+		}
+
+		if applicable {
+			result = append(result, cred)
+		}
+	}
+
+	return result
+}
+
+func credentialMatchSchema(cred *verifiable.Credential, schemaID string) bool {
+	for i := range cred.Schemas {
+		if cred.Schemas[i].ID == schemaID {
+			return true
+		}
+	}
+
+	return false
 }
