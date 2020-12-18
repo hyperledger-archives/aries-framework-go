@@ -7,11 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package presexch_test
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/PaesslerAG/gval"
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -72,6 +75,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 1)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
 
@@ -101,6 +106,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 2)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
 
@@ -130,6 +137,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 1)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
 
@@ -192,6 +201,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 2)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
 
@@ -296,6 +307,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 2)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
 
@@ -335,8 +348,38 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.Equal(t, len(vp.Credentials()), 2)
+
+		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
+}
+
+func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *PresentationDefinition) {
+	t.Helper()
+
+	ps, ok := vp.CustomFields["presentation_submission"].(PresentationSubmission)
+	require.True(t, ok)
+	require.NotEmpty(t, ps.ID)
+	require.Equal(t, ps.DefinitionID, pd.ID)
+
+	src, err := json.Marshal(vp)
+	require.NoError(t, err)
+
+	vpAsMap := map[string]interface{}{}
+	require.NoError(t, json.Unmarshal(src, &vpAsMap))
+
+	builder := gval.Full(jsonpath.PlaceholderExtension())
+
+	for _, descriptor := range ps.DescriptorMap {
+		require.NotEmpty(t, descriptor.ID)
+		require.NotEmpty(t, descriptor.Path)
+		require.NotEmpty(t, descriptor.Format)
+
+		path, err := builder.NewEvaluable(descriptor.Path)
+		require.NoError(t, err)
+		_, err = path(context.TODO(), vpAsMap)
+		require.NoError(t, err)
+	}
 }
 
 func checkVP(t *testing.T, vp *verifiable.Presentation) {

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -30,8 +31,14 @@ const (
 
 // nolint: gochecknoglobals
 var (
-	defaultVPContext = []string{"https://www.w3.org/2018/credentials/v1"}
-	defaultVPType    = []string{"VerifiablePresentation", "PresentationSubmission"}
+	defaultVPContext = []string{
+		CredentialsJSONLDContext,
+		PresentationSubmissionJSONLDContext,
+	}
+	defaultVPType = []string{
+		VerifiablePresentationJSONLDType,
+		PresentationSubmissionJSONLDType,
+	}
 )
 
 type (
@@ -195,7 +202,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		return nil, errors.New("submission requirements not supported yet")
 	}
 
-	var result []*verifiable.Credential
+	result := make(map[string][]*verifiable.Credential)
 
 	for _, descriptor := range pd.InputDescriptors {
 		filtered := filterSchema(descriptor.Schema, credentials)
@@ -203,7 +210,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 			return nil, fmt.Errorf("credentials do not satisfy requirements with schema %+v", descriptor.Schema)
 		}
 
-		result = append(result, filtered...)
+		result[descriptor.ID] = filtered
 	}
 
 	vp := &verifiable.Presentation{
@@ -211,7 +218,16 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		Type:    defaultVPType,
 	}
 
-	err := vp.SetCredentials(credentialsToInterface(merge(result))...)
+	credentials, descriptors := merge(result)
+	vp.CustomFields = verifiable.CustomFields{
+		submissionProperty: PresentationSubmission{
+			ID:            uuid.New().String(),
+			DefinitionID:  pd.ID,
+			DescriptorMap: descriptors,
+		},
+	}
+
+	err := vp.SetCredentials(credentialsToInterface(credentials)...)
 	if err != nil {
 		return nil, err
 	}
@@ -219,19 +235,31 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 	return vp, nil
 }
 
-func merge(credentials []*verifiable.Credential) []*verifiable.Credential {
+func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) {
 	set := make(map[string]struct{})
 
-	var result []*verifiable.Credential
+	var (
+		result      []*verifiable.Credential
+		descriptors []*InputDescriptorMapping
+	)
 
-	for _, credential := range credentials {
-		if _, ok := set[credential.ID]; !ok {
-			result = append(result, credential)
-			set[credential.ID] = struct{}{}
+	for descriptorID, credentials := range setOfCredentials {
+		for _, credential := range credentials {
+			if _, ok := set[credential.ID]; !ok {
+				descriptors = append(descriptors, &InputDescriptorMapping{
+					ID: descriptorID,
+					// TODO: what format should be here?
+					Format: "ldp_vp",
+					Path:   fmt.Sprintf("$.verifiableCredential[%d]", len(descriptors)),
+				})
+
+				result = append(result, credential)
+				set[credential.ID] = struct{}{}
+			}
 		}
 	}
 
-	return result
+	return result, descriptors
 }
 
 func credentialsToInterface(credentials []*verifiable.Credential) []interface{} {
