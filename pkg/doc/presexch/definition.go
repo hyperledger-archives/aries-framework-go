@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package presexch
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -39,6 +41,8 @@ var (
 		VerifiablePresentationJSONLDType,
 		PresentationSubmissionJSONLDType,
 	}
+
+	errPathNotApplicable = errors.New("path not applicable")
 )
 
 type (
@@ -116,14 +120,6 @@ type InputDescriptor struct {
 type Schema struct {
 	URI      string `json:"uri,omitempty"`
 	Required bool   `json:"required,omitempty"`
-}
-
-func (s *Schema) String() string {
-	if s.Required {
-		return "required:" + s.URI
-	}
-
-	return s.URI
 }
 
 // Holder describes Constraints`s  holder object.
@@ -206,8 +202,14 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 
 	for _, descriptor := range pd.InputDescriptors {
 		filtered := filterSchema(descriptor.Schema, credentials)
+
+		filtered, err := filterConstraints(descriptor.Constraints, filtered)
+		if err != nil {
+			return nil, err
+		}
+
 		if len(filtered) == 0 {
-			return nil, fmt.Errorf("credentials do not satisfy requirements with schema %+v", descriptor.Schema)
+			return nil, errors.New("credentials do not satisfy requirements")
 		}
 
 		result[descriptor.ID] = filtered
@@ -235,8 +237,94 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 	return vp, nil
 }
 
+func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]*verifiable.Credential, error) {
+	if constraints == nil {
+		return creds, nil
+	}
+
+	var result []*verifiable.Credential
+
+	for _, credential := range creds {
+		var applicable bool
+
+		for i, field := range constraints.Fields {
+			err := filterField(field, credential)
+			if errors.Is(err, errPathNotApplicable) {
+				applicable = false
+
+				break
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("filter field.%d: %w", i, err)
+			}
+
+			applicable = true
+		}
+
+		if applicable {
+			result = append(result, credential)
+		}
+	}
+
+	return result, nil
+}
+
+func filterField(f *Field, credential *verifiable.Credential) error {
+	if f.Predicate != nil {
+		return errors.New("predicate not supported yet")
+	}
+
+	var filterSchema gojsonschema.JSONLoader
+
+	if f.Filter != nil {
+		filter, err := json.Marshal(*f.Filter)
+		if err != nil {
+			return err
+		}
+
+		filterSchema = gojsonschema.NewBytesLoader(filter)
+	}
+
+	for _, path := range f.Path {
+		patch, err := applyPath(credential, path)
+		if err != nil {
+			return errPathNotApplicable
+		}
+
+		if filterSchema != nil {
+			raw, err := json.Marshal(patch)
+			if err != nil {
+				return err
+			}
+
+			result, err := gojsonschema.Validate(filterSchema, gojsonschema.NewBytesLoader(raw))
+			if err != nil || !result.Valid() {
+				return errPathNotApplicable
+			}
+		}
+	}
+
+	return nil
+}
+
+func applyPath(cred *verifiable.Credential, path string) (interface{}, error) {
+	src, err := json.Marshal(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	var credential map[string]interface{}
+	if err := json.Unmarshal(src, &credential); err != nil {
+		return nil, err
+	}
+
+	return jsonpath.Get(path, credential)
+}
+
 func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) {
-	set := make(map[string]struct{})
+	setOfCreds := make(map[string]int)
+	setOfDescriptors := make(map[string]struct{})
 
 	var (
 		result      []*verifiable.Credential
@@ -245,16 +333,18 @@ func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.
 
 	for descriptorID, credentials := range setOfCredentials {
 		for _, credential := range credentials {
-			if _, ok := set[credential.ID]; !ok {
+			if _, ok := setOfCreds[credential.ID]; !ok {
+				result = append(result, credential)
+				setOfCreds[credential.ID] = len(descriptors)
+			}
+
+			if _, ok := setOfDescriptors[fmt.Sprintf("%s-%s", credential.ID, credential.ID)]; !ok {
 				descriptors = append(descriptors, &InputDescriptorMapping{
 					ID: descriptorID,
 					// TODO: what format should be here?
 					Format: "ldp_vp",
-					Path:   fmt.Sprintf("$.verifiableCredential[%d]", len(descriptors)),
+					Path:   fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID]),
 				})
-
-				result = append(result, credential)
-				set[credential.ID] = struct{}{}
 			}
 		}
 	}
