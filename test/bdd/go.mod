@@ -24,7 +24,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-00010101000000-000000000000
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
-	github.com/piprate/json-gold v0.3.0
+	github.com/piprate/json-gold v0.3.1-0.20201222165305-f4ce31c02ca3
 	github.com/trustbloc/sidetree-core-go v0.1.5-0.20201110144511-4edb07cdb793
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
