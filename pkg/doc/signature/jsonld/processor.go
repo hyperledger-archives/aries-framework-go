@@ -22,7 +22,7 @@ import (
 const (
 	format             = "application/n-quads"
 	defaultAlgorithm   = "URDNA2015"
-	handleNormalizeErr = "Error while parsing N-Quads; invalid quad. line:"
+	handleNormalizeErr = "error while parsing N-Quads; invalid quad. line:"
 )
 
 var logger = log.New("aries-framework/json-ld-processor")
