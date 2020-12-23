@@ -699,6 +699,10 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 //
 // - object with mandatory "id" field and optional "name" field.
 func parseIssuer(issuerBytes json.RawMessage) (Issuer, error) {
+	if len(issuerBytes) == 0 {
+		return Issuer{}, nil
+	}
+
 	var issuer Issuer
 
 	err := json.Unmarshal(issuerBytes, &issuer)
@@ -837,6 +841,11 @@ func ParseUnverifiedCredential(vcBytes []byte, opts ...CredentialOpt) (*Credenti
 		return nil, fmt.Errorf("build new credential: %w", err)
 	}
 
+	err = validateCredential(vc, vcDataDecoded, vcOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	return vc, nil
 }
 
@@ -859,17 +868,17 @@ func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) 
 		return vc.validateJSONLD(vcBytes, vcOpts)
 
 	case baseContextValidation:
-		return validateBaseContext(vc, vcBytes, vcOpts)
+		return vc.validateBaseContext(vcBytes, vcOpts)
 
 	case baseContextExtendedValidation:
-		return validateBaseContextWithExtendedValidation(vc, vcOpts, vcBytes)
+		return vc.validateBaseContextWithExtendedValidation(vcOpts, vcBytes)
 
 	default:
 		return fmt.Errorf("unsupported vcModelValidationMode: %v", vcOpts.modelValidationMode)
 	}
 }
 
-func validateBaseContext(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
+func (vc *Credential) validateBaseContext(vcBytes []byte, vcOpts *credentialOpts) error {
 	if len(vc.Types) > 1 || vc.Types[0] != vcType {
 		return errors.New("violated type constraint: not base only type defined")
 	}
@@ -881,7 +890,7 @@ func validateBaseContext(vc *Credential, vcBytes []byte, vcOpts *credentialOpts)
 	return vc.validateJSONSchema(vcBytes, vcOpts)
 }
 
-func validateBaseContextWithExtendedValidation(vc *Credential, vcOpts *credentialOpts, vcBytes []byte) error {
+func (vc *Credential) validateBaseContextWithExtendedValidation(vcOpts *credentialOpts, vcBytes []byte) error {
 	for _, vcContext := range vc.Context {
 		if _, ok := vcOpts.allowedCustomContexts[vcContext]; !ok {
 			return fmt.Errorf("not allowed @context: %s", vcContext)

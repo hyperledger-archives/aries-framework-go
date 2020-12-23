@@ -1327,6 +1327,12 @@ func TestParseIssuer(t *testing.T) {
 		require.Contains(t, err.Error(), "unmarshal Issuer")
 		require.Empty(t, issuer.ID)
 	})
+
+	t.Run("Parse undefined Issuer", func(t *testing.T) {
+		issuer, err := parseIssuer(nil)
+		require.NoError(t, err)
+		require.Equal(t, Issuer{}, issuer)
+	})
 }
 
 func TestParseSubject(t *testing.T) {
@@ -1922,6 +1928,18 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		vc, err = ParseUnverifiedCredential(rawVCMapBytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build new credential")
+		require.Nil(t, vc)
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &rawVCMap))
+		delete(rawVCMap, "issuer")
+
+		rawVCMapBytes, err = json.Marshal(rawVCMap)
+		require.NoError(t, err)
+
+		vc, err = ParseUnverifiedCredential(rawVCMapBytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "verifiable credential is not valid")
+		require.Contains(t, err.Error(), "issuer is required")
 		require.Nil(t, vc)
 	})
 }

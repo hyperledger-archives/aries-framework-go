@@ -530,11 +530,13 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 			if constraints.LimitDisclosure {
 				template, err = json.Marshal(map[string]interface{}{
-					"id":               credential.ID,
-					"credentialSchema": credential.Schemas,
-					"type":             credential.Types,
-					"@context":         credential.Context,
-					"issuer":           "",
+					"id":                credential.ID,
+					"credentialSchema":  credential.Schemas,
+					"type":              credential.Types,
+					"@context":          credential.Context,
+					"issuer":            credential.Issuer,
+					"credentialSubject": credential.Subject,
+					"issuanceDate":      credential.Issued,
 				})
 				if err != nil {
 					return nil, err
