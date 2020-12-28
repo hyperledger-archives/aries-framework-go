@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package presexch
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
+	jsonpathkeys "github.com/kawamuray/jsonpath"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -195,7 +199,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 
 	if len(pd.SubmissionRequirements) > 0 {
 		// TODO: handle submission requirements
-		return nil, errors.New("submission requirements not supported yet")
+		return nil, errors.New("submission requirements is not supported yet")
 	}
 
 	result := make(map[string][]*verifiable.Credential)
@@ -237,6 +241,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 	return vp, nil
 }
 
+// nolint: gocyclo
 func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]*verifiable.Credential, error) {
 	if constraints == nil {
 		return creds, nil
@@ -247,8 +252,18 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	for _, credential := range creds {
 		var applicable bool
 
+		credentialSrc, err := json.Marshal(credential)
+		if err != nil {
+			continue
+		}
+
+		var credentialMap map[string]interface{}
+		if err := json.Unmarshal(credentialSrc, &credentialMap); err != nil {
+			return nil, err
+		}
+
 		for i, field := range constraints.Fields {
-			err := filterField(field, credential)
+			err := filterField(field, credentialMap)
 			if errors.Is(err, errPathNotApplicable) {
 				applicable = false
 
@@ -262,64 +277,142 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 			applicable = true
 		}
 
-		if applicable {
-			result = append(result, credential)
+		if !applicable {
+			continue
 		}
+
+		if constraints.LimitDisclosure {
+			var err error
+
+			credential, err = createNewCredential(constraints.Fields, credentialSrc, credential)
+			if err != nil {
+				return nil, fmt.Errorf("create new credential: %w", err)
+			}
+		}
+
+		result = append(result, credential)
 	}
 
 	return result, nil
 }
 
-func filterField(f *Field, credential *verifiable.Credential) error {
+func createNewCredential(fs []*Field, src []byte, cred *verifiable.Credential) (*verifiable.Credential, error) {
+	limitedCred, err := json.Marshal(map[string]interface{}{
+		"id":               cred.ID,
+		"credentialSchema": cred.Schemas,
+		"type":             cred.Types,
+		"@context":         cred.Context,
+		"issuer":           "",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range fs {
+		paths, err := jsonpathkeys.ParsePaths(f.Path...)
+		if err != nil {
+			return nil, err
+		}
+
+		eval, err := jsonpathkeys.EvalPathsInReader(bytes.NewReader(src), paths)
+		if err != nil {
+			return nil, err
+		}
+
+		var jPaths [][2]string
+
+		set := map[string]int{}
+
+		for {
+			result, ok := eval.Next()
+			if !ok {
+				break
+			}
+
+			jPaths = append(jPaths, getPath(result.Keys, set))
+		}
+
+		for _, path := range jPaths {
+			limitedCred, err = sjson.SetBytes(limitedCred, path[0], gjson.GetBytes(src, path[1]).Value())
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return verifiable.ParseUnverifiedCredential(limitedCred)
+}
+
+func filterField(f *Field, credential map[string]interface{}) error {
 	if f.Predicate != nil {
 		return errors.New("predicate not supported yet")
 	}
 
-	var filterSchema gojsonschema.JSONLoader
+	var schema gojsonschema.JSONLoader
 
 	if f.Filter != nil {
-		filter, err := json.Marshal(*f.Filter)
-		if err != nil {
-			return err
-		}
-
-		filterSchema = gojsonschema.NewBytesLoader(filter)
+		schema = gojsonschema.NewGoLoader(*f.Filter)
 	}
 
 	for _, path := range f.Path {
-		patch, err := applyPath(credential, path)
+		patch, err := jsonpath.Get(path, credential)
 		if err != nil {
 			return errPathNotApplicable
 		}
 
-		if filterSchema != nil {
-			raw, err := json.Marshal(patch)
-			if err != nil {
-				return err
-			}
-
-			result, err := gojsonschema.Validate(filterSchema, gojsonschema.NewBytesLoader(raw))
-			if err != nil || !result.Valid() {
-				return errPathNotApplicable
-			}
+		err = validatePatch(schema, patch)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func applyPath(cred *verifiable.Credential, path string) (interface{}, error) {
-	src, err := json.Marshal(cred)
+func validatePatch(schema gojsonschema.JSONLoader, patch interface{}) error {
+	if schema == nil {
+		return nil
+	}
+
+	raw, err := json.Marshal(patch)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var credential map[string]interface{}
-	if err := json.Unmarshal(src, &credential); err != nil {
-		return nil, err
+	result, err := gojsonschema.Validate(schema, gojsonschema.NewBytesLoader(raw))
+	if err != nil || !result.Valid() {
+		return errPathNotApplicable
 	}
 
-	return jsonpath.Get(path, credential)
+	return nil
+}
+
+func getPath(keys []interface{}, set map[string]int) [2]string {
+	var (
+		newPath      []string
+		originalPath []string
+	)
+
+	for _, k := range keys {
+		switch v := k.(type) {
+		case int:
+			counterKey := strings.Join(originalPath, ".")
+			originalPath = append(originalPath, fmt.Sprintf("%d", v))
+			mapperKey := strings.Join(originalPath, ".")
+
+			if _, ok := set[mapperKey]; !ok {
+				set[mapperKey] = set[counterKey]
+				set[counterKey]++
+			}
+
+			newPath = append(newPath, fmt.Sprintf("%d", set[mapperKey]))
+		default:
+			originalPath = append(originalPath, fmt.Sprintf("%s", v))
+			newPath = append(newPath, fmt.Sprintf("%s", v))
+		}
+	}
+
+	return [...]string{strings.Join(newPath, "."), strings.Join(originalPath, ".")}
 }
 
 func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) {
