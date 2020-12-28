@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/PaesslerAG/gval"
@@ -24,7 +25,11 @@ import (
 
 const errMsgSchema = "credentials do not satisfy requirements"
 
-var strFilterType = "string" // nolint: gochecknoglobals
+// nolint: gochecknoglobals
+var (
+	strFilterType = "string"
+	arrFilterType = "array"
+)
 
 func TestPresentationDefinition_IsValid(t *testing.T) {
 	samples := []string{"sample_1.json", "sample_2.json", "sample_3.json"}
@@ -55,6 +60,27 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP()
 
 		require.EqualError(t, err, "presentation_definition: input_descriptors is required")
+		require.Nil(t, vp)
+	})
+
+	t.Run("Checks submission requirements", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			SubmissionRequirements: []*SubmissionRequirement{{
+				Rule: "all",
+				From: "A",
+			}},
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP()
+
+		require.EqualError(t, err, "submission requirements is not supported yet")
 		require.Nil(t, vp)
 	})
 
@@ -247,6 +273,149 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
+	})
+
+	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: true,
+					Fields: []*Field{{
+						Path:   []string{"$.first_name"},
+						Filter: &Filter{Type: &strFilterType},
+					}, {
+						Path:   []string{"$.issuer"},
+						Filter: &Filter{Type: &strFilterType},
+					}, {
+						Path: []string{"$.all[*].authors[*].name"},
+						Filter: &Filter{
+							Type: &arrFilterType,
+						},
+					}},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID:      uuid.New().String(),
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"last_name": "Travis",
+			},
+		}, &verifiable.Credential{
+			ID:      uuid.New().String(),
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"ssn":        "000-00-000",
+				"last_name":  "Travis",
+				"all": []interface{}{
+					map[string]interface{}{
+						"authors": []interface{}{map[string]interface{}{
+							"name":    "Andrew",
+							"license": "yes",
+						}, map[string]interface{}{
+							"name":    "Jessy",
+							"license": "no",
+						}},
+					},
+					map[string]interface{}{
+						"authors": []interface{}{map[string]interface{}{
+							"license": "unknown",
+						}},
+					},
+					map[string]interface{}{
+						"authors": []interface{}{map[string]interface{}{
+							"name":    "Bob",
+							"license": "yes",
+						}, map[string]interface{}{
+							"name":    "Carol",
+							"license": "no",
+						}},
+					},
+				},
+			},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		cred, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+		require.NotEmpty(t, cred.Issuer)
+
+		require.EqualValues(t, []interface{}{
+			map[string]interface{}{
+				"authors": []interface{}{map[string]interface{}{
+					"name": "Andrew",
+				}, map[string]interface{}{
+					"name": "Jessy",
+				}},
+			},
+			map[string]interface{}{
+				"authors": []interface{}{map[string]interface{}{
+					"name": "Bob",
+				}, map[string]interface{}{
+					"name": "Carol",
+				}},
+			},
+		}, cred.CustomFields["all"])
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Create new credential (error)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: true,
+					Fields: []*Field{{
+						Path: []string{"$.first_name"},
+						Filter: &Filter{
+							Type:    &strFilterType,
+							Pattern: "^Jesse",
+						},
+					}},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID:     uuid.New().String(),
+			Issuer: verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+			},
+		})
+
+		require.Error(t, err)
+		require.True(t, strings.HasPrefix(err.Error(), "create new credential"))
+		require.Nil(t, vp)
 	})
 
 	t.Run("Matches one credentials (field pattern)", func(t *testing.T) {
