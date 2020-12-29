@@ -241,7 +241,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 	return vp, nil
 }
 
-// nolint: gocyclo
+// nolint: gocyclo,funlen,gocognit
 func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]*verifiable.Credential, error) {
 	if constraints == nil {
 		return creds, nil
@@ -258,12 +258,16 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 		}
 
 		var credentialMap map[string]interface{}
-		if err := json.Unmarshal(credentialSrc, &credentialMap); err != nil {
+
+		err = json.Unmarshal(credentialSrc, &credentialMap)
+		if err != nil {
 			return nil, err
 		}
 
+		var predicate bool
+
 		for i, field := range constraints.Fields {
-			err := filterField(field, credentialMap)
+			err = filterField(field, credentialMap)
 			if errors.Is(err, errPathNotApplicable) {
 				applicable = false
 
@@ -274,6 +278,10 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 				return nil, fmt.Errorf("filter field.%d: %w", i, err)
 			}
 
+			if field.Predicate != nil && *field.Predicate == Required {
+				predicate = true
+			}
+
 			applicable = true
 		}
 
@@ -281,10 +289,25 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 			continue
 		}
 
-		if constraints.LimitDisclosure {
+		if constraints.LimitDisclosure || predicate {
+			template := credentialSrc
+
+			if constraints.LimitDisclosure {
+				template, err = json.Marshal(map[string]interface{}{
+					"id":               credential.ID,
+					"credentialSchema": credential.Schemas,
+					"type":             credential.Types,
+					"@context":         credential.Context,
+					"issuer":           "",
+				})
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			var err error
 
-			credential, err = createNewCredential(constraints.Fields, credentialSrc, credential)
+			credential, err = createNewCredential(constraints.Fields, credentialSrc, template)
 			if err != nil {
 				return nil, fmt.Errorf("create new credential: %w", err)
 			}
@@ -296,18 +319,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	return result, nil
 }
 
-func createNewCredential(fs []*Field, src []byte, cred *verifiable.Credential) (*verifiable.Credential, error) {
-	limitedCred, err := json.Marshal(map[string]interface{}{
-		"id":               cred.ID,
-		"credentialSchema": cred.Schemas,
-		"type":             cred.Types,
-		"@context":         cred.Context,
-		"issuer":           "",
-	})
-	if err != nil {
-		return nil, err
-	}
-
+func createNewCredential(fs []*Field, src, limitedCred []byte) (*verifiable.Credential, error) {
 	for _, f := range fs {
 		paths, err := jsonpathkeys.ParsePaths(f.Path...)
 		if err != nil {
@@ -333,7 +345,13 @@ func createNewCredential(fs []*Field, src []byte, cred *verifiable.Credential) (
 		}
 
 		for _, path := range jPaths {
-			limitedCred, err = sjson.SetBytes(limitedCred, path[0], gjson.GetBytes(src, path[1]).Value())
+			var val interface{} = true
+
+			if f.Predicate == nil || *f.Predicate != Required {
+				val = gjson.GetBytes(src, path[1]).Value()
+			}
+
+			limitedCred, err = sjson.SetBytes(limitedCred, path[0], val)
 			if err != nil {
 				return nil, err
 			}
@@ -344,10 +362,6 @@ func createNewCredential(fs []*Field, src []byte, cred *verifiable.Credential) (
 }
 
 func filterField(f *Field, credential map[string]interface{}) error {
-	if f.Predicate != nil {
-		return errors.New("predicate not supported yet")
-	}
-
 	var schema gojsonschema.JSONLoader
 
 	if f.Filter != nil {
