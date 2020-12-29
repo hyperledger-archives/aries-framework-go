@@ -275,15 +275,18 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 
 				go func() {
 					for {
-						if len(registrar.Services()) > 0 {
-							_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+						services := registrar.Services()
+						if len(services) > 0 {
+							_, e := services[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
 							require.NoError(t, e)
+
+							break
 						}
 					}
 				}()
 
 				res, err := cmd.Send(
-					json.RawMessage([]byte(msgStr)),
+					json.RawMessage(msgStr),
 					tc.option...)
 				require.NoError(t, err)
 
