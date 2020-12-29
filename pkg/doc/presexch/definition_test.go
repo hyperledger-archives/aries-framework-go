@@ -84,7 +84,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.Nil(t, vp)
 	})
 
-	t.Run("Predicate (not supported)", func(t *testing.T) {
+	t.Run("Predicate", func(t *testing.T) {
 		predicate := Required
 
 		pd := &PresentationDefinition{
@@ -105,17 +105,84 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
 			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+				"first_name": "First name",
+				"last_name":  "Last name",
+				"info":       "Info",
 			},
 		})
 
-		require.EqualError(t, err, "filter field.0: predicate not supported yet")
-		require.Nil(t, vp)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 1)
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.True(t, vc.CustomFields["first_name"].(bool))
+		require.True(t, vc.CustomFields["last_name"].(bool))
+		require.EqualValues(t, vc.CustomFields["info"], "Info")
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Predicate (limit disclosure)", func(t *testing.T) {
+		predicate := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: true,
+					Fields: []*Field{{
+						Path:      []string{"$.first_name", "$.last_name"},
+						Predicate: &predicate,
+						Filter:    &Filter{Type: &strFilterType},
+					}},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID:      uuid.New().String(),
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "First name",
+				"last_name":  "Last name",
+				"info":       "Info",
+			},
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 1)
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.True(t, vc.CustomFields["first_name"].(bool))
+		require.True(t, vc.CustomFields["last_name"].(bool))
+
+		_, ok = vc.CustomFields["info"]
+		require.False(t, ok)
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
 	})
 
 	t.Run("Predicate (marshal error)", func(t *testing.T) {
