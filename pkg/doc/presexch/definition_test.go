@@ -296,6 +296,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (two fields)", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -304,6 +307,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
 				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
 					Fields: []*Field{{
 						Path:   []string{"$.first_name"},
 						Filter: &Filter{Type: &strFilterType},
@@ -316,7 +320,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: map[string]interface{}{},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -324,7 +329,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				"first_name": "Jesse",
 			},
 		}, &verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: verifiable.Subject{ID: issuerID},
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -343,6 +350,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -351,6 +361,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
 				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
 					LimitDisclosure: true,
 					Fields: []*Field{{
 						Path:   []string{"$.first_name"},
@@ -372,6 +383,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
+			Subject: []map[string]interface{}{{}},
 			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
@@ -383,7 +395,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
-			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
+			Subject: []map[string]interface{}{{"id": issuerID}},
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -486,6 +499,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (field pattern)", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -494,6 +510,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
 				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
 					Fields: []*Field{{
 						Path: []string{"$.first_name"},
 						Filter: &Filter{
@@ -506,7 +523,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: map[string]interface{}{"id": issuerID},
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -514,7 +533,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				"first_name": "Jesse",
 			},
 		}, &verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: map[string]interface{}{"id": 123},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -533,6 +553,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -541,6 +564,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
 				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -557,7 +581,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				"first_name": "Jesse",
 			},
 		}, &verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: []verifiable.Subject{{ID: issuerID}},
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -576,6 +602,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (two descriptors)", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -584,6 +613,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
 				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -602,7 +632,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: issuerID,
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
@@ -610,7 +642,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				"first_name": "Jesse",
 			},
 		}, &verifiable.Credential{
-			ID: uuid.New().String(),
+			ID:      uuid.New().String(),
+			Subject: issuerID,
+			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
 				ID: "https://www.w3.org/TR/vc-data-model/#types",
 			}},
