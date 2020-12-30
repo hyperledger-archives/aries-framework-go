@@ -241,6 +241,65 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 	return vp, nil
 }
 
+func getSubjectIDs(subject interface{}) []string { // nolint: gocyclo
+	switch s := subject.(type) {
+	case string:
+		return []string{s}
+	case []map[string]interface{}:
+		var res []string
+
+		for i := range s {
+			v, ok := s[i]["id"]
+			if !ok {
+				continue
+			}
+
+			sID, ok := v.(string)
+			if !ok {
+				continue
+			}
+
+			res = append(res, sID)
+		}
+
+		return res
+	case map[string]interface{}:
+		v, ok := s["id"]
+		if !ok {
+			return nil
+		}
+
+		sID, ok := v.(string)
+		if !ok {
+			return nil
+		}
+
+		return []string{sID}
+	case verifiable.Subject:
+		return []string{s.ID}
+
+	case []verifiable.Subject:
+		var res []string
+		for i := range s {
+			res = append(res, s[i].ID)
+		}
+
+		return res
+	}
+
+	return nil
+}
+
+func subjectIsIssuer(credential *verifiable.Credential) bool {
+	for _, ID := range getSubjectIDs(credential.Subject) {
+		if ID != "" && ID == credential.Issuer.ID {
+			return true
+		}
+	}
+
+	return false
+}
+
 // nolint: gocyclo,funlen,gocognit
 func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]*verifiable.Credential, error) {
 	if constraints == nil {
@@ -250,6 +309,10 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	var result []*verifiable.Credential
 
 	for _, credential := range creds {
+		if constraints.SubjectIsIssuer != nil && *constraints.SubjectIsIssuer == Required && !subjectIsIssuer(credential) {
+			continue
+		}
+
 		var applicable bool
 
 		credentialSrc, err := json.Marshal(credential)
