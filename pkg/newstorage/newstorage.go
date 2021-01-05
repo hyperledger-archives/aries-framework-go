@@ -8,6 +8,12 @@ package newstorage
 
 import "errors"
 
+// MultiError represents the errors that occurred during a bulk operation.
+type MultiError interface {
+	error
+	Errors() []error // Errors returns the error objects for all operations.
+}
+
 // ErrStoreNotFound is returned when a store is not found.
 var ErrStoreNotFound = errors.New("store not found")
 
@@ -16,7 +22,7 @@ var ErrDataNotFound = errors.New("data not found")
 
 // StoreConfiguration represents the configuration of a store.
 type StoreConfiguration struct {
-	TagNames []string
+	TagNames []string // A list of Tag names that key + value pairs in this store can be associated with.
 }
 
 // QueryOptions represents various options for Query calls in a store.
@@ -36,9 +42,13 @@ func WithPageSize(size int) QueryOption {
 	}
 }
 
-// Tag represents a Name + Value pair that can be associated with a k,v pair for querying later.
+// Tag represents a Name + Value pair that can be associated with a key + value pair for querying later.
 type Tag struct {
-	Name  string
+	// Name can be used to tag a given key + value pair as belonging to a group.
+	// Tag Names are static values that the store must be configured with (see TagNames in StoreConfiguration).
+	Name string
+	// Value can be used to indicate some optional metadata associated with a given key + value pair + tag name.
+	// Unlike Tag Names, Tag Values are dynamic and are not specified during store creation.
 	Value string
 }
 
@@ -63,10 +73,6 @@ type Provider interface {
 	// The store must be created prior to calling this method.
 	GetStoreConfig(name string) (StoreConfiguration, error)
 
-	// CloseStore closes the store with the given name.
-	// This does not delete any data in the store, and the store can be reopened again.
-	CloseStore(name string) error
-
 	// Close closes all stores created under this store provider.
 	// This does not delete any data in the stores, and the stores can be reopened again.
 	Close() error
@@ -84,7 +90,7 @@ type Store interface {
 	GetTags(k string) ([]Tag, error)
 
 	// GetBulk fetches the values associated with the given keys.
-	// If a key doesn't exist, then a nil []byte is returned for that value and is not considered an error.
+	// If a key doesn't exist, then a nil []byte is returned for that value. It is not considered an error.
 	// Depending on the implementation, this method may be faster than calling Get for each key individually.
 	GetBulk(keys ...string) ([][]byte, error)
 
@@ -100,15 +106,18 @@ type Store interface {
 	// Batch performs multiple Put and/or Delete operations in order.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
 	Batch(operations []Operation) error
+
+	// Close closes this store.
+	// This does not delete any data in the store, and the store can be reopened again in the future.
+	Close() error
 }
 
-// Iterator represents an iterator that can be used to iterate over stored key-value pairs.
+// Iterator allows for iteration over a collection of key-value pairs.
 type Iterator interface {
 	// Next moves the pointer to the next value in the iterator. It returns false if the iterator is exhausted.
 	Next() (bool, error)
 
-	// Release releases associated resources. Release should always result in success
-	// and can be called multiple times without causing an error.
+	// Release releases associated resources.
 	Release() error
 
 	// Key returns the key of the current key + value pair.

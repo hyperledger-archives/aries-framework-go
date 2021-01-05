@@ -164,8 +164,8 @@ endef
 
 depend:
 	@mkdir -p ./build/bin
-	@GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/myitcv/gobin
-	@GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
+	cd $(mktemp -d); go mod init tmp; GOBIN=$(GOBIN_PATH) go install github.com/myitcv/gobin
+	cd $(mktemp -d); go mod init tmp; GOBIN=$(GOBIN_PATH) go install github.com/agnivade/wasmbrowsertest
 
 .PHONY: mocks
 mocks: depend clean-mocks
