@@ -60,6 +60,53 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	require.Equal(t, encodingType, anonPacker.EncodingType())
 }
 
+func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
+	k := createKMS(t)
+	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	_, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.ECDH384KWAES256GCM)
+	_, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.ECDH521KWAES256GCM)
+
+	recipientsKeys := make([][]byte, 3)
+	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
+	recipientsKeys[1] = make([]byte, len(recipientsKey2[0]))
+	recipientsKeys[2] = make([]byte, len(recipientsKey3[0]))
+
+	copy(recipientsKeys[0], recipientsKey1[0])
+	copy(recipientsKeys[1], recipientsKey2[0])
+	copy(recipientsKeys[2], recipientsKey3[0])
+
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+	require.NoError(t, err)
+
+	origMsg := []byte("secret message")
+	ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
+	require.NoError(t, err)
+
+	t.Logf("anoncrypt JWE: %s", ct)
+
+	msg, err := anonPacker.Unpack(ct)
+	require.NoError(t, err)
+
+	recKey, err := exportPubKeyBytes(keyHandles1[0])
+	require.NoError(t, err)
+
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+
+	// try with only 1 recipient
+	ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+	require.NoError(t, err)
+
+	msg, err = anonPacker.Unpack(ct)
+	require.NoError(t, err)
+
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+
+	require.Equal(t, encodingType, anonPacker.EncodingType())
+}
+
 func TestAnoncryptPackerFail(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -149,6 +196,11 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 // createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
+	return createRecipientsByKeyType(t, k, recipientsCount, kms.ECDH256KWAES256GCM)
+}
+
+func createRecipientsByKeyType(t *testing.T, k *localkms.LocalKMS, recipientsCount int,
+	kt kms.KeyType) ([]string, [][]byte, []*keyset.Handle) {
 	t.Helper()
 
 	var (
@@ -158,7 +210,7 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 	)
 
 	for i := 0; i < recipientsCount; i++ {
-		kid, marshalledPubKey, kh := createAndMarshalRecipient(t, k)
+		kid, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
 
 		r = append(r, marshalledPubKey)
 		rKH = append(rKH, kh)
@@ -168,12 +220,12 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 	return kids, r, rKH
 }
 
-// createAndMarshalRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
+// createAndMarshalKeyByKeyType creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
-func createAndMarshalRecipient(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
+func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.KeyType) (string, []byte, *keyset.Handle) {
 	t.Helper()
 
-	kid, keyHandle, err := k.Create(kms.ECDH256KWAES256GCMType)
+	kid, keyHandle, err := k.Create(kt)
 	require.NoError(t, err)
 
 	kh, ok := keyHandle.(*keyset.Handle)

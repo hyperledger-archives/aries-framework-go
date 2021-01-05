@@ -74,6 +74,66 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 	require.Equal(t, encodingType, authPacker.EncodingType())
 }
 
+func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
+	k := createKMS(t)
+	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	// since authcrypt does ECDH kw using the sender key, the recipient keys must be on the same curve as the sender's.
+	// this is why recipient keys with different curves are not supported for authcrypt.
+	_, recipientsKey2, _ := createRecipients(t, k, 1) // can't create key with kms.ECDH384KWAES256GCM
+	_, recipientsKey3, _ := createRecipients(t, k, 1) // can't create key with kms.ECDH521KWAES256GCM
+
+	recipientsKeys := make([][]byte, 3)
+	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
+	recipientsKeys[1] = make([]byte, len(recipientsKey2[0]))
+	recipientsKeys[2] = make([]byte, len(recipientsKey3[0]))
+
+	copy(recipientsKeys[0], recipientsKey1[0])
+	copy(recipientsKeys[1], recipientsKey2[0])
+	copy(recipientsKeys[2], recipientsKey3[0])
+
+	skid, senderKey, _ := createAndMarshalKey(t, k)
+
+	thirdPartyKeyStore := make(map[string][]byte)
+	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		Store: thirdPartyKeyStore,
+	}}
+
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), jose.A256GCM)
+	require.NoError(t, err)
+
+	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
+	fromWrappedKID := prefix.StorageKIDPrefix + skid
+	thirdPartyKeyStore[fromWrappedKID] = senderKey
+
+	origMsg := []byte("secret message")
+	ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
+	require.NoError(t, err)
+
+	t.Logf("authcrypt JWE: %s", ct)
+
+	msg, err := authPacker.Unpack(ct)
+	require.NoError(t, err)
+
+	recKey, err := exportPubKeyBytes(keyHandles1[0])
+	require.NoError(t, err)
+
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+
+	// try with only 1 recipient
+	ct, err = authPacker.Pack(origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+	require.NoError(t, err)
+
+	msg, err = authPacker.Unpack(ct)
+	require.NoError(t, err)
+
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+
+	require.Equal(t, encodingType, authPacker.EncodingType())
+}
+
 func TestAuthcryptPackerFail(t *testing.T) {
 	k := createKMS(t)
 
@@ -204,6 +264,11 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 // createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
+	return createRecipientsByKeyType(t, k, recipientsCount, kms.ECDH256KWAES256GCM)
+}
+
+func createRecipientsByKeyType(t *testing.T, k *localkms.LocalKMS, recipientsCount int,
+	kt kms.KeyType) ([]string, [][]byte, []*keyset.Handle) {
 	t.Helper()
 
 	var (
@@ -213,7 +278,7 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 	)
 
 	for i := 0; i < recipientsCount; i++ {
-		kid, marshalledPubKey, kh := createAndMarshalKey(t, k)
+		kid, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
 
 		r = append(r, marshalledPubKey)
 		rKH = append(rKH, kh)
@@ -226,9 +291,13 @@ func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) (
 // createAndMarshalKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
 func createAndMarshalKey(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
+	return createAndMarshalKeyByKeyType(t, k, kms.ECDH256KWAES256GCMType)
+}
+
+func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.KeyType) (string, []byte, *keyset.Handle) {
 	t.Helper()
 
-	kid, keyHandle, err := k.Create(kms.ECDH256KWAES256GCMType)
+	kid, keyHandle, err := k.Create(kt)
 	require.NoError(t, err)
 
 	kh, ok := keyHandle.(*keyset.Handle)
