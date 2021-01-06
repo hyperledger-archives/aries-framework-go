@@ -1,9 +1,10 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
-package hkdf
+package pbkdf2
 
 import (
 	"crypto/cipher"
@@ -11,43 +12,33 @@ import (
 	"encoding/base64"
 	"fmt"
 	"hash"
-	"io"
 
 	"github.com/google/tink/go/subtle/random"
-	"golang.org/x/crypto/hkdf"
+	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	cipherutil "github.com/hyperledger/aries-framework-go/pkg/secretlock/local/internal/cipher"
 )
 
-// package hkdf provides an hkdf implementation of secretlock as a masterlock.
-// See golang.org/x/crypto/hkdf/hkdf.go for IETF reference.
-// The IETF RFC in question is RFC 5869. It mentions the following paragraph in the introduction about NIST documents:
-// " Note that some existing KDF specifications, such as NIST Special
-//   Publication 800-56A [800-56A], NIST Special Publication 800-108
-//   [800-108] and IEEE Standard 1363a-2004 [1363a], either only consider
-//   the second stage (expanding a pseudorandom key), or do not explicitly
-//   differentiate between the "extract" and "expand" stages, often
-//   resulting in design shortcomings.  The goal of this specification is
-//   to accommodate a wide range of KDF requirements while minimizing the
-//   assumptions about the underlying hash function.  The "extract-then-
-//   expand" paradigm supports well this goal (see [HKDF-paper] for more
-//   information about the design rationale). "
+// package pbkdf2 provides an pbkdf2 implementation of secretlock as a masterlock.
+// the underlying golang.org/x/crypto/pbkdf2 package implements IETF RFC 8018's PBKDF2 specification found at:
+// https://tools.ietf.org/html/rfc8018#section-5.2. Similarly the NIST document 800-132 section 5 provides PBKDF
+// recommendations.
 
-type masterLockHKDF struct {
+type masterLockPBKDF2 struct {
 	h    func() hash.Hash
 	salt []byte
 	aead cipher.AEAD
 }
 
-// NewMasterLock is responsible for encrypting/decrypting a master key expanded from a passphrase using HKDF
+// NewMasterLock is responsible for encrypting/decrypting a master key expanded from a passphrase using PBKDF2
 // using `passphrase`, hash function `h`, `salt`.
 // The size of a master key passed to Encrypt() must match `h()`.Size() since the key will be used for AEAD operations.
 // The salt is optional and can be set to nil.
 // This implementation must not be used directly in Aries framework. It should be passed in
 // as the second argument to local secret lock service constructor:
 // `local.NewService(masterKeyReader io.Reader, secLock secretlock.Service)`.
-func NewMasterLock(passphrase string, h func() hash.Hash, salt []byte) (secretlock.Service, error) {
+func NewMasterLock(passphrase string, h func() hash.Hash, iterations int, salt []byte) (secretlock.Service, error) {
 	if passphrase == "" {
 		return nil, fmt.Errorf("passphrase is empty")
 	}
@@ -61,22 +52,14 @@ func NewMasterLock(passphrase string, h func() hash.Hash, salt []byte) (secretlo
 		return nil, fmt.Errorf("hash size not supported")
 	}
 
-	// expand an encryption key from passphrase
-	expander := hkdf.New(h, []byte(passphrase), salt, nil)
-
-	masterKey := make([]byte, size)
-
-	_, err := io.ReadFull(expander, masterKey)
-	if err != nil {
-		return nil, err
-	}
+	masterKey := pbkdf2.Key([]byte(passphrase), salt, iterations, sha256.Size, h)
 
 	aead, err := cipherutil.CreateAESCipher(masterKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &masterLockHKDF{
+	return &masterLockPBKDF2{
 		h:    h,
 		salt: salt,
 		aead: aead,
@@ -85,7 +68,7 @@ func NewMasterLock(passphrase string, h func() hash.Hash, salt []byte) (secretlo
 
 // Encrypt a master key in req
 //  (keyURI is used for remote locks, it is ignored by this implementation)
-func (m *masterLockHKDF) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
+func (m *masterLockPBKDF2) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
 	if len(req.Plaintext) != m.h().Size() {
 		return nil, fmt.Errorf("invalid key size")
 	}
@@ -101,7 +84,7 @@ func (m *masterLockHKDF) Encrypt(keyURI string, req *secretlock.EncryptRequest) 
 
 // Decrypt a master key in req
 // (keyURI is used for remote locks, it is ignored by this implementation).
-func (m *masterLockHKDF) Decrypt(keyURI string, req *secretlock.DecryptRequest) (*secretlock.DecryptResponse, error) {
+func (m *masterLockPBKDF2) Decrypt(keyURI string, req *secretlock.DecryptRequest) (*secretlock.DecryptResponse, error) {
 	ct, err := base64.URLEncoding.DecodeString(req.Ciphertext)
 	if err != nil {
 		return nil, err

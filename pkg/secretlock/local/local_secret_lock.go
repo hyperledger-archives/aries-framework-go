@@ -22,7 +22,10 @@ import (
 // in a local file or an environment variable prior to using this service.
 //
 // The user has the option to encrypt the master key using hkdf.NewMasterLock(passphrase, hash func(), salt)
-// found in the sub package masterlock/hkdf.
+// found in the sub package masterlock/hkdf. There's also the option of using pbkdf2.NewMasterLock() instead of hkdf
+// which is located under masterlock/pbkdf2.
+//
+// This lock services uses the NIST approved AES-GCM 256 bit encryption as per NIST SP 800-38D.
 //
 // The master key must be stored (encrypted with a MasterLock or not encrypted) either in a file or in
 // an environment variable.
