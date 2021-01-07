@@ -370,6 +370,11 @@ func TestExtraContextWithLDP(t *testing.T) {
 	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
+	// change VC and sign it again
+	vc.Status.ID = "https://example.edu/status/25"
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	r.NoError(err)
+
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
