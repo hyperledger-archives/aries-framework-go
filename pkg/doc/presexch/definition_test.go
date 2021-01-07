@@ -29,6 +29,7 @@ const errMsgSchema = "credentials do not satisfy requirements"
 var (
 	strFilterType = "string"
 	arrFilterType = "array"
+	intFilterType = "integer"
 )
 
 func TestPresentationDefinition_IsValid(t *testing.T) {
@@ -64,23 +65,192 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Checks submission requirements", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
-			SubmissionRequirements: []*SubmissionRequirement{{
-				Rule: "all",
-				From: "A",
-			}},
+			SubmissionRequirements: []*SubmissionRequirement{
+				{
+					Rule: "all",
+					From: "A",
+				},
+				{
+					Rule:  "pick",
+					Count: 1,
+					FromNested: []*SubmissionRequirement{
+						{
+							Rule: "all",
+							From: "teenager",
+						},
+						{
+							Rule: "all",
+							From: "child",
+						},
+						{
+							Rule: "pick",
+							From: "adult",
+							Min:  2,
+						},
+					},
+				},
+			},
 			InputDescriptors: []*InputDescriptor{{
-				ID: uuid.New().String(),
+				ID:    uuid.New().String(),
+				Group: []string{"A"},
 				Schema: []*Schema{{
 					URI: "https://www.w3.org/TR/vc-data-model/#types",
 				}},
+				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
+					Fields: []*Field{{
+						Path: []string{"$.first_name", "$.last_name"},
+					}},
+				},
+			}, {
+				ID:    uuid.New().String(),
+				Group: []string{"child"},
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
+					Fields: []*Field{{
+						Path: []string{"$.age"},
+						Filter: &Filter{
+							Type:    &intFilterType,
+							Minimum: 3,
+							Maximum: 12,
+						},
+					}},
+				},
+			}, {
+				ID:    uuid.New().String(),
+				Group: []string{"teenager"},
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
+					Fields: []*Field{{
+						Path: []string{"$.age"},
+						Filter: &Filter{
+							Type:    &intFilterType,
+							Minimum: 13,
+							Maximum: 17,
+						},
+					}},
+				},
+			}, {
+				ID:    uuid.New().String(),
+				Group: []string{"adult"},
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
+					Fields: []*Field{{
+						Path: []string{"$.age"},
+						Filter: &Filter{
+							Type:    &intFilterType,
+							Minimum: 18,
+							Maximum: 23,
+						},
+					}},
+				},
 			}},
 		}
 
-		vp, err := pd.CreateVP()
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+			},
+		}, &verifiable.Credential{
+			ID:      uuid.New().String(),
+			Subject: []verifiable.Subject{{ID: issuerID}},
+			Issuer:  verifiable.Issuer{ID: issuerID},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Travis",
+				"age":        17,
+			},
+		})
 
-		require.EqualError(t, err, "submission requirements is not supported yet")
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, len(vp.Credentials()), 1)
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Checks submission requirements (no descriptor)", func(t *testing.T) {
+		subjectIsIssuer := Required
+		issuerID := uuid.New().String()
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			SubmissionRequirements: []*SubmissionRequirement{
+				{
+					Rule: "all",
+					From: "A",
+				},
+				{
+					Rule:  "pick",
+					Count: 1,
+					FromNested: []*SubmissionRequirement{
+						{
+							Rule: "all",
+							From: "teenager",
+						},
+					},
+				},
+			},
+			InputDescriptors: []*InputDescriptor{{
+				ID:    uuid.New().String(),
+				Group: []string{"A"},
+				Schema: []*Schema{{
+					URI: "https://www.w3.org/TR/vc-data-model/#types",
+				}},
+				Constraints: &Constraints{
+					SubjectIsIssuer: &subjectIsIssuer,
+					Fields: []*Field{{
+						Path: []string{"$.first_name", "$.last_name"},
+					}},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP(&verifiable.Credential{
+			ID: uuid.New().String(),
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+			},
+		}, &verifiable.Credential{
+			ID:      uuid.New().String(),
+			Subject: []verifiable.Subject{{ID: issuerID}},
+			Issuer:  verifiable.Issuer{ID: issuerID},
+			Schemas: []verifiable.TypedID{{
+				ID: "https://www.w3.org/TR/vc-data-model/#types",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Travis",
+				"age":        17,
+			},
+		})
+
+		require.EqualError(t, err, "no descriptors for from: teenager")
 		require.Nil(t, vp)
 	})
 
@@ -991,8 +1161,6 @@ func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *Presentation
 	require.NoError(t, json.Unmarshal(src, &vpAsMap))
 
 	builder := gval.Full(jsonpath.PlaceholderExtension())
-
-	require.GreaterOrEqual(t, len(ps.DescriptorMap), len(pd.InputDescriptors))
 
 	for _, descriptor := range ps.DescriptorMap {
 		require.NotEmpty(t, descriptor.ID)
