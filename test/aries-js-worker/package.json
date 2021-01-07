@@ -11,7 +11,7 @@
   "author": "hyperledger/aries",
   "license": "Apache-2.0",
   "devDependencies": {
-    "axios": "0.19.2",
+    "axios": "0.21.1",
     "chai": "4.2.0",
     "dotenv": "8.2.0",
     "karma": "^5.2.3",
