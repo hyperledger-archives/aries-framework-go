@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/pbkdf2"
 )
 
 const (
@@ -180,6 +181,44 @@ func TestCreateServiceFromPathWithoutMasterLock(t *testing.T) {
 }
 
 func TestCreateServiceFromPathWithMasterLock(t *testing.T) {
+	// first create a master lock to use in our secret lock and encrypt the master key
+	passphrase := "secretPassphrase"
+	keySize := sha256.New().Size()
+	// salt is optional, it can be nil
+	salt := make([]byte, keySize)
+	_, err := rand.Read(salt)
+	require.NoError(t, err)
+
+	masterLockerHKDF, err := hkdf.NewMasterLock(passphrase, sha256.New, salt)
+	require.NoError(t, err)
+	require.NotEmpty(t, masterLockerHKDF)
+
+	masterLockerPBKDF2, err := pbkdf2.NewMasterLock(passphrase, sha256.New, 8192, salt)
+	require.NoError(t, err)
+	require.NotEmpty(t, masterLockerPBKDF2)
+
+	tests := []struct {
+		name       string
+		masterLock secretlock.Service
+	}{
+		{
+			name:       "lock using hkdf as masterlock",
+			masterLock: masterLockerHKDF,
+		}, {
+			name:       "lock using pbkdf2 as masterlock",
+			masterLock: masterLockerPBKDF2,
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run("Test "+tc.name, func(t *testing.T) {
+			checkCreateServiceUsingMasterLock(t, tc.masterLock)
+		})
+	}
+}
+
+func checkCreateServiceUsingMasterLock(t *testing.T, masterLocker secretlock.Service) {
 	masterKeyFilePath := "masterKey_file.txt"
 	tmpfile, err := ioutil.TempFile("", masterKeyFilePath)
 	require.NoError(t, err)
@@ -193,18 +232,6 @@ func TestCreateServiceFromPathWithMasterLock(t *testing.T) {
 
 	masterKeyContent := random.GetRandomBytes(uint32(32))
 	require.NotEmpty(t, masterKeyContent)
-
-	// first create a master lock to use in our secret lock and encrypt the master key
-	passphrase := "secretPassphrase"
-	keySize := sha256.New().Size()
-	// salt is optional, it can be nil
-	salt := make([]byte, keySize)
-	_, err = rand.Read(salt)
-	require.NoError(t, err)
-
-	masterLocker, err := hkdf.NewMasterLock(passphrase, sha256.New, salt)
-	require.NoError(t, err)
-	require.NotEmpty(t, masterLocker)
 
 	// now encrypt masterKeyContent
 	masterLockEnc, err := masterLocker.Encrypt("", &secretlock.EncryptRequest{
