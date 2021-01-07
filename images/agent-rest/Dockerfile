@@ -20,6 +20,8 @@ WORKDIR $GOPATH/src/github.com/hyperledger/aries-framework-go
 ENV EXECUTABLES go git
 
 FROM golang as aries-framework
+LABEL org.opencontainers.image.source https://github.com/hyperledger/aries-framework-go
+
 ARG GO_TAGS
 ARG GOPROXY
 RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make agent-rest

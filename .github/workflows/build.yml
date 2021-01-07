@@ -59,7 +59,7 @@ jobs:
   bddTest:
     name: BDD test
     runs-on: ubuntu-18.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
 
       - name: Setup Go 1.15
@@ -77,13 +77,8 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run BDD test
-        timeout-minutes: 25
+        timeout-minutes: 45
         run: |
-          function logout {
-            docker logout docker.pkg.github.com
-          }
-          trap logout EXIT
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
           make bdd-test
 
   checks:
@@ -126,15 +121,15 @@ jobs:
       - name: Publish docker images
         run: |
               function logout {
-                docker logout docker.pkg.github.com
+                docker logout ghcr.io
               }
               trap logout EXIT
               source ci/version_var.sh
               if [ "${IS_RELEASE}" = true ] || [ "${GITHUB_REF}" =  "refs/heads/afg-publish" ]; then
-                echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
+                echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
                 make agent-rest-docker
-                docker tag aries-framework-go/agent-rest:latest  docker.pkg.github.com/${GITHUB_REPOSITORY}/agent-rest:$AGENT_IMAGE_TAG
-                docker push docker.pkg.github.com/${GITHUB_REPOSITORY}/agent-rest:$AGENT_IMAGE_TAG
+                docker tag aries-framework-go/agent-rest:latest ghcr.io/${GITHUB_REPOSITORY}:$AGENT_IMAGE_TAG
+                docker push ghcr.io/${GITHUB_REPOSITORY}:$AGENT_IMAGE_TAG
               fi
 
       - name: Publish npm packages
