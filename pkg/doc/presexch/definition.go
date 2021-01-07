@@ -102,7 +102,7 @@ type SubmissionRequirement struct {
 	Name       string                   `json:"name,omitempty"`
 	Purpose    string                   `json:"purpose,omitempty"`
 	Rule       Selection                `json:"rule,omitempty"`
-	Count      *int                     `json:"count,omitempty"`
+	Count      int                      `json:"count,omitempty"`
 	Min        int                      `json:"min,omitempty"`
 	Max        int                      `json:"max,omitempty"`
 	From       string                   `json:"from,omitempty"`
@@ -191,32 +191,124 @@ func (pd *PresentationDefinition) ValidateSchema() error {
 	return errors.New(strings.Join(errs, ","))
 }
 
+type requirement struct {
+	Count            int
+	Min              int
+	Max              int
+	InputDescriptors []*InputDescriptor
+	Nested           []*requirement
+}
+
+func (r *requirement) isLenApplicable(val int) bool {
+	if r.Count > 0 && val != r.Count {
+		return false
+	}
+
+	if r.Min > 0 && r.Min > val {
+		return false
+	}
+
+	if r.Max > 0 && r.Max < val {
+		return false
+	}
+
+	return true
+}
+
+func contains(data []string, e string) bool {
+	for _, el := range data {
+		if el == e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func toRequirement(sr *SubmissionRequirement, descriptors []*InputDescriptor) (*requirement, error) {
+	var (
+		inputDescriptors []*InputDescriptor
+		nested           []*requirement
+	)
+
+	var totalCount int
+
+	if sr.From != "" {
+		for _, descriptor := range descriptors {
+			if contains(descriptor.Group, sr.From) {
+				inputDescriptors = append(inputDescriptors, descriptor)
+			}
+		}
+
+		totalCount = len(inputDescriptors)
+		if totalCount == 0 {
+			return nil, fmt.Errorf("no descriptors for from: %s", sr.From)
+		}
+	} else {
+		for _, sReq := range sr.FromNested {
+			req, err := toRequirement(sReq, descriptors)
+			if err != nil {
+				return nil, err
+			}
+			nested = append(nested, req)
+		}
+
+		totalCount = len(nested)
+	}
+
+	count := sr.Count
+
+	if sr.Rule == All {
+		sr.Count = totalCount
+	}
+
+	return &requirement{
+		Count:            count,
+		Min:              sr.Min,
+		Max:              sr.Max,
+		InputDescriptors: inputDescriptors,
+		Nested:           nested,
+	}, nil
+}
+
+func makeRequirement(requirements []*SubmissionRequirement, descriptors []*InputDescriptor) (*requirement, error) {
+	if len(requirements) == 0 {
+		return &requirement{
+			Count:            len(descriptors),
+			InputDescriptors: descriptors,
+		}, nil
+	}
+
+	req := &requirement{
+		Count: len(requirements),
+	}
+
+	for _, submissionRequirement := range requirements {
+		r, err := toRequirement(submissionRequirement, descriptors)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Nested = append(req.Nested, r)
+	}
+
+	return req, nil
+}
+
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential) (*verifiable.Presentation, error) {
 	if err := pd.ValidateSchema(); err != nil {
 		return nil, err
 	}
 
-	if len(pd.SubmissionRequirements) > 0 {
-		// TODO: handle submission requirements
-		return nil, errors.New("submission requirements is not supported yet")
+	req, err := makeRequirement(pd.SubmissionRequirements, pd.InputDescriptors)
+	if err != nil {
+		return nil, err
 	}
 
-	result := make(map[string][]*verifiable.Credential)
-
-	for _, descriptor := range pd.InputDescriptors {
-		filtered := filterSchema(descriptor.Schema, credentials)
-
-		filtered, err := filterConstraints(descriptor.Constraints, filtered)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(filtered) == 0 {
-			return nil, errors.New("credentials do not satisfy requirements")
-		}
-
-		result[descriptor.ID] = filtered
+	result, err := applyRequirement(req, credentials...)
+	if err != nil {
+		return nil, err
 	}
 
 	vp := &verifiable.Presentation{
@@ -233,12 +325,93 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		},
 	}
 
-	err := vp.SetCredentials(credentialsToInterface(credentials)...)
+	err = vp.SetCredentials(credentialsToInterface(credentials)...)
 	if err != nil {
 		return nil, err
 	}
 
 	return vp, nil
+}
+
+var errNoCredentials = errors.New("credentials do not satisfy requirements")
+
+// nolint: gocyclo
+func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[string][]*verifiable.Credential, error) {
+	result := make(map[string][]*verifiable.Credential)
+
+	for _, descriptor := range req.InputDescriptors {
+		filtered := filterSchema(descriptor.Schema, creds)
+
+		filtered, err := filterConstraints(descriptor.Constraints, filtered)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(filtered) != 0 {
+			result[descriptor.ID] = filtered
+		}
+	}
+
+	if len(req.InputDescriptors) != 0 {
+		if req.isLenApplicable(len(result)) {
+			return result, nil
+		}
+
+		return nil, errNoCredentials
+	}
+
+	var nestedResult []map[string][]*verifiable.Credential
+
+	for _, r := range req.Nested {
+		res, err := applyRequirement(r, creds...)
+		if errors.Is(err, errNoCredentials) {
+			continue
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(res) != 0 {
+			nestedResult = append(nestedResult, res)
+		}
+	}
+
+	if req.isLenApplicable(len(nestedResult)) {
+		return mergeNestedResult(nestedResult), nil
+	}
+
+	return nil, errNoCredentials
+}
+
+func mergeNestedResult(nr []map[string][]*verifiable.Credential) map[string][]*verifiable.Credential {
+	result := make(map[string][]*verifiable.Credential)
+
+	for _, res := range nr {
+		for key, credentials := range res {
+			set := map[string]struct{}{}
+
+			var mergedCredentials []*verifiable.Credential
+
+			for _, credential := range result[key] {
+				if _, ok := set[credential.ID]; !ok {
+					mergedCredentials = append(mergedCredentials, credential)
+					set[credential.ID] = struct{}{}
+				}
+			}
+
+			for _, credential := range credentials {
+				if _, ok := set[credential.ID]; !ok {
+					mergedCredentials = append(mergedCredentials, credential)
+					set[credential.ID] = struct{}{}
+				}
+			}
+
+			result[key] = mergedCredentials
+		}
+	}
+
+	return result
 }
 
 func getSubjectIDs(subject interface{}) []string { // nolint: gocyclo
