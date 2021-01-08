@@ -26,7 +26,8 @@ import (
 
 var logger = log.New("aries-framework/doc/verifiable")
 
-const defaultSchema = `{
+// DefaultSchema describes default schema.
+const DefaultSchema = `{
   "required": [
     "@context",
     "type",
@@ -1239,7 +1240,7 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 }
 
 func defaultSchemaLoader() gojsonschema.JSONLoader {
-	return gojsonschema.NewStringLoader(defaultSchema)
+	return gojsonschema.NewStringLoader(DefaultSchema)
 }
 
 func getJSONSchema(url string, opts *credentialOpts) ([]byte, error) {

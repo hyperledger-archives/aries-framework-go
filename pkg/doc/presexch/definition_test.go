@@ -34,211 +34,21 @@ var (
 	strFilterType = "string"
 	arrFilterType = "array"
 	intFilterType = "integer"
+
+	subIsIssuerRequired = Required
+	// schemaURI is being set in init() function.
+	schemaURI string
 )
-
-const defaultVCSchema = `{
-  "required": [
-    "@context",
-    "type",
-    "credentialSubject",
-    "issuer",
-    "issuanceDate"
-  ],
-  "properties": {
-    "@context": {
-      "oneOf": [
-        {
-          "type": "string",
-          "const": "https://www.w3.org/2018/credentials/v1"
-        },
-        {
-          "type": "array",
-          "items": [
-            {
-              "type": "string",
-              "const": "https://www.w3.org/2018/credentials/v1"
-            }
-          ],
-          "uniqueItems": true,
-          "additionalItems": {
-            "oneOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "string"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "id": {
-      "type": "string",
-      "format": "uri"
-    },
-    "type": {
-      "oneOf": [
-        {
-          "type": "array",
-          "minItems": 1,
-          "contains": {
-            "type": "string",
-            "pattern": "^VerifiableCredential$"
-          }
-        },
-        {
-          "type": "string",
-          "pattern": "^VerifiableCredential$"
-        }
-      ]
-    },
-    "credentialSubject": {
-      "anyOf": [
-        {
-          "type": "array"
-        },
-        {
-          "type": "object"
-        },
-        {
-          "type": "string"
-        }
-      ]
-    },
-    "issuer": {
-      "anyOf": [
-        {
-          "type": "string",
-          "format": "uri"
-        },
-        {
-          "type": "object",
-          "required": [
-            "id"
-          ],
-          "properties": {
-            "id": {
-              "type": "string",
-              "format": "uri"
-            }
-          }
-        }
-      ]
-    },
-    "issuanceDate": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "proof": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/proof"
-        },
-        {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/proof"
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "expirationDate": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "format": "date-time"
-    },
-    "credentialStatus": {
-      "$ref": "#/definitions/typedID"
-    },
-    "credentialSchema": {
-      "$ref": "#/definitions/typedIDs"
-    },
-    "evidence": {
-      "$ref": "#/definitions/typedIDs"
-    },
-    "refreshService": {
-      "$ref": "#/definitions/typedID"
-    }
-  },
-  "definitions": {
-    "typedID": {
-      "anyOf": [
-        {
-          "type": "null"
-        },
-        {
-          "type": "object",
-          "required": [
-            "id",
-            "type"
-          ],
-          "properties": {
-            "id": {
-              "type": "string",
-              "format": "uri"
-            },
-            "type": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "typedIDs": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/typedID"
-        },
-        {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/typedID"
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "proof": {
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "type": "string"
-        }
-      }
-    }
-  }
-}
-`
-
-var testServer *httptest.Server // nolint: gochecknoglobals
 
 // nolint: gochecknoinits
 func init() {
-	testServer = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
-		_, _ = res.Write([]byte(defaultVCSchema)) //nolint:errcheck
+		//nolint: gosec,errcheck
+		res.Write([]byte(verifiable.DefaultSchema))
 	}))
+
+	schemaURI = server.URL
 }
 
 func TestPresentationDefinition_IsValid(t *testing.T) {
@@ -274,7 +84,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Checks submission requirements", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -308,10 +117,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -320,10 +129,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"child"},
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.age"},
 						Filter: &Filter{
@@ -337,10 +146,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"teenager"},
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.age"},
 						Filter: &Filter{
@@ -354,10 +163,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"adult"},
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.age"},
 						Filter: &Filter{
@@ -373,7 +182,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -384,7 +193,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -402,7 +211,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Checks submission requirements (no descriptor)", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -427,10 +235,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -441,7 +249,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -452,7 +260,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -473,7 +281,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -490,7 +298,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -530,7 +338,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: true,
@@ -548,7 +356,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -588,7 +396,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -602,7 +410,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -621,7 +429,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -634,7 +442,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -643,7 +451,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"last_name": "Travis",
@@ -660,7 +468,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -675,7 +483,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -684,7 +492,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"last_name": "Travis",
@@ -696,7 +504,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (two fields)", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -704,10 +511,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path:   []string{"$.first_name"},
 						Filter: &Filter{Type: &strFilterType},
@@ -723,7 +530,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Subject: map[string]interface{}{},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -734,7 +541,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: verifiable.Subject{ID: issuerID},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -751,7 +558,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 
 		pd := &PresentationDefinition{
@@ -759,10 +565,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					LimitDisclosure: true,
 					Fields: []*Field{{
 						Path:   []string{"$.first_name"},
@@ -787,7 +593,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []map[string]interface{}{{}},
 			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -800,7 +606,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []map[string]interface{}{{"id": issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			Issued: &util.TimeWithTrailingZeroMsec{
@@ -873,7 +679,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: true,
@@ -892,7 +698,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:     uuid.New().String(),
 			Issuer: verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -906,7 +712,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (field pattern)", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -914,10 +719,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.first_name"},
 						Filter: &Filter{
@@ -934,7 +739,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: map[string]interface{}{"id": issuerID},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -944,7 +749,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Subject: map[string]interface{}{"id": 123},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Travis",
@@ -961,7 +766,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -969,10 +773,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -983,7 +787,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -994,7 +798,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -1011,7 +815,6 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Matches one credentials (two descriptors)", func(t *testing.T) {
-		subjectIsIssuer := Required
 		issuerID := uuid.New().String()
 
 		pd := &PresentationDefinition{
@@ -1019,10 +822,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					SubjectIsIssuer: &subjectIsIssuer,
+					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
 						Path: []string{"$.first_name", "$.last_name"},
 					}},
@@ -1030,7 +833,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1045,7 +848,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: issuerID,
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -1056,7 +859,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: issuerID,
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -1078,7 +881,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1091,7 +894,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
@@ -1100,7 +903,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -1122,7 +925,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 			}},
 		}
@@ -1130,13 +933,13 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: testServer.URL,
+				ID: schemaURI,
 			}},
 		})
 
@@ -1154,7 +957,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: testServer.URL,
+					URI: schemaURI,
 				}},
 			}},
 		}
@@ -1162,7 +965,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID:   testServer.URL,
+				ID:   schemaURI,
 				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
@@ -1401,7 +1204,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *PresentationDefinition) {
 	t.Helper()
 
-	ps, ok := vp.CustomFields["presentation_submission"].(PresentationSubmission)
+	ps, ok := vp.CustomFields["presentation_submission"].(*PresentationSubmission)
 	require.True(t, ok)
 	require.NotEmpty(t, ps.ID)
 	require.Equal(t, ps.DefinitionID, pd.ID)

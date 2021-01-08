@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/PaesslerAG/jsonpath"
@@ -33,6 +34,8 @@ const (
 	Required Preference = "required"
 	// Preferred predicate`s value.
 	Preferred Preference = "preferred"
+
+	tmpEnding = "tmp_unique_id_"
 )
 
 // nolint: gochecknoglobals
@@ -318,7 +321,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 
 	credentials, descriptors := merge(result)
 	vp.CustomFields = verifiable.CustomFields{
-		submissionProperty: PresentationSubmission{
+		submissionProperty: &PresentationSubmission{
 			ID:            uuid.New().String(),
 			DefinitionID:  pd.ID,
 			DescriptorMap: descriptors,
@@ -530,7 +533,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 			if constraints.LimitDisclosure {
 				template, err = json.Marshal(map[string]interface{}{
-					"id":                credential.ID,
+					"id":                tmpID(credential.ID),
 					"credentialSchema":  credential.Schemas,
 					"type":              credential.Types,
 					"@context":          credential.Context,
@@ -555,6 +558,19 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	}
 
 	return result, nil
+}
+
+func tmpID(id string) string {
+	return id + tmpEnding + uuid.New().String()
+}
+
+func trimTmpID(id string) string {
+	idx := strings.Index(id, tmpEnding)
+	if idx == -1 {
+		return id
+	}
+
+	return id[:idx]
 }
 
 func createNewCredential(fs []*Field, src, limitedCred []byte) (*verifiable.Credential, error) {
@@ -676,9 +692,19 @@ func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.
 		descriptors []*InputDescriptorMapping
 	)
 
-	for descriptorID, credentials := range setOfCredentials {
+	keys := make([]string, 0, len(setOfCredentials))
+	for k := range setOfCredentials {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, descriptorID := range keys {
+		credentials := setOfCredentials[descriptorID]
+
 		for _, credential := range credentials {
 			if _, ok := setOfCreds[credential.ID]; !ok {
+				credential.ID = trimTmpID(credential.ID)
 				result = append(result, credential)
 				setOfCreds[credential.ID] = len(descriptors)
 			}
@@ -694,8 +720,16 @@ func merge(setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.
 		}
 	}
 
+	sort.Sort(byID(descriptors))
+
 	return result, descriptors
 }
+
+type byID []*InputDescriptorMapping
+
+func (a byID) Len() int           { return len(a) }
+func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
+func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 func credentialsToInterface(credentials []*verifiable.Credential) []interface{} {
 	var result []interface{}

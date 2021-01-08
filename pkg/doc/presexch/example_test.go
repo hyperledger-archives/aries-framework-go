@@ -4,17 +4,508 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package presexch
+package presexch_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/piprate/json-gold/ld"
 
+	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
+
+const dummy = "DUMMY"
+
+func ExamplePresentationDefinition_CreateVP() {
+	predicate := Required
+
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &Constraints{
+				LimitDisclosure: true,
+				Fields: []*Field{{
+					Path:      []string{"$.age"},
+					Predicate: &predicate,
+					Filter: &Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}},
+	}
+
+	vp, err := pd.CreateVP(&verifiable.Credential{
+		ID:      "http://example.edu/credentials/777",
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Time{},
+		},
+		Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Jesse",
+			"last_name":  "Pinkman",
+			"age":        21,
+		},
+	})
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+	vp.Credentials()[0].(*verifiable.Credential).Schemas[0].ID = dummy
+
+	if err != nil {
+		panic(err)
+	}
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[0]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": true,
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
+
+func ExamplePresentationDefinition_CreateVP_multipleMatches() {
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &Constraints{
+				Fields: []*Field{{
+					Path: []string{"$.age"},
+					Filter: &Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}, {
+			ID:      "first_name_descriptor",
+			Purpose: "First name must be either Andrew or Jesse",
+			Schema: []*Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &Constraints{
+				Fields: []*Field{{
+					Path: []string{"$.first_name"},
+					Filter: &Filter{
+						Type:    &strFilterType,
+						Pattern: "Andrew|Jesse",
+					},
+				}},
+			},
+		}},
+	}
+
+	vp, err := pd.CreateVP(&verifiable.Credential{
+		ID:      "http://example.edu/credentials/777",
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:777",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Time{},
+		},
+		Subject: "did:example:777",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Andrew",
+			"last_name":  "Hanks",
+			"age":        25,
+		},
+	}, &verifiable.Credential{
+		ID:      "http://example.edu/credentials/888",
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:888",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Time{},
+		},
+		Subject: "did:example:888",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Jesse",
+			"last_name":  "Pinkman",
+			"age":        21,
+		},
+	})
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	for _, credential := range vp.Credentials() {
+		credential.(*verifiable.Credential).Schemas[0].ID = dummy
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[0]"
+	//			},
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[1]"
+	//			},
+	//			{
+	//				"id": "first_name_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[0]"
+	//			},
+	//			{
+	//				"id": "first_name_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[1]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": 25,
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:777",
+	//			"first_name": "Andrew",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:777",
+	//			"last_name": "Hanks",
+	//			"type": "VerifiableCredential"
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": 21,
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:888",
+	//			"first_name": "Jesse",
+	//			"id": "http://example.edu/credentials/888",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:888",
+	//			"last_name": "Pinkman",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
+
+func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &Constraints{
+				Fields: []*Field{{
+					Path: []string{"$.age"},
+					Filter: &Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}, {
+			ID:      "first_name_descriptor",
+			Purpose: "First name must be either Andrew or Jesse",
+			Schema: []*Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &Constraints{
+				LimitDisclosure: true,
+				Fields: []*Field{{
+					Path: []string{"$.first_name"},
+					Filter: &Filter{
+						Type:    &strFilterType,
+						Pattern: "Andrew|Jesse",
+					},
+				}},
+			},
+		}},
+	}
+
+	vp, err := pd.CreateVP(&verifiable.Credential{
+		ID:      "http://example.edu/credentials/777",
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:777",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Time{},
+		},
+		Subject: "did:example:777",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Andrew",
+			"last_name":  "Hanks",
+			"age":        25,
+		},
+	}, &verifiable.Credential{
+		ID:      "http://example.edu/credentials/888",
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:888",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Time{},
+		},
+		Subject: "did:example:888",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Jesse",
+			"last_name":  "Pinkman",
+			"age":        21,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	for _, credential := range vp.Credentials() {
+		credential.(*verifiable.Credential).Schemas[0].ID = dummy
+	}
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[0]"
+	//			},
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[1]"
+	//			},
+	//			{
+	//				"id": "first_name_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[2]"
+	//			},
+	//			{
+	//				"id": "first_name_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$.verifiableCredential[3]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": 25,
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:777",
+	//			"first_name": "Andrew",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:777",
+	//			"last_name": "Hanks",
+	//			"type": "VerifiableCredential"
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": 21,
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:888",
+	//			"first_name": "Jesse",
+	//			"id": "http://example.edu/credentials/888",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:888",
+	//			"last_name": "Pinkman",
+	//			"type": "VerifiableCredential"
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:777",
+	//			"first_name": "Andrew",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:777",
+	//			"type": "VerifiableCredential"
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSchema": [
+	//				{
+	//					"id": "DUMMY",
+	//					"type": "JsonSchemaValidator2018"
+	//				}
+	//			],
+	//			"credentialSubject": "did:example:888",
+	//			"first_name": "Jesse",
+	//			"id": "http://example.edu/credentials/888",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:888",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
 
 // Example of a Verifier verifying the presentation submission of a Holder.
 func ExamplePresentationDefinition_Match() {
