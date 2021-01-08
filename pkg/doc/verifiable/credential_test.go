@@ -765,7 +765,7 @@ func TestWithDisabledProofCheck(t *testing.T) {
 
 func TestWithCredentialSchemaLoader(t *testing.T) {
 	httpClient := &http.Client{}
-	jsonSchemaLoader := gojsonschema.NewStringLoader(defaultSchema)
+	jsonSchemaLoader := gojsonschema.NewStringLoader(DefaultSchema)
 	cache := NewExpirableSchemaCache(100, 10*time.Minute)
 
 	credentialOpt := WithCredentialSchemaLoader(
@@ -876,7 +876,7 @@ func TestWithEmbeddedSignatureSuites(t *testing.T) {
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		rawMap := make(map[string]interface{})
-		require.NoError(t, json.Unmarshal([]byte(defaultSchema), &rawMap))
+		require.NoError(t, json.Unmarshal([]byte(DefaultSchema), &rawMap))
 
 		// extend default schema to require new referenceNumber field to be mandatory
 		required, success := rawMap["required"].([]interface{})
@@ -993,7 +993,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 	noCacheOpts := &credentialOpts{schemaLoader: newDefaultSchemaLoader()}
 	withCacheOpts := &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 		schemaDownloadClient: httpClient,
-		jsonLoader:           gojsonschema.NewStringLoader(defaultSchema),
+		jsonLoader:           gojsonschema.NewStringLoader(DefaultSchema),
 		cache:                NewExpirableSchemaCache(32*1024*1024, time.Hour),
 	}}
 
@@ -1035,7 +1035,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 		// Check for cache expiration.
 		withCacheOpts = &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 			schemaDownloadClient: httpClient,
-			jsonLoader:           gojsonschema.NewStringLoader(defaultSchema),
+			jsonLoader:           gojsonschema.NewStringLoader(DefaultSchema),
 			cache:                NewExpirableSchemaCache(32*1024*1024, time.Second),
 		}}
 		loadsCount = 0
