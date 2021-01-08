@@ -565,6 +565,9 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 
 	// Create BBS+ selective disclosure. We explicitly state the fields we want to reveal in the output document.
 	// For example, "credentialSubject.birthDate" is not mentioned and thus will be hidden.
+	// To hide top-level VC fields, "@explicit": true is used on top level of reveal doc.
+	// For example, we can reveal "identifier" top-level VC field only. "issuer" and "issuanceDate" are mandatory
+	// and thus must be defined in reveal doc in case of hiding top-level VC fields.
 	revealDoc := `
 {
   "@context": [
@@ -573,6 +576,10 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
     "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
   ],
   "type": ["VerifiableCredential", "PermanentResidentCard"],
+  "@explicit": true,
+  "identifier": {},
+  "issuer": {},
+  "issuanceDate": {},
   "credentialSubject": {
     "@explicit": true,
     "type": ["PermanentResident", "Person"],
@@ -679,13 +686,10 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//			"PermanentResident"
 	//		]
 	//	},
-	//	"description": "Government of Example Permanent Resident Card.",
-	//	"expirationDate": "2029-12-03T12:19:52Z",
 	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	//	"identifier": "83627465",
 	//	"issuanceDate": "2019-12-03T12:19:52Z",
 	//	"issuer": "did:example:489398593",
-	//	"name": "Permanent Resident Card",
 	//	"proof": [
 	//		{
 	//			"created": "2010-01-01T19:23:24Z",

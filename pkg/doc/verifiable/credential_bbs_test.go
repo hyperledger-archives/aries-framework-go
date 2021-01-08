@@ -82,6 +82,10 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
     "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
   ],
   "type": ["VerifiableCredential", "PermanentResidentCard"],
+  "@explicit": true,
+  "identifier": {},
+  "issuer": {},
+  "issuanceDate": {},
   "credentialSubject": {
     "@explicit": true,
     "type": ["PermanentResident", "Person"],
@@ -92,8 +96,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 }
 `
 
-	var revealDoc map[string]interface{}
-	err = json.Unmarshal([]byte(revealJSON), &revealDoc)
+	revealDoc, err := toMap(revealJSON)
 	r.NoError(err)
 
 	nonce := []byte("nonce")
@@ -145,6 +148,37 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		r.Error(err)
 		r.EqualError(err, "public key fetcher is not defined")
 		r.Empty(vcWithSelectiveDisclosure)
+	})
+
+	t.Run("Reveal document with hidden VC mandatory field", func(t *testing.T) {
+		revealJSONWithMissingIssuer := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/citizenship/v1",
+    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+  ],
+  "type": ["VerifiableCredential", "PermanentResidentCard"],
+  "@explicit": true,
+  "identifier": {},
+  "issuanceDate": {},
+  "credentialSubject": {
+    "@explicit": true,
+    "type": ["PermanentResident", "Person"],
+    "givenName": {},
+    "familyName": {},
+    "gender": {}
+  }
+}
+`
+
+		revealDoc, err = toMap(revealJSONWithMissingIssuer)
+		r.NoError(err)
+
+		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		r.Error(err)
+		r.Contains(err.Error(), "issuer is required")
+		r.Nil(vcWithSelectiveDisclosure)
 	})
 
 	t.Run("VC with no embedded proof", func(t *testing.T) {

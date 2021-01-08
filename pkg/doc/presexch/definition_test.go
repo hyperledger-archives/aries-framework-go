@@ -10,9 +10,12 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
@@ -20,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -31,6 +35,211 @@ var (
 	arrFilterType = "array"
 	intFilterType = "integer"
 )
+
+const defaultVCSchema = `{
+  "required": [
+    "@context",
+    "type",
+    "credentialSubject",
+    "issuer",
+    "issuanceDate"
+  ],
+  "properties": {
+    "@context": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "https://www.w3.org/2018/credentials/v1"
+        },
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string",
+              "const": "https://www.w3.org/2018/credentials/v1"
+            }
+          ],
+          "uniqueItems": true,
+          "additionalItems": {
+            "oneOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "id": {
+      "type": "string",
+      "format": "uri"
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "contains": {
+            "type": "string",
+            "pattern": "^VerifiableCredential$"
+          }
+        },
+        {
+          "type": "string",
+          "pattern": "^VerifiableCredential$"
+        }
+      ]
+    },
+    "credentialSubject": {
+      "anyOf": [
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "issuer": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      ]
+    },
+    "issuanceDate": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/proof"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/proof"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expirationDate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "credentialStatus": {
+      "$ref": "#/definitions/typedID"
+    },
+    "credentialSchema": {
+      "$ref": "#/definitions/typedIDs"
+    },
+    "evidence": {
+      "$ref": "#/definitions/typedIDs"
+    },
+    "refreshService": {
+      "$ref": "#/definitions/typedID"
+    }
+  },
+  "definitions": {
+    "typedID": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "type"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uri"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "typedIDs": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/typedID"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/typedID"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+`
+
+var testServer *httptest.Server // nolint: gochecknoglobals
+
+// nolint: gochecknoinits
+func init() {
+	testServer = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		_, _ = res.Write([]byte(defaultVCSchema)) //nolint:errcheck
+	}))
+}
 
 func TestPresentationDefinition_IsValid(t *testing.T) {
 	samples := []string{"sample_1.json", "sample_2.json", "sample_3.json"}
@@ -99,7 +308,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -111,7 +320,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"child"},
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -128,7 +337,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"teenager"},
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -145,7 +354,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"adult"},
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -164,7 +373,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -174,7 +384,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -217,7 +427,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -231,7 +441,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -241,7 +452,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -262,7 +473,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -275,12 +486,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
+			ID:      "http://example.edu/credentials/1872",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
 			CustomFields: map[string]interface{}{
 				"first_name": "First name",
 				"last_name":  "Last name",
@@ -311,7 +530,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: true,
@@ -325,12 +544,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 
 		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
+			ID:      "http://example.edu/credentials/1872",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
 			CustomFields: map[string]interface{}{
 				"first_name": "First name",
 				"last_name":  "Last name",
@@ -361,7 +588,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -375,7 +602,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": make(chan struct{}),
@@ -393,7 +621,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -406,7 +634,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -414,7 +643,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"last_name": "Travis",
@@ -431,7 +660,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -446,7 +675,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -454,7 +684,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"last_name": "Travis",
@@ -474,7 +704,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -493,7 +723,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Subject: map[string]interface{}{},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -503,7 +734,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: verifiable.Subject{ID: issuerID},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -521,14 +752,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
 		subjectIsIssuer := Required
-		issuerID := uuid.New().String()
+		issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -556,20 +787,25 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []map[string]interface{}{{}},
 			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"last_name": "Travis",
 			},
 		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
+			ID:      "http://example.edu/credentials/1872",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
 			Subject: []map[string]interface{}{{"id": issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now(),
+			},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"ssn":        "000-00-000",
@@ -637,7 +873,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: true,
@@ -656,7 +892,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:     uuid.New().String(),
 			Issuer: verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -677,7 +914,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -697,7 +934,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: map[string]interface{}{"id": issuerID},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -706,7 +944,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID:      uuid.New().String(),
 			Subject: map[string]interface{}{"id": 123},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Travis",
@@ -731,7 +969,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -745,7 +983,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -755,7 +994,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: []verifiable.Subject{{ID: issuerID}},
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -780,7 +1019,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subjectIsIssuer,
@@ -791,7 +1030,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -806,7 +1045,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: issuerID,
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -816,7 +1056,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: issuerID,
 			Issuer:  verifiable.Issuer{ID: issuerID},
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -838,7 +1078,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -851,7 +1091,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -859,7 +1100,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
@@ -881,7 +1122,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 			}},
 		}
@@ -889,12 +1130,13 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID: testServer.URL,
 			}},
 		})
 
@@ -912,7 +1154,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/TR/vc-data-model/#types",
+					URI: testServer.URL,
 				}},
 			}},
 		}
@@ -920,7 +1162,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/#types",
+				ID:   testServer.URL,
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
@@ -951,12 +1194,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		})
 
@@ -983,12 +1228,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		})
 
@@ -1019,12 +1266,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		})
 
@@ -1053,7 +1302,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
@@ -1087,7 +1337,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),
@@ -1126,7 +1377,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP(&verifiable.Credential{
 			ID: uuid.New().String(),
 			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+				Type: "JsonSchemaValidator2018",
 			}},
 		}, &verifiable.Credential{
 			ID: uuid.New().String(),

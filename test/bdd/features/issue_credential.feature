@@ -43,6 +43,8 @@ Feature: Issue credential protocol
     And "Stanford University" accepts request and sends credential to the Holder
     And "Graduate" accepts credential with name "bachelors degree"
     Then "Graduate" checks that credential is being stored under "bachelors degree" name
+    And "Graduate" waits for state "done"
+    And "Stanford University" waits for state "done"
   @decline_request
   Scenario: The Holder begins with a request and the Issuer declines it
     Given   "Alice" exchange DIDs with "Bank"
