@@ -103,12 +103,42 @@ import (
 // nolint: gochecknoinits
 func init() {
 	// TODO - avoid the tink registry singleton.
-	err := registry.RegisterKeyManager(newECDHPrivateKeyManager())
+	err := registry.RegisterKeyManager(newECDHNISTPAESPrivateKeyManager())
 	if err != nil {
 		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
 	}
 
-	err = registry.RegisterKeyManager(newECDHPublicKeyManager())
+	err = registry.RegisterKeyManager(newECDHNISTPAESPublicKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHX25519XChachaPublicKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHX25519XChachaPrivateKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHNISTPXChachaPrivateKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHNISTPXChachaPublicKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHX25519AESPublicKeyManager())
+	if err != nil {
+		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
+	}
+
+	err = registry.RegisterKeyManager(newECDHX25519AESPrivateKeyManager())
 	if err != nil {
 		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
 	}

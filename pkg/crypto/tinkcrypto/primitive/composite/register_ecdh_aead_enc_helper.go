@@ -66,25 +66,71 @@ func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterComposit
 
 		skf, err = proto.Marshal(gcmKeyFormat)
 		if err != nil {
-			return nil, fmt.Errorf("compositeAEADEncHelper: failed to serialize key format, error: %w", err)
+			return nil, fmt.Errorf("compositeAEADEncHelper: failed to serialize gcm key format, error: %w", err)
 		}
 	case ChaCha20Poly1305TypeURL:
 		tagSize = poly1305.TagSize
 		ivSize = chacha20poly1305.NonceSize
+
+		skf, err = buildChachaSKF(k)
+		if err != nil {
+			return nil, err
+		}
 	case XChaCha20Poly1305TypeURL:
 		tagSize = poly1305.TagSize
 		ivSize = chacha20poly1305.NonceSizeX
+
+		skf, err = buildXChachaSKF(k)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("compositeAEADEncHelper: unsupported AEAD content encryption key type: %s",
 			k.TypeUrl)
 	}
 
+	return buildRegisterCompositeAEADEncHelper(k, skf, tagSize, ivSize)
+}
+
+func buildChachaSKF(k *tinkpb.KeyTemplate) ([]byte, error) {
+	chachaKeyFormat := new(chachapb.ChaCha20Poly1305KeyFormat)
+
+	err := proto.Unmarshal(k.Value, chachaKeyFormat)
+	if err != nil {
+		return nil, fmt.Errorf("compositeAEADEncHelper: failed to unmarshal chachaKeyFormat: %w", err)
+	}
+
+	skf, err := proto.Marshal(chachaKeyFormat)
+	if err != nil {
+		return nil, fmt.Errorf("compositeAEADEncHelper: failed to serialize chacha key format, error: %w", err)
+	}
+
+	return skf, nil
+}
+
+func buildXChachaSKF(k *tinkpb.KeyTemplate) ([]byte, error) {
+	xChachaKeyFormat := new(xchachapb.XChaCha20Poly1305KeyFormat)
+
+	err := proto.Unmarshal(k.Value, xChachaKeyFormat)
+	if err != nil {
+		return nil, fmt.Errorf("compositeAEADEncHelper: failed to unmarshal xChachaKeyFormat: %w", err)
+	}
+
+	skf, err := proto.Marshal(xChachaKeyFormat)
+	if err != nil {
+		return nil, fmt.Errorf("compositeAEADEncHelper: failed to serialize xChacha key format, error: %w", err)
+	}
+
+	return skf, nil
+}
+
+func buildRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate, skf []byte,
+	tagSize, ivSize int) (*RegisterCompositeAEADEncHelper, error) {
 	km, err := registry.GetKeyManager(k.TypeUrl)
 	if err != nil {
 		return nil, fmt.Errorf("compositeAEADEncHelper: failed to fetch KeyManager, error: %w", err)
 	}
 
-	// skf is nil for (X)Chahcha20Poly1305 km
 	key, err := km.NewKey(skf)
 	if err != nil {
 		return nil, fmt.Errorf("compositeAEADEncHelper: failed to fetch key, error: %w", err)

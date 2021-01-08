@@ -42,7 +42,7 @@ func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
 		return nil, errors.New("extractPrivKey: invalid private key")
 	}
 
-	ecdhAESPrivateKeyTypeURL := "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAesAeadPrivateKey"
+	ecdhAESPrivateKeyTypeURL := "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhNistPKwAesAeadPrivateKey"
 	primaryKey := ks.Key[0]
 
 	if primaryKey.KeyData.TypeUrl != ecdhAESPrivateKeyTypeURL {

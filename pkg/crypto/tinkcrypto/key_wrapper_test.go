@@ -184,7 +184,7 @@ func Test_ksToPrivateECDSAKey_Failure(t *testing.T) {
 	_, err = ksToPrivateECDSAKey(recipientKeyPub)
 	require.EqualError(t, err, "ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: "+
 		"can't extract unsupported private key 'type.hyperledger.org/hyperledger.aries.crypto.tink"+
-		".EcdhAesAeadPublicKey'")
+		".EcdhNistPKwAesAeadPublicKey'")
 }
 
 func Test_ksToPublicECDSAKey_Failure(t *testing.T) {

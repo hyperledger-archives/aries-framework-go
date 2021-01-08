@@ -24,20 +24,20 @@ import (
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
-func TestECDHPublicKeyManager_Primitive(t *testing.T) {
-	km := newECDHPublicKeyManager()
+func TestECDHNISTPAESPublicKeyManager_Primitive(t *testing.T) {
+	km := newECDHNISTPAESPublicKeyManager()
 
 	t.Run("Test public key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHAESPublicKey.Error(),
-			"ECDHPublic primitive from empty serialized key must fail")
+		require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+			"newECDHNISTPAESPublicKeyManager primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test public key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHAESPublicKey.Error(),
-			"ECDHPublic primitive from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+			"newECDHNISTPAESPublicKeyManager primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
 
@@ -150,8 +150,8 @@ func TestECDHPublicKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if strings.Contains(tt.tcName, "with bad content encryption key size") {
-				require.EqualError(t, err, errInvalidECDHAESPublicKey.Error(),
-					"ECDHPublic primitive from serialized key with invalid serialized key")
+				require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+					"newECDHNISTPAESPublicKeyManager primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
 				return
@@ -169,24 +169,24 @@ func TestECDHPublicKeyManager_Primitive(t *testing.T) {
 	}
 }
 
-func TestEcdhPublicKeyManager_DoesSupport(t *testing.T) {
-	km := newECDHPublicKeyManager()
+func TestEcdhNISTPAESPublicKeyManager_DoesSupport(t *testing.T) {
+	km := newECDHNISTPAESPublicKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhAESPublicKeyTypeURL))
+	require.True(t, km.DoesSupport(ecdhNISTPAESPublicKeyTypeURL))
 }
 
-func TestEcdhPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
-	km := newECDHPublicKeyManager()
+func TestEcdhNISTPAESPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
+	km := newECDHNISTPAESPublicKeyManager()
 
 	t.Run("Test public key manager NewKey()", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, "ecdh_aes_public_key_manager: NewKey not implemented")
+		require.EqualError(t, err, "ecdh_nistpkw_aesaead_public_key_manager: NewKey not implemented")
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKeyData()", func(t *testing.T) {
 		p, err := km.NewKeyData(nil)
-		require.EqualError(t, err, "ecdh_aes_public_key_manager: NewKeyData not implemented")
+		require.EqualError(t, err, "ecdh_nistpkw_aesaead_public_key_manager: NewKeyData not implemented")
 		require.Empty(t, p)
 	})
 }

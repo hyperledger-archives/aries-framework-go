@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package ecdh
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 func TestECDHESFactory(t *testing.T) {
@@ -35,38 +38,63 @@ func TestECDHESFactory(t *testing.T) {
 	rawPtFmt := commonpb.EcPointFormat_COMPRESSED
 	primaryEncT := aead.AES128GCMKeyTemplate()
 	rawEncT := aead.AES256GCMKeyTemplate()
+	kt := ecdhpb.KeyType_EC
 	cek := random.GetRandomBytes(32)
 
-	primaryPrivProto := generateECDHAEADPrivateKey(t, c, primaryPtFmt, primaryEncT, cek)
+	primaryPrivProto := generateECDHAEADPrivateKey(t, c, primaryPtFmt, kt, primaryEncT, cek)
 
 	sPrimaryPriv, err := proto.Marshal(primaryPrivProto)
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
-	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, rawEncT, cek)
+	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, kt, rawEncT, cek)
 
 	sRawPriv, err := proto.Marshal(rawPrivProto)
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
-	privKeys := []*tinkpb.Keyset_Key{primaryPrivKey, rawPrivKey}
+	x25519XChachaPrivProto := generateECDHAEADPrivateKey(t, commonpb.EllipticCurveType_CURVE25519, primaryPtFmt,
+		ecdhpb.KeyType_OKP, aead.XChaCha20Poly1305KeyTemplate(), cek)
+
+	sX25519XChachaPriv, err := proto.Marshal(x25519XChachaPrivProto)
+	require.NoError(t, err)
+
+	x25519XChachaPrivKey := testutil.NewKey(
+		testutil.NewKeyData(ecdhX25519XChachaPrivateKeyTypeURL, sX25519XChachaPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		tinkpb.KeyStatusType_ENABLED, 15, tinkpb.OutputPrefixType_RAW)
+
+	privKeys := []*tinkpb.Keyset_Key{primaryPrivKey, rawPrivKey, x25519XChachaPrivKey}
 	privKeyset := testutil.NewKeyset(privKeys[0].KeyId, privKeys)
 	khPriv, err := testkeyset.NewHandle(privKeyset)
 	require.NoError(t, err)
 
+	xPrivKeys := []*tinkpb.Keyset_Key{x25519XChachaPrivKey, rawPrivKey, primaryPrivKey}
+	xPrivKeyset := testutil.NewKeyset(xPrivKeys[0].KeyId, xPrivKeys)
+	xKHPriv, err := testkeyset.NewHandle(xPrivKeyset)
+	require.NoError(t, err)
+
 	khPub, err := khPriv.Public()
+	require.NoError(t, err)
+
+	xKHPub, err := xKHPriv.Public()
 	require.NoError(t, err)
 
 	e, err := NewECDHEncrypt(khPub)
 	require.NoError(t, err)
 
 	d, err := NewECDHDecrypt(khPriv)
+	require.NoError(t, err)
+
+	xe, err := NewECDHEncrypt(xKHPub)
+	require.NoError(t, err)
+
+	xd, err := NewECDHDecrypt(xKHPriv)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -88,6 +116,9 @@ func TestECDHESFactory(t *testing.T) {
 		ct, err := e.Encrypt(pt, aad)
 		require.NoError(t, err)
 
+		xct, err := xe.Encrypt(pt, aad)
+		require.NoError(t, err)
+
 		// encrypt for single recipient will generate new AAD for recipient, extract it from ct
 		encData := &composite.EncryptedData{}
 		err = json.Unmarshal(ct, encData)
@@ -96,12 +127,16 @@ func TestECDHESFactory(t *testing.T) {
 		gotpt, err := d.Decrypt(ct, aad)
 		require.NoError(t, err)
 
+		xgotpt, err := xd.Decrypt(xct, aad)
+		require.NoError(t, err)
+
 		require.EqualValues(t, pt, gotpt)
+		require.EqualValues(t, pt, xgotpt)
 	}
 }
 
 // ecdhAEADPublicKey returns a EcdhAeadPublicKey with specified parameters.
-func ecdhAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
+func ecdhAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat, kt ecdhpb.KeyType,
 	encT *tinkpb.KeyTemplate, x, y, cek []byte) *ecdhpb.EcdhAeadPublicKey {
 	t.Helper()
 
@@ -110,6 +145,7 @@ func ecdhAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonp
 		Params: &ecdhpb.EcdhAeadParams{
 			KwParams: &ecdhpb.EcdhKwParams{
 				CurveType: c,
+				KeyType:   kt,
 			},
 			EncParams: &ecdhpb.EcdhAeadEncParams{
 				AeadEnc: encT,
@@ -122,8 +158,8 @@ func ecdhAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonp
 	}
 }
 
-// eciesAEADESPrivateKey returns a EciesAeadHkdfPrivateKey with specified parameters.
-func eciesAEADESPrivateKey(t *testing.T, p *ecdhpb.EcdhAeadPublicKey, d []byte) *ecdhpb.EcdhAeadPrivateKey {
+// ecdhesAEADPrivateKey returns a EcdhAeadPrivateKey with specified parameters.
+func ecdhesAEADPrivateKey(t *testing.T, p *ecdhpb.EcdhAeadPublicKey, d []byte) *ecdhpb.EcdhAeadPrivateKey {
 	t.Helper()
 
 	return &ecdhpb.EcdhAeadPrivateKey{
@@ -135,8 +171,12 @@ func eciesAEADESPrivateKey(t *testing.T, p *ecdhpb.EcdhAeadPublicKey, d []byte) 
 
 // generateECDHAEADPrivateKey generates a new EC key pair and returns the private key proto.
 func generateECDHAEADPrivateKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
-	encT *tinkpb.KeyTemplate, cek []byte) *ecdhpb.EcdhAeadPrivateKey {
+	kt ecdhpb.KeyType, encT *tinkpb.KeyTemplate, cek []byte) *ecdhpb.EcdhAeadPrivateKey {
 	t.Helper()
+
+	if ecdhpb.KeyType_OKP.String() == kt.String() {
+		return buildXChachaKey(t, ptfmt, encT, c, cek)
+	}
 
 	curve, err := hybrid.GetCurve(c.String())
 	require.NoError(t, err)
@@ -144,9 +184,44 @@ func generateECDHAEADPrivateKey(t *testing.T, c commonpb.EllipticCurveType, ptfm
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	require.NoError(t, err)
 
-	pubKey := ecdhAEADPublicKey(t, c, ptfmt, encT, pvt.PublicKey.Point.X.Bytes(), pvt.PublicKey.Point.Y.Bytes(), cek)
+	pubKey := ecdhAEADPublicKey(t, c, ptfmt, kt, encT, pvt.PublicKey.Point.X.Bytes(), pvt.PublicKey.Point.Y.Bytes(),
+		cek)
 
-	return eciesAEADESPrivateKey(t, pubKey, pvt.D.Bytes())
+	return ecdhesAEADPrivateKey(t, pubKey, pvt.D.Bytes())
+}
+
+func buildXChachaKey(t *testing.T, ptfmt commonpb.EcPointFormat, encT *tinkpb.KeyTemplate, c commonpb.EllipticCurveType,
+	cek []byte) *ecdhpb.EcdhAeadPrivateKey {
+	pub, pvt, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	x25519Pub, err := cryptoutil.PublicEd25519toCurve25519(pub)
+	require.NoError(t, err)
+
+	x25519Pvt, err := cryptoutil.SecretEd25519toCurve25519(pvt)
+	require.NoError(t, err)
+
+	params := &ecdhpb.EcdhAeadParams{
+		KwParams: &ecdhpb.EcdhKwParams{
+			KeyType:   ecdhpb.KeyType_OKP,
+			CurveType: c,
+		},
+		EncParams: &ecdhpb.EcdhAeadEncParams{
+			AeadEnc: encT,
+			CEK:     cek,
+		},
+		EcPointFormat: ptfmt,
+	}
+
+	return &ecdhpb.EcdhAeadPrivateKey{
+		Version:  0,
+		KeyValue: x25519Pvt,
+		PublicKey: &ecdhpb.EcdhAeadPublicKey{
+			Version: 0,
+			Params:  params,
+			X:       x25519Pub,
+		},
+	}
 }
 
 func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
@@ -155,24 +230,25 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 	rawPtFmt := commonpb.EcPointFormat_COMPRESSED
 	primaryEncT := aead.AES128GCMKeyTemplate()
 	rawEncT := aead.AES256GCMKeyTemplate()
+	kt := ecdhpb.KeyType_EC
 	cek := random.GetRandomBytes(32)
 
-	primaryPrivProto := generateECDHAEADPrivateKey(t, c, primaryPtFmt, primaryEncT, cek)
+	primaryPrivProto := generateECDHAEADPrivateKey(t, c, primaryPtFmt, kt, primaryEncT, cek)
 
 	sPrimaryPriv, err := proto.Marshal(primaryPrivProto)
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
-	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, rawEncT, cek)
+	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, kt, rawEncT, cek)
 
 	sRawPriv, err := proto.Marshal(rawPrivProto)
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	badPrivKeyProto, err := testutil.GenerateECIESAEADHKDFPrivateKey(c, commonpb.HashType_SHA256, primaryPtFmt,

@@ -30,7 +30,7 @@ func TestPubKeyExport(t *testing.T) {
 		keyTemplate *tinkpb.KeyTemplate
 	}{
 		{
-			tcName:      "export then read AES256GCM with ECDH P-256 public recipient key",
+			tcName:      "export then read AES256GCM with ECDHES P-256 public recipient key",
 			keyTemplate: ecdh.ECDH256KWAES256GCMKeyTemplate(),
 		},
 		{

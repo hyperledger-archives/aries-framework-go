@@ -27,7 +27,7 @@ import (
 const (
 	ecdsaVerifierTypeURL    = "type.googleapis.com/google.crypto.tink.EcdsaPublicKey"
 	ed25519VerifierTypeURL  = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
-	ecdhAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAesAeadPublicKey"
+	ecdhAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhNistPKwAesAeadPublicKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
