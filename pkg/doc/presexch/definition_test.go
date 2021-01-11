@@ -200,11 +200,25 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				"last_name":  "Travis",
 				"age":        17,
 			},
-		})
+		},
+			&verifiable.Credential{
+				ID:      uuid.New().String(),
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        2,
+				},
+			},
+		)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -317,14 +331,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
 		require.True(t, ok)
 
 		require.True(t, vc.CustomFields["first_name"].(bool))
 		require.True(t, vc.CustomFields["last_name"].(bool))
-		require.EqualValues(t, vc.CustomFields["info"], "Info")
+		require.EqualValues(t, "Info", vc.CustomFields["info"])
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -375,7 +389,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
 		require.True(t, ok)
@@ -551,7 +565,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -759,7 +773,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -808,7 +822,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -869,7 +883,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -913,7 +927,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 2)
+		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -945,7 +959,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 2)
+		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -977,7 +991,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 1)
+		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -1044,7 +1058,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 2)
+		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -1152,7 +1166,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 2)
+		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -1194,7 +1208,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
-		require.Equal(t, len(vp.Credentials()), 2)
+		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)

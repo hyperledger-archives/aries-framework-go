@@ -13,6 +13,4 @@ require (
 	nhooyr.io/websocket v1.8.3
 )
 
-replace (
-	github.com/hyperledger/aries-framework-go => ../../
-)
+replace github.com/hyperledger/aries-framework-go => ../../
