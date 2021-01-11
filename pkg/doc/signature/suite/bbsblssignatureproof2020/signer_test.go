@@ -115,6 +115,13 @@ const docWithManyProofsJSON = `
       "proofPurpose": "assertionMethod",
       "type": "Ed25519Signature2018",
       "verificationMethod": "did:example:123456#key1"
+    },
+    {
+	  "created": "2021-01-11T16:04:13.154596+02:00",
+	  "proofPurpose": "assertionMethod",
+	  "proofValue": "hR-MODvfO20merTlcBbBQcwrv_Hpj5hXRJSmkAt_9RaC9mQ5QMkh0LGeyhzwUPjkYKLW7npcfXpxoH8Qb8YMFfp1Bu7h7oICwkBcBi-C1YUncKFmsBvDtjzOCkBs_QrtH_ZW_dsSzt7oloOHqgzfHQ",
+	  "type": "BbsBlsSignature2020",
+	  "verificationMethod": "did:example:123456#key2"
     }
   ]
 }
@@ -177,8 +184,21 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 	t.Run("several proofs including BBS+ signature", func(t *testing.T) {
 		docWithSeveralProofsMap := toMap(t, docWithManyProofsJSON)
 
+		pubKeyBytes2 := base58.Decode("tPTWWeUm8yT3aR9HtMvo2pLLvAdyV9Z4nJYZ2ZsyoLVpTupVb7NaRJ3tZePF6YsCN1nw7McqJ38tvpmQxKQxrTbyzjiewUDaj5jbD8gVfpfXJL2SfPBw4TGjYPA6zg6Jrxn")
+
+		compositeResolver := &testKeyResolver{
+			variants: map[string]*sigverifier.PublicKey{
+				"did:example:489398593#test": {
+					Type:  "Bls12381G2Key2020",
+					Value: pubKeyBytes},
+				"did:example:123456#key2": {
+					Type:  "Bls12381G2Key2020",
+					Value: pubKeyBytes2},
+			},
+		}
+
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docWithSeveralProofsMap, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			compositeResolver, withDocLoader)
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -189,6 +209,8 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		require.Len(t, proofs, 2)
 		require.Equal(t, "BbsBlsSignatureProof2020", proofs[0]["type"])
 		require.NotEmpty(t, proofs[0]["proofValue"])
+		require.Equal(t, "BbsBlsSignatureProof2020", proofs[1]["type"])
+		require.NotEmpty(t, proofs[1]["proofValue"])
 	})
 
 	t.Run("no proof", func(t *testing.T) {
@@ -221,7 +243,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProof, revealDocMap, nonce,
 			pubKeyResolver, withDocLoader)
 		require.Error(t, err)
-		require.EqualError(t, err, "proof is not map or array of maps")
+		require.EqualError(t, err, "get BLS proofs: read document proofs: proof is not map or array of maps")
 		require.Empty(t, docWithSelectiveDisclosure)
 	})
 
@@ -249,7 +271,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofValue, revealDocMap, nonce,
 			pubKeyResolver, withDocLoader)
 		require.Error(t, err)
-		require.EqualError(t, err, "derive BBS+ proof: parse signature: invalid size of signature")
+		require.EqualError(t, err, "generate signature proof: derive BBS+ proof: parse signature: invalid size of signature") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
 	})
 
@@ -283,13 +305,13 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 	t.Run("failed to resolve public key", func(t *testing.T) {
 		failingPublicKeyResolver := &testKeyResolver{
-			err: errors.New("failed to resolve public key"),
+			err: errors.New("public key not found"),
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
 			failingPublicKeyResolver, withDocLoader)
 		require.Error(t, err)
-		require.EqualError(t, err, "resolve public key of BBS+ signature: failed to resolve public key")
+		require.EqualError(t, err, "generate signature proof: get public key and signature: resolve public key of BBS+ signature: public key not found") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
 	})
 }

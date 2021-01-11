@@ -609,7 +609,8 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 		panic(err)
 	}
 
-	hideProofValue(vcWithSelectiveDisclosure.Proofs[1], "dummy signature proof value")
+	// Only BBS+ related proof left.
+	hideProofValue(vcWithSelectiveDisclosure.Proofs[0], "dummy signature proof value")
 
 	vcJSONWithProof, err = json.MarshalIndent(vcWithSelectiveDisclosure, "", "\t")
 	if err != nil {
@@ -690,23 +691,14 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//	"identifier": "83627465",
 	//	"issuanceDate": "2019-12-03T12:19:52Z",
 	//	"issuer": "did:example:489398593",
-	//	"proof": [
-	//		{
-	//			"created": "2010-01-01T19:23:24Z",
-	//			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..eOf78dZntdhgtMMipTPYuylQYZLsgCDb9OIqIpbxUbMapAQ29ai0-f1VZHLe8m9DvDY3Mah8ndPI0bJ5a0j0Bg",
-	//			"proofPurpose": "assertionMethod",
-	//			"type": "Ed25519Signature2018",
-	//			"verificationMethod": "did:example:123456#key1"
-	//		},
-	//		{
-	//			"created": "2010-01-01T19:23:24Z",
-	//			"nonce": "c29tZSBub25jZQ==",
-	//			"proofPurpose": "assertionMethod",
-	//			"proofValue": "ZHVtbXkgc2lnbmF0dXJlIHByb29mIHZhbHVl",
-	//			"type": "BbsBlsSignatureProof2020",
-	//			"verificationMethod": "did:example:123456#key1"
-	//		}
-	//	],
+	//	"proof": {
+	//		"created": "2010-01-01T19:23:24Z",
+	//		"nonce": "c29tZSBub25jZQ==",
+	//		"proofPurpose": "assertionMethod",
+	//		"proofValue": "ZHVtbXkgc2lnbmF0dXJlIHByb29mIHZhbHVl",
+	//		"type": "BbsBlsSignatureProof2020",
+	//		"verificationMethod": "did:example:123456#key1"
+	//	},
 	//	"type": [
 	//		"PermanentResidentCard",
 	//		"VerifiableCredential"
