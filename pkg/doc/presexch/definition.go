@@ -262,7 +262,7 @@ func toRequirement(sr *SubmissionRequirement, descriptors []*InputDescriptor) (*
 	count := sr.Count
 
 	if sr.Rule == All {
-		sr.Count = totalCount
+		count = totalCount
 	}
 
 	return &requirement{
@@ -338,7 +338,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 
 var errNoCredentials = errors.New("credentials do not satisfy requirements")
 
-// nolint: gocyclo
+// nolint: gocyclo,funlen,gocognit
 func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[string][]*verifiable.Credential, error) {
 	result := make(map[string][]*verifiable.Credential)
 
@@ -365,6 +365,9 @@ func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[st
 
 	var nestedResult []map[string][]*verifiable.Credential
 
+	// maps credential to descriptors that satisfy requirements
+	set := map[string]map[string]string{}
+
 	for _, r := range req.Nested {
 		res, err := applyRequirement(r, creds...)
 		if errors.Is(err, errNoCredentials) {
@@ -375,19 +378,36 @@ func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[st
 			return nil, err
 		}
 
+		for desc, credentials := range res {
+			for _, cred := range credentials {
+				if _, ok := set[trimTmpID(cred.ID)]; !ok {
+					set[trimTmpID(cred.ID)] = map[string]string{}
+				}
+
+				set[trimTmpID(cred.ID)][desc] = cred.ID
+			}
+		}
+
 		if len(res) != 0 {
 			nestedResult = append(nestedResult, res)
 		}
 	}
 
-	if req.isLenApplicable(len(nestedResult)) {
-		return mergeNestedResult(nestedResult), nil
+	exclude := map[string]struct{}{}
+
+	for k := range set {
+		if !req.isLenApplicable(len(set[k])) {
+			for desc, cID := range set[k] {
+				exclude[desc+cID] = struct{}{}
+			}
+		}
 	}
 
-	return nil, errNoCredentials
+	return mergeNestedResult(nestedResult, exclude), nil
 }
 
-func mergeNestedResult(nr []map[string][]*verifiable.Credential) map[string][]*verifiable.Credential {
+func mergeNestedResult(nr []map[string][]*verifiable.Credential,
+	exclude map[string]struct{}) map[string][]*verifiable.Credential {
 	result := make(map[string][]*verifiable.Credential)
 
 	for _, res := range nr {
@@ -405,8 +425,10 @@ func mergeNestedResult(nr []map[string][]*verifiable.Credential) map[string][]*v
 
 			for _, credential := range credentials {
 				if _, ok := set[credential.ID]; !ok {
-					mergedCredentials = append(mergedCredentials, credential)
-					set[credential.ID] = struct{}{}
+					if _, exist := exclude[key+credential.ID]; !exist {
+						mergedCredentials = append(mergedCredentials, credential)
+						set[credential.ID] = struct{}{}
+					}
 				}
 			}
 
