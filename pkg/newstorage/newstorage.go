@@ -27,7 +27,8 @@ type StoreConfiguration struct {
 
 // QueryOptions represents various options for Query calls in a store.
 type QueryOptions struct {
-	pageSize int
+	// PageSize sets the page size used by the Store.Query method.
+	PageSize int
 }
 
 // QueryOption represents an option for a Query call in a store.
@@ -38,7 +39,7 @@ type QueryOption func(opts *QueryOptions)
 // the expense of higher memory usage.
 func WithPageSize(size int) QueryOption {
 	return func(opts *QueryOptions) {
-		opts.pageSize = size
+		opts.PageSize = size
 	}
 }
 
