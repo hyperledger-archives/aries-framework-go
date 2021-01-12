@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 )
 
-// Suite implements EcdsaSecp256k1Signature2019 signature suite.
+// Suite implements BbsBlsSignature2020 signature suite.
 type Suite struct {
 	suite.SignatureSuite
 	jsonldProcessor *jsonld.Processor
@@ -40,7 +40,7 @@ func New(opts ...suite.Opt) *Suite {
 }
 
 // GetCanonicalDocument will return normalized/canonical version of the document.
-// EcdsaSecp256k1Signature2019 signature suite uses RDF Dataset Normalization as canonicalization algorithm.
+// BbsBlsSignature2020 signature suite uses RDF Dataset Normalization as canonicalization algorithm.
 func (s *Suite) GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	return s.jsonldProcessor.GetCanonicalDocument(doc, opts...)
 }
@@ -50,7 +50,7 @@ func (s *Suite) GetDigest(doc []byte) []byte {
 	return doc
 }
 
-// Accept will accept only EcdsaSecp256k1Signature2019 signature type.
+// Accept will accept only BbsBlsSignature2020 signature type.
 func (s *Suite) Accept(t string) bool {
 	return t == signatureType
 }

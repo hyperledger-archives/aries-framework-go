@@ -132,9 +132,18 @@ func (v *testVerifier) Verify(_ *sigverifier.PublicKey, doc, _ []byte) error {
 
 type testKeyResolver struct {
 	publicKey *sigverifier.PublicKey
+	variants  map[string]*sigverifier.PublicKey
 	err       error
 }
 
-func (r *testKeyResolver) Resolve(string) (*sigverifier.PublicKey, error) {
+func (r *testKeyResolver) Resolve(id string) (*sigverifier.PublicKey, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+
+	if len(r.variants) > 0 {
+		return r.variants[id], nil
+	}
+
 	return r.publicKey, r.err
 }

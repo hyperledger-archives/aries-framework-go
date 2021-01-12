@@ -5,7 +5,7 @@
 module github.com/hyperledger/aries-framework-go
 
 require (
-	github.com/PaesslerAG/gval v1.0.0
+	github.com/PaesslerAG/gval v1.1.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833

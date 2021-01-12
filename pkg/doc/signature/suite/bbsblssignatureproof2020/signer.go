@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	securityContext = "https://w3id.org/security/v2"
+	securityContext     = "https://w3id.org/security/v2"
+	bbsBlsSignature2020 = "BbsBlsSignature2020"
 )
 
 // keyResolver encapsulates key resolution.
@@ -35,7 +36,7 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 	nonce []byte, resolver keyResolver, opts ...jsonld.ProcessorOpts) (map[string]interface{}, error) {
 	docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("compact doc with security schema: %w", err)
 	}
 
 	rawProofs := docCompacted["proof"]
@@ -45,24 +46,50 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 
 	delete(docCompacted, "proof")
 
-	proofInfo, err := getBlsProof(rawProofs)
+	blsSignatures, err := getBlsProofs(rawProofs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get BLS proofs: %w", err)
 	}
 
-	blsProof := proofInfo.blsProof
-
-	pubKeyBytes, signatureBytes, err := getPublicKeyAndSignature(blsProof, resolver)
-	if err != nil {
-		return nil, err
+	if len(blsSignatures) == 0 {
+		return nil, errors.New("no BbsBlsSignature2020 proof present")
 	}
 
-	verData, err := buildVerificationData(docCompacted, blsProof, revealDoc, opts...)
-	if err != nil {
-		return nil, err
+	docVerData, pErr := buildDocVerificationData(docCompacted, revealDoc, opts...)
+	if pErr != nil {
+		return nil, fmt.Errorf("build document verification data: %w", pErr)
 	}
 
+	proofs := make([]map[string]interface{}, len(blsSignatures))
+
+	for i, blsSignature := range blsSignatures {
+		verData, dErr := buildVerificationData(blsSignature, docVerData, opts...)
+		if dErr != nil {
+			return nil, fmt.Errorf("build verification data: %w", dErr)
+		}
+
+		derivedProof, dErr := generateSignatureProof(blsSignature, resolver, nonce, verData)
+		if dErr != nil {
+			return nil, fmt.Errorf("generate signature proof: %w", dErr)
+		}
+
+		proofs[i] = derivedProof
+	}
+
+	revealDocumentResult := docVerData.revealDocumentResult
+	revealDocumentResult["proof"] = proofs
+
+	return revealDocumentResult, nil
+}
+
+func generateSignatureProof(blsSignature map[string]interface{}, resolver keyResolver, nonce []byte,
+	verData *verificationData) (map[string]interface{}, error) {
 	bls := bbs12381g2pub.New()
+
+	pubKeyBytes, signatureBytes, pErr := getPublicKeyAndSignature(blsSignature, resolver)
+	if pErr != nil {
+		return nil, fmt.Errorf("get public key and signature: %w", pErr)
+	}
 
 	signatureProofBytes, err := bls.DeriveProof(verData.blsMessages, signatureBytes,
 		nonce, pubKeyBytes, verData.revealIndexes)
@@ -71,27 +98,24 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 	}
 
 	derivedProof := map[string]interface{}{
-		"type":               signatureType,
+		"type":               signatureProofType,
 		"nonce":              base64.StdEncoding.EncodeToString(nonce),
-		"verificationMethod": blsProof["verificationMethod"],
-		"proofPurpose":       blsProof["proofPurpose"],
-		"created":            blsProof["created"],
+		"verificationMethod": blsSignature["verificationMethod"],
+		"proofPurpose":       blsSignature["proofPurpose"],
+		"created":            blsSignature["created"],
 		"proofValue":         base64.StdEncoding.EncodeToString(signatureProofBytes),
 	}
 
-	allProofs := insertProof(proofInfo.allOtherProofs, proofInfo.blsProofInd, derivedProof)
-	verData.revealDocumentResult["proof"] = allProofs
-
-	return verData.revealDocumentResult, nil
+	return derivedProof, nil
 }
 
-func getPublicKeyAndSignature(blsProofMap map[string]interface{}, resolver keyResolver) ([]byte, []byte, error) {
-	blsProof, err := proof.NewProof(blsProofMap)
+func getPublicKeyAndSignature(blsSignatureMap map[string]interface{}, resolver keyResolver) ([]byte, []byte, error) {
+	blsSignature, err := proof.NewProof(blsSignatureMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse BBS+ signature: %w", err)
 	}
 
-	keyID, err := blsProof.PublicKeyID()
+	keyID, err := blsSignature.PublicKeyID()
 	if err != nil {
 		return nil, nil, fmt.Errorf("get public KID from BBS+ signature: %w", err)
 	}
@@ -101,67 +125,76 @@ func getPublicKeyAndSignature(blsProofMap map[string]interface{}, resolver keyRe
 		return nil, nil, fmt.Errorf("resolve public key of BBS+ signature: %w", err)
 	}
 
-	return publicKey.Value, blsProof.ProofValue, nil
+	return publicKey.Value, blsSignature.ProofValue, nil
 }
 
-type blsProofInfo struct {
-	blsProof       map[string]interface{}
-	allOtherProofs []map[string]interface{}
-	blsProofInd    int
-}
-
-func getBlsProof(rawProofs interface{}) (*blsProofInfo, error) {
+func getBlsProofs(rawProofs interface{}) ([]map[string]interface{}, error) {
 	allProofs, err := getProofs(rawProofs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read document proofs: %w", err)
 	}
 
-	blsProofInd := -1
+	blsProofs := make([]map[string]interface{}, 0)
 
-	var blsProof map[string]interface{}
-
-	for i, proof := range allProofs {
-		if proof["type"] == "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020" {
-			blsProofInd = i
-			allProofs = deleteProof(allProofs, i)
-			blsProof = proof
-			blsProof["@context"] = securityContext
+	for _, p := range allProofs {
+		proofType, ok := p["type"].(string)
+		if ok && strings.HasSuffix(proofType, bbsBlsSignature2020) {
+			p["@context"] = securityContext
+			blsProofs = append(blsProofs, p)
 		}
 	}
 
-	if blsProofInd == -1 {
-		return nil, errors.New("no BbsBlsSignature2020 proof present")
-	}
+	return blsProofs, nil
+}
 
-	return &blsProofInfo{
-		blsProof:       blsProof,
-		allOtherProofs: allProofs,
-		blsProofInd:    blsProofInd,
-	}, nil
+type docVerificationData struct {
+	revealIndexes        []int
+	revealDocumentResult map[string]interface{}
+	documentStatements   []string
 }
 
 type verificationData struct {
-	blsMessages          [][]byte
-	revealIndexes        []int
-	revealDocumentResult map[string]interface{}
+	blsMessages   [][]byte
+	revealIndexes []int
 }
 
-func buildVerificationData(docCompacted, blsProof, revealDoc map[string]interface{},
+func buildVerificationData(blsProof map[string]interface{}, docVerData *docVerificationData,
 	opts ...jsonld.ProcessorOpts) (*verificationData, error) {
-	documentStatements, err := createVerifyDocumentData(docCompacted, opts...)
-	if err != nil {
-		return nil, err
-	}
-
 	proofStatements, err := createVerifyProofData(blsProof, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create verify proof data: %w", err)
+	}
+
+	numberOfProofStatements := len(proofStatements)
+	revealIndexes := make([]int, numberOfProofStatements+len(docVerData.documentStatements))
+
+	for i := 0; i < numberOfProofStatements; i++ {
+		revealIndexes[i] = i
+	}
+
+	for i := range docVerData.revealIndexes {
+		revealIndexes[i+numberOfProofStatements] = numberOfProofStatements + docVerData.revealIndexes[i]
+	}
+
+	allInputStatements := append(proofStatements, docVerData.documentStatements...)
+	blsMessages := toArrayOfBytes(allInputStatements)
+
+	return &verificationData{
+		blsMessages:   blsMessages,
+		revealIndexes: revealIndexes,
+	}, nil
+}
+
+func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
+	opts ...jsonld.ProcessorOpts) (*docVerificationData, error) {
+	documentStatements, err := createVerifyDocumentData(docCompacted, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("create verify document data: %w", err)
 	}
 
 	transformedInputDocumentStatements := make([]string, len(documentStatements))
 
 	for i, element := range documentStatements {
-		// todo this can be simplified by just check of prefix _:c14n
 		nodeIdentifier := strings.Split(element, " ")[0]
 		if strings.HasPrefix(nodeIdentifier, "_:c14n") {
 			transformedInputDocumentStatements[i] = "urn:bnid:" + nodeIdentifier
@@ -173,20 +206,15 @@ func buildVerificationData(docCompacted, blsProof, revealDoc map[string]interfac
 
 	revealDocumentResult, err := jsonld.Default().Frame(documentStatements, revealDoc, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("frame doc with reveal doc: %w", err)
 	}
 
 	revealDocumentStatements, err := createVerifyDocumentData(revealDocumentResult, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create verify reveal document data: %w", err)
 	}
 
-	numberOfProofStatements := len(proofStatements)
-	revealIndexes := make([]int, numberOfProofStatements+len(revealDocumentStatements))
-
-	for i := 0; i < numberOfProofStatements; i++ {
-		revealIndexes[i] = i
-	}
+	revealIndexes := make([]int, len(revealDocumentStatements))
 
 	transformedInputDocumentStatementsMap := make(map[string]int)
 	for i, statement := range transformedInputDocumentStatements {
@@ -196,14 +224,11 @@ func buildVerificationData(docCompacted, blsProof, revealDoc map[string]interfac
 	for i := range revealDocumentStatements {
 		statement := revealDocumentStatements[i]
 		statementInd := transformedInputDocumentStatementsMap[statement]
-		revealIndexes[i+numberOfProofStatements] = numberOfProofStatements + statementInd
+		revealIndexes[i] = statementInd
 	}
 
-	allInputStatements := append(proofStatements, documentStatements...)
-	blsMessages := toArrayOfBytes(allInputStatements)
-
-	return &verificationData{
-		blsMessages:          blsMessages,
+	return &docVerificationData{
+		documentStatements:   documentStatements,
 		revealIndexes:        revealIndexes,
 		revealDocumentResult: revealDocumentResult,
 	}, nil
@@ -264,9 +289,15 @@ func splitMessageIntoLines(msg string) []string {
 }
 
 func createVerifyProofData(proofMap map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]string, error) {
-	delete(proofMap, "proofValue")
+	proofMapCopy := make(map[string]interface{}, len(proofMap)-1)
 
-	proofBytes, err := jsonld.Default().GetCanonicalDocument(proofMap, opts...)
+	for k, v := range proofMap {
+		if k != "proofValue" {
+			proofMapCopy[k] = v
+		}
+	}
+
+	proofBytes, err := jsonld.Default().GetCanonicalDocument(proofMapCopy, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -282,19 +313,4 @@ func toArrayOfBytes(messages []string) [][]byte {
 	}
 
 	return res
-}
-
-func insertProof(proofs []map[string]interface{}, index int, proofMap map[string]interface{}) []map[string]interface{} {
-	if len(proofs) == index {
-		return append(proofs, proofMap)
-	}
-
-	proofs = append(proofs[:index+1], proofs[index:]...) // index < len(a)
-	proofs[index] = proofMap
-
-	return proofs
-}
-
-func deleteProof(proofs []map[string]interface{}, index int) []map[string]interface{} {
-	return append(proofs[:index], proofs[index+1:]...)
 }

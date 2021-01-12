@@ -18,6 +18,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 //nolint:lll
@@ -72,7 +74,12 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	pubKeyBytes, err := pubKey.Marshal()
 	r.NoError(err)
 
-	signedVC := signVCWithBBS(r, privKey, pubKeyBytes, []byte(vcJSON))
+	vc, err := parseTestCredential([]byte(vcJSON))
+	r.NoError(err)
+	r.Len(vc.Proofs, 0)
+
+	signVCWithBBS(r, privKey, pubKeyBytes, vc)
+	signVCWithEd25519(r, vc)
 
 	revealJSON := `
 {
@@ -104,9 +111,10 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	vcOptions := []CredentialOpt{WithJSONLDDocumentLoader(testDocumentLoader), WithPublicKeyFetcher(
 		SingleKey(pubKeyBytes, "Bls12381G2Key2020"))}
 
-	vcWithSelectiveDisclosure, err := signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 	r.NoError(err)
 	r.NotNil(vcWithSelectiveDisclosure)
+	r.Len(vcWithSelectiveDisclosure.Proofs, 1)
 
 	vcSelectiveDisclosureBytes, err := json.Marshal(vcWithSelectiveDisclosure)
 	r.NoError(err)
@@ -135,7 +143,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		anotherPubKeyBytes, err = anotherPubKey.Marshal()
 		r.NoError(err)
 
-		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
 			WithJSONLDDocumentLoader(testDocumentLoader),
 			WithPublicKeyFetcher(SingleKey(anotherPubKeyBytes, "Bls12381G2Key2020")))
 		r.Error(err)
@@ -144,7 +152,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	})
 
 	t.Run("public key fetcher is not passed", func(t *testing.T) {
-		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce)
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce)
 		r.Error(err)
 		r.EqualError(err, "public key fetcher is not defined")
 		r.Empty(vcWithSelectiveDisclosure)
@@ -175,22 +183,22 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		revealDoc, err = toMap(revealJSONWithMissingIssuer)
 		r.NoError(err)
 
-		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 		r.Error(err)
 		r.Contains(err.Error(), "issuer is required")
 		r.Nil(vcWithSelectiveDisclosure)
 	})
 
 	t.Run("VC with no embedded proof", func(t *testing.T) {
-		signedVC.Proofs = nil
-		vcWithSelectiveDisclosure, err = signedVC.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		vc.Proofs = nil
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 		r.Error(err)
 		r.EqualError(err, "expected at least one proof present")
 		r.Empty(vcWithSelectiveDisclosure)
 	})
 }
 
-func signVCWithBBS(r *require.Assertions, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes, vcBytes []byte) *Credential {
+func signVCWithBBS(r *require.Assertions, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes []byte, vc *Credential) {
 	bbsSigner, err := newBBSSigner(privKey)
 	r.NoError(err)
 
@@ -205,10 +213,6 @@ func signVCWithBBS(r *require.Assertions, privKey *bbs12381g2pub.PrivateKey, pub
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, err := parseTestCredential(vcBytes)
-	r.NoError(err)
-	r.Len(vc.Proofs, 0)
-
 	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
@@ -221,6 +225,24 @@ func signVCWithBBS(r *require.Assertions, privKey *bbs12381g2pub.PrivateKey, pub
 		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
 	)
 	r.NoError(err)
+	r.NotNil(vcVerified)
+}
 
-	return vcVerified
+func signVCWithEd25519(r *require.Assertions, vc *Credential) {
+	signer, err := newCryptoSigner(kms.ED25519Type)
+	r.NoError(err)
+
+	sigSuite := ed25519signature2018.New(
+		suite.WithSigner(signer),
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	r.NoError(err)
 }

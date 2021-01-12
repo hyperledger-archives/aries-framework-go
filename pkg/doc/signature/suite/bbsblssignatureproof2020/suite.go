@@ -15,19 +15,22 @@ package bbsblssignatureproof2020
 // It uses BLS12-381 pairing-friendly curve (https://tools.ietf.org/html/draft-irtf-cfrg-pairing-friendly-curves-03).
 
 import (
+	"strings"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 )
 
-// Suite implements EcdsaSecp256k1Signature2019 signature suite.
+// Suite implements BbsBlsSignatureProof2020 signature suite.
 type Suite struct {
 	suite.SignatureSuite
 	jsonldProcessor *jsonld.Processor
 }
 
 const (
-	signatureType = "BbsBlsSignatureProof2020"
-	rdfDataSetAlg = "URDNA2015"
+	signatureType      = "BbsBlsSignature2020"
+	signatureProofType = "BbsBlsSignatureProof2020"
+	rdfDataSetAlg      = "URDNA2015"
 )
 
 // New an instance of Linked Data Signatures for the suite.
@@ -40,11 +43,14 @@ func New(opts ...suite.Opt) *Suite {
 }
 
 // GetCanonicalDocument will return normalized/canonical version of the document.
-// EcdsaSecp256k1Signature2019 signature suite uses RDF Dataset Normalization as canonicalization algorithm.
+// BbsBlsSignatureProof2020 signature suite uses RDF Dataset Normalization as canonicalization algorithm.
 func (s *Suite) GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	if v, ok := doc["type"]; ok {
-		if v == "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignatureProof2020" {
-			doc["type"] = "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020"
+		docType, ok := v.(string)
+
+		if ok && strings.HasSuffix(docType, signatureProofType) {
+			docType = strings.Replace(docType, signatureProofType, signatureType, 1)
+			doc["type"] = docType
 		}
 	}
 
@@ -56,7 +62,7 @@ func (s *Suite) GetDigest(doc []byte) []byte {
 	return doc
 }
 
-// Accept will accept only EcdsaSecp256k1Signature2019 signature type.
+// Accept will accept only BbsBlsSignatureProof2020 signature type.
 func (s *Suite) Accept(t string) bool {
-	return t == signatureType
+	return t == signatureProofType
 }
