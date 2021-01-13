@@ -270,7 +270,7 @@ func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
 		return nil, fmt.Errorf("unwrapKey: %w", err)
 	}
 
-	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
+	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/2445
 	recPrivKey := hybridECPrivToECDSAKey(recipientPrivateKey)
 
 	epkCurve, err := t.kw.getCurve(recWK.EPK.Curve)

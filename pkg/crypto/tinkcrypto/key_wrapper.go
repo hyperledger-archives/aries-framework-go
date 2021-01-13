@@ -84,7 +84,7 @@ func (t *Crypto) deriveKEKAndWrap(cek, apu, apv []byte, senderKH interface{}, ep
 	recPubKey *ecdsa.PublicKey, recKID string) (*cryptoapi.RecipientWrappedKey, error) {
 	var kek []byte
 
-	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
+	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/2445
 	keyType := ecdhpb.KeyType_EC.String()
 	wrappingAlg := ECDHESA256KWAlg
 
