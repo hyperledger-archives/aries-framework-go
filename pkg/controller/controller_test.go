@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package controller
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 )
 
@@ -35,7 +37,8 @@ func TestGetCommandHandlers(t *testing.T) {
 
 func TestGetCommandHandlers_Success(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
+			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -51,7 +54,8 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 	})
 
 	t.Run("With options", func(t *testing.T) {
-		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
+			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -71,7 +75,8 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 
 func TestGetRESTHandlers_Success(t *testing.T) {
 	t.Run("", func(t *testing.T) {
-		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
+			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
@@ -86,7 +91,8 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 		require.NotEmpty(t, handlers)
 	})
 	t.Run("", func(t *testing.T) {
-		framework, err := aries.New(defaults.WithInboundHTTPAddr(":26508", "", "", ""))
+		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
+			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
 		require.NotNil(t, framework)
 
