@@ -30,12 +30,14 @@ import (
 // key (aka PublicKeyToHandle to be used as a valid Tink key)
 
 const (
-	ecdhAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAesAeadPublicKey"
+	ecdhAESPublicKeyTypeURL     = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhNistPKwAesAeadPublicKey"
+	ecdhXChachaPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhX25519KwAesAeadPublicKey" // nolint:lll
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key. The raw bytes are a marshaled
 // composite.VerificationMethod type.
-// The keyset must have a keyURL value equal to `ecdhAESPublicKeyTypeURL` constant of ecdh package.
+// The keyset must have a keyURL value equal to `ecdhAESPublicKeyTypeURL` or `ecdhXChachaPublicKeyTypeURL` constant of
+// ecdh package.
 // Note: This writer should be used only for ECDH public key exports. Other export of public keys should be
 //       called via localkms package.
 type PubKeyWriter struct {
@@ -115,6 +117,11 @@ func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, error) 
 		if err != nil {
 			return nil, err
 		}
+	case ecdhXChachaPublicKeyTypeURL:
+		cKey, err = newECDHXChachaKey(keyData.Value)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("can't export key with keyURL:%s", keyData.TypeUrl)
 	}
@@ -123,6 +130,7 @@ func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, error) 
 }
 
 func buildKey(c compositeKeyGetter) (*cryptoapi.PublicKey, error) {
+	// TODO build XChacha key differently
 	curveName := c.curveName()
 	keyTypeName := c.keyType()
 
@@ -246,7 +254,7 @@ func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey) (*keyset.Handle, error
 		Params: &ecdhpb.EcdhAeadParams{
 			KwParams: &ecdhpb.EcdhKwParams{
 				CurveType: cp,
-				KeyType:   ecdhpb.KeyType_EC, // for now, TODO create getTypeProto(pubKey.Type) function
+				KeyType:   ecdhpb.KeyType_EC,
 			},
 			EncParams: &ecdhpb.EcdhAeadEncParams{
 				AeadEnc: aead.AES256GCMKeyTemplate(),
@@ -307,4 +315,9 @@ func newKeySet(tURL string, marshalledKey []byte, keyMaterialType tinkpb.KeyData
 		},
 		PrimaryKeyId: 1,
 	}
+}
+
+func newECDHXChachaKey(mKey []byte) (compositeKeyGetter, error) {
+	// TODO implement
+	return nil, nil
 }

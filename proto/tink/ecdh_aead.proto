@@ -31,19 +31,19 @@ enum KeyType {
 // Parameters of KW (Key Wrapping) for storage only as KW is done outside the Tink key primitive.
 message EcdhKwParams {
   // Required.
-  EllipticCurveType curve_type = 1;
+  EllipticCurveType curve_type = 1; // required for NIST P Curved keys, not needed or X25519 keys.
 
   // Required.
-  KeyType key_type = 2;
+  KeyType key_type = 2; // EC for NIST P Curved keys, OKP for X25519 keys
 }
 
 // Parameters of AEAD Content encryption.
 message EcdhAeadEncParams {
   // Required.
-  KeyTemplate aead_enc = 1; // Contains e.g. AesGcmKeyFormat.
+  KeyTemplate aead_enc = 1; // Contains e.g. AesGcmKeyFormat or XChaCha20Poly1305KeyFormat.
 
   // Required for primitive execution, not storage.
-  bytes CEK = 2; // Contains cek used for AES GCM encryption
+  bytes CEK = 2; // Contains cek used for AES GCM/XChacha20Poly1305 encryption.
 }
 
 message EcdhAeadParams {
@@ -61,7 +61,7 @@ message EcdhAeadParams {
 }
 
 // EcdhAeadPublicKey represents ECDHEncrypt primitive.
-// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAeadPublicKey
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh[...]AeadPublicKey
 message EcdhAeadPublicKey {
   // Required.
   uint32 version = 1;
@@ -73,7 +73,8 @@ message EcdhAeadPublicKey {
   string KID = 3;
 
   // Affine coordinates of the public key in bigendian representation.
-  // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
+  // The public key is a point (x, y) on the curve defined by params.kw_params.curve for NIST P Curved keys.
+  // For X25519 keys, x is the raw key value (y is not used).
   // Required.
   bytes x = 4;
 
@@ -82,7 +83,7 @@ message EcdhAeadPublicKey {
 }
 
 // EcdhAeadPrivateKey represents ECDHDecrypt primitive.
-// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhAeadPrivateKey
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh[...]AeadPrivateKey
 message EcdhAeadPrivateKey {
   // Required.
   uint32 version = 1;

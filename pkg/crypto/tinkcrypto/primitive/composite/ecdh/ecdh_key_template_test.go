@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package ecdh
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/tink/go/keyset"
@@ -17,24 +18,40 @@ import (
 
 func TestECDHESKeyTemplateSuccess(t *testing.T) {
 	flagTests := []struct {
-		tcName    string
-		curveType string
-		tmplFunc  func() *tinkpb.KeyTemplate
+		tcName   string
+		tmplFunc func() *tinkpb.KeyTemplate
 	}{
 		{
-			tcName:    "create ECDH AES-GCM 256 key templates test",
-			curveType: "P-256",
-			tmplFunc:  ECDH256KWAES256GCMKeyTemplate,
+			tcName:   "create ECDH NIST P-256 KW with AES256-GCM key templates test",
+			tmplFunc: ECDH256KWAES256GCMKeyTemplate,
 		},
 		{
-			tcName:    "create ECDH AES-GCM 384 key templates test",
-			curveType: "P-384",
-			tmplFunc:  ECDH384KWAES256GCMKeyTemplate,
+			tcName:   "create ECDH NIST P-384 KW AES256-GCM key templates test",
+			tmplFunc: ECDH384KWAES256GCMKeyTemplate,
 		},
 		{
-			tcName:    "create ECDH AES-GCM 521 key templates test",
-			curveType: "P-521",
-			tmplFunc:  ECDH521KWAES256GCMKeyTemplate,
+			tcName:   "create ECDH NIST P-521 KW AES256-GCM key templates test",
+			tmplFunc: ECDH521KWAES256GCMKeyTemplate,
+		},
+		{
+			tcName:   "creat ECDH X25519 KW with XChacha20Poly1305 key templates test",
+			tmplFunc: X25519XChachaECDHKeyTemplate,
+		},
+		{
+			tcName:   "create ECDH NIST P-256 KW with XChacha20Poly1305 key templates test",
+			tmplFunc: ECDH256KWXChachaKeyTemplate,
+		},
+		{
+			tcName:   "create ECDH NIST P-384 KW XChacha20Poly1305 key templates test",
+			tmplFunc: ECDH384KWXChachaKeyTemplate,
+		},
+		{
+			tcName:   "create ECDH NIST P-521 KW key XChacha20Poly1305 templates test",
+			tmplFunc: ECDH521KWXChachaKeyTemplate,
+		},
+		{
+			tcName:   "creat ECDH X25519 KW with AES256-GCM key templates test",
+			tmplFunc: X25519AES256GCMECDHKeyTemplate,
 		},
 	}
 
@@ -63,7 +80,11 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 			require.Empty(t, ct)
 
 			// now try to create a new KH for primitive execution and try to encrypt
-			kt = AES256GCMKeyTemplateWithCEK(cek)
+			if strings.Contains(tc.tcName, "XChacha") {
+				kt = XChachaKeyTemplateWithCEK(cek)
+			} else {
+				kt = AES256GCMKeyTemplateWithCEK(cek)
+			}
 
 			kh, err = keyset.NewHandle(kt)
 			require.NoError(t, err)
