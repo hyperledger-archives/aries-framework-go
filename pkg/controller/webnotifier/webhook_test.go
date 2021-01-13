@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
 
@@ -205,7 +206,7 @@ func TestNotifyMultipleErrors(t *testing.T) {
 
 func TestWebhookNotificationClient500Response(t *testing.T) {
 	clientHost := randomURL()
-	clientHandlerPattern := "/webhookListen6"
+	clientHandlerPattern := "/" + uuid.New().String()
 	srv := &http.Server{Addr: clientHost, Handler: http.DefaultServeMux}
 
 	http.HandleFunc(clientHandlerPattern, func(resp http.ResponseWriter, req *http.Request) {
