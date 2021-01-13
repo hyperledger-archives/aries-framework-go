@@ -40,6 +40,7 @@ type SDKSteps struct {
 	bddContext      *context.BDDContext
 	didExchangeSDKS *didexchangebdd.SDKSteps
 	outofbandSDKS   *outofbandbdd.SDKSteps
+	invitationID    string
 	clients         map[string]*introduce.Client
 	actions         map[string]chan service.DIDCommAction
 	events          map[string]chan service.StateMsg
@@ -89,7 +90,30 @@ func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.didExchangeSDKS.WaitForPostEvent(agent2+","+agent1, "completed")
+	err := a.didExchangeSDKS.WaitForPostEvent(agent2+","+agent1, "completed")
+	if err != nil {
+		return err
+	}
+
+	agent1connections, err := a.bddContext.DIDExchangeClients[agent1].QueryConnections(&didexchange.QueryConnectionsParams{
+		ParentThreadID: a.invitationID,
+	})
+	if err != nil {
+		return fmt.Errorf("%s connections: %w", agent1, err)
+	}
+
+	agent2connections, err := a.bddContext.DIDExchangeClients[agent2].QueryConnections(&didexchange.QueryConnectionsParams{
+		InvitationID: a.invitationID,
+	})
+	if err != nil {
+		return fmt.Errorf("%s connections: %w", agent2, err)
+	}
+
+	if len(agent1connections) == 0 || len(agent2connections) == 0 {
+		return errors.New("connection was not established")
+	}
+
+	return err
 }
 
 func (a *SDKSteps) createConnections(introducees, introducer string) error {
@@ -209,6 +233,9 @@ func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
 			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
 		}
 	}
+
+	// removes invitationID when the scenario is done
+	a.invitationID = ""
 
 	return nil
 }
@@ -551,6 +578,9 @@ func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outo
 	if err != nil {
 		return nil, err
 	}
+
+	// sets invitationID for the running scenario
+	a.invitationID = r.ID
 
 	return r, nil
 }

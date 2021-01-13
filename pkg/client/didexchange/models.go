@@ -26,6 +26,12 @@ type QueryConnectionsParams struct {
 	// Invitation key
 	InvitationKey string `json:"invitation_key,omitempty"`
 
+	// Invitation ID
+	InvitationID string `json:"invitation_id,omitempty"`
+
+	// Parent threadID
+	ParentThreadID string `json:"parent_thread_id,omitempty"`
+
 	// MyDID is DID of the agent
 	MyDID string `json:"my_did,omitempty"`
 

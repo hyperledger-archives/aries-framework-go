@@ -287,7 +287,7 @@ func (c *Client) CreateImplicitInvitationWithDID(inviter, invitee *DIDInfo) (str
 }
 
 // QueryConnections queries connections matching given criteria(parameters).
-func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) { //nolint: gocyclo
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 - query all connections from all criteria and
 	//  also results needs to be paged.
 	records, err := c.connectionStore.QueryConnectionRecords()
@@ -299,6 +299,14 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connectio
 
 	for _, record := range records {
 		if request.State != "" && request.State != record.State {
+			continue
+		}
+
+		if request.InvitationID != "" && request.InvitationID != record.InvitationID {
+			continue
+		}
+
+		if request.ParentThreadID != "" && request.ParentThreadID != record.ParentThreadID {
 			continue
 		}
 

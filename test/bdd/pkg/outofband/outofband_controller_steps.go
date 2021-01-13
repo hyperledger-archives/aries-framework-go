@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -172,16 +173,63 @@ func (s *ControllerSteps) newInvitation(agentID string) (*outofband.Invitation, 
 	return res.Invitation, util.SendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
 }
 
+// QueryOpt describes query option.
+type QueryOpt func(*queryArgs)
+
+// WithInvitationID allows providing an invitation ID.
+func WithInvitationID(id string) QueryOpt {
+	return func(args *queryArgs) {
+		args.InvitationID = id
+	}
+}
+
+// WithParentThreadID allows providing a parent threadID.
+func WithParentThreadID(id string) QueryOpt {
+	return func(args *queryArgs) {
+		args.ParentThreadID = id
+	}
+}
+
+type queryArgs struct {
+	State          string
+	InvitationID   string
+	ParentThreadID string
+}
+
+func (q *queryArgs) buildPath() string {
+	params := url.Values{}
+
+	if q.State != "" {
+		params.Add("state", q.State)
+	}
+
+	if q.InvitationID != "" {
+		params.Add("invitation_id", q.InvitationID)
+	}
+
+	if q.ParentThreadID != "" {
+		params.Add("parent_thread_id", q.ParentThreadID)
+	}
+
+	return "?" + params.Encode()
+}
+
 // GetConnection returns a connection between agents.
-func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchange.Connection, error) {
-	controllerURL, ok := s.bddContext.GetControllerURL(receiverID)
+func (s *ControllerSteps) GetConnection(receiver, sender string, opts ...QueryOpt) (*didexchange.Connection, error) {
+	args := &queryArgs{State: stateCompleted}
+
+	for _, fn := range opts {
+		fn(args)
+	}
+
+	controllerURL, ok := s.bddContext.GetControllerURL(receiver)
 	if !ok {
-		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", receiverID)
+		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", receiver)
 	}
 
 	var response didexcmd.QueryConnectionsResponse
 
-	err := util.SendHTTP(http.MethodGet, controllerURL+connections, nil, &response)
+	err := util.SendHTTP(http.MethodGet, controllerURL+connections+args.buildPath(), nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query connections: %w", err)
 	}
@@ -191,7 +239,7 @@ func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchan
 			continue
 		}
 
-		if c.TheirLabel == senderID {
+		if c.TheirLabel == sender {
 			return c, nil
 		}
 	}

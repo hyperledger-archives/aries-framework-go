@@ -903,7 +903,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 	})
 }
 
-func TestClient_QueryConnectionsByParams(t *testing.T) {
+func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 	t.Run("test get all connections", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
@@ -977,10 +977,12 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			}
 
 			val, e := json.Marshal(&connection.Record{
-				ConnectionID: fmt.Sprint(i),
-				State:        queryState,
-				MyDID:        myDID + strconv.Itoa(i),
-				TheirDID:     theirDID + strconv.Itoa(i),
+				ConnectionID:   fmt.Sprint(i),
+				InvitationID:   fmt.Sprintf("inv-%d", i),
+				ParentThreadID: fmt.Sprintf("ptid-%d", i),
+				State:          queryState,
+				MyDID:          myDID + strconv.Itoa(i),
+				TheirDID:       theirDID + strconv.Itoa(i),
 			})
 			require.NoError(t, e)
 			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
@@ -1030,6 +1032,28 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			require.NotEmpty(t, result.ConnectionID)
 			require.Equal(t, result.MyDID, params.MyDID)
 			require.Equal(t, result.TheirDID, params.TheirDID)
+		}
+
+		params = &QueryConnectionsParams{
+			InvitationID: fmt.Sprintf("inv-%d", count-1),
+		}
+		results, err = c.QueryConnections(params)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.InvitationID, params.InvitationID)
+		}
+
+		params = &QueryConnectionsParams{
+			ParentThreadID: fmt.Sprintf("ptid-%d", count-1),
+		}
+		results, err = c.QueryConnections(params)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.ParentThreadID, params.ParentThreadID)
 		}
 	})
 

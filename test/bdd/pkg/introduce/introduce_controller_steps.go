@@ -37,8 +37,9 @@ const (
 
 // ControllerSteps is steps for introduce with controller.
 type ControllerSteps struct {
-	bddContext *context.BDDContext
-	outofband  *bddoutofband.ControllerSteps
+	bddContext   *context.BDDContext
+	outofband    *bddoutofband.ControllerSteps
+	invitationID string
 }
 
 // NewIntroduceControllerSteps creates steps for introduce with controller.
@@ -141,6 +142,9 @@ func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID s
 		return err
 	}
 
+	// sets invitationID for the running scenario
+	s.invitationID = req.ID
+
 	payload, err := json.Marshal(introduce.AcceptProposalWithOOBRequestArgs{
 		Request: req,
 	})
@@ -215,6 +219,9 @@ func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
 		return err
 	}
 
+	// sets invitationID for the running scenario
+	s.invitationID = req.ID
+
 	msg, err := json.Marshal(&introduce.AcceptRequestWithPublicOOBRequestArgs{
 		Request: req,
 		To:      &client.To{Name: req.Label},
@@ -271,6 +278,9 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 	if err != nil {
 		return fmt.Errorf("create OOBRequest for agent %s: %w", introducee2, err)
 	}
+
+	// sets invitationID for the running scenario
+	s.invitationID = oobReq.ID
 
 	controllerURL, ok := s.bddContext.GetControllerURL(introducer)
 	if !ok {
@@ -373,5 +383,12 @@ func (s *ControllerSteps) connectionEstablished(agent1, agent2 string) error {
 		return fmt.Errorf("approve request: %w", err)
 	}
 
-	return s.outofband.CheckConnection(agent1, agent2)
+	_, err := s.outofband.GetConnection(agent1, agent2, bddoutofband.WithParentThreadID(s.invitationID))
+	if err != nil {
+		return err
+	}
+
+	_, err = s.outofband.GetConnection(agent2, agent1, bddoutofband.WithInvitationID(s.invitationID))
+
+	return err
 }
