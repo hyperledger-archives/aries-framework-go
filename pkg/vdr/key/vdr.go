@@ -8,7 +8,7 @@ package key
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 )
 
 const didMethod = "key"
@@ -28,7 +28,7 @@ func (v *VDR) Accept(method string) bool {
 }
 
 // Store saves a DID Document along with user key/signature.
-func (v *VDR) Store(doc *did.Doc, by *[]vdr.ModifiedBy) error {
+func (v *VDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
 	return nil
 }
 

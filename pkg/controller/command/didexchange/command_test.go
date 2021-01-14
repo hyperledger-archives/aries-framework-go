@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -972,7 +973,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod,
-		vdr.WithServices(did.Service{
+		create.WithService(&did.Service{
 			Type:            vdr.DIDCommServiceType,
 			ServiceEndpoint: "http://agent.example.com/didcomm",
 		}),

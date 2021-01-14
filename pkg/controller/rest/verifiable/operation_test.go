@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -455,7 +455,7 @@ func TestGeneratePresentation(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -649,7 +649,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -890,7 +890,7 @@ func TestSignCredential(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}

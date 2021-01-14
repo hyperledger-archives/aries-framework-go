@@ -7,7 +7,8 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	did "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	create "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	resolve "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	reflect "reflect"
 )
 
@@ -49,7 +50,7 @@ func (mr *MockRegistryMockRecorder) Close() *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockRegistry) Create(arg0 string, arg1 ...vdr.DocOpts) (*did.Doc, error) {
+func (m *MockRegistry) Create(arg0 string, arg1 ...create.Option) (*did.Doc, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
@@ -69,7 +70,7 @@ func (mr *MockRegistryMockRecorder) Create(arg0 interface{}, arg1 ...interface{}
 }
 
 // Resolve mocks base method
-func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdr.ResolveOpts) (*did.Doc, error) {
+func (m *MockRegistry) Resolve(arg0 string, arg1 ...resolve.Option) (*did.Doc, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

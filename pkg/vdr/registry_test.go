@@ -14,6 +14,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -52,56 +56,48 @@ func TestRegistry_Close(t *testing.T) {
 func TestRegistry_Resolve(t *testing.T) {
 	t.Run("test invalid did input", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{})
-		doc, err := registry.Resolve("id")
+		d, err := registry.Resolve("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "wrong format did input")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 
 	t.Run("test did method not supported", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
-		doc, err := registry.Resolve("1:id:123")
+		d, err := registry.Resolve("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did method id not supported for vdr")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 
 	t.Run("test DID not found", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOpts) (*did.Doc, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
 				return nil, vdrapi.ErrNotFound
 			},
 		}))
-		doc, err := registry.Resolve("1:id:123")
+		d, err := registry.Resolve("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), vdrapi.ErrNotFound.Error())
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 
 	t.Run("test error from resolve did", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOpts) (*did.Doc, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
 				return nil, fmt.Errorf("read error")
 			},
 		}))
-		doc, err := registry.Resolve("1:id:123")
+		d, err := registry.Resolve("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "read error")
-		require.Nil(t, doc)
-	})
-
-	t.Run("test ResultType", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: true}))
-		doc, err := registry.Resolve("1:id:123", vdrapi.WithResultType(vdrapi.ResolutionResult))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "result type 'resolution-result' not supported")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 
 	t.Run("test opts passed", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOpts) (*did.Doc, error) {
-				resolveOpts := &vdrapi.ResolveDIDOpts{}
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
+				resolveOpts := &resolve.Opts{}
 				// Apply options
 				for _, opt := range opts {
 					opt(resolveOpts)
@@ -110,7 +106,7 @@ func TestRegistry_Resolve(t *testing.T) {
 				return nil, nil
 			},
 		}))
-		_, err := registry.Resolve("1:id:123", vdrapi.WithVersionID("1"))
+		_, err := registry.Resolve("1:id:123", resolve.WithVersionID("1"))
 		require.NoError(t, err)
 	})
 
@@ -144,22 +140,13 @@ func TestRegistry_Store(t *testing.T) {
 }
 
 func TestRegistry_Create(t *testing.T) {
-	t.Run("test error from create key", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("create key error")},
-		})
-		doc, err := registry.Create("1:id:123")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create key error")
-		require.Nil(t, doc)
-	})
 	t.Run("test did method not supported", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
-		doc, err := registry.Create("id")
+		d, err := registry.Create("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did method id not supported for vdr")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 	t.Run("test opts is passed", func(t *testing.T) {
 		kh, err := mockkms.CreateMockAESGCMKeyHandle()
@@ -171,67 +158,67 @@ func TestRegistry_Create(t *testing.T) {
 		}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (doc *did.Doc, e error) {
-					docOpts := &vdrapi.CreateDIDOpts{}
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
+					docOpts := &create.Opts{}
 					// Apply options
 					for _, opt := range opts {
 						opt(docOpts)
 					}
-					require.Equal(t, "key1", docOpts.KeyType)
+					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
 					return &did.Doc{ID: "1:id:123"}, nil
 				},
 			}))
-		_, err = registry.Create("id", vdrapi.WithKeyType("key1"))
+		_, err = registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
 		require.NoError(t, err)
 	})
 	t.Run("with KMS opts - test opts is passed ", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (doc *did.Doc, e error) {
-					docOpts := &vdrapi.CreateDIDOpts{}
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
+					docOpts := &create.Opts{}
 					// Apply options
 					for _, opt := range opts {
 						opt(docOpts)
 					}
-					require.Equal(t, "key1", docOpts.KeyType)
+					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
 					return &did.Doc{ID: "1:id:123"}, nil
 				},
 			}))
-		_, err := registry.Create("id", vdrapi.WithKeyType("key1"))
+		_, err := registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
 		require.NoError(t, err)
 	})
 	t.Run("test error from build doc", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
 					return nil, fmt.Errorf("build did error")
 				},
 			}))
-		doc, err := registry.Create("id")
+		d, err := registry.Create("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build did error")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 	t.Run("test error from store doc", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true, StoreErr: fmt.Errorf("store error"),
-				BuildFunc: func(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
 				},
 			}))
-		doc, err := registry.Create("id")
+		d, err := registry.Create("id")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store error")
-		require.Nil(t, doc)
+		require.Nil(t, d)
 	})
 	t.Run("test success", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
 				},
 			}))

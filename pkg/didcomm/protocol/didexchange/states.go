@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -510,10 +510,15 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 		services = append(services, did.Service{})
 	}
 
+	var opt []create.Option
+
+	for i := range services {
+		opt = append(opt, create.WithService(&services[i]))
+	}
+
 	// by default use peer did
 	newDidDoc, err := ctx.vdRegistry.Create(
-		didMethod,
-		vdr.WithServices(services...),
+		didMethod, opt...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)

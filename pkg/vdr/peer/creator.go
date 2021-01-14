@@ -7,27 +7,32 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
+	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 
 // Build builds new DID Document.
-func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, error) {
-	docOpts := &vdrapi.CreateDIDOpts{}
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+	docOpts := &create.Opts{}
 	// Apply options
 	for _, opt := range opts {
 		opt(docOpts)
 	}
 
-	didDoc, err := build(pubKey, docOpts)
+	didDoc, err := build(keyManager, docOpts)
 	if err != nil {
 		return nil, fmt.Errorf("create peer DID : %w", err)
 	}
@@ -35,17 +40,31 @@ func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, er
 	return didDoc, nil
 }
 
-func build(pubKey *vdrapi.PubKey, docOpts *vdrapi.CreateDIDOpts) (*did.Doc, error) {
+func build(keyManager kms.KeyManager, docOpts *create.Opts) (*did.Doc, error) { //nolint: funlen
+	if len(docOpts.PublicKeys) == 0 {
+		id, pubKeyBytes, err := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create and export public key: %w", err)
+		}
+
+		docOpts.PublicKeys = append(docOpts.PublicKeys, doc.PublicKey{
+			ID:   "#" + id,
+			Type: ed25519VerificationKey2018,
+			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(pubKeyBytes)},
+		})
+	}
+
 	var publicKey did.VerificationMethod
 
-	switch pubKey.Type {
+	switch docOpts.PublicKeys[0].Type {
 	case ed25519VerificationKey2018:
 		// TODO keyID of VerificationMethod should have the DID doc id as controller, since the DID document is created after
 		//      the publicKey, its id is unknown until NewDoc() is called below. The controller and key ID of publicKey
 		//		needs to be sorted out.
-		publicKey = *did.NewVerificationMethodFromBytes(pubKey.ID, ed25519VerificationKey2018, "#id", pubKey.Value)
+		publicKey = *did.NewVerificationMethodFromBytes(docOpts.PublicKeys[0].ID, ed25519VerificationKey2018, "#id",
+			docOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
 	default:
-		return nil, fmt.Errorf("not supported public key type: %s", pubKey.Type)
+		return nil, fmt.Errorf("not supported public key type: %s", docOpts.PublicKeys[0].Type)
 	}
 
 	// Service model to be included only if service type is provided through opts
@@ -65,7 +84,8 @@ func build(pubKey *vdrapi.PubKey, docOpts *vdrapi.CreateDIDOpts) (*did.Doc, erro
 		}
 
 		if docOpts.Services[i].Type == vdrapi.DIDCommServiceType {
-			docOpts.Services[i].RecipientKeys = []string{base58.Encode(pubKey.Value)}
+			docOpts.Services[i].RecipientKeys = []string{base58.Encode(
+				docOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))}
 			docOpts.Services[i].Priority = 0
 		}
 

@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -137,7 +137,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 
 	peerDID, err := a.VDRegistry().Create(
 		peer.DIDMethod,
-		vdr.WithServices(did.Service{ServiceEndpoint: "http://example.com/didcomm"}),
+		create.WithService(&did.Service{ServiceEndpoint: "http://example.com/didcomm"}),
 	)
 	require.NoError(t, err)
 

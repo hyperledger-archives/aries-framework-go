@@ -16,7 +16,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 var logger = log.New("aries-framework/vdr/httpbinding")
@@ -57,13 +59,13 @@ func (v *VDR) Accept(method string) bool {
 }
 
 // Store did doc.
-func (v *VDR) Store(doc *did.Doc, by *[]vdrapi.ModifiedBy) error {
+func (v *VDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
 	logger.Warnf(" store not supported in http binding vdr")
 	return nil
 }
 
 // Build did doc.
-func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, error) {
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
 	return nil, fmt.Errorf("build not supported in http binding vdr")
 }
 

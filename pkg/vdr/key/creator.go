@@ -7,12 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"time"
 
+	gojose "github.com/square/go-jose/v3"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
@@ -28,41 +34,52 @@ const (
 )
 
 // Build builds new DID document.
-func (v *VDR) Build(pubKey *vdrapi.PubKey, opts ...vdrapi.DocOpts) (*did.Doc, error) {
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+	createDIDOpts := &create.Opts{}
+	// Apply options
+	for _, opt := range opts {
+		opt(createDIDOpts)
+	}
+
 	var (
 		publicKey, keyAgr *did.VerificationMethod
 		err               error
 		didKey            string
 	)
 
-	switch pubKey.Type {
+	if len(createDIDOpts.PublicKeys) == 0 {
+		_, pubKeyBytes, errCreate := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if errCreate != nil {
+			return nil, fmt.Errorf("failed to create and export public key: %w", errCreate)
+		}
+
+		createDIDOpts.PublicKeys = append(createDIDOpts.PublicKeys, doc.PublicKey{
+			Type: ed25519VerificationKey2018,
+			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(pubKeyBytes)},
+		})
+	}
+
+	switch createDIDOpts.PublicKeys[0].Type {
 	case ed25519VerificationKey2018:
 		var keyID string
 
-		didKey, keyID = fingerprint.CreateDIDKey(pubKey.Value)
-		publicKey = did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKey.Value)
+		didKey, keyID = fingerprint.CreateDIDKey(createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
+		publicKey = did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey,
+			createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
 
-		keyAgr, err = keyAgreement(didKey, pubKey.Value)
+		keyAgr, err = keyAgreement(didKey, createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("not supported public key type: %s", pubKey.Type)
+		return nil, fmt.Errorf("not supported public key type: %s", createDIDOpts.PublicKeys[0].Type)
 	}
 
 	// retrieve encryption key as keyAgreement from opts if available.
-	didOpts := &vdrapi.CreateDIDOpts{}
-
-	for _, o := range opts {
-		o(didOpts)
-
-		if didOpts.EncryptionKey != nil {
-			keyAgr, err = vdrapi.RetrieveEncryptionKey(didKey, didOpts.EncryptionKey)
-			if err != nil {
-				return nil, fmt.Errorf("invalid JWK encryption key: %w", err)
-			}
-
-			break
+	if createDIDOpts.EncryptionKey != nil {
+		keyAgr, err = retrieveEncryptionKey(didKey, createDIDOpts.EncryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JWK encryption key: %w", err)
 		}
 	}
 
@@ -103,4 +120,38 @@ func keyAgreement(didKey string, ed25519PubKey []byte) (*did.VerificationMethod,
 	pubKey := did.NewVerificationMethodFromBytes(keyID, x25519KeyAgreementKey2019, didKey, curve25519PubKey)
 
 	return pubKey, nil
+}
+
+// retrieveEncryptionKey retrieves an encryption VerificationMethod in JWK format from key.
+func retrieveEncryptionKey(didKey string, key *doc.PublicKey) (*did.VerificationMethod, error) {
+	keyID := fmt.Sprintf("%s#%s", didKey, key.ID)
+
+	jwk, err := jwkFromJSONWebKey(&key.JWK)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKey, err := did.NewVerificationMethodFromJWK(keyID, key.Type, didKey, jwk)
+	if err != nil {
+		return nil, err
+	}
+
+	return publicKey, nil
+}
+
+func jwkFromJSONWebKey(jwk *gojose.JSONWebKey) (*jose.JWK, error) {
+	key := &jose.JWK{JSONWebKey: *jwk}
+
+	// marshal/unmarshal to get all JWK's fields other than Key filled.
+	keyBytes, err := key.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	err = key.UnmarshalJSON(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	return key, nil
 }

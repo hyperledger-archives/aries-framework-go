@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
@@ -566,7 +566,7 @@ func TestOperation_Send(t *testing.T) {
 				name:        "invalid message body - scenario 1",
 				requestJSON: `{"message_body": "sample-input", "their_did": "theirDID-001"}`,
 				vdr: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOpts) (doc *did.Doc, e error) {
+					ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.Doc, e error) {
 						return mockdiddoc.GetMockDIDDoc(), nil
 					},
 				},

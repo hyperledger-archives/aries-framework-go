@@ -7,13 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
+	"crypto/ed25519"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
+	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 )
 
 const (
@@ -26,28 +29,15 @@ const (
 )
 
 func TestBuild(t *testing.T) {
-	t.Run("validate not supported public key", func(t *testing.T) {
-		v := New()
-
-		pubKey := &vdrapi.PubKey{
-			Type: "not-supported-type",
-		}
-
-		doc, err := v.Build(pubKey)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "not supported public key type: not-supported-type")
-		require.Nil(t, doc)
-	})
-
 	t.Run("validate did:key compliance with generic syntax", func(t *testing.T) {
 		v := New()
 
-		pubKey := &vdrapi.PubKey{
-			Type:  ed25519VerificationKey2018,
-			Value: base58.Decode(pubKeyBase58),
+		pubKey := &vdrdoc.PublicKey{
+			Type: ed25519VerificationKey2018,
+			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
 		}
 
-		doc, err := v.Build(pubKey)
+		doc, err := v.Build(nil, create.WithPublicKey(pubKey))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
 
@@ -59,12 +49,12 @@ func TestBuild(t *testing.T) {
 	t.Run("build with default key type", func(t *testing.T) {
 		v := New()
 
-		pubKey := &vdrapi.PubKey{
-			Type:  ed25519VerificationKey2018,
-			Value: base58.Decode(pubKeyBase58),
+		pubKey := &vdrdoc.PublicKey{
+			Type: ed25519VerificationKey2018,
+			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
 		}
 
-		doc, err := v.Build(pubKey)
+		doc, err := v.Build(nil, create.WithPublicKey(pubKey))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
 

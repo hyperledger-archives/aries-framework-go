@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	didapi "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 )
 
 const (
@@ -96,7 +96,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, vdr.WithHTTPClient(s.Client()))
+		doc, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
 		require.Nil(t, doc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error parsing did doc")
@@ -109,7 +109,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, vdr.WithHTTPClient(s.Client()))
+		doc, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
@@ -123,7 +123,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s:user:example", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, vdr.WithHTTPClient(s.Client()))
+		doc, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
