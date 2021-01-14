@@ -67,11 +67,16 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	cEnc := NewECDHAEADCompositeEncrypt(mEncHelper, cek)
 
-	// Encrypt should fail with large AEAD key size value
+	// Encrypt should fail with AEAD error value
 	_, err := cEnc.Encrypt(pt, aad)
 	require.EqualError(t, err, "error from GetAEAD")
 
 	mEncHelper.AEADErrValue = nil
+
+	// Encrypt should fail with nil cek
+	cEncNilCEK := NewECDHAEADCompositeEncrypt(mEncHelper, nil)
+	_, err = cEncNilCEK.Encrypt(pt, aad)
+	require.EqualError(t, err, "ecdhAEADCompositeEncrypt: missing cek")
 
 	// create a valid ciphertext to test Decrypt for all recipients
 	cEnc = NewECDHAEADCompositeEncrypt(mEncHelper, cek)
@@ -101,6 +106,11 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	require.EqualError(t, err, "error from GetAEAD")
 
 	mEncHelper.AEADErrValue = nil
+
+	// Decrypt should fail with nil cek
+	dEncNilCEK := NewECDHAEADCompositeDecrypt(mEncHelper, nil)
+	_, err = dEncNilCEK.Decrypt(ct, aad)
+	require.EqualError(t, err, "ecdh decrypt: missing cek")
 
 	// create a valid Decrypt message and test against ct
 	dEnc = NewECDHAEADCompositeDecrypt(mEncHelper, cek)

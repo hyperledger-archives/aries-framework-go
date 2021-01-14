@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -30,16 +31,36 @@ func TestPubKeyExport(t *testing.T) {
 		keyTemplate *tinkpb.KeyTemplate
 	}{
 		{
-			tcName:      "export then read AES256GCM with ECDHES P-256 public recipient key",
+			tcName:      "export then read AES256GCM with ECDH NIST P-256 public recipient key",
 			keyTemplate: ecdh.ECDH256KWAES256GCMKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDHES P-384 public recipient key",
+			tcName:      "export then read AES256GCM with ECDH NIST P-384 public recipient key",
 			keyTemplate: ecdh.ECDH384KWAES256GCMKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDHES P-521 public recipient key",
+			tcName:      "export then read AES256GCM with ECDH NIST P-521 public recipient key",
 			keyTemplate: ecdh.ECDH521KWAES256GCMKeyTemplate(),
+		},
+		{
+			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-256 public recipient key",
+			keyTemplate: ecdh.ECDH256KWXChachaKeyTemplate(),
+		},
+		{
+			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-384 public recipient key",
+			keyTemplate: ecdh.ECDH384KWXChachaKeyTemplate(),
+		},
+		{
+			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-521 public recipient key",
+			keyTemplate: ecdh.ECDH521KWXChachaKeyTemplate(),
+		},
+		{
+			tcName:      "export then read AES256GCM with X25519 public recipient key",
+			keyTemplate: ecdh.X25519AES256GCMECDHKeyTemplate(),
+		},
+		{
+			tcName:      "export then read XChacha20Poly1305 with X25519 public recipient key",
+			keyTemplate: ecdh.X25519XChachaECDHKeyTemplate(),
 		},
 	}
 
@@ -62,13 +83,25 @@ func TestPubKeyExport(t *testing.T) {
 
 			require.EqualValues(t, ecPubKey, extractedPubKey)
 
-			// now convert back ecPubKey to *keyset.Handle
+			// now convert back ecPubKey to *keyset.Handle using default AES content encryption template
 			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey)
+			require.NoError(t, err)
+
+			// now convert back ecPubKey to *keyset.Handle using XChacha content encryption template
+			x2PubKH, err := PublicKeyToKeysetHandleXChacha(ecPubKey)
 			require.NoError(t, err)
 
 			xk, err := ExtractPrimaryPublicKey(xPubKH)
 			require.NoError(t, err)
 			require.EqualValues(t, ecPubKey, xk)
+
+			x2k, err := ExtractPrimaryPublicKey(x2PubKH)
+			require.NoError(t, err)
+			require.EqualValues(t, ecPubKey, x2k)
+			if strings.Contains(tt.keyTemplate.TypeUrl, "X25519Kw") {
+				require.EqualValues(t, x2k.Curve, commonpb.EllipticCurveType_CURVE25519.String())
+				require.EqualValues(t, xk.Curve, commonpb.EllipticCurveType_CURVE25519.String())
+			}
 		})
 	}
 }
@@ -106,9 +139,14 @@ func TestNegativeCases(t *testing.T) {
 		require.Empty(t, exportedKeyBytes)
 	})
 
-	t.Run("test buildCompositeKey() with bad curve", func(t *testing.T) {
-		_, err := buildCompositeKey("", "", "BAD", nil, nil)
-		require.EqualError(t, err, "undefined curve: unsupported curve")
+	t.Run("test buildCompositeKey() with bad EC curve", func(t *testing.T) {
+		_, err := buildCompositeKey("", ecdhpb.KeyType_EC.String(), "BAD", nil, nil)
+		require.EqualError(t, err, "undefined EC curve: unsupported curve")
+	})
+
+	t.Run("test buildCompositeKey() with bad OKP curve", func(t *testing.T) {
+		_, err := buildCompositeKey("", ecdhpb.KeyType_OKP.String(), "BAD", nil, nil)
+		require.EqualError(t, err, "invalid OKP curve: BAD")
 	})
 
 	t.Run("test protoToCompositeKey() with bad key type", func(t *testing.T) {
@@ -129,11 +167,11 @@ func TestNegativeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = protoToCompositeKey(&tinkpb.KeyData{
-			TypeUrl:         ecdhAESPublicKeyTypeURL,
+			TypeUrl:         ecdhNISTPAESPublicKeyTypeURL,
 			Value:           mKey,
 			KeyMaterialType: 0,
 		})
-		require.EqualError(t, err, "undefined key type: 'UNKNOWN_KEY_TYPE'")
+		require.EqualError(t, err, "invalid keyType: UNKNOWN_KEY_TYPE")
 	})
 
 	t.Run("test WriteEncrypted() should fail since it's not supported by Writer", func(t *testing.T) {
@@ -182,7 +220,7 @@ func TestNegativeCases(t *testing.T) {
 			Key: []*tinkpb.Keyset_Key{
 				{
 					KeyData: &tinkpb.KeyData{
-						TypeUrl:         ecdhAESPublicKeyTypeURL,
+						TypeUrl:         ecdhNISTPAESPublicKeyTypeURL,
 						Value:           mKey,
 						KeyMaterialType: 0,
 					},
