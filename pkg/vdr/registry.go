@@ -13,11 +13,9 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-)
-
-const (
-	defaultKeyType = "Ed25519VerificationKey2018"
 )
 
 // Option is a vdr instance option.
@@ -49,13 +47,7 @@ func New(ctx provider, opts ...Option) *Registry {
 }
 
 // Resolve did document.
-func (r *Registry) Resolve(did string, opts ...vdrapi.ResolveOpts) (*diddoc.Doc, error) {
-	resolveOpts := &vdrapi.ResolveDIDOpts{}
-	// Apply options
-	for _, opt := range opts {
-		opt(resolveOpts)
-	}
-
+func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.Doc, error) {
 	didMethod, err := getDidMethod(did)
 	if err != nil {
 		return nil, err
@@ -77,17 +69,12 @@ func (r *Registry) Resolve(did string, opts ...vdrapi.ResolveOpts) (*diddoc.Doc,
 		return nil, fmt.Errorf("did method read failed failed: %w", err)
 	}
 
-	if resolveOpts.ResultType == vdrapi.ResolutionResult {
-		// TODO https://github.com/hyperledger/aries-framework-go/issues/745 Support resolution-result
-		return nil, errors.New("result type 'resolution-result' not supported")
-	}
-
 	return didDoc, nil
 }
 
 // Create a new DID Document and store it in this registry.
-func (r *Registry) Create(didMethod string, opts ...vdrapi.DocOpts) (*diddoc.Doc, error) {
-	docOpts := &vdrapi.CreateDIDOpts{KeyType: defaultKeyType}
+func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.Doc, error) {
+	docOpts := &create.Opts{}
 
 	// TODO add EncryptionKey as option in docOpts here to support Anoncrypt/Authcrypt packing
 
@@ -95,19 +82,12 @@ func (r *Registry) Create(didMethod string, opts ...vdrapi.DocOpts) (*diddoc.Doc
 		opt(docOpts)
 	}
 
-	id, pubKey, err := r.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DID: %w", err)
-	}
-
 	method, err := r.resolveVDR(didMethod)
 	if err != nil {
 		return nil, err
 	}
 
-	// using kms KID in order for the key resolver to find the matching key.
-	doc, err := method.Build(&vdrapi.PubKey{ID: "#" + id, Value: pubKey, Type: docOpts.KeyType},
-		r.applyDefaultDocOpts(docOpts, opts...)...)
+	doc, err := method.Build(r.kms, r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +101,13 @@ func (r *Registry) Create(didMethod string, opts ...vdrapi.DocOpts) (*diddoc.Doc
 }
 
 // applyDefaultDocOpts applies default creator options to doc options.
-func (r *Registry) applyDefaultDocOpts(docOpts *vdrapi.CreateDIDOpts, opts ...vdrapi.DocOpts) []vdrapi.DocOpts {
+func (r *Registry) applyDefaultDocOpts(docOpts *create.Opts, opts ...create.Option) []create.Option {
 	if docOpts.DefaultServiceType == "" {
-		opts = append(opts, vdrapi.WithDefaultServiceType(r.defServiceType))
+		opts = append(opts, create.WithDefaultServiceType(r.defServiceType))
 	}
 
 	if docOpts.DefaultServiceEndpoint == "" {
-		opts = append(opts, vdrapi.WithDefaultServiceEndpoint(r.defServiceEndpoint))
+		opts = append(opts, create.WithDefaultServiceEndpoint(r.defServiceEndpoint))
 	}
 
 	return opts

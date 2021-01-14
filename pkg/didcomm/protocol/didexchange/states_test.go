@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -399,9 +399,9 @@ func TestRequestedState_Execute(t *testing.T) {
 			RoutingKeys:    expected.Keys(),
 		}
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{
-			CreateFunc: func(_ string, options ...vdr.DocOpts) (*diddoc.Doc, error) {
+			CreateFunc: func(_ string, options ...create.Option) (*diddoc.Doc, error) {
 				created = true
-				result := &vdr.CreateDIDOpts{}
+				result := &create.Opts{}
 
 				for _, opt := range options {
 					opt(result)

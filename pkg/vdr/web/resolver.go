@@ -14,15 +14,15 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 )
 
 var logger = log.New("aries-framework/pkg/vdr/web")
 
 // Read resolves a did:web did.
-func (v *VDR) Read(didID string, opts ...vdr.ResolveOpts) (*did.Doc, error) {
+func (v *VDR) Read(didID string, opts ...resolve.Option) (*did.Doc, error) {
 	// apply resolve opts
-	docOpts := &vdr.ResolveDIDOpts{
+	docOpts := &resolve.Opts{
 		HTTPClient: &http.Client{},
 	}
 

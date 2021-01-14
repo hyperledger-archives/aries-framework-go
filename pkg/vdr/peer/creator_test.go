@@ -12,10 +12,12 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
+	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
@@ -29,7 +31,7 @@ func TestDIDCreator(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		didDoc, err := c.Build(getSigningKey())
+		didDoc, err := c.Build(nil, create.WithPublicKey(getSigningKey()))
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -43,9 +45,9 @@ func TestDIDCreator(t *testing.T) {
 		require.NotNil(t, c)
 
 		routingKeys := []string{"abc", "xyz"}
-		didDoc, err := c.Build(
-			getSigningKey(),
-			api.WithServices(did.Service{
+		didDoc, err := c.Build(nil,
+			create.WithPublicKey(getSigningKey()),
+			create.WithService(&did.Service{
 				ServiceEndpoint: "request-endpoint",
 				Type:            "request-type",
 				RoutingKeys:     routingKeys,
@@ -80,24 +82,25 @@ func TestBuild(t *testing.T) {
 		c, err := New(&storage.MockStoreProvider{})
 		require.NoError(t, err)
 
-		result, err := c.Build(
-			expected,
-			api.WithServices(did.Service{
+		result, err := c.Build(nil,
+			create.WithPublicKey(expected),
+			create.WithService(&did.Service{
 				Type: "did-communication",
 			}),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Service)
 		require.NotEmpty(t, result.Service[0].RecipientKeys)
-		require.Equal(t, base58.Encode(expected.Value), result.Service[0].RecipientKeys[0])
+		require.Equal(t, base58.Encode(expected.JWK.Key.(ed25519.PublicKey)),
+			result.Service[0].RecipientKeys[0])
 	})
 }
 
-func getSigningKey() *api.PubKey {
+func getSigningKey() *doc.PublicKey {
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	return &api.PubKey{Value: pub[:], Type: keyType}
+	return &doc.PublicKey{JWK: gojose.JSONWebKey{Key: pub[:]}, Type: keyType}
 }
