@@ -577,7 +577,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 	)
 	require.NoError(t, err)
 
-	return d
+	return d.DIDDocument
 }
 
 func marshalDoc(t *testing.T, d *did.Doc) []byte {

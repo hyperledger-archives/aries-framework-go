@@ -43,7 +43,6 @@ const docTemplate = `{
 
 const (
 	sha2_256 = 18 // multihash
-	sha256   = 5  // hash
 
 	defaultKeyType = "JwsVerificationKey2020"
 )
@@ -60,6 +59,8 @@ type CreateDIDParams struct {
 	URL             string
 	KeyID           string
 	JWK             *jose.JWK
+	UpdateJWK       *jose.JWK
+	RecoveryJWK     *jose.JWK
 	KeyType         string
 	ServiceEndpoint string
 }
@@ -71,7 +72,7 @@ func CreateDID(params *CreateDIDParams) (*diddoc.Doc, error) {
 		return nil, err
 	}
 
-	req, err := getCreateRequest(opaqueDoc, params.JWK)
+	req, err := getCreateRequest(opaqueDoc, params.UpdateJWK, params.RecoveryJWK)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +132,23 @@ func getPubKey(jwk *jose.JWK) (string, error) {
 	return string(opsPubKeyBytes), nil
 }
 
-func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
-	pubKey, err := pubkey.GetPublicKeyJWK(jwk.Key)
+func getCreateRequest(doc []byte, updateJWK, recoveryJWK *jose.JWK) ([]byte, error) {
+	pubKeyUpdate, err := pubkey.GetPublicKeyJWK(updateJWK.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := commitment.Calculate(pubKey, sha2_256, sha256)
+	updateCommitment, err := commitment.GetCommitment(pubKeyUpdate, sha2_256)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKeyRecovery, err := pubkey.GetPublicKeyJWK(recoveryJWK.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	recoveryCommitment, err := commitment.GetCommitment(pubKeyRecovery, sha2_256)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +156,8 @@ func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
 	// for testing purposes we are going to use same commitment key for update and recovery
 	return client.NewCreateRequest(&client.CreateRequestInfo{
 		OpaqueDocument:     string(doc),
-		UpdateCommitment:   c,
-		RecoveryCommitment: c,
+		UpdateCommitment:   updateCommitment,
+		RecoveryCommitment: recoveryCommitment,
 		MultihashCode:      sha2_256,
 	})
 }

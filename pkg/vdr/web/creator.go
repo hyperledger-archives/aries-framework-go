@@ -14,6 +14,6 @@ import (
 )
 
 // Build creates a did:web diddoc (unsupported at the moment).
-func (v *VDR) Build(opts ...create.Option) (*did.Doc, error) {
+func (v *VDR) Build(opts ...create.Option) (*did.DocResolution, error) {
 	return nil, fmt.Errorf("error building did:web did doc --> build not supported in http binding vdr")
 }

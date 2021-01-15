@@ -374,7 +374,9 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	var didDoc *did.Doc
+
+	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
@@ -385,6 +387,8 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 			return command.NewValidationError(SignCredentialErrorCode,
 				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
+	} else {
+		didDoc = doc.DIDDocument
 	}
 
 	vc, err := verifiable.ParseUnverifiedCredential(request.Credential)
@@ -539,7 +543,9 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	didDoc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	var didDoc *did.Doc
+
+	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 	//  if did not found in VDR, look through in local storage
 	if err != nil {
 		didDoc, err = o.didStore.GetDID(request.DID)
@@ -550,6 +556,8 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 			return command.NewValidationError(GeneratePresentationErrorCode,
 				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
+	} else {
+		didDoc = doc.DIDDocument
 	}
 
 	credentials, presentation, opts, err := o.parsePresentationRequest(request, didDoc)

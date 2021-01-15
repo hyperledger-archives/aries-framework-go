@@ -566,8 +566,8 @@ func TestOperation_Send(t *testing.T) {
 				name:        "invalid message body - scenario 1",
 				requestJSON: `{"message_body": "sample-input", "their_did": "theirDID-001"}`,
 				vdr: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.Doc, e error) {
-						return mockdiddoc.GetMockDIDDoc(), nil
+					ResolveFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
 					},
 				},
 				httpErrCode: http.StatusInternalServerError,

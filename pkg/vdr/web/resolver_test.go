@@ -109,11 +109,11 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
-		require.Equal(t, expectedDoc, doc)
+		require.Equal(t, expectedDoc, docResolution.DIDDocument)
 	})
 	t.Run("test resolve did with path success", func(t *testing.T) {
 		s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -123,10 +123,10 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s:user:example", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, resolve.WithHTTPClient(s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
-		require.Equal(t, expectedDoc, doc)
+		require.Equal(t, expectedDoc, docResolution.DIDDocument)
 	})
 }

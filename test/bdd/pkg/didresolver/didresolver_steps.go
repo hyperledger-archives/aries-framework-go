@@ -69,11 +69,33 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			}
 		}
 
+		_, pubKeyUpdateBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if err != nil {
+			return err
+		}
+
+		updateJWK, err := jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyUpdateBytes))
+		if err != nil {
+			return err
+		}
+
+		_, pubKeyRecoveryBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if err != nil {
+			return err
+		}
+
+		recoveryJWK, err := jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyRecoveryBytes))
+		if err != nil {
+			return err
+		}
+
 		doc, err := sidetree.CreateDID(
 			&sidetree.CreateDIDParams{
 				URL:             ctx.Args[sideTreeURL] + "operations",
 				KeyID:           "key1",
 				JWK:             pubKeyJWK,
+				UpdateJWK:       updateJWK,
+				RecoveryJWK:     recoveryJWK,
 				KeyType:         keyType,
 				ServiceEndpoint: ctx.AgentCtx[agentID].ServiceEndpoint(),
 			})
@@ -102,20 +124,20 @@ func (d *Steps) resolveDID(agentID string) error {
 }
 
 func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
-	var doc *diddoc.Doc
+	var doc *diddoc.DocResolution
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = vdr.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
-			return doc, err
+			return doc.DIDDocument, err
 		}
 
 		time.Sleep(1 * time.Second)
 		logger.Debugf("Waiting for public did to be published in sidtree: %d second(s)\n", i)
 	}
 
-	return doc, err
+	return doc.DIDDocument, err
 }
 
 // RegisterSteps registers did exchange steps.

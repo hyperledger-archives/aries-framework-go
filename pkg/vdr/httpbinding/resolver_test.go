@@ -39,40 +39,8 @@ const doc = `{
 
 //nolint:lll
 const didResolutionData = `{
-  "@context": "https://www.w3.org/ns/did-resolution/v1",
-  "didDocument": ` + doc + `,
-  "resolverMetadata": {
-    "driverId": "did:example",
-    "driver": "HttpDriver",
-    "retrieved": "2019-06-01T19:73:24Z",
-    "duration": 1015
-  },
-  "methodMetadata": {
-    "nymResponse": {
-      "result": {
-        "type": "105",
-        "txnTime": 1524055264,
-        "seqNo": 11,
-        "reqId": 1527256870802314800,
-        "identifier": "HixkhyA4dXGz9yxmLQC4PU",
-        "dest": "WRfXPg8dantKVubE3HX8pw"
-      },
-      "op": "REPLY"
-    },
-    "attrResponse": {
-      "result": {
-        "identifier": "HixkhyA4dXGz9yxmLQC4PU",
-        "seqNo": 12,
-        "raw": "endpoint",
-        "dest": "WRfXPg8dantKVubE3HX8pw",
-        "data": "{\"endpoint\":{\"xdi\":\"http://127.0.0.1:8080/xdi\"}}",
-        "txnTime": 1524055265,
-        "type": "104",
-        "reqId": 1527256870925570600
-      },
-      "op": "REPLY"
-    }
-  }
+  "@context": "https://w3id.org/did-resolution/v1",
+  "didDocument": ` + doc + `
 }`
 
 func TestWithOutboundOpts(t *testing.T) {
@@ -146,7 +114,7 @@ func TestRead_DIDDoc(t *testing.T) {
 		require.NoError(t, err)
 		didDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
-		require.Equal(t, didDoc.ID, gotDocument.ID)
+		require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
 	})
 
 	t.Run("test success return did resolution", func(t *testing.T) {
@@ -166,7 +134,7 @@ func TestRead_DIDDoc(t *testing.T) {
 		require.NoError(t, err)
 		didDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
-		require.Equal(t, didDoc.ID, gotDocument.ID)
+		require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
 	})
 	t.Run("test empty doc", func(t *testing.T) {
 		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -204,7 +172,7 @@ func TestRead_DIDDocWithBasePath(t *testing.T) {
 	require.NoError(t, err)
 	didDoc, err := did.ParseDocument([]byte(doc))
 	require.NoError(t, err)
-	require.Equal(t, didDoc.ID, gotDocument.ID)
+	require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
 }
 
 func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
@@ -224,7 +192,7 @@ func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
 	require.NoError(t, err)
 	didDoc, err := did.ParseDocument([]byte(doc))
 	require.NoError(t, err)
-	require.Equal(t, didDoc.ID, gotDocument.ID)
+	require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
 }
 
 func TestRead_DIDDocNotFound(t *testing.T) {

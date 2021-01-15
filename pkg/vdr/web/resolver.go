@@ -20,7 +20,7 @@ import (
 var logger = log.New("aries-framework/pkg/vdr/web")
 
 // Read resolves a did:web did.
-func (v *VDR) Read(didID string, opts ...resolve.Option) (*did.Doc, error) {
+func (v *VDR) Read(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 	// apply resolve opts
 	docOpts := &resolve.Opts{
 		HTTPClient: &http.Client{},
@@ -59,7 +59,7 @@ func (v *VDR) Read(didID string, opts ...resolve.Option) (*did.Doc, error) {
 		return nil, fmt.Errorf("error resolving did:web did --> error parsing did doc --> %w", err)
 	}
 
-	return doc, nil
+	return &did.DocResolution{DIDDocument: doc}, nil
 }
 
 func closeResponseBody(respBody io.Closer) {

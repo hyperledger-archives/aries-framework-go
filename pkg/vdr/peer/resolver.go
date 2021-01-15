@@ -15,7 +15,7 @@ import (
 )
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.Doc, error) {
+func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.DocResolution, error) {
 	// get the document from the store
 	doc, err := v.Get(didID)
 	if err != nil {
@@ -26,5 +26,5 @@ func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.Doc, error) {
 		return nil, vdrapi.ErrNotFound
 	}
 
-	return doc, nil
+	return &did.DocResolution{DIDDocument: doc}, nil
 }

@@ -129,9 +129,8 @@ func TestSavePresentation(t *testing.T) {
 			Return(errors.New(errMsg))
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			VerificationMethod: []did.VerificationMethod{pubKey},
-		}, nil)
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
+			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
@@ -152,9 +151,8 @@ func TestSavePresentation(t *testing.T) {
 		}))
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			VerificationMethod: []did.VerificationMethod{pubKey},
-		}, nil)
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").
+			Return(&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
@@ -187,9 +185,8 @@ func TestSavePresentation(t *testing.T) {
 			Return(nil)
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			VerificationMethod: []did.VerificationMethod{pubKey},
-		}, nil)
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
+			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
@@ -224,9 +221,8 @@ func TestSavePresentation(t *testing.T) {
 			Return(nil)
 
 		registry := mocksvdr.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			VerificationMethod: []did.VerificationMethod{pubKey},
-		}, nil)
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
+			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()

@@ -72,7 +72,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test DID not found", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				return nil, vdrapi.ErrNotFound
 			},
 		}))
@@ -84,7 +84,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test error from resolve did", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				return nil, fmt.Errorf("read error")
 			},
 		}))
@@ -96,7 +96,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test opts passed", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.Doc, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				resolveOpts := &resolve.Opts{}
 				// Apply options
 				for _, opt := range opts {
@@ -158,14 +158,14 @@ func TestRegistry_Create(t *testing.T) {
 		}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
 					docOpts := &create.Opts{}
 					// Apply options
 					for _, opt := range opts {
 						opt(docOpts)
 					}
 					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
-					return &did.Doc{ID: "1:id:123"}, nil
+					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
 		_, err = registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
@@ -175,14 +175,14 @@ func TestRegistry_Create(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
 					docOpts := &create.Opts{}
 					// Apply options
 					for _, opt := range opts {
 						opt(docOpts)
 					}
 					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
-					return &did.Doc{ID: "1:id:123"}, nil
+					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
 		_, err := registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
@@ -192,7 +192,7 @@ func TestRegistry_Create(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
 					return nil, fmt.Errorf("build did error")
 				},
 			}))
@@ -205,8 +205,8 @@ func TestRegistry_Create(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true, StoreErr: fmt.Errorf("store error"),
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
-					return &did.Doc{ID: "1:id:123"}, nil
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
+					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
 		d, err := registry.Create("id")
@@ -218,8 +218,8 @@ func TestRegistry_Create(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.Doc, e error) {
-					return &did.Doc{ID: "1:id:123"}, nil
+				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
+					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
 		_, err := registry.Create("id")

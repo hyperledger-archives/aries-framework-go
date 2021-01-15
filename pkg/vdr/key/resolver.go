@@ -16,7 +16,7 @@ import (
 )
 
 // Read expands did:key value to a DID document.
-func (v *VDR) Read(didKey string, opts ...resolve.Option) (*did.Doc, error) {
+func (v *VDR) Read(didKey string, opts ...resolve.Option) (*did.DocResolution, error) {
 	parsed, err := did.Parse(didKey)
 	if err != nil {
 		return nil, fmt.Errorf("pub:key vdr Read: failed to parse DID document: %w", err)
@@ -44,7 +44,9 @@ func (v *VDR) Read(didKey string, opts ...resolve.Option) (*did.Doc, error) {
 	keyID := fmt.Sprintf("%s#%s", didKey, parsed.MethodSpecificID)
 	publicKey := did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKeyBytes)
 
-	return createDoc(publicKey, keyAgr, didKey)
+	didDoc := createDoc(publicKey, keyAgr, didKey)
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
 }
 
 func isValidMethodID(id string) bool {

@@ -228,7 +228,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return err
 	}
 
-	pubKey := doc.VerificationMethod[0]
+	pubKey := doc.DIDDocument.VerificationMethod[0]
 	km := a.bddContext.AgentCtx[prover].KMS()
 	cr := a.bddContext.AgentCtx[prover].Crypto()
 

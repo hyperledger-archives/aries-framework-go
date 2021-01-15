@@ -135,17 +135,17 @@ func agent(t *testing.T) *context.Provider {
 func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did.Doc {
 	t.Helper()
 
-	peerDID, err := a.VDRegistry().Create(
+	docResolution, err := a.VDRegistry().Create(
 		peer.DIDMethod,
 		create.WithService(&did.Service{ServiceEndpoint: "http://example.com/didcomm"}),
 	)
 	require.NoError(t, err)
 
-	strJ := formatDoc(t, peerDID)
+	strJ := formatDoc(t, docResolution.DIDDocument)
 
 	t.Log("DID Doc created: ***\n" + strJ + "\n***")
 
-	return peerDID
+	return docResolution.DIDDocument
 }
 
 func formatDoc(t *testing.T, d *did.Doc) string {

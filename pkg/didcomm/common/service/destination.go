@@ -28,12 +28,12 @@ const (
 // GetDestination constructs a Destination struct based on the given DID and parameters
 // It resolves the DID using the given VDR, and uses CreateDestination under the hood.
 func GetDestination(did string, vdr vdrapi.Registry) (*Destination, error) {
-	didDoc, err := vdr.Resolve(did)
+	docResolution, err := vdr.Resolve(did)
 	if err != nil {
 		return nil, fmt.Errorf("getDestination: failed to resolve did [%s] : %w", did, err)
 	}
 
-	return CreateDestination(didDoc)
+	return CreateDestination(docResolution.DIDDocument)
 }
 
 // CreateDestination makes a DIDComm Destination object from a DID Doc as per the DIDComm service conventions:

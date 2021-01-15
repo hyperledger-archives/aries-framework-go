@@ -50,14 +50,14 @@ func (mr *MockRegistryMockRecorder) Close() *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockRegistry) Create(arg0 string, arg1 ...create.Option) (*did.Doc, error) {
+func (m *MockRegistry) Create(arg0 string, arg1 ...create.Option) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Create", varargs...)
-	ret0, _ := ret[0].(*did.Doc)
+	ret0, _ := ret[0].(*did.DocResolution)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,14 +70,14 @@ func (mr *MockRegistryMockRecorder) Create(arg0 interface{}, arg1 ...interface{}
 }
 
 // Resolve mocks base method
-func (m *MockRegistry) Resolve(arg0 string, arg1 ...resolve.Option) (*did.Doc, error) {
+func (m *MockRegistry) Resolve(arg0 string, arg1 ...resolve.Option) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Resolve", varargs...)
-	ret0, _ := ret[0].(*did.Doc)
+	ret0, _ := ret[0].(*did.DocResolution)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

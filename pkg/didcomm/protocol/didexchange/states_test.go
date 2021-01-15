@@ -399,7 +399,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			RoutingKeys:    expected.Keys(),
 		}
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{
-			CreateFunc: func(_ string, options ...create.Option) (*diddoc.Doc, error) {
+			CreateFunc: func(_ string, options ...create.Option) (*diddoc.DocResolution, error) {
 				created = true
 				result := &create.Opts{}
 
@@ -409,7 +409,7 @@ func TestRequestedState_Execute(t *testing.T) {
 
 				require.Equal(t, expected.Keys(), result.Services[0].RoutingKeys)
 				require.Equal(t, expected.Endpoint(), result.Services[0].ServiceEndpoint)
-				return createDIDDoc(t, prov.CustomKMS), nil
+				return &diddoc.DocResolution{DIDDocument: createDIDDoc(t, prov.CustomKMS)}, nil
 			},
 		}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -848,12 +848,12 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	ctx := getContext(t, &prov)
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
-	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	c := &Connection{
-		DID:    newDidDoc.ID,
-		DIDDoc: newDidDoc,
+		DID:    doc.DIDDocument.ID,
+		DIDDoc: doc.DIDDocument,
 	}
 
 	t.Run("prepare connection signature", func(t *testing.T) {
@@ -875,12 +875,12 @@ func TestPrepareConnectionSignature(t *testing.T) {
 
 		ctx2 := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDidDoc},
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument},
 			crypto:             &tinkcrypto.Crypto{},
 			connectionStore:    cStore,
 			kms:                prov.CustomKMS,
 		}
-		connectionSignature, err := ctx2.prepareConnectionSignature(c, newDidDoc.ID)
+		connectionSignature, err := ctx2.prepareConnectionSignature(c, doc.DIDDocument.ID)
 		require.NoError(t, err)
 		require.NotNil(t, connectionSignature)
 		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
@@ -1116,18 +1116,18 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key by id", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+		doc, err := ctx.vdRegistry.Create(testMethod)
 		require.NoError(t, err)
-		pubkey, ok := diddoc.LookupPublicKey(newDidDoc.VerificationMethod[0].ID, newDidDoc)
+		pubkey, ok := diddoc.LookupPublicKey(doc.DIDDocument.VerificationMethod[0].ID, doc.DIDDocument)
 		require.True(t, ok)
 		require.NotNil(t, pubkey)
 	})
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+		doc, err := ctx.vdRegistry.Create(testMethod)
 		require.NoError(t, err)
-		pubkey, ok := diddoc.LookupPublicKey("invalid-key", newDidDoc)
+		pubkey, ok := diddoc.LookupPublicKey("invalid-key", doc.DIDDocument)
 		require.False(t, ok)
 		require.Nil(t, pubkey)
 	})
@@ -1481,14 +1481,14 @@ func createRequest(t *testing.T, ctx *context) (*Request, error) {
 }
 
 func createResponse(request *Request, ctx *context) (*Response, error) {
-	didDoc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &Connection{
-		DID:    didDoc.ID,
-		DIDDoc: didDoc,
+		DID:    doc.DIDDocument.ID,
+		DIDDoc: doc.DIDDocument,
 	}
 
 	connectionSignature, err := ctx.prepareConnectionSignature(c, request.Thread.PID)

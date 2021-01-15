@@ -108,7 +108,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDID))
 	}
 
-	didDoc, err := o.ctx.VDRegistry().Resolve(request.ID)
+	doc, err := o.ctx.VDRegistry().Resolve(request.ID)
 	if err != nil {
 		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "resolve did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))
@@ -116,7 +116,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("resolve did doc: %w", err))
 	}
 
-	docBytes, err := didDoc.JSONBytes()
+	docBytes, err := doc.DIDDocument.JSONBytes()
 	if err != nil {
 		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "unmarshal did doc: "+err.Error(),
 			logutil.CreateKeyValueString(didID, request.ID))

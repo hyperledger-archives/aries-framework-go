@@ -455,7 +455,7 @@ func TestGeneratePresentation(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -463,7 +463,7 @@ func TestGeneratePresentation(t *testing.T) {
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
 				}
-				return didDoc, nil
+				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
 		KMSValue:    &kmsmock.KeyManager{},
@@ -649,7 +649,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -657,7 +657,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
 				}
-				return didDoc, nil
+				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
 		KMSValue:    &kmsmock.KeyManager{},
@@ -890,7 +890,7 @@ func TestSignCredential(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...resolve.Option) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -898,7 +898,7 @@ func TestSignCredential(t *testing.T) {
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
 				}
-				return didDoc, nil
+				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
 		KMSValue:    &kmsmock.KeyManager{},

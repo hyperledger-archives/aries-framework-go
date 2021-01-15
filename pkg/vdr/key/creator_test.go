@@ -37,11 +37,11 @@ func TestBuild(t *testing.T) {
 			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
 		}
 
-		doc, err := v.Build(nil, create.WithPublicKey(pubKey))
+		docResolution, err := v.Build(nil, create.WithPublicKey(pubKey))
 		require.NoError(t, err)
-		require.NotNil(t, doc)
+		require.NotNil(t, docResolution.DIDDocument)
 
-		d, err := did.Parse(doc.ID)
+		d, err := did.Parse(docResolution.DIDDocument.ID)
 		require.NoError(t, err)
 		require.NotNil(t, d)
 	})
@@ -54,11 +54,11 @@ func TestBuild(t *testing.T) {
 			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
 		}
 
-		doc, err := v.Build(nil, create.WithPublicKey(pubKey))
+		docResolution, err := v.Build(nil, create.WithPublicKey(pubKey))
 		require.NoError(t, err)
-		require.NotNil(t, doc)
+		require.NotNil(t, docResolution.DIDDocument)
 
-		assertDoc(t, doc)
+		assertDoc(t, docResolution.DIDDocument)
 	})
 }
 

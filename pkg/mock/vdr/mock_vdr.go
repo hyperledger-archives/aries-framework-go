@@ -19,13 +19,13 @@ import (
 type MockVDR struct {
 	AcceptValue bool
 	StoreErr    error
-	ReadFunc    func(didID string, opts ...resolve.Option) (*did.Doc, error)
-	BuildFunc   func(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error)
+	ReadFunc    func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
+	BuildFunc   func(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error)
 	CloseErr    error
 }
 
 // Read did.
-func (m *MockVDR) Read(didID string, opts ...resolve.Option) (*did.Doc, error) {
+func (m *MockVDR) Read(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 	if m.ReadFunc != nil {
 		return m.ReadFunc(didID, opts...)
 	}
@@ -39,7 +39,7 @@ func (m *MockVDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
 }
 
 // Build did.
-func (m *MockVDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+func (m *MockVDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
 	if m.BuildFunc != nil {
 		return m.BuildFunc(keyManager, opts...)
 	}

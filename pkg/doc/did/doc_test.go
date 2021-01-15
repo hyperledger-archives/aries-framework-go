@@ -42,6 +42,21 @@ OrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ
 FQIDAQAB
 -----END PUBLIC KEY-----`
 
+const validDocResolution = `
+{
+   "@context":"https://w3id.org/did-resolution/v1",
+   "didDocument": ` + validDoc + `,
+   "didDocumentMetadata":{
+      "canonicalId":"did:ex:123333",
+      "method":{
+         "published":true,
+         "recoveryCommitment":"EiB1u5HnTYKVHrmemOpZtrGlc6BoaWWHwNAd-k7CrLKHOg",
+         "updateCommitment":"EiAiTB0QR_Skh3i-fzDSeFgjVoMEDsXYoVIsA56-GUsKjg"
+      }
+   }
+}
+`
+
 //nolint:lll
 const validDoc = `{
   "@context": ["https://w3id.org/did/v1"],
@@ -304,6 +319,25 @@ func TestValidWithDocBase(t *testing.T) {
 		// test proof
 		require.EqualValues(t, "did:example:123456789abcdefghi#key-5", doc.Proof[0].Creator)
 	}
+}
+
+func TestDocResolution(t *testing.T) {
+	t.Run("test valid doc resolution", func(t *testing.T) {
+		d, err := ParseDocumentResolution([]byte(validDocResolution))
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(d.Context))
+		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
+		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, true, d.DocumentMetadata.Method.Published)
+		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
+	})
+
+	t.Run("test did doc not exists", func(t *testing.T) {
+		_, err := ParseDocumentResolution([]byte(validDoc))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), ErrDIDDocumentNotExist.Error())
+	})
 }
 
 func TestValid(t *testing.T) {

@@ -47,7 +47,7 @@ func New(ctx provider, opts ...Option) *Registry {
 }
 
 // Resolve did document.
-func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.Doc, error) {
+func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.DocResolution, error) {
 	didMethod, err := getDidMethod(did)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.Doc, err
 	}
 
 	// Obtain the DID Document
-	didDoc, err := method.Read(did, opts...)
+	didDocResolution, err := method.Read(did, opts...)
 	if err != nil {
 		if errors.Is(err, vdrapi.ErrNotFound) {
 			return nil, err
@@ -69,11 +69,11 @@ func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.Doc, err
 		return nil, fmt.Errorf("did method read failed failed: %w", err)
 	}
 
-	return didDoc, nil
+	return didDocResolution, nil
 }
 
 // Create a new DID Document and store it in this registry.
-func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.Doc, error) {
+func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.DocResolution, error) {
 	docOpts := &create.Opts{}
 
 	// TODO add EncryptionKey as option in docOpts here to support Anoncrypt/Authcrypt packing
@@ -87,17 +87,17 @@ func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.Doc,
 		return nil, err
 	}
 
-	doc, err := method.Build(r.kms, r.applyDefaultDocOpts(docOpts, opts...)...)
+	didDocResolution, err := method.Build(r.kms, r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.Store(doc)
+	err = r.Store(didDocResolution.DIDDocument)
 	if err != nil {
 		return nil, err
 	}
 
-	return doc, nil
+	return didDocResolution, nil
 }
 
 // applyDefaultDocOpts applies default creator options to doc options.
