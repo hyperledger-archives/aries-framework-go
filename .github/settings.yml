@@ -1,0 +1,19 @@
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+repository:
+  name: aries-framework-go
+  description: Hyperledger Aries Framework Go provides packages for building Agent / DIDComm services.
+  homepage: https://wiki.hyperledger.org/display/ARIES/aries-framework-go
+  topics: go, wasm, verifiable-credentials, decentralized-identifiers, didcomm, hyperledger-aries, aries-framework
+  default_branch: main
+  has_downloads: true
+  has_issues: true
+  has_projects: true
+  has_wiki: true
+  archived: false
+  private: false
+  allow_squash_merge: true
+  allow_merge_commit: true
+  allow_rebase_merge: false
