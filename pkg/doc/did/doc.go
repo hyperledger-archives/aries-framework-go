@@ -895,6 +895,32 @@ func mapEntry(entry interface{}) map[string]interface{} {
 }
 
 // JSONBytes converts document to json bytes.
+func (docResolution *DocResolution) JSONBytes() ([]byte, error) {
+	didBytes, err := docResolution.DIDDocument.JSONBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	documentMetadataBytes, err := json.Marshal(docResolution.DocumentMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	raw := &rawDocResolution{
+		Context:          docResolution.Context,
+		DIDDocument:      didBytes,
+		DocumentMetadata: documentMetadataBytes,
+	}
+
+	byteDoc, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshalling of document failed: %w", err)
+	}
+
+	return byteDoc, nil
+}
+
+// JSONBytes converts document to json bytes.
 func (doc *Doc) JSONBytes() ([]byte, error) {
 	context := Context
 
