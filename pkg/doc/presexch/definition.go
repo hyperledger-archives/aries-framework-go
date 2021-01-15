@@ -299,7 +299,8 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 }
 
 // CreateVP creates verifiable presentation.
-func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential) (*verifiable.Presentation, error) {
+func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
+	opts ...verifiable.CredentialOpt) (*verifiable.Presentation, error) {
 	if err := pd.ValidateSchema(); err != nil {
 		return nil, err
 	}
@@ -309,7 +310,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		return nil, err
 	}
 
-	result, err := applyRequirement(req, credentials...)
+	result, err := applyRequirement(req, credentials, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +320,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		Type:    defaultVPType,
 	}
 
-	credentials, descriptors := merge(result)
+	applicableCredentials, descriptors := merge(result)
 	vp.CustomFields = verifiable.CustomFields{
 		submissionProperty: &PresentationSubmission{
 			ID:            uuid.New().String(),
@@ -328,7 +329,7 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 		},
 	}
 
-	err = vp.SetCredentials(credentialsToInterface(credentials)...)
+	err = vp.SetCredentials(credentialsToInterface(applicableCredentials)...)
 	if err != nil {
 		return nil, err
 	}
@@ -339,13 +340,14 @@ func (pd *PresentationDefinition) CreateVP(credentials ...*verifiable.Credential
 var errNoCredentials = errors.New("credentials do not satisfy requirements")
 
 // nolint: gocyclo,funlen,gocognit
-func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[string][]*verifiable.Credential, error) {
+func applyRequirement(req *requirement, creds []*verifiable.Credential,
+	opts ...verifiable.CredentialOpt) (map[string][]*verifiable.Credential, error) {
 	result := make(map[string][]*verifiable.Credential)
 
 	for _, descriptor := range req.InputDescriptors {
 		filtered := filterSchema(descriptor.Schema, creds)
 
-		filtered, err := filterConstraints(descriptor.Constraints, filtered)
+		filtered, err := filterConstraints(descriptor.Constraints, filtered, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +371,7 @@ func applyRequirement(req *requirement, creds ...*verifiable.Credential) (map[st
 	set := map[string]map[string]string{}
 
 	for _, r := range req.Nested {
-		res, err := applyRequirement(r, creds...)
+		res, err := applyRequirement(r, creds, opts...)
 		if errors.Is(err, errNoCredentials) {
 			continue
 		}
@@ -499,7 +501,8 @@ func subjectIsIssuer(credential *verifiable.Credential) bool {
 }
 
 // nolint: gocyclo,funlen,gocognit
-func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]*verifiable.Credential, error) {
+func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
+	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
 	if constraints == nil {
 		return creds, nil
 	}
@@ -507,7 +510,9 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	var result []*verifiable.Credential
 
 	for _, credential := range creds {
-		if constraints.SubjectIsIssuer != nil && *constraints.SubjectIsIssuer == Required && !subjectIsIssuer(credential) {
+		if constraints.SubjectIsIssuer != nil &&
+			*constraints.SubjectIsIssuer == Required &&
+			!subjectIsIssuer(credential) {
 			continue
 		}
 
@@ -555,7 +560,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 			if constraints.LimitDisclosure {
 				template, err = json.Marshal(map[string]interface{}{
-					"id":                tmpID(credential.ID),
+					"id":                credential.ID,
 					"credentialSchema":  credential.Schemas,
 					"type":              credential.Types,
 					"@context":          credential.Context,
@@ -570,10 +575,12 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 			var err error
 
-			credential, err = createNewCredential(constraints.Fields, credentialSrc, template)
+			credential, err = createNewCredential(constraints, credentialSrc, template, credential, opts...)
 			if err != nil {
 				return nil, fmt.Errorf("create new credential: %w", err)
 			}
+
+			credential.ID = tmpID(credential.ID)
 		}
 
 		result = append(result, credential)
@@ -595,8 +602,16 @@ func trimTmpID(id string) string {
 	return id[:idx]
 }
 
-func createNewCredential(fs []*Field, src, limitedCred []byte) (*verifiable.Credential, error) {
-	for _, f := range fs {
+// nolint: funlen,gocognit,gocyclo
+func createNewCredential(constraints *Constraints, src, limitedCred []byte,
+	credential *verifiable.Credential, opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
+	var (
+		BBSSupport          = hasBBS(credential)
+		modifiedByPredicate bool
+		explicitPaths       []string
+	)
+
+	for _, f := range constraints.Fields {
 		paths, err := jsonpathkeys.ParsePaths(f.Path...)
 		if err != nil {
 			return nil, err
@@ -623,8 +638,18 @@ func createNewCredential(fs []*Field, src, limitedCred []byte) (*verifiable.Cred
 		for _, path := range jPaths {
 			var val interface{} = true
 
+			if !modifiedByPredicate {
+				modifiedByPredicate = f.Predicate != nil && *f.Predicate == Required
+			}
+
 			if f.Predicate == nil || *f.Predicate != Required {
 				val = gjson.GetBytes(src, path[1]).Value()
+			}
+
+			if constraints.LimitDisclosure && BBSSupport {
+				chunks := strings.Split(path[0], ".")
+				chunks[len(chunks)-1] = "@explicit"
+				explicitPaths = append(explicitPaths, strings.Join(chunks, "."))
 			}
 
 			limitedCred, err = sjson.SetBytes(limitedCred, path[0], val)
@@ -634,7 +659,37 @@ func createNewCredential(fs []*Field, src, limitedCred []byte) (*verifiable.Cred
 		}
 	}
 
-	return verifiable.ParseUnverifiedCredential(limitedCred)
+	if !constraints.LimitDisclosure || !BBSSupport || modifiedByPredicate {
+		return verifiable.ParseUnverifiedCredential(limitedCred, opts...)
+	}
+
+	var err error
+
+	for _, path := range explicitPaths {
+		limitedCred, err = sjson.SetBytes(limitedCred, path, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var doc map[string]interface{}
+	if err := json.Unmarshal(limitedCred, &doc); err != nil {
+		return nil, err
+	}
+
+	doc["@explicit"] = true
+
+	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), opts...)
+}
+
+func hasBBS(vc *verifiable.Credential) bool {
+	for _, proof := range vc.Proofs {
+		if proof["type"] == "BbsBlsSignature2020" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func filterField(f *Field, credential map[string]interface{}) error {
@@ -765,18 +820,18 @@ func credentialsToInterface(credentials []*verifiable.Credential) []interface{} 
 func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*verifiable.Credential {
 	var result []*verifiable.Credential
 
-	for _, cred := range credentials {
+	for _, credential := range credentials {
 		var applicable bool
 
 		for _, schema := range schemas {
-			applicable = credentialMatchSchema(cred, schema.URI)
+			applicable = credentialMatchSchema(credential, schema.URI)
 			if schema.Required && !applicable {
 				break
 			}
 		}
 
 		if applicable {
-			result = append(result, cred)
+			result = append(result, credential)
 		}
 	}
 

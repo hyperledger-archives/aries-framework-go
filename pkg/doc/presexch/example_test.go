@@ -47,25 +47,27 @@ func ExamplePresentationDefinition_CreateVP() {
 		}},
 	}
 
-	vp, err := pd.CreateVP(&verifiable.Credential{
-		ID:      "http://example.edu/credentials/777",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Jesse",
-			"last_name":  "Pinkman",
-			"age":        21,
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
 		},
 	})
 
@@ -162,45 +164,48 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		}},
 	}
 
-	vp, err := pd.CreateVP(&verifiable.Credential{
-		ID:      "http://example.edu/credentials/777",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:777",
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:777",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:777",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Andrew",
+				"last_name":  "Hanks",
+				"age":        25,
+			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:777",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Andrew",
-			"last_name":  "Hanks",
-			"age":        25,
-		},
-	}, &verifiable.Credential{
-		ID:      "http://example.edu/credentials/888",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:888",
-		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:888",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Jesse",
-			"last_name":  "Pinkman",
-			"age":        21,
+		{
+			ID:      "http://example.edu/credentials/888",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:888",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:888",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
 		},
 	})
 
@@ -337,45 +342,48 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		}},
 	}
 
-	vp, err := pd.CreateVP(&verifiable.Credential{
-		ID:      "http://example.edu/credentials/777",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:777",
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:777",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:777",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Andrew",
+				"last_name":  "Hanks",
+				"age":        25,
+			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:777",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Andrew",
-			"last_name":  "Hanks",
-			"age":        25,
-		},
-	}, &verifiable.Credential{
-		ID:      "http://example.edu/credentials/888",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:888",
-		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:888",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Jesse",
-			"last_name":  "Pinkman",
-			"age":        21,
+		{
+			ID:      "http://example.edu/credentials/888",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:888",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:888",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
 		},
 	})
 	if err != nil {
@@ -585,47 +593,50 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		}},
 	}
 
-	vp, err := pd.CreateVP(&verifiable.Credential{
-		ID:      "http://example.edu/credentials/777",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:777",
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:777",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:777",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Andrew",
+				"last_name":  "Hanks",
+				"image":      "http://image.com/user777",
+				"age":        25,
+			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:777",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Andrew",
-			"last_name":  "Hanks",
-			"image":      "http://image.com/user777",
-			"age":        25,
-		},
-	}, &verifiable.Credential{
-		ID:      "http://example.edu/credentials/888",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:888",
-		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:888",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Jesse",
-			"last_name":  "Pinkman",
-			"photo":      "http://image.com/user777",
-			"age":        21,
+		{
+			ID:      "http://example.edu/credentials/888",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:888",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:888",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"photo":      "http://image.com/user777",
+				"age":        21,
+			},
 		},
 	})
 	if err != nil {
@@ -835,47 +846,50 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		}},
 	}
 
-	vp, err := pd.CreateVP(&verifiable.Credential{
-		ID:      "http://example.edu/credentials/777",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:777",
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:777",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:777",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Andrew",
+				"last_name":  "Hanks",
+				"image":      "http://image.com/user777",
+				"age":        25,
+			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:777",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Andrew",
-			"last_name":  "Hanks",
-			"image":      "http://image.com/user777",
-			"age":        25,
-		},
-	}, &verifiable.Credential{
-		ID:      "http://example.edu/credentials/888",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:888",
-		},
-		Issued: &util.TimeWithTrailingZeroMsec{
-			Time: time.Time{},
-		},
-		Subject: "did:example:888",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
-		CustomFields: map[string]interface{}{
-			"first_name": "Jesse",
-			"last_name":  "Pinkman",
-			"photo":      "http://image.com/user777",
-			"age":        21,
+		{
+			ID:      "http://example.edu/credentials/888",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:888",
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Time{},
+			},
+			Subject: "did:example:888",
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"photo":      "http://image.com/user777",
+				"age":        21,
+			},
 		},
 	})
 	if err != nil {
