@@ -8,6 +8,7 @@ package presexch_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -20,9 +21,14 @@ import (
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -77,7 +83,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	t.Run("Checks schema", func(t *testing.T) {
 		pd := &PresentationDefinition{ID: uuid.New().String()}
 
-		vp, err := pd.CreateVP()
+		vp, err := pd.CreateVP(nil)
 
 		require.EqualError(t, err, "presentation_definition: input_descriptors is required")
 		require.Nil(t, vp)
@@ -179,29 +185,31 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: []verifiable.Subject{{ID: issuerID}},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
-				"age":        17,
+			{
+				ID:      uuid.New().String(),
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        17,
+				},
 			},
-		},
-			&verifiable.Credential{
+			{
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -214,7 +222,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"age":        2,
 				},
 			},
-		)
+		})
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -260,26 +268,28 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: []verifiable.Subject{{ID: issuerID}},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
-				"age":        17,
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
+			}, {
+				ID:      uuid.New().String(),
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        17,
+				},
 			},
 		})
 
@@ -307,25 +317,27 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      "http://example.edu/credentials/1872",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Issued: &util.TimeWithTrailingZeroMsec{
-				Time: time.Now(),
-			},
-			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			},
-			CustomFields: map[string]interface{}{
-				"first_name": "First name",
-				"last_name":  "Last name",
-				"info":       "Info",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      "http://example.edu/credentials/1872",
+				Context: []string{"https://www.w3.org/2018/credentials/v1"},
+				Types:   []string{"VerifiableCredential"},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				Issued: &util.TimeWithTrailingZeroMsec{
+					Time: time.Now(),
+				},
+				Issuer: verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
 			},
 		})
 
@@ -365,25 +377,27 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      "http://example.edu/credentials/1872",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Issued: &util.TimeWithTrailingZeroMsec{
-				Time: time.Now(),
-			},
-			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			},
-			CustomFields: map[string]interface{}{
-				"first_name": "First name",
-				"last_name":  "Last name",
-				"info":       "Info",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      "http://example.edu/credentials/1872",
+				Context: []string{"https://www.w3.org/2018/credentials/v1"},
+				Types:   []string{"VerifiableCredential"},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				Issued: &util.TimeWithTrailingZeroMsec{
+					Time: time.Now(),
+				},
+				Issuer: verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
 			},
 		})
 
@@ -399,6 +413,229 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		_, ok = vc.CustomFields["info"]
 		require.False(t, ok)
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Limit disclosure BBS+", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				Schema: []*Schema{{
+					URI: schemaURI,
+				}},
+				ID: uuid.New().String(),
+				Constraints: &Constraints{
+					LimitDisclosure: true,
+					Fields: []*Field{{
+						Path:   []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
+						Filter: &Filter{Type: &strFilterType},
+					}, {
+						Path:   []string{"$.credentialSubject.type"},
+						Filter: &Filter{Type: &arrFilterType},
+					}},
+				},
+			}},
+		}
+
+		vc := &verifiable.Credential{
+			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://w3id.org/citizenship/v1",
+				"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+			},
+			Types: []string{
+				"VerifiableCredential",
+				"PermanentResidentCard",
+			},
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			Subject: verifiable.Subject{
+				ID: "did:example:b34ca6cd37bbf23",
+				CustomFields: map[string]interface{}{
+					"type": []string{
+						"PermanentResident",
+						"Person",
+					},
+					"givenName":              "JOHN",
+					"familyName":             "SMITH",
+					"gender":                 "Male",
+					"image":                  "data:image/png;base64,iVBORw0KGgokJggg==",
+					"residentSince":          "2015-01-01",
+					"lprCategory":            "C09",
+					"lprNumber":              "999-999-999",
+					"commuterClassification": "C1",
+					"birthCountry":           "Bahamas",
+					"birthDate":              "1958-07-17",
+				},
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now(),
+			},
+			Expired: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now().AddDate(1, 0, 0),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:489398593",
+			},
+			CustomFields: map[string]interface{}{
+				"identifier":  "83627465",
+				"name":        "Permanent Resident Card",
+				"description": "Government of Example Permanent Resident Card.",
+			},
+		}
+
+		publicKey, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+		require.NoError(t, err)
+
+		srcPublicKey, err := publicKey.Marshal()
+		require.NoError(t, err)
+
+		signer, err := newBBSSigner(privateKey)
+		require.NoError(t, err)
+
+		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "BbsBlsSignature2020",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+			Suite: bbsblssignature2020.New(
+				suite.WithSigner(signer),
+				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
+			),
+			VerificationMethod: "did:example:123456#key1",
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{vc},
+			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.Equal(t, "JOHN", vc.Subject.([]verifiable.Subject)[0].CustomFields["givenName"])
+		require.Equal(t, "SMITH", vc.Subject.([]verifiable.Subject)[0].CustomFields["familyName"])
+		require.Empty(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["gender"])
+		require.NotEmpty(t, vc.Proofs)
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Predicate and limit disclosure BBS+ (no proof)", func(t *testing.T) {
+		predicate := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				Schema: []*Schema{{
+					URI: schemaURI,
+				}},
+				ID: uuid.New().String(),
+				Constraints: &Constraints{
+					LimitDisclosure: true,
+					Fields: []*Field{{
+						Path:      []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
+						Filter:    &Filter{Type: &strFilterType},
+						Predicate: &predicate,
+					}, {
+						Path:   []string{"$.credentialSubject.type"},
+						Filter: &Filter{Type: &arrFilterType},
+					}},
+				},
+			}},
+		}
+
+		vc := &verifiable.Credential{
+			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://w3id.org/citizenship/v1",
+				"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+			},
+			Types: []string{
+				"VerifiableCredential",
+				"PermanentResidentCard",
+			},
+			Schemas: []verifiable.TypedID{{
+				ID:   schemaURI,
+				Type: "JsonSchemaValidator2018",
+			}},
+			Subject: verifiable.Subject{
+				ID: "did:example:b34ca6cd37bbf23",
+				CustomFields: map[string]interface{}{
+					"type": []string{
+						"PermanentResident",
+						"Person",
+					},
+					"givenName":              "JOHN",
+					"familyName":             "SMITH",
+					"gender":                 "Male",
+					"image":                  "data:image/png;base64,iVBORw0KGgokJggg==",
+					"residentSince":          "2015-01-01",
+					"lprCategory":            "C09",
+					"lprNumber":              "999-999-999",
+					"commuterClassification": "C1",
+					"birthCountry":           "Bahamas",
+					"birthDate":              "1958-07-17",
+				},
+			},
+			Issued: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now(),
+			},
+			Expired: &util.TimeWithTrailingZeroMsec{
+				Time: time.Now().AddDate(1, 0, 0),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:489398593",
+			},
+			CustomFields: map[string]interface{}{
+				"identifier":  "83627465",
+				"name":        "Permanent Resident Card",
+				"description": "Government of Example Permanent Resident Card.",
+			},
+		}
+
+		publicKey, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+		require.NoError(t, err)
+
+		srcPublicKey, err := publicKey.Marshal()
+		require.NoError(t, err)
+
+		signer, err := newBBSSigner(privateKey)
+		require.NoError(t, err)
+
+		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "BbsBlsSignature2020",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+			Suite: bbsblssignature2020.New(
+				suite.WithSigner(signer),
+				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
+			),
+			VerificationMethod: "did:example:123456#key1",
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{vc},
+			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.Equal(t, true, vc.Subject.([]verifiable.Subject)[0].CustomFields["givenName"])
+		require.Equal(t, true, vc.Subject.([]verifiable.Subject)[0].CustomFields["familyName"])
+		require.Empty(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["gender"])
+		require.Empty(t, vc.Proofs)
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
@@ -421,15 +658,17 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": make(chan struct{}),
-				"last_name":  "Jon",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": make(chan struct{}),
+					"last_name":  "Jon",
+				},
 			},
 		})
 
@@ -453,22 +692,25 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"last_name": "Travis",
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"last_name": "Travis",
+				},
 			},
 		})
 
@@ -494,22 +736,25 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"last_name": "Travis",
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"last_name": "Travis",
+				},
 			},
 		})
 
@@ -540,26 +785,28 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: map[string]interface{}{},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: verifiable.Subject{ID: issuerID},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      uuid.New().String(),
+				Subject: map[string]interface{}{},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
+			}, {
+				ID:      uuid.New().String(),
+				Subject: verifiable.Subject{ID: issuerID},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+				},
 			},
 		})
 
@@ -600,59 +847,62 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
-			Subject: []map[string]interface{}{{}},
-			Issuer:  verifiable.Issuer{ID: uuid.New().String()},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"last_name": "Travis",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      uuid.New().String(),
+				Context: []string{"https://www.w3.org/2018/credentials/v1"},
+				Types:   []string{"VerifiableCredential"},
+				Subject: []map[string]interface{}{{}},
+				Issuer:  verifiable.Issuer{ID: uuid.New().String()},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"last_name": "Travis",
+				},
 			},
-		}, &verifiable.Credential{
-			ID:      "http://example.edu/credentials/1872",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
-			Subject: []map[string]interface{}{{"id": issuerID}},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			Issued: &util.TimeWithTrailingZeroMsec{
-				Time: time.Now(),
-			},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"ssn":        "000-00-000",
-				"last_name":  "Travis",
-				"all": []interface{}{
-					map[string]interface{}{
-						"authors": []interface{}{map[string]interface{}{
-							"name":    "Andrew",
-							"license": "yes",
-						}, map[string]interface{}{
-							"name":    "Jessy",
-							"license": "no",
-						}},
-					},
-					map[string]interface{}{
-						"authors": []interface{}{map[string]interface{}{
-							"license": "unknown",
-						}},
-					},
-					map[string]interface{}{
-						"authors": []interface{}{map[string]interface{}{
-							"name":    "Bob",
-							"license": "yes",
-						}, map[string]interface{}{
-							"name":    "Carol",
-							"license": "no",
-						}},
+			{
+				ID:      "http://example.edu/credentials/1872",
+				Context: []string{"https://www.w3.org/2018/credentials/v1"},
+				Types:   []string{"VerifiableCredential"},
+				Subject: []map[string]interface{}{{"id": issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				Issued: &util.TimeWithTrailingZeroMsec{
+					Time: time.Now(),
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"ssn":        "000-00-000",
+					"last_name":  "Travis",
+					"all": []interface{}{
+						map[string]interface{}{
+							"authors": []interface{}{map[string]interface{}{
+								"name":    "Andrew",
+								"license": "yes",
+							}, map[string]interface{}{
+								"name":    "Jessy",
+								"license": "no",
+							}},
+						},
+						map[string]interface{}{
+							"authors": []interface{}{map[string]interface{}{
+								"license": "unknown",
+							}},
+						},
+						map[string]interface{}{
+							"authors": []interface{}{map[string]interface{}{
+								"name":    "Bob",
+								"license": "yes",
+							}, map[string]interface{}{
+								"name":    "Carol",
+								"license": "no",
+							}},
+						},
 					},
 				},
 			},
@@ -708,15 +958,17 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:     uuid.New().String(),
-			Issuer: verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:     uuid.New().String(),
+				Issuer: verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
 		})
 
@@ -748,26 +1000,29 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: map[string]interface{}{"id": issuerID},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      uuid.New().String(),
+				Subject: map[string]interface{}{"id": issuerID},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: map[string]interface{}{"id": 123},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Travis",
-				"last_name":  "Jesse",
+			{
+				ID:      uuid.New().String(),
+				Subject: map[string]interface{}{"id": 123},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Travis",
+					"last_name":  "Jesse",
+				},
 			},
 		})
 
@@ -798,25 +1053,28 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: []verifiable.Subject{{ID: issuerID}},
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
+			{
+				ID:      uuid.New().String(),
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+				},
 			},
 		})
 
@@ -857,27 +1115,30 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: issuerID,
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID:      uuid.New().String(),
+				Subject: issuerID,
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID:      uuid.New().String(),
-			Subject: issuerID,
-			Issuer:  verifiable.Issuer{ID: issuerID},
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
+			{
+				ID:      uuid.New().String(),
+				Subject: issuerID,
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+				},
 			},
 		})
 
@@ -905,23 +1166,26 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
 			},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+				},
 			},
 		})
 
@@ -944,17 +1208,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: schemaURI,
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: schemaURI,
+				}},
+			},
 		})
 
 		require.NoError(t, err)
@@ -976,17 +1243,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   schemaURI,
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}},
+			},
 		})
 
 		require.NoError(t, err)
@@ -1008,18 +1278,21 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
 		})
 
 		require.EqualError(t, err, errMsgSchema)
@@ -1042,18 +1315,21 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
 		})
 
 		require.NoError(t, err)
@@ -1080,18 +1356,21 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
 		})
 
 		require.EqualError(t, err, errMsgSchema)
@@ -1116,17 +1395,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 			}},
 		}
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}},
+			},
 		})
 
 		require.EqualError(t, err, errMsgSchema)
@@ -1151,17 +1433,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 			}},
 		}
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				}},
+			},
 		})
 
 		require.NoError(t, err)
@@ -1191,19 +1476,22 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 			}},
 		}
-		vp, err := pd.CreateVP(&verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
-				Type: "JsonSchemaValidator2018",
-			}},
-		}, &verifiable.Credential{
-			ID: uuid.New().String(),
-			Schemas: []verifiable.TypedID{{
-				ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
-			}, {
-				ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
-			}},
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
+					Type: "JsonSchemaValidator2018",
+				}},
+			},
+			{
+				ID: uuid.New().String(),
+				Schemas: []verifiable.TypedID{{
+					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+				}, {
+					ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				}},
+			},
 		})
 
 		require.NoError(t, err)
@@ -1276,3 +1564,144 @@ func parseJSONFile(t *testing.T, name string, v interface{}) {
 		t.Error(err)
 	}
 }
+
+type bbsSigner struct {
+	privateKey []byte
+}
+
+func newBBSSigner(key *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+	src, err := key.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &bbsSigner{privateKey: src}, nil
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	return bbs12381g2pub.New().Sign(s.textToLines(string(data)), s.privateKey)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
+}
+
+func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+	loader := verifiable.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
+	if err != nil {
+		panic(err)
+	}
+
+	loader.AddDocument("https://w3c-ccg.github.io/ldp-bbs2020/context/v1", reader)
+
+	return loader
+}
+
+const contextBBSContent = `{
+  "@context": {
+    "@version": 1.1,
+    "id": "@id",
+    "type": "@type",
+    "ldssk": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#",
+    "BbsBlsSignature2020": {
+      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "proofValue": "sec:proofValue",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "BbsBlsSignatureProof2020": {
+      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignatureProof2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "proofValue": "sec:proofValue",
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
+  }
+}`
