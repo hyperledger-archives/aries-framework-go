@@ -331,6 +331,18 @@ func TestDocResolution(t *testing.T) {
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
 		require.Equal(t, true, d.DocumentMetadata.Method.Published)
 		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
+
+		bytes, err := d.JSONBytes()
+		require.NoError(t, err)
+
+		d, err = ParseDocumentResolution(bytes)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(d.Context))
+		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
+		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, true, d.DocumentMetadata.Method.Published)
+		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
 	})
 
 	t.Run("test did doc not exists", func(t *testing.T) {
