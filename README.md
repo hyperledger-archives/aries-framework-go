@@ -1,9 +1,9 @@
 [![Release](https://img.shields.io/github/release/hyperledger/aries-framework-go.svg?style=flat-square)](https://github.com/hyperledger/aries-framework-go/releases/latest)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/hyperledger/aries-framework-go/master/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/hyperledger/aries-framework-go/main/LICENSE)
 [![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/hyperledger/aries-framework-go)
 
 [![Build Status](https://github.com/hyperledger/aries-framework-go/workflows/build/badge.svg)](https://github.com/hyperledger/aries-framework-go/actions)
-[![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/master/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
+[![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/main/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
 
 # <p><img src="https://raw.githubusercontent.com/hyperledger/aries-rfcs/1371a4807ead74c36ea7d5af909064ec491b78c1/collateral/Hyperledger_Aries_Logo_Color.png" height="50px" alt="Hyperledger Aries">Framework Go</p>
