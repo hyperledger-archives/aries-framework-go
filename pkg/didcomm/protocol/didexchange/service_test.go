@@ -121,7 +121,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
@@ -166,14 +166,14 @@ func TestService_Handle_Inviter(t *testing.T) {
 				PID: invitation.ID,
 			},
 			Connection: &Connection{
-				DID:    newDidDoc.ID,
-				DIDDoc: newDidDoc,
+				DID:    doc.DIDDocument.ID,
+				DIDDoc: doc.DIDDocument,
 			},
 		})
 	require.NoError(t, err)
 	msg, err := service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
-	_, err = s.HandleInbound(msg, newDidDoc.ID, "")
+	_, err = s.HandleInbound(msg, doc.DIDDocument.ID, "")
 	require.NoError(t, err)
 
 	select {
@@ -195,7 +195,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	didMsg, err := service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
 
-	_, err = s.HandleInbound(didMsg, newDidDoc.ID, "theirDID")
+	_, err = s.HandleInbound(didMsg, doc.DIDDocument.ID, "theirDID")
 	require.NoError(t, err)
 
 	select {
@@ -293,13 +293,13 @@ func TestService_Handle_Invitee(t *testing.T) {
 		kms:                k,
 	}
 
-	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(prov)
 	require.NoError(t, err)
 
-	s.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
+	s.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument}
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -351,8 +351,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint)
 
 	c := &Connection{
-		DID:    newDidDoc.ID,
-		DIDDoc: newDidDoc,
+		DID:    doc.DIDDocument.ID,
+		DIDDoc: doc.DIDDocument,
 	}
 
 	connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
@@ -1269,10 +1269,10 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	const publicDIDMethod = "sidetree"
 	publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-	newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
+	doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 	require.NoError(t, err)
 
-	svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
+	svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument}
 
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
@@ -1466,9 +1466,9 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 
 		const publicDIDMethod = "sidetree"
 		publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-		newDidDoc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
+		doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
 		require.NoError(t, err)
-		svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: newDidDoc}
+		svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument}
 
 		actionCh := make(chan service.DIDCommAction, 10)
 		err = svc.RegisterActionEvent(actionCh)
@@ -1729,7 +1729,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 		connectionStore:    connStore,
 	}
-	newDidDoc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
@@ -1739,8 +1739,8 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 			PID: invitationID,
 		},
 		Connection: &Connection{
-			DID:    newDidDoc.ID,
-			DIDDoc: newDidDoc,
+			DID:    doc.DIDDocument.ID,
+			DIDDoc: doc.DIDDocument,
 		},
 	})
 	require.NoError(t, err)

@@ -43,11 +43,11 @@ func TestRead(t *testing.T) {
 	t.Run("resolve assuming default key type", func(t *testing.T) {
 		v := New()
 
-		doc, err := v.Read(didKey)
+		docResolution, err := v.Read(didKey)
 		require.NoError(t, err)
-		require.NotNil(t, doc)
-		require.True(t, doc.KeyAgreement[0].Embedded)
+		require.NotNil(t, docResolution.DIDDocument)
+		require.True(t, docResolution.DIDDocument.KeyAgreement[0].Embedded)
 
-		assertDoc(t, doc)
+		assertDoc(t, docResolution.DIDDocument)
 	})
 }

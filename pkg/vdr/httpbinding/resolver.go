@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package httpbinding
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,13 +22,6 @@ import (
 const (
 	didLDJson = "application/did+ld+json"
 )
-
-type didResolution struct {
-	Context          interface{}            `json:"@context"`
-	DIDDocument      map[string]interface{} `json:"didDocument"`
-	ResolverMetadata map[string]interface{} `json:"resolverMetadata"`
-	MethodMetadata   map[string]interface{} `json:"methodMetadata"`
-}
 
 // resolveDID makes DID resolution via HTTP.
 func (v *VDR) resolveDID(uri string) ([]byte, error) {
@@ -68,7 +61,7 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.Doc, error) {
+func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.DocResolution, error) {
 	reqURL, err := url.ParseRequestURI(v.endpointURL)
 	if err != nil {
 		return nil, fmt.Errorf("url parse request uri failed: %w", err)
@@ -85,21 +78,21 @@ func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.Doc, error) {
 		return nil, vdrapi.ErrNotFound
 	}
 
-	var r didResolution
-	if err := json.Unmarshal(data, &r); err != nil {
-		return nil, fmt.Errorf("unmarshal data return from http binding resolver %w", err)
-	}
-
-	didDocBytes := data
-	// check if data is did resolution
-	if len(r.DIDDocument) != 0 {
-		var err error
-
-		didDocBytes, err = json.Marshal(r.DIDDocument)
-		if err != nil {
-			return nil, fmt.Errorf("marshal data from did resolution did doc %w", err)
+	documentResolution, err := did.ParseDocumentResolution(data)
+	if err != nil {
+		if !errors.Is(err, did.ErrDIDDocumentNotExist) {
+			return nil, err
 		}
+
+		logger.Warnf("parse document resolution failed %w", err)
+	} else {
+		return documentResolution, nil
 	}
 
-	return did.ParseDocument(didDocBytes)
+	didDoc, err := did.ParseDocument(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
 }

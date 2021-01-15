@@ -295,7 +295,7 @@ func TestSaveCredentials(t *testing.T) {
 			Return(nil)
 
 		registry := mockvdr.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:123456").Return(&did.Doc{
+		registry.EXPECT().Resolve("did:example:123456").Return(&did.DocResolution{DIDDocument: &did.Doc{
 			VerificationMethod: []did.VerificationMethod{{
 				ID: "#key1",
 				Value: []byte{
@@ -303,7 +303,7 @@ func TestSaveCredentials(t *testing.T) {
 					33, 152, 140, 168, 36, 9, 205, 59, 161, 137, 7, 164, 9, 176, 252, 1, 171,
 				},
 			}},
-		}, nil)
+		}}, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()

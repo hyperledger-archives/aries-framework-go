@@ -31,12 +31,12 @@ func TestDIDCreator(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		didDoc, err := c.Build(nil, create.WithPublicKey(getSigningKey()))
+		docResolution, err := c.Build(nil, create.WithPublicKey(getSigningKey()))
 		require.NoError(t, err)
-		require.NotNil(t, didDoc)
+		require.NotNil(t, docResolution.DIDDocument)
 
 		// verify empty services
-		require.Empty(t, didDoc.Service)
+		require.Empty(t, docResolution.DIDDocument.Service)
 	})
 
 	t.Run("test request overrides", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestDIDCreator(t *testing.T) {
 		require.NotNil(t, c)
 
 		routingKeys := []string{"abc", "xyz"}
-		didDoc, err := c.Build(nil,
+		docResolution, err := c.Build(nil,
 			create.WithPublicKey(getSigningKey()),
 			create.WithService(&did.Service{
 				ServiceEndpoint: "request-endpoint",
@@ -54,13 +54,13 @@ func TestDIDCreator(t *testing.T) {
 			}),
 		)
 		require.NoError(t, err)
-		require.NotNil(t, didDoc)
+		require.NotNil(t, docResolution.DIDDocument)
 
 		// verify service not empty, type and endpoint from request options
-		require.NotEmpty(t, didDoc.Service)
-		require.Equal(t, "request-type", didDoc.Service[0].Type)
-		require.Equal(t, "request-endpoint", didDoc.Service[0].ServiceEndpoint)
-		require.Equal(t, routingKeys, didDoc.Service[0].RoutingKeys)
+		require.NotEmpty(t, docResolution.DIDDocument.Service)
+		require.Equal(t, "request-type", docResolution.DIDDocument.Service[0].Type)
+		require.Equal(t, "request-endpoint", docResolution.DIDDocument.Service[0].ServiceEndpoint)
+		require.Equal(t, routingKeys, docResolution.DIDDocument.Service[0].RoutingKeys)
 	})
 
 	t.Run("test accept", func(t *testing.T) {
@@ -89,10 +89,10 @@ func TestBuild(t *testing.T) {
 			}),
 		)
 		require.NoError(t, err)
-		require.NotEmpty(t, result.Service)
-		require.NotEmpty(t, result.Service[0].RecipientKeys)
+		require.NotEmpty(t, result.DIDDocument.Service)
+		require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
 		require.Equal(t, base58.Encode(expected.JWK.Key.(ed25519.PublicKey)),
-			result.Service[0].RecipientKeys[0])
+			result.DIDDocument.Service[0].RecipientKeys[0])
 	})
 }
 

@@ -85,12 +85,12 @@ func NewDIDKeyResolver(vdr vdrapi.Registry) *DIDKeyResolver {
 }
 
 func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
-	doc, err := r.vdr.Resolve(issuerDID)
+	docResolution, err := r.vdr.Resolve(issuerDID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
 	}
 
-	for _, verifications := range doc.VerificationMethods() {
+	for _, verifications := range docResolution.DIDDocument.VerificationMethods() {
 		for _, verification := range verifications {
 			if strings.Contains(verification.VerificationMethod.ID, keyID) {
 				return &verifier.PublicKey{

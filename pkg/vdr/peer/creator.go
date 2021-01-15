@@ -25,22 +25,22 @@ import (
 const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 
 // Build builds new DID Document.
-func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
 	docOpts := &create.Opts{}
 	// Apply options
 	for _, opt := range opts {
 		opt(docOpts)
 	}
 
-	didDoc, err := build(keyManager, docOpts)
+	docResolution, err := build(keyManager, docOpts)
 	if err != nil {
 		return nil, fmt.Errorf("create peer DID : %w", err)
 	}
 
-	return didDoc, nil
+	return docResolution, nil
 }
 
-func build(keyManager kms.KeyManager, docOpts *create.Opts) (*did.Doc, error) { //nolint: funlen
+func build(keyManager kms.KeyManager, docOpts *create.Opts) (*did.DocResolution, error) { //nolint: funlen,gocyclo
 	if len(docOpts.PublicKeys) == 0 {
 		id, pubKeyBytes, err := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		if err != nil {
@@ -95,18 +95,27 @@ func build(keyManager kms.KeyManager, docOpts *create.Opts) (*did.Doc, error) { 
 	// Created/Updated time
 	t := time.Now()
 
-	return NewDoc(
+	assertion := []did.Verification{{
+		VerificationMethod: publicKey,
+		Relationship:       did.AssertionMethod,
+	}}
+
+	authentication := []did.Verification{{
+		VerificationMethod: publicKey,
+		Relationship:       did.Authentication,
+	}}
+
+	didDoc, err := NewDoc(
 		[]did.VerificationMethod{publicKey},
 		did.WithService(service),
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
-		did.WithAuthentication([]did.Verification{{
-			VerificationMethod: publicKey,
-			Relationship:       did.Authentication,
-		}}),
-		did.WithAssertion([]did.Verification{{
-			VerificationMethod: publicKey,
-			Relationship:       did.AssertionMethod,
-		}}),
+		did.WithAuthentication(authentication),
+		did.WithAssertion(assertion),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
 }

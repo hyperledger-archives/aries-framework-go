@@ -213,7 +213,7 @@ func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange : %w", theirDID, err)
 	}
 
-	if doc == nil || doc.ID != theirDID {
+	if doc == nil || doc.DIDDocument.ID != theirDID {
 		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange", theirDID)
 	}
 
@@ -453,20 +453,20 @@ func (d *SDKSteps) saveConnectionID(agentID, varName string) error {
 }
 
 func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
-	var doc *diddoc.Doc
+	var doc *diddoc.DocResolution
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = vdr.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
-			return doc, err
+			return doc.DIDDocument, err
 		}
 
 		time.Sleep(1 * time.Second)
 		logger.Debugf("Waiting for public did to be published in sidtree: %d second(s)\n", i)
 	}
 
-	return doc, err
+	return doc.DIDDocument, err
 }
 
 // SetContext is called before every scenario is run with a fresh new context.

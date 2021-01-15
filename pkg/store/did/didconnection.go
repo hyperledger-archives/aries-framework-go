@@ -107,14 +107,14 @@ func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
 // SaveDIDByResolving resolves a DID using the VDR then saves the map from keys -> did
 //  keys: fallback keys in case the DID can't be resolved
 func (c *ConnectionStore) SaveDIDByResolving(did string, keys ...string) error {
-	doc, err := c.vdr.Resolve(did)
+	docResolution, err := c.vdr.Resolve(did)
 	if errors.Is(err, vdr.ErrNotFound) {
 		return c.SaveDID(did, keys...)
 	} else if err != nil {
 		return fmt.Errorf("failed to read from vdr store : %w", err)
 	}
 
-	return c.SaveDIDFromDoc(doc)
+	return c.SaveDIDFromDoc(docResolution.DIDDocument)
 }
 
 // GetDID gets the DID stored under the given key.

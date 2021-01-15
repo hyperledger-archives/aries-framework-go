@@ -479,17 +479,17 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
-		didDoc, err := ctx.vdRegistry.Resolve(pubDID)
+		docResolution, err := ctx.vdRegistry.Resolve(pubDID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
 
-		err = ctx.connectionStore.SaveDIDFromDoc(didDoc)
+		err = ctx.connectionStore.SaveDIDFromDoc(docResolution.DIDDocument)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		return didDoc, &Connection{DID: didDoc.ID}, nil
+		return docResolution.DIDDocument, &Connection{DID: docResolution.DIDDocument.ID}, nil
 	}
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
@@ -517,7 +517,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	}
 
 	// by default use peer did
-	newDidDoc, err := ctx.vdRegistry.Create(
+	docResolution, err := ctx.vdRegistry.Create(
 		didMethod, opt...,
 	)
 	if err != nil {
@@ -525,7 +525,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	}
 
 	if len(routerConnections) != 0 {
-		svc, ok := did.LookupService(newDidDoc, didCommServiceType)
+		svc, ok := did.LookupService(docResolution.DIDDocument, didCommServiceType)
 		if ok {
 			for _, recKey := range svc.RecipientKeys {
 				for _, connID := range routerConnections {
@@ -539,24 +539,29 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 		}
 	}
 
-	err = ctx.connectionStore.SaveDIDFromDoc(newDidDoc)
+	err = ctx.connectionStore.SaveDIDFromDoc(docResolution.DIDDocument)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	connection := &Connection{
-		DID:    newDidDoc.ID,
-		DIDDoc: newDidDoc,
+		DID:    docResolution.DIDDocument.ID,
+		DIDDoc: docResolution.DIDDocument,
 	}
 
-	return newDidDoc, connection, nil
+	return docResolution.DIDDocument, connection, nil
 }
 
 func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, error) {
 	didDoc := conn.DIDDoc
 	if didDoc == nil {
 		// did content was not provided; resolve
-		return ctx.vdRegistry.Resolve(conn.DID)
+		docResolution, err := ctx.vdRegistry.Resolve(conn.DID)
+		if err != nil {
+			return nil, err
+		}
+
+		return docResolution.DIDDocument, err
 	}
 
 	// store provided did document
@@ -650,12 +655,12 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, fmt.Errorf("prepare destination from response did doc: %w", err)
 	}
 
-	myDidDoc, err := ctx.vdRegistry.Resolve(connRecord.MyDID)
+	docResolution, err := ctx.vdRegistry.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
 
-	recKey, err := recipientKey(myDidDoc)
+	recKey, err := recipientKey(docResolution.DIDDocument)
 	if err != nil {
 		return nil, nil, fmt.Errorf("handle inbound response: %w", err)
 	}
@@ -747,12 +752,12 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
 	if invitation.DID != "" {
-		didDoc, err := ctx.vdRegistry.Resolve(invitation.DID)
+		docResolution, err := ctx.vdRegistry.Resolve(invitation.DID)
 		if err != nil {
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
 
-		recKey, err := recipientKey(didDoc)
+		recKey, err := recipientKey(docResolution.DIDDocument)
 		if err != nil {
 			return "", fmt.Errorf("getInvitationRecipientKey: %w", err)
 		}
@@ -796,12 +801,12 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 
 	switch svc := i.Target.(type) {
 	case string:
-		doc, err := ctx.vdRegistry.Resolve(svc)
+		docResolution, err := ctx.vdRegistry.Resolve(svc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve myDID=%s : %w", svc, err)
 		}
 
-		s, found := did.LookupService(doc, didCommServiceType)
+		s, found := did.LookupService(docResolution.DIDDocument, didCommServiceType)
 		if !found {
 			return nil, fmt.Errorf(
 				"no valid service block found on myDID=%s with serviceType=%s",

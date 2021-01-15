@@ -65,7 +65,7 @@ func (v *VDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
 }
 
 // Build did doc.
-func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
 	return nil, fmt.Errorf("build not supported in http binding vdr")
 }
 

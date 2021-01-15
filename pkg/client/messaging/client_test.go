@@ -399,8 +399,8 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name:   "invalid message body - scenario 1",
 				option: SendByTheirDID("theirDID-001"),
 				vdr: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.Doc, e error) {
-						return mockdiddoc.GetMockDIDDoc(), nil
+					ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.DocResolution, e error) {
+						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
 					},
 				},
 				errorMsg: "invalid payload data format",

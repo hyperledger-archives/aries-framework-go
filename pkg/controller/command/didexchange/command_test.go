@@ -788,7 +788,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		// send connection request message
 		id := "valid-thread-id"
-		newDidDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer")
+		didDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer")
 		require.NoError(t, err)
 
 		invitation, err := cmd.client.CreateInvitation("test")
@@ -803,8 +803,8 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 					PID: invitation.ID,
 				},
 				Connection: &didexsvc.Connection{
-					DID:    newDidDoc.ID,
-					DIDDoc: newDidDoc,
+					DID:    didDoc.DIDDocument.ID,
+					DIDDoc: didDoc.DIDDocument,
 				},
 			},
 		)
@@ -980,7 +980,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 	)
 	require.NoError(t, err)
 
-	return d
+	return d.DIDDocument
 }
 
 func toBytes(t *testing.T, v interface{}) []byte {

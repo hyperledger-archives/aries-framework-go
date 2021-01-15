@@ -22,13 +22,13 @@ import (
 type MockVDRegistry struct {
 	CreateErr    error
 	CreateValue  *did.Doc
-	CreateFunc   func(string, ...create.Option) (*did.Doc, error)
+	CreateFunc   func(string, ...create.Option) (*did.DocResolution, error)
 	MemStore     map[string]*did.Doc
 	StoreFunc    func(*did.Doc) error
 	PutErr       error
 	ResolveErr   error
 	ResolveValue *did.Doc
-	ResolveFunc  func(didID string, opts ...resolve.Option) (*did.Doc, error)
+	ResolveFunc  func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
 }
 
 // Store stores the key and the record.
@@ -49,7 +49,7 @@ func (m *MockVDRegistry) Store(doc *did.Doc) error {
 }
 
 // Create mock implementation of create DID.
-func (m *MockVDRegistry) Create(method string, opts ...create.Option) (*did.Doc, error) {
+func (m *MockVDRegistry) Create(method string, opts ...create.Option) (*did.DocResolution, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
@@ -63,11 +63,11 @@ func (m *MockVDRegistry) Create(method string, opts ...create.Option) (*did.Doc,
 		doc = createDefaultDID()
 	}
 
-	return doc, nil
+	return &did.DocResolution{DIDDocument: doc}, nil
 }
 
 // Resolve did document.
-func (m *MockVDRegistry) Resolve(didID string, opts ...resolve.Option) (*did.Doc, error) {
+func (m *MockVDRegistry) Resolve(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
 	if m.ResolveFunc != nil {
 		return m.ResolveFunc(didID, opts...)
 	}
@@ -80,7 +80,7 @@ func (m *MockVDRegistry) Resolve(didID string, opts ...resolve.Option) (*did.Doc
 		return nil, vdrapi.ErrNotFound
 	}
 
-	return m.ResolveValue, nil
+	return &did.DocResolution{DIDDocument: m.ResolveValue}, nil
 }
 
 // Close frees resources being maintained by vdr.

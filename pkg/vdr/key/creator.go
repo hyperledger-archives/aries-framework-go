@@ -34,7 +34,7 @@ const (
 )
 
 // Build builds new DID document.
-func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc, error) {
+func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
 	createDIDOpts := &create.Opts{}
 	// Apply options
 	for _, opt := range opts {
@@ -83,10 +83,12 @@ func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.Doc,
 		}
 	}
 
-	return createDoc(publicKey, keyAgr, didKey)
+	didDoc := createDoc(publicKey, keyAgr, didKey)
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
 }
 
-func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) (*did.Doc, error) {
+func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did.Doc {
 	// Created/Updated time
 	t := time.Now()
 
@@ -106,7 +108,7 @@ func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) (*di
 			did.KeyAgreement)},
 		Created: &t,
 		Updated: &t,
-	}, nil
+	}
 }
 
 func keyAgreement(didKey string, ed25519PubKey []byte) (*did.VerificationMethod, error) {

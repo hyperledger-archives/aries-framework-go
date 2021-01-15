@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -549,7 +550,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	return nil
 }
 
-func (a *ControllerSteps) createPublicDID(agentID, _ string) error {
+func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:funlen,gocyclo
 	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
@@ -584,11 +585,33 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error {
 
 	jwk.KeyID = result.KeyID
 
+	publicKeyRecovery, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	recoveryJWK, err := jose.JWKFromPublicKey(publicKeyRecovery)
+	if err != nil {
+		return err
+	}
+
+	publicKeyUpdate, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	updateJWK, err := jose.JWKFromPublicKey(publicKeyUpdate)
+	if err != nil {
+		return err
+	}
+
 	doc, err := sidetree.CreateDID(
 		&sidetree.CreateDIDParams{
 			URL:             a.bddContext.Args[sideTreeURL] + "operations",
 			KeyID:           result.KeyID,
 			JWK:             jwk,
+			RecoveryJWK:     recoveryJWK,
+			UpdateJWK:       updateJWK,
 			ServiceEndpoint: a.agentServiceEndpoints[destination],
 		})
 	if err != nil {

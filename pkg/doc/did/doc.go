@@ -62,6 +62,9 @@ var (
 	schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
 )
 
+// ErrDIDDocumentNotExist error did doc not exist.
+var ErrDIDDocumentNotExist = errors.New("did document not exists")
+
 // DID is parsed according to the generic syntax: https://w3c.github.io/did-core/#generic-did-syntax
 type DID struct {
 	Scheme           string // Scheme is always "did"
@@ -99,6 +102,71 @@ func Parse(did string) (*DID, error) {
 		Method:           parts[1],
 		MethodSpecificID: parts[2],
 	}, nil
+}
+
+// DocResolution did resolution.
+type DocResolution struct {
+	Context          []string
+	DIDDocument      *Doc
+	DocumentMetadata *DocumentMetadata
+}
+
+// MethodMetadata method metadata.
+type MethodMetadata struct {
+	// UpdateCommitment is update commitment key.
+	UpdateCommitment string `json:"updateCommitment,omitempty"`
+	// RecoveryCommitment is recovery commitment key.
+	RecoveryCommitment string `json:"recoveryCommitment,omitempty"`
+	// Published is published key.
+	Published bool `json:"published,omitempty"`
+}
+
+// DocumentMetadata document metadata.
+type DocumentMetadata struct {
+	// Deactivated is deactivated flag key.
+	Deactivated bool `json:"deactivated,omitempty"`
+	// CanonicalID is canonical ID key.
+	CanonicalID string `json:"canonicalId,omitempty"`
+	// EquivalentID is equivalent ID array.
+	EquivalentID string `json:"equivalentId,omitempty"`
+	// Method is used for method metadata within did document metadata.
+	Method *MethodMetadata `json:"method,omitempty"`
+}
+
+type rawDocResolution struct {
+	Context          interface{}     `json:"@context"`
+	DIDDocument      json.RawMessage `json:"didDocument,omitempty"`
+	DocumentMetadata json.RawMessage `json:"didDocumentMetadata,omitempty"`
+}
+
+// ParseDocumentResolution parse document resolution.
+func ParseDocumentResolution(data []byte) (*DocResolution, error) {
+	raw := &rawDocResolution{}
+
+	if err := json.Unmarshal(data, raw); err != nil {
+		return nil, err
+	}
+
+	if len(raw.DIDDocument) == 0 {
+		return nil, ErrDIDDocumentNotExist
+	}
+
+	doc, err := ParseDocument(raw.DIDDocument)
+	if err != nil {
+		return nil, err
+	}
+
+	docMeta := &DocumentMetadata{}
+
+	if len(raw.DocumentMetadata) != 0 {
+		if err := json.Unmarshal(raw.DocumentMetadata, docMeta); err != nil {
+			return nil, err
+		}
+	}
+
+	context, _ := parseContext(raw.Context)
+
+	return &DocResolution{Context: context, DIDDocument: doc, DocumentMetadata: docMeta}, nil
 }
 
 // Doc DID Document definition.
@@ -300,7 +368,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 		Updated: raw.Updated,
 	}
 
-	context, baseURI := raw.ParseContext()
+	context, baseURI := parseContext(raw.Context)
 	doc.Context = context
 	doc.processingMeta = processingMeta{baseURI: baseURI}
 	doc.Service = populateServices(raw.ID, baseURI, raw.Service)
@@ -706,8 +774,8 @@ func decodeVMJwk(jwkMap map[string]interface{}, vm *VerificationMethod) error {
 	return nil
 }
 
-func (r *rawDoc) ParseContext() ([]string, string) {
-	switch ctx := r.Context.(type) {
+func parseContext(context interface{}) ([]string, string) {
+	switch ctx := context.(type) {
 	case []interface{}:
 		var context []string
 
@@ -729,14 +797,14 @@ func (r *rawDoc) ParseContext() ([]string, string) {
 	case []string:
 		return ctx, ""
 	case interface{}:
-		return []string{r.Context.(string)}, ""
+		return []string{context.(string)}, ""
 	}
 
 	return []string{""}, ""
 }
 
 func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
-	context, _ := r.ParseContext()
+	context, _ := parseContext(r.Context)
 	if len(context) == 0 {
 		return schemaLoaderV1
 	}

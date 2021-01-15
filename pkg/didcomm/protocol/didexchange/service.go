@@ -775,12 +775,12 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
 	inviteeLabel, inviteeDID string, routerConnections []string) (string, error) {
 	logger.Debugf("implicit invitation requested inviterDID[%s] inviteeDID[%s]", inviterDID, inviteeDID)
 
-	didDoc, err := s.ctx.vdRegistry.Resolve(inviterDID)
+	docResolution, err := s.ctx.vdRegistry.Resolve(inviterDID)
 	if err != nil {
 		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}
 
-	dest, err := service.CreateDestination(didDoc)
+	dest, err := service.CreateDestination(docResolution.DIDDocument)
 	if err != nil {
 		return "", err
 	}
