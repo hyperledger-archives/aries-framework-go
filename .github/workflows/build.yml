@@ -99,7 +99,7 @@ jobs:
 
   publish:
     name: Publish images and npm packages
-    if: github.event_name == 'push' && ((github.repository == 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/master') || (github.repository != 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/afg-publish'))
+    if: github.event_name == 'push' && ((github.repository == 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/main') || (github.repository != 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/afg-publish'))
     needs: [checks, unitTest, unitTestWasm, bddTest]
     runs-on: ubuntu-18.04
     timeout-minutes: 10
