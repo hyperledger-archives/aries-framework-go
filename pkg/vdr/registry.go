@@ -14,7 +14,10 @@ import (
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/deactivate"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/recovery"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/update"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -98,6 +101,51 @@ func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.DocR
 	}
 
 	return didDocResolution, nil
+}
+
+// Update DID Document.
+func (r *Registry) Update(did string, opts ...update.Option) error {
+	didMethod, err := getDidMethod(did)
+	if err != nil {
+		return err
+	}
+
+	method, err := r.resolveVDR(didMethod)
+	if err != nil {
+		return err
+	}
+
+	return method.Update(did, opts...)
+}
+
+// Recover DID Document.
+func (r *Registry) Recover(did string, opts ...recovery.Option) error {
+	didMethod, err := getDidMethod(did)
+	if err != nil {
+		return err
+	}
+
+	method, err := r.resolveVDR(didMethod)
+	if err != nil {
+		return err
+	}
+
+	return method.Recover(did, opts...)
+}
+
+// Deactivate DID Document.
+func (r *Registry) Deactivate(did string, opts ...deactivate.Option) error {
+	didMethod, err := getDidMethod(did)
+	if err != nil {
+		return err
+	}
+
+	method, err := r.resolveVDR(didMethod)
+	if err != nil {
+		return err
+	}
+
+	return method.Deactivate(did, opts...)
 }
 
 // applyDefaultDocOpts applies default creator options to doc options.

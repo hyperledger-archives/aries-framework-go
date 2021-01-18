@@ -14,21 +14,27 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/deactivate"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/recovery"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/update"
 )
 
 // MockVDRegistry mock implementation of vdr
 // to be used only for unit tests.
 type MockVDRegistry struct {
-	CreateErr    error
-	CreateValue  *did.Doc
-	CreateFunc   func(string, ...create.Option) (*did.DocResolution, error)
-	MemStore     map[string]*did.Doc
-	StoreFunc    func(*did.Doc) error
-	PutErr       error
-	ResolveErr   error
-	ResolveValue *did.Doc
-	ResolveFunc  func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
+	CreateErr      error
+	CreateValue    *did.Doc
+	CreateFunc     func(string, ...create.Option) (*did.DocResolution, error)
+	MemStore       map[string]*did.Doc
+	StoreFunc      func(*did.Doc) error
+	UpdateFunc     func(did string, opts ...update.Option) error
+	RecoverFunc    func(did string, opts ...recovery.Option) error
+	DeactivateFunc func(did string, opts ...deactivate.Option) error
+	PutErr         error
+	ResolveErr     error
+	ResolveValue   *did.Doc
+	ResolveFunc    func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
 }
 
 // Store stores the key and the record.
@@ -85,6 +91,33 @@ func (m *MockVDRegistry) Resolve(didID string, opts ...resolve.Option) (*did.Doc
 
 // Close frees resources being maintained by vdr.
 func (m *MockVDRegistry) Close() error {
+	return nil
+}
+
+// Update DID Document.
+func (m *MockVDRegistry) Update(didID string, opts ...update.Option) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(didID, opts...)
+	}
+
+	return nil
+}
+
+// Recover DID Document.
+func (m *MockVDRegistry) Recover(didID string, opts ...recovery.Option) error {
+	if m.RecoverFunc != nil {
+		return m.RecoverFunc(didID, opts...)
+	}
+
+	return nil
+}
+
+// Deactivate DID Document.
+func (m *MockVDRegistry) Deactivate(didID string, opts ...deactivate.Option) error {
+	if m.DeactivateFunc != nil {
+		return m.DeactivateFunc(didID, opts...)
+	}
+
 	return nil
 }
 

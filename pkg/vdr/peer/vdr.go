@@ -9,6 +9,9 @@ package peer
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/deactivate"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/recovery"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/update"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -35,4 +38,19 @@ func New(s storage.Provider) (*VDR, error) {
 // Accept did method.
 func (v *VDR) Accept(method string) bool {
 	return method == DIDMethod
+}
+
+// Update DID Document.
+func (v *VDR) Update(did string, opts ...update.Option) error {
+	return fmt.Errorf("update not supported")
+}
+
+// Recover DID Document.
+func (v *VDR) Recover(did string, opts ...recovery.Option) error {
+	return fmt.Errorf("recover not supported")
+}
+
+// Deactivate DID Document.
+func (v *VDR) Deactivate(did string, opts ...deactivate.Option) error {
+	return fmt.Errorf("deactivate not supported")
 }

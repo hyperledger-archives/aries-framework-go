@@ -17,7 +17,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/deactivate"
 	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/recovery"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/update"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -72,6 +75,21 @@ func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocR
 // Close frees resources being maintained by vdr.
 func (v *VDR) Close() error {
 	return nil
+}
+
+// Update DID Document.
+func (v *VDR) Update(didID string, opts ...update.Option) error {
+	return fmt.Errorf("update not supported")
+}
+
+// Recover DID Document.
+func (v *VDR) Recover(didID string, opts ...recovery.Option) error {
+	return fmt.Errorf("recover not supported")
+}
+
+// Deactivate DID Document.
+func (v *VDR) Deactivate(didID string, opts ...deactivate.Option) error {
+	return fmt.Errorf("deactivate not supported")
 }
 
 // Option configures the peer vdr.
