@@ -7,89 +7,119 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
-	"crypto/ed25519"
 	"fmt"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
-	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 
-// Build builds new DID Document.
-func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
-	docOpts := &create.Opts{}
+// Create create new DID Document.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2466
+func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
+	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	docOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 	// Apply options
 	for _, opt := range opts {
 		opt(docOpts)
 	}
 
-	docResolution, err := build(keyManager, docOpts)
-	if err != nil {
-		return nil, fmt.Errorf("create peer DID : %w", err)
+	store := false
+
+	storeOpt := docOpts.Values["store"]
+	if storeOpt != nil {
+		var ok bool
+
+		store, ok = storeOpt.(bool)
+		if !ok {
+			return nil, fmt.Errorf("store opt not boolean")
+		}
 	}
 
-	return docResolution, nil
+	if !store {
+		docResolution, err := build(keyManager, didDoc, docOpts)
+		if err != nil {
+			return nil, fmt.Errorf("create peer DID : %w", err)
+		}
+
+		didDoc = docResolution.DIDDocument
+	}
+
+	if err := v.storeDID(didDoc, nil); err != nil {
+		return nil, err
+	}
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
 }
 
-func build(keyManager kms.KeyManager, docOpts *create.Opts) (*did.DocResolution, error) { //nolint: funlen,gocyclo
-	if len(docOpts.PublicKeys) == 0 {
+//nolint: funlen,gocyclo
+func build(keyManager kms.KeyManager, didDoc *did.Doc,
+	docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
+	if len(didDoc.VerificationMethod) == 0 {
 		id, pubKeyBytes, err := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create and export public key: %w", err)
 		}
 
-		docOpts.PublicKeys = append(docOpts.PublicKeys, doc.PublicKey{
-			ID:   "#" + id,
-			Type: ed25519VerificationKey2018,
-			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(pubKeyBytes)},
+		didDoc.VerificationMethod = append(didDoc.VerificationMethod, did.VerificationMethod{
+			ID:    "#" + id,
+			Type:  ed25519VerificationKey2018,
+			Value: pubKeyBytes,
 		})
 	}
 
 	var publicKey did.VerificationMethod
 
-	switch docOpts.PublicKeys[0].Type {
+	switch didDoc.VerificationMethod[0].Type {
 	case ed25519VerificationKey2018:
 		// TODO keyID of VerificationMethod should have the DID doc id as controller, since the DID document is created after
 		//      the publicKey, its id is unknown until NewDoc() is called below. The controller and key ID of publicKey
 		//		needs to be sorted out.
-		publicKey = *did.NewVerificationMethodFromBytes(docOpts.PublicKeys[0].ID, ed25519VerificationKey2018, "#id",
-			docOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
+		publicKey = *did.NewVerificationMethodFromBytes(didDoc.VerificationMethod[0].ID, ed25519VerificationKey2018, "#id",
+			didDoc.VerificationMethod[0].Value)
 	default:
-		return nil, fmt.Errorf("not supported public key type: %s", docOpts.PublicKeys[0].Type)
+		return nil, fmt.Errorf("not supported public key type: %s", didDoc.VerificationMethod[0].Type)
 	}
 
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
 
-	for i := range docOpts.Services {
-		if docOpts.Services[i].ID == "" {
-			docOpts.Services[i].ID = uuid.New().String()
+	for i := range didDoc.Service {
+		if didDoc.Service[i].ID == "" {
+			didDoc.Service[i].ID = uuid.New().String()
 		}
 
-		if docOpts.Services[i].Type == "" {
-			docOpts.Services[i].Type = docOpts.DefaultServiceType
+		if didDoc.Service[i].Type == "" && docOpts.Values[DefaultServiceType] != nil {
+			v, ok := docOpts.Values[DefaultServiceType].(string)
+			if !ok {
+				return nil, fmt.Errorf("defaultServiceType not string")
+			}
+
+			didDoc.Service[i].Type = v
 		}
 
-		if docOpts.Services[i].ServiceEndpoint == "" {
-			docOpts.Services[i].ServiceEndpoint = docOpts.DefaultServiceEndpoint
+		if didDoc.Service[i].ServiceEndpoint == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
+			v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
+			if !ok {
+				return nil, fmt.Errorf("defaultServiceEndpoint not string")
+			}
+
+			didDoc.Service[i].ServiceEndpoint = v
 		}
 
-		if docOpts.Services[i].Type == vdrapi.DIDCommServiceType {
-			docOpts.Services[i].RecipientKeys = []string{base58.Encode(
-				docOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))}
-			docOpts.Services[i].Priority = 0
+		if didDoc.Service[i].Type == vdrapi.DIDCommServiceType {
+			didDoc.Service[i].RecipientKeys = []string{base58.Encode(
+				didDoc.VerificationMethod[0].Value)}
+			didDoc.Service[i].Priority = 0
 		}
 
-		service = append(service, docOpts.Services[i])
+		service = append(service, didDoc.Service[i])
 	}
 
 	// Created/Updated time

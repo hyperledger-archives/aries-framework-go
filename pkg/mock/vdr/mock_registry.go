@@ -13,8 +13,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 )
 
 // MockVDRegistry mock implementation of vdr
@@ -22,40 +20,21 @@ import (
 type MockVDRegistry struct {
 	CreateErr    error
 	CreateValue  *did.Doc
-	CreateFunc   func(string, ...create.Option) (*did.DocResolution, error)
-	MemStore     map[string]*did.Doc
-	StoreFunc    func(*did.Doc) error
-	PutErr       error
+	CreateFunc   func(string, *did.Doc, ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 	ResolveErr   error
 	ResolveValue *did.Doc
-	ResolveFunc  func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
-}
-
-// Store stores the key and the record.
-func (m *MockVDRegistry) Store(doc *did.Doc) error {
-	k := doc.ID
-
-	if m.StoreFunc != nil {
-		return m.StoreFunc(doc)
-	}
-
-	if len(m.MemStore) == 0 {
-		m.MemStore = make(map[string]*did.Doc)
-	}
-
-	m.MemStore[k] = doc
-
-	return m.PutErr
+	ResolveFunc  func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
 }
 
 // Create mock implementation of create DID.
-func (m *MockVDRegistry) Create(method string, opts ...create.Option) (*did.DocResolution, error) {
+func (m *MockVDRegistry) Create(method string, didDoc *did.Doc,
+	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
 
 	if m.CreateFunc != nil {
-		return m.CreateFunc(method, opts...)
+		return m.CreateFunc(method, didDoc, opts...)
 	}
 
 	doc := m.CreateValue
@@ -67,7 +46,7 @@ func (m *MockVDRegistry) Create(method string, opts ...create.Option) (*did.DocR
 }
 
 // Resolve did document.
-func (m *MockVDRegistry) Resolve(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+func (m *MockVDRegistry) Resolve(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 	if m.ResolveFunc != nil {
 		return m.ResolveFunc(didID, opts...)
 	}

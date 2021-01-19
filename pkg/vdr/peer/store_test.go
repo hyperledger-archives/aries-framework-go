@@ -35,11 +35,11 @@ func TestPeerDIDStore(t *testing.T) {
 	store, err := New(prov)
 	require.NoError(t, err)
 	// put
-	err = store.Store(&did.Doc{Context: context, ID: did1}, nil)
+	err = store.storeDID(&did.Doc{Context: context, ID: did1}, nil)
 	require.NoError(t, err)
 
 	// put
-	err = store.Store(&did.Doc{Context: context, ID: did2}, nil)
+	err = store.storeDID(&did.Doc{Context: context, ID: did2}, nil)
 	require.NoError(t, err)
 
 	// get
@@ -56,11 +56,11 @@ func TestPeerDIDStore(t *testing.T) {
 	require.Error(t, err)
 
 	// put - empty id
-	err = store.Store(&did.Doc{ID: ""}, nil)
+	err = store.storeDID(&did.Doc{ID: ""}, nil)
 	require.Error(t, err)
 
 	// put - missing doc
-	err = store.Store(nil, nil)
+	err = store.storeDID(nil, nil)
 	require.Error(t, err)
 
 	// get - not json document

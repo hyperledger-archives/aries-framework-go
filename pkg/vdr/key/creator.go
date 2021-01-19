@@ -7,16 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
-	"crypto/ed25519"
 	"fmt"
 	"time"
 
-	gojose "github.com/square/go-jose/v3"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -33,9 +28,10 @@ const (
 	x25519pub = 0xec // Curve25519 public key in multicodec table
 )
 
-// Build builds new DID document.
-func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
-	createDIDOpts := &create.Opts{}
+// Create new DID document.
+func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
+	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	createDIDOpts := &vdrapi.DIDMethodOpts{}
 	// Apply options
 	for _, opt := range opts {
 		opt(createDIDOpts)
@@ -47,45 +43,46 @@ func (v *VDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocR
 		didKey            string
 	)
 
-	if len(createDIDOpts.PublicKeys) == 0 {
+	if len(didDoc.VerificationMethod) == 0 {
 		_, pubKeyBytes, errCreate := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		if errCreate != nil {
 			return nil, fmt.Errorf("failed to create and export public key: %w", errCreate)
 		}
 
-		createDIDOpts.PublicKeys = append(createDIDOpts.PublicKeys, doc.PublicKey{
-			Type: ed25519VerificationKey2018,
-			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(pubKeyBytes)},
+		didDoc.VerificationMethod = append(didDoc.VerificationMethod, did.VerificationMethod{
+			Type:  ed25519VerificationKey2018,
+			Value: pubKeyBytes,
 		})
 	}
 
-	switch createDIDOpts.PublicKeys[0].Type {
+	switch didDoc.VerificationMethod[0].Type {
 	case ed25519VerificationKey2018:
 		var keyID string
 
-		didKey, keyID = fingerprint.CreateDIDKey(createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
+		didKey, keyID = fingerprint.CreateDIDKey(didDoc.VerificationMethod[0].Value)
 		publicKey = did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey,
-			createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
+			didDoc.VerificationMethod[0].Value)
 
-		keyAgr, err = keyAgreement(didKey, createDIDOpts.PublicKeys[0].JWK.Key.(ed25519.PublicKey))
+		keyAgr, err = keyAgreement(didKey, didDoc.VerificationMethod[0].Value)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("not supported public key type: %s", createDIDOpts.PublicKeys[0].Type)
+		return nil, fmt.Errorf("not supported public key type: %s", didDoc.VerificationMethod[0].Type)
 	}
 
 	// retrieve encryption key as keyAgreement from opts if available.
-	if createDIDOpts.EncryptionKey != nil {
-		keyAgr, err = retrieveEncryptionKey(didKey, createDIDOpts.EncryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid JWK encryption key: %w", err)
+	k := createDIDOpts.Values[EncryptionKey]
+	if k != nil {
+		var ok bool
+		keyAgr, ok = k.(*did.VerificationMethod)
+
+		if !ok {
+			return nil, fmt.Errorf("encryptionKey not VerificationMethod")
 		}
 	}
 
-	didDoc := createDoc(publicKey, keyAgr, didKey)
-
-	return &did.DocResolution{DIDDocument: didDoc}, nil
+	return &did.DocResolution{DIDDocument: createDoc(publicKey, keyAgr, didKey)}, nil
 }
 
 func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did.Doc {
@@ -122,38 +119,4 @@ func keyAgreement(didKey string, ed25519PubKey []byte) (*did.VerificationMethod,
 	pubKey := did.NewVerificationMethodFromBytes(keyID, x25519KeyAgreementKey2019, didKey, curve25519PubKey)
 
 	return pubKey, nil
-}
-
-// retrieveEncryptionKey retrieves an encryption VerificationMethod in JWK format from key.
-func retrieveEncryptionKey(didKey string, key *doc.PublicKey) (*did.VerificationMethod, error) {
-	keyID := fmt.Sprintf("%s#%s", didKey, key.ID)
-
-	jwk, err := jwkFromJSONWebKey(&key.JWK)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKey, err := did.NewVerificationMethodFromJWK(keyID, key.Type, didKey, jwk)
-	if err != nil {
-		return nil, err
-	}
-
-	return publicKey, nil
-}
-
-func jwkFromJSONWebKey(jwk *gojose.JSONWebKey) (*jose.JWK, error) {
-	key := &jose.JWK{JSONWebKey: *jwk}
-
-	// marshal/unmarshal to get all JWK's fields other than Key filled.
-	keyBytes, err := key.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	err = key.UnmarshalJSON(keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	return key, nil
 }

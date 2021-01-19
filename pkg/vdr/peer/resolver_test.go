@@ -23,7 +23,7 @@ func TestPeerDIDResolver(t *testing.T) {
 		// save did document
 		vdr, err := New(storage.NewMockStoreProvider())
 		require.NoError(t, err)
-		err = vdr.Store(&did.Doc{Context: context, ID: peerDID}, nil)
+		err = vdr.storeDID(&did.Doc{Context: context, ID: peerDID}, nil)
 		require.NoError(t, err)
 
 		docResolution, err := vdr.Read(peerDID)

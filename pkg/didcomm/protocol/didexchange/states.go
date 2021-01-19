@@ -27,11 +27,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 )
 
 const (
@@ -510,15 +511,9 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 		services = append(services, did.Service{})
 	}
 
-	var opt []create.Option
-
-	for i := range services {
-		opt = append(opt, create.WithService(&services[i]))
-	}
-
 	// by default use peer did
 	docResolution, err := ctx.vdRegistry.Create(
-		didMethod, opt...,
+		didMethod, &did.Doc{Service: services},
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
@@ -564,8 +559,13 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 		return docResolution.DIDDocument, err
 	}
 
+	didMethod, err := vdr.GetDidMethod(didDoc.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	// store provided did document
-	err := ctx.vdRegistry.Store(didDoc)
+	_, err = ctx.vdRegistry.Create(didMethod, didDoc, vdrapi.WithOption("store", true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}

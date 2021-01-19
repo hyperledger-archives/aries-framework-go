@@ -14,9 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -72,7 +69,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test DID not found", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 				return nil, vdrapi.ErrNotFound
 			},
 		}))
@@ -84,7 +81,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test error from resolve did", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 				return nil, fmt.Errorf("read error")
 			},
 		}))
@@ -96,17 +93,18 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test opts passed", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
-				resolveOpts := &resolve.Opts{}
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+				resolveOpts := &vdrapi.ResolveOpts{}
 				// Apply options
 				for _, opt := range opts {
 					opt(resolveOpts)
 				}
+
 				require.Equal(t, "1", resolveOpts.VersionID)
 				return nil, nil
 			},
 		}))
-		_, err := registry.Resolve("1:id:123", resolve.WithVersionID("1"))
+		_, err := registry.Resolve("1:id:123", vdrapi.WithVersionID("1"))
 		require.NoError(t, err)
 	})
 
@@ -117,33 +115,11 @@ func TestRegistry_Resolve(t *testing.T) {
 	})
 }
 
-func TestRegistry_Store(t *testing.T) {
-	t.Run("test invalid did input", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{})
-		err := registry.Store(&did.Doc{ID: "id"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "wrong format did input")
-	})
-
-	t.Run("test did method not supported", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
-		err := registry.Store(&did.Doc{ID: "1:id:123"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "did method id not supported for vdr")
-	})
-
-	t.Run("test success", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: true}))
-		err := registry.Store(&did.Doc{ID: "1:id:123"})
-		require.NoError(t, err)
-	})
-}
-
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test did method not supported", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
-		d, err := registry.Create("id")
+		d, err := registry.Create("id", &did.Doc{ID: "did"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did method id not supported for vdr")
 		require.Nil(t, d)
@@ -158,71 +134,52 @@ func TestRegistry_Create(t *testing.T) {
 		}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
-					docOpts := &create.Opts{}
-					// Apply options
-					for _, opt := range opts {
-						opt(docOpts)
-					}
-					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
+				CreateFunc: func(keyManager kms.KeyManager, didDoc *did.Doc,
+					opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
+					require.Equal(t, "key1", didDoc.VerificationMethod[0].ID)
 					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
-		_, err = registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
+		_, err = registry.Create("id", &did.Doc{VerificationMethod: []did.VerificationMethod{{ID: "key1"}}})
 		require.NoError(t, err)
 	})
 	t.Run("with KMS opts - test opts is passed ", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
-					docOpts := &create.Opts{}
-					// Apply options
-					for _, opt := range opts {
-						opt(docOpts)
-					}
-					require.Equal(t, "key1", docOpts.PublicKeys[0].ID)
+				CreateFunc: func(keyManager kms.KeyManager, didDoc *did.Doc,
+					opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
+					require.Equal(t, "key1", didDoc.VerificationMethod[0].ID)
 					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
-		_, err := registry.Create("id", create.WithPublicKey(&doc.PublicKey{ID: "key1"}))
+		_, err := registry.Create("id", &did.Doc{VerificationMethod: []did.VerificationMethod{{ID: "key1"}}})
 		require.NoError(t, err)
 	})
 	t.Run("test error from build doc", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
+				CreateFunc: func(keyManager kms.KeyManager, didDoc *did.Doc,
+					opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
 					return nil, fmt.Errorf("build did error")
 				},
 			}))
-		d, err := registry.Create("id")
+		d, err := registry.Create("id", &did.Doc{ID: "did"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build did error")
-		require.Nil(t, d)
-	})
-	t.Run("test error from store doc", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
-			WithVDR(&mockvdr.MockVDR{
-				AcceptValue: true, StoreErr: fmt.Errorf("store error"),
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
-					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
-				},
-			}))
-		d, err := registry.Create("id")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "store error")
 		require.Nil(t, d)
 	})
 	t.Run("test success", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDR(&mockvdr.MockVDR{
 				AcceptValue: true,
-				BuildFunc: func(keyManager kms.KeyManager, opts ...create.Option) (doc *did.DocResolution, e error) {
+				CreateFunc: func(keyManager kms.KeyManager, didDoc *did.Doc,
+					opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
 					return &did.DocResolution{DIDDocument: &did.Doc{ID: "1:id:123"}}, nil
 				},
 			}))
-		_, err := registry.Create("id")
+		_, err := registry.Create("id", &did.Doc{ID: "did"})
 		require.NoError(t, err)
 	})
 }

@@ -6,12 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 
 package key
 
-import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
-)
+const (
 
-const didMethod = "key"
+	// DIDMethod did method.
+	DIDMethod = "key"
+	// EncryptionKey encryption key.
+	EncryptionKey = "encryptionKey"
+)
 
 // VDR implements did:key method support.
 type VDR struct {
@@ -24,12 +25,7 @@ func New() *VDR {
 
 // Accept accepts did:key method.
 func (v *VDR) Accept(method string) bool {
-	return method == didMethod
-}
-
-// Store saves a DID Document along with user key/signature.
-func (v *VDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
-	return nil
+	return method == DIDMethod
 }
 
 // Close frees resources being maintained by VDR.

@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
@@ -121,7 +122,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		kms:                k,
 	}
 
-	doc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
 	require.NoError(t, err)
 
 	s, err := New(prov)
@@ -293,7 +294,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		kms:                k,
 	}
 
-	doc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
 	require.NoError(t, err)
 
 	s, err := New(prov)
@@ -644,11 +645,11 @@ func TestCreateConnection(t *testing.T) {
 			StorageProviderValue:              storageProvider.StorageProvider(),
 			ProtocolStateStorageProviderValue: storageProvider.ProtocolStateStorageProvider(),
 			VDRegistryValue: &mockvdr.MockVDRegistry{
-				StoreFunc: func(result *did.Doc) error {
+				CreateFunc: func(method string, result *did.Doc, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					storedInVDR = true
 					require.Equal(t, theirDID, result)
 
-					return nil
+					return nil, nil
 				},
 			},
 			ServiceMap: map[string]interface{}{
@@ -676,7 +677,9 @@ func TestCreateConnection(t *testing.T) {
 			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 			VDRegistryValue: &mockvdr.MockVDRegistry{
-				PutErr: expected,
+				CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+					return nil, expected
+				},
 			},
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1269,7 +1272,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	const publicDIDMethod = "sidetree"
 	publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-	doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
+	doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod, nil)
 	require.NoError(t, err)
 
 	svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument}
@@ -1466,7 +1469,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 
 		const publicDIDMethod = "sidetree"
 		publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
-		doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod)
+		doc, err := svc.ctx.vdRegistry.Create(publicDIDMethod, nil)
 		require.NoError(t, err)
 		svc.ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument}
 
@@ -1729,7 +1732,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 		connectionStore:    connStore,
 	}
-	doc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{

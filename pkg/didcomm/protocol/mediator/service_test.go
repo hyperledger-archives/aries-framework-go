@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockmessagep "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/messagepickup"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
@@ -801,7 +801,7 @@ func TestServiceForwardMsg(t *testing.T) {
 				},
 			},
 			VDRegistryValue: &mockvdr.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.DocResolution, e error) {
+				ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (doc *did.DocResolution, e error) {
 					if didID == invalidDID {
 						return nil, errors.New("invalid")
 					}
@@ -857,7 +857,7 @@ func TestMessagePickup(t *testing.T) {
 					},
 				},
 				VDRegistryValue: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
 					},
 				},
@@ -900,7 +900,7 @@ func TestMessagePickup(t *testing.T) {
 				},
 			},
 			VDRegistryValue: &mockvdr.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...resolve.Option) (doc *did.DocResolution, e error) {
+				ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (doc *did.DocResolution, e error) {
 					return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
 				},
 			},

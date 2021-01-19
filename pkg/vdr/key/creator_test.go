@@ -11,12 +11,9 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
-	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 )
 
 const (
@@ -32,12 +29,12 @@ func TestBuild(t *testing.T) {
 	t.Run("validate did:key compliance with generic syntax", func(t *testing.T) {
 		v := New()
 
-		pubKey := &vdrdoc.PublicKey{
-			Type: ed25519VerificationKey2018,
-			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
+		pubKey := did.VerificationMethod{
+			Type:  ed25519VerificationKey2018,
+			Value: ed25519.PublicKey(base58.Decode(pubKeyBase58)),
 		}
 
-		docResolution, err := v.Build(nil, create.WithPublicKey(pubKey))
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -49,12 +46,12 @@ func TestBuild(t *testing.T) {
 	t.Run("build with default key type", func(t *testing.T) {
 		v := New()
 
-		pubKey := &vdrdoc.PublicKey{
-			Type: ed25519VerificationKey2018,
-			JWK:  gojose.JSONWebKey{Key: ed25519.PublicKey(base58.Decode(pubKeyBase58))},
+		pubKey := did.VerificationMethod{
+			Type:  ed25519VerificationKey2018,
+			Value: base58.Decode(pubKeyBase58),
 		}
 
-		docResolution, err := v.Build(nil, create.WithPublicKey(pubKey))
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 

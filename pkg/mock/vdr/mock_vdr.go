@@ -8,9 +8,7 @@ package vdr
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -19,13 +17,13 @@ import (
 type MockVDR struct {
 	AcceptValue bool
 	StoreErr    error
-	ReadFunc    func(didID string, opts ...resolve.Option) (*did.DocResolution, error)
-	BuildFunc   func(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error)
+	ReadFunc    func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
+	CreateFunc  func(keyManager kms.KeyManager, did *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 	CloseErr    error
 }
 
 // Read did.
-func (m *MockVDR) Read(didID string, opts ...resolve.Option) (*did.DocResolution, error) {
+func (m *MockVDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 	if m.ReadFunc != nil {
 		return m.ReadFunc(didID, opts...)
 	}
@@ -33,15 +31,11 @@ func (m *MockVDR) Read(didID string, opts ...resolve.Option) (*did.DocResolution
 	return nil, nil
 }
 
-// Store did.
-func (m *MockVDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
-	return m.StoreErr
-}
-
-// Build did.
-func (m *MockVDR) Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error) {
-	if m.BuildFunc != nil {
-		return m.BuildFunc(keyManager, opts...)
+// Create did.
+func (m *MockVDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
+	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(keyManager, didDoc, opts...)
 	}
 
 	return nil, nil

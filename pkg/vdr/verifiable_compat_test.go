@@ -24,10 +24,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
@@ -90,7 +91,10 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		actualPeerDID, err := did.ParseDocument(alicePeerDIDBits)
 		require.NoError(t, err)
 
-		err = bob.VDRegistry().Store(actualPeerDID)
+		didMethod, err := vdr.GetDidMethod(actualPeerDID.ID)
+		require.NoError(t, err)
+
+		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrapi.WithOption("store", true))
 		require.NoError(t, err)
 
 		// bob parses alice's VP
@@ -136,8 +140,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	t.Helper()
 
 	docResolution, err := a.VDRegistry().Create(
-		peer.DIDMethod,
-		create.WithService(&did.Service{ServiceEndpoint: "http://example.com/didcomm"}),
+		peer.DIDMethod, &did.Doc{Service: []did.Service{{ServiceEndpoint: "http://example.com/didcomm"}}},
 	)
 	require.NoError(t, err)
 

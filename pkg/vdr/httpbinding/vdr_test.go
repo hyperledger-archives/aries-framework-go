@@ -26,7 +26,7 @@ func TestVDR_Build(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resolver)
 
-		result, err := resolver.Build(nil)
+		result, err := resolver.Create(nil, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build not supported in http binding vdr")
 		require.Nil(t, result)

@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -399,16 +399,12 @@ func TestRequestedState_Execute(t *testing.T) {
 			RoutingKeys:    expected.Keys(),
 		}
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{
-			CreateFunc: func(_ string, options ...create.Option) (*diddoc.DocResolution, error) {
+			CreateFunc: func(_ string, didDoc *diddoc.Doc,
+				options ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
 				created = true
-				result := &create.Opts{}
 
-				for _, opt := range options {
-					opt(result)
-				}
-
-				require.Equal(t, expected.Keys(), result.Services[0].RoutingKeys)
-				require.Equal(t, expected.Endpoint(), result.Services[0].ServiceEndpoint)
+				require.Equal(t, expected.Keys(), didDoc.Service[0].RoutingKeys)
+				require.Equal(t, expected.Endpoint(), didDoc.Service[0].ServiceEndpoint)
 				return &diddoc.DocResolution{DIDDocument: createDIDDoc(t, prov.CustomKMS)}, nil
 			},
 		}
@@ -486,7 +482,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdRegistry:         &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create DID error")},
 		}
-		didDoc, err := ctx2.vdRegistry.Create(testMethod)
+		didDoc, err := ctx2.vdRegistry.Create(testMethod, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, didDoc)
@@ -848,7 +844,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	ctx := getContext(t, &prov)
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
-	doc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
 	require.NoError(t, err)
 
 	c := &Connection{
@@ -1116,7 +1112,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key by id", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		doc, err := ctx.vdRegistry.Create(testMethod)
+		doc, err := ctx.vdRegistry.Create(testMethod, nil)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey(doc.DIDDocument.VerificationMethod[0].ID, doc.DIDDocument)
 		require.True(t, ok)
@@ -1125,7 +1121,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{CustomKMS: k}
 		ctx := getContext(t, &prov)
-		doc, err := ctx.vdRegistry.Create(testMethod)
+		doc, err := ctx.vdRegistry.Create(testMethod, nil)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey("invalid-key", doc.DIDDocument)
 		require.False(t, ok)
@@ -1481,7 +1477,7 @@ func createRequest(t *testing.T, ctx *context) (*Request, error) {
 }
 
 func createResponse(request *Request, ctx *context) (*Response, error) {
-	doc, err := ctx.vdRegistry.Create(testMethod)
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
 	if err != nil {
 		return nil, err
 	}
