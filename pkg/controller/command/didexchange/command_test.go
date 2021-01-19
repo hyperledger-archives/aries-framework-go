@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -788,7 +787,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		// send connection request message
 		id := "valid-thread-id"
-		didDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer")
+		didDoc, err := (&mockvdr.MockVDRegistry{}).Create("peer", nil)
 		require.NoError(t, err)
 
 		invitation, err := cmd.client.CreateInvitation("test")
@@ -972,11 +971,10 @@ func newPeerDID(t *testing.T) *did.Doc {
 	require.NoError(t, err)
 
 	d, err := ctx.VDRegistry().Create(
-		peer.DIDMethod,
-		create.WithService(&did.Service{
+		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            vdr.DIDCommServiceType,
 			ServiceEndpoint: "http://agent.example.com/didcomm",
-		}),
+		}}},
 	)
 	require.NoError(t, err)
 

@@ -12,12 +12,9 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
-	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
@@ -27,11 +24,12 @@ const (
 
 func TestDIDCreator(t *testing.T) {
 	t.Run("test create without service type", func(t *testing.T) {
-		c, err := New(&storage.MockStoreProvider{})
+		c, err := New(storage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		docResolution, err := c.Build(nil, create.WithPublicKey(getSigningKey()))
+		docResolution, err := c.Create(nil,
+			&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -40,19 +38,18 @@ func TestDIDCreator(t *testing.T) {
 	})
 
 	t.Run("test request overrides", func(t *testing.T) {
-		c, err := New(&storage.MockStoreProvider{})
+		c, err := New(storage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
 		routingKeys := []string{"abc", "xyz"}
-		docResolution, err := c.Build(nil,
-			create.WithPublicKey(getSigningKey()),
-			create.WithService(&did.Service{
+		docResolution, err := c.Create(nil,
+			&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}, Service: []did.Service{{
 				ServiceEndpoint: "request-endpoint",
 				Type:            "request-type",
 				RoutingKeys:     routingKeys,
-			}),
-		)
+			}}})
+
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -79,28 +76,27 @@ func TestDIDCreator(t *testing.T) {
 func TestBuild(t *testing.T) {
 	t.Run("inlined recipient keys for didcomm", func(t *testing.T) {
 		expected := getSigningKey()
-		c, err := New(&storage.MockStoreProvider{})
+		c, err := New(storage.NewMockStoreProvider())
 		require.NoError(t, err)
 
-		result, err := c.Build(nil,
-			create.WithPublicKey(expected),
-			create.WithService(&did.Service{
+		result, err := c.Create(nil,
+			&did.Doc{VerificationMethod: []did.VerificationMethod{expected}, Service: []did.Service{{
 				Type: "did-communication",
-			}),
-		)
+			}}})
+
 		require.NoError(t, err)
 		require.NotEmpty(t, result.DIDDocument.Service)
 		require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
-		require.Equal(t, base58.Encode(expected.JWK.Key.(ed25519.PublicKey)),
+		require.Equal(t, base58.Encode(expected.Value),
 			result.DIDDocument.Service[0].RecipientKeys[0])
 	})
 }
 
-func getSigningKey() *doc.PublicKey {
+func getSigningKey() did.VerificationMethod {
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	return &doc.PublicKey{JWK: gojose.JSONWebKey{Key: pub[:]}, Type: keyType}
+	return did.VerificationMethod{Value: pub[:], Type: keyType}
 }

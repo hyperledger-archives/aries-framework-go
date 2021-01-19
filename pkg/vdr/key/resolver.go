@@ -11,12 +11,12 @@ import (
 	"regexp"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 // Read expands did:key value to a DID document.
-func (v *VDR) Read(didKey string, opts ...resolve.Option) (*did.DocResolution, error) {
+func (v *VDR) Read(didKey string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 	parsed, err := did.Parse(didKey)
 	if err != nil {
 		return nil, fmt.Errorf("pub:key vdr Read: failed to parse DID document: %w", err)

@@ -13,9 +13,8 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 // Option is a vdr instance option.
@@ -47,8 +46,8 @@ func New(ctx provider, opts ...Option) *Registry {
 }
 
 // Resolve did document.
-func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.DocResolution, error) {
-	didMethod, err := getDidMethod(did)
+func (r *Registry) Resolve(did string, opts ...vdrapi.ResolveOption) (*diddoc.DocResolution, error) {
+	didMethod, err := GetDidMethod(did)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +72,9 @@ func (r *Registry) Resolve(did string, opts ...resolve.Option) (*diddoc.DocResol
 }
 
 // Create a new DID Document and store it in this registry.
-func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.DocResolution, error) {
-	docOpts := &create.Opts{}
+func (r *Registry) Create(didMethod string, did *diddoc.Doc,
+	opts ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
+	docOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 
 	// TODO add EncryptionKey as option in docOpts here to support Anoncrypt/Authcrypt packing
 
@@ -87,12 +87,7 @@ func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.DocR
 		return nil, err
 	}
 
-	didDocResolution, err := method.Build(r.kms, r.applyDefaultDocOpts(docOpts, opts...)...)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.Store(didDocResolution.DIDDocument)
+	didDocResolution, err := method.Create(r.kms, did, r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,31 +96,17 @@ func (r *Registry) Create(didMethod string, opts ...create.Option) (*diddoc.DocR
 }
 
 // applyDefaultDocOpts applies default creator options to doc options.
-func (r *Registry) applyDefaultDocOpts(docOpts *create.Opts, opts ...create.Option) []create.Option {
-	if docOpts.DefaultServiceType == "" {
-		opts = append(opts, create.WithDefaultServiceType(r.defServiceType))
+func (r *Registry) applyDefaultDocOpts(docOpts *vdrapi.DIDMethodOpts,
+	opts ...vdrapi.DIDMethodOption) []vdrapi.DIDMethodOption {
+	if docOpts.Values[peer.DefaultServiceType] == nil {
+		opts = append(opts, vdrapi.WithOption(peer.DefaultServiceType, r.defServiceType))
 	}
 
-	if docOpts.DefaultServiceEndpoint == "" {
-		opts = append(opts, create.WithDefaultServiceEndpoint(r.defServiceEndpoint))
+	if docOpts.Values[peer.DefaultServiceEndpoint] == nil {
+		opts = append(opts, vdrapi.WithOption(peer.DefaultServiceEndpoint, r.defServiceEndpoint))
 	}
 
 	return opts
-}
-
-// Store did store.
-func (r *Registry) Store(doc *diddoc.Doc) error {
-	didMethod, err := getDidMethod(doc.ID)
-	if err != nil {
-		return err
-	}
-
-	method, err := r.resolveVDR(didMethod)
-	if err != nil {
-		return err
-	}
-
-	return method.Store(doc, nil)
 }
 
 // Close frees resources being maintained by vdr.
@@ -170,7 +151,8 @@ func WithDefaultServiceEndpoint(serviceEndpoint string) Option {
 	}
 }
 
-func getDidMethod(didID string) (string, error) {
+// GetDidMethod get did method.
+func GetDidMethod(didID string) (string, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/20 Validate that the input DID conforms to
 	//  the did rule of the Generic DID Syntax. Reference: https://w3c-ccg.github.io/did-spec/#generic-did-syntax
 	// For now we do simple validation

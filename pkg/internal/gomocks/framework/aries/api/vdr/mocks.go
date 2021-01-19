@@ -7,8 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	did "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	create "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	resolve "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
+	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	reflect "reflect"
 )
 
@@ -50,10 +49,10 @@ func (mr *MockRegistryMockRecorder) Close() *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockRegistry) Create(arg0 string, arg1 ...create.Option) (*did.DocResolution, error) {
+func (m *MockRegistry) Create(arg0 string, arg1 *did.Doc, arg2 ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Create", varargs...)
@@ -63,14 +62,14 @@ func (m *MockRegistry) Create(arg0 string, arg1 ...create.Option) (*did.DocResol
 }
 
 // Create indicates an expected call of Create
-func (mr *MockRegistryMockRecorder) Create(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) Create(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRegistry)(nil).Create), varargs...)
 }
 
 // Resolve mocks base method
-func (m *MockRegistry) Resolve(arg0 string, arg1 ...resolve.Option) (*did.DocResolution, error) {
+func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdr.ResolveOption) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
@@ -87,18 +86,4 @@ func (mr *MockRegistryMockRecorder) Resolve(arg0 interface{}, arg1 ...interface{
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockRegistry)(nil).Resolve), varargs...)
-}
-
-// Store mocks base method
-func (m *MockRegistry) Store(arg0 *did.Doc) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Store", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Store indicates an expected call of Store
-func (mr *MockRegistryMockRecorder) Store(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockRegistry)(nil).Store), arg0)
 }

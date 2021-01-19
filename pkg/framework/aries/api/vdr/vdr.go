@@ -8,11 +8,10 @@ package vdr
 
 import (
 	"errors"
+	"net/http"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -24,17 +23,73 @@ const DIDCommServiceType = "did-communication"
 
 // Registry vdr registry.
 type Registry interface {
-	Resolve(did string, opts ...resolve.Option) (*did.DocResolution, error)
-	Store(doc *did.Doc) error
-	Create(method string, opts ...create.Option) (*did.DocResolution, error)
+	Resolve(did string, opts ...ResolveOption) (*did.DocResolution, error)
+	Create(method string, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
 	Close() error
 }
 
 // VDR verifiable data registry interface.
 type VDR interface {
-	Read(did string, opts ...resolve.Option) (*did.DocResolution, error)
-	Store(doc *did.Doc, by *[]doc.ModifiedBy) error
-	Build(keyManager kms.KeyManager, opts ...create.Option) (*did.DocResolution, error)
+	Read(did string, opts ...ResolveOption) (*did.DocResolution, error)
+	Create(keyManager kms.KeyManager, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
 	Accept(method string) bool
 	Close() error
+}
+
+// ResolveOpts holds the options for did resolve.
+type ResolveOpts struct {
+	HTTPClient  *http.Client
+	VersionID   interface{}
+	VersionTime string
+	NoCache     bool
+}
+
+// ResolveOption is a did resolve option.
+type ResolveOption func(opts *ResolveOpts)
+
+// WithHTTPClient the HTTP client input option can be used to resolve with a specific http client.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2465
+func WithHTTPClient(httpClient *http.Client) ResolveOption {
+	return func(opts *ResolveOpts) {
+		opts.HTTPClient = httpClient
+	}
+}
+
+// WithVersionID the version id input option can be used to request a specific version of a DID Document.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2465
+func WithVersionID(versionID interface{}) ResolveOption {
+	return func(opts *ResolveOpts) {
+		opts.VersionID = versionID
+	}
+}
+
+// WithVersionTime the version time input option can used to request a specific version of a DID Document.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2465
+func WithVersionTime(versionTime time.Time) ResolveOption {
+	return func(opts *ResolveOpts) {
+		opts.VersionTime = versionTime.Format(time.RFC3339)
+	}
+}
+
+// WithNoCache the no-cache input option can be used to turn cache on or off.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2465
+func WithNoCache(noCache bool) ResolveOption {
+	return func(opts *ResolveOpts) {
+		opts.NoCache = noCache
+	}
+}
+
+// DIDMethodOpts did method opts.
+type DIDMethodOpts struct {
+	Values map[string]interface{}
+}
+
+// DIDMethodOption is a did method option.
+type DIDMethodOption func(opts *DIDMethodOpts)
+
+// WithOption add option for did method.
+func WithOption(name string, value interface{}) DIDMethodOption {
+	return func(didMethodOpts *DIDMethodOpts) {
+		didMethodOpts.Values[name] = value
+	}
 }

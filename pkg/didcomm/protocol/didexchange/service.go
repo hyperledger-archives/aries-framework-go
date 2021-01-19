@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 )
 
 var logger = log.New("aries-framework/did-exchange/service")
@@ -591,7 +592,12 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 // CreateConnection saves the record to the connection store and maps TheirDID to their recipient keys in
 // the did connection store.
 func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc) error {
-	err := s.ctx.vdRegistry.Store(theirDID)
+	didMethod, err := vdr.GetDidMethod(theirDID.ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.ctx.vdRegistry.Create(didMethod, theirDID, vdrapi.WithOption("store", true))
 	if err != nil {
 		return fmt.Errorf("vdr failed to store theirDID : %w", err)
 	}

@@ -34,14 +34,6 @@ func TestAccept(t *testing.T) {
 	})
 }
 
-func TestStore(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
-		v := New()
-		require.NotNil(t, v)
-		require.NoError(t, v.Store(nil, nil))
-	})
-}
-
 func TestClose(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		v := New()

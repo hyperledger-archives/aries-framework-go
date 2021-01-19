@@ -26,7 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/create"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -1140,7 +1139,7 @@ func TestServiceEvents(t *testing.T) {
 
 	// send connection request message
 	id := "valid-thread-id"
-	doc, err := (&mockvdr.MockVDRegistry{}).Create("test")
+	doc, err := (&mockvdr.MockVDRegistry{}).Create("test", nil)
 	require.NoError(t, err)
 
 	invitation, err := c.CreateInvitation("alice")
@@ -1245,7 +1244,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 	// send connection request message
 	id := "valid-thread-id"
-	doc, err := (&mockvdr.MockVDRegistry{}).Create("test")
+	doc, err := (&mockvdr.MockVDRegistry{}).Create("test", nil)
 	require.NoError(t, err)
 
 	request, err := json.Marshal(
@@ -1392,12 +1391,10 @@ func newPeerDID(t *testing.T) *did.Doc {
 	require.NoError(t, err)
 
 	d, err := ctx.VDRegistry().Create(
-		peer.DIDMethod,
-		create.WithService(&did.Service{
+		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            "did-communication",
 			ServiceEndpoint: "http://agent.example.com/didcomm",
-		}),
-	)
+		}}})
 	require.NoError(t, err)
 
 	return d.DIDDocument

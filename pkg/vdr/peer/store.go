@@ -15,18 +15,23 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	vdrdoc "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-type docDelta struct {
-	Change     string               `json:"change,omitempty"`
-	ModifiedBy *[]vdrdoc.ModifiedBy `json:"by,omitempty"`
-	ModifiedAt time.Time            `json:"when,omitempty"`
+// modifiedBy key/signature used to update the DID Document.
+type modifiedBy struct {
+	Key string `json:"key,omitempty"`
+	Sig string `json:"sig,omitempty"`
 }
 
-// Store saves Peer DID Document along with user key/signature.
-func (v *VDR) Store(doc *did.Doc, by *[]vdrdoc.ModifiedBy) error {
+type docDelta struct {
+	Change     string        `json:"change,omitempty"`
+	ModifiedBy *[]modifiedBy `json:"by,omitempty"`
+	ModifiedAt time.Time     `json:"when,omitempty"`
+}
+
+// storeDID saves Peer DID Document along with user key/signature.
+func (v *VDR) storeDID(doc *did.Doc, by *[]modifiedBy) error { //nolint: unparam
 	if doc == nil || doc.ID == "" {
 		return errors.New("DID and document are mandatory")
 	}

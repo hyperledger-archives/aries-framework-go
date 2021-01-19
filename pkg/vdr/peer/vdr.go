@@ -15,6 +15,10 @@ import (
 const (
 	// StoreNamespace store name space for DID Store.
 	StoreNamespace = "peer"
+	// DefaultServiceType default service type.
+	DefaultServiceType = "defaultServiceType"
+	// DefaultServiceEndpoint default service endpoint.
+	DefaultServiceEndpoint = "defaultServiceEndpoint"
 )
 
 // VDR implements building new peer dids.

@@ -11,11 +11,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr/resolve"
 )
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (v *VDR) Read(didID string, _ ...resolve.Option) (*did.DocResolution, error) {
+func (v *VDR) Read(didID string, _ ...vdrapi.ResolveOption) (*did.DocResolution, error) {
 	// get the document from the store
 	doc, err := v.Get(didID)
 	if err != nil {
