@@ -549,8 +549,10 @@ func TestCommand_Reply(t *testing.T) {
 
 		go func() {
 			for {
-				if len(registrar.Services()) > 0 {
-					_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+				services := registrar.Services()
+
+				if len(services) > 0 {
+					_, e := services[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
 					require.NoError(t, e)
 				}
 			}

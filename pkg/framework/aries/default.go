@@ -120,7 +120,10 @@ func newPresentProofSvc() api.ProtocolSvcCreator {
 		}
 
 		// sets default middleware to the service
-		service.Use(mdpresentproof.SavePresentation(prv))
+		service.Use(
+			mdpresentproof.SavePresentation(prv),
+			mdpresentproof.PresentationDefinition(prv),
+		)
 
 		return service, nil
 	}
