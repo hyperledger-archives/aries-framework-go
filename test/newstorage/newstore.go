@@ -276,12 +276,21 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 		require.Nil(t, values[0])
 		require.Nil(t, values[1])
 	})
-	t.Run("Keys string slice cannot be nil", func(t *testing.T) {
+	t.Run("Nil keys slice", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
 		values, err := store.GetBulk(nil...)
+		require.Error(t, err)
+		require.Nil(t, values)
+	})
+	t.Run("Empty keys slice", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		values, err := store.GetBulk(make([]string, 0)...)
 		require.Error(t, err)
 		require.Nil(t, values)
 	})

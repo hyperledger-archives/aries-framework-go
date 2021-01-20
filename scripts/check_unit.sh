@@ -37,4 +37,10 @@ cd ../../component/newstorage/mem
 PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/mem/... 2> /dev/null)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+
+# Running newstorage/formattedstore unit tests
+cd ../formattedstore
+PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore/... 2> /dev/null)
+$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
 cd "$ROOT" || exit

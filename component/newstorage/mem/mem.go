@@ -191,8 +191,8 @@ func (m *memStore) GetTags(key string) ([]newstorage.Tag, error) {
 // If no data exists under a given key, then a nil []byte is returned for that value. It is not considered an error.
 // If any of the given keys are empty, then an error will be returned.
 func (m *memStore) GetBulk(keys ...string) ([][]byte, error) {
-	if keys == nil {
-		return nil, errors.New("keys string slice cannot be nil")
+	if len(keys) == 0 {
+		return nil, errors.New("keys slice must contain at least one key")
 	}
 
 	for _, key := range keys {
