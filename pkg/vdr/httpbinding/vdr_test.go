@@ -32,3 +32,25 @@ func TestVDR_Build(t *testing.T) {
 		require.Nil(t, result)
 	})
 }
+
+func TestUpdate(t *testing.T) {
+	t.Run("test update", func(t *testing.T) {
+		v, err := New("/did:example:334455")
+		require.NoError(t, err)
+
+		err = v.Update(nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+}
+
+func TestDeactivate(t *testing.T) {
+	t.Run("test deactivate", func(t *testing.T) {
+		v, err := New("/did:example:334455")
+		require.NoError(t, err)
+
+		err = v.Deactivate("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+}

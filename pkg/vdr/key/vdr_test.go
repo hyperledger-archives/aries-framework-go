@@ -34,6 +34,24 @@ func TestAccept(t *testing.T) {
 	})
 }
 
+func TestUpdate(t *testing.T) {
+	t.Run("test update", func(t *testing.T) {
+		v := New()
+		err := v.Update(nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+}
+
+func TestDeactivate(t *testing.T) {
+	t.Run("test deactivate", func(t *testing.T) {
+		v := New()
+		err := v.Deactivate("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+}
+
 func TestClose(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		v := New()

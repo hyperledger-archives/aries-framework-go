@@ -18,12 +18,14 @@ import (
 // MockVDRegistry mock implementation of vdr
 // to be used only for unit tests.
 type MockVDRegistry struct {
-	CreateErr    error
-	CreateValue  *did.Doc
-	CreateFunc   func(string, *did.Doc, ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
-	ResolveErr   error
-	ResolveValue *did.Doc
-	ResolveFunc  func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
+	CreateErr      error
+	CreateValue    *did.Doc
+	CreateFunc     func(string, *did.Doc, ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+	UpdateFunc     func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error
+	DeactivateFunc func(did string, opts ...vdrapi.DIDMethodOption) error
+	ResolveErr     error
+	ResolveValue   *did.Doc
+	ResolveFunc    func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
 }
 
 // Create mock implementation of create DID.
@@ -60,6 +62,24 @@ func (m *MockVDRegistry) Resolve(didID string, opts ...vdrapi.ResolveOption) (*d
 	}
 
 	return &did.DocResolution{DIDDocument: m.ResolveValue}, nil
+}
+
+// Update did.
+func (m *MockVDRegistry) Update(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(didDoc, opts...)
+	}
+
+	return nil
+}
+
+// Deactivate did.
+func (m *MockVDRegistry) Deactivate(didID string, opts ...vdrapi.DIDMethodOption) error {
+	if m.DeactivateFunc != nil {
+		return m.DeactivateFunc(didID, opts...)
+	}
+
+	return nil
 }
 
 // Close frees resources being maintained by vdr.
