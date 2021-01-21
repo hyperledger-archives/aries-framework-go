@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 type wrapKeyOpts struct {
-	senderKey interface{}
+	senderKey  interface{}
+	useXC20PKW bool
 }
 
 // NewOpt creates a new empty wrap key option.
@@ -24,6 +25,11 @@ func (pk *wrapKeyOpts) SenderKey() interface{} {
 	return pk.senderKey
 }
 
+// UseXC20PKW instructs to use XC20P key wrapping as apposed to the default A256KW.
+func (pk *wrapKeyOpts) UseXC20PKW() bool {
+	return pk.useXC20PKW
+}
+
 // WrapKeyOpts are the crypto.Wrap key options.
 type WrapKeyOpts func(opts *wrapKeyOpts)
 
@@ -37,5 +43,15 @@ type WrapKeyOpts func(opts *wrapKeyOpts)
 func WithSender(senderKey interface{}) WrapKeyOpts {
 	return func(opts *wrapKeyOpts) {
 		opts.senderKey = senderKey
+	}
+}
+
+// WithXC20PKW options is a flag option for crypto wrapping. When used, key wrapping will use XChacha20Poly1305
+// encryption as key wrapping. The absence of this option (default) uses AES256-GCM encryption as key wrapping. The KDF
+// used in the crypto wrapping function is selected based on the type of recipient key argument of KeyWrap(), it is
+// independent of this option.
+func WithXC20PKW() WrapKeyOpts {
+	return func(opts *wrapKeyOpts) {
+		opts.useXC20PKW = true
 	}
 }

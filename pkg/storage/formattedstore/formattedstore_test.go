@@ -699,7 +699,7 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	keyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	kmsSvc := &mockkms.KeyManager{

@@ -9,6 +9,7 @@ package tinkcrypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"io"
@@ -16,12 +17,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
-func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
+func extractPrivKey(kh *keyset.Handle) (interface{}, error) {
 	buf := new(bytes.Buffer)
 	w := &privKeyWriter{w: buf}
 	nAEAD := &noopAEAD{}
@@ -42,26 +44,41 @@ func extractPrivKey(kh *keyset.Handle) (*hybrid.ECPrivateKey, error) {
 		return nil, errors.New("extractPrivKey: invalid private key")
 	}
 
-	ecdhAESPrivateKeyTypeURL := "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhNistPKwAesAeadPrivateKey"
 	primaryKey := ks.Key[0]
 
-	if primaryKey.KeyData.TypeUrl != ecdhAESPrivateKeyTypeURL {
-		return nil, fmt.Errorf("extractPrivKey: can't extract unsupported private key '%s'", primaryKey.KeyData.TypeUrl)
+	switch primaryKey.KeyData.TypeUrl {
+	case nistPECDHKWPrivateKeyTypeURL:
+		pbKey := new(ecdhpb.EcdhAeadPrivateKey)
+
+		err = proto.Unmarshal(primaryKey.KeyData.Value, pbKey)
+		if err != nil {
+			return nil, errors.New("extractPrivKey: invalid key in keyset")
+		}
+
+		var c elliptic.Curve
+
+		c, err = hybrid.GetCurve(pbKey.PublicKey.Params.KwParams.CurveType.String())
+		if err != nil {
+			return nil, fmt.Errorf("extractPrivKey: invalid key: %w", err)
+		}
+
+		return hybrid.GetECPrivateKey(c, pbKey.KeyValue), nil
+	case x25519ECDHKWPrivateKeyTypeURL:
+		pbKey := new(ecdhpb.EcdhAeadPrivateKey)
+
+		err = proto.Unmarshal(primaryKey.KeyData.Value, pbKey)
+		if err != nil {
+			return nil, errors.New("extractPrivKey: invalid key in keyset")
+		}
+
+		if pbKey.PublicKey.Params.KwParams.CurveType.String() != commonpb.EllipticCurveType_CURVE25519.String() {
+			return nil, errors.New("extractPrivKey: invalid key curve")
+		}
+
+		return pbKey.KeyValue, nil
 	}
 
-	pbKey := new(ecdhpb.EcdhAeadPrivateKey)
-
-	err = proto.Unmarshal(primaryKey.KeyData.Value, pbKey)
-	if err != nil {
-		return nil, errors.New("extractPrivKey: invalid key in keyset")
-	}
-
-	c, err := hybrid.GetCurve(pbKey.PublicKey.Params.KwParams.CurveType.String())
-	if err != nil {
-		return nil, fmt.Errorf("extractPrivKey: invalid key: %w", err)
-	}
-
-	return hybrid.GetECPrivateKey(c, pbKey.KeyValue), nil
+	return nil, fmt.Errorf("extractPrivKey: can't extract unsupported private key '%s'", primaryKey.KeyData.TypeUrl)
 }
 
 func hybridECPrivToECDSAKey(hybridEcPriv *hybrid.ECPrivateKey) *ecdsa.PrivateKey {

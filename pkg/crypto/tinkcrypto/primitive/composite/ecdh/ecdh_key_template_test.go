@@ -23,35 +23,19 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 	}{
 		{
 			tcName:   "create ECDH NIST P-256 KW with AES256-GCM key templates test",
-			tmplFunc: ECDH256KWAES256GCMKeyTemplate,
+			tmplFunc: NISTP256ECDHKWKeyTemplate,
 		},
 		{
 			tcName:   "create ECDH NIST P-384 KW AES256-GCM key templates test",
-			tmplFunc: ECDH384KWAES256GCMKeyTemplate,
+			tmplFunc: NISTP384ECDHKWKeyTemplate,
 		},
 		{
 			tcName:   "create ECDH NIST P-521 KW AES256-GCM key templates test",
-			tmplFunc: ECDH521KWAES256GCMKeyTemplate,
+			tmplFunc: NISTP521ECDHKWKeyTemplate,
 		},
 		{
 			tcName:   "creat ECDH X25519 KW with XChacha20Poly1305 key templates test",
-			tmplFunc: X25519XChachaECDHKeyTemplate,
-		},
-		{
-			tcName:   "create ECDH NIST P-256 KW with XChacha20Poly1305 key templates test",
-			tmplFunc: ECDH256KWXChachaKeyTemplate,
-		},
-		{
-			tcName:   "create ECDH NIST P-384 KW XChacha20Poly1305 key templates test",
-			tmplFunc: ECDH384KWXChachaKeyTemplate,
-		},
-		{
-			tcName:   "create ECDH NIST P-521 KW key XChacha20Poly1305 templates test",
-			tmplFunc: ECDH521KWXChachaKeyTemplate,
-		},
-		{
-			tcName:   "creat ECDH X25519 KW with AES256-GCM key templates test",
-			tmplFunc: X25519AES256GCMECDHKeyTemplate,
+			tmplFunc: X25519ECDHKWKeyTemplate,
 		},
 	}
 
@@ -81,9 +65,9 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 
 			// now try to create a new KH for primitive execution and try to encrypt
 			if strings.Contains(tc.tcName, "XChacha") {
-				kt = XChachaKeyTemplateWithCEK(cek)
+				kt = X25519ECDHXChachaKeyTemplateWithCEK(cek)
 			} else {
-				kt = AES256GCMKeyTemplateWithCEK(cek)
+				kt = NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 			}
 
 			kh, err = keyset.NewHandle(kt)

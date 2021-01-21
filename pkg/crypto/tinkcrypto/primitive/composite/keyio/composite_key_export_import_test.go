@@ -8,6 +8,7 @@ package keyio
 
 import (
 	"bytes"
+	"crypto/elliptic"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -31,36 +32,20 @@ func TestPubKeyExport(t *testing.T) {
 		keyTemplate *tinkpb.KeyTemplate
 	}{
 		{
-			tcName:      "export then read AES256GCM with ECDH NIST P-256 public recipient key",
-			keyTemplate: ecdh.ECDH256KWAES256GCMKeyTemplate(),
+			tcName:      "export then read ECDH KW NIST P-256 public recipient key",
+			keyTemplate: ecdh.NISTP256ECDHKWKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDH NIST P-384 public recipient key",
-			keyTemplate: ecdh.ECDH384KWAES256GCMKeyTemplate(),
+			tcName:      "export then read ECDH KW NIST P-384 public recipient key",
+			keyTemplate: ecdh.NISTP384ECDHKWKeyTemplate(),
 		},
 		{
-			tcName:      "export then read AES256GCM with ECDH NIST P-521 public recipient key",
-			keyTemplate: ecdh.ECDH521KWAES256GCMKeyTemplate(),
+			tcName:      "export then read ECDH KW NIST P-521 public recipient key",
+			keyTemplate: ecdh.NISTP521ECDHKWKeyTemplate(),
 		},
 		{
-			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-256 public recipient key",
-			keyTemplate: ecdh.ECDH256KWXChachaKeyTemplate(),
-		},
-		{
-			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-384 public recipient key",
-			keyTemplate: ecdh.ECDH384KWXChachaKeyTemplate(),
-		},
-		{
-			tcName:      "export then read XChacha20Poly1305 with ECDH NIST P-521 public recipient key",
-			keyTemplate: ecdh.ECDH521KWXChachaKeyTemplate(),
-		},
-		{
-			tcName:      "export then read AES256GCM with X25519 public recipient key",
-			keyTemplate: ecdh.X25519AES256GCMECDHKeyTemplate(),
-		},
-		{
-			tcName:      "export then read XChacha20Poly1305 with X25519 public recipient key",
-			keyTemplate: ecdh.X25519XChachaECDHKeyTemplate(),
+			tcName:      "export then read ECDH KW X25519 public recipient key",
+			keyTemplate: ecdh.X25519ECDHKWKeyTemplate(),
 		},
 	}
 
@@ -167,7 +152,7 @@ func TestNegativeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = protoToCompositeKey(&tinkpb.KeyData{
-			TypeUrl:         ecdhNISTPAESPublicKeyTypeURL,
+			TypeUrl:         nistPECDHKWPublicKeyTypeURL,
 			Value:           mKey,
 			KeyMaterialType: 0,
 		})
@@ -175,7 +160,7 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test WriteEncrypted() should fail since it's not supported by Writer", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 		require.NotEmpty(t, kh)
 
@@ -220,7 +205,7 @@ func TestNegativeCases(t *testing.T) {
 			Key: []*tinkpb.Keyset_Key{
 				{
 					KeyData: &tinkpb.KeyData{
-						TypeUrl:         ecdhNISTPAESPublicKeyTypeURL,
+						TypeUrl:         nistPECDHKWPublicKeyTypeURL,
 						Value:           mKey,
 						KeyMaterialType: 0,
 					},
@@ -247,6 +232,13 @@ func TestNegativeCases(t *testing.T) {
 		})
 		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert curve string to proto: "+
 			"unsupported curve")
+	})
+
+	t.Run("PublicKeyToKeysetHandle using pubKey with bad keyType", func(t *testing.T) {
+		_, err := PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
+			Curve: elliptic.P256().Params().Name,
+		})
+		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert key type to proto: unsupported key type")
 	})
 }
 

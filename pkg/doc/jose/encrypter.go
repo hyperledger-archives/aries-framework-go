@@ -93,7 +93,7 @@ func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Ha
 }
 
 func getECDHEncPrimitive(cek []byte) (api.CompositeEncrypt, error) {
-	kt := ecdh.AES256GCMKeyTemplateWithCEK(cek)
+	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {

@@ -8,6 +8,7 @@ package tinkcrypto
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"math/big"
 	"testing"
 
@@ -16,6 +17,7 @@ import (
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
 const testMessage = "test message"
@@ -44,7 +47,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		badKH, err := keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
 		require.NoError(t, err)
 
-		badKH2, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+		badKH2, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
 		require.NoError(t, err)
 
 		c := Crypto{}
@@ -257,7 +260,7 @@ func TestCrypto_VerifyMAC(t *testing.T) {
 }
 
 func TestCrypto_ECDHES_Wrap_Unwrap_Key(t *testing.T) {
-	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	c, err := New()
@@ -291,20 +294,21 @@ func TestCrypto_ECDHES_Wrap_Unwrap_Key(t *testing.T) {
 	require.EqualError(t, err, "unwrapKey: RecipientWrappedKey is empty")
 
 	_, err = c.UnwrapKey(wrappedKey, nil)
-	require.EqualError(t, err, "unwrapKey: bad key handle format")
+	require.EqualError(t, err, "unwrapKey: deriveKEKAndUnwrap: bad key handle format")
 
 	// test UnwrapKey with ECDHES key but different curve
-	ecdh384Key, err := keyset.NewHandle(ecdh.ECDH384KWAES256GCMKeyTemplate())
+	ecdh384Key, err := keyset.NewHandle(ecdh.NISTP384ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	_, err = c.UnwrapKey(wrappedKey, ecdh384Key)
-	require.EqualError(t, err, "unwrapKey: recipient and epk keys are not on the same curve")
+	require.EqualError(t, err, "unwrapKey: deriveKEKAndUnwrap: error ECDH-ES kek derivation: deriveESKEKForUnwrap:"+
+		" error: deriveESWithECKeyForUnwrap: recipient and ephemeral keys are not on the same curve")
 
 	// test UnwrapKey with wrappedKey using different algorithm
 	origAlg := wrappedKey.Alg
 	wrappedKey.Alg = "badAlg"
 	_, err = c.UnwrapKey(wrappedKey, recipientKeyHandle)
-	require.EqualError(t, err, "unwrapKey: unsupported JWE KW Alg 'badAlg'")
+	require.EqualError(t, err, "unwrapKey: deriveKEKAndUnwrap: unsupported JWE KW Alg 'badAlg'")
 
 	wrappedKey.Alg = origAlg
 
@@ -314,14 +318,214 @@ func TestCrypto_ECDHES_Wrap_Unwrap_Key(t *testing.T) {
 	require.EqualValues(t, cek, uCEK)
 }
 
+func TestCrypto_ECDHES_Wrap_Unwrap_ForAllKeyTypes(t *testing.T) {
+	tests := []struct {
+		tcName   string
+		keyTempl *tinkpb.KeyTemplate
+		kwAlg    string
+		keyType  string
+		keyCurve string
+		useXC20P bool
+		senderKT *tinkpb.KeyTemplate
+		err      string
+	}{
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-256 key and A256GCM kw",
+			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P256().Params().Name,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-384 key and A256GCM kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-521 key and A256GCM kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with X25519 key and A256GCM kw",
+			keyTempl: ecdh.X25519ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESA256KWAlg,
+			keyType:  ecdhpb.KeyType_OKP.String(),
+			keyCurve: "X25519",
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-256 key and XC20P kw",
+			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P256().Params().Name,
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-384 key and XC20P kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with NIST P-521 key and XC20P kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-ES with X25519 key and XC20P kw",
+			keyTempl: ecdh.X25519ECDHKWKeyTemplate(),
+			kwAlg:    ECDHESXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_OKP.String(),
+			keyCurve: "X25519",
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and A256GCM kw",
+			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P256().Params().Name,
+			senderKT: ecdh.NISTP256ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and A256GCM kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+			senderKT: ecdh.NISTP384ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-521 key and A256GCM kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+			senderKT: ecdh.NISTP521ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with X25519 key and A256GCM kw",
+			keyTempl: ecdh.X25519ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_OKP.String(),
+			keyCurve: "X25519",
+			senderKT: ecdh.X25519ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and XC20P kw",
+			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P256().Params().Name,
+			senderKT: ecdh.NISTP256ECDHKWKeyTemplate(),
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and XC20P kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+			senderKT: ecdh.NISTP384ECDHKWKeyTemplate(),
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-521 key and XC20P kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+			senderKT: ecdh.NISTP521ECDHKWKeyTemplate(),
+			useXC20P: true,
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with X25519 key and XC20P kw",
+			keyTempl: ecdh.X25519ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUXC20PKWAlg,
+			keyType:  ecdhpb.KeyType_OKP.String(),
+			keyCurve: "X25519",
+			senderKT: ecdh.X25519ECDHKWKeyTemplate(),
+			useXC20P: true,
+		},
+	}
+
+	c, err := New()
+	require.NoError(t, err)
+
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	apu := random.GetRandomBytes(uint32(10)) // or sender name
+	apv := random.GetRandomBytes(uint32(10)) // or recipient name
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run("Test "+tc.tcName, func(t *testing.T) {
+			recipientKeyHandle, err := keyset.NewHandle(tc.keyTempl)
+			require.NoError(t, err)
+
+			recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
+			require.NoError(t, err)
+
+			var senderKH *keyset.Handle
+
+			var wrapKeyOtps []crypto.WrapKeyOpts
+			if tc.useXC20P {
+				// WithXC20OKW option used for WrapKey() only. UnwrapKey() does not check this option, it checks kwAlg.
+				wrapKeyOtps = append(wrapKeyOtps, crypto.WithXC20PKW())
+			}
+
+			if tc.senderKT != nil {
+				senderKH, err = keyset.NewHandle(tc.senderKT)
+				require.NoError(t, err)
+
+				wrapKeyOtps = append(wrapKeyOtps, crypto.WithSender(senderKH))
+			}
+
+			wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey, wrapKeyOtps...)
+			require.NoError(t, err)
+			require.NotEmpty(t, wrappedKey.EncryptedCEK)
+			require.NotEmpty(t, wrappedKey.EPK)
+			require.EqualValues(t, wrappedKey.APU, apu)
+			require.EqualValues(t, wrappedKey.APV, apv)
+			require.Equal(t, tc.kwAlg, wrappedKey.Alg)
+			require.Equal(t, tc.keyCurve, wrappedKey.EPK.Curve)
+			require.Equal(t, tc.keyType, wrappedKey.EPK.Type)
+
+			if senderKH != nil {
+				var senderPubKey *crypto.PublicKey
+
+				// mimic recipient side (by using sender public key for unwrapping instead of the private key)
+				senderPubKey, err = keyio.ExtractPrimaryPublicKey(senderKH)
+				require.NoError(t, err)
+
+				// reset wrapKeyOpts because UnwrapKey only uses WithSender() option.
+				wrapKeyOtps = []crypto.WrapKeyOpts{crypto.WithSender(senderPubKey)}
+			}
+
+			uCEK, err := c.UnwrapKey(wrappedKey, recipientKeyHandle, wrapKeyOtps...)
+			require.NoError(t, err)
+			require.EqualValues(t, cek, uCEK)
+		})
+	}
+}
+
 func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
-	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
 	require.NoError(t, err)
 
-	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	senderKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	c, err := New()
@@ -333,7 +537,9 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 
 	// test with bad senderKH value
 	_, err = c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSender("badKey"))
-	require.EqualError(t, err, "wrapKey: failed to retrieve sender key: ksToPrivateECDSAKey: bad key handle format")
+	require.EqualError(t, err, "wrapKey: deriveKEKAndWrap: error ECDH-1PU kek derivation: derive1PUKEK: EC key"+
+		" derivation error derive1PUWithECKey: failed to retrieve sender key: ksToPrivateECDSAKey: bad key handle "+
+		"format")
 
 	// now test WrapKey with good key
 	wrappedKey, err := c.WrapKey(cek, apu, apv, recipientKey, crypto.WithSender(senderKH))
@@ -371,13 +577,13 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 }
 
 func TestCrypto_ECDH1PU_Wrap_Unwrap_Key_Using_CryptoPubKey_as_SenderKey(t *testing.T) {
-	recipientKeyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	recipientKeyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	recipientKey, err := keyio.ExtractPrimaryPublicKey(recipientKeyHandle)
 	require.NoError(t, err)
 
-	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	senderKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	c, err := New()

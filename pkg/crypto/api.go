@@ -42,7 +42,8 @@ type Crypto interface {
 
 	// WrapKey will execute key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
 	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key wrapping
-	// (aka Authcrypt). The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt).
+	// (aka Authcrypt). The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt). Another option that can
+	// be used is WithXC20PKW() to instruct the WrapKey to use XC20P key wrapping instead of the default A256GCM.
 	// returns:
 	// 		RecipientWrappedKey containing the wrapped cek value
 	// 		error in case of errors
@@ -51,7 +52,8 @@ type Crypto interface {
 
 	// UnwrapKey unwraps a key in recWK using recipient private key kh.
 	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key unwrapping
-	// (aka Authcrypt). The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt).
+	// (aka Authcrypt). The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt). There is no need to
+	// use WithXC20PKW() for UnwrapKey since the function will use the wrapping algorithm based on recWK.Alg.
 	// returns:
 	// 		unwrapped key in raw bytes
 	// 		error in case of errors

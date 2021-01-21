@@ -73,7 +73,7 @@ func TestIsKeyPairValid(t *testing.T) {
 }
 
 func TestDeriveKEK_Util(t *testing.T) {
-	kek, err := Derive25519KEK(nil, nil, nil, nil)
+	kek, err := Derive25519KEK(nil, nil, nil, nil, nil)
 	require.EqualError(t, err, ErrInvalidKey.Error())
 	require.Empty(t, kek)
 
@@ -82,7 +82,7 @@ func TestDeriveKEK_Util(t *testing.T) {
 
 	chachaKey := new([chacha.KeySize]byte)
 	copy(chachaKey[:], validChachaKey)
-	kek, err = Derive25519KEK(nil, nil, chachaKey, nil)
+	kek, err = Derive25519KEK(nil, nil, nil, chachaKey, nil)
 	require.EqualError(t, err, ErrInvalidKey.Error())
 	require.Empty(t, kek)
 
@@ -91,7 +91,7 @@ func TestDeriveKEK_Util(t *testing.T) {
 
 	chachaKey2 := new([chacha.KeySize]byte)
 	copy(chachaKey2[:], validChachaKey2)
-	kek, err = Derive25519KEK(nil, nil, chachaKey, chachaKey2)
+	kek, err = Derive25519KEK(nil, nil, nil, chachaKey, chachaKey2)
 	require.NoError(t, err)
 	require.NotEmpty(t, kek)
 
@@ -104,7 +104,7 @@ func TestDeriveKEK_Util(t *testing.T) {
 	chachaKey2 = new([chacha.KeySize]byte)
 	copy(chachaKey2[:], lowOrderPoint)
 	// test error from curve25519.X25519() call in Derive25519KEK()
-	_, err = Derive25519KEK(nil, nil, chachaKey, chachaKey2)
+	_, err = Derive25519KEK(nil, nil, nil, chachaKey, chachaKey2)
 	require.Error(t, err)
 }
 

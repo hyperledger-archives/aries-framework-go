@@ -23,50 +23,49 @@ import (
 )
 
 const (
-	ecdhNISTPAESPrivateKeyVersion = 0
-	ecdhNISTPAESPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhNistPKwAesAeadPrivateKey"
+	nistpECDHKWPrivateKeyVersion = 0
+	nistpECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
 )
 
 // common errors.
 var (
-	errInvalidECDHNISTPAESPrivateKey       = errors.New("ecdh_nistpkw_aesaead_private_key_manager: invalid key")
-	errInvalidECDHNISTPAESPrivateKeyFormat = errors.New("ecdh_nistpkw_aesaead_private_key_manager: invalid key format") // nolint:lll
+	errInvalidNISTPECDHKWPrivateKey       = errors.New("nistpkw_ecdh_private_key_manager: invalid key")
+	errInvalidNISTPECDHKWPrivateKeyFormat = errors.New("nistpkw_ecdh_private_key_manager: invalid key format")
 )
 
-// ecdhNISTPAESPrivateKeyManager is an implementation of PrivateKeyManager interface for NIST P curved key wrapping and
-// AES-GCM content encryption.
+// nistPECDHKWPrivateKeyManager is an implementation of PrivateKeyManager interface for NIST P curved key wrapping.
 // It generates new ECDHPrivateKey (NIST P KW) keys and produces new instances of ECDHAEADCompositeDecrypt subtle.
-type ecdhNISTPAESPrivateKeyManager struct{}
+type nistPECDHKWPrivateKeyManager struct{}
 
-// Assert that ecdhNISTPAESPrivateKeyManager implements the PrivateKeyManager interface.
-var _ registry.PrivateKeyManager = (*ecdhNISTPAESPrivateKeyManager)(nil)
+// Assert that nistPECDHKWPrivateKeyManager implements the PrivateKeyManager interface.
+var _ registry.PrivateKeyManager = (*nistPECDHKWPrivateKeyManager)(nil)
 
-// newECDHNISTPAESPrivateKeyManager creates a new ecdhNISTPAESPrivateKeyManager.
-func newECDHNISTPAESPrivateKeyManager() *ecdhNISTPAESPrivateKeyManager {
-	return new(ecdhNISTPAESPrivateKeyManager)
+// newECDHNISTPAESPrivateKeyManager creates a new nistPECDHKWPrivateKeyManager.
+func newECDHNISTPAESPrivateKeyManager() *nistPECDHKWPrivateKeyManager {
+	return new(nistPECDHKWPrivateKeyManager)
 }
 
 // Primitive creates an ECDHESPrivateKey subtle for the given serialized ECDHESPrivateKey proto.
-func (km *ecdhNISTPAESPrivateKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
+func (km *nistPECDHKWPrivateKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
 	if len(serializedKey) == 0 {
-		return nil, errInvalidECDHNISTPAESPrivateKey
+		return nil, errInvalidNISTPECDHKWPrivateKey
 	}
 
 	key := new(ecdhpb.EcdhAeadPrivateKey)
 
 	err := proto.Unmarshal(serializedKey, key)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKey
+		return nil, errInvalidNISTPECDHKWPrivateKey
 	}
 
 	_, err = km.validateKey(key)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKey
+		return nil, errInvalidNISTPECDHKWPrivateKey
 	}
 
 	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(key.PublicKey.Params.EncParams.AeadEnc)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: NewRegisterCompositeAEADEncHelper "+
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: NewRegisterCompositeAEADEncHelper "+
 			"failed: %w", err)
 	}
 
@@ -74,33 +73,33 @@ func (km *ecdhNISTPAESPrivateKeyManager) Primitive(serializedKey []byte) (interf
 }
 
 // NewKey creates a new key according to the specification of ECDHESPrivateKey format.
-func (km *ecdhNISTPAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
+func (km *nistPECDHKWPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
 	if len(serializedKeyFormat) == 0 {
-		return nil, errInvalidECDHNISTPAESPrivateKeyFormat
+		return nil, errInvalidNISTPECDHKWPrivateKeyFormat
 	}
 
 	keyFormat := new(ecdhpb.EcdhAeadKeyFormat)
 
 	err := proto.Unmarshal(serializedKeyFormat, keyFormat)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKeyFormat
+		return nil, errInvalidNISTPECDHKWPrivateKeyFormat
 	}
 
 	curve, err := validateKeyFormat(keyFormat.Params)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKeyFormat
+		return nil, errInvalidNISTPECDHKWPrivateKeyFormat
 	}
 
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: GenerateECDHKeyPair failed: %w", err)
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: GenerateECDHKeyPair failed: %w", err)
 	}
 
 	return &ecdhpb.EcdhAeadPrivateKey{
-		Version:  ecdhNISTPAESPrivateKeyVersion,
+		Version:  nistpECDHKWPrivateKeyVersion,
 		KeyValue: pvt.D.Bytes(),
 		PublicKey: &ecdhpb.EcdhAeadPublicKey{
-			Version: ecdhNISTPAESPrivateKeyVersion,
+			Version: nistpECDHKWPrivateKeyVersion,
 			Params:  keyFormat.Params,
 			X:       pvt.PublicKey.Point.X.Bytes(),
 			Y:       pvt.PublicKey.Point.Y.Bytes(),
@@ -110,7 +109,7 @@ func (km *ecdhNISTPAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (pro
 
 // NewKeyData creates a new KeyData according to the specification of ECDHESPrivateKey Format.
 // It should be used solely by the key management API.
-func (km *ecdhNISTPAESPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
+func (km *nistPECDHKWPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
 	key, err := km.NewKey(serializedKeyFormat)
 	if err != nil {
 		return nil, err
@@ -118,52 +117,52 @@ func (km *ecdhNISTPAESPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) 
 
 	serializedKey, err := proto.Marshal(key)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: Proto.Marshal failed: %w", err)
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: Proto.Marshal failed: %w", err)
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         ecdhNISTPAESPrivateKeyTypeURL,
+		TypeUrl:         nistpECDHKWPrivateKeyTypeURL,
 		Value:           serializedKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PRIVATE,
 	}, nil
 }
 
 // PublicKeyData returns the enclosed public key data of serializedPrivKey.
-func (km *ecdhNISTPAESPrivateKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
+func (km *nistPECDHKWPrivateKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
 	privKey := new(ecdhpb.EcdhAeadPrivateKey)
 
 	err := proto.Unmarshal(serializedPrivKey, privKey)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKey
+		return nil, errInvalidNISTPECDHKWPrivateKey
 	}
 
 	serializedPubKey, err := proto.Marshal(privKey.PublicKey)
 	if err != nil {
-		return nil, errInvalidECDHNISTPAESPrivateKey
+		return nil, errInvalidNISTPECDHKWPrivateKey
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         ecdhNISTPAESPublicKeyTypeURL,
+		TypeUrl:         nistpECDHKWPublicKeyTypeURL,
 		Value:           serializedPubKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PUBLIC,
 	}, nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
-func (km *ecdhNISTPAESPrivateKeyManager) DoesSupport(typeURL string) bool {
-	return typeURL == ecdhNISTPAESPrivateKeyTypeURL
+func (km *nistPECDHKWPrivateKeyManager) DoesSupport(typeURL string) bool {
+	return typeURL == nistpECDHKWPrivateKeyTypeURL
 }
 
 // TypeURL returns the key type of keys managed by this key manager.
-func (km *ecdhNISTPAESPrivateKeyManager) TypeURL() string {
-	return ecdhNISTPAESPrivateKeyTypeURL
+func (km *nistPECDHKWPrivateKeyManager) TypeURL() string {
+	return nistpECDHKWPrivateKeyTypeURL
 }
 
 // validateKey validates the given ECDHPrivateKey and returns the KW curve.
-func (km *ecdhNISTPAESPrivateKeyManager) validateKey(key *ecdhpb.EcdhAeadPrivateKey) (elliptic.Curve, error) {
-	err := keyset.ValidateKeyVersion(key.Version, ecdhNISTPAESPrivateKeyVersion)
+func (km *nistPECDHKWPrivateKeyManager) validateKey(key *ecdhpb.EcdhAeadPrivateKey) (elliptic.Curve, error) {
+	err := keyset.ValidateKeyVersion(key.Version, nistpECDHKWPrivateKeyVersion)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: invalid key: %w", err)
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: invalid key: %w", err)
 	}
 
 	return validateKeyFormat(key.PublicKey.Params)
@@ -181,7 +180,7 @@ func validateKeyFormat(params *ecdhpb.EcdhAeadParams) (elliptic.Curve, error) {
 	if params.EncParams.CEK == nil {
 		c, err = hybrid.GetCurve(params.KwParams.CurveType.String())
 		if err != nil {
-			return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: invalid key: %w", err)
+			return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: invalid key: %w", err)
 		}
 	} else {
 		c = elliptic.P384()
@@ -189,16 +188,16 @@ func validateKeyFormat(params *ecdhpb.EcdhAeadParams) (elliptic.Curve, error) {
 
 	km, err := registry.GetKeyManager(params.EncParams.AeadEnc.TypeUrl)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: GetKeyManager error: %w", err)
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: GetKeyManager error: %w", err)
 	}
 
 	_, err = km.NewKeyData(params.EncParams.AeadEnc.Value)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: NewKeyData error: %w", err)
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: NewKeyData error: %w", err)
 	}
 
 	if params.KwParams.KeyType.String() != ecdhpb.KeyType_EC.String() {
-		return nil, fmt.Errorf("ecdh_nistpkw_aesaead_private_key_manager: invalid key type %v",
+		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: invalid key type %v",
 			params.KwParams.KeyType)
 	}
 

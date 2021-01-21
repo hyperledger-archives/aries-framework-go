@@ -29,14 +29,14 @@ func TestECDHNISTPAESPublicKeyManager_Primitive(t *testing.T) {
 
 	t.Run("Test public key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+		require.EqualError(t, err, errInvalidNISTPECDHKWPublicKey.Error(),
 			"newECDHNISTPAESPublicKeyManager primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test public key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+		require.EqualError(t, err, errInvalidNISTPECDHKWPublicKey.Error(),
 			"newECDHNISTPAESPublicKeyManager primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
@@ -150,7 +150,7 @@ func TestECDHNISTPAESPublicKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if strings.Contains(tt.tcName, "with bad content encryption key size") {
-				require.EqualError(t, err, errInvalidECDHNISTPAESPublicKey.Error(),
+				require.EqualError(t, err, errInvalidNISTPECDHKWPublicKey.Error(),
 					"newECDHNISTPAESPublicKeyManager primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
@@ -172,7 +172,7 @@ func TestECDHNISTPAESPublicKeyManager_Primitive(t *testing.T) {
 func TestEcdhNISTPAESPublicKeyManager_DoesSupport(t *testing.T) {
 	km := newECDHNISTPAESPublicKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhNISTPAESPublicKeyTypeURL))
+	require.True(t, km.DoesSupport(nistpECDHKWPublicKeyTypeURL))
 }
 
 func TestEcdhNISTPAESPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
@@ -180,13 +180,13 @@ func TestEcdhNISTPAESPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
 
 	t.Run("Test public key manager NewKey()", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, "ecdh_nistpkw_aesaead_public_key_manager: NewKey not implemented")
+		require.EqualError(t, err, "nistpkw_ecdh_public_key_manager: NewKey not implemented")
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKeyData()", func(t *testing.T) {
 		p, err := km.NewKeyData(nil)
-		require.EqualError(t, err, "ecdh_nistpkw_aesaead_public_key_manager: NewKeyData not implemented")
+		require.EqualError(t, err, "nistpkw_ecdh_public_key_manager: NewKeyData not implemented")
 		require.Empty(t, p)
 	})
 }

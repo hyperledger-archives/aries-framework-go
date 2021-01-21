@@ -11,10 +11,8 @@ SPDX-License-Identifier: Apache-2.0
 package tinkcrypto
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/google/tink/go/aead"
 	aeadsubtle "github.com/google/tink/go/aead/subtle"
@@ -32,6 +30,13 @@ const (
 	ECDHESA256KWAlg = "ECDH-ES+A256KW"
 	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-GCM 256 key wrapping algorithm.
 	ECDH1PUA256KWAlg = "ECDH-1PU+A256KW"
+	// ECDHESXC20PKWAlg is the ECDH-ES with XChacha20Poly1305 key wrapping algorithm.
+	ECDHESXC20PKWAlg = "ECDH-ES+XC20PKW"
+	// ECDH1PUXC20PKWAlg is the ECDH-1PU with XChacha20Poly1305 key wrapping algorithm.
+	ECDH1PUXC20PKWAlg = "ECDH-1PU+XC20PKW"
+
+	nistPECDHKWPrivateKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
+	x25519ECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPrivateKey"
 )
 
 var errBadKeyHandleFormat = errors.New("bad key handle format")
@@ -43,12 +48,13 @@ var errBadKeyHandleFormat = errors.New("bad key handle format")
 
 // Crypto is the default Crypto SPI implementation using Tink.
 type Crypto struct {
-	kw keyWrapper
+	ecKW  keyWrapper
+	okpKW keyWrapper
 }
 
 // New creates a new Crypto instance.
 func New() (*Crypto, error) {
-	return &Crypto{kw: &keyWrapperSupport{}}, nil
+	return &Crypto{ecKW: &ecKWSupport{}, okpKW: &okpKWSupport{}}, nil
 }
 
 // Encrypt will encrypt msg using the implementation's corresponding encryption key and primitive in kh of a public key.
@@ -203,11 +209,13 @@ func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
 }
 
 // WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
-// The optional 'wrapKeyOpts' specifies the sender kh for 1PU key wrapping.
 // This function is used with the following parameters:
-//  - Key Wrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSender() option) over A256KW as
-// 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
-//  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
+//  - Key Wrapping: `ECDH-ES` (no options) or `ECDH-1PU` (using crypto.WithSender() option in wrapKeyOpts) over either
+//    `A256KW` alg (AES256-GCM, default with no options) as per https://tools.ietf.org/html/rfc7518#appendix-A.2 or
+//    `XC20PKW` alg (XChacha20Poly1305, using crypto.WithXC20PKW() option in wrapKeyOpts).
+//  - KDF (based on recPubKey.Curve): `Concat KDF` as per https://tools.ietf.org/html/rfc7518#section-4.6 (for recPubKey
+//    with NIST P curves) or `Curve25519`+`Concat KDF` as per https://tools.ietf.org/html/rfc7748#section-6.1 (for
+//    recPubKey with X25519 curve).
 // returns the resulting key wrapping info as *composite.RecipientWrappedKey or error in case of wrapping failure.
 func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 	wrapKeyOpts ...cryptoapi.WrapKeyOpts) (*cryptoapi.RecipientWrappedKey, error) {
@@ -221,34 +229,34 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 		opt(pOpts)
 	}
 
-	c, err := t.kw.getCurve(recPubKey.Curve)
+	wk, err := t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKey(), recPubKey, pOpts.UseXC20PKW())
 	if err != nil {
-		return nil, fmt.Errorf("wrapKey: failed to get curve of recipient key: %w", err)
+		return nil, fmt.Errorf("wrapKey: %w", err)
 	}
 
-	pubKey := &ecdsa.PublicKey{
-		Curve: c,
-		X:     new(big.Int).SetBytes(recPubKey.X),
-		Y:     new(big.Int).SetBytes(recPubKey.Y),
-	}
-
-	ephemeralPriv, err := t.kw.generateKey(pubKey.Curve)
-	if err != nil {
-		return nil, fmt.Errorf("wrapKey: failed to generate EPK: %w", err)
-	}
-
-	return t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKey(), ephemeralPriv, pubKey, recPubKey.KID)
+	return wk, nil
 }
 
 // UnwrapKey unwraps a key in recWK using ECDH (ES or 1PU) with recipient private key kh.
-// The optional 'wrapKeyOpts' specifies the sender kh for 1PU key unwrapping.
-// Note, if the option was used in WrapKey(), then it must be set here as well for a successful unwrapping.
 // This function is used with the following parameters:
-//  - Key Unwrapping: ECDH-ES (no options)/ECDH-1PU (using crypto.WithSender() option) over A256KW as
-// 		per https://tools.ietf.org/html/rfc7518#appendix-A.2
-//  - KDF: Concat KDF as per https://tools.ietf.org/html/rfc7518#section-4.6
+//  - Key Unwrapping: `ECDH-ES` (no options) or `ECDH-1PU` (using crypto.WithSender() option in wrapKeyOpts) over either
+//    `A256KW` alg (AES256-GCM, when recWK.alg is either ECDH-ES+A256KW or ECDH-1PU+A256KW) as per
+//     https://tools.ietf.org/html/rfc7518#appendix-A.2 or
+//    `XC20PKW` alg (XChacha20Poly1305, when recWK.alg is either ECDH-ES+XC20PKW or ECDH-1PU+XC20PKW).
+//  - KDF (based on recWk.EPK.KeyType): `Concat KDF` as per https://tools.ietf.org/html/rfc7518#section-4.6 (for type
+//    value as EC) or `Curve25519`+`Concat KDF` as per https://tools.ietf.org/html/rfc7748#section-6.1 (for type value
+//    as OKP, ie X25519 key).
 // returns the resulting unwrapping key or error in case of unwrapping failure.
-func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
+//
+// Notes:
+// 1- if the crypto.WithSender() option was used in WrapKey(), then it must be set here as well for successful key
+//    unwrapping.
+// 2- unwrapping a key with recWK.alg value set as either `ECDH-1PU+A256KW` or `ECDH-1PU+XC20PKW` requires the use of
+//    crypto.WithSender() option (containing the sender public key) in order to execute ECDH-1PU derivation.
+// 3- the ephemeral key in recWK.EPK must have the same KeyType as the recipientKH and the same Curve for NIST P
+//    curved keys. Unwrapping a key with non matching types/curves will result in unwrapping failure.
+// 4- recipientKH must contain the private key since unwrapping is usually done on the recipient side.
+func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, recipientKH interface{},
 	wrapKeyOpts ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	if recWK == nil {
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")
@@ -260,34 +268,11 @@ func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
 		opt(pOpts)
 	}
 
-	privKey, ok := kh.(*keyset.Handle)
-	if !ok {
-		return nil, fmt.Errorf("unwrapKey: %w", errBadKeyHandleFormat)
-	}
-
-	recipientPrivateKey, err := extractPrivKey(privKey)
+	key, err := t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, &recWK.EPK, pOpts.SenderKey(),
+		recipientKH)
 	if err != nil {
 		return nil, fmt.Errorf("unwrapKey: %w", err)
 	}
 
-	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/2445
-	recPrivKey := hybridECPrivToECDSAKey(recipientPrivateKey)
-
-	epkCurve, err := t.kw.getCurve(recWK.EPK.Curve)
-	if err != nil {
-		return nil, fmt.Errorf("unwrapKey: failed to GetCurve: %w", err)
-	}
-
-	if recipientPrivateKey.PublicKey.Curve != epkCurve {
-		return nil, errors.New("unwrapKey: recipient and epk keys are not on the same curve")
-	}
-
-	epkPubKey := &ecdsa.PublicKey{
-		Curve: epkCurve,
-		X:     new(big.Int).SetBytes(recWK.EPK.X),
-		Y:     new(big.Int).SetBytes(recWK.EPK.Y),
-	}
-
-	return t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, pOpts.SenderKey(),
-		epkPubKey, recPrivKey)
+	return key, nil
 }

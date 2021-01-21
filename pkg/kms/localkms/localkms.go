@@ -200,11 +200,11 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 	case kms.HMACSHA256Tag256Type:
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	case kms.ECDH256KWAES256GCMType:
-		return ecdh.ECDH256KWAES256GCMKeyTemplate(), nil
+		return ecdh.NISTP256ECDHKWKeyTemplate(), nil
 	case kms.ECDH384KWAES256GCMType:
-		return ecdh.ECDH384KWAES256GCMKeyTemplate(), nil
+		return ecdh.NISTP384ECDHKWKeyTemplate(), nil
 	case kms.ECDH521KWAES256GCMType:
-		return ecdh.ECDH521KWAES256GCMKeyTemplate(), nil
+		return ecdh.NISTP521ECDHKWKeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("getKeyTemplate: key type '%s' unrecognized", keyType)
 	}

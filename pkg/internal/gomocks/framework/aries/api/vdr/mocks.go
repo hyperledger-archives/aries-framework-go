@@ -68,6 +68,25 @@ func (mr *MockRegistryMockRecorder) Create(arg0, arg1 interface{}, arg2 ...inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRegistry)(nil).Create), varargs...)
 }
 
+// Deactivate mocks base method
+func (m *MockRegistry) Deactivate(arg0 string, arg1 ...vdr.DIDMethodOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Deactivate", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Deactivate indicates an expected call of Deactivate
+func (mr *MockRegistryMockRecorder) Deactivate(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deactivate", reflect.TypeOf((*MockRegistry)(nil).Deactivate), varargs...)
+}
+
 // Resolve mocks base method
 func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdr.ResolveOption) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
@@ -86,4 +105,23 @@ func (mr *MockRegistryMockRecorder) Resolve(arg0 interface{}, arg1 ...interface{
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockRegistry)(nil).Resolve), varargs...)
+}
+
+// Update mocks base method
+func (m *MockRegistry) Update(arg0 *did.Doc, arg1 ...vdr.DIDMethodOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Update", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update
+func (mr *MockRegistryMockRecorder) Update(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRegistry)(nil).Update), varargs...)
 }

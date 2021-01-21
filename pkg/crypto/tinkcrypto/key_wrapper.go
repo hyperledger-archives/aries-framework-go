@@ -7,19 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package tinkcrypto
 
 import (
-	"crypto"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/rand"
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	josecipher "github.com/square/go-jose/v3/cipher"
+	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/curve25519"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
@@ -29,167 +27,519 @@ import (
 
 const defKeySize = 32
 
-type keyWrapper interface {
-	getCurve(curve string) (elliptic.Curve, error)
-	generateKey(curve elliptic.Curve) (*ecdsa.PrivateKey, error)
-	createCipher(key []byte) (cipher.Block, error)
-	wrap(block cipher.Block, cek []byte) ([]byte, error)
-	unwrap(block cipher.Block, encryptedKey []byte) ([]byte, error)
-	deriveSender1Pu(kwAlg string, apu, apv []byte, ephemeralPriv, senderPrivKey *ecdsa.PrivateKey,
-		recPubKey *ecdsa.PublicKey, keySize int) ([]byte, error)
-	deriveRecipient1Pu(kwAlg string, apu, apv []byte, ephemeralPub, senderPubKey *ecdsa.PublicKey,
-		recPrivKey *ecdsa.PrivateKey, keySize int) ([]byte, error)
-}
-
-type keyWrapperSupport struct{}
-
-func (w *keyWrapperSupport) getCurve(curve string) (elliptic.Curve, error) {
-	return hybrid.GetCurve(curve)
-}
-
-func (w *keyWrapperSupport) generateKey(curve elliptic.Curve) (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(curve, rand.Reader)
-}
-
-func (w *keyWrapperSupport) createCipher(kek []byte) (cipher.Block, error) {
-	return aes.NewCipher(kek)
-}
-
-func (w *keyWrapperSupport) wrap(block cipher.Block, cek []byte) ([]byte, error) {
-	return josecipher.KeyWrap(block, cek)
-}
-
-func (w *keyWrapperSupport) unwrap(block cipher.Block, encryptedKey []byte) ([]byte, error) {
-	return josecipher.KeyUnwrap(block, encryptedKey)
-}
-
-func (w *keyWrapperSupport) deriveSender1Pu(alg string, apu, apv []byte, ephemeralPriv, senderPrivKey *ecdsa.PrivateKey,
-	recPubKey *ecdsa.PublicKey, keySize int) ([]byte, error) {
-	ze := josecipher.DeriveECDHES(alg, apu, apv, ephemeralPriv, recPubKey, keySize)
-	zs := josecipher.DeriveECDHES(alg, apu, apv, senderPrivKey, recPubKey, keySize)
-
-	return derive1Pu(alg, ze, zs, apu, apv, keySize)
-}
-
-func (w *keyWrapperSupport) deriveRecipient1Pu(alg string, apu, apv []byte, ephemeralPub, senderPubKey *ecdsa.PublicKey,
-	recPrivKey *ecdsa.PrivateKey, keySize int) ([]byte, error) {
-	// DeriveECDHES checks if keys are on the same curve
-	ze := josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, ephemeralPub, keySize)
-	zs := josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, senderPubKey, keySize)
-
-	return derive1Pu(alg, ze, zs, apu, apv, keySize)
-}
-
-func (t *Crypto) deriveKEKAndWrap(cek, apu, apv []byte, senderKH interface{}, ephemeralPrivKey *ecdsa.PrivateKey,
-	recPubKey *ecdsa.PublicKey, recKID string) (*cryptoapi.RecipientWrappedKey, error) {
-	var kek []byte
-
-	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/2445
-	keyType := ecdhpb.KeyType_EC.String()
-	wrappingAlg := ECDHESA256KWAlg
+// deriveKEKAndWrap is the entry point for Crypto.WrapKey().
+func (t *Crypto) deriveKEKAndWrap(cek, apu, apv []byte, senderKH interface{}, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (*cryptoapi.RecipientWrappedKey, error) {
+	var (
+		kek         []byte
+		epk         *cryptoapi.PublicKey
+		wrappingAlg string
+		err         error
+	)
 
 	if senderKH != nil { // ecdh1pu
-		wrappingAlg = ECDH1PUA256KWAlg
-
-		senderPrivKey, err := ksToPrivateECDSAKey(senderKH)
+		wrappingAlg, kek, epk, err = t.derive1PUKEK(apu, apv, senderKH, recPubKey, useXC20PKW)
 		if err != nil {
-			return nil, fmt.Errorf("wrapKey: failed to retrieve sender key: %w", err)
-		}
-
-		kek, err = t.kw.deriveSender1Pu(wrappingAlg, apu, apv, ephemeralPrivKey, senderPrivKey, recPubKey, defKeySize)
-		if err != nil {
-			return nil, fmt.Errorf("wrapKey: failed to derive key: %w", err)
+			return nil, fmt.Errorf("deriveKEKAndWrap: error ECDH-1PU kek derivation: %w", err)
 		}
 	} else { // ecdhes
-		kek = josecipher.DeriveECDHES(wrappingAlg, apu, apv, ephemeralPrivKey, recPubKey, defKeySize)
+		wrappingAlg, kek, epk, err = t.deriveESKEK(apu, apv, recPubKey, useXC20PKW)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndWrap: error ECDH-ES kek derivation: %w", err)
+		}
 	}
 
-	block, err := t.kw.createCipher(kek)
-	if err != nil {
-		return nil, fmt.Errorf("wrapKey: failed to create new Cipher: %w", err)
-	}
+	return t.wrapRaw(kek, cek, apu, apv, wrappingAlg, recPubKey.KID, epk, useXC20PKW)
+}
 
-	wk, err := t.kw.wrap(block, cek)
-	if err != nil {
-		return nil, fmt.Errorf("wrapKey: failed to wrap key: %w", err)
+func (t *Crypto) wrapRaw(kek, cek, apu, apv []byte, alg, kid string, epk *cryptoapi.PublicKey,
+	useXC20PKW bool) (*cryptoapi.RecipientWrappedKey, error) {
+	var wk []byte
+
+	if useXC20PKW { // nolint: nestif // XC20P key wrap
+		aead, err := t.okpKW.createPrimitive(kek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndWrap: failed to create new XC20P primitive: %w", err)
+		}
+
+		wk, err = t.okpKW.wrap(aead, cek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndWrap: failed to XC20P wrap key: %w", err)
+		}
+	} else { // A256GCM key wrap
+		block, err := t.ecKW.createPrimitive(kek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndWrap: failed to create new AES Cipher: %w", err)
+		}
+
+		wk, err = t.ecKW.wrap(block, cek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndWrap: failed to AES wrap key: %w", err)
+		}
 	}
 
 	return &cryptoapi.RecipientWrappedKey{
-		KID:          recKID,
+		KID:          kid,
 		EncryptedCEK: wk,
-		EPK: cryptoapi.PublicKey{
-			X:     ephemeralPrivKey.PublicKey.X.Bytes(),
-			Y:     ephemeralPrivKey.PublicKey.Y.Bytes(),
-			Curve: ephemeralPrivKey.PublicKey.Curve.Params().Name,
-			Type:  keyType,
-		},
-		APU: apu,
-		APV: apv,
-		Alg: wrappingAlg,
+		EPK:          *epk,
+		APU:          apu,
+		APV:          apv,
+		Alg:          alg,
 	}, nil
 }
 
-func (t *Crypto) deriveKEKAndUnwrap(alg string, encCEK, apu, apv []byte, senderKH interface{},
-	epkPubKey *ecdsa.PublicKey, recPrivKey *ecdsa.PrivateKey) ([]byte, error) {
-	var kek []byte
+// deriveKEKAndUnwrap is the entry point for Crypto.UnwrapKey().
+func (t *Crypto) deriveKEKAndUnwrap(alg string, encCEK, apu, apv []byte, epk *cryptoapi.PublicKey, senderKH,
+	recKH interface{}) ([]byte, error) {
+	var (
+		kek []byte
+		err error
+	)
+
+	recPrivKH, ok := recKH.(*keyset.Handle)
+	if !ok {
+		return nil, fmt.Errorf("deriveKEKAndUnwrap: %w", errBadKeyHandleFormat)
+	}
+
+	recipientPrivateKey, err := extractPrivKey(recPrivKH)
+	if err != nil {
+		return nil, fmt.Errorf("deriveKEKAndUnwrap: %w", err)
+	}
 
 	switch alg {
-	case ECDH1PUA256KWAlg:
-		if senderKH == nil {
-			return nil, fmt.Errorf("unwrap: sender's public keyset handle option is required for "+
-				"'%s'", ECDH1PUA256KWAlg)
-		}
-
-		senderPubKey, err := ksToPublicECDSAKey(senderKH, t.kw)
+	case ECDH1PUA256KWAlg, ECDH1PUXC20PKWAlg:
+		kek, err = t.derive1PUKEKForUnwrap(alg, apu, apv, epk, senderKH, recipientPrivateKey)
 		if err != nil {
-			return nil, fmt.Errorf("unwrapKey: failed to retrieve sender key: %w", err)
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: error ECDH-1PU kek derivation: %w", err)
 		}
-
-		kek, err = t.kw.deriveRecipient1Pu(alg, apu, apv, epkPubKey, senderPubKey, recPrivKey, defKeySize)
+	case ECDHESA256KWAlg, ECDHESXC20PKWAlg:
+		kek, err = t.deriveESKEKForUnwrap(alg, apu, apv, epk, recipientPrivateKey)
 		if err != nil {
-			return nil, fmt.Errorf("unwrapKey: failed to derive kek: %w", err)
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: error ECDH-ES kek derivation: %w", err)
 		}
-	case ECDHESA256KWAlg:
-		kek = josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, epkPubKey, defKeySize)
 	default:
-		return nil, fmt.Errorf("unwrapKey: unsupported JWE KW Alg '%s'", alg)
+		return nil, fmt.Errorf("deriveKEKAndUnwrap: unsupported JWE KW Alg '%s'", alg)
 	}
 
-	block, err := t.kw.createCipher(kek)
-	if err != nil {
-		return nil, fmt.Errorf("unwrapKey: failed to create new Cipher: %w", err)
-	}
+	return t.unwrapRaw(alg, kek, encCEK)
+}
 
-	wk, err := t.kw.unwrap(block, encCEK)
-	if err != nil {
-		return nil, fmt.Errorf("unwrapKey: failed to unwrap key: %w", err)
+func (t *Crypto) unwrapRaw(alg string, kek, encCEK []byte) ([]byte, error) {
+	var wk []byte
+
+	// key unwrapping does not depend on an option (like key wrapping), because kw primitive can be detected from alg.
+	switch alg {
+	case ECDHESXC20PKWAlg, ECDH1PUXC20PKWAlg: // XC20P key unwrap
+		aead, err := t.okpKW.createPrimitive(kek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: failed to create new XC20P primitive: %w", err)
+		}
+
+		wk, err = t.okpKW.unwrap(aead, encCEK)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: failed to XC20P unwrap key: %w", err)
+		}
+	case ECDHESA256KWAlg, ECDH1PUA256KWAlg: // A256GCM key unwrap
+		block, err := t.ecKW.createPrimitive(kek)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: failed to create new AES Cipher: %w", err)
+		}
+
+		wk, err = t.ecKW.unwrap(block, encCEK)
+		if err != nil {
+			return nil, fmt.Errorf("deriveKEKAndUnwrap: failed to AES unwrap key: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("deriveKEKAndUnwrap: cannot unwrap with bad kw alg: '%s'", alg)
 	}
 
 	return wk, nil
 }
 
-func derive1Pu(kwAlg string, ze, zs, apu, apv []byte, keySize int) ([]byte, error) {
-	z := append(ze, zs...)
-	algID := cryptoutil.LengthPrefix([]byte(kwAlg))
-	ptyUInfo := cryptoutil.LengthPrefix(apu)
-	ptyVInfo := cryptoutil.LengthPrefix(apv)
+func (t *Crypto) derive1PUKEK(apu, apv []byte, senderKH interface{}, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	var (
+		kek         []byte
+		epk         *cryptoapi.PublicKey
+		wrappingAlg string
+		err         error
+	)
 
-	supPubLen := 4
-	supPubInfo := make([]byte, supPubLen)
+	switch recPubKey.Type {
+	case ecdhpb.KeyType_EC.String():
+		wrappingAlg, kek, epk, err = t.derive1PUWithECKey(apu, apv, senderKH, recPubKey, useXC20PKW)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("derive1PUKEK: EC key derivation error %w", err)
+		}
+	case ecdhpb.KeyType_OKP.String():
+		wrappingAlg, kek, epk, err = t.derive1PUWithOKPKey(apu, apv, senderKH, recPubKey, useXC20PKW)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("derive1PUKEK: OKP key derivation error %w", err)
+		}
+	default:
+		return "", nil, nil, errors.New("derive1PUKEK: invalid recipient key type for ECDH-1PU")
+	}
 
-	byteLen := 8
-	binary.BigEndian.PutUint32(supPubInfo, uint32(keySize)*uint32(byteLen))
+	return wrappingAlg, kek, epk, nil
+}
 
-	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algID, ptyUInfo, ptyVInfo, supPubInfo, []byte{})
+func (t *Crypto) derive1PUKEKForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey, senderKH interface{},
+	recipientPrivateKey interface{}) ([]byte, error) {
+	var (
+		kek []byte
+		err error
+	)
 
-	kek := make([]byte, keySize)
+	if senderKH == nil {
+		return nil, fmt.Errorf("derive1PUKEKForUnwrap: sender's public keyset handle option is required for '%s'",
+			ECDH1PUA256KWAlg)
+	}
 
-	_, err := reader.Read(kek)
-	if err != nil {
-		return nil, err
+	switch epk.Type {
+	case ecdhpb.KeyType_EC.String():
+		kek, err = t.derive1PUWithECKeyForUnwrap(alg, apu, apv, epk, senderKH, recipientPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("derive1PUKEKForUnwrap: EC key derivation error %w", err)
+		}
+	case ecdhpb.KeyType_OKP.String():
+		kek, err = t.derive1PUWithOKPKeyForUnwrap(alg, apu, apv, epk, senderKH, recipientPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("derive1PUKEKForUnwrap: OKP key derivation error %w", err)
+		}
+	default:
+		return nil, errors.New("derive1PUKEKForUnwrap: invalid EPK key type for ECDH-1PU")
 	}
 
 	return kek, nil
+}
+
+func (t *Crypto) deriveESKEK(apu, apv []byte, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	var (
+		kek         []byte
+		epk         *cryptoapi.PublicKey
+		wrappingAlg string
+		err         error
+	)
+
+	switch recPubKey.Type {
+	case ecdhpb.KeyType_EC.String():
+		wrappingAlg, kek, epk, err = t.deriveESWithECKey(apu, apv, recPubKey, useXC20PKW)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("deriveESKEK: error %w", err)
+		}
+	case ecdhpb.KeyType_OKP.String():
+		wrappingAlg, kek, epk, err = t.deriveESWithOKPKey(apu, apv, recPubKey, useXC20PKW)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("deriveESKEK: error %w", err)
+		}
+	default:
+		return "", nil, nil, errors.New("deriveESKEK: invalid recipient key type for ECDH-ES")
+	}
+
+	return wrappingAlg, kek, epk, nil
+}
+
+func (t *Crypto) deriveESKEKForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey,
+	recipientPrivateKey interface{}) ([]byte, error) {
+	var (
+		kek []byte
+		err error
+	)
+
+	switch epk.Type {
+	case ecdhpb.KeyType_EC.String():
+		kek, err = t.deriveESWithECKeyForUnwrap(alg, apu, apv, epk, recipientPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("deriveESKEKForUnwrap: error: %w", err)
+		}
+	case ecdhpb.KeyType_OKP.String():
+		kek, err = t.deriveESWithOKPKeyForUnwrap(alg, apu, apv, epk, recipientPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("deriveESKEKForUnwrap: error: %w", err)
+		}
+	default:
+		return nil, errors.New("deriveESKEKForUnwrap: invalid EPK key type for ECDH-ES")
+	}
+
+	return kek, nil
+}
+
+func (t *Crypto) derive1PUWithECKey(apu, apv []byte, senderKH interface{}, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	wrappingAlg := ECDH1PUA256KWAlg
+
+	if useXC20PKW {
+		wrappingAlg = ECDH1PUXC20PKWAlg
+	}
+
+	senderPrivKey, err := ksToPrivateECDSAKey(senderKH)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("derive1PUWithECKey: failed to retrieve sender key: %w", err)
+	}
+
+	pubKey, ephemeralPrivKey, err := t.convertRecKeyAndGenEPKEC(recPubKey)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	kek, err := t.ecKW.deriveSender1Pu(wrappingAlg, apu, apv, ephemeralPrivKey, senderPrivKey, pubKey, defKeySize)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("derive1PUWithECKey: failed to derive key: %w", err)
+	}
+
+	epk := &cryptoapi.PublicKey{
+		X:     ephemeralPrivKey.PublicKey.X.Bytes(),
+		Y:     ephemeralPrivKey.PublicKey.Y.Bytes(),
+		Curve: ephemeralPrivKey.PublicKey.Curve.Params().Name,
+		Type:  recPubKey.Type,
+	}
+
+	return wrappingAlg, kek, epk, nil
+}
+
+func (t *Crypto) derive1PUWithECKeyForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey,
+	senderKH interface{}, recipientPrivateKey interface{}) ([]byte, error) {
+	var (
+		senderPubKey *ecdsa.PublicKey
+		epkCurve     elliptic.Curve
+		err          error
+	)
+
+	senderPubKey, err = ksToPublicECDSAKey(senderKH, t.ecKW)
+	if err != nil {
+		return nil, fmt.Errorf("derive1PUWithECKeyForUnwrap: failed to retrieve sender key: %w", err)
+	}
+
+	epkCurve, err = t.ecKW.getCurve(epk.Curve)
+	if err != nil {
+		return nil, fmt.Errorf("derive1PUWithECKeyForUnwrap: failed to GetCurve: %w", err)
+	}
+
+	epkPubKey := &ecdsa.PublicKey{
+		Curve: epkCurve,
+		X:     new(big.Int).SetBytes(epk.X),
+		Y:     new(big.Int).SetBytes(epk.Y),
+	}
+
+	recPrivECKey, ok := recipientPrivateKey.(*hybrid.ECPrivateKey)
+	if !ok {
+		return nil, errors.New("derive1PUWithECKeyForUnwrap: recipient key is not an EC key")
+	}
+
+	recPrivKey := hybridECPrivToECDSAKey(recPrivECKey)
+
+	kek, err := t.ecKW.deriveRecipient1Pu(alg, apu, apv, epkPubKey, senderPubKey, recPrivKey, defKeySize)
+	if err != nil {
+		return nil, fmt.Errorf("derive1PUWithECKeyForUnwrap: failed to derive kek: %w", err)
+	}
+
+	return kek, nil
+}
+
+func (t *Crypto) deriveESWithECKeyForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey,
+	recipientPrivateKey interface{}) ([]byte, error) {
+	var (
+		epkCurve elliptic.Curve
+		err      error
+	)
+
+	epkCurve, err = t.ecKW.getCurve(epk.Curve)
+	if err != nil {
+		return nil, fmt.Errorf("deriveESWithECKeyForUnwrap: failed to GetCurve: %w", err)
+	}
+
+	epkPubKey := &ecdsa.PublicKey{
+		Curve: epkCurve,
+		X:     new(big.Int).SetBytes(epk.X),
+		Y:     new(big.Int).SetBytes(epk.Y),
+	}
+
+	recPrivECKey, ok := recipientPrivateKey.(*hybrid.ECPrivateKey)
+	if !ok {
+		return nil, errors.New("deriveESWithECKeyForUnwrap: recipient key is not an EC key")
+	}
+
+	recPrivKey := hybridECPrivToECDSAKey(recPrivECKey)
+
+	if recPrivKey.Curve != epkPubKey.Curve {
+		return nil, errors.New("deriveESWithECKeyForUnwrap: recipient and ephemeral keys are not on the same curve")
+	}
+
+	return josecipher.DeriveECDHES(alg, apu, apv, recPrivKey, epkPubKey, defKeySize), nil
+}
+
+func (t *Crypto) deriveESWithECKey(apu, apv []byte, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	wrappingAlg := ECDHESA256KWAlg
+
+	if useXC20PKW {
+		wrappingAlg = ECDHESXC20PKWAlg
+	}
+
+	recECPubKey, ephemeralPrivKey, err := t.convertRecKeyAndGenEPKEC(recPubKey)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("deriveESWithECKey: failed to generate ephemeral key: %w", err)
+	}
+
+	kek := josecipher.DeriveECDHES(wrappingAlg, apu, apv, ephemeralPrivKey, recECPubKey, defKeySize)
+	epk := &cryptoapi.PublicKey{
+		X:     ephemeralPrivKey.PublicKey.X.Bytes(),
+		Y:     ephemeralPrivKey.PublicKey.Y.Bytes(),
+		Curve: ephemeralPrivKey.PublicKey.Curve.Params().Name,
+		Type:  recPubKey.Type,
+	}
+
+	return wrappingAlg, kek, epk, nil
+}
+
+func (t *Crypto) derive1PUWithOKPKey(apu, apv []byte, senderKH interface{}, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	wrappingAlg := ECDH1PUXC20PKWAlg
+
+	if !useXC20PKW {
+		wrappingAlg = ECDH1PUA256KWAlg
+	}
+
+	senderPrivKey, err := ksToPrivateX25519Key(senderKH)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("derive1PUWithOKPKey: failed to retrieve sender key: %w", err)
+	}
+
+	ephemeralPubKey, ephemeralPrivKey, err := t.generateEphemeralOKPKey()
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("derive1PUWithOKPKey: failed to generate ephemeral key: %w", err)
+	}
+
+	kek, err := t.okpKW.deriveSender1Pu(wrappingAlg, apu, apv, ephemeralPrivKey, senderPrivKey, recPubKey.X, defKeySize)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("derive1PUWithOKPKey: failed to derive key: %w", err)
+	}
+
+	epk := &cryptoapi.PublicKey{
+		X:     ephemeralPubKey,
+		Curve: "X25519",
+		Type:  recPubKey.Type,
+	}
+
+	return wrappingAlg, kek, epk, nil
+}
+
+func (t *Crypto) derive1PUWithOKPKeyForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey,
+	senderKH interface{}, recipientPrivateKey interface{}) ([]byte, error) {
+	senderPubKey, err := ksToPublicX25519Key(senderKH)
+	if err != nil {
+		return nil, fmt.Errorf("derive1PUWithOKPKeyForUnwrap: failed to retrieve sender key: %w", err)
+	}
+
+	recPrivOKPKey, ok := recipientPrivateKey.([]byte)
+	if !ok {
+		return nil, errors.New("derive1PUWithOKPKeyForUnwrap: recipient key is not an OKP key")
+	}
+
+	kek, err := t.okpKW.deriveRecipient1Pu(alg, apu, apv, epk.X, senderPubKey, recPrivOKPKey, defKeySize)
+	if err != nil {
+		return nil, fmt.Errorf("derive1PUWithOKPKeyForUnwrap: failed to derive kek: %w", err)
+	}
+
+	return kek, nil
+}
+
+func (t *Crypto) deriveESWithOKPKey(apu, apv []byte, recPubKey *cryptoapi.PublicKey,
+	useXC20PKW bool) (string, []byte, *cryptoapi.PublicKey, error) {
+	wrappingAlg := ECDHESA256KWAlg
+
+	if useXC20PKW {
+		wrappingAlg = ECDHESXC20PKWAlg
+	}
+
+	ephemeralPubKey, ephemeralPrivKey, err := t.generateEphemeralOKPKey()
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("deriveESWithOKPKey: failed to generate ephemeral key: %w", err)
+	}
+
+	ephemeralPrivChacha := new([chacha20poly1305.KeySize]byte)
+	copy(ephemeralPrivChacha[:], ephemeralPrivKey)
+
+	recPubKeyChacha := new([chacha20poly1305.KeySize]byte)
+	copy(recPubKeyChacha[:], recPubKey.X)
+
+	kek, err := cryptoutil.Derive25519KEK([]byte(wrappingAlg), apu, apv, ephemeralPrivChacha, recPubKeyChacha)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("deriveESWithOKPKey: failed to derive 25519 kek: %w", err)
+	}
+
+	epk := &cryptoapi.PublicKey{
+		X:     ephemeralPubKey,
+		Curve: "X25519",
+		Type:  recPubKey.Type,
+	}
+
+	return wrappingAlg, kek, epk, nil
+}
+
+func (t *Crypto) deriveESWithOKPKeyForUnwrap(alg string, apu, apv []byte, epk *cryptoapi.PublicKey,
+	recipientPrivateKey interface{}) ([]byte, error) {
+	recPrivOKPKey, ok := recipientPrivateKey.([]byte)
+	if !ok {
+		return nil, errors.New("deriveESWithOKPKeyForUnwrap: recipient key is not an OKP key")
+	}
+
+	recPrivKeyChacha := new([chacha20poly1305.KeySize]byte)
+	copy(recPrivKeyChacha[:], recPrivOKPKey)
+
+	epkChacha := new([chacha20poly1305.KeySize]byte)
+	copy(epkChacha[:], epk.X)
+
+	kek, err := cryptoutil.Derive25519KEK([]byte(alg), apu, apv, recPrivKeyChacha, epkChacha)
+	if err != nil {
+		return nil, fmt.Errorf("deriveESWithOKPKeyForUnwrap: failed to derive kek: %w", err)
+	}
+
+	return kek, nil
+}
+
+// convertRecKeyAndGenEPKEC converts recPubKey into *ecdsa.PublicKey and generates an ephemeral EC private key
+// as *ecdsa.PrivateKey.
+func (t *Crypto) convertRecKeyAndGenEPKEC(recPubKey *cryptoapi.PublicKey) (*ecdsa.PublicKey, *ecdsa.PrivateKey,
+	error) {
+	c, err := t.ecKW.getCurve(recPubKey.Curve)
+	if err != nil {
+		return nil, nil, fmt.Errorf("convertRecKeyAndGenEPKEC: failed to get curve of recipient key: %w",
+			err)
+	}
+
+	recECPubKey := &ecdsa.PublicKey{
+		Curve: c,
+		X:     new(big.Int).SetBytes(recPubKey.X),
+		Y:     new(big.Int).SetBytes(recPubKey.Y),
+	}
+
+	ephemeralPrivKey, err := t.ecKW.generateKey(recECPubKey.Curve)
+	if err != nil {
+		return nil, nil, fmt.Errorf("convertRecKeyAndGenEPKEC: failed to generate EPK: %w", err)
+	}
+
+	return recECPubKey, ephemeralPrivKey.(*ecdsa.PrivateKey), nil
+}
+
+func (t *Crypto) generateEphemeralOKPKey() ([]byte, []byte, error) {
+	ephemeralPrivKey, err := t.okpKW.generateKey(nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ephemeralPrivKeyByte, ok := ephemeralPrivKey.([]byte)
+	if !ok {
+		return nil, nil, errors.New("invalid ephemeral key type, not OKP, want []byte for OKP")
+	}
+
+	ephemeralPubKey, err := curve25519.X25519(ephemeralPrivKeyByte, curve25519.Basepoint)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ephemeralPubKey, ephemeralPrivKeyByte, nil
 }
 
 func ksToPrivateECDSAKey(ks interface{}) (*ecdsa.PrivateKey, error) {
@@ -203,7 +553,31 @@ func ksToPrivateECDSAKey(ks interface{}) (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("ksToPrivateECDSAKey: failed to extract sender key: %w", err)
 	}
 
-	return hybridECPrivToECDSAKey(senderHPrivKey), nil
+	prvKey, ok := senderHPrivKey.(*hybrid.ECPrivateKey)
+	if !ok {
+		return nil, errors.New("ksToPrivateECDSAKey: not an EC key")
+	}
+
+	return hybridECPrivToECDSAKey(prvKey), nil
+}
+
+func ksToPrivateX25519Key(ks interface{}) ([]byte, error) {
+	senderKH, ok := ks.(*keyset.Handle)
+	if !ok {
+		return nil, fmt.Errorf("ksToPrivateX25519Key: %w", errBadKeyHandleFormat)
+	}
+
+	senderPrivKey, err := extractPrivKey(senderKH)
+	if err != nil {
+		return nil, fmt.Errorf("ksToPrivateX25519Key: failed to extract sender key: %w", err)
+	}
+
+	prvKey, ok := senderPrivKey.([]byte)
+	if !ok {
+		return nil, errors.New("ksToPrivateX25519Key: not an OKP key")
+	}
+
+	return prvKey, nil
 }
 
 func ksToPublicECDSAKey(ks interface{}, kw keyWrapper) (*ecdsa.PublicKey, error) {
@@ -239,5 +613,21 @@ func ksToPublicECDSAKey(ks interface{}, kw keyWrapper) (*ecdsa.PublicKey, error)
 		return kst, nil
 	default:
 		return nil, fmt.Errorf("ksToPublicECDSAKey: unsupported keyset type %+v", kst)
+	}
+}
+
+func ksToPublicX25519Key(ks interface{}) ([]byte, error) {
+	switch kst := ks.(type) {
+	case *keyset.Handle:
+		sPubKey, err := keyio.ExtractPrimaryPublicKey(kst)
+		if err != nil {
+			return nil, fmt.Errorf("ksToPublicX25519Key: failed to extract public key from keyset handle: %w", err)
+		}
+
+		return sPubKey.X, nil
+	case *cryptoapi.PublicKey:
+		return kst.X, nil
+	default:
+		return nil, fmt.Errorf("ksToPublicX25519Key: unsupported keyset type %+v", kst)
 	}
 }

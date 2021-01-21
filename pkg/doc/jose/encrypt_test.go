@@ -39,7 +39,7 @@ func TestBadSenderKeyType(t *testing.T) {
 	c, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	// create a keyset.Handle that doesn't
+	// create a keyset.Handle that fails JWE/ECDH primitive execution (must come from an ECDH key template).
 	aeadKT := aead.AES256GCMKeyTemplate()
 	aeadKH, err := keyset.NewHandle(aeadKT)
 	require.NoError(t, err)
@@ -55,9 +55,10 @@ func TestBadSenderKeyType(t *testing.T) {
 	}
 
 	_, err = jweEncrypter.Encrypt([]byte{})
-	require.EqualError(t, err, "jweencrypt: failed to wrap cek: wrapCEKForRecipient 1 failed: wrapKey: failed "+
-		"to retrieve sender key: ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: can't extract "+
-		"unsupported private key 'type.googleapis.com/google.crypto.tink.AesGcmKey'")
+	require.EqualError(t, err, "jweencrypt: failed to wrap cek: wrapCEKForRecipient 1 failed: wrapKey: "+
+		"deriveKEKAndWrap: error ECDH-1PU kek derivation: derive1PUKEK: EC key derivation error derive1PUWithECKey: "+
+		"failed to retrieve sender key: ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: can't "+
+		"extract unsupported private key 'type.googleapis.com/google.crypto.tink.AesGcmKey'")
 }
 
 func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
@@ -146,7 +147,7 @@ func createRecipients(t *testing.T, numberOfEntities int) ([]*cryptoapi.PublicKe
 func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle) {
 	t.Helper()
 
-	tmpl := ecdh.ECDH256KWAES256GCMKeyTemplate()
+	tmpl := ecdh.NISTP256ECDHKWKeyTemplate()
 
 	kh, err := keyset.NewHandle(tmpl)
 	require.NoError(t, err)
