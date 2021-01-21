@@ -49,8 +49,10 @@ github.com/Microsoft/hcsshim v0.8.11 h1:qs8+XI1mFA1H/zhXT9qVG/lcJO18p1yCsICIrCjV
 github.com/Microsoft/hcsshim v0.8.11/go.mod h1:NtVKoYxQuTLx6gEq0L96c9Ju4JbRJ4nY2ow3VK6a9Lg=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PaesslerAG/gval v1.0.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
+github.com/PaesslerAG/gval v1.1.0 h1:k3RuxeZDO3eejD4cMPSt+74tUSvTnbGvLx0df4mdwFc=
 github.com/PaesslerAG/gval v1.1.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
 github.com/PaesslerAG/jsonpath v0.1.0/go.mod h1:4BzmtoM/PI8fPO4aQGIusjGxGir2BzcV0grWtFzq1Y8=
+github.com/PaesslerAG/jsonpath v0.1.1 h1:c1/AToHQMVsduPAa4Vh6xp2U0evy4t8SWp8imEsylIk=
 github.com/PaesslerAG/jsonpath v0.1.1/go.mod h1:lVboNxFGal/VwW6d9JzIy56bUsYAP6tH/x80vjnCseY=
 github.com/VictoriaMetrics/fastcache v1.5.7 h1:4y6y0G8PRzszQUYIQHHssv/jgPHAb5qQuuDNdCbyAgw=
 github.com/VictoriaMetrics/fastcache v1.5.7/go.mod h1:ptDBkNMQI4RtmVo8VS/XwRY6RoTu1dAWCbrk+6WsEM8=
@@ -306,6 +308,7 @@ github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlT
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e h1:Eh/0JuXDdcBHc39j4tFXKTy/AKiK7IQkGJXQxyryXiU=
 github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e/go.mod h1:dz00yqWNWlKa9ff7RJzpnHPAPUazsid3yhVzXcsok94=
 github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1 h1:fLyvBx6b/VrqcC1KlgTsPdpX3BcwGRWV8P6QfdgOLuw=
 github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1/go.mod h1:gcwDl9YLyNc3H3wmPXamu+8evD8TYUa6BjTsWnvdn7A=
@@ -474,9 +477,13 @@ github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFd
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4 h1:Sq/68UWgBzKT+pLTUTkSf0jS2IUwwXLFlZmeh+nAzQM=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod h1:9PdLyPiZIiW3UopXyRnPYyjUXSpiQNHRLu8fOsR3o8M=
+github.com/tidwall/gjson v1.6.7 h1:Mb1M9HZCRWEcXQ8ieJo7auYyyiSux6w9XN3AdTpxJrE=
 github.com/tidwall/gjson v1.6.7/go.mod h1:zeFuBCIqD4sN/gmqBzZ4j7Jd6UcA2Fc56x7QFsv+8fI=
+github.com/tidwall/match v1.0.3 h1:FQUVvBImDutD8wJLN6c5eMzWtjgONK9MwIBCOrUJKeE=
 github.com/tidwall/match v1.0.3/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=
+github.com/tidwall/pretty v1.0.2 h1:Z7S3cePv9Jwm1KwS0513MRaoUe3S01WPbLNV40pwWZU=
 github.com/tidwall/pretty v1.0.2/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
+github.com/tidwall/sjson v1.1.4 h1:bTSsPLdAYF5QNLSwYsKfBKKTnlGbIuhqL3CpRsjzGhg=
 github.com/tidwall/sjson v1.1.4/go.mod h1:wXpKXu8CtDjKAZ+3DrKY5ROCorDFahq8l0tey/Lx1fg=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6 h1:GlzMPygeehW/W8tq2vBiN6DLsTFY5xtvQysu1aqqGoQ=
