@@ -115,6 +115,108 @@ func TestRegistry_Resolve(t *testing.T) {
 	})
 }
 
+func TestRegistry_Update(t *testing.T) {
+	t.Run("test invalid did input", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{})
+		err := registry.Update(&did.Doc{ID: "id"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "wrong format did input")
+	})
+
+	t.Run("test did method not supported", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
+		err := registry.Update(&did.Doc{ID: "1:id:123"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did method id not supported for vdr")
+	})
+
+	t.Run("test error from update did", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
+			AcceptValue: true, UpdateFunc: func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error {
+				return fmt.Errorf("update error")
+			},
+		}))
+		err := registry.Update(&did.Doc{ID: "1:id:123"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "update error")
+	})
+
+	t.Run("test opts passed", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
+			AcceptValue: true, UpdateFunc: func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error {
+				didOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
+				// Apply options
+				for _, opt := range opts {
+					opt(didOpts)
+				}
+
+				require.NotNil(t, didOpts.Values["k1"])
+				return nil
+			},
+		}))
+
+		err := registry.Update(&did.Doc{ID: "1:id:123"}, vdrapi.WithOption("k1", "v1"))
+		require.NoError(t, err)
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: true}))
+		err := registry.Update(&did.Doc{ID: "1:id:123"})
+		require.NoError(t, err)
+	})
+}
+
+func TestRegistry_Deactivate(t *testing.T) {
+	t.Run("test invalid did input", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{})
+		err := registry.Deactivate("id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "wrong format did input")
+	})
+
+	t.Run("test did method not supported", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: false}))
+		err := registry.Deactivate("1:id:123")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did method id not supported for vdr")
+	})
+
+	t.Run("test error from deactivate did", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
+			AcceptValue: true, DeactivateFunc: func(didID string, opts ...vdrapi.DIDMethodOption) error {
+				return fmt.Errorf("deactivate error")
+			},
+		}))
+		err := registry.Deactivate("1:id:123")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "deactivate error")
+	})
+
+	t.Run("test opts passed", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{
+			AcceptValue: true, DeactivateFunc: func(didID string, opts ...vdrapi.DIDMethodOption) error {
+				didOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
+				// Apply options
+				for _, opt := range opts {
+					opt(didOpts)
+				}
+
+				require.NotNil(t, didOpts.Values["k1"])
+				return nil
+			},
+		}))
+
+		err := registry.Deactivate("1:id:123", vdrapi.WithOption("k1", "v1"))
+		require.NoError(t, err)
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{}, WithVDR(&mockvdr.MockVDR{AcceptValue: true}))
+		err := registry.Deactivate("1:id:123")
+		require.NoError(t, err)
+	})
+}
+
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test did method not supported", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},

@@ -4,28 +4,22 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package web
+package peer
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-)
 
-func TestVDRMethods(t *testing.T) {
-	t.Run("test base vdr methods", func(t *testing.T) {
-		v := New()
-		ok := v.Accept("web")
-		require.True(t, ok)
-		err := v.Close()
-		require.Nil(t, err)
-	})
-}
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+)
 
 func TestUpdate(t *testing.T) {
 	t.Run("test update", func(t *testing.T) {
-		v := New()
-		err := v.Update(nil)
+		v, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
+
+		err = v.Update(nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not supported")
 	})
@@ -33,8 +27,10 @@ func TestUpdate(t *testing.T) {
 
 func TestDeactivate(t *testing.T) {
 	t.Run("test deactivate", func(t *testing.T) {
-		v := New()
-		err := v.Deactivate("")
+		v, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
+
+		err = v.Deactivate("")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not supported")
 	})

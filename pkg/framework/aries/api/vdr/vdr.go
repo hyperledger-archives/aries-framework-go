@@ -25,14 +25,19 @@ const DIDCommServiceType = "did-communication"
 type Registry interface {
 	Resolve(did string, opts ...ResolveOption) (*did.DocResolution, error)
 	Create(method string, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
+	Update(did *did.Doc, opts ...DIDMethodOption) error
+	Deactivate(did string, opts ...DIDMethodOption) error
 	Close() error
 }
 
 // VDR verifiable data registry interface.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/2475
 type VDR interface {
 	Read(did string, opts ...ResolveOption) (*did.DocResolution, error)
 	Create(keyManager kms.KeyManager, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
 	Accept(method string) bool
+	Update(did *did.Doc, opts ...DIDMethodOption) error
+	Deactivate(did string, opts ...DIDMethodOption) error
 	Close() error
 }
 

@@ -71,6 +71,38 @@ func (r *Registry) Resolve(did string, opts ...vdrapi.ResolveOption) (*diddoc.Do
 	return didDocResolution, nil
 }
 
+// Update did document.
+func (r *Registry) Update(didDoc *diddoc.Doc, opts ...vdrapi.DIDMethodOption) error {
+	didMethod, err := GetDidMethod(didDoc.ID)
+	if err != nil {
+		return err
+	}
+
+	// resolve did method
+	method, err := r.resolveVDR(didMethod)
+	if err != nil {
+		return err
+	}
+
+	return method.Update(didDoc, opts...)
+}
+
+// Deactivate did document.
+func (r *Registry) Deactivate(did string, opts ...vdrapi.DIDMethodOption) error {
+	didMethod, err := GetDidMethod(did)
+	if err != nil {
+		return err
+	}
+
+	// resolve did method
+	method, err := r.resolveVDR(didMethod)
+	if err != nil {
+		return err
+	}
+
+	return method.Deactivate(did, opts...)
+}
+
 // Create a new DID Document and store it in this registry.
 func (r *Registry) Create(didMethod string, did *diddoc.Doc,
 	opts ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {

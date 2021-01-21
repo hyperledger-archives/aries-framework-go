@@ -9,6 +9,8 @@ package peer
 import (
 	"fmt"
 
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -34,6 +36,16 @@ func New(s storage.Provider) (*VDR, error) {
 	}
 
 	return &VDR{store: didDBStore}, nil
+}
+
+// Update did doc.
+func (v *VDR) Update(didDoc *diddoc.Doc, opts ...vdrapi.DIDMethodOption) error {
+	return fmt.Errorf("not supported")
+}
+
+// Deactivate did doc.
+func (v *VDR) Deactivate(did string, opts ...vdrapi.DIDMethodOption) error {
+	return fmt.Errorf("not supported")
 }
 
 // Accept did method.

@@ -68,6 +68,16 @@ func (v *VDR) Close() error {
 	return nil
 }
 
+// Update did doc.
+func (v *VDR) Update(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error {
+	return fmt.Errorf("not supported")
+}
+
+// Deactivate did doc.
+func (v *VDR) Deactivate(didID string, opts ...vdrapi.DIDMethodOption) error {
+	return fmt.Errorf("not supported")
+}
+
 // Option configures the peer vdr.
 type Option func(opts *VDR)
 

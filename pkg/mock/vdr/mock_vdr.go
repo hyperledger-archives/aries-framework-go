@@ -18,8 +18,11 @@ type MockVDR struct {
 	AcceptValue bool
 	StoreErr    error
 	ReadFunc    func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
-	CreateFunc  func(keyManager kms.KeyManager, did *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
-	CloseErr    error
+	CreateFunc  func(keyManager kms.KeyManager, did *did.Doc,
+		opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+	UpdateFunc     func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error
+	DeactivateFunc func(did string, opts ...vdrapi.DIDMethodOption) error
+	CloseErr       error
 }
 
 // Read did.
@@ -39,6 +42,24 @@ func (m *MockVDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
 	}
 
 	return nil, nil
+}
+
+// Update did.
+func (m *MockVDR) Update(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(didDoc, opts...)
+	}
+
+	return nil
+}
+
+// Deactivate did.
+func (m *MockVDR) Deactivate(didID string, opts ...vdrapi.DIDMethodOption) error {
+	if m.DeactivateFunc != nil {
+		return m.DeactivateFunc(didID, opts...)
+	}
+
+	return nil
 }
 
 // Accept did.
