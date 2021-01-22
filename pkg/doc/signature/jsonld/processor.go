@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -187,8 +188,8 @@ func (p *Processor) Compact(input, context map[string]interface{},
 	return proc.Compact(input, context, options)
 }
 
-// Frame makes a frame from the input view using frameDoc.
-func (p *Processor) Frame(view []string, frameDoc map[string]interface{},
+// Frame makes a frame from the inputDoc using frameDoc.
+func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
@@ -200,21 +201,134 @@ func (p *Processor) Frame(view []string, frameDoc map[string]interface{},
 
 	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
 
-	filteredJSONLd, err := proc.FromRDF(strings.Join(view, "\n"), options)
+	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
+	duplicatedIDs, err := getDuplicatedIDs(inputDoc, proc, options)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get duplicated ids: %w", err)
+	}
+
+	var inputDocCopy map[string]interface{}
+
+	var randomIds map[string]string
+
+	if len(duplicatedIDs) > 0 {
+		inputDocCopy = copyMap(inputDoc)
+
+		randomIds = make(map[string]string)
+
+		visitJSONMap(inputDocCopy, func(key, id string) (string, bool) {
+			if _, ok := duplicatedIDs[id]; !ok {
+				return "", false
+			}
+
+			randomID := uuid.New().String()
+			randomIds[randomID] = id
+
+			return randomID, true
+		})
+	} else {
+		inputDocCopy = inputDoc
 	}
 
 	options.OmitGraph = true
 
-	frame, err := proc.Frame(filteredJSONLd, frameDoc, options)
+	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, options)
 	if err != nil {
 		return nil, err
 	}
 
-	frame["@context"] = frameDoc["@context"]
+	framedInputDoc["@context"] = frameDoc["@context"]
 
-	return frame, err
+	if len(duplicatedIDs) == 0 {
+		return framedInputDoc, nil
+	}
+
+	visitJSONMap(framedInputDoc, func(key, val string) (string, bool) {
+		v, ok := randomIds[val]
+
+		return v, ok
+	})
+
+	return framedInputDoc, nil
+}
+
+func copyMap(m map[string]interface{}) map[string]interface{} {
+	cm := make(map[string]interface{})
+
+	for k, v := range m {
+		vm, ok := v.(map[string]interface{})
+		if ok {
+			cm[k] = copyMap(vm)
+		} else {
+			cm[k] = v
+		}
+	}
+
+	return cm
+}
+
+func getDuplicatedIDs(doc map[string]interface{}, proc *ld.JsonLdProcessor, options *ld.JsonLdOptions) (
+	map[string]bool, error) {
+	expand, err := proc.Expand(doc, options)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make(map[string]bool)
+
+	visitJSONArray(expand, func(key, val string) (string, bool) {
+		if key == "@id" {
+			if _, ok := ids[val]; ok {
+				ids[val] = true
+			} else {
+				ids[val] = false
+			}
+		}
+
+		return "", false
+	})
+
+	for k, v := range ids {
+		if !v {
+			delete(ids, k)
+		}
+	}
+
+	return ids, nil
+}
+
+func visitJSONArray(a []interface{}, visitFunc func(key, val string) (string, bool)) {
+	for i, v := range a {
+		switch kv := v.(type) {
+		case string:
+			if newValue, ok := visitFunc("", kv); ok {
+				a[i] = newValue
+			}
+
+		case []interface{}:
+			visitJSONArray(kv, visitFunc)
+
+		case map[string]interface{}:
+			visitJSONMap(kv, visitFunc)
+		}
+	}
+}
+
+func visitJSONMap(m map[string]interface{}, visitFunc func(key, val string) (string, bool)) {
+	for k, v := range m {
+		switch kv := v.(type) {
+		case string:
+			if newID, ok := visitFunc(k, kv); ok {
+				m[k] = newID
+			}
+
+		case []interface{}:
+			visitJSONArray(kv, visitFunc)
+
+		case map[string]interface{}:
+			visitJSONMap(kv, visitFunc)
+		}
+	}
 }
 
 // removeMatchingInvalidRDFs validates normalized view to find any invalid RDF and
