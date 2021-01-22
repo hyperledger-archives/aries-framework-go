@@ -1499,11 +1499,6 @@ func TestProcessor_Frame(t *testing.T) {
 	err := json.Unmarshal([]byte(jsonLdSample1), &doc)
 	require.NoError(t, err)
 
-	canonizedDoc, err := processor.GetCanonicalDocument(doc)
-	require.NoError(t, err)
-
-	t.Logf("canonizedDoc=\n%v", string(canonizedDoc))
-
 	frameJSON := `
 	{
 	 "@context": [
@@ -1523,12 +1518,51 @@ func TestProcessor_Frame(t *testing.T) {
 	err = json.Unmarshal([]byte(frameJSON), &frameDoc)
 	require.NoError(t, err)
 
-	view := strings.Split(string(canonizedDoc), "\n")
-	framedView, err := processor.Frame(view, frameDoc)
+	framedView, err := processor.Frame(doc, frameDoc, jsonldCache)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]interface{}{
 		"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
 	}, framedView["credentialSubject"])
+
+	// Use the same ID for issuer and credentialSubject
+	issuerMap, ok := doc["issuer"].(map[string]interface{})
+	require.True(t, ok)
+
+	subjectMap, ok := doc["credentialSubject"].(map[string]interface{})
+	require.True(t, ok)
+
+	subjectMap["id"] = issuerMap["id"]
+	framedView, err = processor.Frame(doc, frameDoc, jsonldCache)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]interface{}{
+		"id":     "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+	}, framedView["credentialSubject"])
+
+	// Set several subjects, one with the same ID as issuer.
+	doc["credentialSubject"] = []interface{}{
+		subjectMap,
+		map[string]interface{}{
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f2",
+		},
+	}
+	framedView, err = processor.Frame(doc, frameDoc, jsonldCache)
+	require.NoError(t, err)
+
+	require.Equal(t, []interface{}{
+		map[string]interface{}{
+			"id":     "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		},
+		map[string]interface{}{
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f2",
+		},
+	},
+		framedView["credentialSubject"])
 }
