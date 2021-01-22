@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 )
 
@@ -23,6 +24,8 @@ const (
 	failDeformat             = `failed to deformat %s "%s" returned from the underlying store: %w`
 	failQueryUnderlyingStore = "failed to query underlying store: %w"
 )
+
+var logger = log.New("formattedstore")
 
 var errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
 	"it must be in the following format: TagName:TagValue")
@@ -39,17 +42,36 @@ type Formatter interface {
 
 // FormattedProvider is a newstorage.Provider that allows for data to be formatted in an underlying provider.
 type FormattedProvider struct {
-	provider  newstorage.Provider
-	formatter Formatter
+	provider      newstorage.Provider
+	cacheProvider newstorage.Provider
+	formatter     Formatter
+}
+
+// Option represents an option for a FormattedProvider.
+type Option func(opts *FormattedProvider)
+
+// WithCacheProvider option enables a cache for a FormatProvider. This cache will hold unformatted data, which can
+// result in a performance improvement in cases where the formatting operation is expensive. Tags are never cached,
+// so any retrieval operations that require them will always skip the cache. They cannot be cached efficiently from
+// store.Get calls since getting tags would require a separate call to the main provider, and Query calls have to skip
+// the cache anyway in order to make sure that no uncached data is missed.
+func WithCacheProvider(cacheProvider newstorage.Provider) Option {
+	return func(formattedProvider *FormattedProvider) {
+		formattedProvider.cacheProvider = cacheProvider
+	}
 }
 
 // NewProvider instantiates a new FormattedProvider with the given newstorage.Provider and Formatter.
 // The Formatter is used to format data before being sent to the Provider for storage.
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
-func NewProvider(provider newstorage.Provider, formatter Formatter) *FormattedProvider {
+func NewProvider(provider newstorage.Provider, formatter Formatter, options ...Option) *FormattedProvider {
 	formattedProvider := &FormattedProvider{
 		provider:  provider,
 		formatter: formatter,
+	}
+
+	for _, option := range options {
+		option(formattedProvider)
 	}
 
 	return formattedProvider
@@ -67,6 +89,15 @@ func (f *FormattedProvider) OpenStore(name string) (newstorage.Store, error) {
 	newFormatStore := formatStore{
 		store:     store,
 		formatter: f.formatter,
+	}
+
+	if f.cacheProvider != nil {
+		cacheStore, err := f.cacheProvider.OpenStore(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open cache store in cache provider: %w", err)
+		}
+
+		newFormatStore.cacheStore = cacheStore
 	}
 
 	return &newFormatStore, nil
@@ -88,9 +119,18 @@ func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreC
 		formattedTagNames[i] = formattedTags[0].Name
 	}
 
-	err := f.provider.SetStoreConfig(name, newstorage.StoreConfiguration{TagNames: formattedTagNames})
+	formattedConfig := newstorage.StoreConfiguration{TagNames: formattedTagNames}
+
+	err := f.provider.SetStoreConfig(name, formattedConfig)
 	if err != nil {
-		return fmt.Errorf("failed to set store configuration in underlying provider: %w", err)
+		return fmt.Errorf("failed to set store configuration via underlying provider: %w", err)
+	}
+
+	if f.cacheProvider != nil {
+		err = f.cacheProvider.SetStoreConfig(name, config)
+		if err != nil {
+			return fmt.Errorf("failed to set store configuration via cache provider: %w", err)
+		}
 	}
 
 	return nil
@@ -100,6 +140,21 @@ func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreC
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
 func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+	if f.cacheProvider != nil {
+		config, err := f.cacheProvider.GetStoreConfig(name)
+		if err == nil {
+			return config, nil
+		}
+
+		if !errors.Is(err, newstorage.ErrStoreNotFound) {
+			return newstorage.StoreConfiguration{},
+				fmt.Errorf("unexpected failure while getting config from cache store: %w", err)
+		}
+
+		logger.Infof(`Cache miss when getting store configuration for store "%s". `+
+			`Will fetch data from primary provider.`, name)
+	}
+
 	formattedConfig, err := f.provider.GetStoreConfig(name)
 	if err != nil {
 		return newstorage.StoreConfiguration{},
@@ -128,14 +183,23 @@ func (f *FormattedProvider) Close() error {
 		return fmt.Errorf("failed to close underlying provider: %w", err)
 	}
 
+	if f.cacheProvider != nil {
+		err := f.cacheProvider.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close cache provider: %w", err)
+		}
+	}
+
 	return nil
 }
 
 type formatStore struct {
-	store     newstorage.Store
-	formatter Formatter
+	store      newstorage.Store
+	cacheStore newstorage.Store
+	formatter  Formatter
 }
 
+//
 func (f *formatStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
 	if value == nil {
 		return errors.New("value cannot be nil")
@@ -161,10 +225,32 @@ func (f *formatStore) Put(key string, value []byte, tags ...newstorage.Tag) erro
 		return fmt.Errorf("failed to put formatted data in underlying store: %w", err)
 	}
 
+	if f.cacheStore != nil {
+		err := f.cacheStore.Put(key, value)
+		if err != nil {
+			return fmt.Errorf("failed to put data in cache store: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (f *formatStore) Get(key string) ([]byte, error) {
+	if f.cacheStore != nil {
+		value, err := f.cacheStore.Get(key)
+		if err == nil {
+			return value, nil
+		}
+
+		if !errors.Is(err, newstorage.ErrDataNotFound) {
+			return nil,
+				fmt.Errorf("unexpected failure while getting data from cache store: %w", err)
+		}
+
+		logger.Infof(`cache miss when getting value for key "%s" from cache storage provider. `+
+			`Will fetch data from primary provider.`, key)
+	}
+
 	formattedKey, err := f.formatter.FormatKey(key)
 	if err != nil {
 		return nil, fmt.Errorf(failFormat, "key", key, err)
@@ -178,6 +264,13 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 	value, err := f.formatter.DeformatValue(formattedValue)
 	if err != nil {
 		return nil, fmt.Errorf(failDeformat, "value", string(formattedValue), err)
+	}
+
+	if f.cacheStore != nil {
+		err := f.cacheStore.Put(key, value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to put the newly retrieved value into the cache store: %w", err)
+		}
 	}
 
 	return value, nil
@@ -202,6 +295,7 @@ func (f *formatStore) GetTags(key string) ([]newstorage.Tag, error) {
 	return tags, nil
 }
 
+// TODO (#2476): Add caching support to GetBulk method.
 func (f *formatStore) GetBulk(keys ...string) ([][]byte, error) {
 	formattedKeys := make([]string, len(keys))
 
@@ -284,9 +378,17 @@ func (f *formatStore) Delete(key string) error {
 		return fmt.Errorf("failed to delete data in underlying store: %w", err)
 	}
 
+	if f.cacheStore != nil {
+		err := f.cacheStore.Delete(key)
+		if err != nil {
+			return fmt.Errorf("failed to delete data in cache store: %w", err)
+		}
+	}
+
 	return nil
 }
 
+// TODO (#2476): Add caching support to Batch method.
 func (f *formatStore) Batch(operations []newstorage.Operation) error {
 	formattedOperations := make([]newstorage.Operation, len(operations))
 
@@ -321,6 +423,13 @@ func (f *formatStore) Batch(operations []newstorage.Operation) error {
 		return fmt.Errorf("failed to perform formatted operations in underlying store: %w", err)
 	}
 
+	if f.cacheStore != nil {
+		err := f.cacheStore.Batch(operations)
+		if err != nil {
+			return fmt.Errorf("failed to perform operations in cache store: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -328,6 +437,13 @@ func (f *formatStore) Close() error {
 	err := f.store.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close underlying store: %w", err)
+	}
+
+	if f.cacheStore != nil {
+		err := f.cacheStore.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close cache store: %w", err)
+		}
 	}
 
 	return nil
