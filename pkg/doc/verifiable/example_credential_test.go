@@ -484,7 +484,7 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	   "VerifiableCredential",
 	   "PermanentResidentCard"
 	 ],
-	 "issuer": "did:example:489398593",
+	 "issuer": "did:example:b34ca6cd37bbf23",
 	 "identifier": "83627465",
 	 "name": "Permanent Resident Card",
 	 "description": "Government of Example Permanent Resident Card.",
@@ -647,12 +647,12 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	//	"identifier": "83627465",
 	//	"issuanceDate": "2019-12-03T12:19:52Z",
-	//	"issuer": "did:example:489398593",
+	//	"issuer": "did:example:b34ca6cd37bbf23",
 	//	"name": "Permanent Resident Card",
 	//	"proof": [
 	//		{
 	//			"created": "2010-01-01T19:23:24Z",
-	//			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..eOf78dZntdhgtMMipTPYuylQYZLsgCDb9OIqIpbxUbMapAQ29ai0-f1VZHLe8m9DvDY3Mah8ndPI0bJ5a0j0Bg",
+	//			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..HsBapUAZDdaZZy6hrn951768kJaRmNAwTWvVnTDM-Bp5k08eEnnxrii5n47AeWVLDJJo7P0dEPafyC_gMjFPAA",
 	//			"proofPurpose": "assertionMethod",
 	//			"type": "Ed25519Signature2018",
 	//			"verificationMethod": "did:example:123456#key1"
@@ -683,14 +683,14 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//		"givenName": "JOHN",
 	//		"id": "did:example:b34ca6cd37bbf23",
 	//		"type": [
-	//			"Person",
-	//			"PermanentResident"
+	//			"PermanentResident",
+	//			"Person"
 	//		]
 	//	},
 	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	//	"identifier": "83627465",
 	//	"issuanceDate": "2019-12-03T12:19:52Z",
-	//	"issuer": "did:example:489398593",
+	//	"issuer": "did:example:b34ca6cd37bbf23",
 	//	"proof": {
 	//		"created": "2010-01-01T19:23:24Z",
 	//		"nonce": "c29tZSBub25jZQ==",
@@ -700,8 +700,8 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//		"verificationMethod": "did:example:123456#key1"
 	//	},
 	//	"type": [
-	//		"PermanentResidentCard",
-	//		"VerifiableCredential"
+	//		"VerifiableCredential",
+	//		"PermanentResidentCard"
 	//	]
 	//}
 }

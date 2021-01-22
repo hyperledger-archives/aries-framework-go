@@ -192,19 +192,7 @@ func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
 		return nil, fmt.Errorf("create verify document data: %w", err)
 	}
 
-	transformedInputDocumentStatements := make([]string, len(documentStatements))
-
-	for i, element := range documentStatements {
-		nodeIdentifier := strings.Split(element, " ")[0]
-		if strings.HasPrefix(nodeIdentifier, "_:c14n") {
-			transformedInputDocumentStatements[i] = "urn:bnid:" + nodeIdentifier
-			continue
-		}
-
-		transformedInputDocumentStatements[i] = element
-	}
-
-	revealDocumentResult, err := jsonld.Default().Frame(documentStatements, revealDoc, opts...)
+	revealDocumentResult, err := jsonld.Default().Frame(docCompacted, revealDoc, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("frame doc with reveal doc: %w", err)
 	}
@@ -216,14 +204,14 @@ func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
 
 	revealIndexes := make([]int, len(revealDocumentStatements))
 
-	transformedInputDocumentStatementsMap := make(map[string]int)
-	for i, statement := range transformedInputDocumentStatements {
-		transformedInputDocumentStatementsMap[statement] = i
+	documentStatementsMap := make(map[string]int)
+	for i, statement := range documentStatements {
+		documentStatementsMap[statement] = i
 	}
 
 	for i := range revealDocumentStatements {
 		statement := revealDocumentStatements[i]
-		statementInd := transformedInputDocumentStatementsMap[statement]
+		statementInd := documentStatementsMap[statement]
 		revealIndexes[i] = statementInd
 	}
 
