@@ -658,13 +658,13 @@ func verifyMACPOSTHandle(reqBody []byte, macKH *keyset.Handle) error {
 func TestWrapUnWrapKey(t *testing.T) {
 	senderKID := "11111"
 
-	recipientKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	recipientKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	recipentPubKey, err := exportPubKey(recipientKH)
 	require.NoError(t, err)
 
-	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	senderKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -778,13 +778,13 @@ func TestWrapUnWrapKey(t *testing.T) {
 }
 
 func TestRemoteCryptoWithHeadersFunc(t *testing.T) {
-	recipientKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	recipientKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	recipentPubKey, err := exportPubKey(recipientKH)
 	require.NoError(t, err)
 
-	senderKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	senderKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -29,7 +29,7 @@ SPDX-License-Identifier: Apache-2.0
 //
 //  func main() {
 //      // create recipient side keyset handle
-//      recKH, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+//      recKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 //      if err != nil {
 //          //handle error
 //      }
@@ -53,7 +53,7 @@ SPDX-License-Identifier: Apache-2.0
 //		// see pkg/crypto/tinkcrypto to see how you can wrap a shared secret (cek)
 //
 //		// once a cek is created create an ECDH KH that can be used to encrypt plaintext as follows
-//		kt := ecdh.AES256GCMKeyTemplateWithCEK(cek)
+//		kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 //
 //		kh, err := keyset.NewHandle(kt)
 //		if err != nil {
@@ -75,7 +75,7 @@ SPDX-License-Identifier: Apache-2.0
 //      }
 //
 //      // to decrypt, recreate kh for the cek (once unwrapped from pkg/crypto)
-//		kt = ecdh.AES256GCMKeyTemplateWithCEK(cek)
+//		kt = ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 //
 //		kh, err = keyset.NewHandle(kt)
 //		if err != nil {
@@ -113,32 +113,12 @@ func init() {
 		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
 	}
 
-	err = registry.RegisterKeyManager(newECDHX25519XChachaPublicKeyManager())
+	err = registry.RegisterKeyManager(newX25519ECDHKWPrivateKeyManager())
 	if err != nil {
 		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
 	}
 
-	err = registry.RegisterKeyManager(newECDHX25519XChachaPrivateKeyManager())
-	if err != nil {
-		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
-	}
-
-	err = registry.RegisterKeyManager(newECDHNISTPXChachaPrivateKeyManager())
-	if err != nil {
-		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
-	}
-
-	err = registry.RegisterKeyManager(newECDHNISTPXChachaPublicKeyManager())
-	if err != nil {
-		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
-	}
-
-	err = registry.RegisterKeyManager(newECDHX25519AESPublicKeyManager())
-	if err != nil {
-		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
-	}
-
-	err = registry.RegisterKeyManager(newECDHX25519AESPrivateKeyManager())
+	err = registry.RegisterKeyManager(newX25519ECDHKWPublicKeyManager())
 	if err != nil {
 		panic(fmt.Sprintf("ecdh.init() failed: %v", err))
 	}

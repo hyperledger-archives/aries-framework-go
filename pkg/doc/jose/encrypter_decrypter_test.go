@@ -404,7 +404,7 @@ func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, m
 func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle, string) {
 	t.Helper()
 
-	tmpl := ecdh.ECDH256KWAES256GCMKeyTemplate()
+	tmpl := ecdh.NISTP256ECDHKWKeyTemplate()
 
 	kh, err := keyset.NewHandle(tmpl)
 	require.NoError(t, err)

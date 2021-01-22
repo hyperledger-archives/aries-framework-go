@@ -14,46 +14,30 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
-	gcmpb "github.com/google/tink/go/proto/aes_gcm_go_proto"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-func TestECDHX25519AESPublicKeyManager_Primitive(t *testing.T) {
-	km := newECDHX25519AESPublicKeyManager()
+func TestECDHX25519XChachaPublicKeyManager_Primitive(t *testing.T) {
+	km := newX25519ECDHKWPublicKeyManager()
 
 	t.Run("Test public key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHX25519AESPublicKey.Error(),
-			"ecdhX25519AESPublicKeyManager primitive from empty serialized key must fail")
+		require.EqualError(t, err, errInvalidx25519ECDHKWPublicKey.Error(),
+			"x25519ECDHKWPublicKeyManager primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test public key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHX25519AESPublicKey.Error(),
-			"ecdhX25519AESPublicKeyManager primitive from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidx25519ECDHKWPublicKey.Error(),
+			"x25519ECDHKWPublicKeyManager primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
-
-	format := &gcmpb.AesGcmKeyFormat{
-		KeySize: 32,
-	}
-
-	serializedFormat, err := proto.Marshal(format)
-	require.NoError(t, err)
-
-	format = &gcmpb.AesGcmKeyFormat{
-		KeySize: 99, // bad AES128GCM size
-	}
-
-	badSerializedFormat, err := proto.Marshal(format)
-	require.NoError(t, err)
 
 	flagTests := []struct {
 		tcName    string
@@ -97,17 +81,6 @@ func TestECDHX25519AESPublicKeyManager_Primitive(t *testing.T) {
 			keyType:   ecdhpb.KeyType_OKP,
 			encTmp: &tinkpb.KeyTemplate{
 				TypeUrl:          "bad.type/url/value",
-				Value:            serializedFormat,
-				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
-			},
-		},
-		{
-			tcName:    "public key manager Primitive() using key with bad content encryption key size",
-			version:   0,
-			curveType: commonpb.EllipticCurveType_CURVE25519,
-			encTmp: &tinkpb.KeyTemplate{
-				TypeUrl:          composite.AESGCMTypeURL,
-				Value:            badSerializedFormat,
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},
 		},
@@ -143,8 +116,8 @@ func TestECDHX25519AESPublicKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if strings.Contains(tt.tcName, "with bad content encryption key size") {
-				require.EqualError(t, err, errInvalidECDHX25519AESPublicKey.Error(),
-					"ecdhX25519AESPublicKeyManager primitive from serialized key with invalid serialized key")
+				require.EqualError(t, err, errInvalidx25519ECDHKWPublicKey.Error(),
+					"x25519ECDHKWPublicKeyManager primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
 				return
@@ -162,24 +135,24 @@ func TestECDHX25519AESPublicKeyManager_Primitive(t *testing.T) {
 	}
 }
 
-func TestEcdhX25519AESPublicKeyManager_DoesSupport(t *testing.T) {
-	km := newECDHX25519AESPublicKeyManager()
+func TestEcdhX25519XChachaPublicKeyManager_DoesSupport(t *testing.T) {
+	km := newX25519ECDHKWPublicKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhX25519AESPublicKeyTypeURL))
+	require.True(t, km.DoesSupport(x25519ECDHKWPublicKeyTypeURL))
 }
 
-func TestEcdhX25519AESPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
-	km := newECDHX25519AESPublicKeyManager()
+func TestEcdhX25519XChachaPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
+	km := newX25519ECDHKWPublicKeyManager()
 
 	t.Run("Test public key manager NewKey()", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, "ecdh_x25519kw_aesaead_public_key_manager: NewKey not implemented")
+		require.EqualError(t, err, "x25519kw_ecdh_public_key_manager: NewKey not implemented")
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKeyData()", func(t *testing.T) {
 		p, err := km.NewKeyData(nil)
-		require.EqualError(t, err, "ecdh_x25519kw_aesaead_public_key_manager: NewKeyData not implemented")
+		require.EqualError(t, err, "x25519kw_ecdh_public_key_manager: NewKeyData not implemented")
 		require.Empty(t, p)
 	})
 }

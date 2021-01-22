@@ -23,19 +23,19 @@ import (
 )
 
 func TestECDHX25519XChachaPrivateKeyManager_Primitive(t *testing.T) {
-	km := newECDHX25519XChachaPrivateKeyManager()
+	km := newX25519ECDHKWPrivateKeyManager()
 
 	t.Run("Test private key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHX25519XChachaPrivateKey.Error(),
-			"ecdhX25519XChachaPrivateKeyManager primitive from empty serialized key must fail")
+		require.EqualError(t, err, errInvalidx25519ECDHKWPrivateKey.Error(),
+			"x25519ECDHKWPrivateKeyManager primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test private key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHX25519XChachaPrivateKey.Error(),
-			"ecdhX25519XChachaPrivateKeyManager primitive from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidx25519ECDHKWPrivateKey.Error(),
+			"x25519ECDHKWPrivateKeyManager primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
 
@@ -114,7 +114,7 @@ func TestECDHX25519XChachaPrivateKeyManager_Primitive(t *testing.T) {
 				Version:  tt.version,
 				KeyValue: x25519Pvt,
 				PublicKey: &ecdhpb.EcdhAeadPublicKey{
-					Version: ecdhX25519XChachaPrivateKeyVersion,
+					Version: x25519ECDHKWPrivateKeyVersion,
 					Params:  params,
 					X:       x25519Pub,
 				},
@@ -137,24 +137,24 @@ func TestECDHX25519XChachaPrivateKeyManager_Primitive(t *testing.T) {
 }
 
 func TestECDHX25519XChachaPrivateKeyManager_DoesSupport(t *testing.T) {
-	km := newECDHX25519XChachaPrivateKeyManager()
+	km := newX25519ECDHKWPrivateKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhX25519XChachaPrivateKeyTypeURL))
+	require.True(t, km.DoesSupport(x25519ECDHKWPrivateKeyTypeURL))
 }
 
 func TestECDHX25519XChachaPrivateKeyManager_NewKey(t *testing.T) {
-	km := newECDHX25519XChachaPrivateKeyManager()
+	km := newX25519ECDHKWPrivateKeyManager()
 
 	t.Run("Test private key manager NewKey() with nil key", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, errInvalidECDHX25519XChachaPrivateKeyFormat.Error())
+		require.EqualError(t, err, errInvalidx25519ECDHKWPrivateKeyFormat.Error())
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKey() with bad serialize key", func(t *testing.T) {
 		p, err := km.NewKey([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHX25519XChachaPrivateKeyFormat.Error(),
-			"ecdhX25519XChachaPrivateKeyManager NewKey() from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidx25519ECDHKWPrivateKeyFormat.Error(),
+			"x25519ECDHKWPrivateKeyManager NewKey() from bad serialized key must fail")
 		require.Empty(t, p)
 	})
 
@@ -236,7 +236,7 @@ func TestECDHX25519XChachaPrivateKeyManager_NewKey(t *testing.T) {
 			if strings.Contains(tt.tcName, "success") {
 				require.NoError(t, err)
 				require.NotEmpty(t, kd)
-				require.Equal(t, kd.TypeUrl, ecdhX25519XChachaPrivateKeyTypeURL)
+				require.Equal(t, kd.TypeUrl, x25519ECDHKWPrivateKeyTypeURL)
 				require.Equal(t, kd.KeyMaterialType, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 				return
 			}

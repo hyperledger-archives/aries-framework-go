@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package ecdh
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"crypto/rand"
 	"strings"
@@ -15,29 +16,44 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
+	gcmpb "github.com/google/tink/go/proto/aes_gcm_go_proto"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
-func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
-	km := newECDHNISTPXChachaPrivateKeyManager()
+func TestECDHNISTPAESPrivateKeyManager_Primitive(t *testing.T) {
+	km := newECDHNISTPAESPrivateKeyManager()
 
 	t.Run("Test private key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHNISTPXChachaPrivateKey.Error(),
-			"ecdhNISTPXChachaPrivateKeyManager primitive from empty serialized key must fail")
+		require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKey.Error(),
+			"nistPECDHKWPrivateKeyManager primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test private key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHNISTPXChachaPrivateKey.Error(),
-			"ecdhNISTPXChachaPrivateKeyManager primitive from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKey.Error(),
+			"nistPECDHKWPrivateKeyManager primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
+
+	format := &gcmpb.AesGcmKeyFormat{
+		KeySize: 32,
+	}
+	serializedFormat, err := proto.Marshal(format)
+	require.NoError(t, err)
+
+	format = &gcmpb.AesGcmKeyFormat{
+		KeySize: 99, // bad AES128GCM size
+	}
+
+	badSerializedFormat, err := proto.Marshal(format)
+	require.NoError(t, err)
 
 	flagTests := []struct {
 		tcName    string
@@ -53,7 +69,7 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			keyType:   ecdhpb.KeyType_EC,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager Primitive() using key with bad curve",
@@ -61,7 +77,7 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_UNKNOWN_CURVE,
 			keyType:   ecdhpb.KeyType_EC,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager Primitive() using key with bad key type",
@@ -69,7 +85,7 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			keyType:   ecdhpb.KeyType_UNKNOWN_KEY_TYPE,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "success private key manager Primitive()",
@@ -77,7 +93,7 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			keyType:   ecdhpb.KeyType_EC,
 			ecPtFmt:   commonpb.EcPointFormat_UNCOMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager Primitive() using key with bad key template URL",
@@ -87,6 +103,19 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
 			encTmp: &tinkpb.KeyTemplate{
 				TypeUrl:          "bad.type/url/value",
+				Value:            serializedFormat,
+				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
+			},
+		},
+		{
+			tcName:    "private key manager Primitive() using key with bad dem key size",
+			version:   0,
+			curveType: commonpb.EllipticCurveType_NIST_P256,
+			keyType:   ecdhpb.KeyType_EC,
+			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
+			encTmp: &tinkpb.KeyTemplate{
+				TypeUrl:          composite.AESGCMTypeURL,
+				Value:            badSerializedFormat,
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},
 		},
@@ -139,6 +168,14 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 			require.NoError(t, err)
 
 			p, err := km.Primitive(sPrivKey)
+			if bytes.Equal(tt.encTmp.Value, badSerializedFormat) {
+				require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKey.Error(),
+					"nistPECDHKWPrivateKeyManager primitive from serialized key with invalid serialized key")
+				require.Empty(t, p)
+
+				return
+			}
+
 			if strings.Contains(tt.tcName, "success") {
 				require.NoError(t, err)
 				require.NotEmpty(t, p)
@@ -151,27 +188,41 @@ func TestECDHNISTPXChachaPrivateKeyManager_Primitive(t *testing.T) {
 	}
 }
 
-func TestEcdhNISTPXChachaPrivateKeyManager_DoesSupport(t *testing.T) {
-	km := newECDHNISTPXChachaPrivateKeyManager()
+func TestEcdhNISTPAESPrivateKeyManager_DoesSupport(t *testing.T) {
+	km := newECDHNISTPAESPrivateKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhNISTPXChachaPrivateKeyTypeURL))
+	require.True(t, km.DoesSupport(nistpECDHKWPrivateKeyTypeURL))
 }
 
-func TestEcdhNISTPXChachaPrivateKeyManager_NewKey(t *testing.T) {
-	km := newECDHNISTPXChachaPrivateKeyManager()
+func TestEcdhNISTPAESPrivateKeyManager_NewKey(t *testing.T) {
+	km := newECDHNISTPAESPrivateKeyManager()
 
 	t.Run("Test private key manager NewKey() with nil key", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, errInvalidECDHNISTPXChachaPrivateKeyFormat.Error())
+		require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKeyFormat.Error())
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKey() with bad serialize key", func(t *testing.T) {
 		p, err := km.NewKey([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHNISTPXChachaPrivateKeyFormat.Error(),
-			"ecdhNISTPXChachaPrivateKeyManager NewKey() from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKeyFormat.Error(),
+			"ECDHESPrivate NewKey() from bad serialized key must fail")
 		require.Empty(t, p)
 	})
+
+	format := &gcmpb.AesGcmKeyFormat{
+		KeySize: 32,
+	}
+
+	serializedFormat, err := proto.Marshal(format)
+	require.NoError(t, err)
+
+	format = &gcmpb.AesGcmKeyFormat{
+		KeySize: 99, // bad AES128GCM size
+	}
+
+	badSerializedFormat, err := proto.Marshal(format)
+	require.NoError(t, err)
 
 	flagTests := []struct {
 		tcName    string
@@ -185,21 +236,21 @@ func TestEcdhNISTPXChachaPrivateKeyManager_NewKey(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			keyType:   ecdhpb.KeyType_EC,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager NewKey() and NewKeyData() using key with bad curve",
 			curveType: commonpb.EllipticCurveType_UNKNOWN_CURVE,
 			keyType:   ecdhpb.KeyType_EC,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager NewKey() and NewKeyData() using key with bad key type",
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			keyType:   ecdhpb.KeyType_UNKNOWN_KEY_TYPE,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
-			encTmp:    aead.XChaCha20Poly1305KeyTemplate(),
+			encTmp:    aead.AES256GCMKeyTemplate(),
 		},
 		{
 			tcName:    "private key manager NewKey() and NewKeyData() using key with bad key template URL",
@@ -208,6 +259,18 @@ func TestEcdhNISTPXChachaPrivateKeyManager_NewKey(t *testing.T) {
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
 			encTmp: &tinkpb.KeyTemplate{
 				TypeUrl:          "bad.type/url/value",
+				Value:            serializedFormat,
+				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
+			},
+		},
+		{
+			tcName:    "private key manager NewKey() and NewKeyData() using key with bad dem key size",
+			curveType: commonpb.EllipticCurveType_NIST_P256,
+			keyType:   ecdhpb.KeyType_EC,
+			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
+			encTmp: &tinkpb.KeyTemplate{
+				TypeUrl:          composite.AESGCMTypeURL,
+				Value:            badSerializedFormat,
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},
 		},
@@ -259,8 +322,16 @@ func TestEcdhNISTPXChachaPrivateKeyManager_NewKey(t *testing.T) {
 			if strings.Contains(tt.tcName, "success") {
 				require.NoError(t, err)
 				require.NotEmpty(t, kd)
-				require.Equal(t, kd.TypeUrl, ecdhNISTPXChachaPrivateKeyTypeURL)
+				require.Equal(t, kd.TypeUrl, nistpECDHKWPrivateKeyTypeURL)
 				require.Equal(t, kd.KeyMaterialType, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
+				return
+			}
+
+			if bytes.Equal(tt.encTmp.Value, badSerializedFormat) {
+				require.EqualError(t, err, errInvalidNISTPECDHKWPrivateKeyFormat.Error(),
+					"nistPECDHKWPrivateKeyManager NewKey from serialized key with invalid serialized key")
+				require.Empty(t, p)
+
 				return
 			}
 

@@ -144,7 +144,7 @@ func IsMessagingKeysValid(kpb *MessagingKeys) bool {
 
 // Derive25519KEK is a utility function that will derive an ephemeral
 // symmetric key (kek) using fromPrivKey and toPubKey.
-func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
+func Derive25519KEK(alg, apu, apv []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
 	if fromPrivKey == nil || toPubKey == nil {
 		return nil, ErrInvalidKey
 	}
@@ -176,8 +176,8 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	// length prefix apu
 	apuInfo := LengthPrefix(apu)
 
-	// length prefix apv (empty)
-	apvInfo := LengthPrefix(nil)
+	// length prefix apv
+	apvInfo := LengthPrefix(apv)
 
 	// get a Concat KDF stream for z, encryption algorithm, api, supPubInfo and empty supPrivInfo using sha256
 	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algInfo, apuInfo, apvInfo, supPubInfo, []byte{})

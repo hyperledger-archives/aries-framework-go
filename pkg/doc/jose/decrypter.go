@@ -48,7 +48,7 @@ func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *J
 }
 
 func getECDHDecPrimitive(cek []byte) (api.CompositeDecrypt, error) {
-	kt := ecdh.AES256GCMKeyTemplateWithCEK(cek)
+	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {

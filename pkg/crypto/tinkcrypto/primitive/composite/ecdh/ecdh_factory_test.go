@@ -47,7 +47,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(nistpECDHKWPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
 	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, kt, rawEncT, cek)
@@ -56,7 +56,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(nistpECDHKWPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	x25519XChachaPrivProto := generateECDHAEADPrivateKey(t, commonpb.EllipticCurveType_CURVE25519, primaryPtFmt,
@@ -66,7 +66,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	x25519XChachaPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhX25519XChachaPrivateKeyTypeURL, sX25519XChachaPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(x25519ECDHKWPrivateKeyTypeURL, sX25519XChachaPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 15, tinkpb.OutputPrefixType_RAW)
 
 	privKeys := []*tinkpb.Keyset_Key{primaryPrivKey, rawPrivKey, x25519XChachaPrivKey}
@@ -239,7 +239,7 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(nistpECDHKWPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
 	rawPrivProto := generateECDHAEADPrivateKey(t, c, rawPtFmt, kt, rawEncT, cek)
@@ -248,7 +248,7 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhNISTPAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(nistpECDHKWPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	badPrivKeyProto, err := testutil.GenerateECIESAEADHKDFPrivateKey(c, commonpb.HashType_SHA256, primaryPtFmt,
@@ -303,7 +303,7 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 	require.EqualError(t, err, "ecdh_factory: not a CompositeEncrypt primitive")
 	require.Nil(t, encPrimitiveSet)
 
-	validKH, err := keyset.NewHandle(ECDH256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
@@ -339,7 +339,7 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 }
 
 func TestEncryptPrimitiveSetFail(t *testing.T) {
-	validKH, err := keyset.NewHandle(ECDH256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
@@ -384,7 +384,7 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 	require.EqualError(t, err, "ecdh_factory: not a CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 
-	validKH, err := keyset.NewHandle(ECDH256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	// primitives of a valid Private keyset.Handle do Decrypt() (while Public Handle do Encrypt())
@@ -417,7 +417,7 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 }
 
 func TestDecryptPrimitiveSetFail(t *testing.T) {
-	validKH, err := keyset.NewHandle(ECDH256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
