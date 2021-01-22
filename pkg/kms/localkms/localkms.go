@@ -55,8 +55,8 @@ type LocalKMS struct {
 	primaryKeyEnvAEAD *aead.KMSEnvelopeAEAD
 }
 
-func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
-	s, err := provider.OpenStore(Namespace)
+func newKeyIDWrapperStore(provider storage.Provider, storePrefix string) (storage.Store, error) {
+	s, err := provider.OpenStore(storePrefix + Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,12 @@ func newKeyIDWrapperStore(provider storage.Provider) (storage.Store, error) {
 
 // New will create a new (local) KMS service.
 func New(primaryKeyURI string, p kms.Provider) (*LocalKMS, error) {
-	store, err := newKeyIDWrapperStore(p.StorageProvider())
+	return NewWithPrefix(primaryKeyURI, p, "")
+}
+
+// NewWithPrefix will create a new (local) KMS service using a store name prefixed with storePrefix.
+func NewWithPrefix(primaryKeyURI string, p kms.Provider, storePrefix string) (*LocalKMS, error) {
+	store, err := newKeyIDWrapperStore(p.StorageProvider(), storePrefix)
 	if err != nil {
 		return nil, fmt.Errorf("new: failed to ceate local kms: %w", err)
 	}
