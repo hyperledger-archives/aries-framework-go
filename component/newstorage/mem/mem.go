@@ -29,8 +29,8 @@ var (
 
 // Provider represents an in-memory implementation of the newstorage.Provider interface.
 type Provider struct {
-	dbs map[string]*memStore
-	sync.RWMutex
+	dbs  map[string]*memStore
+	lock sync.RWMutex
 }
 
 type closer func(storeName string)
@@ -43,10 +43,14 @@ func NewProvider() *Provider {
 // OpenStore opens a store with the given name and returns a handle.
 // If the store has never been opened before, then it is created.
 func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
+	if name == "" {
+		return nil, fmt.Errorf("store name cannot be empty")
+	}
+
 	storeName := strings.ToLower(name)
 
-	p.Lock()
-	defer p.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	store := p.dbs[storeName]
 	if store == nil {
@@ -65,8 +69,8 @@ func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
 func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
 	storeName := strings.ToLower(name)
 
-	p.Lock()
-	defer p.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	store := p.dbs[storeName]
 	if store == nil {
@@ -92,14 +96,27 @@ func (p *Provider) GetStoreConfig(name string) (newstorage.StoreConfiguration, e
 	return store.config, nil
 }
 
-// Close closes all stores created under this store provider. All data will be deleted.
-func (p *Provider) Close() error {
-	for _, memStore := range p.dbs {
-		err := memStore.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close a mem store: %w", err)
-		}
+// GetOpenStores returns all currently open stores.
+func (p *Provider) GetOpenStores() []newstorage.Store {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	openStores := make([]newstorage.Store, len(p.dbs))
+
+	var counter int
+
+	for _, db := range p.dbs {
+		openStores[counter] = db
+		counter++
 	}
+
+	return openStores
+}
+
+// Close closes all stores created under this store provider.
+func (p *Provider) Close() error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	p.dbs = make(map[string]*memStore)
 
@@ -107,8 +124,8 @@ func (p *Provider) Close() error {
 }
 
 func (p *Provider) removeStore(name string) {
-	p.Lock()
-	defer p.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	_, ok := p.dbs[name]
 	if ok {
@@ -291,11 +308,13 @@ func (m *memStore) Batch(operations []newstorage.Operation) error {
 
 // Close closes this store object. All data within the store is deleted.
 func (m *memStore) Close() error {
-	m.Lock()
-	defer m.Unlock()
-
 	m.close(m.name)
 
+	return nil
+}
+
+// memStore doesn't queue values, so there's never anything to flush.
+func (m *memStore) Flush() error {
 	return nil
 }
 

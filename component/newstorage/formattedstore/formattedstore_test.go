@@ -15,94 +15,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/mem"
+	"github.com/hyperledger/aries-framework-go/component/newstorage/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
 )
-
-type mockProvider struct {
-	openStoreReturn      newstorage.Store
-	errOpenStore         error
-	getStoreConfigReturn newstorage.StoreConfiguration
-	errGetStoreConfig    error
-}
-
-func (m *mockProvider) OpenStore(string) (newstorage.Store, error) {
-	return m.openStoreReturn, m.errOpenStore
-}
-
-func (m *mockProvider) SetStoreConfig(string, newstorage.StoreConfiguration) error {
-	return errors.New("set store config failure")
-}
-
-func (m *mockProvider) GetStoreConfig(string) (newstorage.StoreConfiguration, error) {
-	return m.getStoreConfigReturn, m.errGetStoreConfig
-}
-
-func (m *mockProvider) Close() error {
-	return errors.New("close failure")
-}
-
-type mockStore struct {
-	errPut    error
-	getReturn []byte
-	errGet    error
-	errQuery  error
-}
-
-func (m *mockStore) Put(string, []byte, ...newstorage.Tag) error {
-	return m.errPut
-}
-
-func (m *mockStore) Get(string) ([]byte, error) {
-	return m.getReturn, m.errGet
-}
-
-func (m *mockStore) GetTags(string) ([]newstorage.Tag, error) {
-	return nil, nil
-}
-
-func (m *mockStore) GetBulk(...string) ([][]byte, error) {
-	panic("implement me")
-}
-
-func (m *mockStore) Query(string, ...newstorage.QueryOption) (newstorage.Iterator, error) {
-	return &mockIterator{}, m.errQuery
-}
-
-func (m *mockStore) Delete(string) error {
-	panic("implement me")
-}
-
-func (m *mockStore) Batch([]newstorage.Operation) error {
-	return errors.New("batch failure")
-}
-
-func (m *mockStore) Close() error {
-	return errors.New("close failure")
-}
-
-type mockIterator struct {
-}
-
-func (m *mockIterator) Next() (bool, error) {
-	return false, errors.New("next failure")
-}
-
-func (m *mockIterator) Key() (string, error) {
-	return "", errors.New("key failure")
-}
-
-func (m *mockIterator) Value() ([]byte, error) {
-	return nil, errors.New("value failure")
-}
-
-func (m *mockIterator) Tags() ([]newstorage.Tag, error) {
-	return nil, errors.New("tags failure")
-}
-
-func (m *mockIterator) Close() error {
-	return errors.New("close failure")
-}
 
 type noOpFormatter struct {
 }
@@ -251,8 +167,8 @@ func TestCommon(t *testing.T) {
 
 func TestFormattedProvider_OpenStore(t *testing.T) {
 	t.Run("Fail to open store in underlying provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{
-			errOpenStore: errors.New("open store failure"),
+		provider := formattedstore.NewProvider(&mock.Provider{
+			ErrOpenStore: errors.New("open store failure"),
 		},
 			&noOpFormatter{})
 		require.NotNil(t, provider)
@@ -263,7 +179,7 @@ func TestFormattedProvider_OpenStore(t *testing.T) {
 	})
 	t.Run("Fail to open store in cache provider", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(), &noOpFormatter{},
-			formattedstore.WithCacheProvider(&mockProvider{errOpenStore: errors.New("open store failure")}))
+			formattedstore.WithCacheProvider(&mock.Provider{ErrOpenStore: errors.New("open store failure")}))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -286,7 +202,7 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 	})
 	t.Run("Fail to set store config in cache provider", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(), &noOpFormatter{},
-			formattedstore.WithCacheProvider(&mockProvider{}))
+			formattedstore.WithCacheProvider(&mock.Provider{}))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -301,9 +217,9 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 
 func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 	t.Run("Fail to deformat tags", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{
-			openStoreReturn:      &mockStore{},
-			getStoreConfigReturn: newstorage.StoreConfiguration{TagNames: []string{"TagName1"}},
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn:      &mock.Store{},
+			GetStoreConfigReturn: newstorage.StoreConfiguration{TagNames: []string{"TagName1"}},
 		},
 			&mockFormatter{})
 		require.NotNil(t, provider)
@@ -319,8 +235,8 @@ func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 	})
 	t.Run("Unexpected failure while getting config from cache store", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&noOpFormatter{}, formattedstore.WithCacheProvider(&mockProvider{
-				errGetStoreConfig: errors.New("unexpected get store config failure"),
+			&noOpFormatter{}, formattedstore.WithCacheProvider(&mock.Provider{
+				ErrGetStoreConfig: errors.New("unexpected get store config failure"),
 			}))
 		require.NotNil(t, provider)
 
@@ -333,7 +249,7 @@ func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 
 func TestFormattedProvider_Close(t *testing.T) {
 	t.Run("Fail to close underlying provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{}},
+		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
 			&mockFormatter{})
 		require.NotNil(t, provider)
 
@@ -342,7 +258,7 @@ func TestFormattedProvider_Close(t *testing.T) {
 	})
 	t.Run("Fail to close cache provider", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(), &noOpFormatter{},
-			formattedstore.WithCacheProvider(&mockProvider{}))
+			formattedstore.WithCacheProvider(&mock.Provider{}))
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -389,7 +305,7 @@ func TestFormatStore_Put(t *testing.T) {
 	t.Run("Fail to put data in cache store", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(), &noOpFormatter{},
 			formattedstore.WithCacheProvider(
-				&mockProvider{openStoreReturn: &mockStore{errPut: errors.New("put failure")}}))
+				&mock.Provider{OpenStoreReturn: &mock.Store{ErrPut: errors.New("put failure")}}))
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -416,7 +332,7 @@ func TestFormatStore_Get(t *testing.T) {
 		require.Nil(t, value)
 	})
 	t.Run("Fail to deformat value", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{getReturn: []byte("value")}},
+		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{GetReturn: []byte("value")}},
 			&mockFormatter{})
 		require.NotNil(t, provider)
 
@@ -442,8 +358,8 @@ func TestFormatStore_Get(t *testing.T) {
 
 		provider := formattedstore.NewProvider(underlyingProvider, &noOpFormatter{},
 			formattedstore.WithCacheProvider(
-				&mockProvider{openStoreReturn: &mockStore{
-					errGet: newstorage.ErrDataNotFound, errPut: errors.New("put error"),
+				&mock.Provider{OpenStoreReturn: &mock.Store{
+					ErrGet: newstorage.ErrDataNotFound, ErrPut: errors.New("put error"),
 				}}))
 		require.NotNil(t, provider)
 
@@ -473,7 +389,7 @@ func TestFormatStore_GetTags(t *testing.T) {
 		require.Nil(t, value)
 	})
 	t.Run("Fail to deformat tags", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{}},
+		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
 			&mockFormatter{})
 		require.NotNil(t, provider)
 
@@ -524,9 +440,9 @@ func TestFormatStore_Query(t *testing.T) {
 		})
 	})
 	t.Run("Fail to query underlying store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{
-			openStoreReturn: &mockStore{
-				errQuery: errors.New("query failure"),
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				ErrQuery: errors.New("query failure"),
 			},
 		},
 			&noOpFormatter{})
@@ -583,7 +499,7 @@ func TestFormatStore_Batch(t *testing.T) {
 		require.EqualError(t, err, `failed to format key "KeyName": key formatting failure`)
 	})
 	t.Run("Fail to perform formatted operations in underlying store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{}}, &noOpFormatter{})
+		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, &noOpFormatter{})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -602,7 +518,7 @@ func TestFormatStore_Batch(t *testing.T) {
 
 func TestFormatStore_Close(t *testing.T) {
 	t.Run("Fail to close underlying store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{}}, &noOpFormatter{})
+		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, &noOpFormatter{})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -615,7 +531,7 @@ func TestFormatStore_Close(t *testing.T) {
 }
 
 func TestFormattedIterator(t *testing.T) {
-	provider := formattedstore.NewProvider(&mockProvider{openStoreReturn: &mockStore{}}, &noOpFormatter{})
+	provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, &noOpFormatter{})
 	require.NotNil(t, provider)
 
 	store, err := provider.OpenStore("StoreName")

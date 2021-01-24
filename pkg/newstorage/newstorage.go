@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package newstorage
 
-import "errors"
+import (
+	"errors"
+)
 
 // MultiError represents the errors that occurred during a bulk operation.
 type MultiError interface {
@@ -64,18 +66,23 @@ type Operation struct {
 type Provider interface {
 	// OpenStore opens a store with the given name and returns a handle.
 	// If the store has never been opened before, then it is created.
-	// Store names are not case-sensitive.
+	// Store names are not case-sensitive. If name is blank, then an error will be returned.
 	OpenStore(name string) (Store, error)
 
 	// SetStoreConfig sets the configuration on a store.
 	// The store must be created prior to calling this method.
 	// If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
+	// If name is blank, then an error will be returned.
 	SetStoreConfig(name string, config StoreConfiguration) error
 
 	// GetStoreConfig gets the current store configuration.
 	// The store must be created prior to calling this method.
 	// If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
+	// If name is blank, then an error will be returned.
 	GetStoreConfig(name string) (StoreConfiguration, error)
+
+	// GetOpenStores returns all currently open stores.
+	GetOpenStores() []Store
 
 	// Close closes all stores created under this store provider.
 	// For persistent store implementations, this does not delete any data in the stores.
@@ -119,8 +126,12 @@ type Store interface {
 	// If any of the given keys are empty, then an error will be returned.
 	Batch(operations []Operation) error
 
+	// Flush forces any queued up Put and/or Delete operations to execute.
+	// If the Store implementation doesn't queue up operations, then this method is a no-op.
+	Flush() error
+
 	// Close closes this store object, freeing resources. For persistent store implementations, this does not delete
-	// any of the stored data.
+	// any data in the underlying databases.
 	Close() error
 }
 
