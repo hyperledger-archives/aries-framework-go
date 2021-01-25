@@ -34,6 +34,8 @@ type EncAlg string
 const (
 	// A256GCM for AES256GCM content encryption.
 	A256GCM = EncAlg(A256GCMALG)
+	// XC20P for XChacha20Poly1305 content encryption.
+	XC20P = EncAlg(XC20PALG)
 )
 
 // Encrypter interface to Encrypt/Decrypt JWE messages.
@@ -64,9 +66,8 @@ func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Ha
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}
 
-	// TODO add support for Chacha content encryption, issue #1684
 	switch encAlg {
-	case A256GCM:
+	case A256GCM, XC20P:
 	default:
 		return nil, fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
@@ -92,8 +93,12 @@ func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Ha
 	}, nil
 }
 
-func getECDHEncPrimitive(cek []byte) (api.CompositeEncrypt, error) {
+func (je *JWEEncrypt) getECDHEncPrimitive(cek []byte) (api.CompositeEncrypt, error) {
 	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+
+	if je.encAlg == XC20P {
+		kt = ecdh.X25519ECDHXChachaKeyTemplateWithCEK(cek)
+	}
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {
@@ -127,7 +132,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 	cek := random.GetRandomBytes(uint32(cryptoapi.DefKeySize))
 
 	// creating the crypto primitive requires a pre-built cek
-	encPrimitive, err := getECDHEncPrimitive(cek)
+	encPrimitive, err := je.getECDHEncPrimitive(cek)
 	if err != nil {
 		return nil, fmt.Errorf("jweencrypt: failed to get encryption primitive: %w", err)
 	}
@@ -190,17 +195,9 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 	}
 
 	var (
-		senderOpt          cryptoapi.WrapKeyOpts
 		recipientsWK       []*cryptoapi.RecipientWrappedKey
 		singleRecipientAAD []byte
 	)
-
-	kwAlg := tinkcrypto.ECDHESA256KWAlg
-
-	if je.skid != "" && je.senderKH != nil {
-		kwAlg = tinkcrypto.ECDH1PUA256KWAlg
-		senderOpt = cryptoapi.WithSender(je.senderKH)
-	}
 
 	for i, recPubKey := range je.recipientsKeys {
 		var (
@@ -208,8 +205,10 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 			err error
 		)
 
-		if senderOpt != nil {
-			kek, err = je.crypto.WrapKey(cek, apu, apv, recPubKey, senderOpt)
+		kwAlg, wrapOpts := je.getWrapKeyOpts()
+
+		if len(wrapOpts) > 0 {
+			kek, err = je.crypto.WrapKey(cek, apu, apv, recPubKey, wrapOpts...)
 		} else {
 			kek, err = je.crypto.WrapKey(cek, apu, apv, recPubKey)
 		}
@@ -230,6 +229,31 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 	}
 
 	return recipientsWK, singleRecipientAAD, nil
+}
+
+func (je *JWEEncrypt) getWrapKeyOpts() (string, []cryptoapi.WrapKeyOpts) {
+	var wrapOpts []cryptoapi.WrapKeyOpts
+
+	kwAlg := tinkcrypto.ECDHESA256KWAlg
+
+	if je.encAlg == XC20P {
+		kwAlg = tinkcrypto.ECDHESXC20PKWAlg
+
+		wrapOpts = append(wrapOpts, cryptoapi.WithXC20PKW())
+	}
+
+	if je.skid != "" && je.senderKH != nil {
+		switch je.encAlg {
+		case A256GCM:
+			kwAlg = tinkcrypto.ECDH1PUA256KWAlg
+		case XC20P:
+			kwAlg = tinkcrypto.ECDH1PUXC20PKWAlg
+		}
+
+		wrapOpts = append(wrapOpts, cryptoapi.WithSender(je.senderKH))
+	}
+
+	return kwAlg, wrapOpts
 }
 
 // mergeSingleRecipientHeaders for single recipient encryption, recipient header info is available in the key, update
@@ -332,23 +356,36 @@ func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeader
 }
 
 func convertRecEPKToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, error) {
-	var c elliptic.Curve
+	var (
+		c   elliptic.Curve
+		err error
+		key interface{}
+	)
 
-	c, err := hybrid.GetCurve(rec.EPK.Curve)
-	if err != nil {
-		return nil, err
+	switch rec.EPK.Type {
+	case ecdhpb.KeyType_EC.String():
+		c, err = hybrid.GetCurve(rec.EPK.Curve)
+		if err != nil {
+			return nil, err
+		}
+
+		key = &ecdsa.PublicKey{
+			Curve: c,
+			X:     new(big.Int).SetBytes(rec.EPK.X),
+			Y:     new(big.Int).SetBytes(rec.EPK.Y),
+		}
+	case ecdhpb.KeyType_OKP.String():
+		key = rec.EPK.X
+	default:
+		return nil, errors.New("invalid key type")
 	}
 
 	recJWK := JWK{
 		JSONWebKey: jose.JSONWebKey{
 			Use: HeaderEncryption,
-			Key: &ecdsa.PublicKey{
-				Curve: c,
-				X:     new(big.Int).SetBytes(rec.EPK.X),
-				Y:     new(big.Int).SetBytes(rec.EPK.Y),
-			},
+			Key: key,
 		},
-		Kty: ecdhpb.KeyType_EC.String(), // TODO add support for X25519 (OKP) content encryption, issue #1684
+		Kty: rec.EPK.Type,
 		Crv: rec.EPK.Curve,
 	}
 

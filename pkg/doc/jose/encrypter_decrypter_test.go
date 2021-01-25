@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
@@ -36,135 +37,196 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
-	recECKeys, recKHs, _ := createRecipients(t, 20)
+	tests := []struct {
+		name    string
+		kt      *tinkpb.KeyTemplate
+		enc     ariesjose.EncAlg
+		keyType kms.KeyType
+	}{
+		{
+			name:    "P-256 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP256ECDHKWType,
+		},
+		{
+			name:    "P-384 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP384ECDHKWType,
+		},
+		{
+			name:    "P-521 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP521ECDHKWType,
+		},
+		{
+			name:    "X25519 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.X25519ECDHKWType,
+		},
+		{
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP256ECDHKWType,
+		},
+		{
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP384ECDHKWType,
+		},
+		{
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP521ECDHKWType,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.X25519ECDHKWType,
+		},
+	}
 
-	cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			recECKeys, recKHs, _ := createRecipientsByKeyTemplate(t, 3, tc.kt, tc.keyType)
 
-	_, err = ariesjose.NewJWEEncrypt("", "", "", nil, recECKeys, cryptoSvc)
-	require.EqualError(t, err, "encryption algorithm '' not supported",
-		"NewJWEEncrypt should fail with empty encAlg")
+			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
 
-	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType,
-		"", nil, recECKeys, cryptoSvc)
-	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+			_, err = ariesjose.NewJWEEncrypt("", "", "", nil, recECKeys, cryptoSvc)
+			require.EqualError(t, err, "encryption algorithm '' not supported",
+				"NewJWEEncrypt should fail with empty encAlg")
 
-	pt := []byte("some msg")
-	jwe, err := jweEncrypter.EncryptWithAuthData(pt, []byte("aad value"))
-	require.NoError(t, err)
-	require.Equal(t, len(recECKeys), len(jwe.Recipients))
+			jweEncrypter, err := ariesjose.NewJWEEncrypt(tc.enc, ariesjose.DIDCommEncType,
+				"", nil, recECKeys, cryptoSvc)
+			require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
-	serializedJWE, err := jwe.FullSerialize(json.Marshal)
-	require.NoError(t, err)
-	require.NotEmpty(t, serializedJWE)
+			pt := []byte("some msg")
+			jwe, err := jweEncrypter.EncryptWithAuthData(pt, []byte("aad value"))
+			require.NoError(t, err)
+			require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
-	// try to deserialize with go-jose (can't decrypt in go-jose since private key is protected by Tink)
-	joseJWE, err := jose.ParseEncrypted(serializedJWE)
-	require.NoError(t, err)
-	require.NotEmpty(t, joseJWE)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
+			require.NoError(t, err)
+			require.NotEmpty(t, serializedJWE)
 
-	// try to deserialize with local package
-	localJWE, err := ariesjose.Deserialize(serializedJWE)
-	require.NoError(t, err)
+			// try to deserialize with go-jose (can't decrypt in go-jose since private key is protected by Tink)
+			joseJWE, err := jose.ParseEncrypted(serializedJWE)
+			require.NoError(t, err)
+			require.NotEmpty(t, joseJWE)
 
-	t.Run("Decrypting JWE tests failures", func(t *testing.T) {
-		jweDecrypter := ariesjose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
+			// try to deserialize with local package
+			localJWE, err := ariesjose.Deserialize(serializedJWE)
+			require.NoError(t, err)
 
-		// decrypt empty JWE
-		_, err = jweDecrypter.Decrypt(nil)
-		require.EqualError(t, err, "jwedecrypt: jwe is nil")
+			t.Run("Decrypting JWE tests failures", func(t *testing.T) {
+				jweDecrypter := ariesjose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
 
-		var badJWE *ariesjose.JSONWebEncryption
+				// decrypt empty JWE
+				_, err = jweDecrypter.Decrypt(nil)
+				require.EqualError(t, err, "jwedecrypt: jwe is nil")
 
-		badJWE, err = ariesjose.Deserialize(serializedJWE)
-		require.NoError(t, err)
+				var badJWE *ariesjose.JSONWebEncryption
 
-		ph := badJWE.ProtectedHeaders
-		badJWE.ProtectedHeaders = nil
+				badJWE, err = ariesjose.Deserialize(serializedJWE)
+				require.NoError(t, err)
 
-		// decrypt JWE with empty ProtectHeaders
-		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: jwe is missing protected headers")
+				ph := badJWE.ProtectedHeaders
+				badJWE.ProtectedHeaders = nil
 
-		badJWE.ProtectedHeaders = ariesjose.Headers{}
-		badJWE.ProtectedHeaders["somKey"] = "badKey"
-		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: jwe is missing encryption algorithm 'enc' header")
+				// decrypt JWE with empty ProtectHeaders
+				_, err = jweDecrypter.Decrypt(badJWE)
+				require.EqualError(t, err, "jwedecrypt: jwe is missing protected headers")
 
-		badJWE.ProtectedHeaders = map[string]interface{}{
-			ariesjose.HeaderEncryption: "badEncHeader",
-			ariesjose.HeaderType:       "test",
-		}
+				badJWE.ProtectedHeaders = ariesjose.Headers{}
+				badJWE.ProtectedHeaders["somKey"] = "badKey"
+				_, err = jweDecrypter.Decrypt(badJWE)
+				require.EqualError(t, err, "jwedecrypt: jwe is missing encryption algorithm 'enc' header")
 
-		// decrypt JWE with bad Enc header value
-		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: encryption algorithm 'badEncHeader' not supported")
+				badJWE.ProtectedHeaders = map[string]interface{}{
+					ariesjose.HeaderEncryption: "badEncHeader",
+					ariesjose.HeaderType:       "test",
+				}
 
-		badJWE.ProtectedHeaders = ph
+				// decrypt JWE with bad Enc header value
+				_, err = jweDecrypter.Decrypt(badJWE)
+				require.EqualError(t, err, "jwedecrypt: encryption algorithm 'badEncHeader' not supported")
 
-		// decrypt JWE with invalid recipient key
-		badJWE.Recipients = []*ariesjose.Recipient{
-			{
-				EncryptedKey: "someKey",
-				Header: &ariesjose.RecipientHeaders{
-					EPK: []byte("somerawbytes"),
-				},
-			},
-			{
-				EncryptedKey: "someOtherKey",
-				Header: &ariesjose.RecipientHeaders{
-					EPK: []byte("someotherrawbytes"),
-				},
-			},
-		}
+				badJWE.ProtectedHeaders = ph
 
-		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unable to read "+
-			"JWK: invalid character 's' looking for beginning of value")
+				// decrypt JWE with invalid recipient key
+				badJWE.Recipients = []*ariesjose.Recipient{
+					{
+						EncryptedKey: "someKey",
+						Header: &ariesjose.RecipientHeaders{
+							EPK: []byte("somerawbytes"),
+						},
+					},
+					{
+						EncryptedKey: "someOtherKey",
+						Header: &ariesjose.RecipientHeaders{
+							EPK: []byte("someotherrawbytes"),
+						},
+					},
+				}
 
-		// decrypt JWE with unsupported recipient key
-		var privKey *rsa.PrivateKey
+				_, err = jweDecrypter.Decrypt(badJWE)
+				require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unable to read "+
+					"JWK: invalid character 's' looking for beginning of value")
 
-		privKey, err = rsa.GenerateKey(rand.Reader, 2048)
+				// decrypt JWE with unsupported recipient key
+				var privKey *rsa.PrivateKey
 
-		unsupportedJWK := ariesjose.JWK{
-			JSONWebKey: jose.JSONWebKey{
-				Key: &privKey.PublicKey,
-			},
-		}
+				privKey, err = rsa.GenerateKey(rand.Reader, 2048)
 
-		var mk []byte
+				unsupportedJWK := ariesjose.JWK{
+					JSONWebKey: jose.JSONWebKey{
+						Key: &privKey.PublicKey,
+					},
+				}
 
-		mk, err = unsupportedJWK.MarshalJSON()
-		require.NoError(t, err)
+				var mk []byte
 
-		badJWE.Recipients = []*ariesjose.Recipient{
-			{
-				EncryptedKey: "someKey",
-				Header: &ariesjose.RecipientHeaders{
-					EPK: mk,
-				},
-			},
-			{
-				EncryptedKey: "someOtherKey",
-				Header: &ariesjose.RecipientHeaders{
-					EPK: mk,
-				},
-			},
-		}
+				mk, err = unsupportedJWK.MarshalJSON()
+				require.NoError(t, err)
 
-		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unsupported recipient key type")
-	})
+				badJWE.Recipients = []*ariesjose.Recipient{
+					{
+						EncryptedKey: "someKey",
+						Header: &ariesjose.RecipientHeaders{
+							EPK: mk,
+						},
+					},
+					{
+						EncryptedKey: "someOtherKey",
+						Header: &ariesjose.RecipientHeaders{
+							EPK: mk,
+						},
+					},
+				}
 
-	t.Run("Decrypting JWE test success ", func(t *testing.T) {
-		jweDecrypter := ariesjose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
+				_, err = jweDecrypter.Decrypt(badJWE)
+				require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unsupported recipient key type")
+			})
 
-		var msg []byte
+			t.Run("Decrypting JWE test success ", func(t *testing.T) {
+				jweDecrypter := ariesjose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
 
-		msg, err = jweDecrypter.Decrypt(localJWE)
-		require.NoError(t, err)
-		require.EqualValues(t, pt, msg)
-	})
+				var msg []byte
+
+				msg, err = jweDecrypter.Decrypt(localJWE)
+				require.NoError(t, err)
+				require.EqualValues(t, pt, msg)
+			})
+		})
+	}
 }
 
 func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
@@ -374,8 +436,13 @@ func convertToGoJoseRecipients(t *testing.T, keys []*cryptoapi.PublicKey, kids [
 	return joseRecipients
 }
 
-// createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
+	return createRecipientsByKeyTemplate(t, nbOfEntities, ecdh.NISTP256ECDHKWKeyTemplate(), kms.NISTP256ECDHKWType)
+}
+
+// createRecipients and return their public key and keyset.Handle.
+func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.KeyTemplate,
+	kType kms.KeyType) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
 	t.Helper()
 
 	r := make([]*cryptoapi.PublicKey, 0)
@@ -383,7 +450,7 @@ func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, m
 	rKID := make([]string, 0)
 
 	for i := 0; i < nbOfEntities; i++ {
-		mrKey, kh, kid := createAndMarshalEntityKey(t)
+		mrKey, kh, kid := createAndMarshalEntityKey(t, kt, kType)
 
 		ecPubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
@@ -401,12 +468,11 @@ func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, m
 
 // createAndMarshalEntityKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
-func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle, string) {
+func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
+	kType kms.KeyType) ([]byte, *keyset.Handle, string) {
 	t.Helper()
 
-	tmpl := ecdh.NISTP256ECDHKWKeyTemplate()
-
-	kh, err := keyset.NewHandle(tmpl)
+	kh, err := keyset.NewHandle(kt)
 	require.NoError(t, err)
 
 	pubKH, err := kh.Public()
@@ -419,7 +485,7 @@ func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle, string) {
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	require.NoError(t, err)
 
-	kid, err := jwkkid.CreateKID(buf.Bytes(), kms.ECDH256KWAES256GCMType)
+	kid, err := jwkkid.CreateKID(buf.Bytes(), kType)
 	require.NoError(t, err)
 
 	return buf.Bytes(), kh, kid
@@ -436,59 +502,120 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 }
 
 func TestECDH1PU(t *testing.T) {
-	recipients, recKHs, _ := createRecipients(t, 2)
-	senders, senderKHs, senderKIDs := createRecipients(t, 1)
-
-	c, k := createCryptoAndKMSServices(t, recKHs)
-
-	senderPubKey, err := json.Marshal(senders[0])
-	require.NoError(t, err)
-
-	jweEnc, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType, senderKIDs[0],
-		senderKHs[senderKIDs[0]], recipients, c)
-	require.NoError(t, err)
-	require.NotEmpty(t, jweEnc)
-
-	mockStoreMap := make(map[string][]byte)
-	mockStore := &mockstorage.MockStore{
-		Store: mockStoreMap,
+	tests := []struct {
+		name    string
+		kt      *tinkpb.KeyTemplate
+		enc     ariesjose.EncAlg
+		keyType kms.KeyType
+	}{
+		{
+			name:    "P-256 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP256ECDHKWType,
+		},
+		{
+			name:    "P-384 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP384ECDHKWType,
+		},
+		{
+			name:    "P-521 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP521ECDHKWType,
+		},
+		{
+			name:    "X25519 ECDH KW and AES256GCM encryption",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.X25519ECDHKWType,
+		},
+		{
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP256ECDHKWType,
+		},
+		{
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP384ECDHKWType,
+		},
+		{
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP521ECDHKWType,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.X25519ECDHKWType,
+		},
 	}
 
-	pt := []byte("plaintext payload")
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, 2, tc.kt, tc.keyType)
+			senders, senderKHs, senderKIDs := createRecipientsByKeyTemplate(t, 1, tc.kt, tc.keyType)
 
-	// test JWEEncrypt for ECDH1PU
-	jwe, err := jweEnc.Encrypt(pt)
-	require.NoError(t, err)
+			c, k := createCryptoAndKMSServices(t, recKHs)
 
-	serializedJWE, err := jwe.FullSerialize(json.Marshal)
-	require.NoError(t, err)
-	require.NotEmpty(t, serializedJWE)
+			senderPubKey, err := json.Marshal(senders[0])
+			require.NoError(t, err)
 
-	localJWE, err := ariesjose.Deserialize(serializedJWE)
-	require.NoError(t, err)
+			jweEnc, err := ariesjose.NewJWEEncrypt(tc.enc, ariesjose.DIDCommEncType, senderKIDs[0],
+				senderKHs[senderKIDs[0]], recipients, c)
+			require.NoError(t, err)
+			require.NotEmpty(t, jweEnc)
 
-	t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
-		jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
-		require.NotEmpty(t, jd)
+			mockStoreMap := make(map[string][]byte)
+			mockStore := &mockstorage.MockStore{
+				Store: mockStoreMap,
+			}
 
-		_, err = jd.Decrypt(localJWE)
-		require.EqualError(t, err, "jwedecrypt: failed to add sender public key for skid: failed to get sender"+
-			" key from DB: data not found")
-	})
+			pt := []byte("plaintext payload")
 
-	// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
-	mockStoreMap[senderKIDs[0]] = senderPubKey
+			// test JWEEncrypt for ECDH1PU
+			jwe, err := jweEnc.Encrypt(pt)
+			require.NoError(t, err)
 
-	t.Run("Decrypting JWE message test success", func(t *testing.T) {
-		jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
-		require.NotEmpty(t, jd)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
+			require.NoError(t, err)
+			require.NotEmpty(t, serializedJWE)
 
-		var msg []byte
+			localJWE, err := ariesjose.Deserialize(serializedJWE)
+			require.NoError(t, err)
 
-		msg, err = jd.Decrypt(localJWE)
-		require.NoError(t, err)
-		require.EqualValues(t, pt, msg)
-	})
+			t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
+				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+				require.NotEmpty(t, jd)
+
+				_, err = jd.Decrypt(localJWE)
+				require.EqualError(t, err, "jwedecrypt: failed to add sender public key for skid: failed to get sender"+
+					" key from DB: data not found")
+			})
+
+			// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
+			mockStoreMap[senderKIDs[0]] = senderPubKey
+
+			t.Run("Decrypting JWE message test success", func(t *testing.T) {
+				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+				require.NotEmpty(t, jd)
+
+				var msg []byte
+
+				msg, err = jd.Decrypt(localJWE)
+				require.NoError(t, err)
+				require.EqualValues(t, pt, msg)
+			})
+		})
+	}
 }
 
 func createCryptoAndKMSServices(t *testing.T, keys map[string]*keyset.Handle) (cryptoapi.Crypto, kms.KeyManager) {

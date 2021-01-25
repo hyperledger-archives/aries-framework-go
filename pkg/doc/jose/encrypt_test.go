@@ -28,11 +28,21 @@ func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
 	recKey := &cryptoapi.RecipientWrappedKey{
 		EPK: cryptoapi.PublicKey{
 			Curve: "badCurveName",
+			Type:  "EC",
 		},
 	}
 
 	_, err := convertRecEPKToMarshalledJWK(recKey)
 	require.EqualError(t, err, "unsupported curve")
+
+	recKey = &cryptoapi.RecipientWrappedKey{
+		EPK: cryptoapi.PublicKey{
+			Curve: "badCurveName",
+		},
+	}
+
+	_, err = convertRecEPKToMarshalledJWK(recKey)
+	require.EqualError(t, err, "invalid key type")
 }
 
 func TestBadSenderKeyType(t *testing.T) {
@@ -68,7 +78,7 @@ func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
 	require.NoError(t, err)
 
 	wk := &cryptoapi.RecipientWrappedKey{
-		EPK: cryptoapi.PublicKey{},
+		EPK: cryptoapi.PublicKey{Type: "EC"},
 	}
 
 	// fail with aad not base64URL encoded

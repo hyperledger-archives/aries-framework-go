@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -47,8 +48,12 @@ func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *J
 	}
 }
 
-func getECDHDecPrimitive(cek []byte) (api.CompositeDecrypt, error) {
+func getECDHDecPrimitive(cek []byte, encAlg string) (api.CompositeDecrypt, error) {
 	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+
+	if encAlg == XC20PALG {
+		kt = ecdh.X25519ECDHXChachaKeyTemplateWithCEK(cek)
+	}
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {
@@ -95,13 +100,23 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	var cek []byte
 
 	for _, rec := range recWK {
+		var unwrapOpts []cryptoapi.WrapKeyOpts
+
 		recKH, err := jd.kms.Get(rec.KID)
 		if err != nil {
 			continue
 		}
 
+		if rec.EPK.Type == ecdhpb.KeyType_OKP.String() {
+			unwrapOpts = append(unwrapOpts, cryptoapi.WithXC20PKW())
+		}
+
 		if senderOpt != nil {
-			cek, err = jd.crypto.UnwrapKey(rec, recKH, senderOpt)
+			unwrapOpts = append(unwrapOpts, senderOpt)
+		}
+
+		if len(unwrapOpts) > 0 {
+			cek, err = jd.crypto.UnwrapKey(rec, recKH, unwrapOpts...)
 		} else {
 			cek, err = jd.crypto.UnwrapKey(rec, recKH)
 		}
@@ -119,7 +134,12 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 }
 
 func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, error) {
-	decPrimitive, err := getECDHDecPrimitive(cek)
+	encAlg, ok := jwe.ProtectedHeaders.Encryption()
+	if !ok {
+		return nil, fmt.Errorf("jwedecrypt: JWE 'enc' protected header is missing")
+	}
+
+	decPrimitive, err := getECDHDecPrimitive(cek, encAlg)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: failed to get decryption primitive: %w", err)
 	}
@@ -173,9 +193,8 @@ func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption)
 		return fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
 	}
 
-	// TODO add support for Chacha content encryption, issue #1684
 	switch encAlg {
-	case string(A256GCM):
+	case string(A256GCM), string(XC20P):
 	default:
 		return fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
@@ -294,6 +313,8 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWra
 	case *ecdsa.PublicKey:
 		epk.X = key.X.Bytes()
 		epk.Y = key.Y.Bytes()
+	case []byte:
+		epk.X = key
 	default:
 		return nil, fmt.Errorf("unsupported recipient key type")
 	}

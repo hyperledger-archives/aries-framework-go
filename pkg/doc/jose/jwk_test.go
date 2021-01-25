@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"strings"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -74,6 +75,16 @@ func TestDecodePublicKey(t *testing.T) {
 							"kid": "sample@sample.id",
 							"x": "sEHL6KXs8bUz9Ss2qSWWjhhRMHVjrog0lzFENM132R8",
 							"alg": "EdDSA"
+						}`,
+			},
+			{
+				name: "get public key bytes X25519 JWK",
+				jwkJSON: `{
+							"kty": "OKP",
+							"use": "enc",
+							"crv": "X25519",
+							"kid": "sample@sample.id",
+							"x": "sEHL6KXs8bUz9Ss2qSWWjhhRMHVjrog0lzFENM132R8"
 						}`,
 			},
 			{
@@ -230,6 +241,16 @@ func TestDecodePublicKey(t *testing.T) {
 				err: "invalid JWK",
 			},
 			{
+				name: "X is not defined X25519",
+				jwkJSON: `{
+    						"kty": "OKP",
+    						"use": "enc",
+    						"crv": "X25519",
+    						"kid": "sample@sample.id"
+						}`,
+				err: "invalid JWK",
+			},
+			{
 				name: "Y is not defined",
 				jwkJSON: `{
 							"kty": "EC",
@@ -281,6 +302,17 @@ func TestDecodePublicKey(t *testing.T) {
 						}`,
 				err: "unable to read JWK",
 			},
+			{
+				name: "invalid X25519",
+				jwkJSON: `{
+    						"kty": "OKP",
+    						"use": "enc",
+    						"crv": "X25519",
+    						"x": "wQehEGTVCu32yp8IwTaBCqPUIYslyd-WoFRsfDKE9IIrIJO8RmkExUecJ5i15L9OC7rl7pwmYFR8QQgdM1ERWO",
+    						"kid": "sample@sample.id"
+						}`,
+				err: "unable to read X25519 JWE: invalid JWK",
+			},
 		}
 
 		t.Parallel()
@@ -316,6 +348,25 @@ func TestJWKFromPublicKeyFailure(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create JWK")
 	require.Nil(t, key)
+}
+
+func TestJWKFromX25519KeyFailure(t *testing.T) {
+	key, err := JWEFromX25519Key([]byte(strings.Repeat("a", 33))) // try to create a key larger than X25519
+	require.EqualError(t, err, "create JWK: marshalX25519: invalid key")
+	require.Nil(t, key)
+
+	key, err = JWEFromX25519Key(nil) // try to create a nil key
+	require.EqualError(t, err, "create JWK: marshalX25519: invalid key")
+	require.Nil(t, key)
+
+	key = &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: "abc", // try to create an invalid X25519 key type (string instead of []byte)
+		},
+	}
+
+	_, err = marshalX25519(key)
+	require.EqualError(t, err, "marshalX25519: invalid key")
 }
 
 func TestJWK_PublicKeyBytesValidation(t *testing.T) {

@@ -28,43 +28,78 @@ import (
 
 func TestAnoncryptPackerSuccess(t *testing.T) {
 	k := createKMS(t)
-	_, recipientsKeys, keyHandles := createRecipients(t, k, 10)
 
-	cryptoSvc, err := tinkcrypto.New()
-	require.NoError(t, err)
+	tests := []struct {
+		name    string
+		keyType kms.KeyType
+		encAlg  jose.EncAlg
+	}{
+		{
+			"anoncrypt using NISTP256ECDHKW and AES256-GCM",
+			kms.NISTP256ECDHKWType,
+			jose.A256GCM,
+		},
+		{
+			"anoncrypt using X25519ECDHKW and XChacha20Poly1305",
+			kms.X25519ECDHKWType,
+			jose.XC20P,
+		},
+		{
+			"anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
+			kms.NISTP256ECDHKWType,
+			jose.XC20P,
+		},
+		{
+			"anoncrypt using X25519ECDHKW and AES256-GCM",
+			kms.X25519ECDHKWType,
+			jose.A256GCM,
+		},
+	}
 
-	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
-	require.NoError(t, err)
+	t.Parallel()
 
-	origMsg := []byte("secret message")
-	ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		tc := tt
+		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
+			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
-	msg, err := anonPacker.Unpack(ct)
-	require.NoError(t, err)
+			cryptoSvc, err := tinkcrypto.New()
+			require.NoError(t, err)
 
-	recKey, err := exportPubKeyBytes(keyHandles[0])
-	require.NoError(t, err)
+			anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+			require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			origMsg := []byte("secret message")
+			ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
+			require.NoError(t, err)
 
-	// try with only 1 recipient
-	ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
-	require.NoError(t, err)
+			msg, err := anonPacker.Unpack(ct)
+			require.NoError(t, err)
 
-	msg, err = anonPacker.Unpack(ct)
-	require.NoError(t, err)
+			recKey, err := exportPubKeyBytes(keyHandles[0])
+			require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
-	require.Equal(t, encodingType, anonPacker.EncodingType())
+			// try with only 1 recipient
+			ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+			require.NoError(t, err)
+
+			msg, err = anonPacker.Unpack(ct)
+			require.NoError(t, err)
+
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+
+			require.Equal(t, encodingType, anonPacker.EncodingType())
+		})
+	}
 }
 
 func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	k := createKMS(t)
 	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
-	_, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.ECDH384KWAES256GCM)
-	_, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.ECDH521KWAES256GCM)
+	_, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP384ECDHKW)
+	_, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP521ECDHKW)
 
 	recipientsKeys := make([][]byte, 3)
 	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
@@ -183,10 +218,10 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		require.NoError(t, err)
 
 		// rotate keys to update keyID and force a failure
-		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[0])
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[0])
 		require.NoError(t, err)
 
-		_, _, err = k.Rotate(kms.ECDH256KWAES256GCMType, kids[1])
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[1])
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Unpack(ct)
@@ -196,7 +231,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 // createRecipients and return their public key and keyset.Handle.
 func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
-	return createRecipientsByKeyType(t, k, recipientsCount, kms.ECDH256KWAES256GCM)
+	return createRecipientsByKeyType(t, k, recipientsCount, kms.NISTP256ECDHKW)
 }
 
 func createRecipientsByKeyType(t *testing.T, k *localkms.LocalKMS, recipientsCount int,

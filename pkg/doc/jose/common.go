@@ -85,6 +85,8 @@ const (
 	// A256GCMALG is the default content encryption algorithm value as per
 	// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
 	A256GCMALG = "A256GCM"
+	// XC20PALG represented XChacha20Poly1305 content encryption algorithm value.
+	XC20PALG = "XC20P"
 	// DIDCommEncType representing the JWE 'Typ' protected type header.
 	DIDCommEncType = "didcomm-envelope-enc"
 )

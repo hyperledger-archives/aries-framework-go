@@ -260,15 +260,16 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.ECDSAP384TypeIEEEP1363,
 		kms.ECDSAP521TypeIEEEP1363,
 		kms.ED25519Type,
-		kms.ECDH256KWAES256GCMType,
-		kms.ECDH384KWAES256GCMType,
-		kms.ECDH521KWAES256GCMType,
+		kms.NISTP256ECDHKWType,
+		kms.NISTP384ECDHKWType,
+		kms.NISTP521ECDHKWType,
+		kms.X25519ECDHKWType,
 	}
 
 	for _, v := range keyTemplates {
 		// test Create() a new key
 		keyID, newKeyHandle, e := kmsService.Create(v)
-		require.NoError(t, e)
+		require.NoError(t, e, "failed on template %v", v)
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
 
