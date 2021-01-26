@@ -28,13 +28,13 @@ func TestCreateVerifyHashAlgorithm(t *testing.T) {
 	err := json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
-	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldDidCache)
+	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions)
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// test error due to missing proof option
 	delete(proofOptions, jsonldCreated)
-	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions)
 	require.NotNil(t, err)
 	require.Nil(t, normalizedDoc)
 	require.Contains(t, err.Error(), "created is missing")
@@ -61,13 +61,13 @@ func TestPrepareCanonicalProofOptions(t *testing.T) {
 		"nonce":    "nonce",
 	}
 
-	canonicalProofOptions, err := prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions, jsonldDidCache)
+	canonicalProofOptions, err := prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions)
 	require.NoError(t, err)
 	require.NotEmpty(t, canonicalProofOptions)
 
 	// test missing created
 	delete(proofOptions, jsonldCreated)
-	canonicalProofOptions, err = prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions, jsonldDidCache)
+	canonicalProofOptions, err = prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions)
 	require.NotNil(t, err)
 	require.Nil(t, canonicalProofOptions)
 	require.Contains(t, err.Error(), "created is missing")
@@ -88,24 +88,24 @@ func TestCreateVerifyData(t *testing.T) {
 	require.NoError(t, err)
 
 	p.SignatureRepresentation = SignatureProofValue
-	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p)
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureProofValue
-	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{compactProof: true}, doc, p, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{compactProof: true}, doc, p)
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureJWS
 	p.JWS = "jws header.."
-	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p)
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// unsupported signature representation
 	p.SignatureRepresentation = SignatureRepresentation(-1)
-	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported signature representation")

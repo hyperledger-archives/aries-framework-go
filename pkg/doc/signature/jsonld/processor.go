@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -33,11 +32,10 @@ var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
 
 // processorOpts holds options for canonicalization of JSON LD docs.
 type processorOpts struct {
-	removeInvalidRDF    bool
-	validateRDF         bool
-	documentLoader      ld.DocumentLoader
-	externalContexts    []string
-	documentLoaderCache map[string]interface{}
+	removeInvalidRDF bool
+	validateRDF      bool
+	documentLoader   ld.DocumentLoader
+	externalContexts []string
 }
 
 // ProcessorOpts are the options for JSON LD operations on docs (like canonicalization or compacting).
@@ -54,22 +52,6 @@ func WithRemoveAllInvalidRDF() ProcessorOpts {
 func WithDocumentLoader(loader ld.DocumentLoader) ProcessorOpts {
 	return func(opts *processorOpts) {
 		opts.documentLoader = loader
-	}
-}
-
-// WithDocumentLoaderCache option is for passing cached contexts to be used by JSON-LD context document loader.
-// Supported value types: map[string]interface{}, string, []byte, io.Reader.
-func WithDocumentLoaderCache(cache map[string]interface{}) ProcessorOpts {
-	return func(opts *processorOpts) {
-		if opts.documentLoaderCache == nil {
-			opts.documentLoaderCache = make(map[string]interface{})
-		}
-
-		for k, v := range cache {
-			if cacheValue := getDocumentCacheValue(v); cacheValue != nil {
-				opts.documentLoaderCache[k] = cacheValue
-			}
-		}
 	}
 }
 
@@ -91,7 +73,8 @@ func WithValidateRDF() ProcessorOpts {
 // Processor is JSON-LD processor for aries.
 // processing mode JSON-LD 1.0 {RFC: https://www.w3.org/TR/2014/REC-json-ld-20140116}
 type Processor struct {
-	algorithm string
+	algorithm     string
+	defaultLoader ld.DocumentLoader
 }
 
 // NewProcessor returns new JSON-LD processor for aries.
@@ -100,29 +83,30 @@ func NewProcessor(algorithm string) *Processor {
 		return Default()
 	}
 
-	return &Processor{algorithm}
+	return &Processor{algorithm: algorithm, defaultLoader: createCachingDocumentLoader()}
 }
 
 // Default returns new JSON-LD processor with default RDF dataset algorithm.
 func Default() *Processor {
-	return &Processor{defaultAlgorithm}
+	return &Processor{algorithm: defaultAlgorithm, defaultLoader: createCachingDocumentLoader()}
 }
 
 // GetCanonicalDocument returns canonized document of given json ld.
 func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...ProcessorOpts) ([]byte, error) {
-	procOptions := prepareOpts(opts)
+	procOptions := p.prepareOpts(opts)
 
-	proc := ld.NewJsonLdProcessor()
+	if len(procOptions.externalContexts) > 0 {
+		doc["@context"] = AppendExternalContexts(doc["@context"], procOptions.externalContexts...)
+	}
+
 	ldOptions := ld.NewJsonLdOptions("")
 	ldOptions.ProcessingMode = ld.JsonLd_1_1
 	ldOptions.Algorithm = p.algorithm
 	ldOptions.Format = format
 	ldOptions.ProduceGeneralizedRdf = true
-	useDocumentLoader(ldOptions, procOptions.documentLoader, procOptions.documentLoaderCache)
+	ldOptions.DocumentLoader = procOptions.documentLoader
 
-	if len(procOptions.externalContexts) > 0 {
-		doc["@context"] = AppendExternalContexts(doc["@context"], procOptions.externalContexts...)
-	}
+	proc := ld.NewJsonLdProcessor()
 
 	view, err := proc.Normalize(doc, ldOptions)
 	if err != nil {
@@ -164,15 +148,7 @@ func AppendExternalContexts(context interface{}, extraContexts ...string) []inte
 // Compact compacts given json ld object.
 func (p *Processor) Compact(input, context map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
-
-	procOptions := prepareOpts(opts)
-
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+	procOptions := p.prepareOpts(opts)
 
 	if context == nil {
 		inputContext := input["@context"]
@@ -185,24 +161,30 @@ func (p *Processor) Compact(input, context map[string]interface{},
 		context = map[string]interface{}{"@context": inputContext}
 	}
 
-	return proc.Compact(input, context, options)
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Format = format
+	ldOptions.ProduceGeneralizedRdf = true
+	ldOptions.DocumentLoader = procOptions.documentLoader
+
+	return ld.NewJsonLdProcessor().Compact(input, context, ldOptions)
 }
 
 // Frame makes a frame from the inputDoc using frameDoc.
 func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
+	procOptions := p.prepareOpts(opts)
+
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Format = format
+	ldOptions.ProduceGeneralizedRdf = true
+	ldOptions.DocumentLoader = procOptions.documentLoader
+
 	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
-
-	procOptions := prepareOpts(opts)
-
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
 
 	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
-	duplicatedIDs, err := getDuplicatedIDs(inputDoc, proc, options)
+	duplicatedIDs, err := getDuplicatedIDs(inputDoc, proc, ldOptions)
 	if err != nil {
 		return nil, fmt.Errorf("get duplicated ids: %w", err)
 	}
@@ -230,9 +212,9 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 		inputDocCopy = inputDoc
 	}
 
-	options.OmitGraph = true
+	ldOptions.OmitGraph = true
 
-	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, options)
+	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, ldOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -397,40 +379,12 @@ func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
 	return result.(string), nil
 }
 
-func useDocumentLoader(ldOptions *ld.JsonLdOptions, loader ld.DocumentLoader, cache map[string]interface{}) {
-	if loader == nil && len(cache) == 0 {
-		return
-	}
-
-	ldOptions.DocumentLoader = getCachingDocumentLoader(loader, cache)
-}
-
-func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interface{}) *ld.CachingDocumentLoader {
-	cachingLoader := createCachingDocumentLoader(loader)
-
-	for k, v := range cache {
-		cachingLoader.AddDocument(k, v)
-	}
-
-	return cachingLoader
-}
-
-func createCachingDocumentLoader(loader ld.DocumentLoader) *ld.CachingDocumentLoader {
-	if loader == nil {
-		return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
-	}
-
-	if cachingLoader, ok := loader.(*ld.CachingDocumentLoader); ok {
-		return cachingLoader
-	}
-
-	return ld.NewCachingDocumentLoader(loader)
-}
-
 // prepareOpts prepare processorOpts from given CanonicalizationOpts arguments.
-func prepareOpts(opts []ProcessorOpts) *processorOpts {
-	nOpts := &processorOpts{}
-	// apply opts
+func (p *Processor) prepareOpts(opts []ProcessorOpts) *processorOpts {
+	nOpts := &processorOpts{
+		documentLoader: p.defaultLoader,
+	}
+
 	for _, opt := range opts {
 		opt(nOpts)
 	}
@@ -438,30 +392,16 @@ func prepareOpts(opts []ProcessorOpts) *processorOpts {
 	return nOpts
 }
 
-func getDocumentCacheValue(v interface{}) interface{} {
-	switch cv := v.(type) {
-	case map[string]interface{}:
-		return cv
+func createCachingDocumentLoader() *ld.CachingDocumentLoader {
+	cachingLoader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
 
-	case string:
+	for k, v := range jsonldCache {
 		var m map[string]interface{}
 
-		if err := json.Unmarshal([]byte(cv), &m); err == nil {
-			return m
-		}
-
-	case []byte:
-		var m map[string]interface{}
-
-		if err := json.Unmarshal(cv, &m); err == nil {
-			return m
-		}
-
-	case io.Reader:
-		if reader, err := ld.DocumentFromReader(cv); err == nil {
-			return reader
+		if err := json.Unmarshal([]byte(v), &m); err == nil {
+			cachingLoader.AddDocument(k, m)
 		}
 	}
 
-	return nil
+	return cachingLoader
 }
