@@ -138,7 +138,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// fromKey is stored in the KMS
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
 		// for authcrypt, sender key should be in third party store, must use base58 wrapped store to match kms store.
@@ -149,7 +149,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
-		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCM)
+		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKW)
 		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to keys
@@ -207,10 +207,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// use ECDH1PU type as we are using a sender key (ie: packer's FromKey is not empty aka authcrypt)
-		fromKID, _, err := customKMS.Create(kms.ECDH384KWAES256GCMType)
+		fromKID, _, err := customKMS.Create(kms.NISTP384ECDHKWType)
 		require.NoError(t, err)
 
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH384KWAES256GCMType)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKWType)
 		require.NoError(t, err)
 
 		// try pack with nil envelope - should fail
@@ -282,10 +282,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
+		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ECDH256KWAES256GCMType)
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass

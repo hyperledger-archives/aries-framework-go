@@ -64,7 +64,6 @@ type RecipientHeaders struct {
 	Tag string          `json:"tag,omitempty"`
 	KID string          `json:"kid,omitempty"`
 	EPK json.RawMessage `json:"epk,omitempty"`
-	SPK json.RawMessage `json:"spk,omitempty"`
 }
 
 // rawJSONWebEncryption represents a RAW JWE that is used for serialization/deserialization.

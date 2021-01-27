@@ -21,6 +21,8 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/square/go-jose/v3"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 const (
@@ -29,6 +31,8 @@ const (
 	secp256k1Kty  = "EC"
 	secp256k1Size = 32
 	bitsPerByte   = 8
+	x25519Crv     = "X25519"
+	x25519Kty     = "OKP"
 )
 
 // JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.
@@ -46,6 +50,32 @@ func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 		JSONWebKey: jose.JSONWebKey{
 			Key: pubKey,
 		},
+	}
+
+	// marshal/unmarshal to get all JWK's fields other than Key filled.
+	keyBytes, err := key.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	err = key.UnmarshalJSON(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	return key, nil
+}
+
+// JWEFromX25519Key is similar to JWKFromPublicKey but is specific to X25519 keys when using a public key as raw []byte.
+// This builder function presets the curve and key type in the JWK.
+// Using JWKFromPublicKey for X25519 raw keys will not have these fields set and will not provide the right JWK output.
+func JWEFromX25519Key(pubKey []byte) (*JWK, error) {
+	key := &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: pubKey,
+		},
+		Crv: "X25519",
+		Kty: "OKP",
 	}
 
 	// marshal/unmarshal to get all JWK's fields other than Key filled.
@@ -81,6 +111,15 @@ func (j *JWK) PublicKeyBytes() ([]byte, error) {
 		return pubKey.SerializeCompressed(), nil
 	}
 
+	if j.isX25519() {
+		x25519Key, ok := j.Key.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("invalid public key in kid '%s'", j.KeyID)
+		}
+
+		return x25519Key, nil
+	}
+
 	switch pubKey := j.Public().Key.(type) {
 	case ed25519.PublicKey:
 		return pubKey, nil
@@ -102,10 +141,18 @@ func (j *JWK) UnmarshalJSON(jwkBytes []byte) error {
 		return fmt.Errorf("unable to read JWK: %w", marshalErr)
 	}
 
+	// nolint: gocritic, nestif
 	if isSecp256k1(key.Alg, key.Kty, key.Crv) {
 		jwk, err := unmarshalSecp256k1(&key)
 		if err != nil {
 			return fmt.Errorf("unable to read JWK: %w", err)
+		}
+
+		*j = *jwk
+	} else if isX25519(key.Kty, key.Crv) {
+		jwk, err := unmarshalX25519(&key)
+		if err != nil {
+			return fmt.Errorf("unable to read X25519 JWE: %w", err)
 		}
 
 		*j = *jwk
@@ -132,7 +179,20 @@ func (j *JWK) MarshalJSON() ([]byte, error) {
 		return marshalSecp256k1(j)
 	}
 
+	if j.isX25519() {
+		return marshalX25519(j)
+	}
+
 	return (&j.JSONWebKey).MarshalJSON()
+}
+
+func (j *JWK) isX25519() bool {
+	switch j.Key.(type) {
+	case []byte:
+		return isX25519(j.Kty, j.Crv)
+	default:
+		return false
+	}
 }
 
 func (j *JWK) isSecp256k1() bool {
@@ -148,6 +208,10 @@ func isSecp256k1Key(pubKey interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func isX25519(kty, crv string) bool {
+	return strings.EqualFold(kty, x25519Kty) && strings.EqualFold(crv, x25519Crv)
 }
 
 func isSecp256k1(alg, kty, crv string) bool {
@@ -209,6 +273,49 @@ func unmarshalSecp256k1(jwk *jsonWebKey) (*JWK, error) {
 			Key: key, KeyID: jwk.Kid, Algorithm: jwk.Alg, Use: jwk.Use,
 		},
 	}, nil
+}
+
+func unmarshalX25519(jwk *jsonWebKey) (*JWK, error) {
+	if jwk.X == nil {
+		return nil, ErrInvalidKey
+	}
+
+	if len(jwk.X.data) != cryptoutil.Curve25519KeySize {
+		return nil, ErrInvalidKey
+	}
+
+	return &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: jwk.X.data, KeyID: jwk.Kid, Algorithm: jwk.Alg, Use: jwk.Use,
+		},
+		Crv: jwk.Crv,
+		Kty: jwk.Kty,
+	}, nil
+}
+
+func marshalX25519(jwk *JWK) ([]byte, error) {
+	var raw jsonWebKey
+
+	key, ok := jwk.Key.([]byte)
+	if !ok {
+		return nil, errors.New("marshalX25519: invalid key")
+	}
+
+	if len(key) != cryptoutil.Curve25519KeySize {
+		return nil, errors.New("marshalX25519: invalid key")
+	}
+
+	raw = jsonWebKey{
+		Kty: x25519Kty,
+		Crv: x25519Crv,
+		X:   newFixedSizeBuffer(key, cryptoutil.Curve25519KeySize),
+	}
+
+	raw.Kid = jwk.KeyID
+	raw.Alg = jwk.Algorithm
+	raw.Use = jwk.Use
+
+	return json.Marshal(raw)
 }
 
 func marshalSecp256k1(jwk *JWK) ([]byte, error) {

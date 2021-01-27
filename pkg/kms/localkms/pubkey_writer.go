@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	ecdsaVerifierTypeURL    = "type.googleapis.com/google.crypto.tink.EcdsaPublicKey"
-	ed25519VerifierTypeURL  = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
-	ecdhAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
+	ecdsaVerifierTypeURL         = "type.googleapis.com/google.crypto.tink.EcdsaPublicKey"
+	ed25519VerifierTypeURL       = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
+	nistPECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
+	x25519ECDHKWPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
@@ -70,7 +71,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 				if err != nil {
 					return err
 				}
-			case ecdhAESPublicKeyTypeURL:
+			case nistPECDHKWPublicKeyTypeURL, x25519ECDHKWPublicKeyTypeURL:
 				pkW := keyio.NewWriter(w)
 
 				err = pkW.Write(msg)
@@ -97,7 +98,8 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 	var marshaledRawPubKey []byte
 
-	// TODO add other key types than the ones below and other than ecdhAESPublicKeyTypeURL
+	// TODO add other key types than the ones below and other than nistPECDHKWPublicKeyTypeURL and
+	// TODO x25519ECDHKWPublicKeyTypeURL(eg: BBS+, secp256k1 when introduced in KMS).
 	switch key.KeyData.TypeUrl {
 	case ecdsaVerifierTypeURL:
 		pubKeyProto := new(ecdsapb.EcdsaPublicKey)
