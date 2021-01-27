@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
@@ -44,7 +45,9 @@ type Formatter interface {
 type FormattedProvider struct {
 	provider      newstorage.Provider
 	cacheProvider newstorage.Provider
+	openStores    map[string]*formatStore
 	formatter     Formatter
+	lock          sync.RWMutex
 }
 
 // Option represents an option for a FormattedProvider.
@@ -66,8 +69,9 @@ func WithCacheProvider(cacheProvider newstorage.Provider) Option {
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
 func NewProvider(provider newstorage.Provider, formatter Formatter, options ...Option) *FormattedProvider {
 	formattedProvider := &FormattedProvider{
-		provider:  provider,
-		formatter: formatter,
+		provider:   provider,
+		formatter:  formatter,
+		openStores: make(map[string]*formatStore),
 	}
 
 	for _, option := range options {
@@ -81,26 +85,42 @@ func NewProvider(provider newstorage.Provider, formatter Formatter, options ...O
 // If the store has never been opened before, then it is created.
 // Store names are not case-sensitive.
 func (f *FormattedProvider) OpenStore(name string) (newstorage.Store, error) {
-	store, err := f.provider.OpenStore(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open store in underlying provider: %w", err)
+	if name == "" {
+		return nil, fmt.Errorf("store name cannot be empty")
 	}
 
-	newFormatStore := formatStore{
-		store:     store,
-		formatter: f.formatter,
-	}
+	storeName := strings.ToLower(name)
 
-	if f.cacheProvider != nil {
-		cacheStore, err := f.cacheProvider.OpenStore(name)
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	openStore, ok := f.openStores[storeName]
+	if !ok {
+		store, err := f.provider.OpenStore(storeName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open cache store in cache provider: %w", err)
+			return nil, fmt.Errorf("failed to open store in underlying provider: %w", err)
 		}
 
-		newFormatStore.cacheStore = cacheStore
+		newFormatStore := formatStore{
+			store:     store,
+			formatter: f.formatter,
+		}
+
+		f.openStores[storeName] = &newFormatStore
+
+		if f.cacheProvider != nil {
+			cacheStore, err := f.cacheProvider.OpenStore(storeName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open cache store in cache provider: %w", err)
+			}
+
+			newFormatStore.cacheStore = cacheStore
+		}
+
+		return &newFormatStore, nil
 	}
 
-	return &newFormatStore, nil
+	return openStore, nil
 }
 
 // SetStoreConfig sets the configuration on a store.
@@ -173,6 +193,23 @@ func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfigu
 	}
 
 	return newstorage.StoreConfiguration{TagNames: tagNames}, nil
+}
+
+// GetOpenStores returns all currently open stores.
+func (f *FormattedProvider) GetOpenStores() []newstorage.Store {
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	openStores := make([]newstorage.Store, len(f.openStores))
+
+	var counter int
+
+	for _, openStore := range f.openStores {
+		openStores[counter] = openStore
+		counter++
+	}
+
+	return openStores
 }
 
 // Close closes all stores created under this store provider.
@@ -428,6 +465,15 @@ func (f *formatStore) Batch(operations []newstorage.Operation) error {
 		if err != nil {
 			return fmt.Errorf("failed to perform operations in cache store: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (f *formatStore) Flush() error {
+	err := f.store.Flush()
+	if err != nil {
+		return fmt.Errorf("failed to flush underlying store: %w", err)
 	}
 
 	return nil

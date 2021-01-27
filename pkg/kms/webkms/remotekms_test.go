@@ -38,6 +38,8 @@ const (
 	defaultKID        = "99999"
 )
 
+const xRootCapabilityHeaderValue = "DUMMY"
+
 func TestRemoteKeyStore(t *testing.T) {
 	secret := make([]byte, 10)
 	_, err := rand.Read(secret)
@@ -65,24 +67,18 @@ func TestRemoteKeyStore(t *testing.T) {
 
 	t.Run("CreateKeyStore failures", func(t *testing.T) {
 		blankClient := &http.Client{}
-		_, err = CreateKeyStore(blankClient, url, controller, "", json.Marshal)
+		_, _, err = CreateKeyStore(blankClient, url, controller, "")
 		require.Contains(t, err.Error(), "posting Create keystore failed")
 
-		_, err = CreateKeyStore(blankClient, "``#$%", controller, "", json.Marshal)
+		_, _, err = CreateKeyStore(blankClient, "``#$%", controller, "")
 		require.EqualError(t, err, "build request for Create keystore error: parse \"``#$%/kms/keystores\": "+
 			"invalid URL escape \"%/k\"")
 	})
 
-	t.Run("CreateKeyStore json marshal failure", func(t *testing.T) {
-		_, err = CreateKeyStore(client, url, controller, "", failingMarshal)
-		require.Contains(t, err.Error(), "failed to marshal Create keystore request")
-		require.Contains(t, err.Error(), "failingMarshal always fails")
-	})
-
 	t.Run("CreateKeyStore success", func(t *testing.T) {
-		ksID, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal)
+		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID")
 		require.NoError(t, e)
-
+		require.Equal(t, capability, xRootCapabilityHeaderValue)
 		require.EqualValues(t, defaultKeystoreURL, ksID)
 	})
 
@@ -233,15 +229,15 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	}()
 
 	t.Run("CreateKeyStore with http header opt success", func(t *testing.T) {
-		ksID, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal,
+		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID",
 			WithHeaders(mockAddHeadersFuncSuccess), WithCache(1))
 		require.NoError(t, e)
-
+		require.Equal(t, capability, xRootCapabilityHeaderValue)
 		require.EqualValues(t, defaultKeystoreURL, ksID)
 	})
 
 	t.Run("CreateKeyStore with http header opt failure", func(t *testing.T) {
-		_, e := CreateKeyStore(client, url, controller, "vaultID", json.Marshal,
+		_, _, e := CreateKeyStore(client, url, controller, "vaultID",
 			WithHeaders(mockAddHeadersFuncError))
 		require.EqualError(t, e, fmt.Errorf("add optional request headers error: %w", errAddHeadersFunc).Error())
 	})
@@ -284,6 +280,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 	}
 
 	w.Header().Add(LocationHeader, locationHeaderURL)
+	w.Header().Add(XRootCapabilityHeader, xRootCapabilityHeaderValue)
 
 	if strings.LastIndex(r.URL.Path, "/export") == len(r.URL.Path)-len("/export") {
 		resp := &exportKeyResp{
