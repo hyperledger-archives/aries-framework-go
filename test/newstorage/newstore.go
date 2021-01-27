@@ -19,6 +19,9 @@ import (
 // TestAll tests common storage functionality.
 // These tests demonstrate behaviour that is expected to be consistent across store implementations.
 func TestAll(t *testing.T, provider newstorage.Provider) {
+	t.Run("Provider: GetOpenStores", func(t *testing.T) {
+		TestProviderGetOpenStores(t, provider)
+	}) // Run this first so the store count is the same every time.
 	t.Run("Provider: open store and set/get config", func(t *testing.T) {
 		TestProviderOpenStoreSetGetConfig(t, provider)
 	})
@@ -41,11 +44,14 @@ func TestAll(t *testing.T, provider newstorage.Provider) {
 		t.Run("Batch", func(t *testing.T) {
 			TestStoreBatch(t, provider)
 		})
+		t.Run("Flush", func(t *testing.T) {
+			TestStoreFlush(t, provider)
+		})
 		t.Run("Close", func(t *testing.T) {
 			TestStoreClose(t, provider)
 		})
 	})
-	t.Run("Provider: close", func(t *testing.T) { // Run this last since it'll end up destroying the provider
+	t.Run("Provider: close", func(t *testing.T) { // Run this last since it'll end up destroying the provider.
 		TestProviderClose(t, provider)
 	})
 }
@@ -78,6 +84,34 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provide
 		require.True(t, errors.Is(err, newstorage.ErrStoreNotFound), "Got unexpected error or no error")
 		require.Empty(t, config)
 	})
+}
+
+// TestProviderGetOpenStores tests common Provider GetOpenStores functionality.
+// This test assumes that the provider passed in has never had stores created under it before.
+func TestProviderGetOpenStores(t *testing.T, provider newstorage.Provider) {
+	// No stores have been created yet, so the slice should be empty or nil.
+	openStores := provider.GetOpenStores()
+	require.Len(t, openStores, 0)
+
+	_, err := provider.OpenStore("testStore1")
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 1)
+
+	_, err = provider.OpenStore("testStore2")
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 2)
+
+	// Now we will attempt to open a previously opened store. Since it was opened previously, we expect that the
+	// number of open stores returned by GetOpenStores() to not change.
+	_, err = provider.OpenStore("testStore2")
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 2)
 }
 
 // TestProviderClose tests common Provider Close functionality.
@@ -827,6 +861,43 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.Len(t, tags, 1)
 		require.Equal(t, "tagName2", tags[0].Name)
 		require.Equal(t, "tagValue2", tags[0].Value)
+	})
+	t.Run("Failure: Operation has an empty key", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		operations := []newstorage.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}},
+			{Key: "", Value: []byte("value2"), Tags: []newstorage.Tag{{Name: "tagName2", Value: "tagValue2"}}},
+		}
+
+		err = store.Batch(operations)
+		require.Error(t, err)
+	})
+}
+
+// TestStoreFlush tests common Store Flush functionality.
+func TestStoreFlush(t *testing.T, provider newstorage.Provider) {
+	t.Run("Success", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put("key1", []byte("value1"))
+		require.NoError(t, err)
+
+		err = store.Put("key2", []byte("value2"))
+		require.NoError(t, err)
+
+		err = store.Flush()
+		require.NoError(t, err)
+
+		values, err := store.GetBulk("key1", "key2")
+		require.NoError(t, err)
+		require.Len(t, values, 2)
+		require.Equal(t, "value1", string(values[0]))
+		require.Equal(t, "value2", string(values[1]))
 	})
 }
 
