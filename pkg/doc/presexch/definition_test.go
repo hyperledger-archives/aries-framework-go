@@ -429,11 +429,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				Constraints: &Constraints{
 					LimitDisclosure: true,
 					Fields: []*Field{{
-						Path:   []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
+						Path:   []string{"$.credentialSubject.degree.degreeSchool"},
 						Filter: &Filter{Type: &strFilterType},
-					}, {
-						Path:   []string{"$.credentialSubject.type"},
-						Filter: &Filter{Type: &arrFilterType},
 					}},
 				},
 			}},
@@ -443,12 +440,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
 			Context: []string{
 				"https://www.w3.org/2018/credentials/v1",
-				"https://w3id.org/citizenship/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
 				"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
 			},
 			Types: []string{
 				"VerifiableCredential",
-				"PermanentResidentCard",
+				"UniversityDegreeCredential",
 			},
 			Schemas: []verifiable.TypedID{{
 				ID:   schemaURI,
@@ -457,20 +454,13 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Subject: verifiable.Subject{
 				ID: "did:example:b34ca6cd37bbf23",
 				CustomFields: map[string]interface{}{
-					"type": []string{
-						"PermanentResident",
-						"Person",
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					"degree": map[string]interface{}{
+						"degree":       "MIT",
+						"degreeSchool": "MIT school",
+						"type":         "BachelorDegree",
 					},
-					"givenName":              "JOHN",
-					"familyName":             "SMITH",
-					"gender":                 "Male",
-					"image":                  "data:image/png;base64,iVBORw0KGgokJggg==",
-					"residentSince":          "2015-01-01",
-					"lprCategory":            "C09",
-					"lprNumber":              "999-999-999",
-					"commuterClassification": "C1",
-					"birthCountry":           "Bahamas",
-					"birthDate":              "1958-07-17",
 				},
 			},
 			Issued: &util.TimeWithTrailingZeroMsec{
@@ -519,9 +509,20 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
 		require.True(t, ok)
 
-		require.Equal(t, "JOHN", vc.Subject.([]verifiable.Subject)[0].CustomFields["givenName"])
-		require.Equal(t, "SMITH", vc.Subject.([]verifiable.Subject)[0].CustomFields["familyName"])
-		require.Empty(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["gender"])
+		subject := vc.Subject.([]verifiable.Subject)[0]
+		degree := subject.CustomFields["degree"]
+		require.NotNil(t, degree)
+
+		degreeMap, ok := degree.(map[string]interface{})
+		require.True(t, ok)
+
+		require.Equal(t, "MIT school", degreeMap["degreeSchool"])
+		require.Equal(t, "BachelorDegree", degreeMap["type"])
+		require.Empty(t, degreeMap["degree"])
+		require.Equal(t, "did:example:b34ca6cd37bbf23", subject.ID)
+		require.Empty(t, subject.CustomFields["spouse"])
+		require.Empty(t, vc.CustomFields["name"])
+
 		require.NotEmpty(t, vc.Proofs)
 
 		checkSubmission(t, vp, pd)

@@ -608,7 +608,7 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 	var (
 		BBSSupport          = hasBBS(credential)
 		modifiedByPredicate bool
-		explicitPaths       []string
+		explicitPaths       = make(map[string]bool)
 	)
 
 	for _, f := range constraints.Fields {
@@ -648,8 +648,8 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 
 			if constraints.LimitDisclosure && BBSSupport {
 				chunks := strings.Split(path[0], ".")
-				chunks[len(chunks)-1] = "@explicit"
-				explicitPaths = append(explicitPaths, strings.Join(chunks, "."))
+				explicitPath := strings.Join(chunks[:len(chunks)-1], ".")
+				explicitPaths[explicitPath] = true
 			}
 
 			limitedCred, err = sjson.SetBytes(limitedCred, path[0], val)
@@ -663,13 +663,9 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 		return verifiable.ParseUnverifiedCredential(limitedCred, opts...)
 	}
 
-	var err error
-
-	for _, path := range explicitPaths {
-		limitedCred, err = sjson.SetBytes(limitedCred, path, true)
-		if err != nil {
-			return nil, err
-		}
+	limitedCred, err := enhanceRevealDoc(explicitPaths, limitedCred, src)
+	if err != nil {
+		return nil, err
 	}
 
 	var doc map[string]interface{}
@@ -677,9 +673,78 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 		return nil, err
 	}
 
-	doc["@explicit"] = true
-
 	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), opts...)
+}
+
+func enhanceRevealDoc(explicitPaths map[string]bool, limitedCred, vcBytes []byte) ([]byte, error) {
+	var err error
+
+	limitedCred, err = sjson.SetBytes(limitedCred, "@explicit", true)
+	if err != nil {
+		return nil, err
+	}
+
+	intermPaths := make(map[string]bool)
+
+	for path, fromConstraint := range explicitPaths {
+		limitedCred, err = enhanceRevealField(path, limitedCred, vcBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		if !fromConstraint {
+			continue
+		}
+
+		pathParts := strings.Split(path, ".")
+		combinedPath := ""
+
+		for i := 0; i < len(pathParts)-1; i++ {
+			if i == 0 {
+				combinedPath = pathParts[0]
+			} else {
+				combinedPath += "." + pathParts[i]
+			}
+
+			if _, ok := explicitPaths[combinedPath]; !ok {
+				intermPaths[combinedPath] = false
+			}
+		}
+	}
+
+	for path := range intermPaths {
+		limitedCred, err = enhanceRevealField(path, limitedCred, vcBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return limitedCred, nil
+}
+
+func enhanceRevealField(path string, limitedCred, vcBytes []byte) ([]byte, error) {
+	var err error
+
+	limitedCred, err = sjson.SetBytes(limitedCred, path+".@explicit", true)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cf := range [...]string{"type", "@context"} {
+		specialFieldPath := path + "." + cf
+
+		specialFieldValue := gjson.GetBytes(vcBytes, specialFieldPath)
+		if specialFieldValue.Type == gjson.Null {
+			continue
+		}
+
+		limitedCred, err = sjson.SetBytes(limitedCred, specialFieldPath, specialFieldValue.Value())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return limitedCred, nil
 }
 
 func hasBBS(vc *verifiable.Credential) bool {
