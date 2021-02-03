@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package batchedstore_test
 
 import (
-	"encoding/base64"
 	"errors"
 	"testing"
 
@@ -15,67 +14,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/newstorage/batchedstore"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore"
+	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore/exampleformatters"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/mem"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/mock"
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
 )
-
-type base64Formatter struct {
-}
-
-func (b *base64Formatter) FormatKey(key string) (string, error) {
-	return base64.StdEncoding.EncodeToString([]byte(key)), nil
-}
-
-func (b *base64Formatter) FormatValue(value []byte) ([]byte, error) {
-	return []byte(base64.StdEncoding.EncodeToString(value)), nil
-}
-
-func (b *base64Formatter) FormatTags(tags ...newstorage.Tag) ([]newstorage.Tag, error) {
-	formattedTags := make([]newstorage.Tag, len(tags))
-
-	for i, tag := range tags {
-		formattedTags[i] = newstorage.Tag{
-			Name:  base64.StdEncoding.EncodeToString([]byte(tag.Name)),
-			Value: base64.StdEncoding.EncodeToString([]byte(tag.Value)),
-		}
-	}
-
-	return formattedTags, nil
-}
-
-func (b *base64Formatter) DeformatKey(formattedKey string) (string, error) {
-	key, err := base64.StdEncoding.DecodeString(formattedKey)
-	return string(key), err
-}
-
-func (b *base64Formatter) DeformatValue(formattedValue []byte) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(string(formattedValue))
-}
-
-func (b *base64Formatter) DeformatTags(formattedTags ...newstorage.Tag) ([]newstorage.Tag, error) {
-	tags := make([]newstorage.Tag, len(formattedTags))
-
-	for i, formattedTag := range formattedTags {
-		tagName, err := base64.StdEncoding.DecodeString(formattedTag.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		tagValue, err := base64.StdEncoding.DecodeString(formattedTag.Value)
-		if err != nil {
-			return nil, err
-		}
-
-		tags[i] = newstorage.Tag{
-			Name:  string(tagName),
-			Value: string(tagValue),
-		}
-	}
-
-	return tags, nil
-}
 
 func TestProvider_OpenStore(t *testing.T) {
 	t.Run("Failed to open store in underlying provider", func(t *testing.T) {
@@ -121,7 +64,7 @@ func TestCommon(t *testing.T) {
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &base64Formatter{}), 0)
+				formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 0)
 			require.NotNil(t, provider)
 
 			newstoragetest.TestAll(t, provider)
@@ -136,7 +79,7 @@ func TestCommon(t *testing.T) {
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &base64Formatter{}), 1)
+				formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 1)
 			require.NotNil(t, provider)
 
 			newstoragetest.TestAll(t, provider)
@@ -150,11 +93,20 @@ func TestCommon(t *testing.T) {
 			newstoragetest.TestAll(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
-			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &base64Formatter{}), 2)
-			require.NotNil(t, provider)
+			t.Run("With no-op formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 2)
+				require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+				newstoragetest.TestAll(t, provider)
+			})
+			t.Run("With base64 formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 2)
+				require.NotNil(t, provider)
+
+				newstoragetest.TestAll(t, provider)
+			})
 		})
 	})
 	t.Run("With batch size set to 10", func(t *testing.T) {
@@ -165,11 +117,20 @@ func TestCommon(t *testing.T) {
 			newstoragetest.TestAll(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
-			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &base64Formatter{}), 10)
-			require.NotNil(t, provider)
+			t.Run("With no-op formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 10)
+				require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+				newstoragetest.TestAll(t, provider)
+			})
+			t.Run("With base64 formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 10)
+				require.NotNil(t, provider)
+
+				newstoragetest.TestAll(t, provider)
+			})
 		})
 	})
 	t.Run("With batch size set to 100", func(t *testing.T) {
@@ -180,11 +141,20 @@ func TestCommon(t *testing.T) {
 			newstoragetest.TestAll(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
-			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &base64Formatter{}), 100)
-			require.NotNil(t, provider)
+			t.Run("With no-op formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 100)
+				require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+				newstoragetest.TestAll(t, provider)
+			})
+			t.Run("With base64 formatter", func(t *testing.T) {
+				provider := batchedstore.NewProvider(
+					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 100)
+				require.NotNil(t, provider)
+
+				newstoragetest.TestAll(t, provider)
+			})
 		})
 	})
 }

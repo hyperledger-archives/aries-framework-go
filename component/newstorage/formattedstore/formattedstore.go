@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package formattedstore
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -20,25 +21,27 @@ const (
 	expressionTagNameOnlyLength     = 1
 	expressionTagNameAndValueLength = 2
 
-	failFormat               = `failed to format %s "%s": %w`
-	failFormatTags           = "failed to format tags: %w"
-	failDeformat             = `failed to deformat %s "%s" returned from the underlying store: %w`
-	failQueryUnderlyingStore = "failed to query underlying store: %w"
+	failFormat                     = `failed to format %s "%s": %w`
+	failFormatData                 = `failed to format data: %w`
+	failDeformat                   = `failed to deformat %s "%s" returned from the underlying store: %w`
+	failQueryUnderlyingStore       = "failed to query underlying store: %w"
+	failGetValueUnderlyingIterator = "failed to get formatted value from the underlying iterator: %w"
 )
 
-var logger = log.New("formattedstore")
+var (
+	logger = log.New("formattedstore")
 
-var errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
-	"it must be in the following format: TagName:TagValue")
+	errEmptyKey                     = errors.New("key cannot be empty")
+	errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
+		"it must be in the following format: TagName:TagValue")
+)
 
 // Formatter represents a type that can convert data between two formats.
 type Formatter interface {
-	FormatKey(key string) (formattedKey string, err error)
-	FormatValue(value []byte) (formattedValue []byte, err error)
-	FormatTags(tags ...newstorage.Tag) (formattedTags []newstorage.Tag, err error)
-	DeformatKey(formattedKey string) (key string, err error)
-	DeformatValue(formattedValue []byte) (value []byte, err error)
-	DeformatTags(formattedTags ...newstorage.Tag) (tags []newstorage.Tag, err error)
+	Format(key string, value []byte, tags ...newstorage.Tag) (formattedKey string, formattedValue []byte,
+		formattedTags []newstorage.Tag, err error)
+	Deformat(formattedKey string, formattedValue []byte, formattedTags ...newstorage.Tag) (key string, value []byte,
+		tags []newstorage.Tag, err error)
 }
 
 // FormattedProvider is a newstorage.Provider that allows for data to be formatted in an underlying provider.
@@ -67,9 +70,9 @@ func WithCacheProvider(cacheProvider newstorage.Provider) Option {
 // NewProvider instantiates a new FormattedProvider with the given newstorage.Provider and Formatter.
 // The Formatter is used to format data before being sent to the Provider for storage.
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
-func NewProvider(provider newstorage.Provider, formatter Formatter, options ...Option) *FormattedProvider {
+func NewProvider(underlyingProvider newstorage.Provider, formatter Formatter, options ...Option) *FormattedProvider {
 	formattedProvider := &FormattedProvider{
-		provider:   provider,
+		provider:   underlyingProvider,
 		formatter:  formatter,
 		openStores: make(map[string]*formatStore),
 	}
@@ -128,26 +131,52 @@ func (f *FormattedProvider) OpenStore(name string) (newstorage.Store, error) {
 // If the store cannot be found, then an error wrapping newstorage.ErrStoreNotFound will be
 // returned from the underlying provider.
 func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
-	formattedTagNames := make([]string, len(config.TagNames))
+	storeName := strings.ToLower(name)
+
+	tags := make([]newstorage.Tag, len(config.TagNames))
 
 	for i, tagName := range config.TagNames {
-		formattedTags, err := f.formatter.FormatTags(newstorage.Tag{Name: tagName})
-		if err != nil {
-			return fmt.Errorf(failFormat, "tag name", tagName, err)
-		}
+		tags[i].Name = tagName
+	}
 
-		formattedTagNames[i] = formattedTags[0].Name
+	_, _, formattedTags, err := f.formatter.Format("", nil, tags...)
+	if err != nil {
+		return fmt.Errorf("failed to format tag names: %w", err)
+	}
+
+	formattedTagNames := make([]string, len(config.TagNames))
+
+	for i, formattedTag := range formattedTags {
+		formattedTagNames[i] = formattedTag.Name
 	}
 
 	formattedConfig := newstorage.StoreConfiguration{TagNames: formattedTagNames}
 
-	err := f.provider.SetStoreConfig(name, formattedConfig)
+	err = f.provider.SetStoreConfig(storeName, formattedConfig)
 	if err != nil {
 		return fmt.Errorf("failed to set store configuration via underlying provider: %w", err)
 	}
 
+	// The EDV Encrypted Formatter implementation cannot deformat tags directly. It needs to wrap them in
+	// the store value. The code below does this, which will allow all formatters (including EDV) to function.
+
+	store, err := f.OpenStore(storeName + "_formattedstore_storeconfig")
+	if err != nil {
+		return fmt.Errorf("failed to open the store config store: %w", err)
+	}
+
+	configBytes, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config into bytes: %w", err)
+	}
+
+	err = store.Put("formattedstore_storeconfig", configBytes)
+	if err != nil {
+		return fmt.Errorf("failed to store config in store config store: %w", err)
+	}
+
 	if f.cacheProvider != nil {
-		err = f.cacheProvider.SetStoreConfig(name, config)
+		err = f.cacheProvider.SetStoreConfig(storeName, config)
 		if err != nil {
 			return fmt.Errorf("failed to set store configuration via cache provider: %w", err)
 		}
@@ -160,8 +189,10 @@ func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreC
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
 func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+	storeName := strings.ToLower(name)
+
 	if f.cacheProvider != nil {
-		config, err := f.cacheProvider.GetStoreConfig(name)
+		config, err := f.cacheProvider.GetStoreConfig(storeName)
 		if err == nil {
 			return config, nil
 		}
@@ -171,28 +202,38 @@ func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfigu
 				fmt.Errorf("unexpected failure while getting config from cache store: %w", err)
 		}
 
-		logger.Infof(`Cache miss when getting store configuration for store "%s". `+
-			`Will fetch data from primary provider.`, name)
+		logger.Debugf(`Cache miss when getting store configuration for store "%s". `+
+			`Will fetch data from primary provider.`, storeName)
 	}
 
-	formattedConfig, err := f.provider.GetStoreConfig(name)
+	openStore := f.openStores[storeName]
+	if openStore == nil {
+		return newstorage.StoreConfiguration{}, newstorage.ErrStoreNotFound
+	}
+
+	// In order to support the more restrictive EDV formatter, we bypass the usual GetStoreConfig method and instead
+	// get the unformatted tags by fetching them from the "store config" formatted store created earlier.
+
+	store, err := f.OpenStore(storeName + "_formattedstore_storeconfig")
+	if err != nil {
+		return newstorage.StoreConfiguration{}, fmt.Errorf("failed to open the store config store: %w", err)
+	}
+
+	configBytes, err := store.Get("formattedstore_storeconfig")
 	if err != nil {
 		return newstorage.StoreConfiguration{},
-			fmt.Errorf("failed to get formatted configuration from the underlying store: %w", err)
+			fmt.Errorf("failed to get store config from the store config store: %w", err)
 	}
 
-	tagNames := make([]string, len(formattedConfig.TagNames))
+	var config newstorage.StoreConfiguration
 
-	for i, formattedTagName := range formattedConfig.TagNames {
-		tags, err := f.formatter.DeformatTags(newstorage.Tag{Name: formattedTagName})
-		if err != nil {
-			return newstorage.StoreConfiguration{}, fmt.Errorf(failDeformat, "tag name", formattedTagName, err)
-		}
-
-		tagNames[i] = tags[0].Name
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return newstorage.StoreConfiguration{},
+			fmt.Errorf("failed to unmarshal tags bytes into a tag slice: %w", err)
 	}
 
-	return newstorage.StoreConfiguration{TagNames: tagNames}, nil
+	return config, nil
 }
 
 // GetOpenStores returns all currently open stores.
@@ -236,25 +277,18 @@ type formatStore struct {
 	formatter  Formatter
 }
 
-//
 func (f *formatStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
+	if key == "" {
+		return errEmptyKey
+	}
+
 	if value == nil {
 		return errors.New("value cannot be nil")
 	}
 
-	formattedKey, err := f.formatter.FormatKey(key)
+	formattedKey, formattedValue, formattedTags, err := f.formatter.Format(key, value, tags...)
 	if err != nil {
-		return fmt.Errorf(failFormat, "key", key, err)
-	}
-
-	formattedValue, err := f.formatter.FormatValue(value)
-	if err != nil {
-		return fmt.Errorf(failFormat, "value", value, err)
-	}
-
-	formattedTags, err := f.formatter.FormatTags(tags...)
-	if err != nil {
-		return fmt.Errorf(failFormatTags, err)
+		return fmt.Errorf(failFormatData, err)
 	}
 
 	err = f.store.Put(formattedKey, formattedValue, formattedTags...)
@@ -273,6 +307,10 @@ func (f *formatStore) Put(key string, value []byte, tags ...newstorage.Tag) erro
 }
 
 func (f *formatStore) Get(key string) ([]byte, error) {
+	if key == "" {
+		return nil, errEmptyKey
+	}
+
 	if f.cacheStore != nil {
 		value, err := f.cacheStore.Get(key)
 		if err == nil {
@@ -284,11 +322,11 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 				fmt.Errorf("unexpected failure while getting data from cache store: %w", err)
 		}
 
-		logger.Infof(`cache miss when getting value for key "%s" from cache storage provider. `+
+		logger.Debugf(`cache miss when getting value for key "%s" from cache storage provider. `+
 			`Will fetch data from primary provider.`, key)
 	}
 
-	formattedKey, err := f.formatter.FormatKey(key)
+	formattedKey, _, _, err := f.formatter.Format(key, nil, nil...)
 	if err != nil {
 		return nil, fmt.Errorf(failFormat, "key", key, err)
 	}
@@ -298,7 +336,7 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get formatted value from underlying store: %w", err)
 	}
 
-	value, err := f.formatter.DeformatValue(formattedValue)
+	_, value, _, err := f.formatter.Deformat("", formattedValue)
 	if err != nil {
 		return nil, fmt.Errorf(failDeformat, "value", string(formattedValue), err)
 	}
@@ -314,7 +352,7 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 }
 
 func (f *formatStore) GetTags(key string) ([]newstorage.Tag, error) {
-	formattedKey, err := f.formatter.FormatKey(key)
+	formattedKey, _, _, err := f.formatter.Format(key, nil)
 	if err != nil {
 		return nil, fmt.Errorf(failFormat, "key", key, err)
 	}
@@ -324,7 +362,15 @@ func (f *formatStore) GetTags(key string) ([]newstorage.Tag, error) {
 		return nil, fmt.Errorf("failed to get formatted tags from underlying store: %w", err)
 	}
 
-	tags, err := f.formatter.DeformatTags(formattedTags...)
+	// FormatProvider must support EDV formatting, and EDV tags are not reversible since they are hashed.
+	// Retrieving EDV tags requires embedding them in the stored value itself.
+	// In order to support this use case, formatStore also calls the underlying store's Get method.
+	formattedValue, err := f.store.Get(formattedKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get formatted tags from underlying store: %w", err)
+	}
+
+	_, _, tags, err := f.formatter.Deformat("", formattedValue, formattedTags...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deformat tags: %w", err)
 	}
@@ -338,8 +384,8 @@ func (f *formatStore) GetBulk(keys ...string) ([][]byte, error) {
 
 	for i, key := range keys {
 		var err error
-		formattedKeys[i], err = f.formatter.FormatKey(key)
 
+		formattedKeys[i], _, _, err = f.formatter.Format(key, nil)
 		if err != nil {
 			return nil, fmt.Errorf(failFormat, "key", key, err)
 		}
@@ -354,7 +400,7 @@ func (f *formatStore) GetBulk(keys ...string) ([][]byte, error) {
 
 	for i, formattedValue := range formattedValues {
 		if formattedValue != nil {
-			deformattedValue, err := f.formatter.DeformatValue(formattedValue)
+			_, deformattedValue, _, err := f.formatter.Deformat("", formattedValue, nil...)
 			if err != nil {
 				return nil, fmt.Errorf(failDeformat, "value", formattedValue, err)
 			}
@@ -374,7 +420,7 @@ func (f *formatStore) Query(expression string, options ...newstorage.QueryOption
 	expressionSplit := strings.Split(expression, ":")
 	switch len(expressionSplit) {
 	case expressionTagNameOnlyLength:
-		formattedTags, err := f.formatter.FormatTags(newstorage.Tag{Name: expressionSplit[0]})
+		_, _, formattedTags, err := f.formatter.Format("", nil, newstorage.Tag{Name: expressionSplit[0]})
 		if err != nil {
 			return &formattedIterator{}, fmt.Errorf(failFormat, "tag name", expressionSplit[0], err)
 		}
@@ -386,7 +432,7 @@ func (f *formatStore) Query(expression string, options ...newstorage.QueryOption
 
 		return &formattedIterator{underlyingIterator: underlyingIterator, formatter: f.formatter}, nil
 	case expressionTagNameAndValueLength:
-		formattedTags, err := f.formatter.FormatTags(
+		_, _, formattedTags, err := f.formatter.Format("", nil,
 			newstorage.Tag{Name: expressionSplit[0], Value: expressionSplit[1]})
 		if err != nil {
 			return &formattedIterator{}, fmt.Errorf("failed to format tag: %w", err)
@@ -405,7 +451,7 @@ func (f *formatStore) Query(expression string, options ...newstorage.QueryOption
 }
 
 func (f *formatStore) Delete(key string) error {
-	formattedKey, err := f.formatter.FormatKey(key)
+	formattedKey, _, _, err := f.formatter.Format(key, nil, nil...)
 	if err != nil {
 		return fmt.Errorf(failFormat, "key", key, err)
 	}
@@ -430,22 +476,21 @@ func (f *formatStore) Batch(operations []newstorage.Operation) error {
 	formattedOperations := make([]newstorage.Operation, len(operations))
 
 	for i, operation := range operations {
-		formattedKey, err := f.formatter.FormatKey(operation.Key)
+		formattedKey, formattedValue, formattedTags, err :=
+			f.formatter.Format(operation.Key, operation.Value, operation.Tags...)
 		if err != nil {
-			return fmt.Errorf(failFormat, "key", operation.Key, err)
+			return fmt.Errorf(failFormatData, err)
 		}
 
-		var formattedValue []byte
-		if operation.Value != nil {
-			formattedValue, err = f.formatter.FormatValue(operation.Value)
-			if err != nil {
-				return fmt.Errorf(failFormat, "value", operation.Value, err)
+		if operation.Value == nil {
+			// Ensure that, even if the formatter output a non-nil value,
+			// the "nil value = delete" semantics defined in newstorage.Store are followed.
+			formattedOperations[i] = newstorage.Operation{
+				Key:  formattedKey,
+				Tags: formattedTags,
 			}
-		}
 
-		formattedTags, err := f.formatter.FormatTags(operation.Tags...)
-		if err != nil {
-			return fmt.Errorf(failFormatTags, err)
+			continue
 		}
 
 		formattedOperations[i] = newstorage.Operation{
@@ -515,9 +560,15 @@ func (f *formattedIterator) Key() (string, error) {
 		return "", fmt.Errorf("failed to get formatted key from the underlying iterator: %w", err)
 	}
 
-	key, err := f.formatter.DeformatKey(formattedKey)
+	// Some Formatter implementations (like EDV Encrypted Formatter) require the value to determine the deformatted key.
+	formattedValue, err := f.underlyingIterator.Value()
 	if err != nil {
-		return "", fmt.Errorf("failed to deformat formatted key from the underying iterator: %w", err)
+		return "", fmt.Errorf(failGetValueUnderlyingIterator, err)
+	}
+
+	key, _, _, err := f.formatter.Deformat(formattedKey, formattedValue, nil...)
+	if err != nil {
+		return "", fmt.Errorf("failed to deformat formatted key from the underlying iterator: %w", err)
 	}
 
 	return key, nil
@@ -526,12 +577,12 @@ func (f *formattedIterator) Key() (string, error) {
 func (f *formattedIterator) Value() ([]byte, error) {
 	formattedValue, err := f.underlyingIterator.Value()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get formatted value from the underlying iterator: %w", err)
+		return nil, fmt.Errorf(failGetValueUnderlyingIterator, err)
 	}
 
-	value, err := f.formatter.DeformatValue(formattedValue)
+	_, value, _, err := f.formatter.Deformat("", formattedValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deformat formatted value from the underying iterator: %w", err)
+		return nil, fmt.Errorf(failDeformat, "value", string(formattedValue), err)
 	}
 
 	return value, nil
@@ -543,9 +594,17 @@ func (f *formattedIterator) Tags() ([]newstorage.Tag, error) {
 		return nil, fmt.Errorf("failed to get formatted tags from the underlying iterator: %w", err)
 	}
 
-	tags, err := f.formatter.DeformatTags(formattedTags...)
+	// FormatProvider must support EDV formatting, and EDV tags are not reversible since they are hashed.
+	// Retrieving EDV tags requires embedding them in the stored value itself.
+	// In order to support this use case, formatStore calls the underlying iterator's Value method as well.
+	formattedValue, err := f.underlyingIterator.Value()
 	if err != nil {
-		return nil, fmt.Errorf("failed to deformat formatted tags from the underlying iterator: %w", err)
+		return nil, fmt.Errorf(failGetValueUnderlyingIterator, err)
+	}
+
+	_, _, tags, err := f.formatter.Deformat("", formattedValue, formattedTags...)
+	if err != nil {
+		return nil, fmt.Errorf(failDeformat, "value", string(formattedValue), err)
 	}
 
 	return tags, nil

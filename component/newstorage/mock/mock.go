@@ -16,6 +16,7 @@ import (
 type Provider struct {
 	OpenStoreReturn      newstorage.Store
 	ErrOpenStore         error
+	ErrSetStoreConfig    error
 	GetStoreConfigReturn newstorage.StoreConfiguration
 	ErrGetStoreConfig    error
 }
@@ -27,7 +28,7 @@ func (p *Provider) OpenStore(string) (newstorage.Store, error) {
 
 // SetStoreConfig returns mocked results.
 func (p *Provider) SetStoreConfig(string, newstorage.StoreConfiguration) error {
-	return errors.New("set store config failure")
+	return p.ErrSetStoreConfig
 }
 
 // GetStoreConfig returns mocked results.

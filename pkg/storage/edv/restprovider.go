@@ -210,6 +210,7 @@ func (r *RESTProvider) Batch(batch *models.Batch) error {
 // RESTStore is a store for storing EDV documents via the REST API.
 // TODO (#2315) RESTStore shouldn't be exported - it was exported to allow for batch operations. When refactoring
 // the storage interface, fix this.
+// TODO - BUG (#2490) RESTStores don't namespace correctly with an EDV server.
 type RESTStore struct {
 	vaultID                        string
 	name                           string
