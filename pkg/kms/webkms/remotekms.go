@@ -31,9 +31,16 @@ const (
 
 	// LocationHeader is remoteKMS http header set by the key server (usually to identify a keystore or key url).
 	LocationHeader = "Location"
+	// XRootCapabilityHeader defines XRootCapability header.
+	XRootCapabilityHeader = "X-ROOTCAPABILITY"
 )
 
 var logger = log.New("aries-framework/kms/webkms")
+
+// HTTPClient interface for the http client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 type createKeystoreReq struct {
 	Controller string `json:"controller,omitempty"`
@@ -58,7 +65,7 @@ type unmarshalFunc func([]byte, interface{}) error
 
 // RemoteKMS implementation of kms.KeyManager api.
 type RemoteKMS struct {
-	httpClient    *http.Client
+	httpClient    HTTPClient
 	keystoreURL   string
 	marshalFunc   marshalFunc
 	unmarshalFunc unmarshalFunc
@@ -74,8 +81,8 @@ type RemoteKMS struct {
 // Returns:
 //  - keystore URL (if successful)
 //  - error (if error encountered)
-func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID string, marshaller marshalFunc,
-	opts ...Opt) (string, error) {
+func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string,
+	opts ...Opt) (string, string, error) {
 	createKeyStoreStart := time.Now()
 	kOpts := NewOpt()
 
@@ -92,14 +99,14 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 		httpReqJSON.VaultID = vaultID
 	}
 
-	mReq, err := marshaller(httpReqJSON)
+	mReq, err := kOpts.marshal(httpReqJSON)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
+		return "", "", fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
 	}
 
 	httpReq, err := http.NewRequest(http.MethodPost, destination, bytes.NewBuffer(mReq))
 	if err != nil {
-		return "", fmt.Errorf("build request for Create keystore error: %w", err)
+		return "", "", fmt.Errorf("build request for Create keystore error: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", ContentType)
@@ -107,7 +114,7 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 	if kOpts.HeadersFunc != nil {
 		httpHeaders, e := kOpts.HeadersFunc(httpReq)
 		if e != nil {
-			return "", fmt.Errorf("add optional request headers error: %w", e)
+			return "", "", fmt.Errorf("add optional request headers error: %w", e)
 		}
 
 		if httpHeaders != nil {
@@ -119,7 +126,7 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
+		return "", "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
 	}
 
 	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
@@ -128,14 +135,15 @@ func CreateKeyStore(httpClient *http.Client, keyserverURL, controller, vaultID s
 	defer closeResponseBody(resp.Body, logger, "CreateKeyStore")
 
 	keystoreURL := resp.Header.Get(LocationHeader)
+	capability := resp.Header.Get(XRootCapabilityHeader)
 
 	logger.Infof("overall CreateStore duration: %s", time.Since(createKeyStoreStart))
 
-	return keystoreURL, nil
+	return keystoreURL, capability, nil
 }
 
 // New creates a new remoteKMS instance using http client connecting to keystoreURL.
-func New(keystoreURL string, client *http.Client, opts ...Opt) *RemoteKMS {
+func New(keystoreURL string, client HTTPClient, opts ...Opt) *RemoteKMS {
 	kOpts := NewOpt()
 
 	for _, opt := range opts {

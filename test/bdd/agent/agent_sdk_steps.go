@@ -9,7 +9,6 @@ package agent
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -80,7 +79,7 @@ func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, s
 		},
 	}
 
-	keyStoreURL, err := webkms.CreateKeyStore(httpClient, ksURL, controller, "", json.Marshal)
+	keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, ksURL, controller, "")
 	if err != nil {
 		return fmt.Errorf("error calling CreateKeystore: %w", err)
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package webkms
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/bluele/gcache"
@@ -19,13 +20,14 @@ type addHeaders func(req *http.Request) (*http.Header, error)
 type Opts struct {
 	HeadersFunc     addHeaders
 	ComputeMACCache gcache.Cache
+	marshal         marshalFunc
 }
 
 // NewOpt creates a new empty option.
 // Not to be used directly. It's intended for implementations of remoteKMS.
 // Use WithHeaders() option function below instead.
 func NewOpt() *Opts {
-	return &Opts{}
+	return &Opts{marshal: json.Marshal}
 }
 
 // Opt are the remoteKMS option.
@@ -43,5 +45,12 @@ func WithHeaders(addHeadersFunc addHeaders) Opt {
 func WithCache(cacheSize int) Opt {
 	return func(opts *Opts) {
 		opts.ComputeMACCache = gcache.New(cacheSize).Build()
+	}
+}
+
+// WithMarshalFn allows providing marshal function.
+func WithMarshalFn(fn marshalFunc) Opt {
+	return func(opts *Opts) {
+		opts.marshal = fn
 	}
 }

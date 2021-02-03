@@ -28,6 +28,11 @@ import (
 
 var logger = log.New("aries-framework/crypto/webkms")
 
+// HTTPClient interface for the http client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type encryptReq struct {
 	Message        string `json:"message,omitempty"`
 	AdditionalData string `json:"aad,omitempty"`
@@ -80,7 +85,7 @@ type unmarshalFunc func([]byte, interface{}) error
 
 // RemoteCrypto implementation of kms.KeyManager api.
 type RemoteCrypto struct {
-	httpClient    *http.Client
+	httpClient    HTTPClient
 	keystoreURL   string
 	marshalFunc   marshalFunc
 	unmarshalFunc unmarshalFunc
@@ -100,7 +105,7 @@ const (
 )
 
 // New creates a new remoteCrypto instance using http client connecting to keystoreURL.
-func New(keystoreURL string, client *http.Client, opts ...webkmsimpl.Opt) *RemoteCrypto {
+func New(keystoreURL string, client HTTPClient, opts ...webkmsimpl.Opt) *RemoteCrypto {
 	rOpts := webkmsimpl.NewOpt()
 
 	for _, opt := range opts {
