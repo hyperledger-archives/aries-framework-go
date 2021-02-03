@@ -250,13 +250,13 @@ func (pk *VerificationMethod) JSONWebKey() *jose.JWK {
 
 // Service DID doc service.
 type Service struct {
-	ID                       string
-	Type                     string
-	Priority                 uint
-	RecipientKeys            []string
-	RoutingKeys              []string
-	ServiceEndpoint          string
-	Properties               map[string]interface{}
+	ID                       string                 `json:"id"`
+	Type                     string                 `json:"type"`
+	Priority                 uint                   `json:"priority,omitempty"`
+	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
+	RoutingKeys              []string               `json:"routingKeys,omitempty"`
+	ServiceEndpoint          string                 `json:"serviceEndpoint"`
+	Properties               map[string]interface{} `json:"properties,omitempty"`
 	recipientKeysRelativeURL map[string]bool
 	routingKeysRelativeURL   map[string]bool
 	relativeURL              bool

@@ -14,7 +14,7 @@ type Request struct {
 	Type     string                  `json:"@type"`
 	Label    string                  `json:"label,omitempty"`
 	Goal     string                  `json:"goal,omitempty"`
-	GoalCode string                  `json:"goal-code,omitempty"`
+	GoalCode string                  `json:"goal_code,omitempty"`
 	Requests []*decorator.Attachment `json:"request~attach"`
 	Service  []interface{}           `json:"service"` // Service is an array of either DIDs or 'service' block entries.
 }
@@ -25,7 +25,7 @@ type Invitation struct {
 	Type      string        `json:"@type"`
 	Label     string        `json:"label,omitempty"`
 	Goal      string        `json:"goal,omitempty"`
-	GoalCode  string        `json:"goal-code,omitempty"`
+	GoalCode  string        `json:"goal_code,omitempty"`
 	Service   []interface{} `json:"service"` // Service is an array of either DIDs or 'service' block entries.
-	Protocols []string      `json:"protocols"`
+	Protocols []string      `json:"handshake_protocols"`
 }
