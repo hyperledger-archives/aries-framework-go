@@ -171,7 +171,7 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 }
 
 func buildX25519JWK(keyBytes []byte) (string, error) {
-	const x25519ThumbprintTemplate = `{"crv":"X25519","kty":"OKP",x":"%s"}`
+	const x25519ThumbprintTemplate = `{"crv":"X25519","kty":"OKP","x":"%s"}`
 
 	if len(keyBytes) > cryptoutil.Curve25519KeySize {
 		return "", errors.New("buildX25519JWK: invalid ECDH X25519 key")

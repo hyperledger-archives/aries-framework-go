@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/base64"
@@ -260,7 +261,16 @@ func (je *JWEEncrypt) getWrapKeyOpts() (string, []cryptoapi.WrapKeyOpts) {
 // AAD with this info and return the marshalled merged result.
 func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 	aad []byte, marshaller marshalFunc) ([]byte, error) {
-	newAAD, err := base64.RawURLEncoding.DecodeString(string(aad))
+	var externalAAD []byte
+
+	aadIdx := len(aad)
+
+	if i := bytes.Index(aad, []byte(".")); i > 0 {
+		aadIdx = i
+		externalAAD = append(externalAAD, aad[aadIdx+1:]...)
+	}
+
+	newAAD, err := base64.RawURLEncoding.DecodeString(string(aad[:aadIdx]))
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +308,14 @@ func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 		return nil, err
 	}
 
-	return []byte(base64.RawURLEncoding.EncodeToString(mAAD)), nil
+	mAADStr := []byte(base64.RawURLEncoding.EncodeToString(mAAD))
+
+	if len(externalAAD) > 0 {
+		mAADStr = append(mAADStr, byte('.'))
+		mAADStr = append(mAADStr, externalAAD...)
+	}
+
+	return mAADStr, nil
 }
 
 func mergeRecipientHeaders(headers map[string]interface{}, recHeaders *RecipientHeaders) {

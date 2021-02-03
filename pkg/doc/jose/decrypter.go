@@ -8,6 +8,7 @@ package jose
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -149,13 +150,24 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 		return nil, fmt.Errorf("jwedecrypt: failed to build encryptedData for Decrypt(): %w", err)
 	}
 
-	authData, err := computeAuthData(jwe.ProtectedHeaders, []byte(jwe.AAD))
+	aadBytes := []byte(jwe.AAD)
+
+	authData, err := computeAuthData(jwe.ProtectedHeaders, aadBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(jwe.Recipients) == 1 {
 		authData = []byte(jwe.OrigProtectedHders)
+		if lenAAD := len(aadBytes); lenAAD > 0 {
+			authData = append(authData, '.')
+
+			encLen := base64.RawURLEncoding.EncodedLen(lenAAD)
+			aadEncoded := make([]byte, encLen)
+
+			base64.RawURLEncoding.Encode(aadEncoded, aadBytes)
+			authData = append(authData, aadEncoded...)
+		}
 	}
 
 	return decPrimitive.Decrypt(encryptedData, authData)

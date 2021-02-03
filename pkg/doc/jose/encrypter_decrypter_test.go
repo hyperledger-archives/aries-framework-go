@@ -9,12 +9,15 @@ package jose_test
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
@@ -25,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -38,65 +42,195 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
 	tests := []struct {
-		name    string
-		kt      *tinkpb.KeyTemplate
-		enc     ariesjose.EncAlg
-		keyType kms.KeyType
+		name       string
+		kt         *tinkpb.KeyTemplate
+		enc        ariesjose.EncAlg
+		keyType    kms.KeyType
+		nbRec      int
+		useCompact bool
 	}{
 		{
-			name:    "P-256 ECDH KW and AES256GCM encryption",
+			name:    "P-256 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-384 ECDH KW and AES256GCM encryption",
+			name:    "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP256ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-384 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-521 ECDH KW and AES256GCM encryption",
+			name:    "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP384ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-521 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "X25519 ECDH KW and AES256GCM encryption",
+			name:    "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP521ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "X25519 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.X25519ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.X25519ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.X25519ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.X25519ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.X25519ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP256ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP384ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP521ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.X25519ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.X25519ECDHKWType,
+			nbRec:   2,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.X25519ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.X25519ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.X25519ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
 		},
 	}
 
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			recECKeys, recKHs, _ := createRecipientsByKeyTemplate(t, 3, tc.kt, tc.keyType)
+			recECKeys, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 
 			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
 
@@ -108,14 +242,49 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				"", nil, recECKeys, cryptoSvc)
 			require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
-			pt := []byte("some msg")
-			jwe, err := jweEncrypter.EncryptWithAuthData(pt, []byte("aad value"))
+			pt := []byte("secret message")
+			aad := []byte("aad value")
+
+			if tc.useCompact { // compact serialization does not use AAD
+				aad = nil
+			}
+
+			jwe, err := jweEncrypter.EncryptWithAuthData(pt, aad)
 			require.NoError(t, err)
 			require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
-			serializedJWE, err := jwe.FullSerialize(json.Marshal)
+			serializedJWE := ""
+			jweStr := ""
+			serialization := "Full"
+
+			if tc.useCompact {
+				serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+				require.NoError(t, err)
+				require.NotEmpty(t, serializedJWE)
+
+				jweStr = serializedJWE
+				serialization = "Compact"
+			} else {
+				serializedJWE, err = jwe.FullSerialize(json.Marshal)
+				require.NoError(t, err)
+				require.NotEmpty(t, serializedJWE)
+
+				jweStr, err = prettyPrint([]byte(serializedJWE))
+				require.NoError(t, err)
+				if tc.nbRec == 1 {
+					serialization = "Flattened"
+				}
+			}
+
+			t.Logf("* anoncrypt JWE (%s serialization): %s", serialization, jweStr)
+
+			mPh, err := json.Marshal(jwe.ProtectedHeaders)
 			require.NoError(t, err)
-			require.NotEmpty(t, serializedJWE)
+
+			protectedHeadersStr, err := prettyPrint(mPh)
+			require.NoError(t, err)
+
+			t.Logf("* protected headers: %s", protectedHeadersStr)
 
 			// try to deserialize with go-jose (can't decrypt in go-jose since private key is protected by Tink)
 			joseJWE, err := jose.ParseEncrypted(serializedJWE)
@@ -488,7 +657,72 @@ func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
 	kid, err := jwkkid.CreateKID(buf.Bytes(), kType)
 	require.NoError(t, err)
 
+	printKey(t, buf.Bytes(), kid)
+
 	return buf.Bytes(), kh, kid
+}
+
+func printKey(t *testing.T, mPubKey []byte, kid string) {
+	t.Helper()
+
+	pubKey := new(cryptoapi.PublicKey)
+	err := json.Unmarshal(mPubKey, pubKey)
+	require.NoError(t, err)
+
+	switch pubKey.Type {
+	case ecdhpb.KeyType_EC.String():
+		t.Logf("** EC key: %s, kid: %s", getPrintedECPubKey(t, pubKey), kid)
+	case ecdhpb.KeyType_OKP.String():
+		t.Logf("** X25519 key: %s, kid: %s", getPrintedX25519PubKey(t, pubKey), kid)
+	default:
+		t.Errorf("not supported key type: %s", pubKey.Type)
+	}
+}
+
+func prettyPrint(msg []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+
+	err := json.Indent(&prettyJSON, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return prettyJSON.String(), nil
+}
+
+func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
+	crv, err := hybrid.GetCurve(pubKey.Curve)
+	require.NoError(t, err)
+
+	jwk := jose.JSONWebKey{
+		Key: &ecdsa.PublicKey{
+			Curve: crv,
+			X:     new(big.Int).SetBytes(pubKey.X),
+			Y:     new(big.Int).SetBytes(pubKey.Y),
+		},
+	}
+
+	jwkByte, err := jwk.MarshalJSON()
+	require.NoError(t, err)
+
+	jwkStr, err := prettyPrint(jwkByte)
+	require.NoError(t, err)
+
+	return jwkStr
+}
+
+func getPrintedX25519PubKey(t *testing.T, pubKeyType *cryptoapi.PublicKey) string {
+	jwk := jose.JSONWebKey{
+		Key: ed25519.PublicKey(pubKeyType.X),
+	}
+
+	jwkByte, err := jwk.MarshalJSON()
+	require.NoError(t, err)
+
+	jwkStr, err := prettyPrint(jwkByte)
+	require.NoError(t, err)
+
+	return strings.Replace(jwkStr, "Ed25519", "X25519", 1)
 }
 
 func TestFailNewJWEEncrypt(t *testing.T) {
@@ -503,65 +737,195 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 
 func TestECDH1PU(t *testing.T) {
 	tests := []struct {
-		name    string
-		kt      *tinkpb.KeyTemplate
-		enc     ariesjose.EncAlg
-		keyType kms.KeyType
+		name       string
+		kt         *tinkpb.KeyTemplate
+		enc        ariesjose.EncAlg
+		keyType    kms.KeyType
+		nbRec      int
+		useCompact bool
 	}{
 		{
-			name:    "P-256 ECDH KW and AES256GCM encryption",
+			name:    "P-256 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-384 ECDH KW and AES256GCM encryption",
+			name:    "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP256ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-384 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-521 ECDH KW and AES256GCM encryption",
+			name:    "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP384ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-521 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "X25519 ECDH KW and AES256GCM encryption",
+			name:    "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.NISTP521ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "X25519 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.X25519ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256GCM,
 			keyType: kms.X25519ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.A256GCM,
+			keyType: kms.X25519ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.X25519ECDHKWKeyTemplate(),
+			enc:        ariesjose.A256GCM,
+			keyType:    kms.X25519ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP256ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP256ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP384ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   2,
 		},
 		{
-			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption",
+			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.NISTP521ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.NISTP521ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.X25519ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
 			keyType: kms.X25519ECDHKWType,
+			nbRec:   2,
+		},
+		{
+			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.X25519ECDHKWKeyTemplate(),
+			enc:     ariesjose.XC20P,
+			keyType: kms.X25519ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.X25519ECDHKWKeyTemplate(),
+			enc:        ariesjose.XC20P,
+			keyType:    kms.X25519ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
 		},
 	}
 
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, 2, tc.kt, tc.keyType)
+			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 			senders, senderKHs, senderKIDs := createRecipientsByKeyTemplate(t, 1, tc.kt, tc.keyType)
 
 			c, k := createCryptoAndKMSServices(t, recKHs)
@@ -579,15 +943,49 @@ func TestECDH1PU(t *testing.T) {
 				Store: mockStoreMap,
 			}
 
-			pt := []byte("plaintext payload")
+			pt := []byte("secret message")
+			aad := []byte("aad value")
+
+			if tc.useCompact { // Compact serialization does not use aad
+				aad = nil
+			}
 
 			// test JWEEncrypt for ECDH1PU
-			jwe, err := jweEnc.Encrypt(pt)
+			jwe, err := jweEnc.EncryptWithAuthData(pt, aad)
 			require.NoError(t, err)
 
-			serializedJWE, err := jwe.FullSerialize(json.Marshal)
+			serializedJWE := ""
+			jweStr := ""
+			serialization := "Full"
+
+			if tc.useCompact {
+				serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+				require.NoError(t, err)
+				require.NotEmpty(t, serializedJWE)
+
+				jweStr = serializedJWE
+				serialization = "Compact"
+			} else {
+				serializedJWE, err = jwe.FullSerialize(json.Marshal)
+				require.NoError(t, err)
+				require.NotEmpty(t, serializedJWE)
+
+				jweStr, err = prettyPrint([]byte(serializedJWE))
+				require.NoError(t, err)
+				if tc.nbRec == 1 {
+					serialization = "Flattened"
+				}
+			}
+
+			t.Logf("* anoncrypt JWE (%s serialization): %s", serialization, jweStr)
+
+			mPh, err := json.Marshal(jwe.ProtectedHeaders)
 			require.NoError(t, err)
-			require.NotEmpty(t, serializedJWE)
+
+			protectedHeadersStr, err := prettyPrint(mPh)
+			require.NoError(t, err)
+
+			t.Logf("* protected headers: %s", protectedHeadersStr)
 
 			localJWE, err := ariesjose.Deserialize(serializedJWE)
 			require.NoError(t, err)
