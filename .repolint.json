@@ -13,7 +13,7 @@
         "readme-references-license:file-contents": ["error", {"files": ["README.md", "README"], "content": "license", "flags": "i"}],
         "maintainers-file-exists:file-existence": ["error", {"files": ["MAINTAINERS.md", "MAINTAINERS.rst"]}],
         "contributing-file-exists:file-existence": ["error", {"files": ["CONTRIBUTING.md"]}],
-        "changelog-file-exists:file-existence": ["warning", {"files": ["CHANGELOG.md"]}],
+        "changelog-file-exists:file-existence": ["error", {"files": ["CHANGELOG.md"]}],
         "test-directory-exists:directory-existence": ["error", {"directories": ["**/test*", "**/specs", "**/**_test.go"], "nocase": true}],
         "integrates-with-ci:file-existence": [
             "error",
