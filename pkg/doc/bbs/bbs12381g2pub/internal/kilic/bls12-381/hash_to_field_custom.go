@@ -1,12 +1,12 @@
 /*
+SPDX-License-Identifier: Apache-2.0
+(https://github.com/kilic/bls12-381/blob/master/LICENSE)
+
 Taken from https://github.com/kilic/bls12-381/blob/master/hash_to_field.go
 (rev a288617c07f1bd60613c43dbde211b4a911e4791)
 
 Changes:
 1) pass hash function as input for hashToFpXMD() - i.e. don't stick on SHA-256 only.
-
-SPDX-License-Identifier: Apache-2.0
-(https://github.com/kilic/bls12-381/blob/master/LICENSE)
 */
 
 package bls12381
