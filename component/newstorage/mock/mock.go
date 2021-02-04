@@ -9,7 +9,7 @@ package mock
 import (
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 )
 
 // Provider is a mocked implementation of newstorage.Provider.

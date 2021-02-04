@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package exampleformatters
 
-import "github.com/hyperledger/aries-framework-go/pkg/newstorage"
+import "github.com/hyperledger/aries-framework-go/component/newstorage"
 
 // NoOpFormatter is a simple "formatter" intended for testing purposes that just passes whatever is passed
 // into its methods back out again without modification.

@@ -14,8 +14,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 )
 
 // EncryptedFormatter formats data for use with an Encrypted Data Vault.

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 )
 
 const (

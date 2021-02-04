@@ -9,7 +9,7 @@ package exampleformatters
 import (
 	"encoding/base64"
 
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 )
 
 // Base64Formatter is a simple formatter that encodes and decodes base64 data.
