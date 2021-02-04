@@ -8,7 +8,7 @@ go 1.15
 
 require (
 	github.com/hyperledger/aries-framework-go v0.1.6-0.20210204150113-c1774a66dcf9
-	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0
+	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204181301-2bb923fb640d
 	github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore v0.0.0
 	github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0
 	github.com/hyperledger/aries-framework-go/component/newstorage/mock v0.0.0
@@ -17,8 +17,6 @@ require (
 )
 
 replace (
-	github.com/hyperledger/aries-framework-go => ../../..
-	github.com/hyperledger/aries-framework-go/component/newstorage => ../
 	github.com/hyperledger/aries-framework-go/component/newstorage/edv => ../edv
 	github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore => ../formattedstore
 	github.com/hyperledger/aries-framework-go/component/newstorage/mem => ../mem
