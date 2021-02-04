@@ -7,13 +7,13 @@ module github.com/hyperledger/aries-framework-go/component/newstorage/batchedsto
 go 1.15
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210204150113-c1774a66dcf9
-	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204181301-2bb923fb640d
+	github.com/hyperledger/aries-framework-go v0.1.6-0.20210204193554-c075603f3ac4
+	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204193554-c075603f3ac4
 	github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore v0.0.0
 	github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0
 	github.com/hyperledger/aries-framework-go/component/newstorage/mock v0.0.0
-	github.com/hyperledger/aries-framework-go/test/newstorage v0.0.0
-	github.com/stretchr/testify v1.6.1
+	github.com/hyperledger/aries-framework-go/test/newstorage v0.0.0-20210204193554-c075603f3ac4
+	github.com/stretchr/testify v1.7.0
 )
 
 replace (
@@ -21,5 +21,4 @@ replace (
 	github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore => ../formattedstore
 	github.com/hyperledger/aries-framework-go/component/newstorage/mem => ../mem
 	github.com/hyperledger/aries-framework-go/component/newstorage/mock => ../mock
-	github.com/hyperledger/aries-framework-go/test/newstorage => ../../../test/newstorage
 )
