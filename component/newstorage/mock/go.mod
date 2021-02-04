@@ -7,7 +7,8 @@ module github.com/hyperledger/aries-framework-go/component/newstorage/mock
 go 1.15
 
 require (
-	github.com/hyperledger/aries-framework-go v0.0.0
+	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0
 )
 
-replace github.com/hyperledger/aries-framework-go => ../../..
+replace github.com/hyperledger/aries-framework-go/component/newstorage => ../
+

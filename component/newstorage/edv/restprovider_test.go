@@ -22,11 +22,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
 )
 

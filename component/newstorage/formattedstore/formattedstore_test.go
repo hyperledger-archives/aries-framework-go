@@ -16,6 +16,7 @@ import (
 	"github.com/google/tink/go/mac"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/edv"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore"
 	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore/exampleformatters"
@@ -27,7 +28,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
 	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
 )
 

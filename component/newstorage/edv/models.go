@@ -9,7 +9,7 @@ package edv
 import (
 	"encoding/json"
 
-	"github.com/hyperledger/aries-framework-go/pkg/newstorage"
+	"github.com/hyperledger/aries-framework-go/component/newstorage"
 )
 
 // structuredDocument represents a Structured Document for use with Aries. It's compatible with the model
