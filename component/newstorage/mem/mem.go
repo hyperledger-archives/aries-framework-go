@@ -354,6 +354,7 @@ type memIterator struct {
 // Next moves the pointer to the next entry in the iterator. It returns false if the iterator is exhausted.
 func (m *memIterator) Next() (bool, error) {
 	if len(m.dbEntries) == m.currentIndex || len(m.dbEntries) == 0 {
+		m.dbEntries = nil
 		return false, nil
 	}
 
@@ -366,7 +367,7 @@ func (m *memIterator) Next() (bool, error) {
 
 // Key returns the key of the current entry.
 func (m *memIterator) Key() (string, error) {
-	if len(m.keys) == 0 {
+	if len(m.dbEntries) == 0 {
 		return "", errIteratorExhausted
 	}
 
@@ -375,7 +376,7 @@ func (m *memIterator) Key() (string, error) {
 
 // Value returns the value of the current entry.
 func (m *memIterator) Value() ([]byte, error) {
-	if len(m.keys) == 0 {
+	if len(m.dbEntries) == 0 {
 		return nil, errIteratorExhausted
 	}
 
@@ -384,7 +385,7 @@ func (m *memIterator) Value() ([]byte, error) {
 
 // Tags returns the tags associated with the key of the current entry.
 func (m *memIterator) Tags() ([]newstorage.Tag, error) {
-	if len(m.keys) == 0 {
+	if len(m.dbEntries) == 0 {
 		return nil, errIteratorExhausted
 	}
 
