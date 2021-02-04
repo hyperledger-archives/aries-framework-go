@@ -2,4 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module "github.com/hyperledger/aries-framework-go/component/newstorage"
+module github.com/hyperledger/aries-framework-go/component/newstorage
+
+go 1.15
