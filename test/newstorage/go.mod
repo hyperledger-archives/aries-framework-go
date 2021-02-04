@@ -8,9 +8,6 @@ go 1.15
 
 require (
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0
+	github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204181301-2bb923fb640d
 	github.com/stretchr/testify v1.6.1
 )
-
-replace github.com/hyperledger/aries-framework-go/component/newstorage => ../../component/newstorage
-
