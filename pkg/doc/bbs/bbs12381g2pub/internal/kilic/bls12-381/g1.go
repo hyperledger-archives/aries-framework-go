@@ -1,4 +1,7 @@
 /*
+SPDX-License-Identifier: Apache-2.0
+(https://github.com/kilic/bls12-381/blob/master/LICENSE)
+
 Taken from https://github.com/kilic/bls12-381/blob/master/g1.go
 (rev a288617c07f1bd60613c43dbde211b4a911e4791)
 
@@ -6,9 +9,6 @@ Changes (placed separately at g1_custom.go).
 1) Pass black2b as hash function for HashToCurve().
 2) Custom implementation of osswuMap() (this algorithm is re-written from Rust code
 (https://github.com/algorand/pairing-plus/blob/master/src/bls12_381/osswu_map/chain.rs#L14).
-
-SPDX-License-Identifier: Apache-2.0
-(https://github.com/kilic/bls12-381/blob/master/LICENSE)
 */
 
 package bls12381
