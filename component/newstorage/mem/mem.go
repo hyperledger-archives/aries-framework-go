@@ -236,7 +236,7 @@ func (m *memStore) GetBulk(keys ...string) ([][]byte, error) {
 // memStore does not make use of newstorage.QueryOptions.
 func (m *memStore) Query(expression string, _ ...newstorage.QueryOption) (newstorage.Iterator, error) {
 	if expression == "" {
-		return &memIterator{}, errInvalidQueryExpressionFormat
+		return nil, errInvalidQueryExpressionFormat
 	}
 
 	expressionSplit := strings.Split(expression, ":")
@@ -261,7 +261,7 @@ func (m *memStore) Query(expression string, _ ...newstorage.QueryOption) (newsto
 
 		return &memIterator{keys: keys, dbEntries: dbEntries}, nil
 	default:
-		return &memIterator{}, errInvalidQueryExpressionFormat
+		return nil, errInvalidQueryExpressionFormat
 	}
 }
 

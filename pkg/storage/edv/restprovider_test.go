@@ -225,7 +225,7 @@ func TestRestStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Put(testKey, []byte("this can't be unmarshalled to an EncryptedDocument"))
+		err = store.Put(testKey, []byte("this can't be unmarshalled to an encryptedDocument"))
 		require.EqualError(t, err,
 			fmt.Errorf(failStoreEDVDocument,
 				fmt.Errorf(failAddEncryptedIndices,

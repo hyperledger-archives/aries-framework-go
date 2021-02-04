@@ -19,9 +19,10 @@ import (
 // TestAll tests common storage functionality.
 // These tests demonstrate behaviour that is expected to be consistent across store implementations.
 func TestAll(t *testing.T, provider newstorage.Provider) {
+	// Run this first so the store count is predictable.
 	t.Run("Provider: GetOpenStores", func(t *testing.T) {
 		TestProviderGetOpenStores(t, provider)
-	}) // Run this first so the store count is the same every time.
+	})
 	t.Run("Provider: open store and set/get config", func(t *testing.T) {
 		TestProviderOpenStoreSetGetConfig(t, provider)
 	})
@@ -51,7 +52,8 @@ func TestAll(t *testing.T, provider newstorage.Provider) {
 			TestStoreClose(t, provider)
 		})
 	})
-	t.Run("Provider: close", func(t *testing.T) { // Run this last since it'll end up destroying the provider.
+	// Run this last since it may render the provider object unusable afterwards, depending on the implementation.
+	t.Run("Provider: close", func(t *testing.T) {
 		TestProviderClose(t, provider)
 	})
 }
@@ -72,6 +74,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provide
 
 		retrievedConfig, err := provider.GetStoreConfig(testStoreName)
 		require.NoError(t, err)
+		require.NotNil(t, retrievedConfig)
 		require.True(t, equalTagNamesAnyOrder(config.TagNames, retrievedConfig.TagNames),
 			"Unexpected tag names")
 	})
@@ -83,6 +86,11 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provide
 		config, err := provider.GetStoreConfig("NonExistentStore")
 		require.True(t, errors.Is(err, newstorage.ErrStoreNotFound), "Got unexpected error or no error")
 		require.Empty(t, config)
+	})
+	t.Run("Attempt to open a store with a blank name", func(t *testing.T) {
+		store, err := provider.OpenStore("")
+		require.Error(t, err)
+		require.Nil(t, store)
 	})
 }
 
@@ -124,67 +132,179 @@ func TestProviderClose(t *testing.T, provider newstorage.Provider) {
 
 // TestPutGet tests common Store Put and Get functionality.
 func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen // Test file
-	store1Name := randomStoreName()
+	testKey := "TestKey"
+	testValue := "TestValue"
 
-	store1, errOpen := provider.OpenStore(store1Name)
-	require.NoError(t, errOpen)
-
-	key := "did:example:1"
-
-	data := []byte("value1")
-
-	t.Run("Put and get value with multiple stores", func(t *testing.T) {
-		store2Name := randomStoreName()
-
-		store2, err := provider.OpenStore(store2Name)
+	t.Run("Put and get a single value from a single store", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
-		// Put in store 1.
-		err = store1.Put(key, data)
+		err = store.Put(testKey, []byte(testValue))
 		require.NoError(t, err)
 
-		// Try getting from store 1 - should be found.
-		doc, err := store1.Get(key)
+		value, err := store.Get(testKey)
 		require.NoError(t, err)
-		require.NotEmpty(t, doc)
-		require.Equal(t, data, doc)
+		require.Equal(t, testValue, string(value))
+	})
+	t.Run("Tests demonstrating proper store namespacing", func(t *testing.T) {
+		t.Run("Put key + value in one store, "+
+			"then check that it can't be found in a second store with a different name", func(t *testing.T) {
+			store1, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
 
-		// Try getting from store 2 - should not be found
-		doc, err = store2.Get(key)
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
-		require.Nil(t, doc)
+			err = store1.Put(testKey, []byte(testValue))
+			require.NoError(t, err)
 
-		// Put in store 2.
-		err = store2.Put(key, data)
-		require.NoError(t, err)
+			store2, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
 
-		// Now we should be able to get that value from store 2.
-		doc, err = store2.Get(key)
-		require.NoError(t, err)
-		require.NotEmpty(t, doc)
-		require.Equal(t, data, doc)
+			// Store 2 should be disjoint from store 1. It should not contain the key + value pair from store 1.
+			value, err := store2.Get(testKey)
+			require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+			require.Nil(t, value)
+		})
+		t.Run("Put same key + value in two stores with different names, then update value in one store, "+
+			"then check that the other store was not changed",
+			func(t *testing.T) {
+				store1, err := provider.OpenStore(randomStoreName())
+				require.NoError(t, err)
 
-		// Create store 3 with the same name as store 1.
-		store3, err := provider.OpenStore(store1Name)
-		require.NoError(t, err)
-		require.NotNil(t, store3)
+				err = store1.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
 
-		// Since store 3 points to the same underlying database as store 1, the data should be found.
-		doc, err = store3.Get(key)
-		require.NoError(t, err)
-		require.NotEmpty(t, doc)
-		require.Equal(t, data, doc)
+				store2, err := provider.OpenStore(randomStoreName())
+				require.NoError(t, err)
+
+				err = store2.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				// Now both store 1 and 2 contain the same key + value pair.
+
+				newTestValue := testValue + "_new"
+
+				// Now update the value in only store 1.
+				err = store1.Put(testKey, []byte(newTestValue))
+				require.NoError(t, err)
+
+				// Store 1 should have the new value.
+				value, err := store1.Get(testKey)
+				require.NoError(t, err)
+				require.Equal(t, newTestValue, string(value))
+
+				// Store 2 should still have the old value.
+				value, err = store2.Get(testKey)
+				require.NoError(t, err)
+				require.Equal(t, testValue, string(value))
+			})
+		t.Run("Put same key + value in two stores with different names, then delete value in one store, "+
+			"then check that the other store still has its key+value pair intact",
+			func(t *testing.T) {
+				store1, err := provider.OpenStore(randomStoreName())
+				require.NoError(t, err)
+
+				err = store1.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				store2, err := provider.OpenStore(randomStoreName())
+				require.NoError(t, err)
+
+				err = store2.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				// Now both store 1 and 2 contain the same key + value pair.
+
+				// Now delete the key + value pair in only store 1.
+				err = store1.Delete(testKey)
+				require.NoError(t, err)
+
+				// Store 1 should no longer have the key + value pair.
+				value, err := store1.Get(testKey)
+				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.Nil(t, value)
+
+				// Store 2 should still have the key + value pair.
+				value, err = store2.Get(testKey)
+				require.NoError(t, err)
+				require.Equal(t, testValue, string(value))
+			})
+		t.Run("Put same key + value in two stores with the same name (so they should point to the same "+
+			"underlying databases), then update value in one store, then check that the other store also reflects this",
+			func(t *testing.T) {
+				storeName := randomStoreName()
+
+				store1, err := provider.OpenStore(storeName)
+				require.NoError(t, err)
+
+				err = store1.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				// Store 2 should contain the same data as store 1 since they were opened with the same name.
+				store2, err := provider.OpenStore(storeName)
+				require.NoError(t, err)
+
+				// Store 2 should find the same data that was put in store 1
+
+				valueFromStore1, err := store1.Get(testKey)
+				require.NoError(t, err)
+
+				valueFromStore2, err := store2.Get(testKey)
+				require.NoError(t, err)
+
+				require.Equal(t, string(valueFromStore1), string(valueFromStore2))
+			})
+		t.Run("Put same key + value in two stores with the same name (so they should point to the same "+
+			"underlying databases), then delete value in one store, then check that the other store also reflects this",
+			func(t *testing.T) {
+				storeName := randomStoreName()
+
+				store1, err := provider.OpenStore(storeName)
+				require.NoError(t, err)
+
+				err = store1.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				// Store 2 should contain the same data as store 1 since they were opened with the same name.
+				store2, err := provider.OpenStore(storeName)
+				require.NoError(t, err)
+
+				err = store2.Put(testKey, []byte(testValue))
+				require.NoError(t, err)
+
+				// Now both store 1 and 2 contain the same key + value pair.
+
+				// Now delete the key + value pair in store 1.
+				err = store1.Delete(testKey)
+				require.NoError(t, err)
+
+				// Both store 1 and store 2 should no longer have the key + value pair.
+				value, err := store1.Get(testKey)
+				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.Nil(t, value)
+
+				value, err = store2.Get(testKey)
+				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.Nil(t, value)
+			})
 	})
 	t.Run("Get using empty key", func(t *testing.T) {
-		_, err := store1.Get("")
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+
+		_, err = store.Get("")
 		require.Error(t, err)
 	})
 	t.Run("Put with empty key", func(t *testing.T) {
-		err := store1.Put("", data)
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+
+		err = store.Put("", []byte(testValue))
 		require.Error(t, err)
 	})
 	t.Run("Put with vil value", func(t *testing.T) {
-		err := store1.Put(key, nil)
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+
+		err = store.Put(testKey, nil)
 		require.Error(t, err)
 	})
 }
@@ -328,7 +448,7 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 		require.Error(t, err)
 		require.Nil(t, values)
 	})
-	t.Run("Blank key", func(t *testing.T) {
+	t.Run("Third key is empty", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
@@ -957,7 +1077,7 @@ func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
 		}
 
 		if dataReceivedCount == len(dataChecklist.received) {
-			require.FailNow(t, "query returned more results than expected")
+			require.FailNow(t, "iterator contains more results than expected")
 		}
 
 		var itrErr error
