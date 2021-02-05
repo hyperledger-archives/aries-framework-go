@@ -64,21 +64,9 @@ PKGS=$(go list github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest/..
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 
-# Running newstorage/mem unit tests
-cd ../../component/newstorage/mem
-PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/mem/... 2> /dev/null)
-$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
-amend_coverage_file
-
-# Running newstorage/formattedstore unit tests
-cd ../formattedstore
-PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore/... 2> /dev/null)
-$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
-amend_coverage_file
-
-# Running newstorage/batchedstore unit tests
-cd ../batchedstore
-PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/batchedstore/... 2> /dev/null)
+# Running storageutil unit tests
+cd ../../component/storageutil
+PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storageutil/... 2> /dev/null)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 
@@ -86,7 +74,7 @@ if [ "$SKIP_DOCKER" = true ]; then
     echo "Skipping edv unit tests"
 else
   # Running newstorage/edv unit tests
-  cd ../../..
+  cd ../..
 
   . "$ROOT"/scripts/start_edv_test_docker_images.sh
 

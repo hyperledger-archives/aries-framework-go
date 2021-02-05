@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -27,7 +27,7 @@ var (
 	errIteratorExhausted = errors.New("iterator is exhausted")
 )
 
-// Provider represents an in-memory implementation of the newstorage.Provider interface.
+// Provider represents an in-memory implementation of the spi.Provider interface.
 type Provider struct {
 	dbs  map[string]*memStore
 	lock sync.RWMutex
@@ -42,7 +42,7 @@ func NewProvider() *Provider {
 
 // OpenStore opens a store with the given name and returns a handle.
 // If the store has never been opened before, then it is created.
-func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
+func (p *Provider) OpenStore(name string) (spi.Store, error) {
 	if name == "" {
 		return nil, fmt.Errorf("store name cannot be empty")
 	}
@@ -65,8 +65,8 @@ func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
 
 // SetStoreConfig sets the configuration on a store.
 // The store must be created prior to calling this method.
-// If the store cannot be found, then an error wrapping newstorage.ErrStoreNotFound will be returned.
-func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
+// If the store cannot be found, then an error wrapping spi.ErrStoreNotFound will be returned.
+func (p *Provider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	storeName := strings.ToLower(name)
 
 	p.lock.Lock()
@@ -74,7 +74,7 @@ func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfigurat
 
 	store := p.dbs[storeName]
 	if store == nil {
-		return newstorage.ErrStoreNotFound
+		return spi.ErrStoreNotFound
 	}
 
 	store.config = config
@@ -84,24 +84,24 @@ func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfigurat
 
 // GetStoreConfig gets the current store configuration.
 // The store must be created prior to calling this method.
-// If the store cannot be found, then an error wrapping newstorage.ErrStoreNotFound will be returned.
-func (p *Provider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+// If the store cannot be found, then an error wrapping spi.ErrStoreNotFound will be returned.
+func (p *Provider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
 	storeName := strings.ToLower(name)
 
 	store := p.dbs[storeName]
 	if store == nil {
-		return newstorage.StoreConfiguration{}, newstorage.ErrStoreNotFound
+		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
 	}
 
 	return store.config, nil
 }
 
 // GetOpenStores returns all currently open stores.
-func (p *Provider) GetOpenStores() []newstorage.Store {
+func (p *Provider) GetOpenStores() []spi.Store {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	openStores := make([]newstorage.Store, len(p.dbs))
+	openStores := make([]spi.Store, len(p.dbs))
 
 	var counter int
 
@@ -135,19 +135,19 @@ func (p *Provider) removeStore(name string) {
 
 type dbEntry struct {
 	value []byte
-	tags  []newstorage.Tag
+	tags  []spi.Tag
 }
 
 type memStore struct {
 	name   string
 	db     map[string]dbEntry
-	config newstorage.StoreConfiguration
+	config spi.StoreConfiguration
 	close  closer
 	sync.RWMutex
 }
 
 // Put stores the key + value pair along with the (optional) tags.
-func (m *memStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
+func (m *memStore) Put(key string, value []byte, tags ...spi.Tag) error {
 	if key == "" {
 		return errEmptyKey
 	}
@@ -167,7 +167,7 @@ func (m *memStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
 }
 
 // Get fetches the value associated with the given key.
-// If key cannot be found, then an error wrapping newstorage.ErrDataNotFound will be returned.
+// If key cannot be found, then an error wrapping spi.ErrDataNotFound will be returned.
 // If key is empty, then an error will be returned.
 func (m *memStore) Get(key string) ([]byte, error) {
 	if key == "" {
@@ -179,16 +179,16 @@ func (m *memStore) Get(key string) ([]byte, error) {
 	entry, ok := m.db[key]
 
 	if !ok {
-		return nil, newstorage.ErrDataNotFound
+		return nil, spi.ErrDataNotFound
 	}
 
 	return entry.value, nil
 }
 
 // Get fetches all tags associated with the given key.
-// If key cannot be found, then an error wrapping newstorage.ErrDataNotFound will be returned.
+// If key cannot be found, then an error wrapping spi.ErrDataNotFound will be returned.
 // If key is empty, then an error will be returned.
-func (m *memStore) GetTags(key string) ([]newstorage.Tag, error) {
+func (m *memStore) GetTags(key string) ([]spi.Tag, error) {
 	if key == "" {
 		return nil, errEmptyKey
 	}
@@ -198,7 +198,7 @@ func (m *memStore) GetTags(key string) ([]newstorage.Tag, error) {
 	entry, ok := m.db[key]
 
 	if !ok {
-		return nil, newstorage.ErrDataNotFound
+		return nil, spi.ErrDataNotFound
 	}
 
 	return entry.tags, nil
@@ -233,8 +233,8 @@ func (m *memStore) GetBulk(keys ...string) ([][]byte, error) {
 // Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
 // If TagValue is not provided, then all data associated with the TagName will be returned.
 // For now, expression can only be a single tag Name + Value pair.
-// memStore does not make use of newstorage.QueryOptions.
-func (m *memStore) Query(expression string, _ ...newstorage.QueryOption) (newstorage.Iterator, error) {
+// memStore does not make use of spi.QueryOptions.
+func (m *memStore) Query(expression string, _ ...spi.QueryOption) (spi.Iterator, error) {
 	if expression == "" {
 		return nil, errInvalidQueryExpressionFormat
 	}
@@ -281,7 +281,7 @@ func (m *memStore) Delete(k string) error {
 
 // Batch performs multiple Put and/or Delete operations in order.
 // If any of the given keys are empty, then an error will be returned.
-func (m *memStore) Batch(operations []newstorage.Operation) error {
+func (m *memStore) Batch(operations []spi.Operation) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -384,7 +384,7 @@ func (m *memIterator) Value() ([]byte, error) {
 }
 
 // Tags returns the tags associated with the key of the current entry.
-func (m *memIterator) Tags() ([]newstorage.Tag, error) {
+func (m *memIterator) Tags() ([]spi.Tag, error) {
 	if len(m.dbEntries) == 0 {
 		return nil, errIteratorExhausted
 	}

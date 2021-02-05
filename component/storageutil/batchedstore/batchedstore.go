@@ -11,25 +11,20 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const failFlush = "failure while flushing data: %w"
 
-var (
-	logger      = log.New("batchedstore")
-	errEmptyKey = errors.New("key cannot be empty")
-)
+var errEmptyKey = errors.New("key cannot be empty")
 
-// Provider is a newstorage.Provider that allows for data to be automatically batched.
+// Provider is a spi.Provider that allows for data to be automatically batched.
 // It acts as a wrapper around another storage provider (typically, one that would benefit from batching).
 // TODO (#2484): Support batching across multiple stores for storage providers that inherently support this
 //  (like the EDV REST provider, which uses a single underlying database (vault) for all of its stores).
 type Provider struct {
-	underlyingProvider newstorage.Provider
+	underlyingProvider spi.Provider
 	openStores         map[string]*store
 	batchSizeLimit     int
 	lock               sync.RWMutex
@@ -38,7 +33,7 @@ type Provider struct {
 type closer func(name string)
 
 // NewProvider instantiates a new batched Provider.
-func NewProvider(underlyingProvider newstorage.Provider, batchSizeLimit int) *Provider {
+func NewProvider(underlyingProvider spi.Provider, batchSizeLimit int) *Provider {
 	return &Provider{
 		underlyingProvider: underlyingProvider,
 		openStores:         make(map[string]*store),
@@ -49,7 +44,7 @@ func NewProvider(underlyingProvider newstorage.Provider, batchSizeLimit int) *Pr
 // OpenStore opens a store with the given name and returns a handle.
 // If the store has never been opened before, then it is created.
 // Store names are not case-sensitive. If name is blank, then an error will be returned by the underlying provider.
-func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
+func (p *Provider) OpenStore(name string) (spi.Store, error) {
 	storeName := strings.ToLower(name)
 
 	p.lock.Lock()
@@ -65,7 +60,7 @@ func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
 		newStore := store{
 			storeName,
 			underlyingStore,
-			make([]newstorage.Operation, 0),
+			make([]spi.Operation, 0),
 			p.batchSizeLimit,
 			p.removeStore,
 			&sync.RWMutex{},
@@ -82,7 +77,7 @@ func (p *Provider) OpenStore(name string) (newstorage.Store, error) {
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned by the underlying provider.
 // If name is blank, then an error will be returned by the underlying provider.
-func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
+func (p *Provider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	err := p.underlyingProvider.SetStoreConfig(name, config)
 	if err != nil {
 		return fmt.Errorf("failed to set store config in underlying provider: %w", err)
@@ -95,10 +90,10 @@ func (p *Provider) SetStoreConfig(name string, config newstorage.StoreConfigurat
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned by the underlying provider.
 // If name is blank, then an error will be returned by the underlying provider.
-func (p *Provider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+func (p *Provider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
 	config, err := p.underlyingProvider.GetStoreConfig(name)
 	if err != nil {
-		return newstorage.StoreConfiguration{},
+		return spi.StoreConfiguration{},
 			fmt.Errorf("failed to get store config from underlying provider: %w", err)
 	}
 
@@ -106,11 +101,11 @@ func (p *Provider) GetStoreConfig(name string) (newstorage.StoreConfiguration, e
 }
 
 // GetOpenStores returns all currently open stores.
-func (p *Provider) GetOpenStores() []newstorage.Store {
+func (p *Provider) GetOpenStores() []spi.Store {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	openStores := make([]newstorage.Store, len(p.openStores))
+	openStores := make([]spi.Store, len(p.openStores))
 
 	var counter int
 
@@ -157,14 +152,14 @@ func (p *Provider) removeStore(name string) {
 
 type store struct {
 	name            string
-	underlyingStore newstorage.Store
-	currentBatch    []newstorage.Operation
+	underlyingStore spi.Store
+	currentBatch    []spi.Operation
 	batchSizeLimit  int
 	close           closer
 	*sync.RWMutex
 }
 
-func (s *store) Put(key string, value []byte, tags ...newstorage.Tag) error {
+func (s *store) Put(key string, value []byte, tags ...spi.Tag) error {
 	if key == "" {
 		return errEmptyKey
 	}
@@ -176,7 +171,7 @@ func (s *store) Put(key string, value []byte, tags ...newstorage.Tag) error {
 	s.Lock()
 	defer s.Unlock()
 
-	s.currentBatch = append(s.currentBatch, newstorage.Operation{
+	s.currentBatch = append(s.currentBatch, spi.Operation{
 		Key:   key,
 		Value: value,
 		Tags:  tags,
@@ -209,7 +204,7 @@ func (s *store) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (s *store) GetTags(key string) ([]newstorage.Tag, error) {
+func (s *store) GetTags(key string) ([]spi.Tag, error) {
 	err := s.Flush()
 	if err != nil {
 		return nil, fmt.Errorf(failFlush, err)
@@ -237,7 +232,7 @@ func (s *store) GetBulk(keys ...string) ([][]byte, error) {
 	return values, nil
 }
 
-func (s *store) Query(expression string, options ...newstorage.QueryOption) (newstorage.Iterator, error) {
+func (s *store) Query(expression string, options ...spi.QueryOption) (spi.Iterator, error) {
 	err := s.Flush()
 	if err != nil {
 		return nil, fmt.Errorf(failFlush, err)
@@ -259,7 +254,7 @@ func (s *store) Delete(key string) error {
 	s.Lock()
 	defer s.Unlock()
 
-	s.currentBatch = append(s.currentBatch, newstorage.Operation{
+	s.currentBatch = append(s.currentBatch, spi.Operation{
 		Key:   key,
 		Value: nil,
 	})
@@ -276,7 +271,7 @@ func (s *store) Delete(key string) error {
 	return nil
 }
 
-func (s *store) Batch(operations []newstorage.Operation) error {
+func (s *store) Batch(operations []spi.Operation) error {
 	for _, operation := range operations {
 		if operation.Key == "" {
 			return errors.New("an operation's key was empty")
@@ -331,16 +326,12 @@ func (s *store) Flush() error {
 // Just flushes.
 func (s *store) flush() error {
 	if len(s.currentBatch) > 0 {
-		startFlushTime := time.Now()
-
 		err := s.underlyingStore.Batch(s.currentBatch)
 		if err != nil {
 			return fmt.Errorf("failure while executing batched operations: %w", err)
 		}
 
 		s.currentBatch = nil
-
-		logger.Debugf(`store with name "%s" finished flushing data. Time taken: %s`, s.name, time.Since(startFlushTime))
 	}
 
 	return nil

@@ -13,8 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -29,8 +28,6 @@ const (
 )
 
 var (
-	logger = log.New("formattedstore")
-
 	errEmptyKey                     = errors.New("key cannot be empty")
 	errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
 		"it must be in the following format: TagName:TagValue")
@@ -38,16 +35,16 @@ var (
 
 // Formatter represents a type that can convert data between two formats.
 type Formatter interface {
-	Format(key string, value []byte, tags ...newstorage.Tag) (formattedKey string, formattedValue []byte,
-		formattedTags []newstorage.Tag, err error)
-	Deformat(formattedKey string, formattedValue []byte, formattedTags ...newstorage.Tag) (key string, value []byte,
-		tags []newstorage.Tag, err error)
+	Format(key string, value []byte, tags ...spi.Tag) (formattedKey string, formattedValue []byte,
+		formattedTags []spi.Tag, err error)
+	Deformat(formattedKey string, formattedValue []byte, formattedTags ...spi.Tag) (key string, value []byte,
+		tags []spi.Tag, err error)
 }
 
-// FormattedProvider is a newstorage.Provider that allows for data to be formatted in an underlying provider.
+// FormattedProvider is a spi.Provider that allows for data to be formatted in an underlying provider.
 type FormattedProvider struct {
-	provider      newstorage.Provider
-	cacheProvider newstorage.Provider
+	provider      spi.Provider
+	cacheProvider spi.Provider
 	openStores    map[string]*formatStore
 	formatter     Formatter
 	lock          sync.RWMutex
@@ -61,16 +58,16 @@ type Option func(opts *FormattedProvider)
 // so any retrieval operations that require them will always skip the cache. They cannot be cached efficiently from
 // store.Get calls since getting tags would require a separate call to the main provider, and Query calls have to skip
 // the cache anyway in order to make sure that no uncached data is missed.
-func WithCacheProvider(cacheProvider newstorage.Provider) Option {
+func WithCacheProvider(cacheProvider spi.Provider) Option {
 	return func(formattedProvider *FormattedProvider) {
 		formattedProvider.cacheProvider = cacheProvider
 	}
 }
 
-// NewProvider instantiates a new FormattedProvider with the given newstorage.Provider and Formatter.
+// NewProvider instantiates a new FormattedProvider with the given spi.Provider and Formatter.
 // The Formatter is used to format data before being sent to the Provider for storage.
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
-func NewProvider(underlyingProvider newstorage.Provider, formatter Formatter, options ...Option) *FormattedProvider {
+func NewProvider(underlyingProvider spi.Provider, formatter Formatter, options ...Option) *FormattedProvider {
 	formattedProvider := &FormattedProvider{
 		provider:   underlyingProvider,
 		formatter:  formatter,
@@ -87,7 +84,7 @@ func NewProvider(underlyingProvider newstorage.Provider, formatter Formatter, op
 // OpenStore opens a store with the given name and returns a handle.
 // If the store has never been opened before, then it is created.
 // Store names are not case-sensitive.
-func (f *FormattedProvider) OpenStore(name string) (newstorage.Store, error) {
+func (f *FormattedProvider) OpenStore(name string) (spi.Store, error) {
 	if name == "" {
 		return nil, fmt.Errorf("store name cannot be empty")
 	}
@@ -128,12 +125,12 @@ func (f *FormattedProvider) OpenStore(name string) (newstorage.Store, error) {
 
 // SetStoreConfig sets the configuration on a store.
 // The store must be created prior to calling this method.
-// If the store cannot be found, then an error wrapping newstorage.ErrStoreNotFound will be
+// If the store cannot be found, then an error wrapping spi.ErrStoreNotFound will be
 // returned from the underlying provider.
-func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
+func (f *FormattedProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	storeName := strings.ToLower(name)
 
-	tags := make([]newstorage.Tag, len(config.TagNames))
+	tags := make([]spi.Tag, len(config.TagNames))
 
 	for i, tagName := range config.TagNames {
 		tags[i].Name = tagName
@@ -150,7 +147,7 @@ func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreC
 		formattedTagNames[i] = formattedTag.Name
 	}
 
-	formattedConfig := newstorage.StoreConfiguration{TagNames: formattedTagNames}
+	formattedConfig := spi.StoreConfiguration{TagNames: formattedTagNames}
 
 	err = f.provider.SetStoreConfig(storeName, formattedConfig)
 	if err != nil {
@@ -188,7 +185,7 @@ func (f *FormattedProvider) SetStoreConfig(name string, config newstorage.StoreC
 // GetStoreConfig gets the current store configuration.
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
-func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+func (f *FormattedProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
 	storeName := strings.ToLower(name)
 
 	if f.cacheProvider != nil {
@@ -197,18 +194,15 @@ func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfigu
 			return config, nil
 		}
 
-		if !errors.Is(err, newstorage.ErrStoreNotFound) {
-			return newstorage.StoreConfiguration{},
+		if !errors.Is(err, spi.ErrStoreNotFound) {
+			return spi.StoreConfiguration{},
 				fmt.Errorf("unexpected failure while getting config from cache store: %w", err)
 		}
-
-		logger.Debugf(`Cache miss when getting store configuration for store "%s". `+
-			`Will fetch data from primary provider.`, storeName)
 	}
 
 	openStore := f.openStores[storeName]
 	if openStore == nil {
-		return newstorage.StoreConfiguration{}, newstorage.ErrStoreNotFound
+		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
 	}
 
 	// In order to support the more restrictive EDV formatter, we bypass the usual GetStoreConfig method and instead
@@ -216,20 +210,20 @@ func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfigu
 
 	store, err := f.OpenStore(storeName + "_formattedstore_storeconfig")
 	if err != nil {
-		return newstorage.StoreConfiguration{}, fmt.Errorf("failed to open the store config store: %w", err)
+		return spi.StoreConfiguration{}, fmt.Errorf("failed to open the store config store: %w", err)
 	}
 
 	configBytes, err := store.Get("formattedstore_storeconfig")
 	if err != nil {
-		return newstorage.StoreConfiguration{},
+		return spi.StoreConfiguration{},
 			fmt.Errorf("failed to get store config from the store config store: %w", err)
 	}
 
-	var config newstorage.StoreConfiguration
+	var config spi.StoreConfiguration
 
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
-		return newstorage.StoreConfiguration{},
+		return spi.StoreConfiguration{},
 			fmt.Errorf("failed to unmarshal tags bytes into a tag slice: %w", err)
 	}
 
@@ -237,11 +231,11 @@ func (f *FormattedProvider) GetStoreConfig(name string) (newstorage.StoreConfigu
 }
 
 // GetOpenStores returns all currently open stores.
-func (f *FormattedProvider) GetOpenStores() []newstorage.Store {
+func (f *FormattedProvider) GetOpenStores() []spi.Store {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
-	openStores := make([]newstorage.Store, len(f.openStores))
+	openStores := make([]spi.Store, len(f.openStores))
 
 	var counter int
 
@@ -272,12 +266,12 @@ func (f *FormattedProvider) Close() error {
 }
 
 type formatStore struct {
-	store      newstorage.Store
-	cacheStore newstorage.Store
+	store      spi.Store
+	cacheStore spi.Store
 	formatter  Formatter
 }
 
-func (f *formatStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
+func (f *formatStore) Put(key string, value []byte, tags ...spi.Tag) error {
 	if key == "" {
 		return errEmptyKey
 	}
@@ -317,13 +311,10 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 			return value, nil
 		}
 
-		if !errors.Is(err, newstorage.ErrDataNotFound) {
+		if !errors.Is(err, spi.ErrDataNotFound) {
 			return nil,
 				fmt.Errorf("unexpected failure while getting data from cache store: %w", err)
 		}
-
-		logger.Debugf(`cache miss when getting value for key "%s" from cache storage provider. `+
-			`Will fetch data from primary provider.`, key)
 	}
 
 	formattedKey, _, _, err := f.formatter.Format(key, nil, nil...)
@@ -351,7 +342,7 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (f *formatStore) GetTags(key string) ([]newstorage.Tag, error) {
+func (f *formatStore) GetTags(key string) ([]spi.Tag, error) {
 	formattedKey, _, _, err := f.formatter.Format(key, nil)
 	if err != nil {
 		return nil, fmt.Errorf(failFormat, "key", key, err)
@@ -412,7 +403,7 @@ func (f *formatStore) GetBulk(keys ...string) ([][]byte, error) {
 	return deformattedValues, nil
 }
 
-func (f *formatStore) Query(expression string, options ...newstorage.QueryOption) (newstorage.Iterator, error) {
+func (f *formatStore) Query(expression string, options ...spi.QueryOption) (spi.Iterator, error) {
 	if expression == "" {
 		return &formattedIterator{}, errInvalidQueryExpressionFormat
 	}
@@ -420,7 +411,7 @@ func (f *formatStore) Query(expression string, options ...newstorage.QueryOption
 	expressionSplit := strings.Split(expression, ":")
 	switch len(expressionSplit) {
 	case expressionTagNameOnlyLength:
-		_, _, formattedTags, err := f.formatter.Format("", nil, newstorage.Tag{Name: expressionSplit[0]})
+		_, _, formattedTags, err := f.formatter.Format("", nil, spi.Tag{Name: expressionSplit[0]})
 		if err != nil {
 			return &formattedIterator{}, fmt.Errorf(failFormat, "tag name", expressionSplit[0], err)
 		}
@@ -433,7 +424,7 @@ func (f *formatStore) Query(expression string, options ...newstorage.QueryOption
 		return &formattedIterator{underlyingIterator: underlyingIterator, formatter: f.formatter}, nil
 	case expressionTagNameAndValueLength:
 		_, _, formattedTags, err := f.formatter.Format("", nil,
-			newstorage.Tag{Name: expressionSplit[0], Value: expressionSplit[1]})
+			spi.Tag{Name: expressionSplit[0], Value: expressionSplit[1]})
 		if err != nil {
 			return &formattedIterator{}, fmt.Errorf("failed to format tag: %w", err)
 		}
@@ -472,8 +463,8 @@ func (f *formatStore) Delete(key string) error {
 }
 
 // TODO (#2476): Add caching support to Batch method.
-func (f *formatStore) Batch(operations []newstorage.Operation) error {
-	formattedOperations := make([]newstorage.Operation, len(operations))
+func (f *formatStore) Batch(operations []spi.Operation) error {
+	formattedOperations := make([]spi.Operation, len(operations))
 
 	for i, operation := range operations {
 		formattedKey, formattedValue, formattedTags, err :=
@@ -484,8 +475,8 @@ func (f *formatStore) Batch(operations []newstorage.Operation) error {
 
 		if operation.Value == nil {
 			// Ensure that, even if the formatter output a non-nil value,
-			// the "nil value = delete" semantics defined in newstorage.Store are followed.
-			formattedOperations[i] = newstorage.Operation{
+			// the "nil value = delete" semantics defined in spi.Store are followed.
+			formattedOperations[i] = spi.Operation{
 				Key:  formattedKey,
 				Tags: formattedTags,
 			}
@@ -493,7 +484,7 @@ func (f *formatStore) Batch(operations []newstorage.Operation) error {
 			continue
 		}
 
-		formattedOperations[i] = newstorage.Operation{
+		formattedOperations[i] = spi.Operation{
 			Key:   formattedKey,
 			Value: formattedValue,
 			Tags:  formattedTags,
@@ -541,7 +532,7 @@ func (f *formatStore) Close() error {
 }
 
 type formattedIterator struct {
-	underlyingIterator newstorage.Iterator
+	underlyingIterator spi.Iterator
 	formatter          Formatter
 }
 
@@ -588,7 +579,7 @@ func (f *formattedIterator) Value() ([]byte, error) {
 	return value, nil
 }
 
-func (f *formattedIterator) Tags() ([]newstorage.Tag, error) {
+func (f *formattedIterator) Tags() ([]spi.Tag, error) {
 	formattedTags, err := f.underlyingIterator.Tags()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get formatted tags from the underlying iterator: %w", err)
