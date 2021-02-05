@@ -3,8 +3,8 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package newstorage contains common tests for storage provider implementations.
-package newstorage
+// Package storage contains common tests for storage provider implementations.
+package storage
 
 import (
 	"errors"
@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // TestAll tests common storage functionality.
 // These tests demonstrate behaviour that is expected to be consistent across store implementations.
-func TestAll(t *testing.T, provider newstorage.Provider) {
+func TestAll(t *testing.T, provider spi.Provider) {
 	// Run this first so the store count is predictable.
 	t.Run("Provider: GetOpenStores", func(t *testing.T) {
 		TestProviderGetOpenStores(t, provider)
@@ -59,8 +59,8 @@ func TestAll(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestProviderOpenStoreSetGetConfig tests common Provider OpenStore, SetStoreConfig, and GetStoreConfig functionality.
-func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provider) {
-	config := newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}}
+func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) {
+	config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}}
 
 	testStoreName := randomStoreName()
 
@@ -80,11 +80,11 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provide
 	})
 	t.Run("Attempt to set config without opening store first", func(t *testing.T) {
 		err := provider.SetStoreConfig("NonExistentStore", config)
-		require.True(t, errors.Is(err, newstorage.ErrStoreNotFound), "Got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrStoreNotFound), "Got unexpected error or no error")
 	})
 	t.Run("Attempt to get config without opening store first", func(t *testing.T) {
 		config, err := provider.GetStoreConfig("NonExistentStore")
-		require.True(t, errors.Is(err, newstorage.ErrStoreNotFound), "Got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrStoreNotFound), "Got unexpected error or no error")
 		require.Empty(t, config)
 	})
 	t.Run("Attempt to open a store with a blank name", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider newstorage.Provide
 
 // TestProviderGetOpenStores tests common Provider GetOpenStores functionality.
 // This test assumes that the provider passed in has never had stores created under it before.
-func TestProviderGetOpenStores(t *testing.T, provider newstorage.Provider) {
+func TestProviderGetOpenStores(t *testing.T, provider spi.Provider) {
 	// No stores have been created yet, so the slice should be empty or nil.
 	openStores := provider.GetOpenStores()
 	require.Len(t, openStores, 0)
@@ -123,7 +123,7 @@ func TestProviderGetOpenStores(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestProviderClose tests common Provider Close functionality.
-func TestProviderClose(t *testing.T, provider newstorage.Provider) {
+func TestProviderClose(t *testing.T, provider spi.Provider) {
 	t.Run("Success", func(t *testing.T) {
 		err := provider.Close()
 		require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestProviderClose(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestPutGet tests common Store Put and Get functionality.
-func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen // Test file
+func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test file
 	testKey := "TestKey"
 	testValue := "TestValue"
 
@@ -160,7 +160,7 @@ func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen /
 
 			// Store 2 should be disjoint from store 1. It should not contain the key + value pair from store 1.
 			value, err := store2.Get(testKey)
-			require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+			require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 			require.Nil(t, value)
 		})
 		t.Run("Put same key + value in two stores with different names, then update value in one store, "+
@@ -219,7 +219,7 @@ func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen /
 
 				// Store 1 should no longer have the key + value pair.
 				value, err := store1.Get(testKey)
-				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 
 				// Store 2 should still have the key + value pair.
@@ -278,11 +278,11 @@ func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen /
 
 				// Both store 1 and store 2 should no longer have the key + value pair.
 				value, err := store1.Get(testKey)
-				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 
 				value, err = store2.Get(testKey)
-				require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 			})
 	})
@@ -310,13 +310,13 @@ func TestPutGet(t *testing.T, provider newstorage.Provider) { //nolint: funlen /
 }
 
 // TestStoreGetTags tests common Store GetTags functionality.
-func TestStoreGetTags(t *testing.T, provider newstorage.Provider) {
+func TestStoreGetTags(t *testing.T, provider spi.Provider) {
 	storeName := randomStoreName()
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
 
 	t.Run("Successfully retrieve tags", func(t *testing.T) {
-		tags := []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}}
+		tags := []spi.Tag{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}}
 
 		key := "did:example:1"
 
@@ -329,7 +329,7 @@ func TestStoreGetTags(t *testing.T, provider newstorage.Provider) {
 	})
 	t.Run("Data not found", func(t *testing.T) {
 		tags, err := store.GetTags("NonExistentKey")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "Got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 		require.Empty(t, tags)
 	})
 	t.Run("Empty key", func(t *testing.T) {
@@ -340,21 +340,21 @@ func TestStoreGetTags(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestStoreGetBulk tests common Store GetBulk functionality.
-func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: funlen // Test file
+func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen // Test file
 	t.Run("All values found", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
 		err = store.Put("key1", []byte("value1"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
 		require.NoError(t, err)
 
 		err = store.Put("key2", []byte("value2"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
@@ -372,7 +372,7 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 		require.NotNil(t, store)
 
 		err = store.Put("key1", []byte("value1"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
@@ -390,14 +390,14 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 		require.NotNil(t, store)
 
 		err = store.Put("key1", []byte("value1"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
 		require.NoError(t, err)
 
 		err = store.Put("key2", []byte("value2"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
@@ -418,7 +418,7 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 		require.NotNil(t, store)
 
 		err = store.Put("key1", []byte("value1"),
-			[]newstorage.Tag{
+			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
 			}...)
@@ -460,7 +460,7 @@ func TestStoreGetBulk(t *testing.T, provider newstorage.Provider) { //nolint: fu
 }
 
 // TestStoreDelete tests common Store Delete functionality.
-func TestStoreDelete(t *testing.T, provider newstorage.Provider) {
+func TestStoreDelete(t *testing.T, provider spi.Provider) {
 	const commonKey = "did:example:1234"
 
 	data := []byte("value1")
@@ -488,7 +488,7 @@ func TestStoreDelete(t *testing.T, provider newstorage.Provider) {
 
 	// Try to get the value stored under the deleted key - should fail.
 	doc, err = store.Get(commonKey)
-	require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+	require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 	require.Empty(t, doc)
 
 	// Try Delete with an empty key - should fail.
@@ -497,11 +497,11 @@ func TestStoreDelete(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestStoreQuery tests common Store Query functionality.
-func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: funlen // Test file
+func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // Test file
 	t.Run("Tag name only query - 2 values found", func(t *testing.T) {
 		keysToPut := []string{"key1", "key2", "key3"}
 		valuesToPut := [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")}
-		tagsToPut := [][]newstorage.Tag{
+		tagsToPut := [][]spi.Tag{
 			{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}},
 			{{Name: "tagName3", Value: "tagValue"}, {Name: "tagName4"}},
 			{{Name: "tagName3", Value: "tagValue2"}},
@@ -509,7 +509,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 
 		expectedKeys := []string{keysToPut[1], keysToPut[2]}
 		expectedValues := [][]byte{valuesToPut[1], valuesToPut[2]}
-		expectedTags := [][]newstorage.Tag{tagsToPut[1], tagsToPut[2]}
+		expectedTags := [][]spi.Tag{tagsToPut[1], tagsToPut[2]}
 
 		queryExpression := "tagName3"
 
@@ -521,7 +521,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
@@ -539,13 +539,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(2))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -558,12 +558,12 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(1))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -576,13 +576,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(100))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -591,7 +591,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 	t.Run("Tag name only query - 0 values found", func(t *testing.T) {
 		keysToPut := []string{"key1", "key2", "key3"}
 		valuesToPut := [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")}
-		tagsToPut := [][]newstorage.Tag{
+		tagsToPut := [][]spi.Tag{
 			{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}},
 			{{Name: "tagName3", Value: "tagValue"}, {Name: "tagName4"}},
 			{{Name: "tagName3", Value: "tagValue2"}},
@@ -607,7 +607,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
@@ -625,13 +625,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(2))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil)
@@ -644,12 +644,12 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(1))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil)
@@ -662,13 +662,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(100))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil)
@@ -677,7 +677,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 	t.Run("Tag name and value query - 2 values found", func(t *testing.T) {
 		keysToPut := []string{"key1", "key2", "key3", "key4"}
 		valuesToPut := [][]byte{[]byte("value1"), []byte("value2"), []byte("value3"), []byte("value4")}
-		tagsToPut := [][]newstorage.Tag{
+		tagsToPut := [][]spi.Tag{
 			{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}},
 			{{Name: "tagName3", Value: "tagValue1"}, {Name: "tagName4"}},
 			{{Name: "tagName3", Value: "tagValue2"}},
@@ -686,7 +686,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 
 		expectedKeys := []string{keysToPut[1], keysToPut[3]}
 		expectedValues := [][]byte{valuesToPut[1], valuesToPut[3]}
-		expectedTags := [][]newstorage.Tag{tagsToPut[1], tagsToPut[3]}
+		expectedTags := [][]spi.Tag{tagsToPut[1], tagsToPut[3]}
 
 		queryExpression := "tagName3:tagValue1"
 
@@ -698,7 +698,7 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
@@ -716,13 +716,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(2))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -735,12 +735,12 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(1))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -753,13 +753,13 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 			require.NotNil(t, store)
 
 			err = provider.SetStoreConfig(storeName,
-				newstorage.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
 
 			putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
 			//nolint:gomnd // Test file
-			iterator, err := store.Query(queryExpression, newstorage.WithPageSize(100))
+			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
@@ -786,16 +786,16 @@ func TestStoreQuery(t *testing.T, provider newstorage.Provider) { // nolint: fun
 }
 
 // TestStoreBatch tests common Store Batch functionality.
-func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funlen // Test file
+func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // Test file
 	t.Run("Success: put three new values", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		operations := []newstorage.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: []newstorage.Tag{{Name: "tagName1"}}},
-			{Key: "key2", Value: []byte("value2"), Tags: []newstorage.Tag{{Name: "tagName2"}}},
-			{Key: "key3", Value: []byte("value3"), Tags: []newstorage.Tag{{Name: "tagName3"}}},
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1"}}},
+			{Key: "key2", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2"}}},
+			{Key: "key3", Value: []byte("value3"), Tags: []spi.Tag{{Name: "tagName3"}}},
 		}
 
 		err = store.Batch(operations)
@@ -835,19 +835,19 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Put("key1", []byte("value1"), []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
 		require.NoError(t, err)
 
-		err = store.Put("key2", []byte("value2"), []newstorage.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
+		err = store.Put("key2", []byte("value2"), []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
 		require.NoError(t, err)
 
-		err = store.Put("key3", []byte("value3"), []newstorage.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
+		err = store.Put("key3", []byte("value3"), []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
 		require.NoError(t, err)
 
-		operations := []newstorage.Operation{
-			{Key: "key1", Value: []byte("value1_new"), Tags: []newstorage.Tag{{Name: "tagName1"}}},
-			{Key: "key2", Value: []byte("value2_new"), Tags: []newstorage.Tag{{Name: "tagName2_new", Value: "tagValue2"}}},
-			{Key: "key3", Value: []byte("value3_new"), Tags: []newstorage.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}},
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1_new"), Tags: []spi.Tag{{Name: "tagName1"}}},
+			{Key: "key2", Value: []byte("value2_new"), Tags: []spi.Tag{{Name: "tagName2_new", Value: "tagValue2"}}},
+			{Key: "key3", Value: []byte("value3_new"), Tags: []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}},
 		}
 
 		err = store.Batch(operations)
@@ -890,16 +890,16 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Put("key1", []byte("value1"), []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
 		require.NoError(t, err)
 
-		err = store.Put("key2", []byte("value2"), []newstorage.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
+		err = store.Put("key2", []byte("value2"), []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
 		require.NoError(t, err)
 
-		err = store.Put("key3", []byte("value3"), []newstorage.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
+		err = store.Put("key3", []byte("value3"), []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
 		require.NoError(t, err)
 
-		operations := []newstorage.Operation{
+		operations := []spi.Operation{
 			{Key: "key1", Value: nil, Tags: nil},
 			{Key: "key2", Value: nil, Tags: nil},
 			{Key: "key3", Value: nil, Tags: nil},
@@ -911,27 +911,27 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		// Check and make sure values can't be found now
 
 		value, err := store.Get("key1")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
 
 		value, err = store.Get("key2")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
 
 		value, err = store.Get("key3")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
 
 		tags, err := store.GetTags("key1")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Empty(t, tags)
 
 		tags, err = store.GetTags("key2")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Empty(t, tags)
 
 		tags, err = store.GetTags("key3")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Empty(t, tags)
 	})
 	t.Run("Success: Put value and then delete it in the same Batch call", func(t *testing.T) {
@@ -939,8 +939,8 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		operations := []newstorage.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}},
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
 			{Key: "key1", Value: nil, Tags: nil},
 		}
 
@@ -950,11 +950,11 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		// Check and make sure that the delete effectively "overrode" the put in the Batch call.
 
 		value, err := store.Get("key1")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
 
 		tags, err := store.GetTags("key1")
-		require.True(t, errors.Is(err, newstorage.ErrDataNotFound), "got unexpected error or no error")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Empty(t, tags)
 	})
 	t.Run("Success: Put value and update it in the same Batch call", func(t *testing.T) {
@@ -962,9 +962,9 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		operations := []newstorage.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}},
-			{Key: "key1", Value: []byte("value2"), Tags: []newstorage.Tag{{Name: "tagName2", Value: "tagValue2"}}},
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
+			{Key: "key1", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}},
 		}
 
 		err = store.Batch(operations)
@@ -987,9 +987,9 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		operations := []newstorage.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: []newstorage.Tag{{Name: "tagName1", Value: "tagValue1"}}},
-			{Key: "", Value: []byte("value2"), Tags: []newstorage.Tag{{Name: "tagName2", Value: "tagValue2"}}},
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
+			{Key: "", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}},
 		}
 
 		err = store.Batch(operations)
@@ -998,7 +998,7 @@ func TestStoreBatch(t *testing.T, provider newstorage.Provider) { // nolint:funl
 }
 
 // TestStoreFlush tests common Store Flush functionality.
-func TestStoreFlush(t *testing.T, provider newstorage.Provider) {
+func TestStoreFlush(t *testing.T, provider spi.Provider) {
 	t.Run("Success", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
@@ -1022,7 +1022,7 @@ func TestStoreFlush(t *testing.T, provider newstorage.Provider) {
 }
 
 // TestStoreClose tests common Store Close functionality.
-func TestStoreClose(t *testing.T, provider newstorage.Provider) {
+func TestStoreClose(t *testing.T, provider spi.Provider) {
 	t.Run("Successfully close store", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
@@ -1037,7 +1037,7 @@ func randomStoreName() string {
 	return "store-" + uuid.New().String()
 }
 
-func putData(t *testing.T, store newstorage.Store, keys []string, values [][]byte, tags [][]newstorage.Tag) {
+func putData(t *testing.T, store spi.Store, keys []string, values [][]byte, tags [][]spi.Tag) {
 	for i := 0; i < len(keys); i++ {
 		err := store.Put(keys[i], values[i], tags[i]...)
 		require.NoError(t, err)
@@ -1045,8 +1045,8 @@ func putData(t *testing.T, store newstorage.Store, keys []string, values [][]byt
 }
 
 func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
-	actualResultsItr newstorage.Iterator,
-	expectedKeys []string, expectedValues [][]byte, expectedTags [][]newstorage.Tag) {
+	actualResultsItr spi.Iterator,
+	expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag) {
 	if len(expectedValues) != len(expectedKeys) || len(expectedTags) != len(expectedKeys) {
 		require.FailNow(t,
 			"Invalid test case. Expected keys, values and tags slices must be the same length.")
@@ -1055,7 +1055,7 @@ func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
 	var dataChecklist struct {
 		keys     []string
 		values   [][]byte
-		tags     [][]newstorage.Tag
+		tags     [][]spi.Tag
 		received []bool
 	}
 
@@ -1116,7 +1116,7 @@ func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
 	}
 }
 
-func equalTags(tags1, tags2 []newstorage.Tag) bool { //nolint:gocyclo // Test file
+func equalTags(tags1, tags2 []spi.Tag) bool { //nolint:gocyclo // Test file
 	if len(tags1) != len(tags2) {
 		return false
 	}

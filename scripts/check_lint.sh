@@ -26,4 +26,4 @@ ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/wo
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/newstorage/batchedstore ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/newstorage/mock ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/newstorage/edv ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/test/newstorage/ ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/test/component/storage/ ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
