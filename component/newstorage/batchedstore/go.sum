@@ -171,6 +171,10 @@ github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-2021020418
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204193554-c075603f3ac4/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204233945-72c5d1bacb76 h1:plOQNkYZWRLmi+JcRbmd8XJBDtByFBwZdWYqQmy+zWQ=
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204233945-72c5d1bacb76/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
+github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210205004125-05c6c9c21711 h1:Yf4eJV8MSYbJJfGvcJqBqkWrFsdBYFAgEVGDOlbQzbI=
+github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210205004125-05c6c9c21711/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
+github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore v0.0.0-20210205004125-05c6c9c21711 h1:D7bHFfpeX0ZEiNS36VB2asxM38oAoDCGyArJjWn7MUc=
+github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore v0.0.0-20210205004125-05c6c9c21711/go.mod h1:emjAIguNs7YrwF2bJu0mMwJ/lVnSxWUnQvHBApkAiNI=
 github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0-20210204230744-9ce03502ceb8 h1:zxpADBXQ2VvIXOT7bbUjYhC2C8sVs9WadRs1R9Mg+fU=
 github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0-20210204230744-9ce03502ceb8/go.mod h1:ksYjXP75vjziIf2h4JwCbVHLzS+S8EP0x25I0kt9Ty8=
 github.com/hyperledger/aries-framework-go/component/newstorage/mock v0.0.0-20210204233945-72c5d1bacb76 h1:WasishrIWcGWdje+01u3r6oS8uW7kmueWwmov+Xx9sA=
