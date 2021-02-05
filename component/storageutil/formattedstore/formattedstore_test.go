@@ -7,39 +7,28 @@ SPDX-License-Identifier: Apache-2.0
 package formattedstore_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/mac"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/edv"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/formattedstore/exampleformatters"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/mem"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/mock"
-	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/formattedstore"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/formattedstore/exampleformatters"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
+	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
 type mockFormatter struct {
 	errFormat error
 }
 
-func (m *mockFormatter) Format(string, []byte, ...newstorage.Tag) (string, []byte, []newstorage.Tag, error) {
+func (m *mockFormatter) Format(string, []byte, ...spi.Tag) (string, []byte, []spi.Tag, error) {
 	return "", nil, nil, m.errFormat
 }
 
-func (m *mockFormatter) Deformat(string, []byte, ...newstorage.Tag) (string, []byte, []newstorage.Tag, error) {
+func (m *mockFormatter) Deformat(string, []byte, ...spi.Tag) (string, []byte, []spi.Tag, error) {
 	return "", nil, nil, errors.New("key, value or tags deformatting failure")
 }
 
@@ -49,14 +38,14 @@ func TestCommon(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{})
 			require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+			storagetest.TestAll(t, provider)
 		})
 		t.Run("With cache", func(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
 				formattedstore.WithCacheProvider(mem.NewProvider()))
 			require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+			storagetest.TestAll(t, provider)
 		})
 	})
 	t.Run("With base64 formatter", func(t *testing.T) {
@@ -64,29 +53,14 @@ func TestCommon(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{})
 			require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
+			storagetest.TestAll(t, provider)
 		})
 		t.Run("With cache", func(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{},
 				formattedstore.WithCacheProvider(mem.NewProvider()))
 			require.NotNil(t, provider)
 
-			newstoragetest.TestAll(t, provider)
-		})
-	})
-	t.Run("With EDV Encrypted Formatter", func(t *testing.T) {
-		t.Run("Without cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), createEncryptedFormatter(t))
-			require.NotNil(t, provider)
-
-			newstoragetest.TestAll(t, provider)
-		})
-		t.Run("With cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), createEncryptedFormatter(t),
-				formattedstore.WithCacheProvider(mem.NewProvider()))
-			require.NotNil(t, provider)
-
-			newstoragetest.TestAll(t, provider)
+			storagetest.TestAll(t, provider)
 		})
 	})
 }
@@ -124,7 +98,7 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = provider.SetStoreConfig("StoreName", newstorage.StoreConfiguration{TagNames: []string{"TagName1"}})
+		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
 		require.EqualError(t, err, "failed to format tag names: tags formatting failure")
 	})
 	t.Run("Fail to set store config in cache provider", func(t *testing.T) {
@@ -137,7 +111,7 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = provider.SetStoreConfig("StoreName", newstorage.StoreConfiguration{TagNames: []string{"TagName1"}})
+		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
 		require.EqualError(t, err, "failed to set store configuration via cache provider: "+
 			"set store config failure")
 	})
@@ -151,7 +125,7 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = provider.SetStoreConfig("StoreName", newstorage.StoreConfiguration{TagNames: []string{"TagName1"}})
+		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
 		require.EqualError(t, err, "failed to store config in store config store: "+
 			"failed to put formatted data in underlying store: put failure")
 	})
@@ -228,7 +202,7 @@ func TestFormatStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Put("KeyName", []byte("value"), newstorage.Tag{Name: "TagName1", Value: "TagValue1"})
+		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
 		require.EqualError(t, err, "failed to format data: formatting failure")
 	})
 	t.Run("Fail to put data in cache store", func(t *testing.T) {
@@ -241,7 +215,7 @@ func TestFormatStore_Put(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Put("KeyName", []byte("value"), newstorage.Tag{Name: "TagName1", Value: "TagValue1"})
+		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
 		require.EqualError(t, err, `failed to put data in cache store: put failure`)
 	})
 }
@@ -288,7 +262,7 @@ func TestFormatStore_Get(t *testing.T) {
 		provider := formattedstore.NewProvider(underlyingProvider, &exampleformatters.NoOpFormatter{},
 			formattedstore.WithCacheProvider(
 				&mock.Provider{OpenStoreReturn: &mock.Store{
-					ErrGet: newstorage.ErrDataNotFound, ErrPut: errors.New("put error"),
+					ErrGet: spi.ErrDataNotFound, ErrPut: errors.New("put error"),
 				}}))
 		require.NotNil(t, provider)
 
@@ -420,7 +394,7 @@ func TestFormatStore_Batch(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Batch([]newstorage.Operation{
+		err = store.Batch([]spi.Operation{
 			{
 				Key:   "KeyName",
 				Value: []byte("Value1"),
@@ -437,7 +411,7 @@ func TestFormatStore_Batch(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
-		err = store.Batch([]newstorage.Operation{
+		err = store.Batch([]spi.Operation{
 			{
 				Key:   "KeyName1",
 				Value: []byte("Value1"),
@@ -498,58 +472,4 @@ func TestFormattedIterator(t *testing.T) {
 		err := iterator.Close()
 		require.EqualError(t, err, "failed to close underlying iterator: close failure")
 	})
-}
-
-func createEncryptedFormatter(t *testing.T) *edv.EncryptedFormatter {
-	encrypter, decrypter := createEncrypterAndDecrypter(t)
-
-	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, createMACCrypto(t))
-	require.NotNil(t, formatter)
-
-	return formatter
-}
-
-func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecrypt) {
-	cryptoSvc, err := tinkcrypto.New()
-	require.NoError(t, err)
-
-	keyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
-	require.NoError(t, err)
-
-	kmsSvc := &mockkms.KeyManager{
-		GetKeyValue: keyHandle,
-	}
-
-	pubKH, err := keyHandle.Public()
-	require.NoError(t, err)
-
-	buf := new(bytes.Buffer)
-	pubKeyWriter := keyio.NewWriter(buf)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
-	require.NoError(t, err)
-
-	ecPubKey := new(cryptoapi.PublicKey)
-
-	err = json.Unmarshal(buf.Bytes(), ecPubKey)
-	require.NoError(t, err)
-
-	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "EDVEncryptedDocument", "", nil,
-		[]*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
-	require.NoError(t, err)
-
-	decrypter := jose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
-
-	return encrypter, decrypter
-}
-
-func createMACCrypto(t *testing.T) *edv.MACCrypto {
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-	require.NoError(t, err)
-	require.NotNil(t, kh)
-
-	crypto, err := tinkcrypto.New()
-	require.NoError(t, err)
-
-	return edv.NewMACCrypto(kh, crypto)
 }

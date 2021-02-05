@@ -9,7 +9,7 @@ package exampleformatters
 import (
 	"encoding/base64"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Base64Formatter is a simple formatter that encodes and decodes base64 data.
@@ -17,12 +17,12 @@ type Base64Formatter struct {
 }
 
 // Format returns base64-encoded versions of key, value, and tags.
-func (b *Base64Formatter) Format(key string, value []byte, tags ...newstorage.Tag) (string, []byte, []newstorage.Tag,
+func (b *Base64Formatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag,
 	error) {
-	formattedTags := make([]newstorage.Tag, len(tags))
+	formattedTags := make([]spi.Tag, len(tags))
 
 	for i, tag := range tags {
-		formattedTags[i] = newstorage.Tag{
+		formattedTags[i] = spi.Tag{
 			Name:  base64.StdEncoding.EncodeToString([]byte(tag.Name)),
 			Value: base64.StdEncoding.EncodeToString([]byte(tag.Value)),
 		}
@@ -34,7 +34,7 @@ func (b *Base64Formatter) Format(key string, value []byte, tags ...newstorage.Ta
 
 // Deformat returns base64-decoded versions of formattedKey, formattedValue, and formattedTags.
 func (b *Base64Formatter) Deformat(formattedKey string, formattedValue []byte,
-	formattedTags ...newstorage.Tag) (string, []byte, []newstorage.Tag, error) {
+	formattedTags ...spi.Tag) (string, []byte, []spi.Tag, error) {
 	key, err := base64.StdEncoding.DecodeString(formattedKey)
 	if err != nil {
 		return "", nil, nil, err
@@ -45,7 +45,7 @@ func (b *Base64Formatter) Deformat(formattedKey string, formattedValue []byte,
 		return "", nil, nil, err
 	}
 
-	tags := make([]newstorage.Tag, len(formattedTags))
+	tags := make([]spi.Tag, len(formattedTags))
 
 	for i, formattedTag := range formattedTags {
 		tagName, err := base64.StdEncoding.DecodeString(formattedTag.Name)
@@ -58,7 +58,7 @@ func (b *Base64Formatter) Deformat(formattedKey string, formattedValue []byte,
 			return "", nil, nil, err
 		}
 
-		tags[i] = newstorage.Tag{
+		tags[i] = spi.Tag{
 			Name:  string(tagName),
 			Value: string(tagValue),
 		}
