@@ -169,10 +169,12 @@ github.com/hyperledger/aries-framework-go v0.1.6-0.20210204193554-c075603f3ac4/g
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204181301-2bb923fb640d h1:E2hdl9QYyqiQg4Bn4oyLiIRvmF8OL57A0yLIVhM+tNA=
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204181301-2bb923fb640d/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
 github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204193554-c075603f3ac4/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
-github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204230744-9ce03502ceb8 h1:xpcHD/cLZ0oQgQev08DxEhI9HGMRQpwCiCMQMvUj9fw=
-github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204230744-9ce03502ceb8/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
+github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204233945-72c5d1bacb76 h1:plOQNkYZWRLmi+JcRbmd8XJBDtByFBwZdWYqQmy+zWQ=
+github.com/hyperledger/aries-framework-go/component/newstorage v0.0.0-20210204233945-72c5d1bacb76/go.mod h1:uTZOkFXlS08C2AZwN3l8UxtjAdvG7RKqreBoskGsUQ4=
 github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0-20210204230744-9ce03502ceb8 h1:zxpADBXQ2VvIXOT7bbUjYhC2C8sVs9WadRs1R9Mg+fU=
 github.com/hyperledger/aries-framework-go/component/newstorage/mem v0.0.0-20210204230744-9ce03502ceb8/go.mod h1:ksYjXP75vjziIf2h4JwCbVHLzS+S8EP0x25I0kt9Ty8=
+github.com/hyperledger/aries-framework-go/component/newstorage/mock v0.0.0-20210204233945-72c5d1bacb76 h1:WasishrIWcGWdje+01u3r6oS8uW7kmueWwmov+Xx9sA=
+github.com/hyperledger/aries-framework-go/component/newstorage/mock v0.0.0-20210204233945-72c5d1bacb76/go.mod h1:4ps/fErG80spS7L6WBm7LmeL520HDmq5w/AT40+HlCg=
 github.com/hyperledger/aries-framework-go/test/newstorage v0.0.0-20210204193554-c075603f3ac4 h1:wTiJ1GNL0JQ6T3wQ2/4icTCvTxVSjKRZiIAySyw/Fug=
 github.com/hyperledger/aries-framework-go/test/newstorage v0.0.0-20210204193554-c075603f3ac4/go.mod h1:DRn8TkE1gqpmWMrbucH0BuvAEIwTn3I/NYM/43qejhQ=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
