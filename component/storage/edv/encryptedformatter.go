@@ -14,8 +14,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // EncryptedFormatter formats data for use with an Encrypted Data Vault.
@@ -38,7 +38,7 @@ func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decryp
 // Format turns key into an EDV-compatible document ID, turns tag names and values into the format needed for
 // EDV encrypted indexes, and turns key + value + tags into an encrypted document, which is then returned as the
 // formatted value from this function.
-func (e *EncryptedFormatter) Format(key string, value []byte, tags ...newstorage.Tag) (string, []byte, []newstorage.Tag,
+func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag,
 	error) {
 	return e.format("", key, value, tags...)
 }
@@ -47,8 +47,8 @@ func (e *EncryptedFormatter) Format(key string, value []byte, tags ...newstorage
 // function above, and returns the unformatted key, value and tags which are all contained in formattedValue.
 // The formatted key and formatted tags must come from the encrypted document (formattedValue) since they are
 // hashed values, and therefore not reversible.
-func (e *EncryptedFormatter) Deformat(_ string, formattedValue []byte, _ ...newstorage.Tag) (string, []byte,
-	[]newstorage.Tag, error) {
+func (e *EncryptedFormatter) Deformat(_ string, formattedValue []byte, _ ...spi.Tag) (string, []byte,
+	[]spi.Tag, error) {
 	if formattedValue == nil {
 		return "", nil, nil, errors.New("EDV encrypted formatter requires the formatted value " +
 			"in order to return the deformatted key and tags")
@@ -63,8 +63,8 @@ func (e *EncryptedFormatter) Deformat(_ string, formattedValue []byte, _ ...news
 		structuredDocument.Content.UnformattedTags, nil
 }
 
-func (e *EncryptedFormatter) format(keyAndTagPrefix, key string, value []byte, tags ...newstorage.Tag) (string, []byte,
-	[]newstorage.Tag, error) {
+func (e *EncryptedFormatter) format(keyAndTagPrefix, key string, value []byte, tags ...spi.Tag) (string, []byte,
+	[]spi.Tag, error) {
 	var formattedKey string
 
 	if key != "" {
@@ -131,8 +131,8 @@ func (e *EncryptedFormatter) formatKey(key string) (string, error) {
 	return base58.Encode(keyHash[0:16]), nil
 }
 
-func (e *EncryptedFormatter) formatTags(tagPrefix string, tags []newstorage.Tag) ([]newstorage.Tag, error) {
-	formattedTags := make([]newstorage.Tag, len(tags))
+func (e *EncryptedFormatter) formatTags(tagPrefix string, tags []spi.Tag) ([]spi.Tag, error) {
+	formattedTags := make([]spi.Tag, len(tags))
 
 	for i, tag := range tags {
 		tagNameMAC, err := e.macCrypto.ComputeMAC([]byte(tagPrefix + "-" + tag.Name))
@@ -155,7 +155,7 @@ func (e *EncryptedFormatter) formatTags(tagPrefix string, tags []newstorage.Tag)
 
 		// Since the formatted tag are hashes and can't be reversed, the only way we can retrieve
 		// the unformatted tags later is to embed them in the stored value.
-		formattedTags[i] = newstorage.Tag{
+		formattedTags[i] = spi.Tag{
 			Name:  formattedTagName,
 			Value: formattedTagValue,
 		}
@@ -165,7 +165,7 @@ func (e *EncryptedFormatter) formatTags(tagPrefix string, tags []newstorage.Tag)
 }
 
 func (e *EncryptedFormatter) formatValue(key, formattedKey string, value []byte,
-	tags, formattedTags []newstorage.Tag) ([]byte, error) {
+	tags, formattedTags []spi.Tag) ([]byte, error) {
 	var formattedValue []byte
 
 	if value != nil {
@@ -207,7 +207,7 @@ func (e *EncryptedFormatter) formatValue(key, formattedKey string, value []byte,
 	return formattedValue, nil
 }
 
-func createStructuredDocument(key string, value []byte, tags []newstorage.Tag) structuredDocument {
+func createStructuredDocument(key string, value []byte, tags []spi.Tag) structuredDocument {
 	structuredDocumentContent := content{
 		UnformattedKey:   key,
 		UnformattedValue: value,
@@ -226,7 +226,7 @@ func createStructuredDocument(key string, value []byte, tags []newstorage.Tag) s
 }
 
 func (e *EncryptedFormatter) convertToIndexedAttributeCollection(
-	formattedTags []newstorage.Tag) []indexedAttributeCollection {
+	formattedTags []spi.Tag) []indexedAttributeCollection {
 	indexedAttributes := make([]indexedAttribute, len(formattedTags))
 
 	for i, formattedTag := range formattedTags {

@@ -22,12 +22,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
-	"github.com/hyperledger/aries-framework-go/component/newstorage/edv"
+	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	newstoragetest "github.com/hyperledger/aries-framework-go/test/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
+	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
 const testServerURL = "http://localhost:8071/encrypted-data-vaults"
@@ -56,25 +56,25 @@ func TestCommon(t *testing.T) {
 	t.Run("Without batch endpoint extension", func(t *testing.T) {
 		t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-			newstoragetest.TestAll(t, edvRESTProvider)
+			storagetest.TestAll(t, edvRESTProvider)
 		})
 		t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 				edv.WithFullDocumentsReturnedFromQueries())
-			newstoragetest.TestAll(t, edvRESTProvider)
+			storagetest.TestAll(t, edvRESTProvider)
 		})
 	})
 	t.Run("With batch endpoint extension", func(t *testing.T) {
 		t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 				edv.WithBatchEndpointExtension())
-			newstoragetest.TestAll(t, edvRESTProvider)
+			storagetest.TestAll(t, edvRESTProvider)
 		})
 		t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 				edv.WithBatchEndpointExtension(),
 				edv.WithFullDocumentsReturnedFromQueries())
-			newstoragetest.TestAll(t, edvRESTProvider)
+			storagetest.TestAll(t, edvRESTProvider)
 		})
 	})
 }
@@ -289,7 +289,7 @@ func TestRESTStore_Batch(t *testing.T) {
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
-		err = store.Batch([]newstorage.Operation{{Key: "Key"}})
+		err = store.Batch([]spi.Operation{{Key: "Key"}})
 		require.EqualError(t, err, `failed to batch using batch extension: failed to generate the `+
 			`encrypted document ID and encrypted document bytes: failed to format key into an encrypted `+
 			`document ID: failed to compute MAC based on key "teststore-Key": bad key handle format`)
@@ -305,7 +305,7 @@ func TestRESTStore_Batch(t *testing.T) {
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
-		err = store.Batch([]newstorage.Operation{{Key: "Key", Value: []byte("Value")}})
+		err = store.Batch([]spi.Operation{{Key: "Key", Value: []byte("Value")}})
 		require.EqualError(t, err, `failed to batch using standard endpoints: failed to put: `+
 			`failed to determine if an EDV document for key "Key" in store "teststore" already exists: `+
 			`failed to generate the encrypted document ID: failed to format key into an encrypted document ID: `+

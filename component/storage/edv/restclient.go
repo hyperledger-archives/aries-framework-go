@@ -15,8 +15,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 var logger = log.New("EDV-Provider")
@@ -88,7 +88,7 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 		return respBytes, nil
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("error: %w, status code %d was returned along with the following message: %s",
-			newstorage.ErrDataNotFound, statusCode, respBytes)
+			spi.ErrDataNotFound, statusCode, respBytes)
 	default:
 		return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 	}
@@ -231,7 +231,7 @@ func (c *restClient) DeleteDocument(vaultID, docID string) error {
 		return nil
 	} else if statusCode == http.StatusNotFound {
 		return fmt.Errorf("error: %w, status code %d was returned along with the following message: %s",
-			newstorage.ErrDataNotFound, statusCode, respBytes)
+			spi.ErrDataNotFound, statusCode, respBytes)
 	}
 
 	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
