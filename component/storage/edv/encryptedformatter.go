@@ -38,8 +38,7 @@ func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decryp
 // Format turns key into an EDV-compatible document ID, turns tag names and values into the format needed for
 // EDV encrypted indexes, and turns key + value + tags into an encrypted document, which is then returned as the
 // formatted value from this function.
-func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag,
-	error) {
+func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag, error) {
 	return e.format("", key, value, tags...)
 }
 

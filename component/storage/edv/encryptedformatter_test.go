@@ -14,13 +14,34 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/formattedstore"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
+
+func TestEncryptedFormatterInFormatProvider(t *testing.T) {
+	t.Run("With EDV Encrypted Formatter", func(t *testing.T) {
+		t.Run("Without cache", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t))
+			require.NotNil(t, provider)
+
+			storagetest.TestAll(t, provider)
+		})
+		t.Run("With cache", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t),
+				formattedstore.WithCacheProvider(mem.NewProvider()))
+			require.NotNil(t, provider)
+
+			storagetest.TestAll(t, provider)
+		})
+	})
+}
 
 func TestEncryptedFormatter_Deformat(t *testing.T) {
 	t.Run("Attempt to deformat a nil formatted value", func(t *testing.T) {
