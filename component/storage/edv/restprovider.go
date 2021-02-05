@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -66,7 +66,7 @@ func WithBatchEndpointExtension() Option {
 	}
 }
 
-// RESTProvider is a newstorage.Provider that can be used to store data in a server supporting the
+// RESTProvider is a spi.Provider that can be used to store data in a server supporting the
 // data vault HTTP API as defined in https://identity.foundation/confidential-storage/#http-api.
 type RESTProvider struct {
 	vaultID    string
@@ -106,7 +106,7 @@ func NewRESTProvider(edvServerURL, vaultID string, formatter *EncryptedFormatter
 type closer func(storeName string)
 
 // OpenStore opens a new RESTStore, using name as the namespace.
-func (r *RESTProvider) OpenStore(name string) (newstorage.Store, error) {
+func (r *RESTProvider) OpenStore(name string) (spi.Store, error) {
 	if name == "" {
 		return nil, fmt.Errorf("store name cannot be empty")
 	}
@@ -145,10 +145,10 @@ func (r *RESTProvider) OpenStore(name string) (newstorage.Store, error) {
 // tags used in values. This method simply stores the configuration in memory so that it can be retrieved later
 // via the GetStoreConfig method, which allows it to be more consistent with how other store implementations work.
 // TODO (#2492) Store store config in persistent EDV storage for true consistency with other store implementations.
-func (r *RESTProvider) SetStoreConfig(name string, config newstorage.StoreConfiguration) error {
+func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	openStore, ok := r.openStores[name]
 	if !ok {
-		return newstorage.ErrStoreNotFound
+		return spi.ErrStoreNotFound
 	}
 
 	openStore.config = config
@@ -157,21 +157,21 @@ func (r *RESTProvider) SetStoreConfig(name string, config newstorage.StoreConfig
 }
 
 // GetStoreConfig returns the store configuration currently stored in memory.
-func (r *RESTProvider) GetStoreConfig(name string) (newstorage.StoreConfiguration, error) {
+func (r *RESTProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
 	openStore, ok := r.openStores[name]
 	if !ok {
-		return newstorage.StoreConfiguration{}, newstorage.ErrStoreNotFound
+		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
 	}
 
 	return openStore.config, nil
 }
 
 // GetOpenStores returns all currently open stores.
-func (r *RESTProvider) GetOpenStores() []newstorage.Store {
+func (r *RESTProvider) GetOpenStores() []spi.Store {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 
-	openStores := make([]newstorage.Store, len(r.openStores))
+	openStores := make([]spi.Store, len(r.openStores))
 
 	var counter int
 
@@ -204,14 +204,14 @@ type restStore struct {
 	namespace                     string
 	formatter                     *EncryptedFormatter
 	restClient                    *restClient
-	config                        newstorage.StoreConfiguration
+	config                        spi.StoreConfiguration
 	returnFullDocumentsOnQuery    bool
 	batchEndpointExtensionEnabled bool
 	close                         closer
 }
 
 // Put stores data into an EDV server.
-func (r *restStore) Put(key string, value []byte, tags ...newstorage.Tag) error {
+func (r *restStore) Put(key string, value []byte, tags ...spi.Tag) error {
 	if key == "" {
 		return errEmptyKey
 	}
@@ -249,7 +249,7 @@ func (r *restStore) Put(key string, value []byte, tags ...newstorage.Tag) error 
 	_, err := r.get(key)
 	if err == nil {
 		needsUpdate = true
-	} else if !errors.Is(err, newstorage.ErrDataNotFound) {
+	} else if !errors.Is(err, spi.ErrDataNotFound) {
 		return fmt.Errorf(`failed to determine if an EDV document for key "%s" in store "%s" already exists: %w`,
 			key, r.namespace, err)
 	}
@@ -280,7 +280,7 @@ func (r *restStore) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (r *restStore) GetTags(key string) ([]newstorage.Tag, error) {
+func (r *restStore) GetTags(key string) ([]spi.Tag, error) {
 	encryptedDocumentID, _, _, err := r.formatter.format(r.namespace, key, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate the encrypted document ID: %w", err)
@@ -319,7 +319,7 @@ func (r *restStore) GetBulk(keys ...string) ([][]byte, error) {
 		var err error
 
 		values[i], err = r.Get(key)
-		if err != nil && !errors.Is(err, newstorage.ErrDataNotFound) {
+		if err != nil && !errors.Is(err, spi.ErrDataNotFound) {
 			return nil, fmt.Errorf(`unexpected failure while getting value for key "%s": %w`, key, err)
 		}
 	}
@@ -328,14 +328,14 @@ func (r *restStore) GetBulk(keys ...string) ([][]byte, error) {
 }
 
 // EDV doesn't support paging, so it has no use for the paging query option (which is the only one currently).
-func (r *restStore) Query(expression string, _ ...newstorage.QueryOption) (newstorage.Iterator, error) {
+func (r *restStore) Query(expression string, _ ...spi.QueryOption) (spi.Iterator, error) {
 	expressionTagName, expressionTagValue, err := parseQueryExpression(expression)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse query expression: %w", err)
 	}
 
 	_, _, tags, err := r.formatter.format(r.namespace, "", nil,
-		newstorage.Tag{Name: expressionTagName, Value: expressionTagValue})
+		spi.Tag{Name: expressionTagName, Value: expressionTagValue})
 	if err != nil {
 		return nil, fmt.Errorf("failed to format tag for querying: %w", err)
 	}
@@ -354,15 +354,15 @@ func (r *restStore) Delete(key string) error {
 	}
 
 	err = r.restClient.DeleteDocument(r.vaultID, edvDocumentID)
-	if err != nil && !errors.Is(err, newstorage.ErrDataNotFound) {
+	if err != nil && !errors.Is(err, spi.ErrDataNotFound) {
 		return fmt.Errorf("unexpected failure while deleting document in EDV server: %w", err)
 	}
 
 	return nil
 }
 
-// TODO (#2494): Return a newstorage.MultiError from here in the case of a failure.
-func (r *restStore) Batch(operations []newstorage.Operation) error {
+// TODO (#2494): Return a spi.MultiError from here in the case of a failure.
+func (r *restStore) Batch(operations []spi.Operation) error {
 	for _, operation := range operations {
 		if operation.Key == "" {
 			return errEmptyKey
@@ -397,7 +397,7 @@ func (r *restStore) Flush() error {
 	return nil
 }
 
-func (r *restStore) saveDataToEDVServer(key string, value []byte, tags []newstorage.Tag, needsUpdate bool) error {
+func (r *restStore) saveDataToEDVServer(key string, value []byte, tags []spi.Tag, needsUpdate bool) error {
 	encryptedDocumentID, encryptedDocumentBytes, _, err :=
 		r.formatter.format(r.namespace, key, value, tags...)
 	if err != nil {
@@ -433,7 +433,7 @@ func (r *restStore) get(key string) ([]byte, error) {
 	return encryptedDocumentBytes, nil
 }
 
-func (r *restStore) fastBatchUsingBatchExtension(operations []newstorage.Operation) error {
+func (r *restStore) fastBatchUsingBatchExtension(operations []spi.Operation) error {
 	edvBatch := make(batch, len(operations))
 
 	for i, operation := range operations {
@@ -467,7 +467,7 @@ func (r *restStore) fastBatchUsingBatchExtension(operations []newstorage.Operati
 	return nil
 }
 
-func (r *restStore) slowBatchUsingStandardEndpoints(operations []newstorage.Operation) error {
+func (r *restStore) slowBatchUsingStandardEndpoints(operations []spi.Operation) error {
 	for _, operation := range operations {
 		if operation.Value == nil {
 			err := r.Delete(operation.Key)
@@ -485,7 +485,7 @@ func (r *restStore) slowBatchUsingStandardEndpoints(operations []newstorage.Oper
 	return nil
 }
 
-func (r *restStore) query(tag newstorage.Tag) (newstorage.Iterator, error) {
+func (r *restStore) query(tag spi.Tag) (spi.Iterator, error) {
 	if r.returnFullDocumentsOnQuery {
 		documents, err := r.restClient.queryVaultForFullDocuments(r.vaultID, tag.Name, tag.Value)
 		if err != nil {
@@ -535,7 +535,7 @@ type restIterator struct {
 	currentIndex int
 	currentKey   string
 	currentValue []byte
-	currentTags  []newstorage.Tag
+	currentTags  []spi.Tag
 }
 
 func (r *restIterator) Next() (bool, error) {
@@ -581,7 +581,7 @@ func (r *restIterator) Value() ([]byte, error) {
 	return r.currentValue, nil
 }
 
-func (r *restIterator) Tags() ([]newstorage.Tag, error) {
+func (r *restIterator) Tags() ([]spi.Tag, error) {
 	return r.currentTags, nil
 }
 

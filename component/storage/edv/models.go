@@ -9,7 +9,7 @@ package edv
 import (
 	"encoding/json"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // structuredDocument represents a Structured Document for use with Aries. It's compatible with the model
@@ -21,9 +21,9 @@ type structuredDocument struct {
 }
 
 type content struct {
-	UnformattedKey   string           `json:"unformattedKey"`
-	UnformattedValue []byte           `json:"unformattedValue"`
-	UnformattedTags  []newstorage.Tag `json:"unformattedTags"`
+	UnformattedKey   string    `json:"unformattedKey"`
+	UnformattedValue []byte    `json:"unformattedValue"`
+	UnformattedTags  []spi.Tag `json:"unformattedTags"`
 }
 
 // encryptedDocument represents an Encrypted Document as defined in

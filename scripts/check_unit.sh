@@ -73,13 +73,13 @@ amend_coverage_file
 if [ "$SKIP_DOCKER" = true ]; then
     echo "Skipping edv unit tests"
 else
-  # Running newstorage/edv unit tests
+  # Running storage/edv unit tests
   cd ../..
 
   . "$ROOT"/scripts/start_edv_test_docker_images.sh
 
-  cd component/newstorage/edv
-  PKGS=$(go list github.com/hyperledger/aries-framework-go/component/newstorage/edv/... 2> /dev/null)
+  cd component/storage/edv
+  PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storage/edv/... 2> /dev/null)
   GO_TEST_EXIT_CODE=0
   $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m  || GO_TEST_EXIT_CODE=$?
   if [ $GO_TEST_EXIT_CODE -ne 0 ]; then
