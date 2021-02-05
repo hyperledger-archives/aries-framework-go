@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/newstorage/mem"
-	"github.com/hyperledger/aries-framework-go/test/newstorage"
+	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
 func TestCommon(t *testing.T) {
 	provider := mem.NewProvider()
 
-	newstorage.TestAll(t, provider)
+	storagetest.TestAll(t, provider)
 }
 
 func TestMemIterator(t *testing.T) {
