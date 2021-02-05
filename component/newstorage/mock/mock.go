@@ -9,35 +9,35 @@ package mock
 import (
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/component/newstorage"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-// Provider is a mocked implementation of newstorage.Provider.
+// Provider is a mocked implementation of spi.Provider.
 type Provider struct {
-	OpenStoreReturn      newstorage.Store
+	OpenStoreReturn      spi.Store
 	ErrOpenStore         error
 	ErrSetStoreConfig    error
-	GetStoreConfigReturn newstorage.StoreConfiguration
+	GetStoreConfigReturn spi.StoreConfiguration
 	ErrGetStoreConfig    error
 }
 
 // OpenStore returns mocked results.
-func (p *Provider) OpenStore(string) (newstorage.Store, error) {
+func (p *Provider) OpenStore(string) (spi.Store, error) {
 	return p.OpenStoreReturn, p.ErrOpenStore
 }
 
 // SetStoreConfig returns mocked results.
-func (p *Provider) SetStoreConfig(string, newstorage.StoreConfiguration) error {
+func (p *Provider) SetStoreConfig(string, spi.StoreConfiguration) error {
 	return p.ErrSetStoreConfig
 }
 
 // GetStoreConfig returns mocked results.
-func (p *Provider) GetStoreConfig(string) (newstorage.StoreConfiguration, error) {
+func (p *Provider) GetStoreConfig(string) (spi.StoreConfiguration, error) {
 	return p.GetStoreConfigReturn, p.ErrGetStoreConfig
 }
 
 // GetOpenStores returns mocked results.
-func (p *Provider) GetOpenStores() []newstorage.Store {
+func (p *Provider) GetOpenStores() []spi.Store {
 	return nil
 }
 
@@ -46,7 +46,7 @@ func (p *Provider) Close() error {
 	return errors.New("close failure")
 }
 
-// Store is a mocked implementation of newstorage.Store.
+// Store is a mocked implementation of spi.Store.
 type Store struct {
 	ErrPut    error
 	GetReturn []byte
@@ -55,7 +55,7 @@ type Store struct {
 }
 
 // Put returns mocked results.
-func (s *Store) Put(string, []byte, ...newstorage.Tag) error {
+func (s *Store) Put(string, []byte, ...spi.Tag) error {
 	return s.ErrPut
 }
 
@@ -65,7 +65,7 @@ func (s *Store) Get(string) ([]byte, error) {
 }
 
 // GetTags returns mocked results.
-func (s *Store) GetTags(string) ([]newstorage.Tag, error) {
+func (s *Store) GetTags(string) ([]spi.Tag, error) {
 	return nil, nil
 }
 
@@ -75,7 +75,7 @@ func (s *Store) GetBulk(...string) ([][]byte, error) {
 }
 
 // Query returns mocked results.
-func (s *Store) Query(string, ...newstorage.QueryOption) (newstorage.Iterator, error) {
+func (s *Store) Query(string, ...spi.QueryOption) (spi.Iterator, error) {
 	return &Iterator{}, s.ErrQuery
 }
 
@@ -85,7 +85,7 @@ func (s *Store) Delete(string) error {
 }
 
 // Batch returns mocked results.
-func (s *Store) Batch([]newstorage.Operation) error {
+func (s *Store) Batch([]spi.Operation) error {
 	return errors.New("batch failure")
 }
 
@@ -99,7 +99,7 @@ func (s *Store) Close() error {
 	return errors.New("close failure")
 }
 
-// Iterator is a mocked implementation of newstorage.Iterator.
+// Iterator is a mocked implementation of spi.Iterator.
 type Iterator struct {
 }
 
@@ -119,7 +119,7 @@ func (i *Iterator) Value() ([]byte, error) {
 }
 
 // Tags returns mocked results.
-func (i *Iterator) Tags() ([]newstorage.Tag, error) {
+func (i *Iterator) Tags() ([]spi.Tag, error) {
 	return nil, errors.New("tags failure")
 }
 
