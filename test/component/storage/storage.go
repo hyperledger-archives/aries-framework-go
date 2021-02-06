@@ -59,15 +59,15 @@ func TestAll(t *testing.T, provider spi.Provider) {
 }
 
 // TestProviderOpenStoreSetGetConfig tests common Provider OpenStore, SetStoreConfig, and GetStoreConfig functionality.
-func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) {
-	config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}}
+func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //nolint: funlen // Test file
+	t.Run("Set store config with all new tags", func(t *testing.T) {
+		testStoreName := randomStoreName()
 
-	testStoreName := randomStoreName()
-
-	t.Run("Successfully open store, set store config and then get store config", func(t *testing.T) {
 		store, err := provider.OpenStore(testStoreName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}}
 
 		err = provider.SetStoreConfig(testStoreName, config)
 		require.NoError(t, err)
@@ -78,8 +78,83 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) {
 		require.True(t, equalTagNamesAnyOrder(config.TagNames, retrievedConfig.TagNames),
 			"Unexpected tag names")
 	})
+	t.Run("Merge a new tag name in with existing tag names in a store config", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		// Set initial tags.
+		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
+		require.NoError(t, err)
+
+		// Get the tags we just set, append a new one, and re-set the store configuration.
+
+		config, err := provider.GetStoreConfig(storeName)
+		require.NoError(t, err)
+
+		config.TagNames = append(config.TagNames, "tagName3")
+
+		err = provider.SetStoreConfig(storeName, config)
+		require.NoError(t, err)
+
+		// Verify that the config contains all three tags.
+
+		expectedTagNames := []string{"tagName1", "tagName2", "tagName3"}
+
+		retrievedConfig, err := provider.GetStoreConfig(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedConfig)
+		require.True(t, equalTagNamesAnyOrder(expectedTagNames, retrievedConfig.TagNames),
+			"Unexpected tag names")
+	})
+	t.Run("Remove all existing tag names in a store config", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		// Set initial tags.
+		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
+		require.NoError(t, err)
+
+		// Delete all existing tag names in the config by passing in an empty spi.StoreConfiguration.
+		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{})
+		require.NoError(t, err)
+
+		// Verify that the store config now has no tag names.
+		config, err := provider.GetStoreConfig(storeName)
+		require.NoError(t, err)
+		require.True(t, equalTagNamesAnyOrder(nil, config.TagNames), "Unexpected tag names")
+	})
+	t.Run("Merge a new tag in with existing tags while deleting some too", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		// Set initial tags.
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
+		require.NoError(t, err)
+
+		// Now we want tagName1 to be removed, tagName2 to be kept, and tagName3 to be added.
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName2", "tagName3"}})
+		require.NoError(t, err)
+
+		expectedTagNames := []string{"tagName2", "tagName3"}
+
+		// Verify that tagName1 was removed, tagName2 was kept, and tagName3 was added.
+		config, err := provider.GetStoreConfig(storeName)
+		require.NoError(t, err)
+		require.True(t, equalTagNamesAnyOrder(expectedTagNames, config.TagNames), "Unexpected tag names")
+	})
 	t.Run("Attempt to set config without opening store first", func(t *testing.T) {
-		err := provider.SetStoreConfig("NonExistentStore", config)
+		err := provider.SetStoreConfig("NonExistentStore", spi.StoreConfiguration{})
 		require.True(t, errors.Is(err, spi.ErrStoreNotFound), "Got unexpected error or no error")
 	})
 	t.Run("Attempt to get config without opening store first", func(t *testing.T) {
@@ -1158,11 +1233,7 @@ func equalTags(tags1, tags2 []spi.Tag) bool { //nolint:gocyclo // Test file
 	return true
 }
 
-func equalTagNamesAnyOrder(tagNames1, tagNames2 []string) bool { //nolint: gocyclo // Test file
-	if len(tagNames1) != len(tagNames2) {
-		return false
-	}
-
+func equalTagNamesAnyOrder(tagNames1, tagNames2 []string) bool {
 	areTagNamesMatchedFromSlice1 := make([]bool, len(tagNames1))
 	areTagNamesMatchedFromSlice2 := make([]bool, len(tagNames2))
 
