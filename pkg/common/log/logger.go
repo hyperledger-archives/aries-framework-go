@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 //nolint:lll
@@ -22,7 +23,7 @@ const (
 // Log is an implementation of Logger interface.
 // It encapsulates default or custom logger to provide module and level based logging.
 type Log struct {
-	instance Logger
+	instance log.Logger
 	module   string
 	once     sync.Once
 }
@@ -67,7 +68,7 @@ func (l *Log) Errorf(msg string, args ...interface{}) {
 	l.logger().Errorf(msg, args...)
 }
 
-func (l *Log) logger() Logger {
+func (l *Log) logger() log.Logger {
 	l.once.Do(func() {
 		l.instance = loggerProvider().GetLogger(l.module)
 	})
@@ -81,8 +82,8 @@ func (l *Log) logger() Logger {
 //  level is logging level
 //
 // If not set default logging level is info.
-func SetLevel(module string, level Level) {
-	metadata.SetLevel(module, metadata.Level(level))
+func SetLevel(module string, level log.Level) {
+	metadata.SetLevel(module, level)
 }
 
 // GetLevel - getting log level for given module
@@ -93,8 +94,8 @@ func SetLevel(module string, level Level) {
 //  logging level
 //
 // If not set default logging level is info.
-func GetLevel(module string) Level {
-	return Level(metadata.GetLevel(module))
+func GetLevel(module string) log.Level {
+	return metadata.GetLevel(module)
 }
 
 // IsEnabledFor - Check if given log level is enabled for given module
@@ -106,8 +107,8 @@ func GetLevel(module string) Level {
 //  is logging enabled for this module and level
 //
 // If not set default logging level is info.
-func IsEnabledFor(module string, level Level) bool {
-	return metadata.IsEnabledFor(module, metadata.Level(level))
+func IsEnabledFor(module string, level log.Level) bool {
+	return metadata.IsEnabledFor(module, level)
 }
 
 // ParseLevel returns the log level from a string representation.
@@ -116,10 +117,10 @@ func IsEnabledFor(module string, level Level) bool {
 //
 //  Returns:
 //  logging level
-func ParseLevel(level string) (Level, error) {
+func ParseLevel(level string) (log.Level, error) {
 	l, err := metadata.ParseLevel(level)
 
-	return Level(l), err
+	return l, err
 }
 
 // ShowCallerInfo - Show caller info in log lines for given log level and module
@@ -128,8 +129,8 @@ func ParseLevel(level string) (Level, error) {
 //  level is logging level
 //
 // note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
-func ShowCallerInfo(module string, level Level) {
-	metadata.ShowCallerInfo(module, metadata.Level(level))
+func ShowCallerInfo(module string, level log.Level) {
+	metadata.ShowCallerInfo(module, level)
 }
 
 // HideCallerInfo - Do not show caller info in log lines for given log level and module
@@ -138,8 +139,8 @@ func ShowCallerInfo(module string, level Level) {
 //  level is logging level
 //
 // note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
-func HideCallerInfo(module string, level Level) {
-	metadata.HideCallerInfo(module, metadata.Level(level))
+func HideCallerInfo(module string, level log.Level) {
+	metadata.HideCallerInfo(module, level)
 }
 
 // IsCallerInfoEnabled - returns if caller info enabled for given log level and module
@@ -151,6 +152,6 @@ func HideCallerInfo(module string, level Level) {
 //  is caller info enabled for this module and level
 //
 // note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
-func IsCallerInfoEnabled(module string, level Level) bool {
-	return metadata.IsCallerInfoEnabled(module, metadata.Level(level))
+func IsCallerInfoEnabled(module string, level log.Level) bool {
+	return metadata.IsCallerInfoEnabled(module, level)
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 func TestDefLog(t *testing.T) {
@@ -33,7 +34,7 @@ func TestDefLogWithoutCallerInfo(t *testing.T) {
 	SwitchLogOutputToBuffer(logger)
 
 	// disable caller info and test
-	metadata.HideCallerInfo(module, metadata.INFO)
+	metadata.HideCallerInfo(module, log.INFO)
 	logger.Infof(msgFormat, msgArg1, msgArg2)
-	matchDefLogOutput(t, module, metadata.INFO, metadata.INFO, false)
+	matchDefLogOutput(t, module, log.INFO, log.INFO, false)
 }

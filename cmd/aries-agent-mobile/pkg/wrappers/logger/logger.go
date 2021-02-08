@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // New returns new Logger.

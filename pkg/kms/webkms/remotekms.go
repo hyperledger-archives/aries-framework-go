@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 const (
@@ -370,7 +371,7 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 
 // closeResponseBody closes the response body.
 //nolint: interfacer // don't want to add test stretcher logger here
-func closeResponseBody(respBody io.Closer, logger log.Logger, action string) {
+func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 	err := respBody.Close()
 	if err != nil {
 		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())

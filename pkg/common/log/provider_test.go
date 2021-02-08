@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // TestDefaultLogger tests custom logging feature when custom logging provider is supplied through 'Initialize()' call.
@@ -35,10 +36,10 @@ func newCustomProvider(module string) *sampleProvider {
 
 // sampleProvider is a custom logging provider.
 type sampleProvider struct {
-	logger Logger
+	logger log.Logger
 }
 
 // GetLogger returns custom logger implementation.
-func (p *sampleProvider) GetLogger(module string) Logger {
+func (p *sampleProvider) GetLogger(module string) log.Logger {
 	return p.logger
 }

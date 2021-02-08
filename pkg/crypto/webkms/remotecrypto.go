@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webkmsimpl "github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
+	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 var logger = log.New("aries-framework/crypto/webkms")
@@ -587,7 +588,7 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 
 // closeResponseBody closes the response body.
 //nolint: interfacer // don't want to add test stretcher logger here
-func closeResponseBody(respBody io.Closer, logger log.Logger, action string) {
+func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 	err := respBody.Close()
 	if err != nil {
 		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())

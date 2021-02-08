@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call.
@@ -37,29 +38,29 @@ func TestDefaultLogger(t *testing.T) {
 // logging levels can be set per modules, if not set then it will default to 'INFO'.
 func TestAllLevels(t *testing.T) {
 	module := "sample-module-critical"
-	SetLevel(module, CRITICAL)
-	require.Equal(t, CRITICAL, GetLevel(module))
-	verifyLevels(t, module, []Level{CRITICAL}, []Level{ERROR, WARNING, INFO, DEBUG})
+	SetLevel(module, log.CRITICAL)
+	require.Equal(t, log.CRITICAL, GetLevel(module))
+	verifyLevels(t, module, []log.Level{log.CRITICAL}, []log.Level{log.ERROR, log.WARNING, log.INFO, log.DEBUG})
 
 	module = "sample-module-error"
-	SetLevel(module, ERROR)
-	require.Equal(t, ERROR, GetLevel(module))
-	verifyLevels(t, module, []Level{CRITICAL, ERROR}, []Level{WARNING, INFO, DEBUG})
+	SetLevel(module, log.ERROR)
+	require.Equal(t, log.ERROR, GetLevel(module))
+	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR}, []log.Level{log.WARNING, log.INFO, log.DEBUG})
 
 	module = "sample-module-warning"
-	SetLevel(module, WARNING)
-	require.Equal(t, WARNING, GetLevel(module))
-	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING}, []Level{INFO, DEBUG})
+	SetLevel(module, log.WARNING)
+	require.Equal(t, log.WARNING, GetLevel(module))
+	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING}, []log.Level{log.INFO, log.DEBUG})
 
 	module = "sample-module-info"
-	SetLevel(module, INFO)
-	require.Equal(t, INFO, GetLevel(module))
-	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO}, []Level{DEBUG})
+	SetLevel(module, log.INFO)
+	require.Equal(t, log.INFO, GetLevel(module))
+	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING, log.INFO}, []log.Level{log.DEBUG})
 
 	module = "sample-module-debug"
-	SetLevel(module, DEBUG)
-	require.Equal(t, DEBUG, GetLevel(module))
-	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO, DEBUG}, []Level{})
+	SetLevel(module, log.DEBUG)
+	require.Equal(t, log.DEBUG, GetLevel(module))
+	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING, log.INFO, log.DEBUG}, []log.Level{})
 }
 
 // TestCallerInfos callerinfo behavior which displays caller function details in log lines
@@ -68,22 +69,22 @@ func TestAllLevels(t *testing.T) {
 func TestCallerInfos(t *testing.T) {
 	module := "sample-module-caller-info"
 
-	ShowCallerInfo(module, CRITICAL)
-	ShowCallerInfo(module, DEBUG)
-	HideCallerInfo(module, INFO)
-	HideCallerInfo(module, ERROR)
-	HideCallerInfo(module, WARNING)
+	ShowCallerInfo(module, log.CRITICAL)
+	ShowCallerInfo(module, log.DEBUG)
+	HideCallerInfo(module, log.INFO)
+	HideCallerInfo(module, log.ERROR)
+	HideCallerInfo(module, log.WARNING)
 
-	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
-	require.True(t, IsCallerInfoEnabled(module, DEBUG))
-	require.False(t, IsCallerInfoEnabled(module, INFO))
-	require.False(t, IsCallerInfoEnabled(module, ERROR))
-	require.False(t, IsCallerInfoEnabled(module, WARNING))
+	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
+	require.False(t, IsCallerInfoEnabled(module, log.INFO))
+	require.False(t, IsCallerInfoEnabled(module, log.ERROR))
+	require.False(t, IsCallerInfoEnabled(module, log.WARNING))
 }
 
 // TestLogLevel testing 'LogLevel()' used for parsing log levels from strings.
 func TestLogLevel(t *testing.T) {
-	verifyLevelsNoError := func(expected Level, levels ...string) {
+	verifyLevelsNoError := func(expected log.Level, levels ...string) {
 		for _, level := range levels {
 			actual, err := ParseLevel(level)
 			require.NoError(t, err, "not supposed to fail while parsing level string [%s]", level)
@@ -91,11 +92,11 @@ func TestLogLevel(t *testing.T) {
 		}
 	}
 
-	verifyLevelsNoError(CRITICAL, "critical", "CRITICAL", "CriticAL")
-	verifyLevelsNoError(ERROR, "error", "ERROR", "ErroR")
-	verifyLevelsNoError(WARNING, "warning", "WARNING", "WarninG")
-	verifyLevelsNoError(DEBUG, "debug", "DEBUG", "DebUg")
-	verifyLevelsNoError(INFO, "info", "INFO", "iNFo")
+	verifyLevelsNoError(log.CRITICAL, "critical", "CRITICAL", "CriticAL")
+	verifyLevelsNoError(log.ERROR, "error", "ERROR", "ErroR")
+	verifyLevelsNoError(log.WARNING, "warning", "WARNING", "WarninG")
+	verifyLevelsNoError(log.DEBUG, "debug", "DEBUG", "DebUg")
+	verifyLevelsNoError(log.INFO, "info", "INFO", "iNFo")
 }
 
 // TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings.
@@ -110,15 +111,15 @@ func TestParseLevelError(t *testing.T) {
 	verifyLevelError("", "D", "DE BUG", ".")
 }
 
-func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
+func verifyLevels(t *testing.T, module string, enabled, disabled []log.Level) {
 	for _, level := range enabled {
-		levelStr := metadata.ParseString(metadata.Level(level))
+		levelStr := metadata.ParseString(level)
 		require.True(t, IsEnabledFor(module, level),
 			"expected level [%s] to be enabled for module [%s]", levelStr, module)
 	}
 
 	for _, level := range disabled {
-		levelStr := metadata.ParseString(metadata.Level(level))
+		levelStr := metadata.ParseString(level)
 		require.False(t, IsEnabledFor(module, level),
 			"expected level [%s] to be disabled for module [%s]", levelStr, module)
 	}
