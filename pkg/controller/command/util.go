@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // WriteNillableResponse is a utility function that writes v to w.

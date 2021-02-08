@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 //nolint:gochecknoglobals
@@ -389,7 +390,7 @@ func ExampleCredential_AddLinkedDataProof() {
 
 //nolint:lll,govet,gocyclo
 func ExampleCredential_AddLinkedDataProofMultiProofs() {
-	log.SetLevel("aries-framework/json-ld-processor", log.ERROR)
+	log.SetLevel("aries-framework/json-ld-processor", spi.ERROR)
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
@@ -470,7 +471,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 
 //nolint:lll,govet,gocyclo
 func ExampleCredential_GenerateBBSSelectiveDisclosure() {
-	log.SetLevel("aries-framework/json-ld-processor", log.ERROR)
+	log.SetLevel("aries-framework/json-ld-processor", spi.ERROR)
 
 	vcStr := `
 	{

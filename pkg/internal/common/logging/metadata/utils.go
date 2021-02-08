@@ -9,6 +9,8 @@ package metadata
 import (
 	"errors"
 	"strings"
+
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // levelNames - log level names in string.
@@ -21,17 +23,17 @@ var levelNames = []string{ //nolint:gochecknoglobals
 }
 
 // ParseLevel returns the log level from a string representation.
-func ParseLevel(level string) (Level, error) {
+func ParseLevel(level string) (log.Level, error) {
 	for i, name := range levelNames {
 		if strings.EqualFold(name, level) {
-			return Level(i), nil
+			return log.Level(i), nil
 		}
 	}
 
-	return ERROR, errors.New("logger: invalid log level")
+	return log.ERROR, errors.New("logger: invalid log level")
 }
 
 // ParseString returns string representation of given log level.
-func ParseString(level Level) string {
+func ParseString(level log.Level) string {
 	return levelNames[level]
 }

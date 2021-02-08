@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 type mockServer struct{}
@@ -403,27 +404,27 @@ func TestStartCmdWithLogLevel(t *testing.T) {
 	t.Run("validate log level", func(t *testing.T) {
 		err := setLogLevel("DEBUG")
 		require.NoError(t, err)
-		require.Equal(t, log.DEBUG, log.GetLevel(""))
+		require.Equal(t, spi.DEBUG, log.GetLevel(""))
 
 		err = setLogLevel("WARNING")
 		require.NoError(t, err)
-		require.Equal(t, log.WARNING, log.GetLevel(""))
+		require.Equal(t, spi.WARNING, log.GetLevel(""))
 
 		err = setLogLevel("CRITICAL")
 		require.NoError(t, err)
-		require.Equal(t, log.CRITICAL, log.GetLevel(""))
+		require.Equal(t, spi.CRITICAL, log.GetLevel(""))
 
 		err = setLogLevel("ERROR")
 		require.NoError(t, err)
-		require.Equal(t, log.ERROR, log.GetLevel(""))
+		require.Equal(t, spi.ERROR, log.GetLevel(""))
 
 		err = setLogLevel("INFO")
 		require.NoError(t, err)
-		require.Equal(t, log.INFO, log.GetLevel(""))
+		require.Equal(t, spi.INFO, log.GetLevel(""))
 
 		err = setLogLevel("")
 		require.NoError(t, err)
-		require.Equal(t, log.INFO, log.GetLevel(""))
+		require.Equal(t, spi.INFO, log.GetLevel(""))
 
 		err = setLogLevel("INVALID")
 		require.Error(t, err)

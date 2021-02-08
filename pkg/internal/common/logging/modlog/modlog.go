@@ -8,17 +8,18 @@ package modlog
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
+	"github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // NewModLog returns new moduled logger instance based on given logger implementation and module.
-func NewModLog(logger Logger, module string) *ModLog {
+func NewModLog(logger log.Logger, module string) *ModLog {
 	return &ModLog{logger: logger, module: module}
 }
 
 // ModLog is a moduled wrapper for any underlying 'log.Logger' implementation.
 // Since this is a moduled wrapper each module can have different logging levels (default is INFO).
 type ModLog struct {
-	logger Logger
+	logger log.Logger
 	module string
 }
 
@@ -34,7 +35,7 @@ func (m *ModLog) Panicf(format string, args ...interface{}) {
 
 // Debugf calls error log function if DEBUG level enabled.
 func (m *ModLog) Debugf(format string, args ...interface{}) {
-	if !metadata.IsEnabledFor(m.module, metadata.DEBUG) {
+	if !metadata.IsEnabledFor(m.module, log.DEBUG) {
 		return
 	}
 
@@ -43,7 +44,7 @@ func (m *ModLog) Debugf(format string, args ...interface{}) {
 
 // Infof calls error log function if INFO level enabled.
 func (m *ModLog) Infof(format string, args ...interface{}) {
-	if !metadata.IsEnabledFor(m.module, metadata.INFO) {
+	if !metadata.IsEnabledFor(m.module, log.INFO) {
 		return
 	}
 
@@ -52,7 +53,7 @@ func (m *ModLog) Infof(format string, args ...interface{}) {
 
 // Warnf calls error log function if WARNING level enabled.
 func (m *ModLog) Warnf(format string, args ...interface{}) {
-	if !metadata.IsEnabledFor(m.module, metadata.WARNING) {
+	if !metadata.IsEnabledFor(m.module, log.WARNING) {
 		return
 	}
 
@@ -61,7 +62,7 @@ func (m *ModLog) Warnf(format string, args ...interface{}) {
 
 // Errorf calls error log function if ERROR level enabled.
 func (m *ModLog) Errorf(format string, args ...interface{}) {
-	if !metadata.IsEnabledFor(m.module, metadata.ERROR) {
+	if !metadata.IsEnabledFor(m.module, log.ERROR) {
 		return
 	}
 
