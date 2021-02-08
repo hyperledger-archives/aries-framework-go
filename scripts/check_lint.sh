@@ -21,6 +21,7 @@ ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY}  -e GOOS=js -e GOARCH=wasm -v $(pwd
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/cmd/aries-agent-rest ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/cmd/aries-agent-mobile ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/test/bdd ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/spi ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/storageutil ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/storage/edv ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/test/component/storage/ ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
