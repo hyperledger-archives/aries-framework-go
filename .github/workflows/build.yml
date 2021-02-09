@@ -138,7 +138,7 @@ jobs:
                 docker logout ghcr.io
               }
               trap logout EXIT
-              source ci/version_var.sh
+              source .github/workflows/version_var.sh
               if [ "${IS_RELEASE}" = true ] || [ "${GITHUB_REF}" =  "refs/heads/afg-publish" ]; then
                 echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
                 make agent-rest-docker
@@ -149,7 +149,7 @@ jobs:
       - name: Publish npm packages
         working-directory: ./cmd/aries-js-worker
         run: |
-          source ../../ci/version_var.sh
+          source ../../.github/workflows/version_var.sh
           if [ "${IS_RELEASE}" = true ] || [ "${GITHUB_REF}" =  "refs/heads/afg-publish" ]; then
             sed -i 's/"version": "0.0.1"/"version": "'$NPM_PKG_TAG'"/g' package.json
             sed -i 's#"name": "@hyperledger/aries-framework-go"#"name": "@'${GITHUB_REPOSITORY}'"#g' package.json
