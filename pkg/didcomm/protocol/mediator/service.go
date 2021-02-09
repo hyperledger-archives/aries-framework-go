@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 var logger = log.New("aries-framework/route/service")
@@ -350,13 +350,15 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
-			_, key, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if er != nil {
 				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
 					"export ED25519 key: %w", er)
 			}
 
-			return base58.Encode(key), er
+			didKey, _ := fingerprint.CreateDIDKey(pubKeyBytes)
+
+			return didKey, er
 		},
 	)
 	if err != nil {

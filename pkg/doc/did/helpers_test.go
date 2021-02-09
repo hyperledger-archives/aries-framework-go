@@ -15,49 +15,28 @@ import (
 )
 
 func TestGetRecipientKeys(t *testing.T) {
-	ed25519KeyType := "Ed25519VerificationKey2018"
-	didCommServiceType := "did-communication"
-
 	t.Run("successfully getting recipient keys", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 
-		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+		recipientKeys, ok := LookupDIDCommRecipientKeys(didDoc)
 		require.True(t, ok)
 		require.Equal(t, 1, len(recipientKeys))
 	})
 
 	t.Run("error due to missing did-communication service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service = nil
 
-		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+		recipientKeys, ok := LookupDIDCommRecipientKeys(didDoc)
 		require.False(t, ok)
 		require.Nil(t, recipientKeys)
 	})
 
 	t.Run("error due to missing recipient keys in did-communication service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service[0].RecipientKeys = []string{}
 
-		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
-		require.False(t, ok)
-		require.Nil(t, recipientKeys)
-	})
-
-	t.Run("error due to missing public key in did doc", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
-		didDoc.Service[0].RecipientKeys = []string{"invalid"}
-
-		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
-		require.False(t, ok)
-		require.Nil(t, recipientKeys)
-	})
-
-	t.Run("error due to unsupported key types", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
-		didDoc.Service[0].RecipientKeys = []string{didDoc.VerificationMethod[0].ID}
-
-		recipientKeys, ok := LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+		recipientKeys, ok := LookupDIDCommRecipientKeys(didDoc)
 		require.False(t, ok)
 		require.Nil(t, recipientKeys)
 	})
@@ -67,7 +46,7 @@ func TestGetDidCommService(t *testing.T) {
 	didCommServiceType := "did-communication"
 
 	t.Run("successfully getting did-communication service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 
 		s, ok := LookupService(didDoc, didCommServiceType)
 		require.True(t, ok)
@@ -76,7 +55,7 @@ func TestGetDidCommService(t *testing.T) {
 	})
 
 	t.Run("error due to missing service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service = nil
 
 		s, ok := LookupService(didDoc, didCommServiceType)
@@ -85,9 +64,8 @@ func TestGetDidCommService(t *testing.T) {
 	})
 
 	t.Run("error due to missing did-communication service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service[0].Type = "some-type"
-		didDoc.Service[1].Type = "other-type"
 
 		s, ok := LookupService(didDoc, didCommServiceType)
 		require.False(t, ok)

@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"nhooyr.io/websocket"
 
 	commtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -100,8 +100,10 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 			logger.Errorf("unmarshal transport decorator : %v", err)
 		}
 
+		didKey, _ := fingerprint.CreateDIDKey(unpackMsg.FromKey)
+
 		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
-			d.add(base58.Encode(unpackMsg.FromKey), conn)
+			d.add(didKey, conn)
 		}
 
 		messageHandler := d.msgHandler

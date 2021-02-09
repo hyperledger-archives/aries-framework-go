@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -21,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -264,8 +264,10 @@ func (c *Client) sendToDestination(msg service.DIDCommMsgMap, dest *service.Dest
 		return nil, err
 	}
 
+	didKey, _ := fingerprint.CreateDIDKey(sigPubKey)
+
 	return func() error {
-		return c.ctx.Messenger().SendToDestination(msg, base58.Encode(sigPubKey), dest)
+		return c.ctx.Messenger().SendToDestination(msg, didKey, dest)
 	}, nil
 }
 

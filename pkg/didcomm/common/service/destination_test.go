@@ -81,19 +81,17 @@ func TestGetDestinationFromDID(t *testing.T) {
 }
 
 func TestPrepareDestination(t *testing.T) {
-	ed25519KeyType := "Ed25519VerificationKey2018"
-	didCommServiceType := "did-communication"
-
 	t.Run("successfully prepared destination", func(t *testing.T) {
-		dest, err := CreateDestination(mockdiddoc.GetMockDIDDoc())
+		doc := mockdiddoc.GetMockDIDDoc(t)
+		dest, err := CreateDestination(doc)
 		require.NoError(t, err)
 		require.NotNil(t, dest)
 		require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
-		require.Equal(t, []string{"76HmFbj8sds7jjdnZ4hMVcQgtUYZpEN1HEmPnCrH2Bby"}, dest.RoutingKeys)
+		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
 
 	t.Run("error while getting service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service = nil
 
 		dest, err := CreateDestination(didDoc)
@@ -103,10 +101,10 @@ func TestPrepareDestination(t *testing.T) {
 	})
 
 	t.Run("error while getting recipient keys from did doc", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service[0].RecipientKeys = []string{}
 
-		recipientKeys, ok := did.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+		recipientKeys, ok := did.LookupDIDCommRecipientKeys(didDoc)
 		require.False(t, ok)
 		require.Nil(t, recipientKeys)
 	})

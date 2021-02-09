@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const authSuffix = "-authcrypt"
@@ -99,14 +100,17 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 
 	var recipients [][]byte
 
-	for _, verKey := range messageEnvelope.ToKeys {
+	for _, didKey := range messageEnvelope.ToKeys {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/749 It is possible to have
 		//  different key schemes in an interop situation
 		// there is no guarantee that each recipient is using the same key types
 		// for now this package uses Ed25519 signing keys. Other key schemes should have their own
 		// envelope implementations.
-		// decode base58 ver key
-		verKeyBytes := base58.Decode(verKey)
+		verKeyBytes, err := fingerprint.PubKeyFromDIDKey(didKey)
+		if err != nil {
+			return nil, fmt.Errorf("packMessage: failed to parse public key bytes from did:key verKey: %w", err)
+		}
+
 		// create 32 byte key
 		recipients = append(recipients, verKeyBytes)
 	}

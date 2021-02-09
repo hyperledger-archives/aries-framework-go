@@ -400,7 +400,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				option: SendByTheirDID("theirDID-001"),
 				vdr: &mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (doc *did.DocResolution, e error) {
-						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
+						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 					},
 				},
 				errorMsg: "invalid payload data format",

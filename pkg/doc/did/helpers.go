@@ -5,10 +5,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package did
 
-import (
-	"github.com/btcsuite/btcutil/base58"
-)
-
 // LookupService returns the service from the given DIDDoc matching the given service type.
 func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 	const notFound = -1
@@ -29,9 +25,13 @@ func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 	return &didDoc.Service[index], true
 }
 
-// LookupRecipientKeys gets the recipient keys from the did doc which match the given parameters.
-func LookupRecipientKeys(didDoc *Doc, serviceType, keyType string) ([]string, bool) {
-	didCommService, ok := LookupService(didDoc, serviceType)
+// LookupDIDCommRecipientKeys gets the DIDComm recipient keys from the did doc which match the given parameters.
+// DIDComm recipient keys are encoded as did:key identifiers.
+// See:
+// - https://github.com/hyperledger/aries-rfcs/blob/master/features/0067-didcomm-diddoc-conventions/README.md
+// - https://github.com/hyperledger/aries-rfcs/blob/master/features/0360-use-did-key/README.md
+func LookupDIDCommRecipientKeys(didDoc *Doc) ([]string, bool) {
+	didCommService, ok := LookupService(didDoc, "did-communication")
 	if !ok {
 		return nil, false
 	}
@@ -40,25 +40,7 @@ func LookupRecipientKeys(didDoc *Doc, serviceType, keyType string) ([]string, bo
 		return nil, false
 	}
 
-	var recipientKeys []string
-
-	for _, keyID := range didCommService.RecipientKeys {
-		key, ok := LookupPublicKey(keyID, didDoc)
-		if !ok {
-			return nil, false
-		}
-
-		if key.Type == keyType {
-			// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
-			recipientKeys = append(recipientKeys, base58.Encode(key.Value))
-		}
-	}
-
-	if len(recipientKeys) == 0 {
-		return nil, false
-	}
-
-	return recipientKeys, true
+	return didCommService.RecipientKeys, true
 }
 
 // LookupPublicKey returns the public key with the given id from the given DID Doc.

@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
@@ -114,8 +114,8 @@ func build(keyManager kms.KeyManager, didDoc *did.Doc,
 		}
 
 		if didDoc.Service[i].Type == vdrapi.DIDCommServiceType {
-			didDoc.Service[i].RecipientKeys = []string{base58.Encode(
-				didDoc.VerificationMethod[0].Value)}
+			didKey, _ := fingerprint.CreateDIDKey(didDoc.VerificationMethod[0].Value)
+			didDoc.Service[i].RecipientKeys = []string{didKey}
 			didDoc.Service[i].Priority = 0
 		}
 

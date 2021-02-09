@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -20,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 type (
@@ -384,13 +384,13 @@ func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, er
 			return nil, errors.New("didServiceBlockFunc: cast service to Route Service failed")
 		}
 
-		verKeyB58 := base58.Encode(verKey)
+		didKey, _ := fingerprint.CreateDIDKey(verKey)
 
 		if routerConnID == "" {
 			return &did.Service{
 				ID:              uuid.New().String(),
 				Type:            "did-communication",
-				RecipientKeys:   []string{verKeyB58},
+				RecipientKeys:   []string{didKey},
 				ServiceEndpoint: p.ServiceEndpoint(),
 			}, nil
 		}
@@ -401,14 +401,14 @@ func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, er
 			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - fetch router config : %w", err)
 		}
 
-		if err = mediator.AddKeyToRouter(routeSvc, routerConnID, base58.Encode(verKey)); err != nil {
+		if err = mediator.AddKeyToRouter(routeSvc, routerConnID, didKey); err != nil {
 			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - failed to add key to the router : %w", err)
 		}
 
 		return &did.Service{
 			ID:              uuid.New().String(),
 			Type:            "did-communication",
-			RecipientKeys:   []string{verKeyB58},
+			RecipientKeys:   []string{didKey},
 			RoutingKeys:     routingKeys,
 			ServiceEndpoint: serviceEndpoint,
 		}, nil
