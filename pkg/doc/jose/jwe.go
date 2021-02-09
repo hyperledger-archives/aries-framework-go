@@ -34,6 +34,9 @@ var errNotOnlyOneRecipient = errors.New(errCompactSerializationCommonText +
 var errUnprotectedHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a shared unprotected header")
 
+var errAADHeaderUnsupported = errors.New(errCompactSerializationCommonText +
+	"JWE compact serialization does not support AAD")
+
 var errPerRecipientHeaderUnsupported = errors.New(errCompactSerializationCommonText +
 	"JWE compact serialization does not support a per-recipient unprotected header")
 
@@ -208,6 +211,10 @@ func (e *JSONWebEncryption) CompactSerialize(marshal marshalFunc) (string, error
 
 	if e.UnprotectedHeaders != nil {
 		return "", errUnprotectedHeaderUnsupported
+	}
+
+	if e.AAD != "" {
+		return "", errAADHeaderUnsupported
 	}
 
 	if e.Recipients[0].Header != nil {

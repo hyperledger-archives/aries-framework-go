@@ -8,9 +8,13 @@ package authcrypt
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -96,7 +100,7 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 		return nil, fmt.Errorf("authcrypt Pack: empty recipientsPubKeys")
 	}
 
-	recECKeys, err := unmarshalRecipientKeys(recipientsPubKeys)
+	recECKeys, aad, err := unmarshalRecipientKeys(recipientsPubKeys)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to convert recipient keys: %w", err)
 	}
@@ -112,7 +116,7 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
 
-	jwe, err := jweEncrypter.Encrypt(payload)
+	jwe, err := jweEncrypter.EncryptWithAuthData(payload, aad)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to encrypt payload: %w", err)
 	}
@@ -132,21 +136,38 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 	return []byte(s), nil
 }
 
-func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, error) {
-	var pubKeys []*cryptoapi.PublicKey
+func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, error) {
+	var (
+		pubKeys []*cryptoapi.PublicKey
+		kids    []string
+		aad     []byte
+	)
 
 	for _, key := range keys {
 		var ecKey *cryptoapi.PublicKey
 
 		err := json.Unmarshal(key, &ecKey)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
+		kids = append(kids, ecKey.KID)
 		pubKeys = append(pubKeys, ecKey)
 	}
 
-	return pubKeys, nil
+	if len(keys) > 1 {
+		sort.Strings(kids)
+
+		kidsStr := strings.Join(kids, ".")
+		logger.Infof("Authcrypt Pack KIDs for AAD: %s", kidsStr)
+
+		aad32 := sha256.Sum256([]byte(kidsStr))
+		aad = make([]byte, 32)
+		copy(aad, aad32[:])
+		logger.Infof("Authcrypt Pack AAD: %s", base64.RawURLEncoding.EncodeToString(aad))
+	}
+
+	return pubKeys, aad, nil
 }
 
 // Unpack will decode the envelope using a standard format.

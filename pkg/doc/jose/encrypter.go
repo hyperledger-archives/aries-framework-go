@@ -22,7 +22,6 @@ import (
 	"github.com/square/go-jose/v3"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
@@ -206,7 +205,15 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 			err error
 		)
 
-		kwAlg, wrapOpts := je.getWrapKeyOpts()
+		wrapOpts := je.getWrapKeyOpts()
+
+		if len(apv) == 0 {
+			apv = append(apv, recPubKey.KID...)
+		}
+
+		if len(apu) == 0 && je.skid != "" {
+			apu = append(apu, je.skid...)
+		}
 
 		if len(wrapOpts) > 0 {
 			kek, err = je.crypto.WrapKey(cek, apu, apv, recPubKey, wrapOpts...)
@@ -218,7 +225,8 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 			return nil, nil, fmt.Errorf("wrapCEKForRecipient %d failed: %w", i+1, err)
 		}
 
-		kek.Alg = kwAlg
+		je.encodeAPUAPV(kek)
+
 		recipientsWK = append(recipientsWK, kek)
 
 		if len(je.recipientsKeys) == 1 {
@@ -232,29 +240,35 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 	return recipientsWK, singleRecipientAAD, nil
 }
 
-func (je *JWEEncrypt) getWrapKeyOpts() (string, []cryptoapi.WrapKeyOpts) {
+func (je *JWEEncrypt) encodeAPUAPV(kek *cryptoapi.RecipientWrappedKey) {
+	// APU and APV must be base64URL encoded.
+	if len(kek.APU) > 0 {
+		apuBytes := make([]byte, len(kek.APU))
+		copy(apuBytes, kek.APU)
+		kek.APU = make([]byte, base64.RawURLEncoding.EncodedLen(len(apuBytes)))
+		base64.RawURLEncoding.Encode(kek.APU, apuBytes)
+	}
+
+	if len(kek.APV) > 0 {
+		apvBytes := make([]byte, len(kek.APV))
+		copy(apvBytes, kek.APV)
+		kek.APV = make([]byte, base64.RawURLEncoding.EncodedLen(len(apvBytes)))
+		base64.RawURLEncoding.Encode(kek.APV, apvBytes)
+	}
+}
+
+func (je *JWEEncrypt) getWrapKeyOpts() []cryptoapi.WrapKeyOpts {
 	var wrapOpts []cryptoapi.WrapKeyOpts
 
-	kwAlg := tinkcrypto.ECDHESA256KWAlg
-
 	if je.encAlg == XC20P {
-		kwAlg = tinkcrypto.ECDHESXC20PKWAlg
-
 		wrapOpts = append(wrapOpts, cryptoapi.WithXC20PKW())
 	}
 
 	if je.skid != "" && je.senderKH != nil {
-		switch je.encAlg {
-		case A256GCM:
-			kwAlg = tinkcrypto.ECDH1PUA256KWAlg
-		case XC20P:
-			kwAlg = tinkcrypto.ECDH1PUXC20PKWAlg
-		}
-
 		wrapOpts = append(wrapOpts, cryptoapi.WithSender(je.senderKH))
 	}
 
-	return kwAlg, wrapOpts
+	return wrapOpts
 }
 
 // mergeSingleRecipientHeaders for single recipient encryption, recipient header info is available in the key, update
@@ -282,12 +296,16 @@ func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 		return nil, err
 	}
 
-	kid, err := marshaller(recipientWK.KID)
-	if err != nil {
-		return nil, err
-	}
+	if recipientWK.KID != "" {
+		var kid []byte
 
-	rawHeaders["kid"] = kid
+		kid, err = marshaller(recipientWK.KID)
+		if err != nil {
+			return nil, err
+		}
+
+		rawHeaders["kid"] = kid
+	}
 
 	alg, err := marshaller(recipientWK.Alg)
 	if err != nil {
@@ -296,12 +314,10 @@ func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 
 	rawHeaders["alg"] = alg
 
-	mEPK, err := convertRecEPKToMarshalledJWK(recipientWK)
+	err = addKDFHeaders(rawHeaders, recipientWK, marshaller)
 	if err != nil {
 		return nil, err
 	}
-
-	rawHeaders["epk"] = mEPK
 
 	mAAD, err := marshaller(rawHeaders)
 	if err != nil {
@@ -318,12 +334,49 @@ func mergeSingleRecipientHeaders(recipientWK *cryptoapi.RecipientWrappedKey,
 	return mAADStr, nil
 }
 
+func addKDFHeaders(rawHeaders map[string]json.RawMessage, recipientWK *cryptoapi.RecipientWrappedKey,
+	marshaller marshalFunc) error {
+	var err error
+
+	mEPK, err := convertRecEPKToMarshalledJWK(recipientWK)
+	if err != nil {
+		return err
+	}
+
+	rawHeaders["epk"] = mEPK
+
+	if len(recipientWK.APU) != 0 {
+		rawHeaders["apu"], err = marshaller(fmt.Sprintf("%s", recipientWK.APU))
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(recipientWK.APV) != 0 {
+		rawHeaders["apv"], err = marshaller(fmt.Sprintf("%s", recipientWK.APV))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func mergeRecipientHeaders(headers map[string]interface{}, recHeaders *RecipientHeaders) {
 	headers[HeaderAlgorithm] = recHeaders.Alg
-	headers[HeaderKeyID] = recHeaders.KID
+	if recHeaders.KID != "" {
+		headers[HeaderKeyID] = recHeaders.KID
+	}
 
-	// EPK will be marshalled by Serialize
+	// EPK, APU, APV will be marshalled by Serialize
 	headers[HeaderEPK] = recHeaders.EPK
+	if recHeaders.APU != "" {
+		headers["apu"] = base64.RawURLEncoding.EncodeToString([]byte(recHeaders.APU))
+	}
+
+	if recHeaders.APV != "" {
+		headers["apv"] = base64.RawURLEncoding.EncodeToString([]byte(recHeaders.APV))
+	}
 }
 
 func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey) ([]*Recipient, *RecipientHeaders, error) {
@@ -347,16 +400,53 @@ func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey) ([]*Rec
 	// if we have only 1 recipient, then assume compact JWE serialization format. This means recipient header should
 	// be merged with the JWE envelope's protected headers and not added to the recipients
 	if len(recWKs) == 1 {
+		var (
+			decodedAPU []byte
+			decodedAPV []byte
+			err        error
+		)
+
+		decodedAPU, decodedAPV, err = decodeAPUAPV(recipients[0].Header)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		singleRecipientHeaders = &RecipientHeaders{
 			Alg: recipients[0].Header.Alg,
 			KID: recipients[0].Header.KID,
 			EPK: recipients[0].Header.EPK,
+			APU: string(decodedAPU),
+			APV: string(decodedAPV),
 		}
 
 		recipients[0].Header = nil
 	}
 
 	return recipients, singleRecipientHeaders, nil
+}
+
+func decodeAPUAPV(headers *RecipientHeaders) ([]byte, []byte, error) {
+	var (
+		decodedAPU []byte
+		decodedAPV []byte
+		err        error
+	)
+
+	if len(headers.APU) > 0 {
+		decodedAPU, err = base64.RawURLEncoding.DecodeString(headers.APU)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if len(headers.APV) > 0 {
+		decodedAPV, err = base64.RawURLEncoding.DecodeString(headers.APV)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return decodedAPU, decodedAPV, nil
 }
 
 func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeaders, error) {
@@ -369,6 +459,8 @@ func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeader
 		KID: rec.KID,
 		Alg: rec.Alg,
 		EPK: mRecJWK,
+		APU: string(rec.APU),
+		APV: string(rec.APV),
 	}, nil
 }
 
@@ -399,7 +491,6 @@ func convertRecEPKToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, e
 
 	recJWK := JWK{
 		JSONWebKey: jose.JSONWebKey{
-			Use: HeaderEncryption,
 			Key: key,
 		},
 		Kty: rec.EPK.Type,

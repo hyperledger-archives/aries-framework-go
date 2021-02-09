@@ -115,7 +115,7 @@ func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
 	require.EqualError(t, err, errFailingMarshal.Error())
 
 	fm = &failingMarshaller{
-		numTimesMarshalCalledBeforeReturnErr: 2,
+		numTimesMarshalCalledBeforeReturnErr: 1,
 	}
 
 	// fail EPK marshalling

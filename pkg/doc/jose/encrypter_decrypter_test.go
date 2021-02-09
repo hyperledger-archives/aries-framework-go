@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
@@ -230,6 +231,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
+			t.Log("creating recipients keys..")
 			recECKeys, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 
 			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
@@ -249,7 +251,9 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				aad = nil
 			}
 
+			testEncTime := time.Now()
 			jwe, err := jweEncrypter.EncryptWithAuthData(pt, aad)
+			t.Logf("ECDH-ES KW in EncryptWithAuthData took %v", time.Since(testEncTime))
 			require.NoError(t, err)
 			require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
@@ -258,14 +262,18 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 			serialization := "Full"
 
 			if tc.useCompact {
+				testSerTime := time.Now()
 				serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+				t.Logf("CompactSerilize took %v", time.Since(testSerTime))
 				require.NoError(t, err)
 				require.NotEmpty(t, serializedJWE)
 
 				jweStr = serializedJWE
 				serialization = "Compact"
 			} else {
+				testSerTime := time.Now()
 				serializedJWE, err = jwe.FullSerialize(json.Marshal)
+				t.Logf("JSON Serialize took %v", time.Since(testSerTime))
 				require.NoError(t, err)
 				require.NotEmpty(t, serializedJWE)
 
@@ -292,7 +300,9 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 			require.NotEmpty(t, joseJWE)
 
 			// try to deserialize with local package
+			testDeserTime := time.Now()
 			localJWE, err := ariesjose.Deserialize(serializedJWE)
+			t.Logf("JWE Deserialize took %v", time.Since(testDeserTime))
 			require.NoError(t, err)
 
 			t.Run("Decrypting JWE tests failures", func(t *testing.T) {
@@ -390,42 +400,14 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 				var msg []byte
 
+				testDecTime := time.Now()
 				msg, err = jweDecrypter.Decrypt(localJWE)
+				t.Logf("JWE Decrypt took %v", time.Since(testDecTime))
 				require.NoError(t, err)
 				require.EqualValues(t, pt, msg)
 			})
 		})
 	}
-}
-
-func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
-	recECKeys, recKHs, _ := createRecipients(t, 1)
-
-	c, k := createCryptoAndKMSServices(t, recKHs)
-
-	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType, "", nil, recECKeys, c)
-	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
-
-	pt := []byte("some msg")
-	jwe, err := jweEncrypter.Encrypt(pt)
-	require.NoError(t, err)
-	require.Equal(t, len(recECKeys), len(jwe.Recipients))
-
-	serializedJWE, err := jwe.CompactSerialize(json.Marshal)
-	require.NoError(t, err)
-	require.NotEmpty(t, serializedJWE)
-
-	// try to deserialize with local package
-	localJWE, err := ariesjose.Deserialize(serializedJWE)
-	require.NoError(t, err)
-
-	jweDecrypter := ariesjose.NewJWEDecrypt(nil, c, k)
-
-	var msg []byte
-
-	msg, err = jweDecrypter.Decrypt(localJWE)
-	require.NoError(t, err)
-	require.EqualValues(t, pt, msg)
 }
 
 func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *testing.T) {
@@ -552,7 +534,6 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	c, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	// add third key to recECKeys
 	recECKeys = append(recECKeys, &cryptoapi.PublicKey{
 		X:     recPrivKey.PublicKey.X.Bytes(),
 		Y:     recPrivKey.PublicKey.Y.Bytes(),
@@ -925,8 +906,10 @@ func TestECDH1PU(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
+			t.Log("creating Sender key..")
 			senders, senderKHs, senderKIDs := createRecipientsByKeyTemplate(t, 1, tc.kt, tc.keyType)
+			t.Log("creating recipients keys..")
+			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 
 			c, k := createCryptoAndKMSServices(t, recKHs)
 
@@ -951,7 +934,9 @@ func TestECDH1PU(t *testing.T) {
 			}
 
 			// test JWEEncrypt for ECDH1PU
+			testEncTime := time.Now()
 			jwe, err := jweEnc.EncryptWithAuthData(pt, aad)
+			t.Logf("ECDH-1PU KW in EncryptWithAuthData took %v", time.Since(testEncTime))
 			require.NoError(t, err)
 
 			serializedJWE := ""
@@ -959,14 +944,18 @@ func TestECDH1PU(t *testing.T) {
 			serialization := "Full"
 
 			if tc.useCompact {
+				testSerTime := time.Now()
 				serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+				t.Logf("Compact serialize took %v", time.Since(testSerTime))
 				require.NoError(t, err)
 				require.NotEmpty(t, serializedJWE)
 
 				jweStr = serializedJWE
 				serialization = "Compact"
 			} else {
+				testSerTime := time.Now()
 				serializedJWE, err = jwe.FullSerialize(json.Marshal)
+				t.Logf("JSON serialize took %v", time.Since(testSerTime))
 				require.NoError(t, err)
 				require.NotEmpty(t, serializedJWE)
 
@@ -987,7 +976,9 @@ func TestECDH1PU(t *testing.T) {
 
 			t.Logf("* protected headers: %s", protectedHeadersStr)
 
+			testDeserTime := time.Now()
 			localJWE, err := ariesjose.Deserialize(serializedJWE)
+			t.Logf("JWE deserialize took %v", time.Since(testDeserTime))
 			require.NoError(t, err)
 
 			t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
@@ -1008,7 +999,9 @@ func TestECDH1PU(t *testing.T) {
 
 				var msg []byte
 
+				testDecTime := time.Now()
 				msg, err = jd.Decrypt(localJWE)
+				t.Logf("JWE deserialize took %v", time.Since(testDecTime))
 				require.NoError(t, err)
 				require.EqualValues(t, pt, msg)
 			})
