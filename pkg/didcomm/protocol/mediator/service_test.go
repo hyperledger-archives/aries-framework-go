@@ -805,7 +805,7 @@ func TestServiceForwardMsg(t *testing.T) {
 					if didID == invalidDID {
 						return nil, errors.New("invalid")
 					}
-					return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
+					return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 				},
 			},
 		})
@@ -858,7 +858,7 @@ func TestMessagePickup(t *testing.T) {
 				},
 				VDRegistryValue: &mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
-						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
+						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 					},
 				},
 			})
@@ -901,7 +901,7 @@ func TestMessagePickup(t *testing.T) {
 			},
 			VDRegistryValue: &mockvdr.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (doc *did.DocResolution, e error) {
-					return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc()}, nil
+					return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 				},
 			},
 		})

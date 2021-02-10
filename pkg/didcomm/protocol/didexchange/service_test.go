@@ -39,6 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
@@ -109,7 +110,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		CustomKMS: k,
 	}
 
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	cStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
 	require.NotNil(t, cStore)
@@ -257,13 +258,15 @@ func newKMS(t *testing.T, store *mockstorage.MockStoreProvider) kms.KeyManager {
 	return customKMS
 }
 
-func newED25519Key(t *testing.T, k kms.KeyManager) string {
+func newED25519DIDKey(t *testing.T, k kms.KeyManager) string {
 	t.Helper()
 
 	_, pubKey, err := k.CreateAndExportPubKeyBytes(kms.ED25519)
 	require.NoError(t, err)
 
-	return base58.Encode(pubKey)
+	didKey, _ := fingerprint.CreateDIDKey(pubKey)
+
+	return didKey
 }
 
 // did-exchange flow with role Invitee.
@@ -280,7 +283,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		CustomKMS: k,
 	}
 
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 
 	cStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
@@ -776,7 +779,7 @@ func TestEventsSuccess(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -803,7 +806,7 @@ func TestEventsSuccess(t *testing.T) {
 }
 
 func TestContinueWithPublicDID(t *testing.T) {
-	didDoc := mockdiddoc.GetMockDIDDoc()
+	didDoc := mockdiddoc.GetMockDIDDoc(t)
 	svc, err := New(&protocol.MockProvider{
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -819,7 +822,7 @@ func TestContinueWithPublicDID(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -1094,7 +1097,7 @@ func TestInvitationRecord(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	invitationBytes, err := json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
 		ID:            "id",
@@ -1214,7 +1217,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	k := newKMS(t, sp)
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
@@ -1282,7 +1285,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 	require.NoError(t, err)
 
 	k := newKMS(t, sp)
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
@@ -1375,7 +1378,7 @@ func TestAcceptInvitation(t *testing.T) {
 			}
 		}()
 		k := newKMS(t, sp)
-		pubKey := newED25519Key(t, k)
+		pubKey := newED25519DIDKey(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
@@ -1509,7 +1512,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 			}
 		}()
 		k := newKMS(t, sp)
-		pubKey := newED25519Key(t, k)
+		pubKey := newED25519DIDKey(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
@@ -1729,7 +1732,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 		connectionStore:    connStore,
 	}
 	doc, err := ctx.vdRegistry.Create(testMethod, nil)
@@ -1764,7 +1767,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519Key(t, k)
+		pubKey := newED25519DIDKey(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
 		cStore, err := newConnectionStore(prov)
@@ -1796,7 +1799,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519Key(t, k)
+		pubKey := newED25519DIDKey(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
 		cStore, err := newConnectionStore(prov)
@@ -1832,7 +1835,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519Key(t, k)
+		pubKey := newED25519DIDKey(t, k)
 		newDIDDoc := createDIDDocWithKey(pubKey)
 
 		cStore, err := newConnectionStore(prov)

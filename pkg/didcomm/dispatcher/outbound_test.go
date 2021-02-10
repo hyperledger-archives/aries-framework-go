@@ -35,7 +35,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 		})
-		require.NoError(t, o.Send("data", "", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
@@ -43,9 +43,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
 		})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for serviceEndpoint: url")
+		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for destination")
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			packagerValue:           &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 		})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
 	})
@@ -65,7 +65,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")},
 			},
 		})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -76,7 +76,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 		})
 
-		require.NoError(t, o.Send("data", "", &service.Destination{
+		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
 			ServiceEndpoint: "url",
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
@@ -92,7 +92,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			},
 		})
 
-		err := o.Send("data", "", &service.Destination{
+		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
 			ServiceEndpoint: "url",
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
@@ -133,7 +133,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 }
 
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
-	mockDoc := mockdiddoc.GetMockDIDDoc()
+	mockDoc := mockdiddoc.GetMockDIDDoc(t)
 
 	t.Run("success", func(t *testing.T) {
 		o := NewOutbound(&mockProvider{
@@ -194,7 +194,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: transportReturnRoute,
 		})
 
-		require.NoError(t, o.Send(req, "", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("transport route option - value set thread", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: transportReturnRoute,
 		})
 
-		require.NoError(t, o.Send(req, "", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("transport route option - no value set", func(t *testing.T) {
@@ -246,7 +246,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: "",
 		})
 
-		require.NoError(t, o.Send(req, "", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("transport route option - forward message", func(t *testing.T) {

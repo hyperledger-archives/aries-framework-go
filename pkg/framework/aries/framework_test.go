@@ -40,6 +40,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -119,7 +120,11 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &service.Destination{ServiceEndpoint: serverURL})
+		e := ctx.OutboundDispatcher().Send(
+			[]byte("Hello World"),
+			mockdiddoc.MockDIDKey(t),
+			&service.Destination{ServiceEndpoint: serverURL},
+		)
 		require.NoError(t, e)
 	})
 

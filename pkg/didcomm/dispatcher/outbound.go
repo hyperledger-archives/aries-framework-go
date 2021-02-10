@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -21,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 // provider interface for outbound ctx.
@@ -74,6 +74,7 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
+// nolint:gocyclo
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		// check if outbound accepts routing keys, else use recipient keys
@@ -99,8 +100,13 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options : %w", err)
 		}
 
+		sender, err := fingerprint.PubKeyFromDIDKey(senderVerKey)
+		if err != nil {
+			return fmt.Errorf("outboundDispatcher.Send: failed to extract pubKeyBytes from senderVerKey: %w", err)
+		}
+
 		packedMsg, err := o.packager.PackMessage(
-			&commontransport.Envelope{Message: req, FromKey: base58.Decode(senderVerKey), ToKeys: des.RecipientKeys})
+			&commontransport.Envelope{Message: req, FromKey: sender, ToKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
 		}
@@ -121,7 +127,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		return nil
 	}
 
-	return fmt.Errorf("outboundDispatcher.Send: no transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+	return fmt.Errorf("outboundDispatcher.Send: no transport found for destination: %+v", des)
 }
 
 // Forward forwards the message without packing to the destination.

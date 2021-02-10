@@ -37,6 +37,7 @@ import (
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestNoopState(t *testing.T) {
@@ -587,7 +588,7 @@ func TestAbandonedState_Execute(t *testing.T) {
 func TestCompletedState_Execute(t *testing.T) {
 	prov := getProvider(t)
 	customKMS := newKMS(t, prov.StoreProvider)
-	pubKey := newED25519Key(t, customKMS)
+	pubKey := newED25519DIDKey(t, customKMS)
 	cStore, err := newConnectionStore(&prov)
 
 	require.NoError(t, err)
@@ -631,7 +632,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		}
 		err = ctx.connectionStore.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
-		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc()}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc(t)}
 		require.NoError(t, err)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
@@ -704,7 +705,7 @@ func TestCompletedState_Execute(t *testing.T) {
 
 func TestVerifySignature(t *testing.T) {
 	prov := getProvider(t)
-	pubKey := newED25519Key(t, prov.KMS())
+	pubKey := newED25519DIDKey(t, prov.KMS())
 	cStore, err := newConnectionStore(&prov)
 
 	require.NoError(t, err)
@@ -763,7 +764,7 @@ func TestVerifySignature(t *testing.T) {
 
 		con, err := verifySignature(connectionSignature, "invalid-key")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "verify signature: ed25519: invalid key")
+		require.Contains(t, err.Error(), "verifySignature: failed to parse pubKeyBytes from recipientKeys ")
 		require.Nil(t, con)
 	})
 	t.Run("verify signature error", func(t *testing.T) {
@@ -771,7 +772,7 @@ func TestVerifySignature(t *testing.T) {
 		require.NoError(t, err)
 
 		// generate different key and assign it to signature verification key
-		pubKey2 := newED25519Key(t, prov.CustomKMS)
+		pubKey2 := newED25519DIDKey(t, prov.CustomKMS)
 		con, err := verifySignature(connectionSignature, pubKey2)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "ed25519: invalid signature")
@@ -785,8 +786,11 @@ func TestVerifySignature(t *testing.T) {
 		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 		concatenateSignData := append(timestampBuf, connAttributeBytes...)
 
+		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(pubKey)
+		require.NoError(t, err)
+
 		// simulate kid generation from public signature verification key bytes
-		kid, err := localkms.CreateKID(base58.Decode(pubKey), kms.ED25519)
+		kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519)
 		require.NoError(t, err)
 
 		kh, err := prov.KMS().Get(kid)
@@ -813,8 +817,11 @@ func TestVerifySignature(t *testing.T) {
 		timestampBuf := make([]byte, timestamplen)
 		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 
+		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(pubKey)
+		require.NoError(t, err)
+
 		// simulate kid generation from public signature verification key bytes
-		kid, err := localkms.CreateKID(base58.Decode(pubKey), kms.ED25519)
+		kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519)
 		require.NoError(t, err)
 
 		kh, err := prov.KMS().Get(kid)
@@ -840,7 +847,7 @@ func TestVerifySignature(t *testing.T) {
 
 func TestPrepareConnectionSignature(t *testing.T) {
 	prov := getProvider(t)
-	pubKey := newED25519Key(t, prov.CustomKMS)
+	pubKey := newED25519DIDKey(t, prov.CustomKMS)
 	ctx := getContext(t, &prov)
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
@@ -919,7 +926,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 			kms:             prov.KMS(),
 		}
 		c := &Connection{
-			DIDDoc: mockdiddoc.GetMockDIDDoc(),
+			DIDDoc: mockdiddoc.GetMockDIDDoc(t),
 		}
 		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.Error(t, err)
@@ -986,11 +993,11 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, connRec.TheirDID)
 	})
 	t.Run("unsuccessful new response from request due to create did error", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc()
+		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		ctx := &context{
 			vdRegistry: &mockvdr.MockVDRegistry{
 				CreateErr:    fmt.Errorf("create DID error"),
-				ResolveValue: mockdiddoc.GetMockDIDDoc(),
+				ResolveValue: mockdiddoc.GetMockDIDDoc(t),
 			},
 			routeSvc: &mockroute.MockMediatorSvc{},
 		}
@@ -1006,7 +1013,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, cStore)
 
 		ctx := &context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			crypto:          &mockcrypto.Crypto{SignErr: errors.New("sign error")},
 			connectionStore: cStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
@@ -1032,7 +1039,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 func TestHandleInboundResponse(t *testing.T) {
 	prov := getProvider(t)
-	pubKey := newED25519Key(t, prov.CustomKMS)
+	pubKey := newED25519DIDKey(t, prov.CustomKMS)
 	ctx := getContext(t, &prov)
 	_, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
@@ -1081,7 +1088,7 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		require.Equal(t, invitation.RecipientKeys[0], recKey)
 	})
 	t.Run("failed to get invitation recipient key", func(t *testing.T) {
-		doc := mockdiddoc.GetMockDIDDoc()
+		doc := mockdiddoc.GetMockDIDDoc(t)
 		_, ok := diddoc.LookupService(doc, "did-communication")
 		require.True(t, ok)
 		ctx := context{vdRegistry: &mockvdr.MockVDRegistry{ResolveValue: doc}}
@@ -1194,7 +1201,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
@@ -1217,7 +1224,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionStore: connectionStore,
 			routeSvc:        &mockroute.MockMediatorSvc{},
 		}
@@ -1232,7 +1239,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionStore: connectionStore,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
@@ -1250,7 +1257,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
+			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionStore: connectionStore,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
@@ -1374,7 +1381,7 @@ func TestGetVerKey(t *testing.T) {
 func createDIDDoc(t *testing.T, k kms.KeyManager) *diddoc.Doc {
 	t.Helper()
 
-	pubKey := newED25519Key(t, k)
+	pubKey := newED25519DIDKey(t, k)
 
 	return createDIDDocWithKey(pubKey)
 }
@@ -1433,7 +1440,7 @@ func getProvider(t *testing.T) protocol.MockProvider {
 func getContext(t *testing.T, prov *protocol.MockProvider) *context {
 	t.Helper()
 
-	pubKey := newED25519Key(t, prov.KMS())
+	pubKey := newED25519DIDKey(t, prov.KMS())
 	connStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
 
@@ -1450,7 +1457,7 @@ func getContext(t *testing.T, prov *protocol.MockProvider) *context {
 func createRequest(t *testing.T, ctx *context) (*Request, error) {
 	t.Helper()
 
-	pubKey := newED25519Key(t, ctx.kms)
+	pubKey := newED25519DIDKey(t, ctx.kms)
 
 	invitation, err := createMockInvitation(pubKey, ctx)
 	if err != nil {
@@ -1512,7 +1519,7 @@ func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Re
 		return nil, err
 	}
 
-	pubKey := newED25519Key(t, ctx.kms)
+	pubKey := newED25519DIDKey(t, ctx.kms)
 	connRec := &connection.Record{
 		State:         (&responded{}).Name(),
 		ThreadID:      response.Thread.ID,

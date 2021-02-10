@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -21,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -168,7 +168,7 @@ func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, er
 		return nil, fmt.Errorf("createInvitation: failed to extract public SigningKey bytes from handle:%w", err)
 	}
 
-	sigPubKeyB58 := base58.Encode(sigPubKey)
+	didKey, _ := fingerprint.CreateDIDKey(sigPubKey)
 
 	var (
 		serviceEndpoint = c.serviceEndpoint
@@ -183,7 +183,7 @@ func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, er
 			return nil, fmt.Errorf("createInvitation: getRouterConfig: %w", err)
 		}
 
-		if err = mediator.AddKeyToRouter(c.routeSvc, opts.routerConnectionID, sigPubKeyB58); err != nil {
+		if err = mediator.AddKeyToRouter(c.routeSvc, opts.routerConnectionID, didKey); err != nil {
 			return nil, fmt.Errorf("createInvitation: AddKeyToRouter: %w", err)
 		}
 	}
@@ -191,7 +191,7 @@ func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, er
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           label,
-		RecipientKeys:   []string{sigPubKeyB58},
+		RecipientKeys:   []string{didKey},
 		ServiceEndpoint: serviceEndpoint,
 		Type:            didexchange.InvitationMsgType,
 		RoutingKeys:     routingKeys,

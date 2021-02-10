@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
@@ -20,6 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestConnectionStore(t *testing.T) {
@@ -39,9 +40,13 @@ func TestConnectionStore(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		// create a transport provider (framework context)
-		verKey := "ABCD"
+		verKey := mockdiddoc.MockDIDKey(t)
+
+		verKeyBytes, err := fingerprint.PubKeyFromDIDKey(verKey)
+		require.NoError(t, err)
+
 		mockPackager := &mockpackager.Packager{
-			UnpackValue: &commontransport.Envelope{Message: request, FromKey: base58.Decode(verKey)},
+			UnpackValue: &commontransport.Envelope{Message: request, FromKey: verKeyBytes},
 		}
 
 		response := "Hello"

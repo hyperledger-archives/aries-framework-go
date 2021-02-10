@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/trustbloc/sidetree-core-go/pkg/commitment"
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
@@ -19,6 +18,7 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
@@ -103,12 +103,14 @@ func getOpaqueDocument(params *CreateDIDParams) ([]byte, error) {
 		return nil, err
 	}
 
+	didKey, _ := fingerprint.CreateDIDKey(keyBytes)
+
 	keyType := params.KeyType
 	if keyType == "" {
 		keyType = defaultKeyType
 	}
 
-	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, params.ServiceEndpoint, base58.Encode(keyBytes))
+	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, params.ServiceEndpoint, didKey)
 
 	doc, err := document.FromBytes([]byte(data))
 	if err != nil {

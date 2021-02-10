@@ -91,7 +91,7 @@ func Parse(did string) (*DID, error) {
 
 	if !r.MatchString(did) {
 		return nil, fmt.Errorf(
-			"invalid did: %s. Make sure it conforms to the generic DID syntax: https://w3c.github.io/did-core/#generic-did-syntax", //nolint:lll
+			"invalid did: %s. Make sure it conforms to the DID syntax: https://w3c.github.io/did-core/#did-syntax", //nolint:lll
 			did)
 	}
 

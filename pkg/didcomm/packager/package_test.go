@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -31,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
@@ -152,11 +152,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKW)
 		require.NoError(t, err)
 
+		didKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		// PackMessage should pass with both value from and to keys
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.NoError(t, err)
 
@@ -213,6 +215,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKWType)
 		require.NoError(t, err)
 
+		didKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		// try pack with nil envelope - should fail
 		packMsg, err := packager.PackMessage(nil)
 		require.EqualError(t, err, "packMessage: envelope argument is nil")
@@ -222,7 +226,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packMsg, err = packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, packMsg)
@@ -244,7 +248,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packMsg, err = packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.Error(t, err)
 		require.Empty(t, packMsg)
@@ -288,11 +292,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
+		didKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.NoError(t, err)
 
@@ -320,10 +326,12 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
+		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		packMsg, err = packager2.PackMessage(&transport.Envelope{
 			Message: []byte("msg2"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{legacyDIDKey},
 		})
 		require.NoError(t, err)
 
@@ -364,11 +372,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
+		didKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.NoError(t, err)
 
@@ -411,11 +421,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
+		didKey, _ := fingerprint.CreateDIDKey(toKey)
+
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			Message: []byte("msg1"),
 			FromKey: fromKey,
-			ToKeys:  []string{base58.Encode(toKey)},
+			ToKeys:  []string{didKey},
 		})
 		require.NoError(t, err)
 

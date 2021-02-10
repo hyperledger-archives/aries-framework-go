@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
@@ -32,7 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -559,13 +558,13 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 		return docResolution.DIDDocument, err
 	}
 
-	didMethod, err := vdr.GetDidMethod(didDoc.ID)
+	id, err := did.Parse(didDoc.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolveDidDocFromConnection: failed to parse DID [%s]: %w", didDoc.ID, err)
 	}
 
 	// store provided did document
-	_, err = ctx.vdRegistry.Create(didMethod, didDoc, vdrapi.WithOption("store", true))
+	_, err = ctx.vdRegistry.Create(id.Method, didDoc, vdrapi.WithOption("store", true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}
@@ -589,12 +588,17 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 	concatenateSignData := append(timestampBuf, connAttributeBytes...)
 
-	pubKey, err := ctx.getVerKey(invitationID)
+	didKey, err := ctx.getVerKey(invitationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verkey: %w", err)
 	}
 
-	signingKID, err := localkms.CreateKID(base58.Decode(pubKey), kms.ED25519Type)
+	pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(didKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", didKey, err)
+	}
+
+	signingKID, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("prepareConnectionSignature: failed to generate KID from public key: %w", err)
 	}
@@ -613,7 +617,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	return &ConnectionSignature{
 		Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
 		SignedData: base64.URLEncoding.EncodeToString(concatenateSignData),
-		SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
+		SignVerKey: didKey,
 		Signature:  base64.URLEncoding.EncodeToString(signature),
 	}, nil
 }
@@ -687,7 +691,13 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 	}
 
 	// The signature data must be used to verify against the invitation's recipientKeys for continuity.
-	pubKey := base58.Decode(recipientKeys)
+	pubKey, err := fingerprint.PubKeyFromDIDKey(recipientKeys)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"verifySignature: failed to parse pubKeyBytes from recipientKeys [%s]: %w",
+			recipientKeys, err,
+		)
+	}
 
 	// TODO: Replace with signed attachments issue-626
 	suiteVerifier := ed25519signature2018.NewPublicKeyVerifier()

@@ -10,8 +10,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 const (
@@ -58,4 +61,21 @@ func PubKeyFromFingerprint(fingerprint string) ([]byte, error) {
 	}
 
 	return mc[2:], nil
+}
+
+// PubKeyFromDIDKey parses the did:key DID and returns the key's raw value.
+func PubKeyFromDIDKey(didKey string) ([]byte, error) {
+	id, err := did.Parse(didKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse did:key [%s]: %w", didKey, err)
+	}
+
+	// did:key is hard-coded to base58btc:
+	// - https://w3c-ccg.github.io/did-method-key/
+	// - https://github.com/multiformats/multibase#multibase-table
+	if !strings.HasPrefix(id.MethodSpecificID, "z") {
+		return nil, fmt.Errorf("not a valid did:key identifier (not a base58btc multicodec): %s", didKey)
+	}
+
+	return PubKeyFromFingerprint(id.MethodSpecificID)
 }

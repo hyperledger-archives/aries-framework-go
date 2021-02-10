@@ -11,11 +11,11 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -84,10 +84,12 @@ func TestBuild(t *testing.T) {
 				Type: "did-communication",
 			}}})
 
+		expectedDIDKey, _ := fingerprint.CreateDIDKey(expected.Value)
+
 		require.NoError(t, err)
 		require.NotEmpty(t, result.DIDDocument.Service)
 		require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
-		require.Equal(t, base58.Encode(expected.Value),
+		require.Equal(t, expectedDIDKey,
 			result.DIDDocument.Service[0].RecipientKeys[0])
 	})
 }
