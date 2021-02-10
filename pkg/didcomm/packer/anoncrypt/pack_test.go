@@ -7,17 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package anoncrypt
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"strings"
 	"testing"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
+	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -32,27 +40,27 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	tests := []struct {
 		name    string
 		keyType kms.KeyType
-		encAlg  jose.EncAlg
+		encAlg  afgjose.EncAlg
 	}{
 		{
 			"anoncrypt using NISTP256ECDHKW and AES256-GCM",
 			kms.NISTP256ECDHKWType,
-			jose.A256GCM,
+			afgjose.A256GCM,
 		},
 		{
 			"anoncrypt using X25519ECDHKW and XChacha20Poly1305",
 			kms.X25519ECDHKWType,
-			jose.XC20P,
+			afgjose.XC20P,
 		},
 		{
 			"anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
 			kms.NISTP256ECDHKWType,
-			jose.XC20P,
+			afgjose.XC20P,
 		},
 		{
 			"anoncrypt using X25519ECDHKW and AES256-GCM",
 			kms.X25519ECDHKWType,
-			jose.A256GCM,
+			afgjose.A256GCM,
 		},
 	}
 
@@ -61,17 +69,22 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
+			t.Logf("anoncrypt packing - creating recipient %s keys...", tc.keyType)
 			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
 			cryptoSvc, err := tinkcrypto.New()
 			require.NoError(t, err)
 
-			anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+			anonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 			require.NoError(t, err)
 
 			origMsg := []byte("secret message")
 			ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
 			require.NoError(t, err)
+
+			jweStr, err := prettyPrint(ct)
+			require.NoError(t, err)
+			t.Logf("* anoncrypt JWE: %s", jweStr)
 
 			msg, err := anonPacker.Unpack(ct)
 			require.NoError(t, err)
@@ -84,6 +97,15 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			// try with only 1 recipient
 			ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
 			require.NoError(t, err)
+
+			t.Logf("* anoncrypt JWE Compact seriliazation (using first recipient only): %s", ct)
+
+			jweJSON, err := afgjose.Deserialize(string(ct))
+			require.NoError(t, err)
+
+			jweStr, err = jweJSON.FullSerialize(json.Marshal)
+			require.NoError(t, err)
+			t.Logf("* anoncrypt Flattened JWE JSON seriliazation (using first recipient only): %s", jweStr)
 
 			msg, err = anonPacker.Unpack(ct)
 			require.NoError(t, err)
@@ -113,7 +135,7 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+	anonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 	require.NoError(t, err)
 
 	origMsg := []byte("secret message")
@@ -147,14 +169,14 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("new Pack fail with nil kms", func(t *testing.T) {
-		_, err = New(newMockProvider(nil, cryptoSvc), jose.A256GCM)
+		_, err = New(newMockProvider(nil, cryptoSvc), afgjose.A256GCM)
 		require.EqualError(t, err, "anoncrypt: failed to create packer because KMS is empty")
 	})
 
 	k := createKMS(t)
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")
-	anonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+	anonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 	require.NoError(t, err)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
@@ -170,7 +192,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.EncAlg(invalidAlg))
+		invalidAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.EncAlg(invalidAlg))
 		require.NoError(t, err)
 
 		_, err = invalidAnonPacker.Pack(origMsg, nil, recipientsKeys)
@@ -179,7 +201,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Pack(origMsg, nil, recipientsKeys)
@@ -191,16 +213,16 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAnonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
 		require.NoError(t, err)
 
-		jwe, err := jose.Deserialize(string(ct))
+		jwe, err := afgjose.Deserialize(string(ct))
 		require.NoError(t, err)
 
-		delete(jwe.ProtectedHeaders, jose.HeaderKeyID)
+		delete(jwe.ProtectedHeaders, afgjose.HeaderKeyID)
 
 		newCT, err := jwe.CompactSerialize(json.Marshal)
 		require.NoError(t, err)
@@ -211,7 +233,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
 		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), jose.A256GCM)
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
 		ct, err := validAnonPacker.Pack(origMsg, nil, newRecKeys)
@@ -277,7 +299,72 @@ func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.Key
 	mKey, err := json.Marshal(key)
 	require.NoError(t, err)
 
+	printKey(t, mKey, kid)
+
 	return kid, mKey, kh
+}
+
+func printKey(t *testing.T, mPubKey []byte, kid string) {
+	t.Helper()
+
+	pubKey := new(cryptoapi.PublicKey)
+	err := json.Unmarshal(mPubKey, pubKey)
+	require.NoError(t, err)
+
+	switch pubKey.Type {
+	case ecdhpb.KeyType_EC.String():
+		t.Logf("** EC key: %s, kid: %s", getPrintedECPubKey(t, pubKey), kid)
+	case ecdhpb.KeyType_OKP.String():
+		t.Logf("** X25519 key: %s, kid: %s", getPrintedX25519PubKey(t, pubKey), kid)
+	default:
+		t.Errorf("not supported key type: %s", pubKey.Type)
+	}
+}
+
+func prettyPrint(msg []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+
+	err := json.Indent(&prettyJSON, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return prettyJSON.String(), nil
+}
+
+func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
+	crv, err := hybrid.GetCurve(pubKey.Curve)
+	require.NoError(t, err)
+
+	jwk := jose.JSONWebKey{
+		Key: &ecdsa.PublicKey{
+			Curve: crv,
+			X:     new(big.Int).SetBytes(pubKey.X),
+			Y:     new(big.Int).SetBytes(pubKey.Y),
+		},
+	}
+
+	jwkByte, err := jwk.MarshalJSON()
+	require.NoError(t, err)
+
+	jwkStr, err := prettyPrint(jwkByte)
+	require.NoError(t, err)
+
+	return jwkStr
+}
+
+func getPrintedX25519PubKey(t *testing.T, pubKeyType *cryptoapi.PublicKey) string {
+	jwk := jose.JSONWebKey{
+		Key: ed25519.PublicKey(pubKeyType.X),
+	}
+
+	jwkByte, err := jwk.MarshalJSON()
+	require.NoError(t, err)
+
+	jwkStr, err := prettyPrint(jwkByte)
+	require.NoError(t, err)
+
+	return strings.Replace(jwkStr, "Ed25519", "X25519", 1)
 }
 
 func createKMS(t *testing.T) *localkms.LocalKMS {

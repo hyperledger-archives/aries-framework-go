@@ -524,7 +524,6 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 		jwe := JSONWebEncryption{
 			ProtectedHeaders: protectedHeaders,
 			Recipients:       recipients,
-			AAD:              "TestAAD",
 			IV:               "TestIV",
 			Ciphertext:       "TestCipherText",
 			Tag:              "TestTag",
@@ -624,7 +623,6 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 		jwe := JSONWebEncryption{
 			ProtectedHeaders: protectedHeaders,
 			Recipients:       recipients,
-			AAD:              "TestAAD",
 			IV:               "TestIV",
 			Ciphertext:       "TestCipherText",
 			Tag:              "TestTag",
@@ -636,6 +634,30 @@ func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
 
 		compactJWE, err := jwe.CompactSerialize(fm.failingMarshal)
 		require.Equal(t, errFailingMarshal, err)
+		require.Empty(t, compactJWE)
+	})
+	t.Run("Fail to marshal with non empty AAD", func(t *testing.T) {
+		protectedHeaders := Headers{
+			"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2",
+		}
+		recipients := make([]*Recipient, 1)
+
+		recipients[0] = &Recipient{
+			EncryptedKey: "TestKey",
+		}
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders: protectedHeaders,
+			Recipients:       recipients,
+			AAD:              "AAD", // compact serialize should fail with AAD field
+			IV:               "TestIV",
+			Ciphertext:       "TestCipherText",
+			Tag:              "TestTag",
+		}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.EqualError(t, err, errAADHeaderUnsupported.Error())
 		require.Empty(t, compactJWE)
 	})
 }

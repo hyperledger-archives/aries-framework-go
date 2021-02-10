@@ -8,7 +8,6 @@ package jose
 
 import (
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,6 +92,16 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
+	if len(recWK) == 1 {
+		// ensure EPK is marshalled the same way as during encryption since it is merged into ProtectHeaders.
+		marshalledEPK, err := convertRecEPKToMarshalledJWK(recWK[0])
+		if err != nil {
+			return nil, fmt.Errorf("jwedecrypt: %w", err)
+		}
+
+		jwe.ProtectedHeaders["epk"] = json.RawMessage(marshalledEPK)
+	}
+
 	return jd.decryptJWE(jwe, cek)
 }
 
@@ -157,19 +166,6 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 		return nil, err
 	}
 
-	if len(jwe.Recipients) == 1 {
-		authData = []byte(jwe.OrigProtectedHders)
-		if lenAAD := len(aadBytes); lenAAD > 0 {
-			authData = append(authData, '.')
-
-			encLen := base64.RawURLEncoding.EncodedLen(lenAAD)
-			aadEncoded := make([]byte, encLen)
-
-			base64.RawURLEncoding.Encode(aadEncoded, aadBytes)
-			authData = append(authData, aadEncoded...)
-		}
-	}
-
 	return decPrimitive.Decrypt(encryptedData, authData)
 }
 
@@ -215,42 +211,62 @@ func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption)
 }
 
 func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWrappedKey, error) {
-	var recipients []*cryptoapi.RecipientWrappedKey
+	var (
+		recipients []*cryptoapi.RecipientWrappedKey
+		err        error
+	)
 
-	if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
-		rHeaders, err := extractRecipientHeaders(jwe.ProtectedHeaders)
-		if err != nil {
-			return nil, err
-		}
-
-		rec, err := convertMarshalledJWKToRecKey(rHeaders.EPK)
-		if err != nil {
-			return nil, err
-		}
-
-		rec.KID = rHeaders.KID
-		rec.Alg = rHeaders.Alg
-		rec.EncryptedCEK = []byte(jwe.Recipients[0].EncryptedKey)
-
-		recipients = []*cryptoapi.RecipientWrappedKey{
-			rec,
-		}
-	} else { // full serialization
-		for _, recJWE := range jwe.Recipients {
-			rec, err := convertMarshalledJWKToRecKey(recJWE.Header.EPK)
+	for _, recJWE := range jwe.Recipients {
+		headers := recJWE.Header
+		if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
+			headers, err = extractRecipientHeaders(jwe.ProtectedHeaders)
 			if err != nil {
 				return nil, err
 			}
-
-			rec.KID = recJWE.Header.KID
-			rec.Alg = recJWE.Header.Alg
-			rec.EncryptedCEK = []byte(recJWE.EncryptedKey)
-
-			recipients = append(recipients, rec)
 		}
+
+		var recWK *cryptoapi.RecipientWrappedKey
+
+		recWK, err = createRecWK(headers, []byte(recJWE.EncryptedKey))
+		if err != nil {
+			return nil, err
+		}
+
+		recipients = append(recipients, recWK)
 	}
 
 	return recipients, nil
+}
+
+func createRecWK(headers *RecipientHeaders, encryptedKey []byte) (*cryptoapi.RecipientWrappedKey, error) {
+	recWK, err := convertMarshalledJWKToRecKey(headers.EPK)
+	if err != nil {
+		return nil, err
+	}
+
+	recWK.KID = headers.KID
+	recWK.Alg = headers.Alg
+
+	err = updateAPUAPVInRecWK(recWK, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	recWK.EncryptedCEK = encryptedKey
+
+	return recWK, nil
+}
+
+func updateAPUAPVInRecWK(recWK *cryptoapi.RecipientWrappedKey, headers *RecipientHeaders) error {
+	decodedAPU, decodedAPV, err := decodeAPUAPV(headers)
+	if err != nil {
+		return err
+	}
+
+	recWK.APU = decodedAPU
+	recWK.APV = decodedAPV
+
+	return nil
 }
 
 func buildEncryptedData(jwe *JSONWebEncryption) ([]byte, error) {
@@ -294,17 +310,25 @@ func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders,
 		kid = fmt.Sprintf("%v", headers[HeaderKeyID])
 	}
 
+	apu := ""
+	if headers["apu"] != nil {
+		apu = fmt.Sprintf("%v", headers["apu"])
+	}
+
+	apv := ""
+	if headers["apv"] != nil {
+		apv = fmt.Sprintf("%v", headers["apv"])
+	}
+
 	recHeaders := &RecipientHeaders{
 		Alg: alg,
 		KID: kid,
 		EPK: epk,
+		APU: apu,
+		APV: apv,
 	}
 
-	// now delete from headers
-	delete(headers, HeaderAlgorithm)
-	delete(headers, HeaderKeyID)
-	delete(headers, HeaderEPK)
-
+	// original headers should remain untouched to avoid modifying the original JWE content.
 	return recHeaders, nil
 }
 
