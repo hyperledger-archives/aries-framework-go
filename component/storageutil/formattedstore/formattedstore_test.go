@@ -34,34 +34,16 @@ func (m *mockFormatter) Deformat(string, []byte, ...spi.Tag) (string, []byte, []
 
 func TestCommon(t *testing.T) {
 	t.Run("With no-op formatter", func(t *testing.T) {
-		t.Run("Without cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{})
-			require.NotNil(t, provider)
+		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{})
+		require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
-		})
-		t.Run("With cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
-				formattedstore.WithCacheProvider(mem.NewProvider()))
-			require.NotNil(t, provider)
-
-			storagetest.TestAll(t, provider)
-		})
+		storagetest.TestAll(t, provider)
 	})
 	t.Run("With base64 formatter", func(t *testing.T) {
-		t.Run("Without cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{})
-			require.NotNil(t, provider)
+		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{})
+		require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
-		})
-		t.Run("With cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{},
-				formattedstore.WithCacheProvider(mem.NewProvider()))
-			require.NotNil(t, provider)
-
-			storagetest.TestAll(t, provider)
-		})
+		storagetest.TestAll(t, provider)
 	})
 }
 
@@ -75,15 +57,6 @@ func TestFormattedProvider_OpenStore(t *testing.T) {
 
 		store, err := provider.OpenStore("StoreName")
 		require.EqualError(t, err, "failed to open store in underlying provider: open store failure")
-		require.Nil(t, store)
-	})
-	t.Run("Fail to open store in cache provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
-			formattedstore.WithCacheProvider(&mock.Provider{ErrOpenStore: errors.New("open store failure")}))
-		require.NotNil(t, provider)
-
-		store, err := provider.OpenStore("StoreName")
-		require.EqualError(t, err, "failed to open cache store in cache provider: open store failure")
 		require.Nil(t, store)
 	})
 }
@@ -100,20 +73,6 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 
 		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
 		require.EqualError(t, err, "failed to format tag names: tags formatting failure")
-	})
-	t.Run("Fail to set store config in cache provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
-			formattedstore.WithCacheProvider(
-				&mock.Provider{ErrSetStoreConfig: errors.New("set store config failure")}))
-		require.NotNil(t, provider)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
-		require.EqualError(t, err, "failed to set store configuration via cache provider: "+
-			"set store config failure")
 	})
 	t.Run("Fail to store config in store config store", func(t *testing.T) {
 		provider := formattedstore.NewProvider(
@@ -132,18 +91,6 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 }
 
 func TestFormattedProvider_GetStoreConfig(t *testing.T) {
-	t.Run("Unexpected failure while getting config from cache store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&exampleformatters.NoOpFormatter{}, formattedstore.WithCacheProvider(&mock.Provider{
-				ErrGetStoreConfig: errors.New("unexpected get store config failure"),
-			}))
-		require.NotNil(t, provider)
-
-		config, err := provider.GetStoreConfig("StoreName")
-		require.EqualError(t, err, "unexpected failure while getting config from cache store: "+
-			"unexpected get store config failure")
-		require.Empty(t, config)
-	})
 	t.Run("Fail to get store config from store config store", func(t *testing.T) {
 		provider := formattedstore.NewProvider(
 			&mock.Provider{OpenStoreReturn: &mock.Store{ErrGet: errors.New("get failure")}},
@@ -182,14 +129,6 @@ func TestFormattedProvider_Close(t *testing.T) {
 		err := provider.Close()
 		require.EqualError(t, err, "failed to close underlying provider: close failure")
 	})
-	t.Run("Fail to close cache provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
-			formattedstore.WithCacheProvider(&mock.Provider{}))
-		require.NotNil(t, provider)
-
-		err := provider.Close()
-		require.EqualError(t, err, "failed to close cache provider: close failure")
-	})
 }
 
 func TestFormatStore_Put(t *testing.T) {
@@ -204,19 +143,6 @@ func TestFormatStore_Put(t *testing.T) {
 
 		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
 		require.EqualError(t, err, "failed to format data: formatting failure")
-	})
-	t.Run("Fail to put data in cache store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{},
-			formattedstore.WithCacheProvider(
-				&mock.Provider{OpenStoreReturn: &mock.Store{ErrPut: errors.New("put failure")}}))
-		require.NotNil(t, provider)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
-		require.EqualError(t, err, `failed to put data in cache store: put failure`)
 	})
 }
 
@@ -246,33 +172,6 @@ func TestFormatStore_Get(t *testing.T) {
 		value, err := store.Get("KeyName")
 		require.EqualError(t, err, `failed to deformat value "value" returned from the underlying store: `+
 			`key, value or tags deformatting failure`)
-		require.Nil(t, value)
-	})
-	t.Run("Fail to put retrieved data in cache store", func(t *testing.T) {
-		// First get sample data in the underlying provider.
-		underlyingProvider := mem.NewProvider()
-
-		underlyingStore, err := underlyingProvider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, underlyingStore)
-
-		err = underlyingStore.Put("KeyName", []byte("value"))
-		require.NoError(t, err)
-
-		provider := formattedstore.NewProvider(underlyingProvider, &exampleformatters.NoOpFormatter{},
-			formattedstore.WithCacheProvider(
-				&mock.Provider{OpenStoreReturn: &mock.Store{
-					ErrGet: spi.ErrDataNotFound, ErrPut: errors.New("put error"),
-				}}))
-		require.NotNil(t, provider)
-
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		// Attempt retrieving that sample data we put in the underlying provider earlier.
-		value, err := store.Get("KeyName")
-		require.EqualError(t, err, "failed to put the newly retrieved value into the cache store: put error")
 		require.Nil(t, value)
 	})
 }

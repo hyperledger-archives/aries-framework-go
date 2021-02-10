@@ -43,39 +43,20 @@ type Formatter interface {
 
 // FormattedProvider is a spi.Provider that allows for data to be formatted in an underlying provider.
 type FormattedProvider struct {
-	provider      spi.Provider
-	cacheProvider spi.Provider
-	openStores    map[string]*formatStore
-	formatter     Formatter
-	lock          sync.RWMutex
-}
-
-// Option represents an option for a FormattedProvider.
-type Option func(opts *FormattedProvider)
-
-// WithCacheProvider option enables a cache for a FormatProvider. This cache will hold unformatted data, which can
-// result in a performance improvement in cases where the formatting operation is expensive. Tags are never cached,
-// so any retrieval operations that require them will always skip the cache. They cannot be cached efficiently from
-// store.Get calls since getting tags would require a separate call to the main provider, and Query calls have to skip
-// the cache anyway in order to make sure that no uncached data is missed.
-func WithCacheProvider(cacheProvider spi.Provider) Option {
-	return func(formattedProvider *FormattedProvider) {
-		formattedProvider.cacheProvider = cacheProvider
-	}
+	provider   spi.Provider
+	openStores map[string]*formatStore
+	formatter  Formatter
+	lock       sync.RWMutex
 }
 
 // NewProvider instantiates a new FormattedProvider with the given spi.Provider and Formatter.
 // The Formatter is used to format data before being sent to the Provider for storage.
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
-func NewProvider(underlyingProvider spi.Provider, formatter Formatter, options ...Option) *FormattedProvider {
+func NewProvider(underlyingProvider spi.Provider, formatter Formatter) *FormattedProvider {
 	formattedProvider := &FormattedProvider{
 		provider:   underlyingProvider,
 		formatter:  formatter,
 		openStores: make(map[string]*formatStore),
-	}
-
-	for _, option := range options {
-		option(formattedProvider)
 	}
 
 	return formattedProvider
@@ -107,15 +88,6 @@ func (f *FormattedProvider) OpenStore(name string) (spi.Store, error) {
 		}
 
 		f.openStores[storeName] = &newFormatStore
-
-		if f.cacheProvider != nil {
-			cacheStore, err := f.cacheProvider.OpenStore(storeName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open cache store in cache provider: %w", err)
-			}
-
-			newFormatStore.cacheStore = cacheStore
-		}
 
 		return &newFormatStore, nil
 	}
@@ -172,13 +144,6 @@ func (f *FormattedProvider) SetStoreConfig(name string, config spi.StoreConfigur
 		return fmt.Errorf("failed to store config in store config store: %w", err)
 	}
 
-	if f.cacheProvider != nil {
-		err = f.cacheProvider.SetStoreConfig(storeName, config)
-		if err != nil {
-			return fmt.Errorf("failed to set store configuration via cache provider: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -187,18 +152,6 @@ func (f *FormattedProvider) SetStoreConfig(name string, config spi.StoreConfigur
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
 func (f *FormattedProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
 	storeName := strings.ToLower(name)
-
-	if f.cacheProvider != nil {
-		config, err := f.cacheProvider.GetStoreConfig(storeName)
-		if err == nil {
-			return config, nil
-		}
-
-		if !errors.Is(err, spi.ErrStoreNotFound) {
-			return spi.StoreConfiguration{},
-				fmt.Errorf("unexpected failure while getting config from cache store: %w", err)
-		}
-	}
 
 	openStore := f.openStores[storeName]
 	if openStore == nil {
@@ -255,20 +208,12 @@ func (f *FormattedProvider) Close() error {
 		return fmt.Errorf("failed to close underlying provider: %w", err)
 	}
 
-	if f.cacheProvider != nil {
-		err := f.cacheProvider.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close cache provider: %w", err)
-		}
-	}
-
 	return nil
 }
 
 type formatStore struct {
-	store      spi.Store
-	cacheStore spi.Store
-	formatter  Formatter
+	store     spi.Store
+	formatter Formatter
 }
 
 func (f *formatStore) Put(key string, value []byte, tags ...spi.Tag) error {
@@ -290,31 +235,12 @@ func (f *formatStore) Put(key string, value []byte, tags ...spi.Tag) error {
 		return fmt.Errorf("failed to put formatted data in underlying store: %w", err)
 	}
 
-	if f.cacheStore != nil {
-		err := f.cacheStore.Put(key, value)
-		if err != nil {
-			return fmt.Errorf("failed to put data in cache store: %w", err)
-		}
-	}
-
 	return nil
 }
 
 func (f *formatStore) Get(key string) ([]byte, error) {
 	if key == "" {
 		return nil, errEmptyKey
-	}
-
-	if f.cacheStore != nil {
-		value, err := f.cacheStore.Get(key)
-		if err == nil {
-			return value, nil
-		}
-
-		if !errors.Is(err, spi.ErrDataNotFound) {
-			return nil,
-				fmt.Errorf("unexpected failure while getting data from cache store: %w", err)
-		}
 	}
 
 	formattedKey, _, _, err := f.formatter.Format(key, nil, nil...)
@@ -330,13 +256,6 @@ func (f *formatStore) Get(key string) ([]byte, error) {
 	_, value, _, err := f.formatter.Deformat("", formattedValue)
 	if err != nil {
 		return nil, fmt.Errorf(failDeformat, "value", string(formattedValue), err)
-	}
-
-	if f.cacheStore != nil {
-		err := f.cacheStore.Put(key, value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to put the newly retrieved value into the cache store: %w", err)
-		}
 	}
 
 	return value, nil
@@ -369,7 +288,6 @@ func (f *formatStore) GetTags(key string) ([]spi.Tag, error) {
 	return tags, nil
 }
 
-// TODO (#2476): Add caching support to GetBulk method.
 func (f *formatStore) GetBulk(keys ...string) ([][]byte, error) {
 	formattedKeys := make([]string, len(keys))
 
@@ -452,17 +370,9 @@ func (f *formatStore) Delete(key string) error {
 		return fmt.Errorf("failed to delete data in underlying store: %w", err)
 	}
 
-	if f.cacheStore != nil {
-		err := f.cacheStore.Delete(key)
-		if err != nil {
-			return fmt.Errorf("failed to delete data in cache store: %w", err)
-		}
-	}
-
 	return nil
 }
 
-// TODO (#2476): Add caching support to Batch method.
 func (f *formatStore) Batch(operations []spi.Operation) error {
 	formattedOperations := make([]spi.Operation, len(operations))
 
@@ -496,13 +406,6 @@ func (f *formatStore) Batch(operations []spi.Operation) error {
 		return fmt.Errorf("failed to perform formatted operations in underlying store: %w", err)
 	}
 
-	if f.cacheStore != nil {
-		err := f.cacheStore.Batch(operations)
-		if err != nil {
-			return fmt.Errorf("failed to perform operations in cache store: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -519,13 +422,6 @@ func (f *formatStore) Close() error {
 	err := f.store.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close underlying store: %w", err)
-	}
-
-	if f.cacheStore != nil {
-		err := f.cacheStore.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close cache store: %w", err)
-		}
 	}
 
 	return nil
