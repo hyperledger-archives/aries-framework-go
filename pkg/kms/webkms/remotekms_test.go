@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -279,17 +280,31 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 		return errors.New("http request body invalid")
 	}
 
-	locationHeaderURL := "https://" + r.Host + "/kms/keystores/" + keysetID
-
-	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
-		locationHeaderURL += "/keys/" + kid
-	}
-
-	w.Header().Add(LocationHeader, locationHeaderURL)
 	w.Header().Add(XRootCapabilityHeader, xRootCapabilityHeaderValue)
 
+	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
+		return processCreateKeyRequest(w, r, keysetID, kid, defaultExportPubKey)
+	}
+
 	if strings.LastIndex(r.URL.Path, "/export") == len(r.URL.Path)-len("/export") {
-		resp := &exportKeyResp{
+		return processExportKeyRequest(w, defaultExportPubKey)
+	}
+
+	w.Header().Add(LocationHeader, fmt.Sprintf("https://%s/kms/keystores/%s", r.Host, keysetID))
+
+	return nil
+}
+
+func processCreateKeyRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, defaultExportPubKey string) error {
+	var req createKeyReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
+
+	w.Header().Add(LocationHeader, fmt.Sprintf("https://%s/kms/keystores/%s/keys/%s", r.Host, keysetID, kid))
+
+	if req.ExportKey {
+		resp := &createResp{
 			KeyBytes: defaultExportPubKey,
 		}
 
@@ -302,6 +317,24 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func processExportKeyRequest(w io.Writer, defaultExportPubKey string) error {
+	resp := &exportKeyResp{
+		KeyBytes: defaultExportPubKey,
+	}
+
+	mResp, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(mResp)
+	if err != nil {
+		return err
 	}
 
 	return nil
