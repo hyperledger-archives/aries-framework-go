@@ -49,11 +49,13 @@ type createKeystoreReq struct {
 }
 
 type createKeyReq struct {
-	KeyType string `json:"keyType,omitempty"`
+	KeyType   string `json:"keyType,omitempty"`
+	ExportKey bool   `json:"export,omitempty"`
 }
 
 type createResp struct {
 	Location string `json:"location,omitempty"`
+	KeyBytes string `json:"publicKey,omitempty"`
 }
 
 type exportKeyResp struct {
@@ -217,9 +219,25 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 //  - error if failure
 func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	startCreate := time.Now()
+
+	keyURL, _, err := r.createKey(kt, false)
+	if err != nil {
+		return "", nil, err
+	}
+
+	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
+
+	logger.Infof("overall Create key duration: %s", time.Since(startCreate))
+
+	return kid, keyURL, nil
+}
+
+func (r *RemoteKMS) createKey(kt kms.KeyType, exportKey bool) (string, []byte, error) {
 	destination := r.keystoreURL + "/keys"
+
 	httpReqJSON := &createKeyReq{
-		KeyType: string(kt),
+		KeyType:   string(kt),
+		ExportKey: exportKey,
 	}
 
 	marshaledReq, err := r.marshalFunc(httpReqJSON)
@@ -235,31 +253,34 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Create")
 
-	kidURL := resp.Header.Get(LocationHeader)
-	kid := kidURL[strings.LastIndex(kidURL, "/")+1:]
+	keyURL := resp.Header.Get(LocationHeader)
 
-	if kidURL == "" {
-		respBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", nil, fmt.Errorf("read key response for Create failed [%s, %w]", destination, err)
-		}
-
-		httpResp := &createResp{}
-
-		err = r.unmarshalFunc(respBody, httpResp)
-		if err != nil {
-			return "", nil, fmt.Errorf("unmarshal key for Create failed [%s, %w]", destination, err)
-		}
-
-		logger.Debugf("received resp body: %s", httpResp)
-
-		kidURL = httpResp.Location
-		kid = kidURL[strings.LastIndex(kidURL, "/")+1:]
+	if keyURL != "" && !exportKey {
+		return keyURL, nil, nil
 	}
 
-	logger.Infof("overall Create key duration: %s", time.Since(startCreate))
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, fmt.Errorf("read key response for Create failed [%s, %w]", destination, err)
+	}
 
-	return kid, kidURL, nil
+	var httpResp createResp
+
+	err = r.unmarshalFunc(respBody, &httpResp)
+	if err != nil {
+		return "", nil, fmt.Errorf("unmarshal key for Create failed [%s, %w]", destination, err)
+	}
+
+	if keyURL == "" {
+		keyURL = httpResp.Location
+	}
+
+	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.KeyBytes)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return keyURL, keyBytes, nil
 }
 
 // Get key handle for the given KeyID remotely
@@ -334,19 +355,16 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 func (r *RemoteKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, error) {
 	start := time.Now()
 
-	kid, _, err := r.Create(kt)
+	keyURL, keyBytes, err := r.createKey(kt, true)
 	if err != nil {
 		return "", nil, err
 	}
 
-	pubKey, err := r.ExportPubKeyBytes(kid)
-	if err != nil {
-		return "", nil, err
-	}
+	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
 
 	logger.Infof("overall CreateAndExportPubKeyBytes duration: %s", time.Since(start))
 
-	return kid, pubKey, nil
+	return kid, keyBytes, nil
 }
 
 // PubKeyBytesToHandle is not implemented in remoteKMS.
