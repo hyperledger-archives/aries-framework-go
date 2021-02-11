@@ -1,6 +1,6 @@
-# How to generate ecdh_aead protobufs
+# How to generate ecdh_aead and bbs protobufs
 
-To execute the proto generation of `protos/tink/ecdh_aead.proto`, 
+To execute the proto generation of `protos/tink/ecdh_aead.proto` and `protos/tink/bbs.proto`, 
 copy these files into `tink/proto` folder then cd to Tink's Go proto folder `/tink/go/proto`. Copying the protos to Tink is required because of
 the dependencies needed to generate the Go protobuf. 
 
@@ -21,6 +21,16 @@ proto_library(
         ":tink_proto",
     ],
 )
+# -----------------------------------------------
+# bbs
+# -----------------------------------------------
+proto_library(
+    visibility = ["//visibility:public"],
+    name = "bbs_proto",
+    srcs = [
+        "bbs.proto",
+    ],
+)
 ```
 Note: if you don't have Bazlisk installed, Tink's build tool, please do so before proceeding. 
 Hint, use an alias to call `bazel` commands: `alias bazel='bazelisk'`
@@ -37,6 +47,11 @@ go_proto_library(
         ":tink_go_proto",
     ],
 )
+go_proto_library(
+    name = "bbs_go_proto",
+    importpath = "github.com/google/tink/go/proto/bbs_go_proto",
+    proto = "@tink_base//proto:bbs_proto",
+)
 ```
 
 3. To build the Go protobuf, CD into `tink/go/proto`, then make sure to first clean bazel from all builds by running:
@@ -46,17 +61,22 @@ bazel clean
 
 4. Run the bazel builds for the added targets above as follows:
 ```shell script
-bazel build ecdh_aead_go_proto
+bazel build ecdh_aead_go_proto bbs_go_proto
 ```
-This will generate a new Go protobuf file in Bazel's output path, for example on a Mac it would be under:
+This will generate new Go protobuf files in Bazel's output path, for example on a Mac it would be under:
 `tink/go/bazel-bin/proto/darwin_amd64_stripped/ecdh_aead_go_proto%/github.com/google/tink/go/proto/ecdh_aead_go_proto/ecdh_aead.pb.go`
 
-5. Copy this generated file in Aries's proto paths below in their respective location:
+and
+`tink/go/bazel-bin/proto/darwin_amd64_stripped/bbs_go_proto%/github.com/google/tink/go/proto/bbs_go_proto/bbs.pb.go`
+
+5. Copy these generated files in Aries's proto paths below in their respective location:
 * `aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto/ecdh_aead.pb.go`
+* `aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto/bbs.pb.go`
+
 
 You're done!
 
 Note: the main advantage of running Tink's build tool to generate the protobuf over calling protoc like:
-`protoc -I=. --go_out=./tmp-proto proto/ecdhes_aead.proto` is the fact that the generated Go protobuf imports will be updated correctly.
+`protoc -I=. --go_out=./tmp-proto proto/ecdhes_aead.proto proto/bbs.proto` is the fact that the generated Go protobuf imports will be updated correctly.
 Bazel's build do use their target importPath instead of relying on the proto's `go_package` option. This results in differing import paths when
 generating the protobuf between the tools.

@@ -1,0 +1,68 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+// Definitions for BBS+.
+syntax = "proto3";
+
+package google.crypto.tink;
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option objc_class_prefix = "TINKPB";
+option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/bbs_go_proto";
+
+// Protos keys for BBS+ signatures/proofs.
+//
+//
+// BBS-keys represent BBSSign, BSSVerify, BBSProof and BBSVerifyProof primitives.
+
+// BBSCurveType, bls12-381 is the only supported BBS+ curve.
+enum BBSCurveType {
+  UNKNOWN_KEY_TYPE = 0;
+  BLS12_381 = 1;
+  // BLS12_461 = 2;
+  // BLS24_479 = 3;
+  // BLS48_556 = 4;
+  // BLS48_575 = 5;
+  // BLS48_581 = 6;
+}
+
+enum GroupField {
+  UNKNOWN_GROUP_FIELD = 0;
+  G1 = 1;
+  G2 = 2;
+}
+
+// BBSPublicKey represents BBSVerify/BBSVerifyProof primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey
+message BBSPublicKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  BBSCurveType curve = 2;
+
+  // Required.
+  GroupField group = 3;
+
+  // Required.
+  string KID = 4;
+
+  bytes key_value = 5; // Big integer in bigendian representation.
+}
+
+// BBSPrivateKey represents BBSSign/BBSProof primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPrivateKey
+message BBSPrivateKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  BBSPublicKey public_key = 2;
+
+  // Required.
+  bytes key_value = 3; // Big integer in bigendian representation.
+}
