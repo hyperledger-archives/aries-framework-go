@@ -34,14 +34,25 @@ var errInvalidKeyType = errors.New("key type is not supported")
 //  - base64 raw (no padding) URL encoded KID
 //  - error in case of error
 func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
-	// X25519 JWK is not supported by go jose, manually build it and build its resulting KID.
-	if kt == kms.X25519ECDHKWType {
+	if len(keyBytes) == 0 {
+		return "", errors.New("createKID: empty key")
+	}
+
+	switch kt {
+	case kms.X25519ECDHKWType: // X25519 JWK is not supported by go jose, manually build it and build its resulting KID.
 		x25519KID, err := createX25519KID(keyBytes)
 		if err != nil {
 			return "", fmt.Errorf("createKID: %w", err)
 		}
 
 		return x25519KID, nil
+	case kms.ED25519Type: // go-jose JWK thumbprint of Ed25519 has a bug, manually build it and build its resulting KID.
+		ed25519KID, err := createED25519KID(keyBytes)
+		if err != nil {
+			return "", fmt.Errorf("createKID: %w", err)
+		}
+
+		return ed25519KID, nil
 	}
 
 	jwk, err := buildJWK(keyBytes, kt)
@@ -69,11 +80,13 @@ func buildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa DER key: %w", err)
 		}
-	case kms.ED25519Type:
-		jwk, err = jose.JWKFromPublicKey(ed25519.PublicKey(keyBytes))
-		if err != nil {
-			return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
-		}
+		// TODO remove `case kms.ED25519Type` in CreateKID() and uncomment below case when go-jose fixes Ed25519
+		//      JWK thumbprint. Also remove `createED25519KID(keyBytes []byte)` function further below.
+	// case kms.ED25519Type:
+	//	jwk, err = jose.JWKFromPublicKey(ed25519.PublicKey(keyBytes))
+	//	if err != nil {
+	//		return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
+	//	}
 	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
 		c := getCurveByKMSKeyType(kt)
 		x, y := elliptic.Unmarshal(c, keyBytes)
@@ -165,7 +178,26 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 		return "", fmt.Errorf("createX25519KID: %w", err)
 	}
 
-	thumbprint := thumbprintX25519(jwk)
+	thumbprint := sha256(jwk)
+
+	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
+}
+
+func createED25519KID(keyBytes []byte) (string, error) {
+	const ed25519ThumbprintTemplate = `{"crv":"Ed25519","kty":"OKP","x":"%s"}`
+
+	lenKey := len(keyBytes)
+
+	if lenKey > ed25519.PublicKeySize {
+		return "", errors.New("createED25519KID: invalid Ed25519 key")
+	}
+
+	pad := make([]byte, ed25519.PublicKeySize-lenKey)
+	ed25519RawKey := append(pad, keyBytes...)
+
+	jwk := fmt.Sprintf(ed25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
+
+	thumbprint := sha256(jwk)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
@@ -173,11 +205,12 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 func buildX25519JWK(keyBytes []byte) (string, error) {
 	const x25519ThumbprintTemplate = `{"crv":"X25519","kty":"OKP","x":"%s"}`
 
-	if len(keyBytes) > cryptoutil.Curve25519KeySize {
+	lenKey := len(keyBytes)
+	if lenKey > cryptoutil.Curve25519KeySize {
 		return "", errors.New("buildX25519JWK: invalid ECDH X25519 key")
 	}
 
-	pad := make([]byte, cryptoutil.Curve25519KeySize-len(keyBytes))
+	pad := make([]byte, cryptoutil.Curve25519KeySize-lenKey)
 	x25519RawKey := append(pad, keyBytes...)
 
 	jwk := fmt.Sprintf(x25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(x25519RawKey))
@@ -185,7 +218,7 @@ func buildX25519JWK(keyBytes []byte) (string, error) {
 	return jwk, nil
 }
 
-func thumbprintX25519(jwk string) []byte {
+func sha256(jwk string) []byte {
 	h := crypto.SHA256.New()
 	_, _ = h.Write([]byte(jwk)) // nolint: errcheck // SHA256 digest returns empty error on Write()
 

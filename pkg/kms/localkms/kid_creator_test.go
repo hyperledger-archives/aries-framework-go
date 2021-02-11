@@ -30,15 +30,11 @@ func TestCreateKID(t *testing.T) {
 	_, err = CreateKID(pubKey, "badType")
 	require.EqualError(t, err, "createKID: failed to build jwk: buildJWK: key type is not supported: 'badType'")
 
-	badPubKey := ed25519.PublicKey{}
+	badPubKey := ed25519.PublicKey("badKey")
 	_, err = CreateKID(badPubKey, kms.NISTP256ECDHKWType)
 	require.EqualError(t, err, "createKID: failed to build jwk: buildJWK: failed to build JWK from ecdh "+
-		"key: generateJWKFromECDH: unmarshalECDHKey: failed to unmarshal ECDH key: unexpected end of JSON input")
-
-	_, err = CreateKID(badPubKey, kms.ECDSAP256TypeDER)
-	require.EqualError(t, err, "createKID: failed to build jwk: buildJWK: failed to build JWK from ecdsa "+
-		"DER key: generateJWKFromDERECDSA: failed to parse ecdsa key in DER format: asn1: syntax error: sequence "+
-		"truncated")
+		"key: generateJWKFromECDH: unmarshalECDHKey: failed to unmarshal ECDH key: invalid character 'b' looking for "+
+		"beginning of value")
 
 	randomKey := make([]byte, 32)
 	_, err = rand.Read(randomKey)
