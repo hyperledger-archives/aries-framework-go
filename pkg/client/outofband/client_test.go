@@ -248,7 +248,7 @@ func TestCreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		inv, err := c.CreateInvitation(nil)
 		require.NoError(t, err)
-		require.Equal(t, "https://didcomm.org/oob-invitation/1.0/invitation", inv.Type)
+		require.Equal(t, "https://didcomm.org/out-of-band/1.0/invitation", inv.Type)
 	})
 	t.Run("sets explicit protocols", func(t *testing.T) {
 		expected := []string{"protocol1", "protocol2"}

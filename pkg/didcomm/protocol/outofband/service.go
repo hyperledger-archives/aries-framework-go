@@ -30,7 +30,7 @@ const (
 	// RequestMsgType is the '@type' for the request message.
 	RequestMsgType = "https://didcomm.org/oob-request/1.0/request"
 	// InvitationMsgType is the '@type' for the invitation message.
-	InvitationMsgType = "https://didcomm.org/oob-invitation/1.0/invitation"
+	InvitationMsgType = "https://didcomm.org/out-of-band/1.0/invitation"
 
 	// StateRequested is one of the possible states of this protocol.
 	StateRequested = "requested"
