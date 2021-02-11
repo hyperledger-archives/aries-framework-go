@@ -51,6 +51,7 @@ func TestNewCryptoSigner(t *testing.T) {
 		require.NotNil(t, signer.PubKey)
 		require.IsType(t, test.expectedType, signer.PublicKey())
 		require.NotEmpty(t, signer.PublicKeyBytes())
+		require.NotEmpty(t, signer.KID())
 
 		msg := []byte("test message")
 		sigMsg, err := signer.Sign(msg)

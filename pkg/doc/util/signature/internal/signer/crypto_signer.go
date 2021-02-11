@@ -25,6 +25,7 @@ type CryptoSigner struct {
 
 	crypto cryptoapi.Crypto
 	kh     interface{}
+	kid    string
 }
 
 // Sign will sign document and return signature.
@@ -35,6 +36,11 @@ func (s *CryptoSigner) Sign(msg []byte) ([]byte, error) {
 // PublicKey returns a public key object (e.g. ed25519.VerificationMethod or *ecdsa.PublicKey).
 func (s *CryptoSigner) PublicKey() interface{} {
 	return s.PubKey
+}
+
+// KID returns key id.
+func (s *CryptoSigner) KID() string {
+	return s.kid
 }
 
 // PublicKeyBytes returns bytes of the public key.
@@ -60,6 +66,7 @@ func NewCryptoSigner(crypto cryptoapi.Crypto, kms kmsapi.KeyManager, keyType kms
 	}
 
 	return &CryptoSigner{
+		kid:         kid,
 		crypto:      crypto,
 		kh:          kh,
 		PubKey:      pubKey,
