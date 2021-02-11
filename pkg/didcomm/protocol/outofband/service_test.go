@@ -107,7 +107,7 @@ func TestAccept(t *testing.T) {
 	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
-		require.True(t, s.Accept("https://didcomm.org/oob-invitation/1.0/invitation"))
+		require.True(t, s.Accept("https://didcomm.org/out-of-band/1.0/invitation"))
 	})
 	t.Run("rejects unsupported messages", func(t *testing.T) {
 		s, err := New(testProvider())

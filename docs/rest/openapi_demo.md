@@ -101,11 +101,11 @@ For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST 
     ```
     The response should be similar to the following:
     ```json
-    {"invitation":{"@id":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","@type":"https://didcomm.org/oob-invitation/1.0/invitation","label":"Alice","service":[{"ID":"aad685bb-81aa-4c2f-bbd1-403814b8df9a","Type":"did-communication","Priority":0,"RecipientKeys":["9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2"],"RoutingKeys":null,"ServiceEndpoint":"https://alice.aries.example.com:8081","Properties":null}],"protocols":["https://didcomm.org/didexchange/1.0"]}}
+    {"invitation":{"@id":"ac0b7436-ce9e-4972-853c-6f434a2f76c0","@type":"https://didcomm.org/out-of-band/1.0/invitation","label":"Alice","service":[{"ID":"aad685bb-81aa-4c2f-bbd1-403814b8df9a","Type":"did-communication","Priority":0,"RecipientKeys":["9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2"],"RoutingKeys":null,"ServiceEndpoint":"https://alice.aries.example.com:8081","Properties":null}],"protocols":["https://didcomm.org/didexchange/1.0"]}}
     ```
 2. Accept an invitation (Bob).
     ```
-    curl -X POST "https://localhost:9082/outofband/accept-invitation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{  \"invitation\": {\"@id\":\"ac0b7436-ce9e-4972-853c-6f434a2f76c0\",\"@type\":\"https://didcomm.org/oob-invitation/1.0/invitation\",\"label\":\"Alice\",\"service\":[{\"ID\":\"aad685bb-81aa-4c2f-bbd1-403814b8df9a\",\"Type\":\"did-communication\",\"Priority\":0,\"RecipientKeys\":[\"9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2\"],\"RoutingKeys\":null,\"ServiceEndpoint\":\"https://alice.aries.example.com:8081\",\"Properties\":null}],\"protocols\":[\"https://didcomm.org/didexchange/1.0\"]},  \"my_label\": \"Bob\"}"
+    curl -X POST "https://localhost:9082/outofband/accept-invitation" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{  \"invitation\": {\"@id\":\"ac0b7436-ce9e-4972-853c-6f434a2f76c0\",\"@type\":\"https://didcomm.org/out-of-band/1.0/invitation\",\"label\":\"Alice\",\"service\":[{\"ID\":\"aad685bb-81aa-4c2f-bbd1-403814b8df9a\",\"Type\":\"did-communication\",\"Priority\":0,\"RecipientKeys\":[\"9Mdoqbz8HtRZKYmNpBDR56xM4Ji7fRmuCcpfVP1YnfH2\"],\"RoutingKeys\":null,\"ServiceEndpoint\":\"https://alice.aries.example.com:8081\",\"Properties\":null}],\"protocols\":[\"https://didcomm.org/didexchange/1.0\"]},  \"my_label\": \"Bob\"}"
     ```
     The response should be similar to the following:
     ```json
