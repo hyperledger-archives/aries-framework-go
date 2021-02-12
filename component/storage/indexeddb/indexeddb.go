@@ -9,8 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 package indexeddb
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"syscall/js"
 	"time"
@@ -31,20 +33,29 @@ import (
 // TODO (#2528): Proper implementation of all methods.
 
 const (
-	dbName    = "aries-%s"
-	defDBName = "aries"
-	dbVersion = 1
+	dbName                          = "aries-%s"
+	defDBName                       = "aries"
+	dbVersion                       = 1
+	tagMapKey                       = "TagMap"
+	storeConfigKey                  = "StoreConfig"
+	expressionTagNameOnlyLength     = 1
+	expressionTagNameAndValueLength = 2
+
+	invalidQueryExpressionFormat = `"%s" is not in a valid expression format. ` +
+		"it must be in the following format: TagName:TagValue"
 )
+
+type tagMapping map[string]map[string]struct{} // map[TagName](Set of database Keys)
 
 // Provider is an IndexedDB implementation of the storage.Provider interface.
 type Provider struct {
-	stores map[string]*js.Value
+	stores map[string]*store
 	lock   sync.RWMutex
 }
 
 // NewProvider instantiates a new IndexedDB provider.
 func NewProvider(name string) (*Provider, error) {
-	p := &Provider{stores: make(map[string]*js.Value)}
+	p := &Provider{stores: make(map[string]*store)}
 
 	db := defDBName
 	if name != "" {
@@ -62,12 +73,18 @@ func NewProvider(name string) (*Provider, error) {
 // OpenStore opens a store with the given name and returns a handle.
 // If the store has never been opened before, then it is created.
 func (p *Provider) OpenStore(name string) (storage.Store, error) {
+	if name == "" {
+		return nil, fmt.Errorf("store name cannot be empty")
+	}
+
+	name = strings.ToLower(name)
+
 	p.lock.RLock()
-	db, ok := p.stores[name]
+	openStore, ok := p.stores[name]
 	p.lock.RUnlock()
 
 	if ok {
-		return &store{name: name, db: db}, nil
+		return openStore, nil
 	}
 
 	p.lock.Lock()
@@ -79,18 +96,64 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return nil, err
 	}
 
-	return &store{name: name, db: p.stores[name]}, nil
+	return p.stores[name], nil
 }
 
-// SetStoreConfig is currently not implemented. It always returns a nil error so that IndexedDB can still be used as
-// a cache provider in FormatProvider for the time being.
+// SetStoreConfig sets the configuration on a store.
+// TODO (#2540): Use proper IndexedDB indexing instead of the "Tag Map" once aries-framework-go is updated to use the
+// new storage interface. The tag names used in the predefined stores (see getStoreNames()) will need to be passed in
+// somehow.
 func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+	store, ok := p.stores[name]
+	if !ok {
+		return storage.ErrStoreNotFound
+	}
+
+	configBytes, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal store configuration: %w", err)
+	}
+
+	err = store.Put(storeConfigKey, configBytes)
+	if err != nil {
+		return fmt.Errorf("failed to put store store configuration: %w", err)
+	}
+
+	// Create the tag map if it doesn't exist already.
+	_, err = store.Get(tagMapKey)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		err = store.Put(tagMapKey, []byte(""))
+		if err != nil {
+			return fmt.Errorf(`failed to create tag map for "%s": %w`, name, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("unexpected failure while getting tag data bytes: %w", err)
+	}
+
 	return nil
 }
 
-// GetStoreConfig is currently not implemented (TODO #2528).
+// GetStoreConfig gets the current store configuration.
 func (p *Provider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
-	return storage.StoreConfiguration{}, errors.New("not implemented")
+	store, ok := p.stores[name]
+	if !ok {
+		return storage.StoreConfiguration{}, storage.ErrStoreNotFound
+	}
+
+	storeConfigBytes, err := store.Get(storeConfigKey)
+	if err != nil {
+		return storage.StoreConfiguration{},
+			fmt.Errorf(`failed to get store configuration for "%s": %w`, name, err)
+	}
+
+	var storeConfig storage.StoreConfiguration
+
+	err = json.Unmarshal(storeConfigBytes, &storeConfig)
+	if err != nil {
+		return storage.StoreConfiguration{}, fmt.Errorf("failed to unmarshal store configuration: %w", err)
+	}
+
+	return storeConfig, nil
 }
 
 // GetOpenStores is currently not implemented (TODO #2528).
@@ -110,7 +173,6 @@ func (p *Provider) openDB(db string, names ...string) error {
 		m := make(map[string]interface{})
 		m["keyPath"] = "key"
 		for _, name := range names {
-			fmt.Printf("indexedDB create object store %s\n", name)
 			this.Get("result").Call("createObjectStore", name, m)
 		}
 		return nil
@@ -122,7 +184,7 @@ func (p *Provider) openDB(db string, names ...string) error {
 	}
 
 	for _, name := range names {
-		p.stores[name] = v
+		p.stores[name] = &store{name: name, db: v}
 	}
 
 	return nil
@@ -133,8 +195,7 @@ type store struct {
 	db   *js.Value
 }
 
-// Tags are currently ignored (TODO #2528).
-func (s *store) Put(key string, value []byte, _ ...storage.Tag) error {
+func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
 	if key == "" || value == nil {
 		return errors.New("key and value are mandatory")
 	}
@@ -142,6 +203,20 @@ func (s *store) Put(key string, value []byte, _ ...storage.Tag) error {
 	m := make(map[string]interface{})
 	m["key"] = key
 	m["value"] = string(value)
+
+	if len(tags) > 0 {
+		tagsBytes, err := json.Marshal(tags)
+		if err != nil {
+			return fmt.Errorf("failed to marshal tags: %w", err)
+		}
+
+		m["tags"] = string(tagsBytes)
+
+		err = s.updateTagMap(key, tags)
+		if err != nil {
+			return fmt.Errorf("failed to update tag map: %w", err)
+		}
+	}
 
 	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("put", m)
 
@@ -172,9 +247,32 @@ func (s *store) Get(key string) ([]byte, error) {
 	return []byte(data.Get("value").String()), nil
 }
 
-// Currently not implemented (TODO #2528).
 func (s *store) GetTags(key string) ([]storage.Tag, error) {
-	return nil, errors.New("not implemented")
+	if key == "" {
+		return nil, errors.New("key is mandatory")
+	}
+
+	req := s.db.Call("transaction", s.name).Call("objectStore", s.name).Call("get", key)
+
+	data, err := getResult(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get data: %w", err)
+	}
+
+	if !data.Truthy() {
+		return nil, storage.ErrDataNotFound
+	}
+
+	tagsBytes := []byte(data.Get("tags").String())
+
+	var tags []storage.Tag
+
+	err = json.Unmarshal(tagsBytes, &tags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tags bytes: %w", err)
+	}
+
+	return tags, nil
 }
 
 // Currently not implemented (TODO #2528).
@@ -182,9 +280,45 @@ func (s *store) GetBulk(keys ...string) ([][]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
-// Currently not implemented (TODO #2528).
 func (s *store) Query(expression string, options ...storage.QueryOption) (storage.Iterator, error) {
-	return nil, errors.New("not implemented")
+	if expression == "" {
+		return nil, fmt.Errorf(invalidQueryExpressionFormat, expression)
+	}
+
+	tagMapBytes, err := s.Get(tagMapKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tag map: %w", err)
+	}
+
+	var tagMap tagMapping
+
+	err = json.Unmarshal(tagMapBytes, &tagMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
+	}
+
+	expressionSplit := strings.Split(expression, ":")
+	switch len(expressionSplit) {
+	case expressionTagNameOnlyLength:
+		expressionTagName := expressionSplit[0]
+
+		matchingDatabaseKeys := getDatabaseKeysMatchingTagName(tagMap, expressionTagName)
+
+		return &iterator{keys: matchingDatabaseKeys, store: s}, nil
+	case expressionTagNameAndValueLength:
+		expressionTagName := expressionSplit[0]
+		expressionTagValue := expressionSplit[1]
+
+		matchingDatabaseKeys, err :=
+			s.getDatabaseKeysMatchingTagNameAndValue(tagMap, expressionTagName, expressionTagValue)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get database keys matching tag name and value: %w", err)
+		}
+
+		return &iterator{keys: matchingDatabaseKeys, store: s}, nil
+	default:
+		return nil, fmt.Errorf(invalidQueryExpressionFormat, expression)
+	}
 }
 
 // Delete will delete record with k key.
@@ -231,6 +365,119 @@ func (s *store) Close() error {
 	return nil
 }
 
+func (s *store) updateTagMap(key string, tags []storage.Tag) error {
+	tagMapBytes, err := s.Get(tagMapKey)
+	if err != nil {
+		return fmt.Errorf("failed to get tag map: %w", err)
+	}
+
+	var tagMap tagMapping
+
+	if len(tagMapBytes) > 0 {
+		err = json.Unmarshal(tagMapBytes, &tagMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
+		}
+	} else {
+		tagMap = make(map[string]map[string]struct{})
+	}
+
+	for _, tag := range tags {
+		if tagMap[tag.Name] == nil {
+			tagMap[tag.Name] = make(map[string]struct{})
+		}
+
+		tagMap[tag.Name][key] = struct{}{}
+	}
+
+	tagMapBytes, err = json.Marshal(tagMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated tag map: %w", err)
+	}
+
+	err = s.Put(tagMapKey, tagMapBytes)
+	if err != nil {
+		return fmt.Errorf("failed to put updated tag map back into the store: %w", err)
+	}
+
+	return nil
+}
+
+func (s *store) getDatabaseKeysMatchingTagNameAndValue(tagMap tagMapping,
+	expressionTagName, expressionTagValue string) ([]string, error) {
+	var matchingDatabaseKeys []string
+
+	for tagName, databaseKeysSet := range tagMap {
+		if tagName == expressionTagName {
+			for databaseKey := range databaseKeysSet {
+				tags, err := s.GetTags(databaseKey)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get tags: %w", err)
+				}
+
+				for _, tag := range tags {
+					if tag.Name == expressionTagName && tag.Value == expressionTagValue {
+						matchingDatabaseKeys = append(matchingDatabaseKeys, databaseKey)
+
+						break
+					}
+				}
+			}
+
+			break
+		}
+	}
+
+	return matchingDatabaseKeys, nil
+}
+
+type iterator struct {
+	keys         []string
+	currentIndex int
+	currentKey   string
+	store        *store
+}
+
+func (i *iterator) Next() (bool, error) {
+	if len(i.keys) == i.currentIndex || len(i.keys) == 0 {
+		if len(i.keys) == i.currentIndex || len(i.keys) == 0 {
+			return false, nil
+		}
+	}
+
+	i.currentKey = i.keys[i.currentIndex]
+
+	i.currentIndex++
+
+	return true, nil
+}
+
+func (i *iterator) Key() (string, error) {
+	return i.currentKey, nil
+}
+
+func (i *iterator) Value() ([]byte, error) {
+	value, err := i.store.Get(i.currentKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get value from store: %w", err)
+	}
+
+	return value, nil
+}
+
+func (i *iterator) Tags() ([]storage.Tag, error) {
+	tags, err := i.store.GetTags(i.currentKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tags: %w", err)
+	}
+
+	return tags, nil
+}
+
+func (i *iterator) Close() error {
+	return nil
+}
+
 func getResult(req js.Value) (*js.Value, error) {
 	onsuccess := make(chan js.Value)
 	onerror := make(chan js.Value)
@@ -261,15 +508,31 @@ func getResult(req js.Value) (*js.Value, error) {
 // TODO pass store names from higher level packages during initialization [Issue #1347].
 func getStoreNames() []string {
 	return []string{
-		messenger.MessengerStore,
-		mediator.Coordination,
-		connection.Namespace,
-		introduce.Introduce,
-		peer.StoreNamespace,
-		did.StoreName,
-		localkms.Namespace,
-		verifiable.NameSpace,
-		issuecredential.Name,
-		presentproof.Name,
+		strings.ToLower(messenger.MessengerStore),
+		strings.ToLower(mediator.Coordination),
+		strings.ToLower(connection.Namespace),
+		strings.ToLower(introduce.Introduce),
+		strings.ToLower(peer.StoreNamespace),
+		strings.ToLower(did.StoreName),
+		strings.ToLower(localkms.Namespace),
+		strings.ToLower(verifiable.NameSpace),
+		strings.ToLower(issuecredential.Name),
+		strings.ToLower(presentproof.Name),
 	}
+}
+
+func getDatabaseKeysMatchingTagName(tagMap tagMapping, expressionTagName string) []string {
+	var matchingDatabaseKeys []string
+
+	for tagName, databaseKeysSet := range tagMap {
+		if tagName == expressionTagName {
+			for databaseKey := range databaseKeysSet {
+				matchingDatabaseKeys = append(matchingDatabaseKeys, databaseKey)
+			}
+
+			break
+		}
+	}
+
+	return matchingDatabaseKeys
 }
