@@ -91,7 +91,9 @@ func persistKey(t *testing.T, pub, priv string, km kms.KeyManager) error {
 	t.Helper()
 
 	kid, err := localkms.CreateKID(base58.Decode(pub), kms.ED25519Type)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	edPriv := ed25519.PrivateKey(base58.Decode(priv))
 	if len(edPriv) == 0 {
@@ -324,9 +326,8 @@ func TestEncryptComponents(t *testing.T) {
 
 	t.Run("Failure: generate recipient header with bad sender key", func(t *testing.T) {
 		_, err := packer2.buildRecipient(&[32]byte{}, []byte(""), base58.Decode(rec1Pub))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "getKeySet: failed to read json keyset from reader: cannot read data"+
-			" for keysetID")
+		require.EqualError(t, err, "buildRecipient: failed to create KID for public key: createKID: "+
+			"empty key")
 	})
 
 	t.Run("Failure: generate recipient header with bad recipient key", func(t *testing.T) {
@@ -472,7 +473,7 @@ func unpackComponentFailureTest(t *testing.T, protectedHeader, msg, recKeyPub, r
 
 	err := persistKey(t, recKeyPub, recKeyPriv, w)
 
-	if errString == "error converting bad public key" {
+	if errString == "createKID: empty key" {
 		require.EqualError(t, err, errString)
 		return
 	}
@@ -647,7 +648,7 @@ func TestUnpackComponents(t *testing.T) {
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
 			badKeyPub, badKeyPriv,
-			"error converting bad public key")
+			"createKID: empty key")
 	})
 }
 

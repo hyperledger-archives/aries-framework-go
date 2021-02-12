@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/tink/go/keyset"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -30,6 +31,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -744,6 +747,10 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
 		require.NoError(t, err)
 
+		pubKeyBytes := exportPubKeyBytes(t, ed25519KH)
+		kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
+		require.NoError(t, err)
+
 		// create the client
 		cmd, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: protocolStateStore,
@@ -752,7 +759,13 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH},
+			KMSValue: &mockkms.KeyManager{
+				CreateKeyValue:         ed25519KH,
+				CreateKeyID:            kid,
+				CrAndExportPubKeyValue: pubKeyBytes,
+				CrAndExportPubKeyID:    kid,
+				GetKeyValue:            ed25519KH,
+			},
 		},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
@@ -833,6 +846,21 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 			require.Fail(t, "tests are not validated")
 		}
 	})
+}
+
+func exportPubKeyBytes(t *testing.T, kh *keyset.Handle) []byte {
+	t.Helper()
+
+	pubKH, err := kh.Public()
+	require.NoError(t, err)
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := localkms.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	require.NoError(t, err)
+
+	return buf.Bytes()
 }
 
 func TestCommand_SaveConnection(t *testing.T) {

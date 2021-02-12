@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/tink/go/keyset"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -26,6 +28,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
@@ -1100,6 +1104,10 @@ func TestServiceEvents(t *testing.T) {
 	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
 	require.NoError(t, err)
 
+	pubKeyBytes := exportPubKeyBytes(t, ed25519KH)
+	kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
+	require.NoError(t, err)
+
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: protocolStateStore,
@@ -1108,7 +1116,13 @@ func TestServiceEvents(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
-		KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH},
+		KMSValue: &mockkms.KeyManager{
+			CreateKeyValue:         ed25519KH,
+			CreateKeyID:            kid,
+			CrAndExportPubKeyValue: pubKeyBytes,
+			CrAndExportPubKeyID:    kid,
+			GetKeyValue:            ed25519KH,
+		},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, c)
@@ -1195,6 +1209,10 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
 	require.NoError(t, err)
 
+	pubKeyBytes := exportPubKeyBytes(t, ed25519KH)
+	kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
+	require.NoError(t, err)
+
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -1203,7 +1221,13 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
-		KMSValue: &mockkms.KeyManager{CreateKeyValue: ed25519KH},
+		KMSValue: &mockkms.KeyManager{
+			CreateKeyValue:         ed25519KH,
+			CreateKeyID:            kid,
+			CrAndExportPubKeyValue: pubKeyBytes,
+			CrAndExportPubKeyID:    kid,
+			GetKeyValue:            ed25519KH,
+		},
 	},
 	)
 	require.NoError(t, err)
@@ -1277,6 +1301,21 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	err = c.AcceptExchangeRequest("invalid-id", "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "did exchange client - accept exchange request:")
+}
+
+func exportPubKeyBytes(t *testing.T, kh *keyset.Handle) []byte {
+	t.Helper()
+
+	pubKH, err := kh.Public()
+	require.NoError(t, err)
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := localkms.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	require.NoError(t, err)
+
+	return buf.Bytes()
 }
 
 func TestAcceptInvitation(t *testing.T) {
