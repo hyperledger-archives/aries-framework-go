@@ -31,7 +31,7 @@ const (
 	errMsgDestinationMissing = "missing message destination"
 )
 
-var logger = log.New("aries-framework/controller/common")
+var logger = log.New("aries-framework/client/messaging")
 
 // provider contains dependencies for the message client and is typically created by using aries.Context().
 type provider interface {
