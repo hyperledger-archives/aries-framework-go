@@ -17,8 +17,8 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // ErrSvcNotFound is returned when service not found.

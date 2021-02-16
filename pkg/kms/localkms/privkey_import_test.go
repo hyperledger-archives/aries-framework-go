@@ -19,14 +19,14 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
-	storageGoMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	storageGoMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestImportECDSAKeyWithInvalidKey(t *testing.T) {
@@ -63,7 +63,7 @@ func TestImportKeySetInvalid(t *testing.T) {
 	defer ctrl.Finish()
 
 	errPrefix := "import private EC key failed: "
-	storeData := map[string][]byte{}
+	storeData := map[string]mockstorage.DBEntry{}
 
 	store := storageGoMocks.NewMockStore(ctrl)
 	store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)

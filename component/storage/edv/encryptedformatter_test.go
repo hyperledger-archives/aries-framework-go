@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/cachedstore"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/formattedstore"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -34,8 +35,8 @@ func TestEncryptedFormatterInFormatProvider(t *testing.T) {
 			storagetest.TestAll(t, provider)
 		})
 		t.Run("With cache", func(t *testing.T) {
-			provider := formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t),
-				formattedstore.WithCacheProvider(mem.NewProvider()))
+			provider := cachedstore.NewProvider(
+				formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t)), mem.NewProvider())
 			require.NotNil(t, provider)
 
 			storagetest.TestAll(t, provider)

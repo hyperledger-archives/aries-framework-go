@@ -16,6 +16,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -29,7 +30,7 @@ const (
 func TestNew(t *testing.T) {
 	t.Run("test new store", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue: mem.NewProvider(),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, s)
@@ -59,7 +60,7 @@ func TestSaveDID(t *testing.T) {
 	t.Run("test save did doc - error from store put", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -72,7 +73,7 @@ func TestSaveDID(t *testing.T) {
 	t.Run("test save did doc - empty name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -85,7 +86,7 @@ func TestSaveDID(t *testing.T) {
 	t.Run("test save did doc - error getting existing mapping for name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -124,7 +125,7 @@ func TestGetDIDDoc(t *testing.T) {
 	t.Run("test error from store get", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -151,8 +152,8 @@ func TestGetDIDDoc(t *testing.T) {
 
 func TestDIDBasedOnName(t *testing.T) {
 	t.Run("test get didDoc based on name - success", func(t *testing.T) {
-		store := make(map[string][]byte)
-		store[didNameDataKey(sampleDIDName)] = []byte(sampleDIDID)
+		store := make(map[string]mockstore.DBEntry)
+		store[didNameDataKey(sampleDIDName)] = mockstore.DBEntry{Value: []byte(sampleDIDID)}
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -167,7 +168,7 @@ func TestDIDBasedOnName(t *testing.T) {
 	t.Run("test get didDoc based on name - db error", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -182,7 +183,7 @@ func TestDIDBasedOnName(t *testing.T) {
 
 func TestGetCredentials(t *testing.T) {
 	t.Run("test get dids", func(t *testing.T) {
-		store := make(map[string][]byte)
+		store := make(map[string]mockstore.DBEntry)
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
@@ -200,7 +201,7 @@ func TestGetCredentials(t *testing.T) {
 		require.Equal(t, records[0].ID, sampleDIDID)
 
 		// add some other values and make sure the GetCredential returns records as before
-		store["dummy-value"] = []byte("dummy-key")
+		store["dummy-value"] = mockstore.DBEntry{Value: []byte("dummy-key")}
 
 		records = s.GetDIDRecords()
 		require.Equal(t, 1, len(records))

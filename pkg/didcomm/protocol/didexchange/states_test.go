@@ -1170,7 +1170,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 
 		cStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrPut: fmt.Errorf("did error"),
 			}),
 		})
@@ -1217,7 +1217,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 
 		connectionStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrPut: fmt.Errorf("did error"),
 			}),
 		})
@@ -1348,7 +1348,7 @@ func TestGetVerKey(t *testing.T) {
 		pr := testProvider()
 		pr.StoreProvider = &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrGet: expected,
 			},
 		}
@@ -1427,7 +1427,7 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 func getProvider(t *testing.T) protocol.MockProvider {
 	t.Helper()
 
-	store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+	store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 	sProvider := mockstorage.NewCustomMockStoreProvider(store)
 	customKMS := newKMS(t, sProvider)
 

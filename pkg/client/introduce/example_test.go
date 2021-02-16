@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
@@ -21,7 +22,6 @@ import (
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	introduceServiceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 const (
@@ -81,7 +81,7 @@ func mockContext(agent string, tr map[string]chan payload, done chan struct{}) P
 	mProvider.EXPECT().OutboundDispatcher().Return(outbound)
 
 	provider := introduceServiceMocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().StorageProvider().Return(storageProvider).MaxTimes(2)
 	provider.EXPECT().Service(gomock.Any()).Return(didSvc, nil)
 
 	msgSvc, err := messenger.NewMessenger(mProvider)

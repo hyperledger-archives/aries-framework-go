@@ -13,7 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 )
 

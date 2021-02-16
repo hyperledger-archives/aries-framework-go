@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // provider contains dependencies for the verifiable credential wallet client

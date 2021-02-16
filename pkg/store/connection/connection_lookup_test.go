@@ -16,10 +16,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -67,7 +67,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 				ThreadID:     fmt.Sprintf(threadIDFmt, id),
 			})
 			require.NoError(t, err)
-			err = store.Put(getConnectionKeyPrefix()(id), connRecBytes)
+			err = store.Put(getConnectionKeyPrefix()(id), connRecBytes, storage.Tag{Name: "conn_"})
 			require.NoError(t, err)
 		}
 	}
@@ -134,7 +134,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		provider := &mockProvider{}
 		provider.store = &mockstorage.MockStore{
 			ErrGet: fmt.Errorf(sampleErrMsg),
-			Store:  make(map[string][]byte),
+			Store:  make(map[string]mockstorage.DBEntry),
 		}
 		lookup, err := NewLookup(provider)
 		require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 
 func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 	t.Run("test query connection record", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 
 		protocolStateStore, err := mem.NewProvider().OpenStore(Namespace)
 		require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			})
 			require.NoError(t, jsonErr)
 
-			err = store.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
+			err = store.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val, storage.Tag{Name: "conn_"})
 			require.NoError(t, err)
 		}
 		for i := overlap; i < protocolStateStoreCount+storeCount; i++ {
@@ -326,7 +326,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			})
 			require.NoError(t, jsonErr)
 
-			err = protocolStateStore.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
+			err = protocolStateStore.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val, storage.Tag{Name: "conn_"})
 			require.NoError(t, err)
 		}
 
@@ -339,8 +339,8 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 	})
 
 	t.Run("test query connection record failure", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		err := store.Put(fmt.Sprintf("%s_abc123", connIDKeyPrefix), []byte("-----"))
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		err := store.Put(fmt.Sprintf("%s_abc123", connIDKeyPrefix), []byte("-----"), storage.Tag{Name: "conn_"})
 		require.NoError(t, err)
 
 		recorder, err := NewLookup(&mockProvider{store: store})

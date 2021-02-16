@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -463,8 +464,8 @@ func TestOperation_Send(t *testing.T) {
 			},
 			{
 				name: "send message to destination",
-				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf", 
-"recipientKeys":["test"]}}`,
+				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf",
+			"recipientKeys":["test"]}}`,
 			},
 		}
 
@@ -473,11 +474,12 @@ func TestOperation_Send(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+				mockStore := &storage.MockStore{Store: make(map[string]storage.DBEntry)}
 				if tc.testConnection != nil {
 					connBytes, err := json.Marshal(tc.testConnection)
 					require.NoError(t, err)
-					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
+					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID),
+						connBytes, spi.Tag{Name: "conn_"}))
 				}
 
 				svc, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
@@ -595,7 +597,7 @@ func TestOperation_Send(t *testing.T) {
 				provider := &protocol.MockProvider{}
 
 				if tc.testConnection != nil {
-					mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+					mockStore := &storage.MockStore{Store: make(map[string]storage.DBEntry)}
 					connBytes, err := json.Marshal(tc.testConnection)
 					require.NoError(t, err)
 					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))

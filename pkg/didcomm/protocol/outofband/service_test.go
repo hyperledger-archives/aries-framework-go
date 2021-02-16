@@ -25,8 +25,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -169,7 +169,7 @@ func TestHandleInbound(t *testing.T) {
 		expected := service.NewDIDCommMsgMap(newRequest())
 		s := &Service{
 			store: &mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("db error"),
 			},
 		}
@@ -253,7 +253,7 @@ func TestService_ActionContinue(t *testing.T) {
 	t.Run("Error", func(t *testing.T) {
 		require.EqualError(t, (&Service{
 			store: &mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("db error"),
 			},
 		}).ActionContinue("piid", nil), "get transitional payload: store get: db error")
@@ -293,7 +293,7 @@ func TestService_ActionStop(t *testing.T) {
 	t.Run("Error", func(t *testing.T) {
 		require.EqualError(t, (&Service{
 			store: &mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("db error"),
 			},
 		}).ActionStop("piid", nil), "get transitional payload: store get: db error")
@@ -484,7 +484,7 @@ func TestHandleDIDEvent(t *testing.T) {
 		provider := testProvider()
 		provider.ProtocolStateStoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: expected,
 			},
 		}
@@ -579,7 +579,14 @@ func TestHandleDIDEvent(t *testing.T) {
 		pthid := uuid.New().String()
 		connID := uuid.New().String()
 
-		provider := testProvider()
+		protocolStateStoreProvider := mockstore.NewMockStoreProvider()
+		provider := &protocol.MockProvider{
+			StoreProvider:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStoreProvider: protocolStateStoreProvider,
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
+			},
+		}
 		provider.InboundMsgHandler = func([]byte, string, string) error {
 			return nil
 		}
@@ -605,7 +612,7 @@ func TestHandleDIDEvent(t *testing.T) {
 			))
 
 		s.store = &mockstore.MockStore{
-			Store:  provider.ProtocolStateStoreProvider.Store.Store,
+			Store:  protocolStateStoreProvider.Store.Store,
 			ErrPut: expected,
 		}
 
@@ -1253,7 +1260,31 @@ type stubStore struct {
 	putFunc func(k string, v []byte) error
 }
 
-func (s *stubStore) Put(k string, v []byte) error {
+func (s *stubStore) GetTags(key string) ([]storage.Tag, error) {
+	panic("implement me")
+}
+
+func (s *stubStore) GetBulk(keys ...string) ([][]byte, error) {
+	panic("implement me")
+}
+
+func (s *stubStore) Query(expression string, options ...storage.QueryOption) (storage.Iterator, error) {
+	panic("implement me")
+}
+
+func (s *stubStore) Batch(operations []storage.Operation) error {
+	panic("implement me")
+}
+
+func (s *stubStore) Flush() error {
+	panic("implement me")
+}
+
+func (s *stubStore) Close() error {
+	panic("implement me")
+}
+
+func (s *stubStore) Put(k string, v []byte, tags ...storage.Tag) error {
 	if s.putFunc != nil {
 		return s.putFunc(k, v)
 	}
@@ -1265,7 +1296,7 @@ func (s *stubStore) Get(k string) ([]byte, error) {
 	panic("implement me")
 }
 
-func (s *stubStore) Iterator(start, limit string) storage.StoreIterator {
+func (s *stubStore) Iterator(start, limit string) storage.Iterator {
 	panic("implement me")
 }
 

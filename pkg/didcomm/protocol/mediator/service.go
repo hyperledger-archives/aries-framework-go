@@ -25,9 +25,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 var logger = log.New("aries-framework/route/service")
@@ -149,6 +149,12 @@ func New(prov provider) (*Service, error) {
 	store, err := prov.StorageProvider().OpenStore(Coordination)
 	if err != nil {
 		return nil, fmt.Errorf("open route coordination store : %w", err)
+	}
+
+	err = prov.StorageProvider().SetStoreConfig(Coordination,
+		storage.StoreConfiguration{TagNames: []string{routeConnIDDataKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	connectionLookup, err := connection.NewLookup(prov)
@@ -609,20 +615,32 @@ func (s *Service) Unregister(connID string) error {
 
 // GetConnections returns the connections of the router.
 func (s *Service) GetConnections() ([]string, error) {
-	records := s.routeStore.Iterator(
-		fmt.Sprintf(routeConnIDDataKey, ""),
-		fmt.Sprintf(routeConnIDDataKey, storage.EndKeySuffix),
-	)
-	defer records.Release()
+	records, err := s.routeStore.Query(routeConnIDDataKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query route store: %w", err)
+	}
+
+	defer storage.Close(records, logger)
 
 	var conns []string
 
-	for records.Next() {
-		conns = append(conns, string(records.Value()))
+	more, err := records.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next record: %w", err)
 	}
 
-	if records.Error() != nil {
-		return nil, records.Error()
+	for more {
+		value, err := records.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from records: %w", err)
+		}
+
+		conns = append(conns, string(value))
+
+		more, err = records.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next record: %w", err)
+		}
 	}
 
 	return conns, nil
@@ -735,7 +753,7 @@ func (s *Service) deleteRouterConnectionID(connID string) error {
 }
 
 func (s *Service) saveRouterConnectionID(connID string) error {
-	return s.routeStore.Put(fmt.Sprintf(routeConnIDDataKey, connID), []byte(connID))
+	return s.routeStore.Put(fmt.Sprintf(routeConnIDDataKey, connID), []byte(connID), storage.Tag{Name: routeConnIDDataKey})
 }
 
 type config struct {

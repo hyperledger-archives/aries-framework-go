@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -36,9 +37,9 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
@@ -478,13 +479,13 @@ type fails struct {
 }
 
 func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
-	protocolStateStore := mockstore.MockStore{Store: make(map[string][]byte)}
-	store := mockstore.MockStore{Store: make(map[string][]byte)}
+	protocolStateStore := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
+	store := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
 	connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
-	require.NoError(t, store.Put("conn_1234", connBytes))
+	require.NoError(t, store.Put("conn_1234", connBytes, spi.Tag{Name: "conn_"}))
 
 	h := crypto.SHA256.New()
 	hash := h.Sum([]byte(connRec.ConnectionID))

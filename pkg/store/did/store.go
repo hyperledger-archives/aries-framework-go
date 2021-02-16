@@ -9,8 +9,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -19,10 +20,9 @@ const (
 
 	didNameKey        = "didname_"
 	didNameKeyPattern = didNameKey + "%s"
-
-	// limitPattern for the iterator.
-	limitPattern = "%s" + storage.EndKeySuffix
 )
+
+var logger = log.New("aries-framework/store/did")
 
 // Store stores did doc.
 type Store struct {
@@ -38,6 +38,11 @@ func New(ctx provider) (*Store, error) {
 	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open did store: %w", err)
+	}
+
+	err = ctx.StorageProvider().SetStoreConfig(NameSpace, storage.StoreConfiguration{TagNames: []string{didNameKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	return &Store{store: store}, nil
@@ -67,7 +72,7 @@ func (s *Store) SaveDID(name string, didDoc *did.Doc) error {
 		return fmt.Errorf("failed to put didDoc: %w", err)
 	}
 
-	if err := s.store.Put(didNameDataKey(name), []byte(didDoc.ID)); err != nil {
+	if err := s.store.Put(didNameDataKey(name), []byte(didDoc.ID), storage.Tag{Name: didNameKey}); err != nil {
 		return fmt.Errorf("store did name to id map : %w", err)
 	}
 
@@ -101,20 +106,47 @@ func (s *Store) GetDIDByName(name string) (string, error) {
 
 // GetDIDRecords retrieves the didDoc records containing name and didID.
 func (s *Store) GetDIDRecords() []*Record {
-	searchKey := didNameDataKey("")
+	itr, err := s.store.Query(didNameKey)
+	if err != nil {
+		return nil
+	}
 
-	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer itr.Release()
+	defer func() {
+		errClose := itr.Close()
+		if errClose != nil {
+			logger.Errorf("failed to close iterator: %s", errClose.Error())
+		}
+	}()
 
 	var records []*Record
 
-	for itr.Next() {
+	more, err := itr.Next()
+	if err != nil {
+		return nil
+	}
+
+	for more {
+		name, err := itr.Key()
+		if err != nil {
+			return nil
+		}
+
+		id, err := itr.Value()
+		if err != nil {
+			return nil
+		}
+
 		record := &Record{
-			Name: getDIDName(string(itr.Key())),
-			ID:   string(itr.Value()),
+			Name: getDIDName(name),
+			ID:   string(id),
 		}
 
 		records = append(records, record)
+
+		more, err = itr.Next()
+		if err != nil {
+			return nil
+		}
 	}
 
 	return records

@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hyperledger/aries-framework-go/component/storage/jsindexeddb"
+	"github.com/hyperledger/aries-framework-go/component/storage/indexeddb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	cmdctrl "github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -364,7 +364,7 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
-	store, err := jsindexeddb.NewProvider(opts.DBNamespace)
+	store, err := indexeddb.NewProvider(opts.DBNamespace)
 	if err != nil {
 		return nil, err
 	}

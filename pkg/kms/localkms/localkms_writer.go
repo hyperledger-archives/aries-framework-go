@@ -14,7 +14,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const maxKeyIDLen = 50

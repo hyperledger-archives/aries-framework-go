@@ -19,9 +19,8 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
@@ -32,14 +31,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
 const (
-	dbPath = "./db"
-
 	httpTransportProvider      = "http"
 	webSocketTransportProvider = "websocket"
 	sideTreeURL                = "${SIDETREE_URL}"
@@ -59,14 +56,14 @@ func NewSDKSteps() *SDKSteps {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider()))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
 // CreateAgentWithRemoteKMS with the given parameters with a remote kms.
 func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme, ksURL, controller string) error {
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider()))
 
 	cp, err := loadCertPool()
 	if err != nil {
@@ -120,7 +117,7 @@ func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, s
 	msgRegistrar := msghandler.NewRegistrar()
 	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
 
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider()),
 		aries.WithMessageServiceProvider(msgRegistrar))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
@@ -142,7 +139,7 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 		return fmt.Errorf("failed from httpbinding new ")
 	}
 
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider()),
 		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDR(httpVDR))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
@@ -165,7 +162,7 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 			return fmt.Errorf("failed from httpbinding new ")
 		}
 
-		storeProv := a.getStoreProvider(agentID)
+		storeProv := a.getStoreProvider()
 
 		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv))
 
@@ -177,15 +174,15 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	return nil
 }
 
-func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
-	storeProv := leveldb.NewProvider(dbPath + "/" + agentID + uuid.New().String())
+func (a *SDKSteps) getStoreProvider() storage.Provider {
+	storeProv := mem.NewProvider()
 	return storeProv
 }
 
 func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 	var opts []aries.Option
 
-	storeProv := a.getStoreProvider(agentID)
+	storeProv := a.getStoreProvider()
 
 	if routeOpt != decorator.TransportReturnRouteAll {
 		return errors.New("only 'all' transport route return option is supported")

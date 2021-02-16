@@ -33,8 +33,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const testMasterKeyURI = keywrapper.LocalKeyURIPrefix + "test/key/uri"
@@ -142,7 +142,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("test Create() success to store key but fail to get key from store", func(t *testing.T) {
-		storeData := map[string][]byte{}
+		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
@@ -187,7 +187,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("create valid key but not available for Export", func(t *testing.T) {
-		storeData := map[string][]byte{}
+		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
@@ -207,7 +207,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("create And Export invalid key", func(t *testing.T) {
-		storeData := map[string][]byte{}
+		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
 			storage: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
@@ -235,7 +235,7 @@ func TestLocalKMS_Success(t *testing.T) {
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
-	storeDB := make(map[string][]byte)
+	storeDB := make(map[string]mockstorage.DBEntry)
 	// test New()
 	kmsService, err := New(testMasterKeyURI, &mockProvider{
 		storage: mockstorage.NewCustomMockStoreProvider(
@@ -336,7 +336,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
-	storeDB := make(map[string][]byte)
+	storeDB := make(map[string]mockstorage.DBEntry)
 	// test New()
 	kmsService, e := New(testMasterKeyURI, &mockProvider{
 		storage: mockstorage.NewCustomMockStoreProvider(

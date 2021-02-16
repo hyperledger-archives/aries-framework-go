@@ -15,7 +15,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -60,13 +60,19 @@ func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 // SaveConnectionRecord saves given connection records in underlying store.
 func (c *Recorder) SaveConnectionRecord(record *Record) error {
 	if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
-		record, c.protocolStateStore); err != nil {
+		record, c.protocolStateStore, storage.Tag{
+			Name:  getConnectionKeyPrefix()(""),
+			Value: getConnectionKeyPrefix()(record.ConnectionID),
+		}); err != nil {
 		return fmt.Errorf("save connection record in protocol state store: %w", err)
 	}
 
 	if record.State != "" {
 		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
-			record, c.protocolStateStore)
+			record, c.protocolStateStore, storage.Tag{
+				Name:  connStateKeyPrefix,
+				Value: getConnectionStateKeyPrefix()(record.ConnectionID),
+			})
 		if err != nil {
 			return fmt.Errorf("save connection record with state in protocol state store: %w", err)
 		}
@@ -74,7 +80,10 @@ func (c *Recorder) SaveConnectionRecord(record *Record) error {
 
 	if record.State == StateNameCompleted {
 		if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
-			record, c.store); err != nil {
+			record, c.store, storage.Tag{
+				Name:  getConnectionKeyPrefix()(""),
+				Value: getConnectionKeyPrefix()(record.ConnectionID),
+			}); err != nil {
 			return fmt.Errorf("save connection record in permanent store: %w", err)
 		}
 
@@ -172,13 +181,13 @@ func (c *Recorder) RemoveConnection(connectionID string) error {
 	return nil
 }
 
-func marshalAndSave(k string, v interface{}, store storage.Store) error {
+func marshalAndSave(k string, v interface{}, store storage.Store, tags ...storage.Tag) error {
 	bytes, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("save connection record: %w", err)
 	}
 
-	return store.Put(k, bytes)
+	return store.Put(k, bytes, tags...)
 }
 
 // isValidConnection validates connection record.
@@ -204,24 +213,44 @@ func computeHash(bytes []byte) (string, error) {
 }
 
 func removeConnectionsForStates(c *Recorder, connectionID string) error {
-	itr := c.protocolStateStore.Iterator(getConnectionStateKeyPrefix()(
-		connectionID),
-		getConnectionStateKeyPrefix()(connectionID)+storage.EndKeySuffix,
-	)
-	defer itr.Release()
+	itr, err := c.protocolStateStore.Query(fmt.Sprintf("%s:%s", connStateKeyPrefix,
+		getConnectionStateKeyPrefix()(connectionID)))
+	if err != nil {
+		return fmt.Errorf("failed to query protocol state store: %w", err)
+	}
 
-	for itr.Next() {
-		key := string(itr.Key())
+	defer func() {
+		errClose := itr.Close()
+		if errClose != nil {
+			logger.Errorf("failed to close iterator: %s", errClose.Error())
+		}
+	}()
 
-		err := c.protocolStateStore.Delete(key)
+	more, err := itr.Next()
+	if err != nil {
+		return fmt.Errorf("failed to get next set of data from iterator: %w", err)
+	}
+
+	for more {
+		key, err := itr.Key()
+		if err != nil {
+			return fmt.Errorf("failed to get key from iterator: %w", err)
+		}
+
+		err = c.protocolStateStore.Delete(key)
 		if err != nil {
 			return fmt.Errorf(
 				"unable to delete connection state record from the protocol state store: key=%s connectionid=%s err=%w",
 				key, connectionID, err)
 		}
+
+		more, err = itr.Next()
+		if err != nil {
+			return fmt.Errorf("failed to get next set of data from iterator: %w", err)
+		}
 	}
 
-	return itr.Error()
+	return nil
 }
 
 func removeMappings(c *Recorder, record *Record) error {

@@ -14,14 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestLocalKMSReader(t *testing.T) {
 	someKey := []byte("someKeyData")
 	someKeyID := "newKeyID"
-	storeData := map[string][]byte{
-		someKeyID: someKey,
+	storeData := map[string]mockstorage.DBEntry{
+		someKeyID: {Value: someKey},
 	}
 
 	t.Run("success case - create a valid storeReader with a non empty and stored keysetID", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestLocalKMSReader(t *testing.T) {
 	})
 
 	t.Run("error case - create an invalid read with non stored keyset", func(t *testing.T) {
-		mockStore := &mockstorage.MockStore{Store: map[string][]byte{}}
+		mockStore := &mockstorage.MockStore{Store: map[string]mockstorage.DBEntry{}}
 
 		l := newReader(mockStore, someKeyID)
 		require.NotEmpty(t, l)
@@ -70,8 +70,8 @@ func TestLocalKMSReader(t *testing.T) {
 		for i := 0; i < dataLen; i++ {
 			veryLargeData = append(veryLargeData, 'a')
 		}
-		largeStoreData := map[string][]byte{
-			someKeyID: veryLargeData,
+		largeStoreData := map[string]mockstorage.DBEntry{
+			someKeyID: {Value: veryLargeData},
 		}
 
 		mockStore := &mockstorage.MockStore{Store: largeStoreData}

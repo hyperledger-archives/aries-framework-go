@@ -20,7 +20,7 @@ import (
 
 func TestLocalKMSWriter(t *testing.T) {
 	t.Run("success case - create a valid storeWriter and store 20 non empty random keys", func(t *testing.T) {
-		storeMap := map[string][]byte{}
+		storeMap := map[string]mockstorage.DBEntry{}
 		mockStore := &mockstorage.MockStore{Store: storeMap}
 
 		for i := 0; i < 256; i++ {
@@ -31,16 +31,16 @@ func TestLocalKMSWriter(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, len(someKey), n)
 			require.Equal(t, maxKeyIDLen, len(l.KeysetID), "for key creation iteration %d", i)
-			retrievedKey, ok := storeMap[l.KeysetID]
+			retrievedDBEntry, ok := storeMap[l.KeysetID]
 			require.True(t, ok)
-			require.Equal(t, retrievedKey, someKey)
+			require.Equal(t, retrievedDBEntry.Value, someKey)
 		}
 
 		require.Equal(t, 256, len(storeMap))
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeWriter to storage", func(t *testing.T) {
-		storeMap := map[string][]byte{}
+		storeMap := map[string]mockstorage.DBEntry{}
 		putError := fmt.Errorf("failed to put data")
 		mockStore := &mockstorage.MockStore{
 			Store:  storeMap,
@@ -56,7 +56,7 @@ func TestLocalKMSWriter(t *testing.T) {
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeReader from storage", func(t *testing.T) {
-		storeMap := map[string][]byte{}
+		storeMap := map[string]mockstorage.DBEntry{}
 		getError := fmt.Errorf("failed to get data")
 		mockStore := &mockstorage.MockStore{
 			Store:  storeMap,
@@ -73,7 +73,7 @@ func TestLocalKMSWriter(t *testing.T) {
 
 	t.Run("error case - create a storeWriter with a keysetID using a bad storeReader from storage",
 		func(t *testing.T) {
-			storeMap := map[string][]byte{}
+			storeMap := map[string]mockstorage.DBEntry{}
 			getError := fmt.Errorf("failed to get data")
 			mockStore := &mockstorage.MockStore{
 				Store:  storeMap,
@@ -91,7 +91,7 @@ func TestLocalKMSWriter(t *testing.T) {
 		})
 
 	t.Run("error case - import duplicate keysetID", func(t *testing.T) {
-		storeMap := map[string][]byte{}
+		storeMap := map[string]mockstorage.DBEntry{}
 		mockStore := &mockstorage.MockStore{Store: storeMap}
 
 		l := newWriter(mockStore)
@@ -101,9 +101,9 @@ func TestLocalKMSWriter(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(someKey), n)
 		require.Equal(t, maxKeyIDLen, len(l.KeysetID))
-		retrievedKey, ok := storeMap[l.KeysetID]
+		retrievedDBEntry, ok := storeMap[l.KeysetID]
 		require.True(t, ok)
-		require.Equal(t, retrievedKey, someKey)
+		require.Equal(t, retrievedDBEntry.Value, someKey)
 
 		require.Equal(t, 1, len(storeMap))
 

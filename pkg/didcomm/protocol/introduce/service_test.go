@@ -17,6 +17,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
@@ -27,9 +28,8 @@ import (
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -82,7 +82,7 @@ func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[stri
 	mProvider.EXPECT().OutboundDispatcher().Return(outbound)
 
 	provider := introduceMocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 	provider.EXPECT().Service(gomock.Any()).Return(didSvc, nil)
 
 	msgSvc, err := messenger.NewMessenger(mProvider)
@@ -1490,9 +1490,10 @@ func TestService_New(t *testing.T) {
 	t.Run("Service Error", func(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Service(outofband.Name).Return(nil, errors.New(errMsg))
 
 		svc, err := introduce.New(provider)
@@ -1503,9 +1504,10 @@ func TestService_New(t *testing.T) {
 	t.Run("Cast Service Error", func(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Service(outofband.Name).Return(nil, nil)
 
 		svc, err := introduce.New(provider)
@@ -1518,8 +1520,9 @@ func TestService_New(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 
 		oobService := serviceMocks.NewMockDIDComm(ctrl)
@@ -1543,12 +1546,13 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1575,12 +1579,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1603,12 +1608,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1635,12 +1641,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1666,12 +1673,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1697,12 +1705,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 		didService := serviceMocks.NewMockDIDComm(ctrl)
 		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
@@ -1730,12 +1739,13 @@ func TestService_ActionStop(t *testing.T) {
 
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+	storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 
 	oobService := serviceMocks.NewMockDIDComm(ctrl)
 	oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 	provider := introduceMocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 	provider.EXPECT().Messenger().Return(nil)
 	provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
 
@@ -1760,8 +1770,9 @@ func TestOOBMessageReceived(t *testing.T) {
 		)
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		oobService := serviceMocks.NewMockDIDComm(ctrl)
 		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -1793,8 +1804,9 @@ func TestOOBMessageReceived(t *testing.T) {
 		)
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		oobService := serviceMocks.NewMockDIDComm(ctrl)
 		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -1826,8 +1838,9 @@ func TestOOBMessageReceived(t *testing.T) {
 		)
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		storageProvider.EXPECT().SetStoreConfig(introduce.Introduce, gomock.Any()).Return(nil)
 		provider := introduceMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().StorageProvider().Return(storageProvider).Times(2)
 		provider.EXPECT().Messenger().Return(nil)
 		oobService := serviceMocks.NewMockDIDComm(ctrl)
 		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)

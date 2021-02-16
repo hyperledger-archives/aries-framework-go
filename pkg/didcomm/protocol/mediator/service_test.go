@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
@@ -48,8 +49,8 @@ func TestServiceNew(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:              mockstore.NewMockStoreProvider(),
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mem.NewProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 		})
 		require.NoError(t, err)
 		require.Equal(t, Coordination, svc.Name())
@@ -84,8 +85,8 @@ func TestServiceHandleInbound(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:              mockstore.NewMockStoreProvider(),
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mem.NewProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -101,13 +102,12 @@ func TestServiceHandleOutbound(t *testing.T) {
 	t.Run("outbound route-request", func(t *testing.T) {
 		msgID := make(chan string)
 
-		s := make(map[string][]byte)
 		provider := &mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 			},
-			StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mem.NewProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 			KMSValue:                          &mockkms.KeyManager{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
@@ -125,10 +125,6 @@ func TestServiceHandleOutbound(t *testing.T) {
 		connRec := &connection.Record{
 			ConnectionID: "conn", MyDID: MYDID, TheirDID: THEIRDID, State: "completed",
 		}
-		connBytes, err := json.Marshal(connRec)
-		require.NoError(t, err)
-
-		s["conn_conn"] = connBytes
 
 		r, err := connection.NewRecorder(provider)
 		require.NoError(t, err)
@@ -143,11 +139,12 @@ func TestServiceHandleOutbound(t *testing.T) {
 			require.NoError(t, svc.saveGrant(generateGrantMsgPayload(t, id)))
 		}()
 
-		_, err = svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
+		thing, err := svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
 			ID:   uuid.New().String(),
 			Type: RequestMsgType,
 		}), MYDID, THEIRDID)
 		require.NoError(t, err)
+		println(thing)
 	})
 
 	t.Run("rejects invalid msg types", func(t *testing.T) {
@@ -923,7 +920,7 @@ func TestRegister(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		msgID := make(chan string)
 
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -951,7 +948,7 @@ func TestRegister(t *testing.T) {
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn"] = connBytes
+		s["conn_conn"] = mockstore.DBEntry{Value: connBytes}
 
 		go func() {
 			id := <-msgID
@@ -967,7 +964,7 @@ func TestRegister(t *testing.T) {
 	})
 
 	t.Run("test register route - with client timeout error", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -984,7 +981,7 @@ func TestRegister(t *testing.T) {
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn2"] = connBytes
+		s["conn_conn2"] = mockstore.DBEntry{Value: connBytes}
 
 		err = svc.Register("conn2", func(opts *ClientOptions) {
 			opts.Timeout = 1 * time.Millisecond
@@ -1043,7 +1040,7 @@ func TestUnregister(t *testing.T) {
 	const connID = "conn-id"
 
 	t.Run("test unregister route - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
@@ -1055,14 +1052,14 @@ func TestUnregister(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		s[fmt.Sprintf(routeConnIDDataKey, connID)] = []byte("conn-abc-xyz")
+		s[fmt.Sprintf(routeConnIDDataKey, connID)] = mockstore.DBEntry{Value: []byte("conn-abc-xyz")}
 
 		err = svc.Unregister(connID)
 		require.NoError(t, err)
 	})
 
 	t.Run("test unregister route - router not registered", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
@@ -1082,7 +1079,7 @@ func TestUnregister(t *testing.T) {
 	})
 
 	t.Run("test unregister route - db error", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
@@ -1109,7 +1106,7 @@ func TestKeylistUpdate(t *testing.T) {
 		keyUpdateMsg := make(chan KeylistUpdate)
 		recKey := "ojaosdjoajs123jkas"
 
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1141,7 +1138,7 @@ func TestKeylistUpdate(t *testing.T) {
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn"] = connBytes
+		s["conn_conn"] = mockstore.DBEntry{Value: connBytes}
 
 		go func() {
 			updateMsg := <-keyUpdateMsg
@@ -1165,7 +1162,7 @@ func TestKeylistUpdate(t *testing.T) {
 		keyUpdateMsg := make(chan KeylistUpdate)
 		recKey := "ojaosdjoajs123jkas"
 
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1207,7 +1204,7 @@ func TestKeylistUpdate(t *testing.T) {
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn"] = connBytes
+		s["conn_conn"] = mockstore.DBEntry{Value: connBytes}
 
 		go func() {
 			updateMsg := <-keyUpdateMsg
@@ -1229,7 +1226,7 @@ func TestKeylistUpdate(t *testing.T) {
 	})
 
 	t.Run("test keylist update - timeout error", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1246,7 +1243,7 @@ func TestKeylistUpdate(t *testing.T) {
 		}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		s["conn_conn2"] = connBytes
+		s["conn_conn2"] = mockstore.DBEntry{Value: connBytes}
 		require.NoError(t, svc.saveRouterConnectionID("conn2"))
 
 		err = svc.AddKey("conn2", "recKey")
@@ -1255,7 +1252,7 @@ func TestKeylistUpdate(t *testing.T) {
 	})
 
 	t.Run("test keylist update - router connectionID fetch error", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1279,7 +1276,7 @@ func TestConfig(t *testing.T) {
 	routingKeys := []string{"abc", "xyz"}
 
 	t.Run("test config - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1304,7 +1301,7 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("test config - no router registered", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1323,7 +1320,7 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("test config - missing configs", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1344,7 +1341,7 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("test config - invalid config data in db", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1368,7 +1365,7 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("test config - router connectionID fetch error", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]mockstore.DBEntry)
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
 				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
@@ -1396,19 +1393,19 @@ func TestGetConnections(t *testing.T) {
 	routerConnectionID := "conn-abc-xyz"
 
 	t.Run("test get connection - success", func(t *testing.T) {
-		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              mem.NewProvider(),
+				ProtocolStateStorageProviderValue: mem.NewProvider(),
 			},
 		)
 		require.NoError(t, err)
 
-		s[fmt.Sprintf(routeConnIDDataKey, routerConnectionID)] = []byte(routerConnectionID)
+		err = svc.saveRouterConnectionID(routerConnectionID)
+		require.NoError(t, err)
 
 		connID, err := svc.GetConnections()
 		require.NoError(t, err)
@@ -1416,43 +1413,19 @@ func TestGetConnections(t *testing.T) {
 	})
 
 	t.Run("test get connection - no data found", func(t *testing.T) {
-		s := make(map[string][]byte)
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
 				},
-				StorageProviderValue:              &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+				StorageProviderValue:              mem.NewProvider(),
+				ProtocolStateStorageProviderValue: mem.NewProvider(),
 			},
 		)
 		require.NoError(t, err)
 
 		connID, err := svc.GetConnections()
 		require.NoError(t, err)
-		require.Empty(t, connID)
-	})
-
-	t.Run("test get connection - db error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		svc, err := New(
-			&mockprovider.Provider{
-				ServiceMap: map[string]interface{}{
-					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
-				},
-				StorageProviderValue: &mockstore.MockStoreProvider{
-					Store: &mockstore.MockStore{Store: s, ErrItr: errors.New("itr error")},
-				},
-				ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			},
-		)
-		require.NoError(t, err)
-
-		s[fmt.Sprintf(routeConnIDDataKey, "conn")] = []byte(routerConnectionID)
-
-		connID, err := svc.GetConnections()
-		require.Error(t, err)
-		require.EqualError(t, err, "itr error")
 		require.Empty(t, connID)
 	})
 }

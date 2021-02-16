@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
@@ -20,7 +21,6 @@ import (
 	dispatchermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	protocolmocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 // payload represents a transport message structure.
@@ -58,7 +58,7 @@ func mockContext(agent string, tr map[string]chan payload) Provider {
 	mProvider.EXPECT().OutboundDispatcher().Return(outbound)
 
 	provider := protocolmocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(store)
+	provider.EXPECT().StorageProvider().Return(store).MaxTimes(2)
 
 	msgSvc, err := messenger.NewMessenger(mProvider)
 	if err != nil {

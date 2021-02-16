@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -37,9 +38,9 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestNew(t *testing.T) {
@@ -197,7 +198,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 	t.Run("test error from save record", func(t *testing.T) {
 		store := &mockstore.MockStore{
-			Store:  make(map[string][]byte),
+			Store:  make(map[string]mockstore.DBEntry),
 			ErrPut: fmt.Errorf("store error"),
 		}
 
@@ -372,7 +373,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 
 	t.Run("test error from save invitation", func(t *testing.T) {
 		store := &mockstore.MockStore{
-			Store:  make(map[string][]byte),
+			Store:  make(map[string]mockstore.DBEntry),
 			ErrPut: fmt.Errorf("store error"),
 		}
 
@@ -453,7 +454,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		store := &mockstore.MockStore{
-			Store:  make(map[string][]byte),
+			Store:  make(map[string]mockstore.DBEntry),
 			ErrGet: fmt.Errorf(errMsg),
 		}
 
@@ -518,7 +519,7 @@ func TestClient_GetConnection(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		s := &mockstore.MockStore{Store: make(map[string][]byte), ErrGet: ErrConnectionNotFound}
+		s := &mockstore.MockStore{Store: make(map[string]mockstore.DBEntry), ErrGet: ErrConnectionNotFound}
 		c, err := New(&mockprovider.Provider{
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:              mockstore.NewMockStoreProvider(),
@@ -694,8 +695,8 @@ func TestClient_RemoveConnection(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
+			StorageProviderValue:              mem.NewProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -916,15 +917,18 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		storageProvider := mockstore.NewMockStoreProvider()
+		storageProvider := mem.NewProvider()
 		c, err := New(&mockprovider.Provider{
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
+		require.NoError(t, err)
+
+		didExchangeStore, err := storageProvider.OpenStore("didexchange")
 		require.NoError(t, err)
 
 		const count = 10
@@ -936,7 +940,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 				State:        state,
 			})
 			require.NoError(t, e)
-			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
+			require.NoError(t,
+				didExchangeStore.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val, spi.Tag{Name: keyPrefix}))
 		}
 
 		results, err := c.QueryConnections(&QueryConnectionsParams{})
@@ -956,15 +961,18 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		storageProvider := mockstore.NewMockStoreProvider()
+		storageProvider := mem.NewProvider()
 		c, err := New(&mockprovider.Provider{
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
 				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
+		require.NoError(t, err)
+
+		didExchangeStore, err := storageProvider.OpenStore("didexchange")
 		require.NoError(t, err)
 
 		const count = 10
@@ -988,7 +996,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 				TheirDID:       theirDID + strconv.Itoa(i),
 			})
 			require.NoError(t, e)
-			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
+			require.NoError(t,
+				didExchangeStore.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val, spi.Tag{Name: keyPrefix}))
 		}
 
 		results, err := c.QueryConnections(&QueryConnectionsParams{})
@@ -1070,9 +1079,9 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 		require.NotNil(t, svc)
 		const keyPrefix = "conn_"
 
-		storageProvider := mockstore.NewMockStoreProvider()
+		storageProvider := mem.NewProvider()
 		c, err := New(&mockprovider.Provider{
-			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
 			StorageProviderValue:              storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
@@ -1081,7 +1090,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc", keyPrefix), []byte("----")))
+		didExchangeStore, err := storageProvider.OpenStore("didexchange")
+		require.NoError(t, err)
+
+		require.NoError(t,
+			didExchangeStore.Put(fmt.Sprintf("%sabc", keyPrefix), []byte("----"), spi.Tag{Name: keyPrefix}))
 
 		results, err := c.QueryConnections(&QueryConnectionsParams{})
 		require.Error(t, err)

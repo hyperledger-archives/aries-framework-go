@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
 )
 
 const (

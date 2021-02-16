@@ -247,7 +247,7 @@ func TestSaveVC(t *testing.T) {
 	t.Run("test save vc - error from store put", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -260,7 +260,7 @@ func TestSaveVC(t *testing.T) {
 	t.Run("test save vc - empty name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -273,7 +273,7 @@ func TestSaveVC(t *testing.T) {
 	t.Run("test save vc - error getting existing mapping for name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -361,7 +361,7 @@ func TestGetVC(t *testing.T) {
 	t.Run("test error from store get", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -398,8 +398,8 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		store := make(map[string][]byte)
-		store[credentialNameDataKey(sampleCredentialName)] = rbytes
+		store := make(map[string]mockstore.DBEntry)
+		store[credentialNameDataKey(sampleCredentialName)] = mockstore.DBEntry{Value: rbytes}
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -419,7 +419,7 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 	t.Run("test get credential based on name - db error", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -434,7 +434,7 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 
 func TestGetCredentials(t *testing.T) {
 	t.Run("test get credentials", func(t *testing.T) {
-		store := make(map[string][]byte)
+		store := make(map[string]mockstore.DBEntry)
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
@@ -454,7 +454,7 @@ func TestGetCredentials(t *testing.T) {
 		require.Equal(t, records[0].ID, sampleCredentialID)
 
 		// add some other values and make sure the GetCredential returns records as before
-		store["dummy-value"] = []byte("dummy-key")
+		store["dummy-value"] = mockstore.DBEntry{Value: []byte("dummy-key")}
 
 		records, err = s.GetCredentials()
 		require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestSaveVP(t *testing.T) {
 	t.Run("test save vp - error from store put", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -498,7 +498,7 @@ func TestSaveVP(t *testing.T) {
 	t.Run("test save vp - empty name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
 			}),
 		})
@@ -511,7 +511,7 @@ func TestSaveVP(t *testing.T) {
 	t.Run("test save vp - error getting existing mapping for name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -602,7 +602,7 @@ func TestGetVP(t *testing.T) {
 	t.Run("test error from store get", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -640,8 +640,8 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		store := make(map[string][]byte)
-		store[presentationNameDataKey(samplePresentationName)] = rbytes
+		store := make(map[string]mockstore.DBEntry)
+		store[presentationNameDataKey(samplePresentationName)] = mockstore.DBEntry{Value: rbytes}
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -656,7 +656,7 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 	t.Run("test get presentation based on name - db error", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -671,7 +671,7 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 
 func TestGetPresentations(t *testing.T) {
 	t.Run("test get save & presentations", func(t *testing.T) {
-		store := make(map[string][]byte)
+		store := make(map[string]mockstore.DBEntry)
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
@@ -691,7 +691,7 @@ func TestGetPresentations(t *testing.T) {
 		require.Equal(t, records[0].ID, samplePresentationID)
 
 		// add some other values and make sure the GetCredential returns records as before
-		store["dummy-value"] = []byte("dummy-key")
+		store["dummy-value"] = mockstore.DBEntry{Value: []byte("dummy-key")}
 
 		records, err = s.GetPresentations()
 		require.NoError(t, err)
@@ -710,7 +710,7 @@ func TestGetPresentations(t *testing.T) {
 	})
 
 	t.Run("test get presentations", func(t *testing.T) {
-		store := make(map[string][]byte)
+		store := make(map[string]mockstore.DBEntry)
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
@@ -763,7 +763,7 @@ func TestRemoveVC(t *testing.T) {
 	t.Run("test remove vc - error from store delete", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:     make(map[string][]byte),
+				Store:     make(map[string]mockstore.DBEntry),
 				ErrDelete: fmt.Errorf("error delete"),
 			}),
 		})
@@ -780,7 +780,7 @@ func TestRemoveVC(t *testing.T) {
 	t.Run("test remove vc - empty name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store: make(map[string][]byte),
+				Store: make(map[string]mockstore.DBEntry),
 			}),
 		})
 		require.NoError(t, err)
@@ -791,7 +791,7 @@ func TestRemoveVC(t *testing.T) {
 	t.Run("test remove vc - error removing non-existing credential", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store: make(map[string][]byte),
+				Store: make(map[string]mockstore.DBEntry),
 			}),
 		})
 		require.NoError(t, err)
@@ -802,7 +802,7 @@ func TestRemoveVC(t *testing.T) {
 	t.Run("test remove vc - error removing non-existing credential", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})
@@ -848,7 +848,7 @@ func TestRemoveVP(t *testing.T) {
 	t.Run("test remove vp - error from store delete", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:     make(map[string][]byte),
+				Store:     make(map[string]mockstore.DBEntry),
 				ErrDelete: fmt.Errorf("error delete"),
 			}),
 		})
@@ -865,7 +865,7 @@ func TestRemoveVP(t *testing.T) {
 	t.Run("test remove vp - empty name", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store: make(map[string][]byte),
+				Store: make(map[string]mockstore.DBEntry),
 			}),
 		})
 		require.NoError(t, err)
@@ -876,7 +876,7 @@ func TestRemoveVP(t *testing.T) {
 	t.Run("test remove vp - error removing non-existing presentation", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store: make(map[string][]byte),
+				Store: make(map[string]mockstore.DBEntry),
 			}),
 		})
 		require.NoError(t, err)
@@ -887,7 +887,7 @@ func TestRemoveVP(t *testing.T) {
 	t.Run("test remove vp - error getting id", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
 		})

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -23,9 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -38,8 +38,7 @@ func TestService_Use(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success (one function)", func(t *testing.T) {
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider := mem.NewProvider()
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
@@ -86,8 +85,7 @@ func TestService_Use(t *testing.T) {
 	})
 
 	t.Run("Success (two function)", func(t *testing.T) {
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider := mem.NewProvider()
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
@@ -115,8 +113,7 @@ func TestService_Use(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider := mem.NewProvider()
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
@@ -143,8 +140,7 @@ func TestNew(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider := mem.NewProvider()
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
@@ -181,6 +177,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+	storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -212,7 +209,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -254,7 +251,7 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
@@ -312,9 +309,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "offer-sent", string(name))
 
 			return nil
@@ -470,9 +467,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
 			return nil
@@ -526,9 +523,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
 
 			return nil
@@ -582,9 +579,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "request-sent", string(name))
 
 			return nil
@@ -640,9 +637,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "request-sent", string(name))
 
 			return nil
@@ -699,9 +696,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
 			return nil
@@ -755,9 +752,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "credential-issued", string(name))
 
 			return nil
@@ -800,9 +797,9 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			defer close(done)
 
 			require.Equal(t, "done", string(name))
@@ -847,9 +844,9 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			defer close(done)
 
 			require.Equal(t, "done", string(name))
@@ -905,9 +902,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
 			return nil
@@ -987,9 +984,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
 			return nil
@@ -1032,7 +1029,7 @@ func TestService_HandleInbound(t *testing.T) {
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("credential-issued"), nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			defer close(done)
 
 			require.Equal(t, "done", string(name))
@@ -1089,6 +1086,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+	storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -1290,6 +1288,7 @@ func TestService_ActionContinue(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -1316,6 +1315,7 @@ func TestService_ActionContinue(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -1343,6 +1343,7 @@ func TestService_ActionStop(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -1369,6 +1370,7 @@ func TestService_ActionStop(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 

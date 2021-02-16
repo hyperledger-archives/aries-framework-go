@@ -154,8 +154,8 @@ func TestProfileStore(t *testing.T) {
 		// unmarshal error test
 		profileStore, err = newProfileStore(&mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{
-				Store: map[string][]byte{
-					getUserKeyPrefix(sampleProfileUser2): []byte("----"),
+				Store: map[string]mockstorage.DBEntry{
+					getUserKeyPrefix(sampleProfileUser2): {Value: []byte("----")},
 				},
 			},
 		})

@@ -33,8 +33,8 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestAuthryptPackerSuccess(t *testing.T) {
@@ -78,7 +78,7 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 			t.Logf("authcrypt packing - creating recipient %s keys...", tc.keyType)
 			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
-			thirdPartyKeyStore := make(map[string][]byte)
+			thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
 			mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 				Store: thirdPartyKeyStore,
 			}}
@@ -91,7 +91,7 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 
 			// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
 			fromWrappedKID := prefix.StorageKIDPrefix + skid
-			thirdPartyKeyStore[fromWrappedKID] = senderKey
+			thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
 
 			origMsg := []byte("secret message")
 			ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
@@ -152,7 +152,7 @@ func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
-	thirdPartyKeyStore := make(map[string][]byte)
+	thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
 	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 		Store: thirdPartyKeyStore,
 	}}
@@ -165,7 +165,7 @@ func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 
 	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
 	fromWrappedKID := prefix.StorageKIDPrefix + skid
-	thirdPartyKeyStore[fromWrappedKID] = senderKey
+	thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
 
 	origMsg := []byte("secret message")
 	ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
@@ -216,7 +216,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdpartykeysdb")
 	})
 
-	mockStoreMap := make(map[string][]byte)
+	mockStoreMap := make(map[string]mockstorage.DBEntry)
 	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 		Store: mockStoreMap,
 	}}
@@ -231,7 +231,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
 	require.NoError(t, err)
 
-	mockStoreMap[skid] = senderKey
+	mockStoreMap[skid] = mockstorage.DBEntry{Value: senderKey}
 	skidB := []byte(skid)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {

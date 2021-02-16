@@ -921,7 +921,7 @@ func TestECDH1PU(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, jweEnc)
 
-			mockStoreMap := make(map[string][]byte)
+			mockStoreMap := make(map[string]mockstorage.DBEntry)
 			mockStore := &mockstorage.MockStore{
 				Store: mockStoreMap,
 			}
@@ -991,7 +991,7 @@ func TestECDH1PU(t *testing.T) {
 			})
 
 			// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
-			mockStoreMap[senderKIDs[0]] = senderPubKey
+			mockStoreMap[senderKIDs[0]] = mockstorage.DBEntry{Value: senderPubKey}
 
 			t.Run("Decrypting JWE message test success", func(t *testing.T) {
 				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)

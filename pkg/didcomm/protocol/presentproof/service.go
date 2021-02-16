@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -169,6 +169,11 @@ func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Name)
 	if err != nil {
 		return nil, err
+	}
+
+	err = p.StorageProvider().SetStoreConfig(Name, storage.StoreConfiguration{TagNames: []string{transitionalPayloadKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	svc := &Service{
@@ -451,7 +456,7 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 		return fmt.Errorf("marshal transitional payload: %w", err)
 	}
 
-	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src, storage.Tag{Name: transitionalPayloadKey})
 }
 
 // canTriggerActionEvents checks if the incoming message can trigger an action event.
@@ -484,25 +489,37 @@ func (s *Service) deleteTransitionalPayload(id string) error {
 
 // Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
-	records := s.store.Iterator(
-		fmt.Sprintf(transitionalPayloadKey, ""),
-		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
-	)
-	defer records.Release()
+	records, err := s.store.Query(transitionalPayloadKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query store: %w", err)
+	}
+
+	defer storage.Close(records, logger)
 
 	var actions []Action
 
-	for records.Next() {
+	more, err := records.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next set of data from records: %w", err)
+	}
+
+	for more {
+		value, err := records.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from records: %w", err)
+		}
+
 		var action Action
-		if err := json.Unmarshal(records.Value(), &action); err != nil {
-			return nil, fmt.Errorf("unmarshal: %w", err)
+		if errUnmarshal := json.Unmarshal(value, &action); errUnmarshal != nil {
+			return nil, fmt.Errorf("unmarshal: %w", errUnmarshal)
 		}
 
 		actions = append(actions, action)
-	}
 
-	if records.Error() != nil {
-		return nil, records.Error()
+		more, err = records.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next set of data from records: %w", err)
+		}
 	}
 
 	return actions, nil

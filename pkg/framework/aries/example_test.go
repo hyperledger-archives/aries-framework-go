@@ -9,16 +9,16 @@ package aries
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func Example() {
 	// create the framework with user options
 	framework, err := New(
 		WithInboundTransport(newMockInTransport()),
-		WithStoreProvider(newMockDBProvider()),
-		WithProtocolStateStoreProvider(newMockDBProvider()),
+		WithStoreProvider(mem.NewProvider()),
+		WithProtocolStateStoreProvider(mem.NewProvider()),
 	)
 	if err != nil {
 		fmt.Println("failed to create framework")
@@ -56,24 +56,4 @@ func (c *mockInTransport) Stop() error {
 
 func (c *mockInTransport) Endpoint() string {
 	return "http://server"
-}
-
-// mock DB provider.
-type mockDBProvider struct {
-}
-
-func newMockDBProvider() *mockDBProvider {
-	return &mockDBProvider{}
-}
-
-func (c *mockDBProvider) OpenStore(name string) (storage.Store, error) {
-	return nil, nil
-}
-
-func (c *mockDBProvider) CloseStore(name string) error {
-	return nil
-}
-
-func (c *mockDBProvider) Close() error {
-	return nil
 }
