@@ -99,7 +99,8 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	return p.stores[name], nil
 }
 
-// SetStoreConfig sets the configuration on a store.
+// SetStoreConfig sets the configuration on a store. This must be done before storing any data in order to make use
+// of the Query method.
 // TODO (#2540): Use proper IndexedDB indexing instead of the "Tag Map" once aries-framework-go is updated to use the
 // new storage interface. The tag names used in the predefined stores (see getStoreNames()) will need to be passed in
 // somehow.
@@ -122,7 +123,7 @@ func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration
 	// Create the tag map if it doesn't exist already.
 	_, err = store.Get(tagMapKey)
 	if errors.Is(err, storage.ErrDataNotFound) {
-		err = store.Put(tagMapKey, []byte(""))
+		err = store.Put(tagMapKey, []byte("{}"))
 		if err != nil {
 			return fmt.Errorf(`failed to create tag map for "%s": %w`, name, err)
 		}
@@ -287,6 +288,10 @@ func (s *store) Query(expression string, options ...storage.QueryOption) (storag
 
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil, fmt.Errorf("tag map not found. Was the store configuration set? error: %w", err)
+		}
+
 		return nil, fmt.Errorf("failed to get tag map: %w", err)
 	}
 
@@ -334,6 +339,11 @@ func (s *store) Delete(k string) error {
 		return fmt.Errorf("failed to delete data with key: %s - error: %w", k, err)
 	}
 
+	err = s.removeFromTagMap(k)
+	if err != nil {
+		return fmt.Errorf("failed to remove key from tag map: %w", err)
+	}
+
 	return nil
 }
 
@@ -368,18 +378,18 @@ func (s *store) Close() error {
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return fmt.Errorf("tag map not found. Was the store configuration set? error: %w", err)
+		}
+
 		return fmt.Errorf("failed to get tag map: %w", err)
 	}
 
 	var tagMap tagMapping
 
-	if len(tagMapBytes) > 0 {
-		err = json.Unmarshal(tagMapBytes, &tagMap)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
-		}
-	} else {
-		tagMap = make(map[string]map[string]struct{})
+	err = json.Unmarshal(tagMapBytes, &tagMap)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
 	}
 
 	for _, tag := range tags {
@@ -388,6 +398,42 @@ func (s *store) updateTagMap(key string, tags []storage.Tag) error {
 		}
 
 		tagMap[tag.Name][key] = struct{}{}
+	}
+
+	tagMapBytes, err = json.Marshal(tagMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated tag map: %w", err)
+	}
+
+	err = s.Put(tagMapKey, tagMapBytes)
+	if err != nil {
+		return fmt.Errorf("failed to put updated tag map back into the store: %w", err)
+	}
+
+	return nil
+}
+
+func (s *store) removeFromTagMap(keyToRemove string) error {
+	tagMapBytes, err := s.Get(tagMapKey)
+	if err != nil {
+		// If there's no tag map, then this means that no store configuration was set.
+		// Nothing needs to be done in this case, as it means that this store doesn't use tags.
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil
+		}
+
+		return fmt.Errorf("failed to get tag map: %w", err)
+	}
+
+	var tagMap tagMapping
+
+	err = json.Unmarshal(tagMapBytes, &tagMap)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
+	}
+
+	for _, tagNameToKeys := range tagMap {
+		delete(tagNameToKeys, keyToRemove)
 	}
 
 	tagMapBytes, err = json.Marshal(tagMap)

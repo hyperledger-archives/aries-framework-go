@@ -1,3 +1,7 @@
+// Copyright SecureKey Technologies Inc. All Rights Reserved.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/hyperledger/aries-framework-go/component/storage/edv
 
 go 1.15
@@ -10,7 +14,6 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.6-0.20210205204348-bdf6f43f8864
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210205204348-bdf6f43f8864
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210205204348-bdf6f43f8864
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210205204348-bdf6f43f8864
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210219073333-c46e84ce678f
 	github.com/stretchr/testify v1.7.0
-
 )

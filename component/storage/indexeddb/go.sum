@@ -109,8 +109,8 @@ github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9/g
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20210205153949-f852f978a0d6/go.mod h1:fDr9wW00GJJl1lR1SFHmJW8utIocdvjO5RNhAYS05EY=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20210209165120-79220075f539 h1:cf6j6+j9C5XmpOC31fnhEeEsg8bFdRoPjKXw/SZ/mbs=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20210209165120-79220075f539/go.mod h1:fDr9wW00GJJl1lR1SFHmJW8utIocdvjO5RNhAYS05EY=
-github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210212132055-b94cce120dda h1:9D2UmkqEPGYxDyVeJNX57geI6ivgjlnlZcIKOBShLuc=
-github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210212132055-b94cce120dda/go.mod h1:/ljIFCu5iDIziwuvObF0vEc3fJ5dgDpT8RYAhQdNeHI=
+github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210219073333-c46e84ce678f h1:TLj32iLLK6/bhvfJruWqjlgbw/OsC5+dMjwxpLf1D9s=
+github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210219073333-c46e84ce678f/go.mod h1:/ljIFCu5iDIziwuvObF0vEc3fJ5dgDpT8RYAhQdNeHI=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a h1:zPPuIq2jAWWPTrGt70eK/BSch+gFAGrNzecsoENgu2o=
