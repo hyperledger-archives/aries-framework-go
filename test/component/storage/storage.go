@@ -844,6 +844,57 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
 		})
 	})
+	t.Run("Tag name and value query - only 1 value found "+
+		"(would have been two, but the other was deleted before the query was executed)", func(t *testing.T) {
+		keysToPut := []string{"key1", "key2", "key3", "key4"}
+		valuesToPut := [][]byte{[]byte("value1"), []byte("value2"), []byte("value3"), []byte("value4")}
+		tagsToPut := [][]spi.Tag{
+			{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}},
+			{{Name: "tagName3", Value: "tagValue1"}, {Name: "tagName4"}},
+			{{Name: "tagName3", Value: "tagValue2"}},
+			{{Name: "tagName3", Value: "tagValue1"}},
+		}
+
+		expectedKeys := []string{keysToPut[3]}
+		expectedValues := [][]byte{valuesToPut[3]}
+		expectedTags := [][]spi.Tag{tagsToPut[3]}
+
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+		require.NoError(t, err)
+
+		putData(t, store, keysToPut, valuesToPut, tagsToPut)
+
+		err = store.Delete("key2")
+		require.NoError(t, err)
+
+		iterator, err := store.Query("tagName3:tagValue1")
+		require.NoError(t, err)
+
+		verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+	})
+	t.Run("Tag name and value query - 0 values found since the store is empty", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
+		require.NoError(t, err)
+
+		iterator, err := store.Query("tagName3:tagValue1")
+		require.NoError(t, err)
+
+		verifyExpectedIterator(t, iterator, nil, nil, nil)
+	})
 	t.Run("Invalid expression formats", func(t *testing.T) {
 		storeName := randomStoreName()
 
