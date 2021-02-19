@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 syntax = "proto3";
 
 package google.crypto.tink;
+import "proto/common.proto";
 
 option java_package = "com.google.crypto.tink.proto";
 option java_multiple_files = true;
@@ -21,7 +22,7 @@ option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto
 
 // BBSCurveType, bls12-381 is the only supported BBS+ curve.
 enum BBSCurveType {
-  UNKNOWN_KEY_TYPE = 0;
+  UNKNOWN_BBS_CURVE_TYPE = 0;
   BLS12_381 = 1;
   // BLS12_461 = 2;
   // BLS24_479 = 3;
@@ -36,22 +37,27 @@ enum GroupField {
   G2 = 2;
 }
 
-// BBSPublicKey represents BBSVerify/BBSVerifyProof primitive.
-// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey
-message BBSPublicKey {
+// Parameters of BBS keys.
+message BBSParams {
   // Required.
-  uint32 version = 1;
+  HashType hash_type = 1;
 
   // Required.
   BBSCurveType curve = 2;
 
   // Required.
   GroupField group = 3;
+}
 
+// BBSPublicKey represents BBSVerify/BBSVerifyProof primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey
+message BBSPublicKey {
   // Required.
-  string KID = 4;
+  uint32 version = 1;
 
-  bytes key_value = 5; // Big integer in bigendian representation.
+  BBSParams params = 2;
+
+  bytes key_value = 3; // json marshalled bbs public key value.
 }
 
 // BBSPrivateKey represents BBSSign/BBSProof primitive.
@@ -64,5 +70,11 @@ message BBSPrivateKey {
   BBSPublicKey public_key = 2;
 
   // Required.
-  bytes key_value = 3; // Big integer in bigendian representation.
+  bytes key_value = 3; // json marshalled bbs private key value.
+}
+
+//
+message BBSKeyFormat {
+  // Required.
+  BBSParams params = 1;
 }
