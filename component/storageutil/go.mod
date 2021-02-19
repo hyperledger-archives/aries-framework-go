@@ -9,7 +9,7 @@ go 1.15
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210210184327-0b9d0fd4c34e
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210210184327-0b9d0fd4c34e
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210219073333-c46e84ce678f
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
