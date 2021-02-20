@@ -11,13 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 )
 
 const (
@@ -417,7 +417,7 @@ func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interfa
 
 func createCachingDocumentLoader(loader ld.DocumentLoader) *ld.CachingDocumentLoader {
 	if loader == nil {
-		return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+		return jsonld.NewCachingDocumentLoader()
 	}
 
 	if cachingLoader, ok := loader.(*ld.CachingDocumentLoader); ok {

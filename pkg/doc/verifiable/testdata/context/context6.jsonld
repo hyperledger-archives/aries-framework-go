@@ -1,0 +1,5 @@
+{
+  "@context": {
+    "referenceNumber": "https://example.com/vocab#referenceNumber"
+  }
+}

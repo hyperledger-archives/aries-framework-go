@@ -8,12 +8,12 @@ package verifiable
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
 
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
@@ -259,7 +259,8 @@ const vcJSONLD = `
 
 // CachingJSONLDLoader creates JSON_LD CachingDocumentLoader with preloaded base JSON-LD document.
 func CachingJSONLDLoader() *ld.CachingDocumentLoader {
-	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	// TODO: remove remote as default
+	loader := jld.NewCachingDocumentLoaderWithRemote()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(vcJSONLD))
 	if err != nil {

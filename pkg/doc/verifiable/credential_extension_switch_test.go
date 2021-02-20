@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -170,40 +168,10 @@ func hasType(allTypes []string, targetType string) bool {
 func TestCredentialExtensibilitySwitch(t *testing.T) {
 	producers := []CustomCredentialProducer{NewCred1Producer(), NewCred2Producer()}
 
-	jsonldContext1 := `
-{
-  "@context": {
-    "c1": "https://example.com/vocab#c1",
-    "s1": "https://example.com/vocab#s1"
-  }
-}
-`
-
-	jsonldContext2 := `
-{
-  "@context": {
-    "c2": "https://example.com/vocab#c2",
-    "s2": "https://example.com/vocab#s2"
-  }
-}
-`
-
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		if req.URL.Query()["context"][0] == "1" {
-			res.WriteHeader(http.StatusOK)
-			_, err := res.Write([]byte(jsonldContext1))
-			require.NoError(t, err)
-		} else {
-			res.WriteHeader(http.StatusOK)
-			_, err := res.Write([]byte(jsonldContext2))
-			require.NoError(t, err)
-		}
-	}))
-
-	defer func() { testServer.Close() }()
+	contextURL := "http://127.0.0.1"
 
 	// Producer1 applied.
-	i1, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred1, testServer.URL+"?context=1")), producers)
+	i1, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred1, contextURL+"?context=1")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -214,7 +182,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
 	// Producer2 applied.
-	i2, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred2, testServer.URL+"?context=2")), producers)
+	i2, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred2, contextURL+"?context=2")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)

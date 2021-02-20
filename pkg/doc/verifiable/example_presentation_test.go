@@ -261,7 +261,13 @@ func ExamplePresentation_SetCredentials() {
 	// The second VC is provided in JWS form (e.g. kept in the wallet in that form).
 	vcJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6W10sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.AHn2A2q5DL1heX3_izq_2yrsBDhoZ6BGGKhoRvhfMnMUuuOnBOdekdTg-dfUMJgipXRql_6WzBUIj4wTFehXCw" // nolint:lll
 
-	err := vp.SetCredentials(vc, vcJWS, vcStr)
+	vc2, err := verifiable.ParseUnverifiedCredential([]byte(vcStr),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	err = vp.SetCredentials(vc, vcJWS, vc2)
 	if err != nil {
 		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
@@ -634,7 +640,7 @@ func ExamplePresentation_AddLinkedDataProof() {
 	}
 
 	// 2. ISSUER creates a VP with the VC enclosed.
-	vcFromHolderWallet, err := verifiable.ParseUnverifiedCredential(issuedVCBytes)
+	vcFromHolderWallet, err := verifiable.ParseUnverifiedCredential(issuedVCBytes, verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}

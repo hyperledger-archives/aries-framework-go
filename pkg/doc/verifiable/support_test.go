@@ -137,7 +137,8 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 }
 
 func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
-	vc, err := ParseUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -164,7 +165,8 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 }
 
 func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
-	vc, err := ParseUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -270,6 +272,14 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 	addJSONLDCachedContextFromFile(loader,
 		"https://w3id.org/citizenship/v1",
 		"citizenship.jsonld")
+
+	addJSONLDCachedContextFromFile(loader,
+		"http://127.0.0.1?context=1",
+		"context1.jsonld")
+
+	addJSONLDCachedContextFromFile(loader,
+		"http://127.0.0.1?context=2",
+		"context2.jsonld")
 
 	return loader
 }

@@ -1,0 +1,6 @@
+{
+  "@context": {
+    "c1": "https://example.com/vocab#c1",
+    "s1": "https://example.com/vocab#s1"
+  }
+}

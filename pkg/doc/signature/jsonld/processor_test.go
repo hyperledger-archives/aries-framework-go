@@ -9,12 +9,13 @@ package jsonld
 import (
 	"encoding/json"
 	"log"
-	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 )
 
 func TestGetCanonicalDocument(t *testing.T) {
@@ -95,7 +96,7 @@ func TestGetCanonicalDocument(t *testing.T) {
 				opts: []ProcessorOpts{
 					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
 					WithDocumentLoaderCache(createContextCache("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
-					WithDocumentLoader(ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))),
+					WithDocumentLoader(jsonld.NewCachingDocumentLoader()),
 				},
 			},
 			{
@@ -105,7 +106,7 @@ func TestGetCanonicalDocument(t *testing.T) {
 				opts: []ProcessorOpts{
 					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
 					WithDocumentLoaderCache(createContextCache("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
-					WithDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{})),
+					WithDocumentLoader(jsonld.NewCachingDocumentLoader()),
 				},
 			},
 			{
@@ -265,7 +266,7 @@ func TestCompact(t *testing.T) {
 }
 
 func createInMemoryDocumentLoader(url, inMemoryContext string) *ld.CachingDocumentLoader {
-	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	loader := jsonld.NewCachingDocumentLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(inMemoryContext))
 	if err != nil {

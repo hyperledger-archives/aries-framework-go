@@ -7,8 +7,6 @@ package verifiable
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,26 +14,7 @@ import (
 
 func Test_compactJSONLD(t *testing.T) {
 	t.Run("Extended both basic VC and subject model", func(t *testing.T) {
-		jsonldContext := `
-{
-  "@context": {
-    "referenceNumber": "https://example.com/vocab#referenceNumber",
-    "favoriteFood": "https://example.com/vocab#favoriteFood",
-    "name": "https://example.com/vocab#name",
-    "CustomExt12": "https://example.com/vocab#CustomExt12"
-  }
-}
-`
-
-		loadsCount := 0
-		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			loadsCount++
-			res.WriteHeader(http.StatusOK)
-			_, err := res.Write([]byte(jsonldContext))
-			require.NoError(t, err)
-		}))
-
-		defer func() { testServer.Close() }()
+		contextURL := "http://127.0.0.1?context=3"
 
 		vcJSONTemplate := `{
   "@context": [
@@ -99,40 +78,24 @@ func Test_compactJSONLD(t *testing.T) {
   ]
 }
 `
-		vc := fmt.Sprintf(vcJSONTemplate, testServer.URL)
+		vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		opts := &jsonldCredentialOpts{jsonldDocumentLoader: CachingJSONLDLoader()}
+		loader := CachingJSONLDLoader()
+		addJSONLDCachedContextFromFile(loader,
+			"http://127.0.0.1?context=3",
+			"context3.jsonld")
+
+		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
 		err := compactJSONLD(vc, opts, true)
 		require.NoError(t, err)
-		require.Equal(t, 1, loadsCount)
-
-		// Use same the loader, make sure that the cache of the JSON-LD schema is used
-		// and thus no extra load of the schema is made.
-		err = compactJSONLD(vc, opts, true)
-		require.NoError(t, err)
-		require.Equal(t, 1, loadsCount)
 	})
-
-	jsonldContext := `
-{
-  "@context": {
-    "referenceNumber": "https://example.com/vocab#referenceNumber",
-    "CustomExt12": "https://example.com/vocab#CustomExt12"
-  }
-}
-`
-
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte(jsonldContext))
-		require.NoError(t, err)
-	}))
-
-	defer func() { testServer.Close() }()
 
 	t.Run("Extended basic VC model, credentialSubject is defined as string (ID only)", func(t *testing.T) {
 		// Use a different VC to verify the case when credentialSubject is a string (i.e. ID is defined only).
+
+		contextURL := "http://127.0.0.1?context=4"
+
 		vcJSONTemplate := `
 {
   "@context": [
@@ -150,30 +113,22 @@ func Test_compactJSONLD(t *testing.T) {
   "credentialSubject": "did:example:abcdef1234567"
 }
 `
-		vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
+		vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		err := compactJSONLD(vcJSON, defaultOpts(), true)
+		loader := CachingJSONLDLoader()
+		addJSONLDCachedContextFromFile(loader,
+			"http://127.0.0.1?context=4",
+			"context4.jsonld")
+
+		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
+
+		err := compactJSONLD(vcJSON, opts, true)
 		require.NoError(t, err)
 	})
 }
 
 func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
-	jsonldContext := `
-{
-  "@context": {
-    "favoriteFood": "https://example.com/vocab#favoriteFood",
-    "name": "https://example.com/vocab#name"
-  }
-}
-`
-
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte(jsonldContext))
-		require.NoError(t, err)
-	}))
-
-	defer func() { testServer.Close() }()
+	contextURL := "http://127.0.0.1?context=5"
 
 	vcJSONTemplate := `
 {
@@ -193,29 +148,26 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
   }
 }
 `
-	vc := fmt.Sprintf(vcJSONTemplate, testServer.URL)
+	vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-	err := compactJSONLD(vc, defaultOpts(), true)
+	loader := CachingJSONLDLoader()
+	addJSONLDCachedContextFromFile(loader,
+		"http://127.0.0.1?context=5",
+		"context5.jsonld")
+
+	opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
+
+	err := compactJSONLD(vc, opts, true)
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
 func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
-	jsonldContext := `
-{
-  "@context": {
-    "referenceNumber": "https://example.com/vocab#referenceNumber"
-  }
-}
-`
-
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte(jsonldContext))
-		require.NoError(t, err)
-	}))
-
-	defer func() { testServer.Close() }()
+	contextURL := "http://127.0.0.1?context=6"
+	loader := CachingJSONLDLoader()
+	addJSONLDCachedContextFromFile(loader,
+		"http://127.0.0.1?context=6",
+		"context6.jsonld")
 
 	t.Run("Extended basic VC model, credentialSubject is defined as object - undefined fields present",
 		func(t *testing.T) {
@@ -244,9 +196,10 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 }
 `
 
-			vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
+			vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
+			opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-			err := compactJSONLD(vcJSON, defaultOpts(), true)
+			err := compactJSONLD(vcJSON, opts, true)
 			require.Error(t, err)
 			require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		})
@@ -277,9 +230,10 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 }
 `
 
-		vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
+		vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
+		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-		err := compactJSONLD(vcJSON, defaultOpts(), true)
+		err := compactJSONLD(vcJSON, opts, true)
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 	})

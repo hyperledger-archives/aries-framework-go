@@ -205,18 +205,12 @@ func (vp *Presentation) SetCredentials(creds ...interface{}) error {
 	var vpCreds []interface{}
 
 	convertToVC := func(vcStr string) (interface{}, error) {
-		// Check if passed VC is correct one.
-		vc, err := ParseUnverifiedCredential([]byte(vcStr))
-		if err != nil {
-			return nil, fmt.Errorf("check VC: %w", err)
-		}
-
 		// If VC was passed in JWT form, left it as is. Otherwise, return parsed VC
 		if jose.IsCompactJWS(vcStr) {
 			return vcStr, nil
 		}
 
-		return vc, nil
+		return nil, errors.New("string is not compact JWS")
 	}
 
 	for i := range creds {

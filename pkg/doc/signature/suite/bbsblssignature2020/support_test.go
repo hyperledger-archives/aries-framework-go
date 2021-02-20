@@ -8,11 +8,12 @@ package bbsblssignature2020
 
 import (
 	"io/ioutil"
-	"net/http"
 	"path/filepath"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 )
 
 const jsonldContextPrefix = "testdata/context"
@@ -28,7 +29,7 @@ func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL
 }
 
 func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
-	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	loader := jsonld.NewCachingDocumentLoader()
 
 	addJSONLDCachedContextFromFile(loader,
 		"https://www.w3.org/2018/credentials/v1", "vc.jsonld")
