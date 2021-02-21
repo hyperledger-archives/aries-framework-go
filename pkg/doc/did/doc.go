@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +21,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -1318,7 +1318,7 @@ func BuildDoc(opts ...DocOption) *Doc {
 
 // CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded base JSON-LD DID and security contexts.
 func CachingJSONLDLoader() ld.DocumentLoader {
-	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	loader := jld.NewCachingDocumentLoader()
 
 	cacheContext := func(source, url string) {
 		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck

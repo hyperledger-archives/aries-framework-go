@@ -1,0 +1,8 @@
+{
+  "@context": {
+    "referenceNumber": "https://example.com/vocab#referenceNumber",
+    "favoriteFood": "https://example.com/vocab#favoriteFood",
+    "name": "https://example.com/vocab#name",
+    "CustomExt12": "https://example.com/vocab#CustomExt12"
+  }
+}

@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -20,7 +21,7 @@ import (
 const jsonldContextPrefix = "data/context"
 
 func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
-	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+	loader := newCachingDocumentLoader()
 
 	addJSONLDCachedContextFromFile(loader,
 		"https://www.w3.org/2018/credentials/v1", "vc.jsonld")
@@ -58,4 +59,21 @@ func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contex
 	}
 
 	loader.AddDocument(contextURL, reader)
+}
+
+// newCachingDocumentLoader creates a Document Loader with default framework options.
+func newCachingDocumentLoader() *ld.CachingDocumentLoader {
+	return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(httpclient()))
+}
+
+type disabledNetworkTransport struct{}
+
+func (*disabledNetworkTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return nil, fmt.Errorf("network is disabled [%s]", r.URL)
+}
+
+func httpclient() *http.Client {
+	return &http.Client{
+		Transport: &disabledNetworkTransport{},
+	}
 }

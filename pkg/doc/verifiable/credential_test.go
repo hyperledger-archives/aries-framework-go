@@ -1864,7 +1864,8 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
-		vcUnverified, err := ParseUnverifiedCredential([]byte(jws))
+		vcUnverified, err := ParseUnverifiedCredential([]byte(jws),
+			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
 		require.Equal(t, vc, vcUnverified)
@@ -1888,7 +1889,8 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// Parse VC with linked data proof.
-		vcUnverified, err := ParseUnverifiedCredential(vcBytes)
+		vcUnverified, err := ParseUnverifiedCredential(vcBytes,
+			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
 		require.Equal(t, vc, vcUnverified)

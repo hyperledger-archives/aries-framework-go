@@ -148,7 +148,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 }
 
 func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
-	vc, err := ParseUnverifiedCredential([]byte(vcJSON))
+	vc, err := ParseUnverifiedCredential([]byte(vcJSON), WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	require.NoError(t, err)
 
 	ed25519SignerSuite := ed25519signature2018.New(
@@ -173,7 +173,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Creden
 }
 
 func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
-	vc, err := ParseUnverifiedCredential([]byte(vcJSON))
+	vc, err := ParseUnverifiedCredential([]byte(vcJSON), WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	require.NoError(t, err)
 
 	ed25519SignerSuite := ecdsasecp256k1signature2019.New(

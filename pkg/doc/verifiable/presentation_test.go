@@ -401,27 +401,14 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	r := require.New(t)
 	vp := Presentation{}
 
-	vc, err := ParseUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	// Pass Credential struct pointer
 	err = vp.SetCredentials(vc)
 	r.NoError(err)
 	r.Len(vp.credentials, 1)
-	r.Equal(vc, vp.credentials[0])
-
-	// Pass VC marshalled into JSON bytes
-	err = vp.SetCredentials([]byte(validCredential))
-	r.NoError(err)
-	r.Len(vp.credentials, 1)
-	// VC JSON bytes is converted to vc struct
-	r.Equal(vc, vp.credentials[0])
-
-	// Pass VC marshalled into JSON string
-	err = vp.SetCredentials(validCredential)
-	r.NoError(err)
-	r.Len(vp.credentials, 1)
-	// VC JSON string is converted to vc struct
 	r.Equal(vc, vp.credentials[0])
 
 	// Pass VC marshalled into unsecured JWT
@@ -438,23 +425,11 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	r.Equal(jwt, vp.credentials[0])
 
 	// set multiple credentials
-	err = vp.SetCredentials(vc, jwt, validCredential, []byte(validCredential))
+	err = vp.SetCredentials(vc, jwt)
 	r.NoError(err)
-	r.Len(vp.credentials, 4)
+	r.Len(vp.credentials, 2)
 	r.Equal(vc, vp.credentials[0])
 	r.Equal(jwt, vp.credentials[1])
-	r.Equal(vc, vp.credentials[2])
-	r.Equal(vc, vp.credentials[3])
-
-	// Error - invalid VC in string form
-	err = vp.SetCredentials("invalid VC")
-	r.Error(err)
-	r.Contains(err.Error(), "check VC")
-
-	// Error - invalid VC in bytes form
-	err = vp.SetCredentials([]byte("invalid VC"))
-	r.Error(err)
-	r.Contains(err.Error(), "check VC")
 
 	// Error - pass unsupported type
 	vpOther := &Presentation{}
