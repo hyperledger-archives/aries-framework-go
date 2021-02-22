@@ -187,6 +187,8 @@ github.com/hyperledger/aries-framework-go/spi v0.0.0-20210209165120-79220075f539
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20210209165120-79220075f539/go.mod h1:fDr9wW00GJJl1lR1SFHmJW8utIocdvjO5RNhAYS05EY=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210209165120-79220075f539 h1:HYD2yAgBLp5hsG3GRaFhJNhfdtk4lx1m2Aq+lXcP+ZE=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210209165120-79220075f539/go.mod h1:/ljIFCu5iDIziwuvObF0vEc3fJ5dgDpT8RYAhQdNeHI=
+github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210212132055-b94cce120dda h1:9D2UmkqEPGYxDyVeJNX57geI6ivgjlnlZcIKOBShLuc=
+github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210212132055-b94cce120dda/go.mod h1:/ljIFCu5iDIziwuvObF0vEc3fJ5dgDpT8RYAhQdNeHI=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a h1:zPPuIq2jAWWPTrGt70eK/BSch+gFAGrNzecsoENgu2o=

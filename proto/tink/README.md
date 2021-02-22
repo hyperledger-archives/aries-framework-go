@@ -30,6 +30,9 @@ proto_library(
     srcs = [
         "bbs.proto",
     ],
+    deps = [
+        ":common_go_proto",
+    ],
 )
 ```
 Note: if you don't have Bazlisk installed, Tink's build tool, please do so before proceeding. 
@@ -51,6 +54,9 @@ go_proto_library(
     name = "bbs_go_proto",
     importpath = "github.com/google/tink/go/proto/bbs_go_proto",
     proto = "@tink_base//proto:bbs_proto",
+    deps = [
+        ":common_go_proto",
+    ],
 )
 ```
 
