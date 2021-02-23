@@ -102,6 +102,13 @@ issues:
         - dupl
         - funlen
         - gomnd
+    - path: example_[^\/]*_test\.go
+      linters:
+        - dupl
+        - funlen
+        - gomnd
+        - goconst
+        - lll
     - source: "swagger:route"
       linters:
         - lll

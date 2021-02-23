@@ -1462,18 +1462,3 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 
 	return byteCred, nil
 }
-
-// Presentation encloses credential into presentation.
-func (vc *Credential) Presentation() (*Presentation, error) {
-	vp := Presentation{
-		Context: []string{baseContext},
-		Type:    []string{vpType},
-	}
-
-	err := vp.SetCredentials(vc)
-	if err != nil {
-		return nil, fmt.Errorf("build presentation from credential: %w", err)
-	}
-
-	return &vp, nil
-}

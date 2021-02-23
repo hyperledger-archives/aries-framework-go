@@ -675,7 +675,7 @@ func (o *Command) RemovePresentationByName(rw io.Writer, req io.Reader) command.
 	return nil
 }
 
-func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verifiable.Presentation,
+func (o *Command) generatePresentation(rw io.Writer, vcs []*verifiable.Credential, p *verifiable.Presentation,
 	holder string, opts *ProofOptions) command.Error {
 	// prepare vp
 	vp, err := o.createAndSignPresentation(vcs, p, holder, opts)
@@ -714,16 +714,11 @@ func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credenti
 	return nil
 }
 
-func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verifiable.Presentation,
+func (o *Command) createAndSignPresentation(credentials []*verifiable.Credential, vp *verifiable.Presentation,
 	holder string, opts *ProofOptions) ([]byte, error) {
 	var err error
 	if vp == nil {
-		vp, err = credentials[0].(*verifiable.Credential).Presentation()
-		if err != nil {
-			return nil, err
-		}
-		// Add array of credentials in the presentation
-		err = vp.SetCredentials(credentials...)
+		vp, err = verifiable.NewPresentation(verifiable.WithCredentials(credentials...))
 		if err != nil {
 			return nil, fmt.Errorf("failed to set credentials: %w", err)
 		}
@@ -749,7 +744,7 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 		return nil, err
 	}
 
-	vp, err := vc.Presentation()
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vp by ID: %w", err)
 	}
@@ -799,8 +794,8 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 }
 
 func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
-	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
-	var vcs []interface{}
+	didDoc *did.Doc) ([]*verifiable.Credential, *verifiable.Presentation, *ProofOptions, error) {
+	var vcs []*verifiable.Credential
 
 	for _, vcRaw := range request.VerifiableCredentials {
 		var credOpts []verifiable.CredentialOpt
@@ -833,7 +828,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 }
 
 func (o *Command) parsePresentation(request *PresentationRequest,
-	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
+	didDoc *did.Doc) ([]*verifiable.Credential, *verifiable.Presentation, *ProofOptions, error) {
 	presentation, err := verifiable.ParseUnverifiedPresentation(request.Presentation)
 	if err != nil {
 		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
@@ -852,7 +847,7 @@ func (o *Command) parsePresentation(request *PresentationRequest,
 }
 
 func (o *Command) parsePresentationRequest(request *PresentationRequest,
-	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
+	didDoc *did.Doc) ([]*verifiable.Credential, *verifiable.Presentation, *ProofOptions, error) {
 	if request.ProofOptions == nil || request.SignatureType == "" {
 		return nil, nil, nil, fmt.Errorf("invalid request, signature type empty")
 	}

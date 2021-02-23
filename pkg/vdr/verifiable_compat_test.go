@@ -63,7 +63,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		require.NoError(t, err)
 
 		// alice encloses her VC in a VP
-		expectedVP, err := expectedVC.Presentation()
+		expectedVP, err := verifiable.NewPresentation(verifiable.WithCredentials(expectedVC))
 		require.NoError(t, err)
 
 		err = expectedVP.AddLinkedDataProof(&verifiable.LinkedDataProofContext{

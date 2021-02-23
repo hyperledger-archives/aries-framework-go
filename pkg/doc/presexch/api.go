@@ -21,12 +21,8 @@ import (
 const (
 	// PresentationSubmissionJSONLDContext is the JSONLD context of presentation submissions.
 	PresentationSubmissionJSONLDContext = "https://identity.foundation/presentation-exchange/submission/v1"
-	// CredentialsJSONLDContext is the JSONLD context of credentials.
-	CredentialsJSONLDContext = "https://www.w3.org/2018/credentials/v1"
 	// PresentationSubmissionJSONLDType is the JSONLD type of presentation submissions.
 	PresentationSubmissionJSONLDType = "PresentationSubmission"
-	// VerifiablePresentationJSONLDType is the JSONLD type of verifiable presentation.
-	VerifiablePresentationJSONLDType = "VerifiablePresentation"
 
 	submissionProperty    = "presentation_submission"
 	descriptorMapProperty = "descriptor_map"

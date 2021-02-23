@@ -190,16 +190,11 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 
 	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
 		// Create and encode VP.
-		vp := &Presentation{
-			Context: []string{
-				"https://www.w3.org/2018/credentials/v1",
-			},
-			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
-			Type:   []string{"VerifiablePresentation"},
-			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		}
-		err := vp.SetCredentials(vcJWS)
+		vp, err := NewPresentation(WithJWTCredentials(vcJWS))
 		r.NoError(err)
+
+		vp.ID = "urn:uuid:2978344f-8596-4c3a-a978-8fcaba3903c"
+		vp.Holder = "did:example:fbfeb1f712ebc6f1c276e12ec21"
 
 		holderSigner, err := newCryptoSigner(kms.ED25519Type)
 		r.NoError(err)
@@ -241,16 +236,11 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 
 	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
 		// Create and encode VP.
-		vp := &Presentation{
-			Context: []string{
-				"https://www.w3.org/2018/credentials/v1",
-			},
-			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
-			Type:   []string{"VerifiablePresentation"},
-			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		}
-		err := vp.SetCredentials(vc)
+		vp, err := NewPresentation(WithCredentials(vc))
 		r.NoError(err)
+
+		vp.ID = "urn:uuid:5978344f-8596-4c3a-a978-8fcaba3903c"
+		vp.Holder = "did:example:abfeb1f712ebc6f1c276e12ec21"
 
 		holderSigner, err := newCryptoSigner(kms.ED25519Type)
 		r.NoError(err)
@@ -276,17 +266,11 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	})
 
 	t.Run("Failed check of VC due to invalid JWS", func(t *testing.T) {
-		// Create and encode VP.
-		vp := &Presentation{
-			Context: []string{
-				"https://www.w3.org/2018/credentials/v1",
-			},
-			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
-			Type:   []string{"VerifiablePresentation"},
-			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		}
-		err := vp.SetCredentials(vcJWS)
+		vp, err := NewPresentation(WithJWTCredentials(vcJWS))
 		r.NoError(err)
+
+		vp.ID = "urn:uuid:0978344f-8596-4c3a-a978-8fcaba3903c"
+		vp.Holder = "did:example:ebfeb2f712ebc6f1c276e12ec21"
 
 		holderSigner, err := newCryptoSigner(kms.ED25519Type)
 		r.NoError(err)

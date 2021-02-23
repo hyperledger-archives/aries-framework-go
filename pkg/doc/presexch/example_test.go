@@ -1071,33 +1071,17 @@ func ExamplePresentationDefinition_Match() {
 
 func newPresentationSubmission(
 	submission *PresentationSubmission, vcs ...*verifiable.Credential) (*verifiable.Presentation, error) {
-	vp := &verifiable.Presentation{
-		Context: []string{
-			"https://www.w3.org/2018/credentials/v1",
-			"https://identity.foundation/presentation-exchange/submission/v1",
-		},
-		Type: []string{
-			"VerifiablePresentation",
-			"PresentationSubmission",
-		},
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vcs...))
+	if err != nil {
+		return nil, err
 	}
+
+	vp.Context = append(vp.Context, "https://identity.foundation/presentation-exchange/submission/v1")
+	vp.Type = append(vp.Type, "PresentationSubmission")
 
 	if submission != nil {
 		vp.CustomFields = make(map[string]interface{})
 		vp.CustomFields["presentation_submission"] = toExampleMap(submission)
-	}
-
-	if len(vcs) > 0 {
-		creds := make([]interface{}, len(vcs))
-
-		for i := range vcs {
-			creds[i] = vcs[i]
-		}
-
-		err := vp.SetCredentials(creds...)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return vp, nil
