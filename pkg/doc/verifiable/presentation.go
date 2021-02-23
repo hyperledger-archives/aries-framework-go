@@ -161,6 +161,9 @@ var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentation
 // MarshalledCredential can be passed to verifiable.ParseCredential().
 type MarshalledCredential []byte
 
+// CreatePresentationOpt are options for creating a new presentation.
+type CreatePresentationOpt func(p *Presentation) error
+
 // Presentation Verifiable Presentation base data model definition.
 type Presentation struct {
 	Context       []string
@@ -171,6 +174,50 @@ type Presentation struct {
 	Holder        string
 	Proofs        []Proof
 	CustomFields  CustomFields
+}
+
+// NewPresentation creates a new Presentation with default context and type with the provided credentials.
+func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
+	p := Presentation{
+		Context:     []string{baseContext},
+		Type:        []string{vpType},
+		credentials: []interface{}{},
+	}
+
+	for _, o := range opts {
+		err := o(&p)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &p, nil
+}
+
+// WithCredentials sets the provided credentials into the presentation.
+func WithCredentials(cs ...*Credential) CreatePresentationOpt {
+	return func(p *Presentation) error {
+		for _, c := range cs {
+			p.credentials = append(p.credentials, c)
+		}
+
+		return nil
+	}
+}
+
+// WithJWTCredentials sets the provided base64url encoded JWT credentials into the presentation.
+func WithJWTCredentials(cs ...string) CreatePresentationOpt {
+	return func(p *Presentation) error {
+		for _, c := range cs {
+			if !jose.IsCompactJWS(c) {
+				return errors.New("credential is not base64url encoded JWT")
+			}
+
+			p.credentials = append(p.credentials, c)
+		}
+
+		return nil
+	}
 }
 
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
@@ -197,51 +244,6 @@ func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) (*JWTPresC
 // Credentials returns current credentials of presentation.
 func (vp *Presentation) Credentials() []interface{} {
 	return vp.credentials
-}
-
-// SetCredentials defines credentials of presentation.
-// The credential could be string/byte (probably serialized JWT) or Credential structure.
-func (vp *Presentation) SetCredentials(creds ...interface{}) error {
-	var vpCreds []interface{}
-
-	convertToVC := func(vcStr string) (interface{}, error) {
-		// If VC was passed in JWT form, left it as is. Otherwise, return parsed VC
-		if jose.IsCompactJWS(vcStr) {
-			return vcStr, nil
-		}
-
-		return nil, errors.New("string is not compact JWS")
-	}
-
-	for i := range creds {
-		switch rawVC := creds[i].(type) {
-		case *Credential:
-			vpCreds = append(vpCreds, rawVC)
-
-		case []byte:
-			vc, err := convertToVC(string(rawVC))
-			if err != nil {
-				return err
-			}
-
-			vpCreds = append(vpCreds, vc)
-
-		case string:
-			vc, err := convertToVC(rawVC)
-			if err != nil {
-				return err
-			}
-
-			vpCreds = append(vpCreds, vc)
-
-		default:
-			return errors.New("unsupported credential format")
-		}
-	}
-
-	vp.credentials = vpCreds
-
-	return nil
 }
 
 // MarshalledCredentials provides marshalled credentials enclosed into Presentation in raw byte array format.

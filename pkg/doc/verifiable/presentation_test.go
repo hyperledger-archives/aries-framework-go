@@ -397,16 +397,15 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 	require.Equal(t, vp, vp2)
 }
 
-func TestPresentation_SetCredentials(t *testing.T) {
+func TestNewPresentation(t *testing.T) {
 	r := require.New(t)
-	vp := Presentation{}
 
 	vc, err := ParseUnverifiedCredential([]byte(validCredential),
 		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	// Pass Credential struct pointer
-	err = vp.SetCredentials(vc)
+	vp, err := NewPresentation(WithCredentials(vc))
 	r.NoError(err)
 	r.Len(vp.credentials, 1)
 	r.Equal(vc, vp.credentials[0])
@@ -418,24 +417,25 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	jwt, err := jwtClaims.MarshalUnsecuredJWT()
 	r.NoError(err)
 
-	err = vp.SetCredentials(jwt)
+	vp, err = NewPresentation(WithJWTCredentials(jwt))
 	r.NoError(err)
 	r.Len(vp.credentials, 1)
 	// VC JWT is NOT converted to vc struct, it's kept as is
 	r.Equal(jwt, vp.credentials[0])
 
 	// set multiple credentials
-	err = vp.SetCredentials(vc, jwt)
+	vp, err = NewPresentation(WithCredentials(vc, vc), WithJWTCredentials(jwt), WithCredentials(vc))
 	r.NoError(err)
-	r.Len(vp.credentials, 2)
+	r.Len(vp.credentials, 4)
 	r.Equal(vc, vp.credentials[0])
-	r.Equal(jwt, vp.credentials[1])
+	r.Equal(vc, vp.credentials[1])
+	r.Equal(jwt, vp.credentials[2])
+	r.Equal(vc, vp.credentials[3])
 
 	// Error - pass unsupported type
-	vpOther := &Presentation{}
-	err = vp.SetCredentials(vpOther)
+	_, err = NewPresentation(WithJWTCredentials("notajwt"))
 	r.Error(err)
-	r.EqualError(err, "unsupported credential format")
+	r.EqualError(err, "credential is not base64url encoded JWT")
 }
 
 func TestPresentation_decodeCredentials(t *testing.T) {

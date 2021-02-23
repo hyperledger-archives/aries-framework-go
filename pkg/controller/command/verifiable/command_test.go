@@ -1204,7 +1204,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		err := json.Unmarshal([]byte(vc), v)
 		require.NoError(t, err)
 
-		credList := make([]interface{}, 1)
+		credList := make([]*verifiable.Credential, 1)
 		credList[0] = v
 
 		var b bytes.Buffer

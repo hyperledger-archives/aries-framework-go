@@ -38,19 +38,7 @@ const (
 	tmpEnding = "tmp_unique_id_"
 )
 
-// nolint: gochecknoglobals
-var (
-	defaultVPContext = []string{
-		CredentialsJSONLDContext,
-		PresentationSubmissionJSONLDContext,
-	}
-	defaultVPType = []string{
-		VerifiablePresentationJSONLDType,
-		PresentationSubmissionJSONLDType,
-	}
-
-	errPathNotApplicable = errors.New("path not applicable")
-)
+var errPathNotApplicable = errors.New("path not applicable")
 
 type (
 	// Selection can be "all" or "pick".
@@ -315,23 +303,22 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 		return nil, err
 	}
 
-	vp := &verifiable.Presentation{
-		Context: defaultVPContext,
-		Type:    defaultVPType,
+	applicableCredentials, descriptors := merge(result)
+
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(applicableCredentials...))
+	if err != nil {
+		return nil, err
 	}
 
-	applicableCredentials, descriptors := merge(result)
+	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContext)
+	vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
+
 	vp.CustomFields = verifiable.CustomFields{
 		submissionProperty: &PresentationSubmission{
 			ID:            uuid.New().String(),
 			DefinitionID:  pd.ID,
 			DescriptorMap: descriptors,
 		},
-	}
-
-	err = vp.SetCredentials(credentialsToInterface(applicableCredentials)...)
-	if err != nil {
-		return nil, err
 	}
 
 	return vp, nil
@@ -872,15 +859,6 @@ type byID []*InputDescriptorMapping
 func (a byID) Len() int           { return len(a) }
 func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-
-func credentialsToInterface(credentials []*verifiable.Credential) []interface{} {
-	var result []interface{}
-	for i := range credentials {
-		result = append(result, credentials[i])
-	}
-
-	return result
-}
 
 func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*verifiable.Credential {
 	var result []*verifiable.Credential

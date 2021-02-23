@@ -1630,18 +1630,6 @@ func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
 	require.Equal(t, rawMap["expirationDate"], "2030-01-01T00:00:00.000Z")
 }
 
-func TestCredential_CreatePresentation(t *testing.T) {
-	vc, err := parseTestCredential([]byte(validCredential))
-	require.NoError(t, err)
-
-	vp, err := vc.Presentation()
-	require.NoError(t, err)
-
-	require.Equal(t, []interface{}{vc}, vp.Credentials())
-	require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
-	require.Equal(t, vp.Context, []string{baseContext})
-}
-
 func TestCredential_validateCredential(t *testing.T) {
 	t.Parallel()
 
