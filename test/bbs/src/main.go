@@ -118,7 +118,8 @@ func signVC(privKeyB64, vcJSON, verificationMethod string) ([]byte, error) {
 
 	jsonldDocLoader := createLDPBBS2020DocumentLoader()
 
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldDocLoader))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +199,8 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 
 	jsonldLoader := createLDPBBS2020DocumentLoader()
 
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldLoader))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldLoader),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return nil, err
 	}

@@ -263,7 +263,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(request.VerifiableCredential))
+	vc, err := verifiable.ParseCredential([]byte(request.VerifiableCredential), verifiable.WithDisabledProofCheck())
 	if err != nil {
 		logutil.LogError(logger, CommandName, SaveCredentialCommandMethod, "parse vc : "+err.Error())
 
@@ -391,7 +391,7 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		didDoc = doc.DIDDocument
 	}
 
-	vc, err := verifiable.ParseUnverifiedCredential(request.Credential)
+	vc, err := verifiable.ParseCredential(request.Credential, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		logutil.LogError(logger, CommandName, SignCredentialCommandMethod, "parse credential : "+err.Error())
 
@@ -829,7 +829,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 
 func (o *Command) parsePresentation(request *PresentationRequest,
 	didDoc *did.Doc) ([]*verifiable.Credential, *verifiable.Presentation, *ProofOptions, error) {
-	presentation, err := verifiable.ParseUnverifiedPresentation(request.Presentation)
+	presentation, err := verifiable.ParsePresentation(request.Presentation, verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 			"failed to parse presentation from request: "+err.Error())

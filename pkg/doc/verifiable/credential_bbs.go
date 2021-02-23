@@ -47,5 +47,7 @@ func (vc *Credential) GenerateBBSSelectiveDisclosure(revealDoc map[string]interf
 		return nil, err
 	}
 
-	return ParseUnverifiedCredential(vcWithSelectiveDisclosureBytes, opts...)
+	opts = append(opts, WithDisabledProofCheck())
+
+	return ParseCredential(vcWithSelectiveDisclosureBytes, opts...)
 }

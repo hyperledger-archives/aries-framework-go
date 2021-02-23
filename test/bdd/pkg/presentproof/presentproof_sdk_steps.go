@@ -211,9 +211,10 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return err
 	}
 
-	vp, err := verifiable.ParseUnverifiedPresentation(
+	vp, err := verifiable.ParsePresentation(
 		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
-		verifiable.WithPresJSONLDDocumentLoader(bddverifiable.CachingJSONLDLoader()))
+		verifiable.WithPresJSONLDDocumentLoader(bddverifiable.CachingJSONLDLoader()),
+		verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		return fmt.Errorf("failed to decode VP JSON: %w", err)
 	}

@@ -143,9 +143,9 @@ func PresentationDefinition(p Provider) presentproof.Middleware {
 				return fmt.Errorf("parse credentials: %w", err)
 			}
 
-			presentation, err := payload.PresentationDefinition.CreateVP(credentials, verifiable.WithPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
-			))
+			presentation, err := payload.PresentationDefinition.CreateVP(credentials,
+				verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher()),
+				verifiable.WithJSONLDDocumentLoader(presexch.CachingJSONLDLoader()))
 			if err != nil {
 				return fmt.Errorf("create VP: %w", err)
 			}
@@ -211,7 +211,7 @@ func parseCredentials(attachments []decorator.Attachment) ([]*verifiable.Credent
 			continue
 		}
 
-		credential, err := verifiable.ParseUnverifiedCredential(src)
+		credential, err := verifiable.ParseCredential(src, verifiable.WithDisabledProofCheck())
 		if err != nil {
 			return nil, err
 		}

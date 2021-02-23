@@ -17,6 +17,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
+const (
+	// ContextURI is the required JSON-LD context for VCs and VPs.
+	ContextURI = "https://www.w3.org/2018/credentials/v1"
+	// VCType is the required Type for Verifiable Credentials.
+	VCType = "VerifiableCredential"
+	// VPType is the required Type for Verifiable Credentials.
+	VPType = "VerifiablePresentation"
+)
+
 const vcJSONLD = `
 {
   "@context": {
@@ -267,7 +276,7 @@ func CachingJSONLDLoader() *ld.CachingDocumentLoader {
 		panic(err)
 	}
 
-	loader.AddDocument("https://www.w3.org/2018/credentials/v1", reader)
+	loader.AddDocument(ContextURI, reader)
 
 	return loader
 }
