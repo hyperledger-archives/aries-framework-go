@@ -400,8 +400,9 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 func TestNewPresentation(t *testing.T) {
 	r := require.New(t)
 
-	vc, err := ParseUnverifiedCredential([]byte(validCredential),
-		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+	vc, err := ParseCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+		WithDisabledProofCheck())
 	r.NoError(err)
 
 	// Pass Credential struct pointer
@@ -506,7 +507,7 @@ func TestWithPresJSONLDDocumentLoader(t *testing.T) {
 
 func TestParseUnverifiedPresentation(t *testing.T) {
 	// happy path
-	vp, err := ParseUnverifiedPresentation([]byte(validPresentation))
+	vp, err := ParsePresentation([]byte(validPresentation), WithPresDisabledProofCheck())
 	require.NoError(t, err)
 	require.NotNil(t, vp)
 
@@ -520,12 +521,12 @@ func TestParseUnverifiedPresentation(t *testing.T) {
 	vpWithoutProofBytes, err := json.Marshal(vpJSON)
 	require.NoError(t, err)
 
-	vp, err = ParseUnverifiedPresentation(vpWithoutProofBytes)
+	vp, err = ParsePresentation(vpWithoutProofBytes, WithPresDisabledProofCheck())
 	require.NoError(t, err)
 	require.NotNil(t, vp)
 
 	// VP decoding error
-	vp, err = ParseUnverifiedPresentation([]byte("invalid"))
+	vp, err = ParsePresentation([]byte("invalid"), WithPresDisabledProofCheck())
 	require.Error(t, err)
 	require.Nil(t, vp)
 }

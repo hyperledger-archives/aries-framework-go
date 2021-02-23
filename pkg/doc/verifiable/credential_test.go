@@ -1852,8 +1852,9 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
-		vcUnverified, err := ParseUnverifiedCredential([]byte(jws),
-			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+		vcUnverified, err := ParseCredential([]byte(jws),
+			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
 		require.Equal(t, vc, vcUnverified)
@@ -1877,8 +1878,9 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// Parse VC with linked data proof.
-		vcUnverified, err := ParseUnverifiedCredential(vcBytes,
-			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+		vcUnverified, err := ParseCredential(vcBytes,
+			WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
 		require.Equal(t, vc, vcUnverified)
@@ -1897,12 +1899,12 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		invalidUnsecuredJWT, err := marshalUnsecuredJWT(headers, invalidClaims)
 		require.NoError(t, err)
 
-		vc, err := ParseUnverifiedCredential([]byte(invalidUnsecuredJWT))
+		vc, err := ParseCredential([]byte(invalidUnsecuredJWT), WithDisabledProofCheck())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decode new credential")
 		require.Nil(t, vc)
 
-		vc, err = ParseUnverifiedCredential([]byte("invalid VC JSON"))
+		vc, err = ParseCredential([]byte("invalid VC JSON"), WithDisabledProofCheck())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal new credential")
 		require.Nil(t, vc)
@@ -1915,7 +1917,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		rawVCMapBytes, err := json.Marshal(rawVCMap)
 		require.NoError(t, err)
 
-		vc, err = ParseUnverifiedCredential(rawVCMapBytes)
+		vc, err = ParseCredential(rawVCMapBytes, WithDisabledProofCheck())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build new credential")
 		require.Nil(t, vc)
@@ -1926,7 +1928,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		rawVCMapBytes, err = json.Marshal(rawVCMap)
 		require.NoError(t, err)
 
-		vc, err = ParseUnverifiedCredential(rawVCMapBytes)
+		vc, err = ParseCredential(rawVCMapBytes, WithDisabledProofCheck())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verifiable credential is not valid")
 		require.Contains(t, err.Error(), "issuer is required")

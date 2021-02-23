@@ -275,15 +275,19 @@ func TestE2E(t *testing.T) {
 	// holder sends VP over the wire to the verifier
 	vpBytes := marshal(t, vp)
 
+	// load json-ld context
+	loader := jsonldContextLoader(t, verifierDefinitions.InputDescriptors[0].Schema[0].URI)
+
 	// verifier parses the vp
-	receivedVP, err := verifiable.ParseUnverifiedPresentation(vpBytes)
+	receivedVP, err := verifiable.ParsePresentation(vpBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
 		receivedVP,
-		WithJSONLDDocumentLoader(
-			jsonldContextLoader(t, verifierDefinitions.InputDescriptors[0].Schema[0].URI)))
+		WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 	require.Len(t, matched, 1)
 	result, ok := matched[verifierDefinitions.InputDescriptors[0].ID]
@@ -293,9 +297,9 @@ func TestE2E(t *testing.T) {
 
 func newVC(context []string) *verifiable.Credential {
 	vc := &verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
 		ID:      "http://test.credential.com/123",
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
 		Issued: &util.TimeWithTrailingZeroMsec{
 			Time: time.Now(),
@@ -364,7 +368,7 @@ func jsonldContextLoader(t *testing.T, contextURL string) *ld.CachingDocumentLoa
 	reader, err := ld.DocumentFromReader(strings.NewReader(jsonLDContext))
 	require.NoError(t, err)
 
-	loader := verifiable.CachingJSONLDLoader()
+	loader := CachingJSONLDLoader()
 
 	loader.AddDocument(contextURL, reader)
 

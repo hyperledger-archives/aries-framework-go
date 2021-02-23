@@ -816,40 +816,6 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 	return vc, nil
 }
 
-// ParseUnverifiedCredential parses Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
-// It does not make a proof check though. Can be used for purposes of decoding of VC stored in a wallet.
-// Please use this function with caution.
-func ParseUnverifiedCredential(vcBytes []byte, opts ...CredentialOpt) (*Credential, error) {
-	vcOpts := getCredentialOpts(opts)
-	vcOpts.disabledProofCheck = true
-
-	vcDataDecoded, err := decodeRaw(vcBytes, vcOpts)
-	if err != nil {
-		return nil, fmt.Errorf("decode new credential: %w", err)
-	}
-
-	// Unmarshal raw credential from JSON.
-	var raw rawCredential
-
-	err = json.Unmarshal(vcDataDecoded, &raw)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal new credential: %w", err)
-	}
-
-	// Create credential from raw.
-	vc, err := newCredential(&raw)
-	if err != nil {
-		return nil, fmt.Errorf("build new credential: %w", err)
-	}
-
-	err = validateCredential(vc, vcDataDecoded, vcOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return vc, nil
-}
-
 func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
 	// Credential and type constraint.
 	switch vcOpts.modelValidationMode {

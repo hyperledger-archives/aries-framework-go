@@ -505,8 +505,9 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	}
 `
 
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcStr),
-		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	vc, err := verifiable.ParseCredential([]byte(vcStr),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}

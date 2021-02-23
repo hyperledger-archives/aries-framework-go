@@ -101,7 +101,7 @@ func ExamplePresentation_JWTClaims() {
 `
 
 	// The Holder wants to send the presentation to the Verifier in JWS.
-	vp, err := verifiable.ParseUnverifiedPresentation([]byte(vpStrFromWallet))
+	vp, err := verifiable.ParsePresentation([]byte(vpStrFromWallet), verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VP JSON: %w", err))
 	}
@@ -248,8 +248,9 @@ func ExamplePresentation_two() {
 	// The second VC is provided in JWS form (e.g. kept in the wallet in that form).
 	vcJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6W10sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.AHn2A2q5DL1heX3_izq_2yrsBDhoZ6BGGKhoRvhfMnMUuuOnBOdekdTg-dfUMJgipXRql_6WzBUIj4wTFehXCw"
 
-	vc2, err := verifiable.ParseUnverifiedCredential([]byte(vcStr),
-		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	vc2, err := verifiable.ParseCredential([]byte(vcStr),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -594,8 +595,9 @@ func ExamplePresentation_AddLinkedDataProof() {
 }
 `
 
-	issuedVC, err := verifiable.ParseUnverifiedCredential([]byte(vcToIssue),
-		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	issuedVC, err := verifiable.ParseCredential([]byte(vcToIssue),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -619,7 +621,9 @@ func ExamplePresentation_AddLinkedDataProof() {
 	}
 
 	// 2. ISSUER creates a VP with the VC enclosed.
-	vcFromHolderWallet, err := verifiable.ParseUnverifiedCredential(issuedVCBytes, verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
+	vcFromHolderWallet, err := verifiable.ParseCredential(issuedVCBytes,
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithDisabledProofCheck())
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}

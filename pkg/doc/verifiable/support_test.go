@@ -137,8 +137,9 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 }
 
 func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
-	vc, err := ParseUnverifiedCredential([]byte(validCredential),
-		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+	vc, err := ParseCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+		WithDisabledProofCheck())
 	if err != nil {
 		panic(err)
 	}
@@ -165,8 +166,9 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 }
 
 func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
-	vc, err := ParseUnverifiedCredential([]byte(validCredential),
-		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+	vc, err := ParseCredential([]byte(validCredential),
+		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+		WithDisabledProofCheck())
 	if err != nil {
 		panic(err)
 	}

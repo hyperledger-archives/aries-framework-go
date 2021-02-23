@@ -17,6 +17,7 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	jsonpathkeys "github.com/kawamuray/jsonpath"
+	"github.com/piprate/json-gold/ld"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
@@ -68,6 +69,28 @@ type JwtType struct {
 type LdpType struct {
 	ProofType []string `json:"proof_type,omitempty"`
 }
+
+// presentationSubmissionContext from https://identity.foundation/presentation-exchange/submission/v1
+const presentationSubmissionContext = `
+{
+  "@context": {
+    "@version": 1.1,
+	"type": "@type",
+    "PresentationSubmission": {
+      "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
+      "@context": {
+        "@version": 1.1,
+        "presentation_submission": {
+          "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
+          "@type": "@json"
+        }
+      }
+    }
+  }
+}
+`
+
+const presentationSubmissionContextURI = "https://identity.foundation/presentation-exchange/submission/v1"
 
 // PresentationDefinition presentation definitions (https://identity.foundation/presentation-exchange/).
 type PresentationDefinition struct {
@@ -647,7 +670,8 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 	}
 
 	if !constraints.LimitDisclosure || !BBSSupport || modifiedByPredicate {
-		return verifiable.ParseUnverifiedCredential(limitedCred, opts...)
+		opts = append(opts, verifiable.WithDisabledProofCheck())
+		return verifiable.ParseCredential(limitedCred, opts...)
 	}
 
 	limitedCred, err := enhanceRevealDoc(explicitPaths, limitedCred, src)
@@ -889,4 +913,19 @@ func credentialMatchSchema(cred *verifiable.Credential, schemaID string) bool {
 	}
 
 	return false
+}
+
+// CachingJSONLDLoader creates JSON_LD CachingDocumentLoader with preloaded base JSON-LD document.
+// TODO: this needs to be removed in followup PR.
+func CachingJSONLDLoader() *ld.CachingDocumentLoader {
+	loader := verifiable.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(presentationSubmissionContext))
+	if err != nil {
+		panic(err)
+	}
+
+	loader.AddDocument(presentationSubmissionContextURI, reader)
+
+	return loader
 }

@@ -1037,10 +1037,18 @@ func ExamplePresentationDefinition_Match() {
 		panic(err)
 	}
 
+	// load json-ld context
+	loader := cachedJSONLDContextLoader(map[string]string{
+		"https://example.context.jsonld/account": exampleJSONLDContext,
+		"https://example.context.jsonld/address": exampleJSONLDContext,
+	})
+
 	// verifier parses the vp
 	// note: parsing this VP without verifying the proof just for example purposes.
 	//       Always verify proofs in production!
-	receivedVP, err := verifiable.ParseUnverifiedPresentation(vpBytes)
+	receivedVP, err := verifiable.ParsePresentation(vpBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -1048,10 +1056,7 @@ func ExamplePresentationDefinition_Match() {
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
 		receivedVP,
-		WithJSONLDDocumentLoader(cachedJSONLDContextLoader(map[string]string{
-			"https://example.context.jsonld/account": exampleJSONLDContext,
-			"https://example.context.jsonld/address": exampleJSONLDContext,
-		})),
+		WithJSONLDDocumentLoader(loader),
 	)
 	if err != nil {
 		panic(fmt.Errorf("presentation submission did not match definitions: %w", err))
@@ -1104,7 +1109,7 @@ func toExampleMap(v interface{}) map[string]interface{} {
 }
 
 func cachedJSONLDContextLoader(ctxURLToVocab map[string]string) *ld.CachingDocumentLoader {
-	loader := verifiable.CachingJSONLDLoader()
+	loader := CachingJSONLDLoader()
 
 	for contextURL, vocab := range ctxURLToVocab {
 		reader, err := ld.DocumentFromReader(strings.NewReader(vocab))

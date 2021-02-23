@@ -196,7 +196,7 @@ func (s *StoreImplementation) GetCredential(id string) (*verifiable.Credential, 
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vc, err := verifiable.ParseUnverifiedCredential(vcBytes)
+	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return nil, fmt.Errorf("new credential failed: %w", err)
 	}

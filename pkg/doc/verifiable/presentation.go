@@ -295,7 +295,7 @@ type rawPresentation struct {
 	Context    interface{}     `json:"@context,omitempty"`
 	ID         string          `json:"id,omitempty"`
 	Type       interface{}     `json:"type,omitempty"`
-	Credential interface{}     `json:"verifiableCredential"`
+	Credential interface{}     `json:"verifiableCredential,omitempty"`
 	Holder     string          `json:"holder,omitempty"`
 	Proof      json.RawMessage `json:"proof,omitempty"`
 	// All unmapped fields are put here.
@@ -405,21 +405,6 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 	}
 
 	return p, nil
-}
-
-// ParseUnverifiedPresentation parses Verifiable Presentation from bytes which could be marshalled JSON or
-// serialized JWT. It does not make a proof check though. Can be used for purposes of decoding of VP stored in a wallet.
-// Please use this function with caution.
-func ParseUnverifiedPresentation(vpBytes []byte, opts ...PresentationOpt) (*Presentation, error) {
-	vpOpts := getPresentationOpts(opts)
-	vpOpts.disabledProofCheck = true
-
-	_, vpRaw, err := decodeRawPresentation(vpBytes, vpOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return newPresentation(vpRaw, vpOpts)
 }
 
 func getPresentationOpts(opts []PresentationOpt) *presentationOpts {

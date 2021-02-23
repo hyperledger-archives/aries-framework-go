@@ -187,7 +187,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -197,6 +199,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -210,6 +214,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -270,7 +276,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -319,9 +327,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      "http://example.edu/credentials/1872",
-				Context: []string{"https://www.w3.org/2018/credentials/v1"},
-				Types:   []string{"VerifiableCredential"},
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -379,9 +387,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      "http://example.edu/credentials/1872",
-				Context: []string{"https://www.w3.org/2018/credentials/v1"},
-				Types:   []string{"VerifiableCredential"},
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -661,7 +669,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -695,7 +705,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -739,7 +751,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -788,6 +802,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: map[string]interface{}{},
 				Schemas: []verifiable.TypedID{{
@@ -798,6 +814,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"first_name": "Jesse",
 				},
 			}, {
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: verifiable.Subject{ID: issuerID},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -850,9 +868,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
-				Context: []string{"https://www.w3.org/2018/credentials/v1"},
-				Types:   []string{"VerifiableCredential"},
 				Subject: []map[string]interface{}{{}},
 				Issuer:  verifiable.Issuer{ID: uuid.New().String()},
 				Schemas: []verifiable.TypedID{{
@@ -1003,6 +1021,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: map[string]interface{}{"id": issuerID},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -1015,6 +1035,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: map[string]interface{}{"id": 123},
 				Schemas: []verifiable.TypedID{{
@@ -1056,7 +1078,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -1066,6 +1090,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -1118,6 +1144,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: issuerID,
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -1130,6 +1158,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Subject: issuerID,
 				Issuer:  verifiable.Issuer{ID: issuerID},
@@ -1169,7 +1199,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
@@ -1179,7 +1211,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: schemaURI,
 				}},
@@ -1211,14 +1245,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: schemaURI,
 				}},
@@ -1246,14 +1284,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   schemaURI,
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
 				}},
@@ -1281,7 +1323,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
 					Type: "JsonSchemaValidator2018",
@@ -1318,14 +1362,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
 					Type: "JsonSchemaValidator2018",
@@ -1359,14 +1407,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 					Type: "JsonSchemaValidator2018",
@@ -1398,14 +1450,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
 				}},
@@ -1436,14 +1492,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				}},
@@ -1479,14 +1539,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		}
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID:   "https://www.w3.org/TR/vc-data-model/1.0/#types",
 					Type: "JsonSchemaValidator2018",
 				}},
 			},
 			{
-				ID: uuid.New().String(),
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
 				Schemas: []verifiable.TypedID{{
 					ID: "https://www.w3.org/TR/vc-data-model/2.0/#types",
 				}, {
@@ -1538,7 +1602,9 @@ func checkVP(t *testing.T, vp *verifiable.Presentation) {
 	src, err := json.Marshal(vp)
 	require.NoError(t, err)
 
-	_, err = verifiable.ParseUnverifiedPresentation(src)
+	_, err = verifiable.ParsePresentation(src,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
 	require.NoError(t, err)
 }
 
@@ -1597,7 +1663,7 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 }
 
 func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
-	loader := verifiable.CachingJSONLDLoader()
+	loader := CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
 	if err != nil {
