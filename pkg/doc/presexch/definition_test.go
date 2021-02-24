@@ -449,7 +449,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Context: []string{
 				"https://www.w3.org/2018/credentials/v1",
 				"https://www.w3.org/2018/credentials/examples/v1",
-				"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+				"https://w3id.org/security/bbs/v1",
 			},
 			Types: []string{
 				"VerifiableCredential",
@@ -566,7 +566,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			Context: []string{
 				"https://www.w3.org/2018/credentials/v1",
 				"https://w3id.org/citizenship/v1",
-				"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+				"https://w3id.org/security/bbs/v1",
 			},
 			Types: []string{
 				"VerifiableCredential",
@@ -1670,7 +1670,7 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 		panic(err)
 	}
 
-	loader.AddDocument("https://w3c-ccg.github.io/ldp-bbs2020/context/v1", reader)
+	loader.AddDocument("https://w3id.org/security/bbs/v1", reader)
 
 	return loader
 }
@@ -1680,9 +1680,9 @@ const contextBBSContent = `{
     "@version": 1.1,
     "id": "@id",
     "type": "@type",
-    "ldssk": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#",
+    "ldssk": "https://w3id.org/security#",
     "BbsBlsSignature2020": {
-      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020",
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
       "@context": {
         "@version": 1.1,
         "@protected": true,
@@ -1726,7 +1726,7 @@ const contextBBSContent = `{
       }
     },
     "BbsBlsSignatureProof2020": {
-      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignatureProof2020",
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
       "@context": {
         "@version": 1.1,
         "@protected": true,

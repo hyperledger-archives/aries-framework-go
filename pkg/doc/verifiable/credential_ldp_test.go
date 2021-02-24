@@ -473,7 +473,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	 "@context": [
 	   "https://www.w3.org/2018/credentials/v1",
 	   "https://w3id.org/citizenship/v1",
-	   "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	   "https://w3id.org/security/bbs/v1"
 	 ],
 	 "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	 "type": [
@@ -536,19 +536,19 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.T) {
 	r := require.New(t)
 
+	// Case 17 (https://github.com/w3c-ccg/vc-http-api/pull/128)
 	vcJSON := `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://w3id.org/citizenship/v1",
-    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+    "https://w3id.org/security/bbs/v1"
   ],
   "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
   "type": [
-    "VerifiableCredential",
-    "PermanentResidentCard"
+    "PermanentResidentCard",
+    "VerifiableCredential"
   ],
   "description": "Government of Example Permanent Resident Card.",
-  "identifier": "83627465",
   "name": "Permanent Resident Card",
   "credentialSubject": {
     "id": "did:example:b34ca6cd37bbf23",
@@ -556,31 +556,30 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.
       "Person",
       "PermanentResident"
     ],
-    "familyName": "SMITH",
-    "gender": "Male",
-    "givenName": "JOHN"
+    "birthDate": "1958-07-17"
   },
   "expirationDate": "2029-12-03T12:19:52Z",
   "issuanceDate": "2019-12-03T12:19:52Z",
-  "issuer": "did:example:489398593",
+  "issuer": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2",
   "proof": {
     "type": "BbsBlsSignatureProof2020",
-    "created": "2020-12-08T09:13:30Z",
-    "nonce": "X2qLaTxoyidu7Z/TOBRNgPhbcgeIcOGMAXQrM65vP/ehcop2wwCeV4/HTcnF70zANOc=",
+    "created": "2021-02-23T19:31:12Z",
+    "nonce": "G/hn9Ca9bIWZpJGlhnr/41r8RB0OO0TLChZASr3QJVztdri/JzS8Zf/xWJT5jW78zlM=",
     "proofPurpose": "assertionMethod",
-    "proofValue": "ABkB/wbvtko1Y9xNW55tg6AYrvZkJfcEGsTB3BDOJaDjfeUWtg0610W7IzPyWjy2BDX+9VLFo2KcVal2CPsRk0E98292Ocbotwby9hdStE1zFQrgrfeoiYNxTD0HrUa6DwZ4X9f/jhFHwvxEl681jjwcZJWHhbzLIzJf7ms68PgNpPG7saBOqi3IqK+pxg4bxG1dS8z2AAAAdK93JmDD/9JGPh6z+Ur5BenOfX6t9ineW1pFMg7kcwOFxHjQ6NOSk7UmwfVjunYk+QAAAAIjiRSXcTv/GBwgUDaUsFlLy5SZW91C9I1YiHwsIyTCxAhttkeWJzSaxq5ZhRaSfmzbfLZShkuXJmFTy/qRLYj5iNSGzPkS/AlRJU2MPr7MwViX3SHEmi/nejOSpxYn/oDc0c7TyFFpyshgEZxu2/S3AAAACQK2jcWuij0VZu7NvXEMnJ4LgnQPLH9IEiEhRD27+4FnHW4XOIvZSFyiMtyy+9FRJCO7RlabIhh2r9F8filWhcQxsm6iF2+fUmTykUzk8/rv0gdtbBy1/Oc3+yrsGlg4pByhm9Ze6mSns9caeosdWR6+A9kHy4aUlndXkV83pnrrKVmGcFxE03oxFHU6piwL1g2OCk3Qef1KV5QlIDjWKvk93zSh1QtPjvo8FKXMKF2DWxLSB9do874n2cW9Ae0qgh1vLRCp9Vf8Dh3EBApdxTTseiJ2Y97u+ktOJM/5qHOHP9sBRU+Y1W1HHC8dVl0QXedVdYk4uuKASD/zgpwjiSRIGRWpv6WRCioN+ItKtGQ55/aHCE8m9LpxpGAen/NnEg==",
-    "verificationMethod": "did:example:489398593#test"
+    "proofValue": "ABgA/wYfjSxZz8DBQHTIuX+F0MmeskKbywg6NSMGHOqJ9LvYrfaakmMaPh+UsJxIK1z5v3NuiRP4OGhIbYgjo0KovKMZzluSzCGwzAyXui2hnFlrySj3RP+WNmWd+6QZQ6bEm+pyhNC6VrEMVDxJ2TH7DShbx6GFQ6RLvuS0Xf38GuOhX26+5RJ9RBs5Qaj4/UKsTfc9AAAAdKGdxxloz3ZJ2QnoFlqicO6MviT8yzeyf5gILHg8YUjNIAVJJNsh26kBqIdQkaROpQAAAAIVX5Y1Jy9hgEQgqUld/aGN2uxOLZAJsri9BRRHoFNWkkcF73EV4BE9+Hs+8fuvX0SNDAmomTVz6vSrq58bjHZ+tmJ5JddwT1tCunHV330hqleI47eAqwGuY9hdeSixzfL0/CGnZ2XoV2YAybVTcupSAAAACw03E8CoLBvqXeMV7EtRTwMpKQmEUyAM5iwC2ZaAkDLnFOt2iHR4P8VExFmOZCl94gt6bqWuODhJ5mNCJXjEO9wmx3RNM5prB7Au5g59mdcuuY/GCKmKNt087BoHYG//dEFi4Q+bRpVE5MKaGv/JZd/LmPAfKfuj5Tr37m0m3hx6HROmIv0yHcakQlNQqM6QuRQLMr2U+nj4U4OFQZfMg3A+f6fVS6T18WLq4xbHc/2L1bYhIw+SjXwkj20cGhEBsmFOqj4oY5AzjN1t4gfzb5itxQNkZFVE2IdBP9v/Ck8rMQLmxs68PDPcp6CAb9dvMS0fX5CTTbJHqG4XEjYRaBVG0Ji5g3vTpGVAA4jqOzpTbxKQawA4SvddV8NUUm4N/zCeWMermi3yRhZRl1AXa8BqGO+mXNI7yAPjn1YDoGliQkoQc5B4CYY/5ldP19XS2hV5Ak16AJtD4tdeqbaX0bo=",
+    "verificationMethod": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2#zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2"
   }
 }`
 
-	nonceBytes, err := base64.StdEncoding.DecodeString("X2qLaTxoyidu7Z/TOBRNgPhbcgeIcOGMAXQrM65vP/ehcop2wwCeV4/HTcnF70zANOc=")
+	nonceBytes, err := base64.StdEncoding.DecodeString("G/hn9Ca9bIWZpJGlhnr/41r8RB0OO0TLChZASr3QJVztdri/JzS8Zf/xWJT5jW78zlM=")
 	require.NoError(t, err)
 
 	sigSuite := bbsblssignatureproof2020.New(
 		suite.WithCompactProof(),
 		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonceBytes)))
 
-	pkBase58 := "oqpWYKaZD9M1Kbe94BVXpr8WTdFBNZyKv48cziTiQUeuhm7sBhCABMyYG4kcMrseC68YTFFgyhiNeBKjzdKk9MiRWuLv5H4FFujQsQK2KTAtzU8qTBiZqBHMmnLF4PL7Ytu"
+	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2
+	pkBase58 := "nEP2DEdbRaQ2r5Azeatui9MG6cj7JUHa8GD7khub4egHJREEuvj4Y8YG8w51LnhPEXxVV1ka93HpSLkVzeQuuPE1mH9oCMrqoHXAKGBsuDT1yJvj9cKgxxLCXiRRirCycki"
 	pubKeyBytes := base58.Decode(pkBase58)
 
 	vcVerified, err := parseTestCredential([]byte(vcJSON),

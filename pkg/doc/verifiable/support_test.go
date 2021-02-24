@@ -269,7 +269,7 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 		"presentation_submission_v1.jsonld")
 
 	addJSONLDCachedContextFromFile(loader,
-		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1",
+		"https://w3id.org/security/bbs/v1",
 		"bss2020.jsonld")
 	addJSONLDCachedContextFromFile(loader,
 		"https://w3id.org/citizenship/v1",
