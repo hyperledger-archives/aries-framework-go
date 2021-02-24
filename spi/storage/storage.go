@@ -8,6 +8,10 @@ package storage
 
 import (
 	"errors"
+	"fmt"
+	standardlog "log"
+
+	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 // MultiError represents the errors that occurred during a bulk operation.
@@ -152,4 +156,17 @@ type Iterator interface {
 
 	// Close closes this iterator object, freeing resources.
 	Close() error
+}
+
+// Close closes iterator and logs any error that occurs.
+// Is logger is nil, then the standard Go logger will be used.
+func Close(iterator Iterator, logger spi.Logger) { //nolint: interfacer // The log message is specific to an Iterator.
+	errClose := iterator.Close()
+	if errClose != nil {
+		if logger == nil {
+			standardlog.Println(fmt.Sprintf("failed to close iterator: %s", errClose.Error()))
+		} else {
+			logger.Errorf("failed to close records iterator: %s", errClose.Error())
+		}
+	}
 }
