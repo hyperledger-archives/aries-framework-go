@@ -24,7 +24,8 @@ var ErrDataNotFound = errors.New("data not found")
 
 // StoreConfiguration represents the configuration of a store.
 type StoreConfiguration struct {
-	TagNames []string // A list of Tag names that key + value pairs in this store can be associated with.
+	// TagNames is a list of Tag names that key + value pairs in this store can be associated with.
+	TagNames []string `json:"tagNames,omitempty"`
 }
 
 // QueryOptions represents various options for Query calls in a store.
@@ -49,17 +50,17 @@ func WithPageSize(size int) QueryOption {
 type Tag struct {
 	// Name can be used to tag a given key + value pair as belonging to a group.
 	// Tag Names are static values that the store must be configured with (see TagNames in StoreConfiguration).
-	Name string
+	Name string `json:"name,omitempty"`
 	// Value can be used to indicate some optional metadata associated with a given key + value pair + tag name.
 	// Unlike Tag Names, Tag Values are dynamic and are not specified during store creation.
-	Value string
+	Value string `json:"value,omitempty"`
 }
 
 // Operation represents an operation to be performed in the Batch method.
 type Operation struct {
-	Key   string
-	Value []byte // A nil value will result in a delete operation.
-	Tags  []Tag  // Optional.
+	Key   string `json:"key,omitempty"`
+	Value []byte `json:"value,omitempty"` // A nil value will result in a delete operation.
+	Tags  []Tag  `json:"tags,omitempty"`  // Optional.
 }
 
 // Provider represents a storage provider.
