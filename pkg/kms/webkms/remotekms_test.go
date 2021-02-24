@@ -8,6 +8,7 @@ package webkms
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
@@ -105,7 +106,7 @@ func TestRemoteKeyStore(t *testing.T) {
 			" \"``#$%/keys\": invalid URL escape \"%/k\"]")
 	})
 
-	t.Run("New, Create, Get and export success, all other functions not implemented should fail", func(t *testing.T) {
+	t.Run("New, Create, Get, Export/Import success, all other functions should fail", func(t *testing.T) {
 		remoteKMS := New(defaultKeystoreURL, client)
 
 		kid, keyURL, err := remoteKMS.Create(kms.ED25519Type)
@@ -172,9 +173,6 @@ func TestRemoteKeyStore(t *testing.T) {
 
 		_, err = remoteKMS.PubKeyBytesToHandle(nil, kms.AES128GCMType)
 		require.EqualError(t, err, "function PubKeyBytesToHandle is not implemented in remoteKMS")
-
-		_, _, err = remoteKMS.ImportPrivateKey(nil, kms.AES128GCMType)
-		require.EqualError(t, err, "function ImportPrivateKey is not implemented in remoteKMS")
 	})
 }
 
@@ -267,6 +265,55 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	})
 }
 
+func TestImportPrivateKey(t *testing.T) {
+	secret := make([]byte, 10)
+	_, err := rand.Read(secret)
+	require.NoError(t, err)
+
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err = processPOSTRequestForImportKey(w, r, defaultKeyStoreID, defaultKID)
+		require.NoError(t, err)
+	})
+
+	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(KeystoreEndpoint,
+		"{serverEndpoint}", url), defaultKeyStoreID)
+
+	defer func() {
+		e := server.Close()
+		require.NoError(t, e)
+	}()
+
+	remoteKMS := New(defaultKeystoreURL, client)
+
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	keyID, keyURL, err := remoteKMS.ImportPrivateKey(privateKey, kms.ED25519Type)
+	require.NoError(t, err)
+	require.Equal(t, defaultKID, keyID)
+	require.Contains(t, keyURL, fmt.Sprintf("%s/keys/%s", defaultKeystoreURL, defaultKID))
+
+	_, _, err = remoteKMS.ImportPrivateKey([]byte("invalid key bytes"), kms.ED25519Type)
+	require.Contains(t, err.Error(), "failed to marshal private key")
+
+	remoteKMS.marshalFunc = failingMarshal
+
+	_, _, err = remoteKMS.ImportPrivateKey(privateKey, kms.ED25519Type)
+	require.Contains(t, err.Error(), "failed to marshal ImportKey request")
+	require.Contains(t, err.Error(), "failingMarshal always fails")
+
+	remoteKMS.marshalFunc = json.Marshal
+
+	remoteKMS.unmarshalFunc = failingUnmarshal
+
+	_, _, err = remoteKMS.ImportPrivateKey(privateKey, kms.ED25519Type)
+	require.Contains(t, err.Error(), "failed to unmarshal response body for ImportKey")
+	require.Contains(t, err.Error(), "failingUnmarshal always fails")
+
+	remoteKMS.unmarshalFunc = json.Unmarshal
+}
+
 func TestCloseResponseBody(t *testing.T) {
 	closeResponseBody(&errFailingCloser{}, logger, "testing close fail should log: errFailingCloser always fails")
 }
@@ -355,6 +402,38 @@ func processPOSTRequestForCreateWithResponseBody(w http.ResponseWriter, r *http.
 		locationHeaderURL += "/keys/" + kid
 
 		resp := &createResp{
+			Location: locationHeaderURL,
+		}
+
+		mResp, err := json.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		_, err = w.Write(mResp)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processPOSTRequestForImportKey(w http.ResponseWriter, r *http.Request, keysetID, kid string) error {
+	if valid := validateHTTPMethod(w, r); !valid {
+		return errors.New("http method invalid")
+	}
+
+	if valid := validatePostPayload(r, w); !valid {
+		return errors.New("http request body invalid")
+	}
+
+	locationHeaderURL := "https://" + r.Host + "/kms/keystores/" + keysetID
+
+	if strings.LastIndex(r.URL.Path, "/import") == len(r.URL.Path)-len("/import") {
+		locationHeaderURL += "/keys/" + kid
+
+		resp := &importKeyResp{
 			Location: locationHeaderURL,
 		}
 

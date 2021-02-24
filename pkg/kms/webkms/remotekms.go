@@ -8,6 +8,7 @@ package webkms
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -60,6 +61,15 @@ type createResp struct {
 
 type exportKeyResp struct {
 	KeyBytes string `json:"publicKey,omitempty"`
+}
+
+type importKeyReq struct {
+	KeyBytes string `json:"keyBytes,omitempty"`
+	KeyType  string `json:"keyType,omitempty"`
+}
+
+type importKeyResp struct {
+	Location string `json:"location,omitempty"`
 }
 
 type marshalFunc func(interface{}) ([]byte, error)
@@ -384,7 +394,52 @@ func (r *RemoteKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (interfac
 //  - error if import failure (key empty, invalid, doesn't match KeyType, unsupported KeyType or storing key failed)
 func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
-	return "", nil, errors.New("function ImportPrivateKey is not implemented in remoteKMS")
+	destination := r.keystoreURL + "/import"
+
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+
+	httpReqJSON := &importKeyReq{
+		KeyBytes: base64.URLEncoding.EncodeToString(keyBytes),
+		KeyType:  string(kt),
+	}
+
+	marshaledReq, err := r.marshalFunc(httpReqJSON)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to marshal ImportKey request [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, marshaledReq)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to post ImportKey request [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "ImportPrivateKey")
+
+	keyURL := resp.Header.Get(LocationHeader)
+
+	if keyURL == "" {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to read response for ImportKey [%s, %w]", destination, err)
+		}
+
+		var httpResp importKeyResp
+
+		err = r.unmarshalFunc(respBody, &httpResp)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to unmarshal response body for ImportKey [%s, %w]", destination, err)
+		}
+
+		keyURL = httpResp.Location
+	}
+
+	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
+
+	return kid, keyURL, nil
 }
 
 // closeResponseBody closes the response body.
