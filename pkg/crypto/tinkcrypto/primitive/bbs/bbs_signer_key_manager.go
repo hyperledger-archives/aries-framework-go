@@ -121,6 +121,7 @@ func (km *bbsSignerKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message
 		KeyValue: privKeyBytes,
 		PublicKey: &bbspb.BBSPublicKey{
 			Version:  bbsSignerKeyVersion,
+			Params:   keyFormat.Params,
 			KeyValue: pubKeyBytes,
 		},
 	}, nil
