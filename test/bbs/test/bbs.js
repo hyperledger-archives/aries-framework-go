@@ -25,7 +25,7 @@ const documents = {
         "id": "did:example:489398593",
         "assertionMethod": ["did:example:489398593#test"]
     },
-    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1": bbsContext,
+    "https://w3id.org/security/bbs/v1": bbsContext,
     "https://w3id.org/citizenship/v1": citizenVocab
 };
 

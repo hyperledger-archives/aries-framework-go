@@ -472,7 +472,7 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	 "@context": [
 	   "https://www.w3.org/2018/credentials/v1",
 	   "https://w3id.org/citizenship/v1",
-	   "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	   "https://w3id.org/security/bbs/v1"
 	 ],
 	 "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	 "type": [
@@ -569,7 +569,7 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://w3id.org/citizenship/v1",
-    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+    "https://w3id.org/security/bbs/v1"
   ],
   "type": ["VerifiableCredential", "PermanentResidentCard"],
   "@explicit": true,
@@ -619,7 +619,7 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://w3id.org/citizenship/v1",
-	//		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	//		"https://w3id.org/security/bbs/v1"
 	//	],
 	//	"credentialSubject": {
 	//		"birthCountry": "Bahamas",
@@ -671,7 +671,7 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://w3id.org/citizenship/v1",
-	//		"https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+	//		"https://w3id.org/security/bbs/v1"
 	//	],
 	//	"credentialSubject": {
 	//		"familyName": "SMITH",

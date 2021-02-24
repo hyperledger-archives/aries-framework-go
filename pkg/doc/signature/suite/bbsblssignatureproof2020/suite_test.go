@@ -65,7 +65,7 @@ const vcDoc = `
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://w3id.org/citizenship/v1",
-    "https://w3c-ccg.github.io/ldp-bbs2020/context/v1"
+    "https://w3id.org/security/bbs/v1"
   ],
   "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
   "type": [
@@ -101,7 +101,7 @@ const vcDoc = `
 
 //nolint:lll
 const expectedDoc = `_:c14n0 <http://purl.org/dc/terms/created> "2020-12-06T19:23:10Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#BbsBlsSignature2020> .
 _:c14n0 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> .
 _:c14n0 <https://w3id.org/security#verificationMethod> <did:example:489398593#test> .
 <did:example:b34ca6cd37bbf23> <http://schema.org/familyName> "SMITH" .

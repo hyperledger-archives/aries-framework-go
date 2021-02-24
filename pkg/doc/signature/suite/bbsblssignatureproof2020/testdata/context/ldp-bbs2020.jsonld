@@ -1,72 +1,66 @@
-
 {
   "@context": {
     "@version": 1.1,
     "id": "@id",
     "type": "@type",
-    "ldssk": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#",
     "BbsBlsSignature2020": {
-      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignature2020",
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
       "@context": {
         "@version": 1.1,
         "@protected": true,
         "id": "@id",
         "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
+        "challenge": "https://w3id.org/security#challenge",
         "created": {
           "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
+          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
         },
-        "domain": "sec:domain",
-        "proofValue": "sec:proofValue",
-        "nonce": "sec:nonce",
+        "domain": "https://w3id.org/security#domain",
+        "proofValue": "https://w3id.org/security#proofValue",
+        "nonce": "https://w3id.org/security#nonce",
         "proofPurpose": {
-          "@id": "sec:proofPurpose",
+          "@id": "https://w3id.org/security#proofPurpose",
           "@type": "@vocab",
           "@context": {
             "@version": 1.1,
             "@protected": true,
             "id": "@id",
             "type": "@type",
-            "sec": "https://w3id.org/security#",
             "assertionMethod": {
-              "@id": "sec:assertionMethod",
+              "@id": "https://w3id.org/security#assertionMethod",
               "@type": "@id",
               "@container": "@set"
             },
             "authentication": {
-              "@id": "sec:authenticationMethod",
+              "@id": "https://w3id.org/security#authenticationMethod",
               "@type": "@id",
               "@container": "@set"
             }
           }
         },
         "verificationMethod": {
-          "@id": "sec:verificationMethod",
+          "@id": "https://w3id.org/security#verificationMethod",
           "@type": "@id"
         }
       }
     },
     "BbsBlsSignatureProof2020": {
-      "@id": "https://w3c-ccg.github.io/ldp-bbs2020/context/v1#BbsBlsSignatureProof2020",
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
       "@context": {
         "@version": 1.1,
         "@protected": true,
         "id": "@id",
         "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
+
+        "challenge": "https://w3id.org/security#challenge",
         "created": {
           "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
+          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
         },
-        "domain": "sec:domain",
-        "nonce": "sec:nonce",
+        "domain": "https://w3id.org/security#domain",
+        "nonce": "https://w3id.org/security#nonce",
         "proofPurpose": {
-          "@id": "sec:proofPurpose",
+          "@id": "https://w3id.org/security#proofPurpose",
           "@type": "@vocab",
           "@context": {
             "@version": 1.1,
@@ -75,24 +69,24 @@
             "type": "@type",
             "sec": "https://w3id.org/security#",
             "assertionMethod": {
-              "@id": "sec:assertionMethod",
+              "@id": "https://w3id.org/security#assertionMethod",
               "@type": "@id",
               "@container": "@set"
             },
             "authentication": {
-              "@id": "sec:authenticationMethod",
+              "@id": "https://w3id.org/security#authenticationMethod",
               "@type": "@id",
               "@container": "@set"
             }
           }
         },
-        "proofValue": "sec:proofValue",
+        "proofValue": "https://w3id.org/security#proofValue",
         "verificationMethod": {
-          "@id": "sec:verificationMethod",
+          "@id": "https://w3id.org/security#verificationMethod",
           "@type": "@id"
         }
       }
     },
-    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
+    "Bls12381G2Key2020": "https://w3id.org/security#Bls12381G2Key2020"
   }
 }
