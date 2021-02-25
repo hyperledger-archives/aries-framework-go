@@ -26,9 +26,17 @@ func (v *VDR) Read(didKey string, opts ...vdrapi.ResolveOption) (*did.DocResolut
 		return nil, fmt.Errorf("vdr Read: invalid did:key method ID: %s", parsed.MethodSpecificID)
 	}
 
-	pubKeyBytes, err := fingerprint.PubKeyFromFingerprint(parsed.MethodSpecificID)
+	pubKeyBytes, code, err := fingerprint.PubKeyFromFingerprint(parsed.MethodSpecificID)
 	if err != nil {
 		return nil, fmt.Errorf("pub:key vdr Read: failed to get key fingerPrint: %w", err)
+	}
+
+	// TODO: support additional codes for did:key
+	switch code {
+	case ed25519pub:
+		break
+	default:
+		return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
 	}
 
 	// did:key can't add non converted encryption key as keyAgreement (unless it's added as an option just like creator,

@@ -36,7 +36,7 @@ func TestRead(t *testing.T) {
 
 		doc, err := v.Read("did:key:z6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "not supported public key (multicodec code: 0xec)") // Curve25519 public key
+		require.Contains(t, err.Error(), "unsupported key multicodec code [0xec]") // Curve25519 public key
 		require.Nil(t, doc)
 	})
 
