@@ -142,7 +142,8 @@ type Store interface {
 
 // Iterator allows for iteration over a collection of entries in a store.
 type Iterator interface {
-	// Next moves the pointer to the next entry in the iterator. It returns false if the iterator is exhausted.
+	// Next moves the pointer to the next entry in the iterator.
+	// It returns false if the iterator is exhausted - this is not considered an error.
 	Next() (bool, error)
 
 	// Key returns the key of the current entry.
