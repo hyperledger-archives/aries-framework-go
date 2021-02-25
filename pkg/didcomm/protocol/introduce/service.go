@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -123,6 +123,12 @@ func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Introduce)
 	if err != nil {
 		return nil, err
+	}
+
+	err = p.StorageProvider().SetStoreConfig(Introduce,
+		storage.StoreConfiguration{TagNames: []string{transitionalPayloadKey, participantsKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	oobSvc, err := p.Service(outofband.Name)
@@ -489,25 +495,38 @@ func (s *Service) currentStateName(piID string) (string, error) {
 
 // Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
-	records := s.store.Iterator(
-		fmt.Sprintf(transitionalPayloadKey, ""),
-		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
-	)
-	defer records.Release()
+	records, err := s.store.Query(transitionalPayloadKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query store: %w", err)
+	}
+
+	defer storage.Close(records, logger)
 
 	var actions []Action
 
-	for records.Next() {
-		if records.Error() != nil {
-			return nil, records.Error()
+	more, err := records.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next record: %w", err)
+	}
+
+	for more {
+		var action Action
+
+		value, err := records.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from records: %w", err)
 		}
 
-		var action Action
-		if err := json.Unmarshal(records.Value(), &action); err != nil {
-			return nil, fmt.Errorf("unmarshal: %w", err)
+		if errUnmarshal := json.Unmarshal(value, &action); errUnmarshal != nil {
+			return nil, fmt.Errorf("unmarshal: %w", errUnmarshal)
 		}
 
 		actions = append(actions, action)
+
+		more, err = records.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next record: %w", err)
+		}
 	}
 
 	return actions, nil
@@ -523,7 +542,7 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 		return fmt.Errorf("marshal transitional payload: %w", err)
 	}
 
-	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src, storage.Tag{Name: transitionalPayloadKey})
 }
 
 func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {
@@ -714,27 +733,44 @@ func (s *Service) saveParticipant(piID string, p *participant) error {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	return s.store.Put(fmt.Sprintf(participantsKey, piID, uuid.New().String()), src)
+	return s.store.Put(fmt.Sprintf(participantsKey, piID, uuid.New().String()), src, storage.Tag{
+		Name:  participantsKey,
+		Value: piID,
+	})
 }
 
 func (s *Service) getParticipants(piID string) ([]*participant, error) {
-	records := s.store.Iterator(fmt.Sprintf(participantsKey, piID, ""),
-		fmt.Sprintf(participantsKey, piID, storage.EndKeySuffix))
-	defer records.Release()
+	records, err := s.store.Query(fmt.Sprintf("%s:%s", participantsKey, piID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query store: %w", err)
+	}
+
+	defer storage.Close(records, logger)
 
 	var participants []*participant
 
-	for records.Next() {
-		if records.Error() != nil {
-			return nil, records.Error()
+	more, err := records.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next record: %w", err)
+	}
+
+	for more {
+		value, err := records.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from records: %w", err)
 		}
 
 		var participant *participant
-		if err := json.Unmarshal(records.Value(), &participant); err != nil {
-			return nil, fmt.Errorf("unmarshal: %w", err)
+		if errUnmarshal := json.Unmarshal(value, &participant); errUnmarshal != nil {
+			return nil, fmt.Errorf("unmarshal: %w", errUnmarshal)
 		}
 
 		participants = append(participants, participant)
+
+		more, err = records.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next record: %w", err)
+		}
 	}
 
 	sort.Slice(participants, func(i, j int) bool {

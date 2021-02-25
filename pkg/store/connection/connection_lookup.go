@@ -15,7 +15,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -27,11 +28,11 @@ const (
 	invKeyPrefix        = "inv"
 	eventDataKeyPrefix  = "connevent"
 	didConnMapKeyPrefix = "didconn"
-	// limitPattern with `~` at the end for lte of given prefix (less than or equal).
-	limitPattern    = "%s" + storage.EndKeySuffix
-	keySeparator    = "_"
-	stateIDEmptyErr = "stateID can't be empty"
+	keySeparator        = "_"
+	stateIDEmptyErr     = "stateID can't be empty"
 )
+
+var logger = log.New("aries-framework/store/connection")
 
 // KeyPrefix is prefix builder for storage keys.
 type KeyPrefix func(...string) string
@@ -67,9 +68,20 @@ func NewLookup(p provider) (*Lookup, error) {
 		return nil, fmt.Errorf("failed to open permanent store to create new connection recorder: %w", err)
 	}
 
+	err = p.StorageProvider().SetStoreConfig(Namespace, storage.StoreConfiguration{TagNames: []string{connIDKeyPrefix}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store config in permanent store: %w", err)
+	}
+
 	protocolStateStore, err := p.ProtocolStateStorageProvider().OpenStore(Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open protocol state store to create new connection recorder: %w", err)
+	}
+
+	err = p.ProtocolStateStorageProvider().SetStoreConfig(Namespace,
+		storage.StoreConfiguration{TagNames: []string{connIDKeyPrefix, connStateKeyPrefix}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store config in protocol state store: %w", err)
 	}
 
 	return &Lookup{protocolStateStore: protocolStateStore, store: store}, nil
@@ -106,42 +118,37 @@ func (c *Lookup) QueryConnectionRecords() ([]*Record, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 query criteria to be added as part of issue
 	searchKey := getConnectionKeyPrefix()("")
 
-	itr := c.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer itr.Release()
-
-	var records []*Record
-
-	keys := make(map[string]struct{})
-
-	for itr.Next() {
-		var record Record
-
-		err := json.Unmarshal(itr.Value(), &record)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query connection records, %w", err)
-		}
-
-		keys[string(itr.Key())] = struct{}{}
-
-		records = append(records, &record)
+	persistentStoreRecords, persistentStoreKeys, err := c.getDataFromPersistentStore(searchKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get data from persistent store: %w", err)
 	}
 
-	protocolStateItr := c.protocolStateStore.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer protocolStateItr.Release()
+	allRecords, err := c.addDataFromProtocolStateStoreToRecords(searchKey, persistentStoreKeys, persistentStoreRecords)
+	if err != nil {
+		return nil, fmt.Errorf("failed to augment records from persistent store with records "+
+			"from the protocol state store: %w", err)
+	}
 
-	for protocolStateItr.Next() {
-		// don't fetch data from protocol state store if same record is present in permanent store
-		if _, ok := keys[string(protocolStateItr.Key())]; ok {
-			continue
+	return allRecords, nil
+}
+
+func (c *Lookup) addDataFromProtocolStateStoreToRecords(searchKey string, keys map[string]struct{},
+	records []*Record) ([]*Record, error) {
+	protocolStateStoreItr, err := c.protocolStateStore.Query(searchKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query protocol state store: %w", err)
+	}
+
+	defer func() {
+		errClose := protocolStateStoreItr.Close()
+		if errClose != nil {
+			logger.Errorf("failed to close records iterator from from protocol state storage: %s", errClose.Error())
 		}
+	}()
 
-		var record Record
-
-		if err := json.Unmarshal(protocolStateItr.Value(), &record); err != nil {
-			return nil, fmt.Errorf("query connection records from protocol state store : %w", err)
-		}
-
-		records = append(records, &record)
+	records, err = addRecordsFromProtocolStateStoreIterator(protocolStateStoreItr, keys, records)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add records from protocol state storage iterator: %w", err)
 	}
 
 	return records, nil
@@ -210,6 +217,59 @@ func (c *Recorder) GetEvent(connectionID string) ([]byte, error) {
 	return c.protocolStateStore.Get(getEventDataKeyPrefix()(connectionID))
 }
 
+func (c *Lookup) getDataFromPersistentStore(searchKey string) ([]*Record, map[string]struct{}, error) {
+	itr, errQuery := c.store.Query(searchKey)
+	if errQuery != nil {
+		return nil, nil, fmt.Errorf("failed to query permanent store: %w", errQuery)
+	}
+
+	defer func() {
+		errClose := itr.Close()
+		if errClose != nil {
+			logger.Errorf("failed to close records iterator from permanent storage: %s", errClose.Error())
+		}
+	}()
+
+	var records []*Record
+
+	keys := make(map[string]struct{})
+
+	more, errNext := itr.Next()
+	if errNext != nil {
+		return nil, nil, fmt.Errorf("failed to get next set of data from permanent storage iterator: %w", errNext)
+	}
+
+	for more {
+		value, err := itr.Value()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get value from iterator: %w", err)
+		}
+
+		var record Record
+
+		err = json.Unmarshal(value, &record)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal connection record: %w", err)
+		}
+
+		key, err := itr.Key()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get key from iterator: %w", err)
+		}
+
+		keys[key] = struct{}{}
+
+		records = append(records, &record)
+
+		more, err = itr.Next()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get next set of data from permanent storage iterator: %w", err)
+		}
+	}
+
+	return records, keys, nil
+}
+
 func getAndUnmarshal(key string, target interface{}, store storage.Store) error {
 	bytes, err := store.Get(key)
 	if err != nil {
@@ -274,4 +334,49 @@ func CreateNamespaceKey(prefix, thID string) (string, error) {
 	}
 
 	return getNamespaceKeyPrefix(prefix)(key), nil
+}
+
+func addRecordsFromProtocolStateStoreIterator(protocolStateStoreItr storage.Iterator, keys map[string]struct{},
+	records []*Record) ([]*Record, error) {
+	more, err := protocolStateStoreItr.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next set of data from protocol state store iterator: %w", err)
+	}
+
+	for more {
+		key, err := protocolStateStoreItr.Key()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get key from iterator: %w", err)
+		}
+
+		// don't fetch data from protocol state store if same record is present in permanent store
+		if _, ok := keys[key]; ok {
+			more, err = protocolStateStoreItr.Next()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get next set of data from protocol state store iterator: %w", err)
+			}
+
+			continue
+		}
+
+		value, err := protocolStateStoreItr.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from iterator: %w", err)
+		}
+
+		var record Record
+
+		if errUnmarshal := json.Unmarshal(value, &record); errUnmarshal != nil {
+			return nil, fmt.Errorf("query connection records from protocol state store : %w", errUnmarshal)
+		}
+
+		records = append(records, &record)
+
+		more, err = protocolStateStoreItr.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next set of data from protocol state store iterator: %w", err)
+		}
+	}
+
+	return records, nil
 }

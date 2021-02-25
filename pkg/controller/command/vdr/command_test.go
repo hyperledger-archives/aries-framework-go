@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -239,8 +240,8 @@ func TestResolveDID(t *testing.T) {
 
 func TestGetDID(t *testing.T) {
 	t.Run("test get did - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+		s := make(map[string]mockstore.DBEntry)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -312,7 +313,7 @@ func TestGetDID(t *testing.T) {
 func TestGetDIDRecords(t *testing.T) {
 	t.Run("test get did records", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue: mem.NewProvider(),
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, err)

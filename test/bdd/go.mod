@@ -21,7 +21,8 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-00010101000000-000000000000
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210224230531-58e1368e5661
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210224230531-58e1368e5661
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/piprate/json-gold v0.3.1-0.20201222165305-f4ce31c02ca3
@@ -32,7 +33,4 @@ require (
 	nhooyr.io/websocket v1.8.3
 )
 
-replace (
-	github.com/hyperledger/aries-framework-go => ../..
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
-)
+replace github.com/hyperledger/aries-framework-go => ../..

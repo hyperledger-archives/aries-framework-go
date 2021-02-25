@@ -318,8 +318,8 @@ func TestSaveVC(t *testing.T) {
 
 func TestGetVC(t *testing.T) {
 	t.Run("test get vc - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -342,8 +342,8 @@ func TestGetVC(t *testing.T) {
 	})
 
 	t.Run("test get vc - error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -451,7 +451,7 @@ func TestGetCredentials(t *testing.T) {
 }
 
 func TestGeneratePresentation(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -645,7 +645,7 @@ func TestGeneratePresentation(t *testing.T) {
 }
 
 func TestGeneratePresentationByID(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -668,8 +668,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 
 	t.Run("test generate presentation by id - success", func(t *testing.T) {
 		// to store the values in the store
-		s["http://example.edu/credentials/1989"] = []byte(vc)
-		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		presReqByID := verifiable.PresentationRequestByID{
 			ID:            "http://example.edu/credentials/1989",
@@ -777,8 +777,8 @@ func TestSaveVP(t *testing.T) {
 
 func TestGetVP(t *testing.T) {
 	t.Run("test get vp - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s[sampleVPID] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -820,8 +820,8 @@ func TestGetVP(t *testing.T) {
 	})
 
 	t.Run("test get vp - error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s[sampleVPID] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -886,7 +886,7 @@ func TestGetPresentations(t *testing.T) {
 }
 
 func TestSignCredential(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -1078,8 +1078,8 @@ func TestRemoveVCByName(t *testing.T) {
 
 func TestRemoveVPByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s[sampleVPID] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -1114,8 +1114,8 @@ func TestRemoveVPByName(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s[sampleVPID] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},

@@ -16,7 +16,7 @@ import (
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 type ctx struct {
@@ -58,7 +58,7 @@ func TestBaseConnectionStore(t *testing.T) {
 		cs, err := NewConnectionStore(&ctx{
 			store: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
-					Store:  map[string][]byte{},
+					Store:  map[string]mockstorage.DBEntry{},
 					ErrPut: fmt.Errorf("put error"),
 				},
 			},

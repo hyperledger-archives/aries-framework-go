@@ -12,8 +12,7 @@ echo "Running $0"
 # TODO Support collecting code coverage  https://github.com/agnivade/wasmbrowsertest/issues/5
 # TODO Fail CI if headless chrome isn't available https://github.com/hyperledger/aries-framework-go/issues/843
 
-PKGS="github.com/hyperledger/aries-framework-go/component/storage/jsindexeddb
-github.com/hyperledger/aries-framework-go/component/storage/indexeddb
+PKGS="github.com/hyperledger/aries-framework-go/component/storage/indexeddb
 github.com/hyperledger/aries-framework-go/cmd/aries-js-worker"
 
 cd cmd/aries-js-worker

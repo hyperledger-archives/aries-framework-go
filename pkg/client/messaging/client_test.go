@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -29,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestNew(t *testing.T) {
@@ -180,14 +182,23 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+				memProvider := mem.NewProvider()
+
+				memStore, err := memProvider.OpenStore("didexchange")
+				require.NoError(t, err)
+
 				if tc.testConnection != nil {
-					connBytes, err := json.Marshal(tc.testConnection)
-					require.NoError(t, err)
-					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
+					connBytes, errMarshal := json.Marshal(tc.testConnection)
+					require.NoError(t, errMarshal)
+					require.NoError(t,
+						memStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes,
+							spi.Tag{Name: "conn_"}))
 				}
 
-				cmd, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
+				cmd, err := New(&protocol.MockProvider{
+					StoreProvider:              memProvider,
+					ProtocolStateStoreProvider: mem.NewProvider(),
+				},
 					msghandler.NewMockMsgServiceProvider(), &mockNotifier{})
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
@@ -256,16 +267,25 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+				memProvider := mem.NewProvider()
+
+				memStore, err := memProvider.OpenStore("didexchange")
+				require.NoError(t, err)
+
 				if tc.testConnection != nil {
-					connBytes, err := json.Marshal(tc.testConnection)
-					require.NoError(t, err)
-					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
+					connBytes, errMarshal := json.Marshal(tc.testConnection)
+					require.NoError(t, errMarshal)
+					require.NoError(t,
+						memStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes,
+							spi.Tag{Name: "conn_"}))
 				}
 
 				registrar := msghandler.NewMockMsgServiceProvider()
 
-				cmd, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
+				cmd, err := New(&protocol.MockProvider{
+					StoreProvider:              memProvider,
+					ProtocolStateStoreProvider: mem.NewProvider(),
+				},
 					registrar, &mockNotifier{})
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
@@ -309,7 +329,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 		})
 		require.NoError(t, err)
 
-		mockStore := &storage.MockStore{Store: make(map[string][]byte)}
+		mockStore := &storage.MockStore{Store: make(map[string]storage.DBEntry)}
 		require.NoError(t, mockStore.Put("conn_sample-conn-ID-001", connBytes))
 
 		cmd, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
@@ -423,15 +443,21 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				provider := &protocol.MockProvider{}
+				provider := &protocol.MockProvider{ProtocolStateStoreProvider: mem.NewProvider()}
+
+				memProvider := mem.NewProvider()
+
+				memStore, err := memProvider.OpenStore("didexchange")
+				require.NoError(t, err)
 
 				if tc.testConnection != nil {
-					mockStore := &storage.MockStore{Store: make(map[string][]byte)}
-					connBytes, err := json.Marshal(tc.testConnection)
-					require.NoError(t, err)
-					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
-					provider.StoreProvider = storage.NewCustomMockStoreProvider(mockStore)
+					connBytes, errMarshal := json.Marshal(tc.testConnection)
+					require.NoError(t, errMarshal)
+
+					require.NoError(t, memStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes))
 				}
+
+				provider.StoreProvider = memProvider
 
 				if tc.messenger != nil {
 					provider.CustomMessenger = tc.messenger

@@ -162,6 +162,13 @@ define create_mock
   @$(MOCKGEN) -destination $(mocks_dir)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
+define create_spi_provider_mocks
+  $(eval mocks_dir := $(GOMOCKS)/spi/storage)
+  @echo Creating $(mocks_dir)
+  @mkdir -p $(mocks_dir) && rm -rf $(mocks_dir)/*
+  @$(MOCKGEN) -destination $(mocks_dir)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+endef
+
 depend:
 	@mkdir -p ./build/bin
 	cd $(mktemp -d); go mod init tmp; GOBIN=$(GOBIN_PATH) go install github.com/myitcv/gobin
@@ -181,10 +188,10 @@ mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/protocol/introduce,Provider)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
 	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
-	$(call create_mock,pkg/storage,Provider;Store)
 	$(call create_mock,pkg/didcomm/messenger,Provider)
 	$(call create_mock,pkg/store/verifiable,Store)
 	$(call create_mock,pkg/controller/webnotifier,Notifier)
+	$(call create_spi_provider_mocks,spi/storage,Provider;Store)
 
 .PHONY: clean-mocks
 clean-mocks:

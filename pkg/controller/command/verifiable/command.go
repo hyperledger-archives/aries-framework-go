@@ -27,9 +27,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 var logger = log.New("aries-framework/command/verifiable")

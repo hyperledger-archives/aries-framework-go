@@ -13,8 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -25,10 +26,9 @@ const (
 	presentationNameKey            = "vpname_"
 	credentialNameDataKeyPattern   = credentialNameKey + "%s"
 	presentationNameDataKeyPattern = presentationNameKey + "%s"
-
-	// limitPattern for the iterator.
-	limitPattern = "%s" + storage.EndKeySuffix
 )
+
+var logger = log.New("aries-framework/store/verifiable")
 
 // Opt represents option function.
 type Opt func(o *options)
@@ -80,6 +80,12 @@ func New(ctx provider) (*StoreImplementation, error) {
 	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open vc store: %w", err)
+	}
+
+	err = ctx.StorageProvider().SetStoreConfig(NameSpace,
+		storage.StoreConfiguration{TagNames: []string{credentialNameKey, presentationNameKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	return &StoreImplementation{store: store}, nil
@@ -134,7 +140,7 @@ func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credent
 		return fmt.Errorf("failed to marshal record: %w", err)
 	}
 
-	return s.store.Put(credentialNameDataKey(name), recordBytes)
+	return s.store.Put(credentialNameDataKey(name), recordBytes, storage.Tag{Name: credentialNameKey})
 }
 
 // SavePresentation saves a verifiable presentation.
@@ -186,7 +192,7 @@ func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Prese
 		return fmt.Errorf("failed to put vp: %w", err)
 	}
 
-	return s.store.Put(presentationNameDataKey(name), recordBytes)
+	return s.store.Put(presentationNameDataKey(name), recordBytes, storage.Tag{Name: presentationNameKey})
 }
 
 // GetCredential retrieves a verifiable credential based on ID.
@@ -316,20 +322,44 @@ func (s *StoreImplementation) remove(id, recordKey string) error {
 }
 
 func (s *StoreImplementation) getAllRecords(searchKey string) ([]*Record, error) {
-	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer itr.Release()
+	itr, err := s.store.Query(searchKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query store: %w", err)
+	}
+
+	defer func() {
+		errClose := itr.Close()
+		if errClose != nil {
+			logger.Errorf("failed to close iterator: %s", errClose.Error())
+		}
+	}()
 
 	var records []*Record
 
-	for itr.Next() {
+	more, err := itr.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next set of data from iterator")
+	}
+
+	for more {
 		var r *Record
 
-		err := json.Unmarshal(itr.Value(), &r)
+		value, err := itr.Value()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value from iterator: %w", err)
+		}
+
+		err = json.Unmarshal(value, &r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal record : %w", err)
 		}
 
 		records = append(records, r)
+
+		more, err = itr.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next set of data from iterator")
+		}
 	}
 
 	return records, nil

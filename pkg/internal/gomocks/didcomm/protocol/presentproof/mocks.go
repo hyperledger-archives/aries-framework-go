@@ -7,7 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	storage "github.com/hyperledger/aries-framework-go/spi/storage"
 	reflect "reflect"
 )
 

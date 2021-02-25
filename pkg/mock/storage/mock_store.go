@@ -11,7 +11,18 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
+)
+
+const (
+	expressionTagNameOnlyLength     = 1
+	expressionTagNameAndValueLength = 2
+)
+
+var (
+	errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
+		"it must be in the following format: TagName:TagValue")
+	errIteratorExhausted = errors.New("iterator is exhausted")
 )
 
 // MockStoreProvider mock store provider.
@@ -27,7 +38,7 @@ type MockStoreProvider struct {
 // NewMockStoreProvider new store provider instance.
 func NewMockStoreProvider() *MockStoreProvider {
 	return &MockStoreProvider{Store: &MockStore{
-		Store: make(map[string][]byte),
+		Store: make(map[string]DBEntry),
 	}}
 }
 
@@ -50,6 +61,21 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 	return s.Store, s.ErrOpenStoreHandle
 }
 
+// SetStoreConfig always return a nil error.
+func (s *MockStoreProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+	return nil
+}
+
+// GetStoreConfig is not implemented.
+func (s *MockStoreProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
+	panic("implement me")
+}
+
+// GetOpenStores is not implemented.
+func (s *MockStoreProvider) GetOpenStores() []storage.Store {
+	panic("implement me")
+}
+
 // Close closes all stores created under this store provider.
 func (s *MockStoreProvider) Close() error {
 	return s.ErrClose
@@ -60,18 +86,23 @@ func (s *MockStoreProvider) CloseStore(name string) error {
 	return s.ErrCloseStore
 }
 
+// DBEntry is a value plus optional tags that are associated with some key.
+type DBEntry struct {
+	Value []byte
+	Tags  []storage.Tag
+}
+
 // MockStore mock store.
 type MockStore struct {
-	Store     map[string][]byte
+	Store     map[string]DBEntry
 	lock      sync.RWMutex
 	ErrPut    error
 	ErrGet    error
-	ErrItr    error
 	ErrDelete error
 }
 
 // Put stores the key and the record.
-func (s *MockStore) Put(k string, v []byte) error {
+func (s *MockStore) Put(k string, v []byte, tags ...storage.Tag) error {
 	if k == "" {
 		return errors.New("key is mandatory")
 	}
@@ -81,7 +112,10 @@ func (s *MockStore) Put(k string, v []byte) error {
 	}
 
 	s.lock.Lock()
-	s.Store[k] = v
+	s.Store[k] = DBEntry{
+		Value: v,
+		Tags:  tags,
+	}
 	s.lock.Unlock()
 
 	return s.ErrPut
@@ -96,32 +130,56 @@ func (s *MockStore) Get(k string) ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	val, ok := s.Store[k]
+	entry, ok := s.Store[k]
 	if !ok {
 		return nil, storage.ErrDataNotFound
 	}
 
-	return val, s.ErrGet
+	return entry.Value, s.ErrGet
 }
 
-// Iterator returns an iterator for the underlying mockstore.
-func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
-	if s.ErrItr != nil {
-		return NewMockIteratorWithError(s.ErrItr)
+// GetTags is not implemented.
+func (s *MockStore) GetTags(key string) ([]storage.Tag, error) {
+	panic("implement me")
+}
+
+// GetBulk is not implemented.
+func (s *MockStore) GetBulk(keys ...string) ([][]byte, error) {
+	panic("implement me")
+}
+
+// Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
+// If TagValue is not provided, then all data associated with the TagName will be returned.
+// For now, expression can only be a single tag Name + Value pair.
+func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.Iterator, error) {
+	if expression == "" {
+		return nil, errInvalidQueryExpressionFormat
 	}
 
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	expressionSplit := strings.Split(expression, ":")
+	switch len(expressionSplit) {
+	case expressionTagNameOnlyLength:
+		expressionTagName := expressionSplit[0]
 
-	var batch [][]string
+		s.lock.RLock()
+		defer s.lock.RUnlock()
 
-	for k, v := range s.Store {
-		if strings.HasPrefix(k, start) {
-			batch = append(batch, []string{k, string(v)})
-		}
+		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, "")
+
+		return &iterator{keys: keys, dbEntries: dbEntries}, nil
+	case expressionTagNameAndValueLength:
+		expressionTagName := expressionSplit[0]
+		expressionTagValue := expressionSplit[1]
+
+		s.lock.RLock()
+		defer s.lock.RUnlock()
+
+		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, expressionTagValue)
+
+		return &iterator{keys: keys, dbEntries: dbEntries}, nil
+	default:
+		return nil, errInvalidQueryExpressionFormat
 	}
-
-	return NewMockIterator(batch)
 }
 
 // Delete will delete record with k key.
@@ -133,71 +191,90 @@ func (s *MockStore) Delete(k string) error {
 	return s.ErrDelete
 }
 
-// NewMockIterator returns new mock iterator for given batch.
-func NewMockIterator(batch [][]string) *MockIterator {
-	if len(batch) == 0 {
-		return &MockIterator{}
+// Batch is not implemented.
+func (s *MockStore) Batch(operations []storage.Operation) error {
+	panic("implement me")
+}
+
+// Flush is not implemented.
+func (s *MockStore) Flush() error {
+	panic("implement me")
+}
+
+// Close is not implemented.
+func (s *MockStore) Close() error {
+	panic("implement me")
+}
+
+func (s *MockStore) getMatchingKeysAndDBEntries(tagName, tagValue string) ([]string, []DBEntry) {
+	var matchAnyValue bool
+	if tagValue == "" {
+		matchAnyValue = true
 	}
 
-	return &MockIterator{items: batch}
-}
+	var keys []string
 
-// NewMockIteratorWithError returns new mock iterator with error.
-func NewMockIteratorWithError(err error) *MockIterator {
-	return &MockIterator{err: err}
-}
+	var dbEntries []DBEntry
 
-// MockIterator is the mock implementation of storage iterator.
-type MockIterator struct {
-	currentIndex int
-	currentItem  []string
-	items        [][]string
-	err          error
-}
+	for key, dbEntry := range s.Store {
+		for _, tag := range dbEntry.Tags {
+			if tag.Name == tagName && (matchAnyValue || tag.Value == tagValue) {
+				keys = append(keys, key)
+				dbEntries = append(dbEntries, dbEntry)
 
-func (s *MockIterator) isExhausted() bool {
-	return len(s.items) == 0 || len(s.items) == s.currentIndex
-}
-
-// Next moves pointer to next value of iterator.
-// It returns false if the iterator is exhausted.
-func (s *MockIterator) Next() bool {
-	if s.isExhausted() {
-		return false
+				break
+			}
+		}
 	}
 
-	s.currentItem = s.items[s.currentIndex]
-	s.currentIndex++
-
-	return true
+	return keys, dbEntries
 }
 
-// Release releases associated resources.
-func (s *MockIterator) Release() {
-	s.currentIndex = 0
-	s.items = make([][]string, 0)
-	s.currentItem = make([]string, 0)
+type iterator struct {
+	currentIndex   int
+	currentKey     string
+	currentDBEntry DBEntry
+	keys           []string
+	dbEntries      []DBEntry
 }
 
-// Error returns error in iterator.
-func (s *MockIterator) Error() error {
-	return s.err
-}
-
-// Key returns the key of the current key/value pair.
-func (s *MockIterator) Key() []byte {
-	if len(s.items) == 0 || len(s.currentItem) == 0 {
-		return nil
+func (m *iterator) Next() (bool, error) {
+	if len(m.dbEntries) == m.currentIndex || len(m.dbEntries) == 0 {
+		m.dbEntries = nil
+		return false, nil
 	}
 
-	return []byte(s.currentItem[0])
+	m.currentKey = m.keys[m.currentIndex]
+	m.currentDBEntry = m.dbEntries[m.currentIndex]
+	m.currentIndex++
+
+	return true, nil
 }
 
-// Value returns the value of the current key/value pair.
-func (s *MockIterator) Value() []byte {
-	if len(s.items) == 0 || len(s.currentItem) < 1 {
-		return nil
+func (m *iterator) Key() (string, error) {
+	if len(m.dbEntries) == 0 {
+		return "", errIteratorExhausted
 	}
 
-	return []byte(s.currentItem[1])
+	return m.currentKey, nil
+}
+
+func (m *iterator) Value() ([]byte, error) {
+	if len(m.dbEntries) == 0 {
+		return nil, errIteratorExhausted
+	}
+
+	return m.currentDBEntry.Value, nil
+}
+
+func (m *iterator) Tags() ([]storage.Tag, error) {
+	if len(m.dbEntries) == 0 {
+		return nil, errIteratorExhausted
+	}
+
+	return m.currentDBEntry.Tags, nil
+}
+
+func (m *iterator) Close() error {
+	return nil
 }

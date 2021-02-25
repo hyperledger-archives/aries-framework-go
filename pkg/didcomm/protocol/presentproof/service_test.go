@@ -18,14 +18,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	presentproofMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -40,10 +40,11 @@ func TestNew(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -72,10 +73,11 @@ func TestService_Use(t *testing.T) {
 	t.Run("Success (one function)", func(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -117,10 +119,11 @@ func TestService_Use(t *testing.T) {
 	t.Run("Success (two function)", func(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -146,10 +149,11 @@ func TestService_Use(t *testing.T) {
 	t.Run("Failed", func(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -176,6 +180,7 @@ func TestService_ActionContinue(t *testing.T) {
 	store := storageMocks.NewMockStore(ctrl)
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+	storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil).AnyTimes()
 
 	provider := presentproofMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(nil).AnyTimes()
@@ -215,10 +220,11 @@ func TestService_ActionStop(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -239,10 +245,11 @@ func TestService_ActionStop(t *testing.T) {
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -263,6 +270,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+	storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil).AnyTimes()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
@@ -299,7 +307,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -358,8 +366,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "abandoned"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -412,8 +420,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "request-received"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -421,7 +429,7 @@ func TestService_HandleInbound(t *testing.T) {
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "presentation-sent"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -462,9 +470,11 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Request Presentation (continue with presentation) async", func(t *testing.T) {
 		done := make(chan struct{})
 
+		memProvider := mem.NewProvider()
+
 		newProvider := presentproofMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger)
-		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
+		newProvider.EXPECT().StorageProvider().Return(memProvider).Times(2)
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
@@ -508,9 +518,11 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Request Presentation (Stop) async", func(t *testing.T) {
 		done := make(chan struct{})
 
+		memProvider := mem.NewProvider()
+
 		newProvider := presentproofMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger)
-		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
+		newProvider.EXPECT().StorageProvider().Return(memProvider).Times(2)
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any()).
@@ -565,8 +577,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "request-received"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -574,7 +586,7 @@ func TestService_HandleInbound(t *testing.T) {
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "proposal-sent"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -624,9 +636,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "proposal-received"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -676,9 +688,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		store.EXPECT().Get(gomock.Any()).Return(src, nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
 			src, err = json.Marshal(&internalData{StateName: "abandoned"})
@@ -722,9 +734,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		store.EXPECT().Get(gomock.Any()).Return(src, nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
 			src, err = json.Marshal(&internalData{StateName: "abandoned"})
@@ -778,9 +790,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "proposal-received"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -839,9 +851,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		store.EXPECT().Get(gomock.Any()).Return(src, nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err = json.Marshal(&internalData{AckRequired: true, StateName: "presentation-received"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -904,7 +916,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		store.EXPECT().Get(gomock.Any()).Return(src, nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
 			src, err = json.Marshal(&internalData{StateName: "done"})
@@ -934,7 +946,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Send Request Presentation", func(t *testing.T) {
 		done := make(chan struct{})
 
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "request-sent"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -971,7 +983,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Send Request Presentation with error", func(t *testing.T) {
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -989,7 +1001,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Send Proposal", func(t *testing.T) {
 		done := make(chan struct{})
 
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			src, err := json.Marshal(&internalData{StateName: "proposal-sent"})
 			require.NoError(t, err)
 			require.Equal(t, src, data)
@@ -1092,6 +1104,7 @@ func Test_getTransitionalPayload(t *testing.T) {
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+	storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
 
 	provider := presentproofMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(nil).AnyTimes()

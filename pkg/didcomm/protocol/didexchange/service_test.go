@@ -37,10 +37,10 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const testMethod = "peer"
@@ -99,7 +99,7 @@ func TestServiceNew(t *testing.T) {
 
 // did-exchange flow with role Inviter.
 func TestService_Handle_Inviter(t *testing.T) {
-	mockStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+	mockStore := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 	storeProv := mockstorage.NewCustomMockStoreProvider(mockStore)
 	k := newKMS(t, storeProv)
 	prov := &protocol.MockProvider{
@@ -244,7 +244,7 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 	}
 }
 
-func newKMS(t *testing.T, store *mockstorage.MockStoreProvider) kms.KeyManager {
+func newKMS(t *testing.T, store storage.Provider) kms.KeyManager {
 	t.Helper()
 
 	kmsProv := &protocol.MockProvider{
@@ -441,7 +441,10 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("handleInbound - connection record error", func(t *testing.T) {
-		protocolStateStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+		protocolStateStore := &mockstorage.MockStore{
+			Store:  make(map[string]mockstorage.DBEntry),
+			ErrPut: errors.New("db error"),
+		}
 		prov := &protocol.MockProvider{
 			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(protocolStateStore),
 			ServiceMap: map[string]interface{}{
@@ -479,7 +482,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			get: func(s string) (bytes []byte, e error) {
 				return nil, storage.ErrDataNotFound
 			},
-			put: func(s string, bytes []byte) error {
+			put: func(s string, bytes []byte, tags ...storage.Tag) error {
 				if strings.Contains(s, "didex-event-") {
 					return errors.New("db error")
 				}
@@ -600,7 +603,7 @@ func TestService_Update(t *testing.T) {
 
 	connectionStore, err := newConnectionStore(&protocol.MockProvider{
 		StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
-			put: func(k string, v []byte) error {
+			put: func(k string, v []byte, tags ...storage.Tag) error {
 				data[k] = bytes
 				return nil
 			},
@@ -719,14 +722,14 @@ func TestCreateConnection(t *testing.T) {
 }
 
 type mockStore struct {
-	put    func(string, []byte) error
+	put    func(string, []byte, ...storage.Tag) error
 	get    func(string) ([]byte, error)
 	delete func(string) error
 }
 
 // Put stores the key and the record.
-func (m *mockStore) Put(k string, v []byte) error {
-	return m.put(k, v)
+func (m *mockStore) Put(k string, v []byte, tags ...storage.Tag) error {
+	return m.put(k, v, tags...)
 }
 
 // Get fetches the record based on key.
@@ -734,14 +737,33 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
 }
 
+func (m *mockStore) GetTags(key string) ([]storage.Tag, error) {
+	panic("implement me")
+}
+
+func (m *mockStore) GetBulk(keys ...string) ([][]byte, error) {
+	panic("implement me")
+}
+
+func (m *mockStore) Query(expression string, options ...storage.QueryOption) (storage.Iterator, error) {
+	panic("implement me")
+}
+
 // Delete the record based on key.
 func (m *mockStore) Delete(k string) error {
 	return m.delete(k)
 }
 
-// Search returns storage iterator.
-func (m *mockStore) Iterator(start, limit string) storage.StoreIterator {
-	return nil
+func (m *mockStore) Batch(operations []storage.Operation) error {
+	panic("implement me")
+}
+
+func (m *mockStore) Flush() error {
+	panic("implement me")
+}
+
+func (m *mockStore) Close() error {
+	panic("implement me")
 }
 
 func randomString() string {
@@ -1127,7 +1149,7 @@ func TestInvitationRecord(t *testing.T) {
 	// db error
 	svc, err = New(&protocol.MockProvider{
 		ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-			Store: make(map[string][]byte), ErrPut: errors.New("db error"),
+			Store: make(map[string]mockstorage.DBEntry), ErrPut: errors.New("db error"),
 		}),
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1171,7 +1193,7 @@ func TestRequestRecord(t *testing.T) {
 	t.Run("fails on db error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
 			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(
-				&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")},
+				&mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry), ErrPut: errors.New("db error")},
 			),
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1934,7 +1956,7 @@ func TestSave(t *testing.T) {
 		provider := testProvider()
 		provider.StoreProvider = &mockstorage.MockStoreProvider{
 			Custom: &mockStore{
-				put: func(k string, v []byte) error {
+				put: func(k string, v []byte, tags ...storage.Tag) error {
 					result := &OOBInvitation{}
 					err := json.Unmarshal(v, result)
 					require.NoError(t, err)

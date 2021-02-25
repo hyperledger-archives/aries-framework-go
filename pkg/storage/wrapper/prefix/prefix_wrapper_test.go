@@ -10,20 +10,18 @@ package prefix
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestStorePrefixWrapper(t *testing.T) {
-	_, err := NewPrefixStoreWrapper(nil, "")
-	require.EqualError(t, err, "newPrefixStoreWrapper: prefix is empty")
+	_, errNewPrefixStoreWrapper := NewPrefixStoreWrapper(nil, "")
+	require.EqualError(t, errNewPrefixStoreWrapper, "newPrefixStoreWrapper: prefix is empty")
 
 	cdbPrefix := "t"
 
@@ -82,7 +80,7 @@ func TestStorePrefixWrapper(t *testing.T) {
 
 		// nil key
 		err = store.Put("", data)
-		require.EqualError(t, err, "key and value are mandatory")
+		require.EqualError(t, err, "key cannot be empty")
 
 		err = prov.Close()
 		require.NoError(t, err)
@@ -138,22 +136,15 @@ func TestStorePrefixWrapper(t *testing.T) {
 			store, e := prov.OpenStore(name)
 			require.NoError(t, e)
 			require.NotNil(t, store)
-
-			e = prov.CloseStore(name)
-			require.NoError(t, e)
 		}
 
 		// verify store length
 		// require.Len(t, prov.dbs, 2) // not available in the wrapper provider
 
-		// try to close non existing db
-		err := prov.CloseStore("store_x")
-		require.NoError(t, err)
-
 		// verify store length
 		// require.Len(t, prov.dbs, 2) // not available in the wrapper provider
 
-		err = prov.Close()
+		err := prov.Close()
 		require.NoError(t, err)
 
 		// verify store length
@@ -163,61 +154,6 @@ func TestStorePrefixWrapper(t *testing.T) {
 		err = prov.Close()
 		require.NoError(t, err)
 	})
-
-	t.Run("Test store iterator", func(t *testing.T) {
-		prov := mem.NewProvider()
-
-		cdbStore, err := prov.OpenStore(uuid.New().String())
-		require.NoError(t, err)
-
-		var store storage.Store
-
-		store, err = NewPrefixStoreWrapper(cdbStore, cdbPrefix)
-		require.NoError(t, err)
-		require.NotEmpty(t, store)
-
-		const valPrefix = "val-for-%s"
-		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123", "dab_123"}
-
-		for _, key := range keys {
-			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
-			require.NoError(t, err)
-		}
-
-		itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
-		verifyItr(t, itr, 4, cdbPrefix+"abc_")
-
-		itr = store.Iterator("", "")
-		verifyItr(t, itr, 0, "")
-
-		itr = store.Iterator("abc_", "mno_"+storage.EndKeySuffix)
-		verifyItr(t, itr, 7, "")
-
-		itr = store.Iterator("abc_", "mno_123")
-		verifyItr(t, itr, 6, "")
-	})
-}
-
-func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
-	t.Helper()
-
-	var vals []string
-
-	for itr.Next() {
-		if prefix != "" {
-			require.True(t, strings.HasPrefix(string(itr.Key()), prefix))
-		}
-
-		vals = append(vals, string(itr.Value()))
-	}
-	require.Len(t, vals, count)
-
-	itr.Release()
-	require.False(t, itr.Next())
-	require.Empty(t, itr.Key())
-	require.Empty(t, itr.Value())
-	require.Error(t, itr.Error())
-	require.Contains(t, itr.Error().Error(), "iterator released")
 }
 
 func TestStorePrefixWrapper_Delete(t *testing.T) {
@@ -249,7 +185,7 @@ func TestStorePrefixWrapper_Delete(t *testing.T) {
 
 	// now try Delete with an empty key - should fail
 	err = store.Delete("")
-	require.EqualError(t, err, "key is mandatory")
+	require.EqualError(t, err, "key cannot be empty")
 
 	err = store.Delete("k1")
 	require.NoError(t, err)

@@ -127,8 +127,8 @@ func TestSaveDID(t *testing.T) {
 
 func TestGetDID(t *testing.T) {
 	t.Run("test get did - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+		s := make(map[string]mockstore.DBEntry)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -151,8 +151,8 @@ func TestGetDID(t *testing.T) {
 	})
 
 	t.Run("test get vc - error", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+		s := make(map[string]mockstore.DBEntry)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},

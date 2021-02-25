@@ -21,13 +21,13 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // MockProvider is provider for DIDExchange Service.
 type MockProvider struct {
-	StoreProvider              *mockstore.MockStoreProvider
-	ProtocolStateStoreProvider *mockstore.MockStoreProvider
+	StoreProvider              storage.Provider
+	ProtocolStateStoreProvider storage.Provider
 	CustomVDR                  vdrapi.Registry
 	CustomOutbound             *mockdispatcher.MockOutbound
 	CustomMessenger            *mockservice.MockMessenger

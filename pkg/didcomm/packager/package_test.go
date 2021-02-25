@@ -28,9 +28,9 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
@@ -106,12 +106,12 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-		storeMap := make(map[string][]byte)
+		storeMap := make(map[string]mockstorage.DBEntry)
 		customStore := &mockstorage.MockStore{
 			Store: storeMap,
 		}
 
-		thirdPartyKeysStoreMap := make(map[string][]byte)
+		thirdPartyKeysStoreMap := make(map[string]mockstorage.DBEntry)
 		thirdPartyStore := &mockstorage.MockStore{
 			Store: thirdPartyKeysStoreMap,
 		}
@@ -261,7 +261,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
-		thirdPartyKeyStore := make(map[string][]byte)
+		thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
 		customStore := &mockstorage.MockStore{
 			Store: thirdPartyKeyStore,
 		}
@@ -305,7 +305,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
 		// adding the key in the thirdPartyKeyStore of the recipient, stored using StorePrefixWrapper
 		fromWrappedKID := prefix.StorageKIDPrefix + fromKID
-		thirdPartyKeyStore[fromWrappedKID] = fromKey
+		thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: fromKey}
 
 		// unpack the packed message above - should pass and match the same payload (msg1)
 		unpackedMsg, err := packager.UnpackMessage(packMsg)
@@ -396,7 +396,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		mockedProviders := &mockProvider{
 			storage: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrGet: fmt.Errorf("bad error"),
 			}),
 			kms:           customKMS,

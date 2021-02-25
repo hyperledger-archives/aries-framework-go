@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -101,7 +101,7 @@ func Test_RemoveMappings(t *testing.T) {
 		const errMsg = "get error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:     make(map[string][]byte),
+				Store:     make(map[string]mockstorage.DBEntry),
 				ErrDelete: fmt.Errorf(errMsg),
 			}),
 		})
@@ -130,7 +130,7 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		}
 
 		store := &mockstorage.MockStore{
-			Store: make(map[string][]byte),
+			Store: make(map[string]mockstorage.DBEntry),
 		}
 
 		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
@@ -146,24 +146,6 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		err = removeConnectionsForStates(recorder, record.ConnectionID)
 		require.NoError(t, err)
 	})
-	t.Run("test failed to iterate connection state records", func(t *testing.T) {
-		const errMsg = "get error"
-
-		store := &mockstorage.MockStore{
-			Store:  make(map[string][]byte),
-			ErrItr: fmt.Errorf(errMsg),
-		}
-
-		recorder, err := NewRecorder(&protocol.MockProvider{
-			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
-		})
-		require.NoError(t, err)
-		require.NotNil(t, recorder)
-
-		err = removeConnectionsForStates(recorder, "anyID")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), errMsg)
-	})
 	t.Run("test failed to delete connection state record from the store", func(t *testing.T) {
 		const errMsg = "get error"
 		record := &Record{
@@ -176,12 +158,15 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		}
 
 		store := &mockstorage.MockStore{
-			Store:     make(map[string][]byte),
+			Store:     make(map[string]mockstorage.DBEntry),
 			ErrDelete: fmt.Errorf(errMsg),
 		}
 
 		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
-			record, store)
+			record, store, storage.Tag{
+				Name:  connStateKeyPrefix,
+				Value: getConnectionStateKeyPrefix()(record.ConnectionID),
+			})
 		require.NoError(t, err)
 
 		recorder, err := NewRecorder(&protocol.MockProvider{
@@ -200,7 +185,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 	const id = "sample-inv-id"
 
 	t.Run("test save invitation success", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
@@ -236,7 +221,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 	})
 
 	t.Run("test save invitation failure due to invalid key", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
@@ -439,7 +424,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		const errMsg = "get error"
 		record, err := NewRecorder(&protocol.MockProvider{
 			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
 		})
@@ -456,7 +441,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		const errMsg = "get error"
 		record, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
 		})
@@ -506,14 +491,17 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
-		itr := recorder.protocolStateStore.Iterator(
-			getConnectionStateKeyPrefix()(record.ConnectionID),
-			getConnectionStateKeyPrefix()(record.ConnectionID)+storage.EndKeySuffix,
-		)
-		defer itr.Release()
+		itr, err := recorder.protocolStateStore.Query(connStateKeyPrefix)
+		require.NoError(t, err)
 
-		for itr.Next() {
-			t.Errorf("protocol state store still has connection state records: key=%s", itr.Key())
+		hasRecords, err := itr.Next()
+		require.NoError(t, err)
+
+		if hasRecords {
+			key, errKey := itr.Key()
+			require.NoError(t, errKey)
+
+			t.Errorf("protocol state store still has connection state records: key=%s", key)
 		}
 
 		var r3 Record
@@ -543,7 +531,7 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		const errMsg = "get error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:     make(map[string][]byte),
+				Store:     make(map[string]mockstorage.DBEntry),
 				ErrDelete: fmt.Errorf(errMsg),
 			}),
 		})
@@ -569,34 +557,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		const errMsg = "get error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:     make(map[string][]byte),
+				Store:     make(map[string]mockstorage.DBEntry),
 				ErrDelete: fmt.Errorf(errMsg),
-			}),
-		})
-		require.NoError(t, err)
-		require.NotNil(t, recorder)
-
-		record := &Record{
-			ThreadID:     threadIDValue,
-			ConnectionID: uuid.New().String(),
-			State:        StateNameCompleted,
-			Namespace:    TheirNSPrefix,
-			MyDID:        "did:mydid:123",
-			TheirDID:     "did:theirdid:123",
-		}
-		err = recorder.SaveConnectionRecord(record)
-		require.NoError(t, err)
-
-		err = recorder.RemoveConnection(record.ConnectionID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), errMsg)
-	})
-	t.Run("save and remove connection record - failed to iterate connection states records", func(t *testing.T) {
-		const errMsg = "get error"
-		recorder, err := NewRecorder(&protocol.MockProvider{
-			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
-				ErrItr: fmt.Errorf(errMsg),
 			}),
 		})
 		require.NoError(t, err)
@@ -694,7 +656,7 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		const errMsg = "put error"
 		recorder, err := NewRecorder(&protocol.MockProvider{
 			ProtocolStateStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string][]byte),
+				Store:  make(map[string]mockstorage.DBEntry),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
 		})
@@ -770,7 +732,7 @@ func TestConnectionRecorder_SaveAndGet(t *testing.T) {
 
 	t.Run("save and get in store - success", func(t *testing.T) {
 		require.NotEmpty(t, records)
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 
 		for _, record := range records {
 			err := marshalAndSave(record.ID, record, store)
@@ -789,7 +751,7 @@ func TestConnectionRecorder_SaveAndGet(t *testing.T) {
 		const errMsg = "put error"
 
 		store := &mockstorage.MockStore{
-			Store:  make(map[string][]byte),
+			Store:  make(map[string]mockstorage.DBEntry),
 			ErrPut: fmt.Errorf(errMsg),
 			ErrGet: fmt.Errorf(errMsg),
 		}
@@ -811,7 +773,7 @@ func TestConnectionRecorder_SaveAndGet(t *testing.T) {
 	})
 
 	t.Run("save and get in store - failure", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 
 		err := marshalAndSave("sample-id", make(chan int), store)
 		require.Error(t, err)

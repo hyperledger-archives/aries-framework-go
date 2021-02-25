@@ -20,8 +20,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -128,6 +128,12 @@ func New(p Provider) (*Service, error) {
 	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the store : %w", err)
+	}
+
+	err = p.ProtocolStateStorageProvider().SetStoreConfig(Name,
+		storage.StoreConfiguration{TagNames: []string{transitionalPayloadKey}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set store config in protocol state store: %w", err)
 	}
 
 	connectionRecorder, err := connection.NewRecorder(p)
@@ -250,24 +256,42 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 // Actions returns actions for the async usage.
 func (s *Service) Actions() ([]Action, error) {
-	records := s.store.Iterator(
-		fmt.Sprintf(transitionalPayloadKey, ""),
-		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
-	)
-	defer records.Release()
+	records, err := s.store.Query(transitionalPayloadKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query store: %w", err)
+	}
+
+	defer storage.Close(records, logger)
 
 	var actions []Action
 
-	for records.Next() {
+	more, err := records.Next()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next set of data from records: %w", err)
+	}
+
+	for more {
+		value, errValue := records.Value()
+		if errValue != nil {
+			return nil, fmt.Errorf("failed to get value from records: %w", errValue)
+		}
+
 		var action Action
-		if err := json.Unmarshal(records.Value(), &action); err != nil {
-			return nil, fmt.Errorf("unmarshal: %w", err)
+		if errUnmarshal := json.Unmarshal(value, &action); errUnmarshal != nil {
+			return nil, fmt.Errorf("unmarshal: %w", errUnmarshal)
 		}
 
 		actions = append(actions, action)
+
+		var errNext error
+
+		more, errNext = records.Next()
+		if errNext != nil {
+			return nil, fmt.Errorf("failed to get next set of data from records: %w", errNext)
+		}
 	}
 
-	return actions, records.Error()
+	return actions, nil
 }
 
 // ActionContinue allows proceeding with the action by the piID.
@@ -319,7 +343,7 @@ func (s *Service) saveTransitionalPayload(id string, data *transitionalPayload) 
 		return fmt.Errorf("marshal transitional payload: %w", err)
 	}
 
-	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src, storage.Tag{Name: transitionalPayloadKey})
 }
 
 func (s *Service) deleteTransitionalPayload(id string) error {

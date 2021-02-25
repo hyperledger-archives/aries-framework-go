@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -468,8 +469,8 @@ func TestSaveVC(t *testing.T) {
 
 func TestGetVC(t *testing.T) {
 	t.Run("test get vc - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -625,7 +626,7 @@ func TestGetCredentialByName(t *testing.T) {
 func TestGetCredentials(t *testing.T) {
 	t.Run("test get credentials", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue: mem.NewProvider(),
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
@@ -659,7 +660,7 @@ func TestGetCredentials(t *testing.T) {
 }
 
 func TestGeneratePresentation(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -1071,7 +1072,7 @@ func TestGeneratePresentation(t *testing.T) {
 }
 
 func TestGeneratePresentationByID(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -1093,8 +1094,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
-		s["http://example.edu/credentials/1989"] = []byte(vc)
-		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		presIDArgs := PresentationRequestByID{
 			ID:            "http://example.edu/credentials/1989",
@@ -1118,8 +1119,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - failed to get did doc", func(t *testing.T) {
-		s["http://example.edu/credentials/1989"] = []byte(vc)
-		s["test"] = []byte(doc)
+		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
+		s["test"] = mockstore.DBEntry{Value: []byte(doc)}
 
 		presIDArgs := PresentationRequestByID{ID: "http://example.edu/credentials/1989", DID: "notFoundDID"}
 		presReqBytes, e := json.Marshal(presIDArgs)
@@ -1179,7 +1180,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 }
 
 func TestGeneratePresentationHelperFunctions(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -1502,8 +1503,8 @@ func TestSaveVP(t *testing.T) {
 
 func TestGetVP(t *testing.T) {
 	t.Run("test get vp - success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/presentations/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/presentations/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -1589,7 +1590,7 @@ func TestGetVP(t *testing.T) {
 func TestGetPresentations(t *testing.T) {
 	t.Run("test get credentials", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue: mem.NewProvider(),
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
@@ -1807,7 +1808,7 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 }
 
 func TestCommand_SignCredential(t *testing.T) {
-	s := make(map[string][]byte)
+	s := make(map[string]mockstore.DBEntry)
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -2221,8 +2222,8 @@ func TestCommand_RemoveVCByName(t *testing.T) {
 
 func TestCommand_RemoveVPByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/presentations/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/presentations/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -2250,8 +2251,8 @@ func TestCommand_RemoveVPByName(t *testing.T) {
 	})
 
 	t.Run("invalid request", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/presentations/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/presentations/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
@@ -2278,8 +2279,8 @@ func TestCommand_RemoveVPByName(t *testing.T) {
 	})
 
 	t.Run("no name", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["http://example.edu/presentations/1989"] = []byte(vc)
+		s := make(map[string]mockstore.DBEntry)
+		s["http://example.edu/presentations/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},

@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -40,9 +41,9 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -278,7 +279,7 @@ func TestCommand_QueryConnectionByID(t *testing.T) {
 		// prepare data
 		const connID = "1234"
 		prov := mockProvider()
-		store := mockstore.MockStore{Store: make(map[string][]byte)}
+		store := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
 		connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
 		connBytes, err := json.Marshal(connRec)
@@ -358,13 +359,19 @@ func TestCommand_QueryConnections(t *testing.T) {
 		const state = "requested"
 
 		prov := mockProvider()
-		store := mockstore.MockStore{Store: make(map[string][]byte)}
+
+		memStorageProvider := mem.NewProvider()
+
+		store, err := memStorageProvider.OpenStore("didexchange")
+		require.NoError(t, err)
+
 		connRec := &connection.Record{State: state, ConnectionID: connID, ThreadID: "th1234"}
 
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		require.NoError(t, store.Put("conn_"+connID, connBytes))
-		prov.StorageProviderValue = &mockstore.MockStoreProvider{Store: &store}
+		require.NoError(t, store.Put("conn_"+connID, connBytes, spi.Tag{Name: "conn_"}))
+
+		prov.StorageProviderValue = memStorageProvider
 
 		cmd, err := New(prov, mockwebhook.NewMockWebhookNotifier(), "", false)
 		require.NoError(t, err)
@@ -405,13 +412,18 @@ func TestCommand_QueryConnections(t *testing.T) {
 		const connID = "1234"
 
 		prov := mockProvider()
-		store := mockstore.MockStore{Store: make(map[string][]byte)}
+
+		memStorageProvider := mem.NewProvider()
+
+		store, err := memStorageProvider.OpenStore("didexchange")
+		require.NoError(t, err)
+
 		connRec := &connection.Record{State: "completed", ConnectionID: connID, ThreadID: "th1234"}
 
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		require.NoError(t, store.Put("conn_"+connID, connBytes))
-		prov.StorageProviderValue = &mockstore.MockStoreProvider{Store: &store}
+		require.NoError(t, store.Put("conn_"+connID, connBytes, spi.Tag{Name: "conn_"}))
+		prov.StorageProviderValue = memStorageProvider
 
 		cmd, err := New(prov, mockwebhook.NewMockWebhookNotifier(), "", false)
 		require.NoError(t, err)
@@ -916,7 +928,7 @@ func TestCommand_RemoveConnection(t *testing.T) {
 		// prepare data
 		const connID = "1234"
 		prov := mockProvider()
-		store := mockstore.MockStore{Store: make(map[string][]byte)}
+		store := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
 		connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
 		connBytes, err := json.Marshal(connRec)
@@ -966,7 +978,7 @@ func TestCommand_RemoveConnection(t *testing.T) {
 
 func mockProvider() *mockprovider.Provider {
 	return &mockprovider.Provider{
-		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mem.NewProvider(),
 		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},

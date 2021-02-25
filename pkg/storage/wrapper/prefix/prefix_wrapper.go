@@ -11,7 +11,7 @@ package prefix
 import (
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // StorageKIDPrefix is the KID prefix for key IDs (used by localkms).
@@ -35,7 +35,7 @@ type StorePrefixWrapper struct {
 }
 
 // Put stores v with k ID by prefixing it with IDPrefix.
-func (b *StorePrefixWrapper) Put(k string, v []byte) error {
+func (b *StorePrefixWrapper) Put(k string, v []byte, tags ...storage.Tag) error {
 	if k != "" {
 		k = b.prefix + k
 	}
@@ -52,26 +52,19 @@ func (b *StorePrefixWrapper) Get(k string) ([]byte, error) {
 	return b.store.Get(k)
 }
 
-// Iterator returns an iterator for the latest snapshot of the underlying store.
-//
-// Args:
-//
-// startKey: Start of the key range, include in the range by converting it from base64 to IDPrefix encoded value first.
-// endKey: End of the key range, not include in the range by converting it from base64 to IDPrefix encoded value first.
-//
-// Returns:
-//
-// StoreIterator: a wrapped iterator for result range.
-func (b *StorePrefixWrapper) Iterator(startKey, endKey string) storage.StoreIterator {
-	if startKey != "" {
-		startKey = b.prefix + startKey
-	}
+// GetTags is not implemented.
+func (b *StorePrefixWrapper) GetTags(string) ([]storage.Tag, error) {
+	panic("implement me")
+}
 
-	if endKey != "" {
-		endKey = b.prefix + endKey
-	}
+// GetBulk is not implemented.
+func (b *StorePrefixWrapper) GetBulk(...string) ([][]byte, error) {
+	panic("implement me")
+}
 
-	return b.store.Iterator(startKey, endKey)
+// Query is not implemented.
+func (b *StorePrefixWrapper) Query(string, ...storage.QueryOption) (storage.Iterator, error) {
+	panic("implement me")
 }
 
 // Delete will delete a record with k by prefixing it with IDPrefix first.
@@ -81,4 +74,19 @@ func (b *StorePrefixWrapper) Delete(k string) error {
 	}
 
 	return b.store.Delete(k)
+}
+
+// Batch is not implemented.
+func (b *StorePrefixWrapper) Batch(operations []storage.Operation) error {
+	panic("implement me")
+}
+
+// Flush is not implemented.
+func (b *StorePrefixWrapper) Flush() error {
+	panic("implement me")
+}
+
+// Close is not implemented.
+func (b *StorePrefixWrapper) Close() error {
+	panic("implement me")
 }
