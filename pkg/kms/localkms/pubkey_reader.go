@@ -21,6 +21,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
 
+	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -145,6 +146,18 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		tURL = ed25519VerifierTypeURL
 		pubKeyProto := new(ed25519pb.Ed25519PublicKey)
 		pubKeyProto.Version = 0
+		pubKeyProto.KeyValue = make([]byte, len(pubKey))
+		copy(pubKeyProto.KeyValue, pubKey)
+
+		keyValue, err = proto.Marshal(pubKeyProto)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.BLS12381G2Type:
+		tURL = bbsVerifierKeyTypeURL
+		pubKeyProto := new(bbspb.BBSPublicKey)
+		pubKeyProto.Version = 0
+		pubKeyProto.Params = buidBBSParams(kt)
 		pubKeyProto.KeyValue = make([]byte, len(pubKey))
 		copy(pubKeyProto.KeyValue, pubKey)
 

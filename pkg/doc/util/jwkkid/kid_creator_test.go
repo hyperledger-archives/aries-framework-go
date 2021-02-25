@@ -12,6 +12,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -202,5 +204,25 @@ func createBadED25519Thumbprint(t *testing.T, keyBytes []byte) []byte { // simil
 
 	jwk := fmt.Sprintf(badED25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
 
-	return sha256(jwk)
+	return sha256Sum(jwk)
+}
+
+func TestCreateBLS12381G2KID(t *testing.T) {
+	seed := make([]byte, 32)
+
+	_, err := rand.Read(seed)
+	require.NoError(t, err)
+
+	pubKey, _, err := bbs12381g2pub.GenerateKeyPair(sha256.New, seed)
+	require.NoError(t, err)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+
+	kid, err := CreateKID(pubKeyBytes, kms.BLS12381G2Type)
+	require.NoError(t, err)
+	require.NotEmpty(t, kid)
+
+	_, err = CreateKID(append(pubKeyBytes, []byte("larger key")...), kms.BLS12381G2Type)
+	require.EqualError(t, err, "createKID: invalid BBS+ key")
 }

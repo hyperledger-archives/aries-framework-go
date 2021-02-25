@@ -22,6 +22,7 @@ import (
 	"github.com/google/tink/go/subtle"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 )
 
 const (
@@ -29,6 +30,7 @@ const (
 	ed25519VerifierTypeURL       = "type.googleapis.com/google.crypto.tink.Ed25519PublicKey"
 	nistPECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
 	x25519ECDHKWPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
+	bbsVerifierKeyTypeURL        = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
@@ -66,7 +68,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 	for _, key := range ks {
 		if key.KeyId == primaryKID && key.Status == tinkpb.KeyStatusType_ENABLED {
 			switch key.KeyData.TypeUrl {
-			case ecdsaVerifierTypeURL, ed25519VerifierTypeURL:
+			case ecdsaVerifierTypeURL, ed25519VerifierTypeURL, bbsVerifierKeyTypeURL:
 				created, err = writePubKey(w, key)
 				if err != nil {
 					return err
@@ -99,7 +101,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 	var marshaledRawPubKey []byte
 
 	// TODO add other key types than the ones below and other than nistPECDHKWPublicKeyTypeURL and
-	// TODO x25519ECDHKWPublicKeyTypeURL(eg: BBS+, secp256k1 when introduced in KMS).
+	// TODO x25519ECDHKWPublicKeyTypeURL(eg: secp256k1 when introduced in KMS).
 	switch key.KeyData.TypeUrl {
 	case ecdsaVerifierTypeURL:
 		pubKeyProto := new(ecdsapb.EcdsaPublicKey)
@@ -115,6 +117,16 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 		}
 	case ed25519VerifierTypeURL:
 		pubKeyProto := new(ed25519pb.Ed25519PublicKey)
+
+		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
+		if err != nil {
+			return false, err
+		}
+
+		marshaledRawPubKey = make([]byte, len(pubKeyProto.KeyValue))
+		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
+	case bbsVerifierKeyTypeURL:
+		pubKeyProto := new(bbspb.BBSPublicKey)
 
 		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
 		if err != nil {

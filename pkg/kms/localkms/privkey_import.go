@@ -19,12 +19,15 @@ import (
 	ed25519pb "github.com/google/tink/go/proto/ed25519_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
+	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
 	ecdsaSignerTypeURL   = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 	ed25519SignerTypeURL = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
+	bbsSignerKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPrivateKey"
 )
 
 func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
@@ -131,6 +134,31 @@ func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
 	return l.importKeySet(ks, opts...)
 }
 
+func (l *LocalKMS) importBBSKey(privKey *bbs12381g2pub.PrivateKey, kt kms.KeyType,
+	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	if privKey == nil {
+		return "", nil, fmt.Errorf("import private BBS+ key failed: private key is nil")
+	}
+
+	if kt != kms.BLS12381G2Type {
+		return "", nil, fmt.Errorf("import private BBS+ key failed: invalid key type")
+	}
+
+	privKeyProto, err := newProtoBBSPrivateKey(privKey, kt)
+	if err != nil {
+		return "", nil, fmt.Errorf("import private BBS+ key failed: %w", err)
+	}
+
+	mKeyValue, err := proto.Marshal(privKeyProto)
+	if err != nil {
+		return "", nil, fmt.Errorf("import private BBS+ key failed: %w", err)
+	}
+
+	ks := newKeySet(bbsSignerKeyTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
+
+	return l.importKeySet(ks, opts...)
+}
+
 func validECPrivateKey(privateKey *ecdsa.PrivateKey) error {
 	if privateKey == nil {
 		return fmt.Errorf("private key is nil")
@@ -163,7 +191,7 @@ func newProtoECDSAPrivateKey(publicKey *ecdsapb.EcdsaPublicKey, keyValue []byte)
 func newProtoEd25519PrivateKey(privateKey ed25519.PrivateKey) (*ed25519pb.Ed25519PrivateKey, error) {
 	pubKey, ok := (privateKey.Public()).(ed25519.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("public key from private key is not ed25519.VerificationMethod")
+		return nil, fmt.Errorf("public key from private key is not ed25519.PublicKey")
 	}
 
 	publicProto := &ed25519pb.Ed25519PublicKey{
@@ -176,6 +204,44 @@ func newProtoEd25519PrivateKey(privateKey ed25519.PrivateKey) (*ed25519pb.Ed2551
 		PublicKey: publicProto,
 		KeyValue:  privateKey.Seed(),
 	}, nil
+}
+
+func newProtoBBSPrivateKey(privateKey *bbs12381g2pub.PrivateKey, kt kms.KeyType) (*bbspb.BBSPrivateKey, error) {
+	publicKey := privateKey.PublicKey()
+
+	pubKeyBytes, err := publicKey.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	publicProto := &bbspb.BBSPublicKey{
+		Version:  0,
+		Params:   buidBBSParams(kt),
+		KeyValue: pubKeyBytes,
+	}
+
+	privKeyBytes, err := privateKey.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &bbspb.BBSPrivateKey{
+		Version:   0,
+		PublicKey: publicProto,
+		KeyValue:  privKeyBytes,
+	}, nil
+}
+
+func buidBBSParams(kt kms.KeyType) *bbspb.BBSParams {
+	if kt == kms.BLS12381G2Type {
+		return &bbspb.BBSParams{
+			HashType: commonpb.HashType_SHA256,
+			Curve:    bbspb.BBSCurveType_BLS12_381,
+			Group:    bbspb.GroupField_G2,
+		}
+	}
+
+	return nil
 }
 
 func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset, opts ...kms.PrivateKeyOpts) (string, error) {

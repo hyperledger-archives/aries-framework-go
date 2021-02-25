@@ -118,6 +118,8 @@ const (
 	NISTP521ECDHKW = "NISTP521ECDHKW"
 	// X25519ECDHKW key type value.
 	X25519ECDHKW = "X25519ECDHKW"
+	// BLS12381G2 BBS+ key type value.
+	BLS12381G2 = "BLS12381G2"
 )
 
 // KeyType represents a key type supported by the KMS.
@@ -164,6 +166,8 @@ const (
 	NISTP521ECDHKWType = KeyType(NISTP521ECDHKW)
 	// X25519ECDHKWType key type value.
 	X25519ECDHKWType = KeyType(X25519ECDHKW)
+	// BLS12381G2Type BBS+ key type value.
+	BLS12381G2Type = KeyType(BLS12381G2)
 )
 
 // CryptoBox is a libsodium crypto service used by legacy authcrypt packer.

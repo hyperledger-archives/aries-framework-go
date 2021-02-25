@@ -18,6 +18,7 @@ import (
 	"github.com/google/tink/go/signature"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -70,6 +71,12 @@ func TestPubKeyExportAndRead(t *testing.T) {
 			keyTemplate: signature.ED25519KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
+		{
+			tcName:      "export then read BBS+ BLS12381G2 public key",
+			keyType:     kms.BLS12381G2Type,
+			keyTemplate: bbs.BLS12381G2KeyTemplate(),
+			doSign:      true,
+		},
 	}
 
 	for _, tc := range flagTests {
@@ -82,6 +89,35 @@ func TestPubKeyExportAndRead(t *testing.T) {
 			require.NotEmpty(t, kh)
 
 			if tt.doSign {
+				if tt.keyType == kms.BLS12381G2Type {
+					msg1 := []byte("Lorem ipsum dolor sit amet,")
+					msg2 := []byte("consectetur adipiscing elit.")
+					msg := [][]byte{msg1, msg2}
+					signer, err := bbs.NewSigner(origKH)
+					require.NoError(t, err)
+					require.NotEmpty(t, signer)
+
+					s, err := signer.Sign(msg)
+					require.NoError(t, err)
+					require.NotEmpty(t, s)
+
+					verifier, err := bbs.NewVerifier(kh)
+					require.NoError(t, err)
+					require.NotEmpty(t, verifier)
+
+					err = verifier.Verify(msg, s)
+					require.NoError(t, err)
+
+					nonce := []byte("somenonce")
+					proof, err := verifier.DeriveProof(msg, s, nonce, []int{1})
+					require.NoError(t, err)
+					require.NotEmpty(t, proof)
+
+					err = verifier.VerifyProof([][]byte{msg2}, proof, nonce)
+					require.NoError(t, err)
+
+					return
+				}
 				// test signing with origKH then verifying with kh read from exported public key
 				msg := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit.")
 				signer, err := signature.NewSigner(origKH)

@@ -29,7 +29,7 @@ import (
 var errInvalidKeyType = errors.New("key type is not supported")
 
 // CreateKID creates a KID value based on the marshalled keyBytes of type kt. This function should be called for
-// asymmetric public keys only (ECDSA DER or IEEE1363, ED25519).
+// asymmetric public keys only (ECDSA DER or IEEE-P1363, ED25519, X25519, BLS12381G2).
 // returns:
 //  - base64 raw (no padding) URL encoded KID
 //  - error in case of error
@@ -53,6 +53,13 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		}
 
 		return ed25519KID, nil
+	case kms.BLS12381G2Type: // BBS+ as JWK thumbprint.
+		bbsKID, err := createBLS12381G2KID(keyBytes)
+		if err != nil {
+			return "", fmt.Errorf("createKID: %w", err)
+		}
+
+		return bbsKID, nil
 	}
 
 	jwk, err := buildJWK(keyBytes, kt)
@@ -178,7 +185,7 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 		return "", fmt.Errorf("createX25519KID: %w", err)
 	}
 
-	thumbprint := sha256(jwk)
+	thumbprint := sha256Sum(jwk)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
@@ -197,7 +204,7 @@ func createED25519KID(keyBytes []byte) (string, error) {
 
 	jwk := fmt.Sprintf(ed25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
 
-	thumbprint := sha256(jwk)
+	thumbprint := sha256Sum(jwk)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
@@ -218,7 +225,30 @@ func buildX25519JWK(keyBytes []byte) (string, error) {
 	return jwk, nil
 }
 
-func sha256(jwk string) []byte {
+func createBLS12381G2KID(keyBytes []byte) (string, error) {
+	const (
+		bls12381g2ThumbprintTemplate = `{"crv":"Bls12381g2","kty":"OKP","x":"%s"}`
+		// Default BLS 12-381 public key length in G2 field.
+		bls12381G2PublicKeyLen = 96
+	)
+
+	lenKey := len(keyBytes)
+
+	if lenKey > bls12381G2PublicKeyLen {
+		return "", errors.New("invalid BBS+ key")
+	}
+
+	pad := make([]byte, bls12381G2PublicKeyLen-lenKey)
+	bbsRawKey := append(pad, keyBytes...)
+
+	jwk := fmt.Sprintf(bls12381g2ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(bbsRawKey))
+
+	thumbprint := sha256Sum(jwk)
+
+	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
+}
+
+func sha256Sum(jwk string) []byte {
 	h := crypto.SHA256.New()
 	_, _ = h.Write([]byte(jwk)) // nolint: errcheck // SHA256 digest returns empty error on Write()
 

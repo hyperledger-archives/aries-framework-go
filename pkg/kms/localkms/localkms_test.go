@@ -25,6 +25,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -264,6 +265,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.NISTP384ECDHKWType,
 		kms.NISTP521ECDHKWType,
 		kms.X25519ECDHKWType,
+		kms.BLS12381G2Type,
 	}
 
 	for _, v := range keyTemplates {
@@ -312,7 +314,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.Equal(t, len(newKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 		require.Equal(t, len(readKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 
-		if strings.Contains(string(v), "ECDSA") || v == kms.ED25519Type {
+		if strings.Contains(string(v), "ECDSA") || v == kms.ED25519Type || v == kms.BLS12381G2Type {
 			pubKeyBytes, e := kmsService.ExportPubKeyBytes(keyID)
 			require.Errorf(t, e, "KeyID has been rotated. An error must be returned")
 			require.Empty(t, pubKeyBytes)
@@ -394,6 +396,10 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			keyType: kms.ED25519Type,
 		},
 		{
+			tcName:  "import private key using BLS12381G2Type type",
+			keyType: kms.BLS12381G2Type,
+		},
+		{
 			tcName:  "import private key using ECDSAP256DER type and a set empty KeyID",
 			keyType: kms.ECDSAP256TypeDER,
 			curve:   elliptic.P256(),
@@ -431,6 +437,27 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
 				require.NoError(t, err)
 				require.EqualValues(t, pubKey, pubKeyBytes)
+				return
+			}
+
+			if tt.keyType == kms.BLS12381G2Type {
+				seed := make([]byte, 32)
+
+				_, err := rand.Read(seed)
+				require.NoError(t, err)
+
+				pubKey, privKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, seed)
+				require.NoError(t, err)
+
+				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
+				require.NoError(t, err)
+
+				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				require.NoError(t, err)
+
+				expectedPubKeyBytes, err := pubKey.Marshal()
+				require.NoError(t, err)
+				require.EqualValues(t, expectedPubKeyBytes, pubKeyBytes)
 				return
 			}
 
