@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	bbs "github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
+	bbs "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 )
 
 func TestBBSG2_Sign(t *testing.T) {

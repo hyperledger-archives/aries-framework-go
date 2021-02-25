@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/hkdf"
 
-	bls12381intern "github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub/internal/kilic/bls12-381"
+	bls12381intern "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub/internal/kilic/bls12-381"
 )
 
 const (

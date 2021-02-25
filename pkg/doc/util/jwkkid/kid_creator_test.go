@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"

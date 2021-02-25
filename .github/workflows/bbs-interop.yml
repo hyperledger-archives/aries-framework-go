@@ -10,7 +10,7 @@ on:
     - 'dependabot/**'
     paths:
     - 'pkg/doc/verifiable/**'
-    - 'pkg/doc/bbs/**'
+    - 'pkg/crypto/primitive/**'
     - 'pkg/doc/signature/suite/bbsblssignature2020/**'
     - 'scripts/check_bbs_interop.sh'
     - '.github/workflows/bbs-interop.yml'
@@ -18,7 +18,7 @@ on:
   pull_request:
     paths:
     - 'pkg/doc/verifiable/**'
-    - 'pkg/doc/bbs/**'
+    - 'pkg/crypto/primitive/**'
     - 'pkg/doc/signature/suite/bbsblssignature2020/**'
     - 'scripts/check_bbs_interop.sh'
     - '.github/workflows/bbs-interop.yml'
