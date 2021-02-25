@@ -24,7 +24,9 @@ import (
 	"github.com/google/tink/go/signature"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -212,6 +214,8 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return ecdh.NISTP521ECDHKWKeyTemplate(), nil
 	case kms.X25519ECDHKWType:
 		return ecdh.X25519ECDHKWKeyTemplate(), nil
+	case kms.BLS12381G2Type:
+		return bbs.BLS12381G2KeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("getKeyTemplate: key type '%s' unrecognized", keyType)
 	}
@@ -391,6 +395,8 @@ func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 		return l.importECDSAKey(pk, kt, opts...)
 	case ed25519.PrivateKey:
 		return l.importEd25519Key(pk, kt, opts...)
+	case *bbs12381g2pub.PrivateKey:
+		return l.importBBSKey(pk, kt, opts...)
 	default:
 		return "", nil, fmt.Errorf("import private key does not support this key type or key is public")
 	}
