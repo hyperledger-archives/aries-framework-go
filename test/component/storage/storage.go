@@ -176,13 +176,13 @@ func TestProviderGetOpenStores(t *testing.T, provider spi.Provider) {
 	openStores := provider.GetOpenStores()
 	require.Len(t, openStores, 0)
 
-	_, err := provider.OpenStore("testStore1")
+	store1, err := provider.OpenStore("testStore1")
 	require.NoError(t, err)
 
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 1)
 
-	_, err = provider.OpenStore("testStore2")
+	store2, err := provider.OpenStore("testStore2")
 	require.NoError(t, err)
 
 	openStores = provider.GetOpenStores()
@@ -195,6 +195,18 @@ func TestProviderGetOpenStores(t *testing.T, provider spi.Provider) {
 
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 2)
+
+	err = store1.Close()
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 1)
+
+	err = store2.Close()
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 0)
 }
 
 // TestProviderClose tests common Provider Close functionality.
