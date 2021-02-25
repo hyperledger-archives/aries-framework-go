@@ -45,27 +45,27 @@ func NewProvider(underlyingProvider spi.Provider, batchSizeLimit int) *Provider 
 // If the store has never been opened before, then it is created.
 // Store names are not case-sensitive. If name is blank, then an error will be returned by the underlying provider.
 func (p *Provider) OpenStore(name string) (spi.Store, error) {
-	storeName := strings.ToLower(name)
+	name = strings.ToLower(name)
 
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	openStore, ok := p.openStores[storeName]
+	openStore, ok := p.openStores[name]
 	if !ok {
-		underlyingStore, err := p.underlyingProvider.OpenStore(storeName)
+		underlyingStore, err := p.underlyingProvider.OpenStore(name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open store in underlying provider: %w", err)
 		}
 
 		newStore := store{
-			storeName,
+			name,
 			underlyingStore,
 			make([]spi.Operation, 0),
 			p.batchSizeLimit,
 			p.removeStore,
 			&sync.RWMutex{},
 		}
-		p.openStores[storeName] = &newStore
+		p.openStores[name] = &newStore
 
 		return &newStore, nil
 	}

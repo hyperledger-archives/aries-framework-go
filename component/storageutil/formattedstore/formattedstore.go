@@ -49,6 +49,8 @@ type FormattedProvider struct {
 	lock       sync.RWMutex
 }
 
+type closer func(name string)
+
 // NewProvider instantiates a new FormattedProvider with the given spi.Provider and Formatter.
 // The Formatter is used to format data before being sent to the Provider for storage.
 // The Formatter is also used to restore the original format of data being retrieved from Provider.
@@ -70,24 +72,26 @@ func (f *FormattedProvider) OpenStore(name string) (spi.Store, error) {
 		return nil, fmt.Errorf("store name cannot be empty")
 	}
 
-	storeName := strings.ToLower(name)
+	name = strings.ToLower(name)
 
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	openStore, ok := f.openStores[storeName]
+	openStore, ok := f.openStores[name]
 	if !ok {
-		store, err := f.provider.OpenStore(storeName)
+		store, err := f.provider.OpenStore(name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open store in underlying provider: %w", err)
 		}
 
 		newFormatStore := formatStore{
+			name:      name,
 			store:     store,
 			formatter: f.formatter,
+			close:     f.removeStore,
 		}
 
-		f.openStores[storeName] = &newFormatStore
+		f.openStores[name] = &newFormatStore
 
 		return &newFormatStore, nil
 	}
@@ -211,9 +215,18 @@ func (f *FormattedProvider) Close() error {
 	return nil
 }
 
+func (f *FormattedProvider) removeStore(name string) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	delete(f.openStores, name)
+}
+
 type formatStore struct {
+	name      string
 	store     spi.Store
 	formatter Formatter
+	close     closer
 }
 
 func (f *formatStore) Put(key string, value []byte, tags ...spi.Tag) error {
@@ -419,6 +432,8 @@ func (f *formatStore) Flush() error {
 }
 
 func (f *formatStore) Close() error {
+	f.close(f.name)
+
 	err := f.store.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close underlying store: %w", err)
