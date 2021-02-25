@@ -44,19 +44,19 @@ func (c *CachedProvider) OpenStore(name string) (spi.Store, error) {
 		return nil, fmt.Errorf("store name cannot be empty")
 	}
 
-	storeName := strings.ToLower(name)
+	name = strings.ToLower(name)
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	openStore, ok := c.openStores[storeName]
+	openStore, ok := c.openStores[name]
 	if !ok {
-		mainStore, err := c.mainProvider.OpenStore(storeName)
+		mainStore, err := c.mainProvider.OpenStore(name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open store in main provider: %w", err)
 		}
 
-		cacheStore, err := c.cacheProvider.OpenStore(storeName)
+		cacheStore, err := c.cacheProvider.OpenStore(name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open store in cache provider: %w", err)
 		}
@@ -68,7 +68,7 @@ func (c *CachedProvider) OpenStore(name string) (spi.Store, error) {
 			close:      c.removeStore,
 		}
 
-		c.openStores[storeName] = &newCachingStore
+		c.openStores[name] = &newCachingStore
 
 		return &newCachingStore, nil
 	}
