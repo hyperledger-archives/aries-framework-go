@@ -175,16 +175,16 @@ type store struct {
 func (s *store) Put(key string, value []byte, tags ...spi.Tag) error {
 	var tagsBytes []byte
 
-	if len(tags) > 0 {
-		var err error
+	var err error
 
+	if len(tags) > 0 {
 		tagsBytes, err = json.Marshal(tags)
 		if err != nil {
 			return fmt.Errorf("failed to marshal tags: %w", err)
 		}
 	}
 
-	err := s.mobileBindingStore.Put(key, value, tagsBytes)
+	err = s.mobileBindingStore.Put(key, value, tagsBytes)
 	if err != nil {
 		return fmt.Errorf("failed to put value in mobile binding store: %w", err)
 	}

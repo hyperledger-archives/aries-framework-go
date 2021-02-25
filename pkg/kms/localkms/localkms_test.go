@@ -33,7 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/wrapper/prefix"
+	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
