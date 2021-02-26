@@ -31,7 +31,7 @@ const (
 // Create new DID document.
 func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
 	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-	createDIDOpts := &vdrapi.DIDMethodOpts{}
+	createDIDOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 	// Apply options
 	for _, opt := range opts {
 		opt(createDIDOpts)
