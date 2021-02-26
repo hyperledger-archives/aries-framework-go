@@ -233,6 +233,23 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		require.NoError(t, err)
 		require.Equal(t, testValue, string(value))
 	})
+	t.Run("Put a single value, then delete it, then put again using the same key", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+
+		err = store.Put(testKey, []byte(testValue))
+		require.NoError(t, err)
+
+		err = store.Delete(testKey)
+		require.NoError(t, err)
+
+		err = store.Put(testKey, []byte("TestValue2"))
+		require.NoError(t, err)
+
+		value, err := store.Get(testKey)
+		require.NoError(t, err)
+		require.Equal(t, "TestValue2", string(value))
+	})
 	t.Run("Tests demonstrating proper store namespacing", func(t *testing.T) {
 		t.Run("Put key + value in one store, "+
 			"then check that it can't be found in a second store with a different name", func(t *testing.T) {
@@ -1100,6 +1117,59 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value2", string(value))
+	})
+	t.Run("Success: Put values in one batch call, then delete in a second batch call, then put again using "+
+		"the same keys that were used in the first batch call in a third batch call", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
+		require.NoError(t, err)
+
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
+			{Key: "key2", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}},
+			{Key: "key3", Value: []byte("value3"), Tags: []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		operations = []spi.Operation{
+			{Key: "key1", Value: nil},
+			{Key: "key2", Value: nil},
+			{Key: "key3", Value: nil},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		operations = []spi.Operation{
+			{Key: "key1", Value: []byte("value1_new"), Tags: []spi.Tag{{Name: "tagName1_new", Value: "tagValue1_new"}}},
+			{Key: "key2", Value: []byte("value2_new"), Tags: []spi.Tag{{Name: "tagName2_new", Value: "tagValue2_new"}}},
+			{Key: "key3", Value: []byte("value3_new"), Tags: []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		// Check and make sure the new values were stored
+
+		value, err := store.Get("key1")
+		require.NoError(t, err)
+		require.Equal(t, "value1_new", string(value))
+
+		value, err = store.Get("key2")
+		require.NoError(t, err)
+		require.Equal(t, "value2_new", string(value))
+
+		value, err = store.Get("key3")
+		require.NoError(t, err)
+		require.Equal(t, "value3_new", string(value))
 	})
 	t.Run("Failure: Operation has an empty key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
