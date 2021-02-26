@@ -58,13 +58,39 @@ type signReq struct {
 	Message string `json:"message,omitempty"`
 }
 
+type signMultiReq struct {
+	Messages []string `json:"messages,omitempty"`
+}
+
+type deriveProofReq struct {
+	Messages        []string `json:"messages,omitempty"`
+	Signature       string   `json:"signature,omitempty"`
+	Nonce           string   `json:"nonce,omitempty"`
+	RevealedIndexes []int    `json:"revealedIndexes,omitempty"`
+}
+
 type signResp struct {
 	Signature string `json:"signature,omitempty"`
+}
+
+type deriveProofResp struct {
+	Proof string `json:"proof,omitempty"`
 }
 
 type verifyReq struct {
 	Signature string `json:"signature,omitempty"`
 	Message   string `json:"message,omitempty"`
+}
+
+type verifyProofReq struct {
+	Proof    string   `json:"proof,omitempty"`
+	Messages []string `json:"messages,omitempty"`
+	Nonce    string   `json:"nonce,omitempty"`
+}
+
+type verifyMultiReq struct {
+	Signature string   `json:"signature,omitempty"`
+	Messages  []string `json:"messages,omitempty"`
 }
 
 type computeMACReq struct {
@@ -103,6 +129,12 @@ const (
 	verifyMACURI  = "/verifymac"
 	wrapURI       = "/wrap"
 	unwrapURI     = "/unwrap"
+
+	// multi signatures/selective disclosure crypto (eg BBS+) endpoints.
+	signMultiURI   = "/signmulti"
+	verifyMultiURI = "/verifymulti"
+	deriveProofURI = "/deriveproof"
+	verifyProofURI = "/verifyproof"
 )
 
 // New creates a new remoteCrypto instance using http client connecting to keystoreURL.
@@ -151,6 +183,7 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 
 	resp, err := r.httpClient.Do(httpReq)
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
 
 	return resp, err
@@ -206,6 +239,7 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 		return nil, nil, err
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall Encrypt duration: %s", time.Since(startEncrypt))
 
 	return keyBytes, nonceBytes, nil
@@ -256,6 +290,7 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 		return nil, err
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall Decrypt duration: %s", time.Since(startDecrypt))
 
 	return plaintTextBytes, nil
@@ -303,6 +338,7 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 		return nil, err
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall Sign duration: %s", time.Since(startSign))
 
 	return keyBytes, nil
@@ -338,6 +374,7 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting Verify signature returned http error: %s", resp.Status)
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall Verify duration: %s", time.Since(startVerify))
 
 	return nil
@@ -402,6 +439,7 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 		}
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall ComputeMAC duration: %s", time.Since(startComputeMAC))
 
 	return macBytes, nil
@@ -435,6 +473,7 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting VerifyMAC request returned http error: %s", resp.Status)
 	}
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall VerifyMAC duration: %s", time.Since(startVerifyMAC))
 
 	return nil
@@ -499,6 +538,7 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 
 	rwk, err := r.buildWrappedKeyResponse(respBody, destination)
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall WrapKey duration: %s", time.Since(startWrapKey))
 
 	return rwk, err
@@ -581,9 +621,203 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 
 	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Key)
 
+	// TODO switch to Debug once perf testing with remote server is done.
 	logger.Infof("overall UnwrapKey duration: %s", time.Since(startUnwrapKey))
 
 	return keyBytes, err
+}
+
+// SignMulti will create a BBS+ signature of messages using the signer's private key handle found at signerKeyURL.
+// returns:
+// 		signature in []byte
+//		error in case of errors
+func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([]byte, error) {
+	startSign := time.Now()
+	destination := fmt.Sprintf("%s", signerKeyURL) + signMultiURI
+
+	var encMessages []string
+	for _, msg := range messages {
+		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
+	}
+
+	sReq := signMultiReq{
+		Messages: encMessages,
+	}
+
+	httpReqBytes, err := r.marshalFunc(sReq)
+	if err != nil {
+		return nil, fmt.Errorf("marshal signature request for BBS+ Sign failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return nil, fmt.Errorf("posting BBS+ Sign message failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "BBS+ Sign")
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read signature response for BBS+ Sign failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &signResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal signature for BBS+ Sign failed [%s, %w]", destination, err)
+	}
+
+	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Signature)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO switch to Debug once perf testing with remote server is done.
+	logger.Infof("overall BBS+ Sign duration: %s", time.Since(startSign))
+
+	return keyBytes, nil
+}
+
+// VerifyMulti will BBS+ verify a signature of messages against the signer's public key handle found at signerKeyURL.
+// returns:
+// 		error in case of errors or nil if signature verification was successful
+func (r *RemoteCrypto) VerifyMulti(messages [][]byte, signature []byte, signerKeyURL interface{}) error {
+	startVerify := time.Now()
+	destination := fmt.Sprintf("%s", signerKeyURL) + verifyMultiURI
+
+	var encMessages []string
+	for _, msg := range messages {
+		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
+	}
+
+	vReq := verifyMultiReq{
+		Messages:  encMessages,
+		Signature: base64.URLEncoding.EncodeToString(signature),
+	}
+
+	httpReqBytes, err := r.marshalFunc(vReq)
+	if err != nil {
+		return fmt.Errorf("marshal verify request for BBS+ Verify failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return fmt.Errorf("posting BBS+ Verify signature failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "BBS+ Verify")
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("posting BBS+ Verify signature returned http error: %s", resp.Status)
+	}
+
+	// TODO switch to Debug once perf testing with remote server is done.
+	logger.Infof("overall BBS+ Verify duration: %s", time.Since(startVerify))
+
+	return nil
+}
+
+// VerifyProof will verify a BBS+ signature proof (generated e.g. by Verifier's DeriveProof() call) for revealedMessages
+// with the signer's public key handle found at signerKeyURL.
+// returns:
+// 		error in case of errors or nil if signature proof verification was successful
+func (r *RemoteCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byte, signerKeyURL interface{}) error {
+	startVerifyProof := time.Now()
+	destination := fmt.Sprintf("%s", signerKeyURL) + verifyProofURI
+
+	var encMessages []string
+	for _, msg := range revealedMessages {
+		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
+	}
+
+	vReq := verifyProofReq{
+		Messages: encMessages,
+		Proof:    base64.URLEncoding.EncodeToString(proof),
+		Nonce:    base64.URLEncoding.EncodeToString(nonce),
+	}
+
+	httpReqBytes, err := r.marshalFunc(vReq)
+	if err != nil {
+		return fmt.Errorf("marshal request for BBS+ Verify proof failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return fmt.Errorf("posting BBS+ Verify proof failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "BBS+ Verify Proof")
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("posting BBS+ Verify proof returned http error: %s", resp.Status)
+	}
+
+	// TODO switch to Debug once perf testing with remote server is done.
+	logger.Infof("overall BBS+ Verify proof duration: %s", time.Since(startVerifyProof))
+
+	return nil
+}
+
+// DeriveProof will create a BBS+ signature proof for a list of revealed messages using BBS signature (can be built
+// using a Signer's SignMulti() call) and the signer's public key handle found at signerKeyURL.
+// returns:
+// 		signature proof in []byte
+//		error in case of errors
+func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte, revealedIndexes []int,
+	signerKeyURL interface{}) ([]byte, error) {
+	startDeriveProof := time.Now()
+	destination := fmt.Sprintf("%s", signerKeyURL) + deriveProofURI
+
+	var encMessages []string
+	for _, msg := range messages {
+		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
+	}
+
+	sReq := deriveProofReq{
+		Messages:        encMessages,
+		Signature:       base64.URLEncoding.EncodeToString(bbsSignature),
+		Nonce:           base64.URLEncoding.EncodeToString(nonce),
+		RevealedIndexes: revealedIndexes,
+	}
+
+	httpReqBytes, err := r.marshalFunc(sReq)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request for BBS+ Derive proof failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return nil, fmt.Errorf("posting BBS+ Derive proof message failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "BBS+ Derive Proof")
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read signature response for BBS+ Derive proof failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &deriveProofResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal request for BBS+ Derive proof failed [%s, %w]", destination, err)
+	}
+
+	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Proof)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO switch to Debug once perf testing with remote server is done.
+	logger.Infof("overall BBS+ Derive proof duration: %s", time.Since(startDeriveProof))
+
+	return keyBytes, nil
 }
 
 // closeResponseBody closes the response body.

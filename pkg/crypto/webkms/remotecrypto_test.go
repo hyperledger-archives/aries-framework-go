@@ -8,6 +8,7 @@ package webkms
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -35,6 +36,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	webkmsimpl "github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -1026,6 +1028,391 @@ func unwrapKeyPostHandle(w http.ResponseWriter, reqBody []byte, senderKH, recKH 
 	_, err = w.Write(mResp)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
+	kh, err := keyset.NewHandle(bbs.BLS12381G2KeyTemplate())
+	require.NoError(t, err)
+
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err = processBBSPOSTRequest(w, r, kh)
+		require.NoError(t, err)
+	})
+
+	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+
+	defer func() {
+		e := server.Close()
+		require.NoError(t, e)
+	}()
+
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(webkmsimpl.KeystoreEndpoint,
+		"{serverEndpoint}", url), defaultKeyStoreID)
+	defaultKeyURL := defaultKeystoreURL + "/keys/" + defaultKID
+	rCrypto := New(defaultKeystoreURL, client)
+	msg := [][]byte{[]byte("lorem ipsum"), []byte("dolor sit amet,"), []byte("consectetur adipiscing elit,")}
+
+	nonce := make([]byte, 32)
+
+	_, err = rand.Read(nonce)
+	require.NoError(t, err)
+
+	// test successful BBS+ Sign/Verify/DeriveProof/VerifyProof
+	sig, err := rCrypto.SignMulti(msg, defaultKeyURL)
+	require.NoError(t, err)
+
+	err = rCrypto.VerifyMulti(msg, sig, defaultKeyURL)
+	require.NoError(t, err)
+
+	proof, err := rCrypto.DeriveProof(msg, sig, nonce, []int{1, 2}, defaultKeyURL)
+	require.NoError(t, err)
+
+	err = rCrypto.VerifyProof([][]byte{msg[1], msg[2]}, proof, nonce, defaultKeyURL)
+	require.NoError(t, err)
+
+	t.Run("BBS+ Sign Post request failure", func(t *testing.T) {
+		blankClient := &http.Client{}
+		tmpCrypto := New(defaultKeystoreURL, blankClient)
+
+		_, err = tmpCrypto.SignMulti(nil, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("posting BBS+ Sign message failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority]", defaultKeyURL+signMultiURI, defaultKeyURL+signMultiURI).Error())
+	})
+
+	t.Run("BBS+ Verify Post request failure", func(t *testing.T) {
+		blankClient := &http.Client{}
+		tmpCrypto := New(defaultKeystoreURL, blankClient)
+
+		err = tmpCrypto.VerifyMulti(nil, nil, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("posting BBS+ Verify signature failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority]", defaultKeyURL+verifyMultiURI, defaultKeyURL+verifyMultiURI).Error())
+	})
+
+	t.Run("BBS+ Derive Proof Post request failure", func(t *testing.T) {
+		blankClient := &http.Client{}
+		tmpCrypto := New(defaultKeystoreURL, blankClient)
+
+		_, err = tmpCrypto.DeriveProof(nil, nil, nil, nil, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("posting BBS+ Derive proof message failed [%s, Post \"%s\": "+
+			"x509: certificate signed by unknown authority]", defaultKeyURL+deriveProofURI,
+			defaultKeyURL+deriveProofURI).Error())
+	})
+
+	t.Run("BBS+ Verify Proof Post request failure", func(t *testing.T) {
+		blankClient := &http.Client{}
+		tmpCrypto := New(defaultKeystoreURL, blankClient)
+
+		err = tmpCrypto.VerifyProof(nil, nil, nil, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("posting BBS+ Verify proof failed [%s, Post \"%s\": "+
+			"x509: certificate signed by unknown authority]", defaultKeyURL+verifyProofURI,
+			defaultKeyURL+verifyProofURI).Error())
+	})
+
+	t.Run("BBS+ Sign json marshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.marshalFunc = failingMarshal
+		_, err = remoteCrypto2.SignMulti(msg, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("marshal signature request for BBS+ Sign failed [%s, %w]",
+			defaultKeyURL+signMultiURI, errFailingMarshal).Error())
+	})
+
+	t.Run("BBS+ Sign json unmarshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.unmarshalFunc = failingUnmarshal
+		_, err = remoteCrypto2.SignMulti(msg, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("unmarshal signature for BBS+ Sign failed [%s, %w]",
+			defaultKeyURL+signMultiURI, errFailingUnmarshal).Error())
+	})
+
+	t.Run("BBS+ Verify json marshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.marshalFunc = failingMarshal
+		err = remoteCrypto2.VerifyMulti(msg, sig, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("marshal verify request for BBS+ Verify failed [%s, %w]",
+			defaultKeyURL+verifyMultiURI, errFailingMarshal).Error())
+	})
+
+	t.Run("BBS+ Derive Proof json marshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.marshalFunc = failingMarshal
+		_, err = remoteCrypto2.DeriveProof(msg, sig, nonce, []int{0}, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("marshal request for BBS+ Derive proof failed [%s, %w]",
+			defaultKeyURL+deriveProofURI, errFailingMarshal).Error())
+	})
+
+	t.Run("BBS+ Derive Proof json unmarshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.unmarshalFunc = failingUnmarshal
+		_, err = remoteCrypto2.DeriveProof(msg, sig, nonce, []int{0}, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("unmarshal request for BBS+ Derive proof failed [%s, %w]",
+			defaultKeyURL+deriveProofURI, errFailingUnmarshal).Error())
+	})
+
+	t.Run("BBS+ Verify Proof json marshal failure", func(t *testing.T) {
+		remoteCrypto2 := New(defaultKeystoreURL, client)
+
+		remoteCrypto2.marshalFunc = failingMarshal
+		err = remoteCrypto2.VerifyProof([][]byte{msg[1], msg[2]}, proof, nonce, defaultKeyURL)
+		require.EqualError(t, err, fmt.Errorf("marshal request for BBS+ Verify proof failed [%s, %w]",
+			defaultKeyURL+verifyProofURI, errFailingMarshal).Error())
+	})
+}
+
+// nolint:gocyclo
+func processBBSPOSTRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset.Handle) error {
+	if valid := validateHTTPMethod(w, r); !valid {
+		return errors.New("http method invalid")
+	}
+
+	if valid := validatePostPayload(r, w); !valid {
+		return errors.New("http request body invalid")
+	}
+
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	if strings.LastIndex(r.URL.Path, signMultiURI) == len(r.URL.Path)-len(signMultiURI) {
+		err = bbsSignPOSTHandle(w, reqBody, sigKH)
+		if err != nil {
+			return err
+		}
+	}
+
+	if strings.LastIndex(r.URL.Path, verifyMultiURI) == len(r.URL.Path)-len(verifyMultiURI) {
+		err = bbsVerifyPOSTHandle(reqBody, sigKH)
+		if err != nil {
+			return err
+		}
+	}
+
+	if strings.LastIndex(r.URL.Path, deriveProofURI) == len(r.URL.Path)-len(deriveProofURI) {
+		err = bbsDeriveProofPOSTHandle(w, reqBody, sigKH)
+		if err != nil {
+			return err
+		}
+	}
+
+	if strings.LastIndex(r.URL.Path, verifyProofURI) == len(r.URL.Path)-len(verifyProofURI) {
+		err = bbsVerifyProofPOSTHandle(reqBody, sigKH)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
+func bbsSignPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
+	sigReq := &signMultiReq{}
+
+	err := json.Unmarshal(reqBody, sigReq)
+	if err != nil {
+		return err
+	}
+
+	var messages [][]byte
+
+	for _, msg := range sigReq.Messages {
+		var msgRecord []byte
+
+		msgRecord, err = base64.URLEncoding.DecodeString(msg)
+		if err != nil {
+			return err
+		}
+
+		messages = append(messages, msgRecord)
+	}
+
+	signer, err := bbs.NewSigner(sigKH)
+	if err != nil {
+		return fmt.Errorf("create new signer: %w", err)
+	}
+
+	s, err := signer.Sign(messages)
+	if err != nil {
+		return fmt.Errorf("sign msg: %w", err)
+	}
+
+	resp := &signResp{
+		Signature: base64.URLEncoding.EncodeToString(s),
+	}
+
+	mResp, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(mResp)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func bbsVerifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
+	verReq := &verifyMultiReq{}
+
+	err := json.Unmarshal(reqBody, verReq)
+	if err != nil {
+		return err
+	}
+
+	sig, err := base64.URLEncoding.DecodeString(verReq.Signature)
+	if err != nil {
+		return err
+	}
+
+	var messages [][]byte
+
+	for _, msg := range verReq.Messages {
+		var msgRecord []byte
+
+		msgRecord, err = base64.URLEncoding.DecodeString(msg)
+		if err != nil {
+			return err
+		}
+
+		messages = append(messages, msgRecord)
+	}
+
+	pubKH, err := sigKH.Public()
+	if err != nil {
+		return err
+	}
+
+	verifier, err := bbs.NewVerifier(pubKH)
+	if err != nil {
+		return fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	err = verifier.Verify(messages, sig)
+	if err != nil {
+		return fmt.Errorf("BBS+ verify msg: %w", err)
+	}
+
+	return nil
+}
+
+// nolint:gocyclo,interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
+func bbsDeriveProofPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
+	deriveProofReq := &deriveProofReq{}
+
+	err := json.Unmarshal(reqBody, deriveProofReq)
+	if err != nil {
+		return err
+	}
+
+	sig, err := base64.URLEncoding.DecodeString(deriveProofReq.Signature)
+	if err != nil {
+		return err
+	}
+
+	var messages [][]byte
+
+	for _, msg := range deriveProofReq.Messages {
+		var msgRecord []byte
+
+		msgRecord, err = base64.URLEncoding.DecodeString(msg)
+		if err != nil {
+			return err
+		}
+
+		messages = append(messages, msgRecord)
+	}
+
+	nonce, err := base64.URLEncoding.DecodeString(deriveProofReq.Nonce)
+	if err != nil {
+		return err
+	}
+
+	pubKH, err := sigKH.Public()
+	if err != nil {
+		return err
+	}
+
+	verifier, err := bbs.NewVerifier(pubKH)
+	if err != nil {
+		return fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	proof, err := verifier.DeriveProof(messages, sig, nonce, deriveProofReq.RevealedIndexes)
+	if err != nil {
+		return fmt.Errorf("BBS+ derive proof msg: %w", err)
+	}
+
+	resp := &deriveProofResp{
+		Proof: base64.URLEncoding.EncodeToString(proof),
+	}
+
+	mResp, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(mResp)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func bbsVerifyProofPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
+	verifyProofReq := &verifyProofReq{}
+
+	err := json.Unmarshal(reqBody, verifyProofReq)
+	if err != nil {
+		return err
+	}
+
+	proof, err := base64.URLEncoding.DecodeString(verifyProofReq.Proof)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := base64.URLEncoding.DecodeString(verifyProofReq.Nonce)
+	if err != nil {
+		return err
+	}
+
+	var messages [][]byte
+
+	for _, msg := range verifyProofReq.Messages {
+		var msgRecord []byte
+
+		msgRecord, err = base64.URLEncoding.DecodeString(msg)
+		if err != nil {
+			return err
+		}
+
+		messages = append(messages, msgRecord)
+	}
+
+	pubKH, err := sigKH.Public()
+	if err != nil {
+		return err
+	}
+
+	verifier, err := bbs.NewVerifier(pubKH)
+	if err != nil {
+		return fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	err = verifier.VerifyProof(messages, proof, nonce)
+	if err != nil {
+		return fmt.Errorf("BBS+ verify proof msg: %w", err)
 	}
 
 	return nil

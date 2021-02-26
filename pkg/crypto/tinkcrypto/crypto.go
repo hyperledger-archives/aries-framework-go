@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 )
 
 const (
@@ -275,4 +276,97 @@ func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, recipientKH int
 	}
 
 	return key, nil
+}
+
+// SignMulti will create a BBS+ signature of messages using the signer's private key in signerKH handle.
+// returns:
+// 		signature in []byte
+//		error in case of errors
+func (t *Crypto) SignMulti(messages [][]byte, signerKH interface{}) ([]byte, error) {
+	keyHandle, ok := signerKH.(*keyset.Handle)
+	if !ok {
+		return nil, errBadKeyHandleFormat
+	}
+
+	signer, err := bbs.NewSigner(keyHandle)
+	if err != nil {
+		return nil, fmt.Errorf("create new BBS+ signer: %w", err)
+	}
+
+	s, err := signer.Sign(messages)
+	if err != nil {
+		return nil, fmt.Errorf("BBS+ sign msg: %w", err)
+	}
+
+	return s, nil
+}
+
+// VerifyMulti will BBS+ verify a signature of messages against the signer's public key in signerPubKH handle.
+// returns:
+// 		error in case of errors or nil if signature verification was successful
+func (t *Crypto) VerifyMulti(messages [][]byte, bbsSignature []byte, signerPubKH interface{}) error {
+	keyHandle, ok := signerPubKH.(*keyset.Handle)
+	if !ok {
+		return errBadKeyHandleFormat
+	}
+
+	verifier, err := bbs.NewVerifier(keyHandle)
+	if err != nil {
+		return fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	err = verifier.Verify(messages, bbsSignature)
+	if err != nil {
+		err = fmt.Errorf("BBS+ verify msg: %w", err)
+	}
+
+	return err
+}
+
+// VerifyProof will verify a BBS+ signature proof (generated e.g. by Verifier's DeriveProof() call) for revealedMessages
+// with the signer's public key in signerPubKH handle.
+// returns:
+// 		error in case of errors or nil if signature proof verification was successful
+func (t *Crypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byte, signerPubKH interface{}) error {
+	keyHandle, ok := signerPubKH.(*keyset.Handle)
+	if !ok {
+		return errBadKeyHandleFormat
+	}
+
+	verifier, err := bbs.NewVerifier(keyHandle)
+	if err != nil {
+		return fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	err = verifier.VerifyProof(revealedMessages, proof, nonce)
+	if err != nil {
+		err = fmt.Errorf("verify proof msg: %w", err)
+	}
+
+	return err
+}
+
+// DeriveProof will create a BBS+ signature proof for a list of revealed messages using BBS signature
+// (can be built using a Signer's SignMulti() call) and the signer's public key in signerPubKH handle.
+// returns:
+// 		signature proof in []byte
+//		error in case of errors
+func (t *Crypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte, revealedIndexes []int,
+	signerPubKH interface{}) ([]byte, error) {
+	keyHandle, ok := signerPubKH.(*keyset.Handle)
+	if !ok {
+		return nil, errBadKeyHandleFormat
+	}
+
+	verifier, err := bbs.NewVerifier(keyHandle)
+	if err != nil {
+		return nil, fmt.Errorf("create new BBS+ verifier: %w", err)
+	}
+
+	proof, err := verifier.DeriveProof(messages, bbsSignature, nonce, revealedIndexes)
+	if err != nil {
+		return nil, fmt.Errorf("verify proof msg: %w", err)
+	}
+
+	return proof, nil
 }

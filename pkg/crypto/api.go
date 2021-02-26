@@ -43,7 +43,6 @@ type Crypto interface {
 	// VerifyMAC determines if mac is a correct authentication code (MAC) for data
 	// using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
 	VerifyMAC(mac, data []byte, kh interface{}) error
-
 	// WrapKey will execute key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
 	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key wrapping
 	// (aka Authcrypt). The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt). Another option that can
@@ -53,7 +52,6 @@ type Crypto interface {
 	// 		error in case of errors
 	WrapKey(cek, apu, apv []byte, recPubKey *PublicKey,
 		opts ...WrapKeyOpts) (*RecipientWrappedKey, error)
-
 	// UnwrapKey unwraps a key in recWK using recipient private key kh.
 	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key unwrapping
 	// (aka Authcrypt). The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt). There is no need to
@@ -62,6 +60,28 @@ type Crypto interface {
 	// 		unwrapped key in raw bytes
 	// 		error in case of errors
 	UnwrapKey(recWK *RecipientWrappedKey, kh interface{}, opts ...WrapKeyOpts) ([]byte, error)
+	// SignMulti will create a signature of messages using a matching signing primitive found in kh key handle of a
+	// private key.
+	// returns:
+	// 		signature in []byte
+	//		error in case of errors
+	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
+	// VerifyMulti will verify a signature of messages using a matching signing primitive found in kh key handle of a
+	// public key.
+	// returns:
+	// 		error in case of errors or nil if signature verification was successful
+	VerifyMulti(messages [][]byte, signature []byte, kh interface{}) error
+	// VerifyProof will verify a signature proof (generated e.g. by Verifier's DeriveProof() call) for revealedMessages
+	// using a matching signing primitive found in kh key handle of a public key.
+	// returns:
+	// 		error in case of errors or nil if signature proof verification was successful
+	VerifyProof(revealedMessages [][]byte, proof, nonce []byte, kh interface{}) error
+	// DeriveProof will create a signature proof for a list of revealed messages using BBS signature (can be built using
+	// a Signer's SignMulti() call) and a matching signing primitive found in kh key handle of a public key.
+	// returns:
+	// 		signature proof in []byte
+	//		error in case of errors
+	DeriveProof(messages [][]byte, bbsSignature, nonce []byte, revealedIndexes []int, kh interface{}) ([]byte, error)
 }
 
 // DefKeySize is the default key size for crypto primitives.

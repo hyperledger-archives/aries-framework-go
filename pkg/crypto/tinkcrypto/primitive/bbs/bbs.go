@@ -56,7 +56,7 @@ SPDX-License-Identifier: Apache-2.0
 //      v := bbs.NewVerifier(verKH)
 //
 //		// and verify signature
-//      pt, err := v.Verify(messages, sig)
+//      err = v.Verify(messages, sig)
 //      if err != nil {
 //          // handle error
 //      }
