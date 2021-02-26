@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fingerprint
 
 import (
-	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -45,22 +45,34 @@ func KeyFingerprint(code uint64, pubKeyValue []byte) string {
 }
 
 func multicodec(code uint64) []byte {
-	buf := make([]byte, 2)
-	binary.PutUvarint(buf, code)
+	buf := make([]byte, binary.MaxVarintLen64)
+	bw := binary.PutUvarint(buf, code)
 
-	return buf
+	return buf[:bw]
 }
 
 // PubKeyFromFingerprint extracts the raw public key from a did:key fingerprint.
-func PubKeyFromFingerprint(fingerprint string) ([]byte, error) {
+func PubKeyFromFingerprint(fingerprint string) ([]byte, uint64, error) {
 	// did:key:MULTIBASE(base58-btc, MULTICODEC(public-key-type, raw-public-key-bytes))
 	// https://w3c-ccg.github.io/did-method-key/#format
-	mc := base58.Decode(fingerprint[1:]) // skip leading "z"
-	if !bytes.Equal(multicodec(ed25519pub), mc[:2]) {
-		return nil, fmt.Errorf("pubKeyFromFingerprint: not supported public key (multicodec code: %#x)", mc[0])
+	const maxMulticodecBytes = 9
+
+	if len(fingerprint) < 2 || fingerprint[0] != 'z' {
+		return nil, 0, errors.New("unknown key encoding")
 	}
 
-	return mc[2:], nil
+	mc := base58.Decode(fingerprint[1:]) // skip leading "z"
+
+	code, br := binary.Uvarint(mc)
+	if br == 0 {
+		return nil, 0, errors.New("unknown key encoding")
+	}
+
+	if br > maxMulticodecBytes {
+		return nil, 0, errors.New("code exceeds maximum size")
+	}
+
+	return mc[br:], code, nil
 }
 
 // PubKeyFromDIDKey parses the did:key DID and returns the key's raw value.
@@ -77,5 +89,17 @@ func PubKeyFromDIDKey(didKey string) ([]byte, error) {
 		return nil, fmt.Errorf("not a valid did:key identifier (not a base58btc multicodec): %s", didKey)
 	}
 
-	return PubKeyFromFingerprint(id.MethodSpecificID)
+	pubKey, code, err := PubKeyFromFingerprint(id.MethodSpecificID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch code {
+	case ed25519pub:
+		break
+	default:
+		return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
+	}
+
+	return pubKey, nil
 }

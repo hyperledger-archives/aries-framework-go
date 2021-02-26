@@ -25,7 +25,8 @@ const (
 
 const (
 	// source: https://github.com/multiformats/multicodec/blob/master/table.csv.
-	x25519pub = 0xec // Curve25519 public key in multicodec table
+	x25519pub  = 0xec // Curve25519 public key in multicodec table
+	ed25519pub = 0xed // Ed25519 public key in multicodec table
 )
 
 // Create new DID document.
