@@ -4,6 +4,9 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package bbs12381g2pub contains BBS+ signing primitives and keys. Although it can be used directly, it is recommended
+// to use BBS+ keys created by the kms along with the tinkcrypto BBS+ package primitives bbs.Signer and bbs.Verifier
+// imported from: "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 package bbs12381g2pub
 
 import (
@@ -21,8 +24,8 @@ var (
 )
 
 // BBSG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.
-type BBSG2Pub struct {
-}
+// BBS+ signature scheme (as defined in https://eprint.iacr.org/2016/663.pdf, section 4.3).
+type BBSG2Pub struct{}
 
 // New creates a new BBSG2Pub.
 func New() *BBSG2Pub {

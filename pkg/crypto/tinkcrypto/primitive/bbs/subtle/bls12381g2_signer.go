@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 )
 
 // BLS12381G2Signer is the BBS+ signer for BLS12-381 curve for keys on a G2 group.

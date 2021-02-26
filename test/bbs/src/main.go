@@ -17,7 +17,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
-	bbs "github.com/hyperledger/aries-framework-go/pkg/doc/bbs/bbs12381g2pub"
+	bbs "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"

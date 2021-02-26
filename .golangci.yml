@@ -11,7 +11,7 @@ run:
   tests: true
   build-tags: [""]
   skip-dirs:
-    - pkg/doc/bbs/bbs12381g2pub/internal/kilic/bls12-381
+    - pkg/crypto/primitive/bbs12381g2pub/internal/kilic/bls12-381
 
 output:
   format: colored-line-number

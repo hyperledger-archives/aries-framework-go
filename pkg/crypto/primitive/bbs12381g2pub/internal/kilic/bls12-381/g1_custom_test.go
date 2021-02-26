@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package bls12381
 
 import (
-	"golang.org/x/crypto/blake2b"
 	"hash"
 	"testing"
+
+	"golang.org/x/crypto/blake2b"
 )
 
 func TestG1Serialization(t *testing.T) {
