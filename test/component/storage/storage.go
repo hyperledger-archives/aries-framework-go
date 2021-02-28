@@ -931,6 +931,9 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{})
+		require.NoError(t, err)
+
 		t.Run("Empty expression", func(t *testing.T) {
 			iterator, err := store.Query("")
 			require.Error(t, err)
