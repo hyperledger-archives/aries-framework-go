@@ -9,6 +9,7 @@ package tinkcrypto
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
 	"math/big"
 	"testing"
 
@@ -24,6 +25,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
@@ -624,4 +626,104 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key_Using_CryptoPubKey_as_SenderKey(t *testi
 	uCEK, err = c.UnwrapKey(wrappedKey, recipientKeyHandle, crypto.WithSender(senderECPubKey))
 	require.NoError(t, err)
 	require.EqualValues(t, cek, uCEK)
+}
+
+func TestBBSCrypto_SignVerify_DeriveProofVerifyProof(t *testing.T) {
+	c := Crypto{}
+	msg := [][]byte{
+		[]byte(testMessage + "0"), []byte(testMessage + "1"), []byte(testMessage + "2"),
+		[]byte(testMessage + "3"), []byte(testMessage + "4"), []byte(testMessage + "5"),
+	}
+
+	var (
+		s     []byte
+		pubKH *keyset.Handle
+		badKH *keyset.Handle
+	)
+
+	t.Run("test with BBS+ signature", func(t *testing.T) {
+		kh, err := keyset.NewHandle(bbs.BLS12381G2KeyTemplate())
+		require.NoError(t, err)
+
+		badKH, err = keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		require.NoError(t, err)
+
+		s, err = c.SignMulti(msg, kh)
+		require.NoError(t, err)
+
+		// sign with nil key handle - should fail
+		_, err = c.SignMulti(msg, nil)
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		// sign with bad key type - should fail
+		_, err = c.SignMulti(msg, "bad key type")
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		// sign with empty messages - should fail
+		_, err = c.SignMulti([][]byte{}, kh)
+		require.EqualError(t, err, "BBS+ sign msg: messages are not defined")
+
+		// sign with bad key handle - should fail
+		_, err = c.SignMulti(msg, badKH)
+		require.Error(t, err)
+
+		// get corresponding public key handle to verify
+		pubKH, err = kh.Public()
+		require.NoError(t, err)
+
+		err = c.VerifyMulti(msg, s, nil)
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		err = c.VerifyMulti(msg, s, "bad key type")
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		err = c.VerifyMulti(msg, s, badKH)
+		require.Error(t, err)
+
+		err = c.VerifyMulti([][]byte{}, s, pubKH)
+		require.EqualError(t, err, "BBS+ verify msg: bbs_verifier_factory: invalid signature")
+
+		err = c.VerifyMulti(msg, s, pubKH)
+		require.NoError(t, err)
+	})
+
+	require.NotEmpty(t, s)
+
+	t.Run("test with BBS+ proof", func(t *testing.T) {
+		revealedIndexes := []int{0, 2}
+		nonce := make([]byte, 32)
+
+		_, err := rand.Read(nonce)
+		require.NoError(t, err)
+
+		_, err = c.DeriveProof(msg, s, nonce, revealedIndexes, nil)
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		_, err = c.DeriveProof(msg, s, nonce, revealedIndexes, "bad key type")
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		_, err = c.DeriveProof(msg, s, nonce, revealedIndexes, badKH)
+		require.Error(t, err)
+
+		_, err = c.DeriveProof([][]byte{}, s, nonce, revealedIndexes, pubKH)
+		require.EqualError(t, err, "verify proof msg: bbs_verifier_factory: invalid signature proof")
+
+		proof, err := c.DeriveProof(msg, s, nonce, revealedIndexes, pubKH)
+		require.NoError(t, err)
+
+		err = c.VerifyProof([][]byte{msg[0], msg[2]}, proof, nonce, nil)
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		err = c.VerifyProof([][]byte{msg[0], msg[2]}, proof, nonce, "bad key type")
+		require.EqualError(t, err, errBadKeyHandleFormat.Error())
+
+		err = c.VerifyProof([][]byte{msg[0], msg[2]}, proof, nonce, badKH)
+		require.Error(t, err)
+
+		err = c.VerifyProof([][]byte{msg[3], msg[4]}, proof, nonce, pubKH)
+		require.EqualError(t, err, "verify proof msg: bbs_verifier_factory: invalid signature proof")
+
+		err = c.VerifyProof([][]byte{msg[0], msg[2]}, proof, nonce, pubKH)
+		require.NoError(t, err)
+	})
 }
