@@ -176,7 +176,13 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	proof := pokSignature.GenerateProof(proofChallenge)
 
 	payload := newPoKPayload(messagesCount, revealedIndexes)
-	signatureProofBytes := append(payload.toBytes(), proof.ToBytes()...)
+
+	payloadBytes, err := payload.toBytes()
+	if err != nil {
+		return nil, fmt.Errorf("derive proof: paylod to bytes: %w", err)
+	}
+
+	signatureProofBytes := append(payloadBytes, proof.ToBytes()...)
 
 	return signatureProofBytes, nil
 }
