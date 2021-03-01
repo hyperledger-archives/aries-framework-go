@@ -118,6 +118,10 @@ func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyByt
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
 
+	if len(payload.revealed) > len(messages) {
+		return fmt.Errorf("payload revealed bigger from messages")
+	}
+
 	revealedMessages := make(map[int]*SignatureMessage)
 	for i := range payload.revealed {
 		revealedMessages[payload.revealed[i]] = messages[i]
