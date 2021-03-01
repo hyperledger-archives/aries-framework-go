@@ -21,12 +21,14 @@ const (
 	schemaV1                   = "https://w3id.org/did/v1"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
+	bls12381G2Key2020          = "Bls12381G2Key2020"
 )
 
 const (
 	// source: https://github.com/multiformats/multicodec/blob/master/table.csv.
-	x25519pub  = 0xec // Curve25519 public key in multicodec table
-	ed25519pub = 0xed // Ed25519 public key in multicodec table
+	x25519pub     = 0xec // Curve25519 public key in multicodec table
+	ed25519pub    = 0xed // Ed25519 public key in multicodec table
+	bls12381g2pub = 0xeb // BLS12-381 G2 public key in multicodec table
 )
 
 // Create new DID document.
@@ -64,7 +66,7 @@ func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
 		publicKey = did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey,
 			didDoc.VerificationMethod[0].Value)
 
-		keyAgr, err = keyAgreement(didKey, didDoc.VerificationMethod[0].Value)
+		keyAgr, err = keyAgreementFromEd25519(didKey, didDoc.VerificationMethod[0].Value)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +111,7 @@ func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did
 	}
 }
 
-func keyAgreement(didKey string, ed25519PubKey []byte) (*did.VerificationMethod, error) {
+func keyAgreementFromEd25519(didKey string, ed25519PubKey []byte) (*did.VerificationMethod, error) {
 	curve25519PubKey, err := cryptoutil.PublicEd25519toCurve25519(ed25519PubKey)
 	if err != nil {
 		return nil, err

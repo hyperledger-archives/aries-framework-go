@@ -16,22 +16,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
-const (
-	didKey         = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
-	didKeyID       = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH" //nolint:lll
-	agreementKeyID = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc" //nolint:lll
-
-	pubKeyBase58       = "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
-	keyAgreementBase58 = "JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr"
-)
-
 func TestBuild(t *testing.T) {
+	const (
+		pubKeyBase58Ed25519 = "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
+	)
+
 	t.Run("validate did:key compliance with generic syntax", func(t *testing.T) {
 		v := New()
 
 		pubKey := did.VerificationMethod{
 			Type:  ed25519VerificationKey2018,
-			Value: ed25519.PublicKey(base58.Decode(pubKeyBase58)),
+			Value: ed25519.PublicKey(base58.Decode(pubKeyBase58Ed25519)),
 		}
 
 		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
@@ -48,18 +43,37 @@ func TestBuild(t *testing.T) {
 
 		pubKey := did.VerificationMethod{
 			Type:  ed25519VerificationKey2018,
-			Value: base58.Decode(pubKeyBase58),
+			Value: base58.Decode(pubKeyBase58Ed25519),
 		}
 
 		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
-		assertDoc(t, docResolution.DIDDocument)
+		assertEd25519Doc(t, docResolution.DIDDocument)
 	})
 }
 
-func assertDoc(t *testing.T, doc *did.Doc) {
+func assertEd25519Doc(t *testing.T, doc *did.Doc) {
+	const (
+		didKey         = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+		didKeyID       = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH" //nolint:lll
+		agreementKeyID = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc" //nolint:lll
+
+		pubKeyBase58       = "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
+		keyAgreementBase58 = "JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr"
+	)
+
+	assertDualBase58Doc(t, doc, didKey, didKeyID, ed25519VerificationKey2018, pubKeyBase58,
+		agreementKeyID, x25519KeyAgreementKey2019, keyAgreementBase58)
+}
+
+func assertBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, pubKeyBase58 string) {
+	assertDualBase58Doc(t, doc, didKey, didKeyID, didKeyType, pubKeyBase58, didKeyID, didKeyType, pubKeyBase58)
+}
+
+func assertDualBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, pubKeyBase58,
+	agreementKeyID, keyAgreementType, keyAgreementBase58 string) {
 	// validate @context
 	require.Equal(t, schemaV1, doc.Context[0])
 
@@ -68,14 +82,14 @@ func assertDoc(t *testing.T, doc *did.Doc) {
 
 	expectedPubKey := &did.VerificationMethod{
 		ID:         didKeyID,
-		Type:       ed25519VerificationKey2018,
+		Type:       didKeyType,
 		Controller: didKey,
 		Value:      base58.Decode(pubKeyBase58),
 	}
 
 	expectedKeyAgreement := &did.VerificationMethod{
 		ID:         agreementKeyID,
-		Type:       x25519KeyAgreementKey2019,
+		Type:       keyAgreementType,
 		Controller: didKey,
 		Value:      base58.Decode(keyAgreementBase58),
 	}
