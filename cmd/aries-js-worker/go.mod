@@ -17,4 +17,5 @@ require (
 replace (
 	github.com/hyperledger/aries-framework-go => ../../
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb => ../../component/storage/indexeddb
+	github.com/hyperledger/aries-framework-go/test/component => ../../test/component
 )
