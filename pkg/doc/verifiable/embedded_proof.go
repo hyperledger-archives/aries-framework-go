@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,7 +125,11 @@ func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([
 				ldpSuites = append(ldpSuites, bbsblssignature2020.New(
 					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier())))
 			case bbsBlsSignatureProof2020:
-				nonce := []byte(getNonce(proofs[i]))
+				nonce, err := getNonce(proofs[i])
+				if err != nil {
+					return nil, err
+				}
+
 				ldpSuites = append(ldpSuites, bbsblssignatureproof2020.New(
 					suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonce))))
 			}
@@ -134,12 +139,17 @@ func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([
 	return ldpSuites, nil
 }
 
-func getNonce(proof map[string]interface{}) string {
+func getNonce(proof map[string]interface{}) ([]byte, error) {
 	if nonce, ok := proof["nonce"]; ok {
-		return nonce.(string)
+		n, err := base64.StdEncoding.DecodeString(nonce.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		return n, nil
 	}
 
-	return ""
+	return []byte{}, nil
 }
 
 func getProofs(proofElement interface{}) ([]map[string]interface{}, error) {
