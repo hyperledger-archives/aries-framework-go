@@ -31,30 +31,54 @@ func (v *VDR) Read(didKey string, opts ...vdrapi.ResolveOption) (*did.DocResolut
 		return nil, fmt.Errorf("pub:key vdr Read: failed to get key fingerPrint: %w", err)
 	}
 
-	// TODO: support additional codes for did:key
+	didDoc, err := createDIDDocFromPubKey(parsed.MethodSpecificID, code, pubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("creating did document from public key failed: %w", err)
+	}
+
+	return &did.DocResolution{DIDDocument: didDoc}, nil
+}
+
+func createDIDDocFromPubKey(kid string, code uint64, pubKeyBytes []byte) (*did.Doc, error) {
 	switch code {
 	case ed25519pub:
-		break
-	default:
-		return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
+		return createEd25519DIDDoc(kid, pubKeyBytes)
+	case bls12381g2pub:
+		return createBase58DIDDoc(kid, bls12381G2Key2020, pubKeyBytes)
 	}
+
+	return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
+}
+
+func createBase58DIDDoc(kid, keyType string, pubKeyBytes []byte) (*did.Doc, error) {
+	didKey := fmt.Sprintf("did:key:%s", kid)
+
+	keyID := fmt.Sprintf("%s#%s", didKey, kid)
+	publicKey := did.NewVerificationMethodFromBytes(keyID, keyType, didKey, pubKeyBytes)
+
+	didDoc := createDoc(publicKey, publicKey, didKey)
+
+	return didDoc, nil
+}
+
+func createEd25519DIDDoc(kid string, pubKeyBytes []byte) (*did.Doc, error) {
+	didKey := fmt.Sprintf("did:key:%s", kid)
 
 	// did:key can't add non converted encryption key as keyAgreement (unless it's added as an option just like creator,
 	// it can be added and read here if needed. Below TODO is a reminder for this)
 	// TODO find a way to get the Encryption key as in creator.go
 	// for now keeping original ed25519 to X25519 key conversion as keyAgreement.
-	keyAgr, err := keyAgreement(didKey, pubKeyBytes)
+	keyAgr, err := keyAgreementFromEd25519(didKey, pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("pub:key vdr Read: failed to fetch KeyAgreement: %w", err)
 	}
 
-	didKey = fmt.Sprintf("did:key:%s", parsed.MethodSpecificID)
-	keyID := fmt.Sprintf("%s#%s", didKey, parsed.MethodSpecificID)
+	keyID := fmt.Sprintf("%s#%s", didKey, kid)
 	publicKey := did.NewVerificationMethodFromBytes(keyID, ed25519VerificationKey2018, didKey, pubKeyBytes)
 
 	didDoc := createDoc(publicKey, keyAgr, didKey)
 
-	return &did.DocResolution{DIDDocument: didDoc}, nil
+	return didDoc, nil
 }
 
 func isValidMethodID(id string) bool {
