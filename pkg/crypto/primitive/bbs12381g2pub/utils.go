@@ -64,6 +64,11 @@ func parsePoKPayload(bytes []byte) (*pokPayload, error) {
 
 	messagesCount := int(uint16FromBytes(bytes[0:2]))
 	offset := lenInBytes(messagesCount)
+
+	if len(bytes) < offset {
+		return nil, errors.New("invalid size of PoK payload")
+	}
+
 	revealed := bitvectorToIndexes(reverseBytes(bytes[2:offset]))
 
 	return &pokPayload{
@@ -73,7 +78,7 @@ func parsePoKPayload(bytes []byte) (*pokPayload, error) {
 }
 
 // nolint:gomnd
-func (p *pokPayload) toBytes() []byte {
+func (p *pokPayload) toBytes() ([]byte, error) {
 	bytes := make([]byte, p.lenInBytes())
 
 	binary.BigEndian.PutUint16(bytes, uint16(p.messagesCount))
@@ -84,12 +89,16 @@ func (p *pokPayload) toBytes() []byte {
 		idx := r / 8
 		bit := r % 8
 
+		if len(bitvector) <= idx {
+			return nil, errors.New("invalid size of PoK payload")
+		}
+
 		bitvector[idx] |= 1 << bit
 	}
 
 	reverseBytes(bitvector)
 
-	return bytes
+	return bytes, nil
 }
 
 func (p *pokPayload) lenInBytes() int {

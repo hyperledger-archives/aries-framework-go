@@ -247,4 +247,11 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 	}
 
 	require.NoError(t, bls.VerifyProof(revealedMessages, proofBytes, nonce, pubKeyBytes))
+
+	t.Run("DeriveProof with revealedIndexes larger than revealedMessages count", func(t *testing.T) {
+		revealedIndexes = []int{0, 2, 4, 7, 9, 11}
+		_, err = bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
+		require.EqualError(t, err, "init proof of knowledge signature: invalid size: 6 revealed indexes is "+
+			"larger than 4 messages")
+	})
 }

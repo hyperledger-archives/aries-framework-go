@@ -67,6 +67,12 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.h0, signature.E, r2)
 
 	revealedMessages := make(map[int]*SignatureMessage, len(revealedIndexes))
+
+	if len(messages) < len(revealedIndexes) {
+		return nil, fmt.Errorf("invalid size: %d revealed indexes is larger than %d messages", len(revealedIndexes),
+			len(messages))
+	}
+
 	for _, ind := range revealedIndexes {
 		revealedMessages[ind] = messages[ind]
 	}
