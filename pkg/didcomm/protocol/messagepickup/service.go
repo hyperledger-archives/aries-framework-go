@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -73,7 +72,7 @@ type Service struct {
 	connectionLookup connections
 	outbound         dispatcher.Outbound
 	msgStore         storage.Store
-	packager         commtransport.Packager
+	packager         transport.Packager
 	msgHandler       transport.InboundMessageHandler
 	batchMap         map[string]chan Batch
 	batchMapLock     sync.RWMutex
@@ -594,7 +593,7 @@ func (s *Service) handle(msg *Message) error {
 
 	messageHandler := s.msgHandler
 
-	err = messageHandler(unpackMsg.Message, unpackMsg.ToDID, unpackMsg.FromDID)
+	err = messageHandler(unpackMsg)
 	if err != nil {
 		return fmt.Errorf("incoming msg processing failed: %w", err)
 	}

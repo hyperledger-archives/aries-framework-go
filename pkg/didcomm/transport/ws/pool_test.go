@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
@@ -46,14 +46,14 @@ func TestConnectionStore(t *testing.T) {
 		require.NoError(t, err)
 
 		mockPackager := &mockpackager.Packager{
-			UnpackValue: &commontransport.Envelope{Message: request, FromKey: verKeyBytes},
+			UnpackValue: &transport.Envelope{Message: request, FromKey: verKeyBytes},
 		}
 
 		response := "Hello"
 		transportProvider := &mockTransportProvider{
 			packagerValue: mockPackager,
 			frameworkID:   uuid.New().String(),
-			executeInbound: func(message []byte, myDID, theirDID string) error {
+			executeInbound: func(envelope *transport.Envelope) error {
 				resp, outboundErr := outbound.Send([]byte(response),
 					prepareDestinationWithTransport("ws://doesnt-matter", "", []string{verKey}))
 				require.NoError(t, outboundErr)
@@ -106,9 +106,9 @@ func TestConnectionStore(t *testing.T) {
 		transportProvider := &mockTransportProvider{
 			packagerValue: &mockPackager{verKey: verKey},
 			frameworkID:   uuid.New().String(),
-			executeInbound: func(message []byte, myDID, theirDID string) error {
+			executeInbound: func(envelope *transport.Envelope) error {
 				// validate the echo server response with the outbound sent message
-				require.Equal(t, request, message)
+				require.Equal(t, request, envelope.Message)
 				done <- struct{}{}
 				return nil
 			},

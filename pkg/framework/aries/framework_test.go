@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -602,6 +603,13 @@ func TestFramework(t *testing.T) {
 		aries, err := New(WithVerifiableStore(mockStore))
 		require.NoError(t, err)
 		require.Equal(t, mockStore, aries.verifiableStore)
+	})
+
+	t.Run("test DID connection store option", func(t *testing.T) {
+		mockStore := &didStoreMocks.MockConnectionStore{}
+		aries, err := New(WithDIDConnectionStore(mockStore))
+		require.NoError(t, err)
+		require.Equal(t, mockStore, aries.didConnectionStore)
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -23,6 +24,7 @@ type Provider struct {
 	ServiceEndpointValue              string
 	StorageProviderValue              storage.Provider
 	ProtocolStateStorageProviderValue storage.Provider
+	DIDConnectionStoreValue           did.ConnectionStore
 	PackerList                        []packer.Packer
 	PackerValue                       packer.Packer
 	OutboundDispatcherValue           dispatcher.Outbound
@@ -71,6 +73,11 @@ func (p *Provider) StorageProvider() storage.Provider {
 // ProtocolStateStorageProvider returns the protocol state storage provider.
 func (p *Provider) ProtocolStateStorageProvider() storage.Provider {
 	return p.ProtocolStateStorageProviderValue
+}
+
+// DIDConnectionStore returns the DID connection store.
+func (p *Provider) DIDConnectionStore() did.ConnectionStore {
+	return p.DIDConnectionStoreValue
 }
 
 // Packers returns the available Packer services.

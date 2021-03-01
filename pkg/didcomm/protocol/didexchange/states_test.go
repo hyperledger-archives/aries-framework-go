@@ -36,7 +36,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
@@ -530,9 +530,9 @@ func TestRespondedState_Execute(t *testing.T) {
 			ThreadID:     request.ID,
 			ConnectionID: "123",
 		}
-		err = ctx.connectionStore.saveConnectionRecord(connRec)
+		err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
-		err = ctx.connectionStore.SaveNamespaceThreadID(request.ID, findNamespace(ResponseMsgType), connRec.ConnectionID)
+		err = ctx.connectionRecorder.SaveNamespaceThreadID(request.ID, findNamespace(ResponseMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
 		connRec, followup, _, e := (&responded{}).ExecuteInbound(
 			&stateMachineMsg{
@@ -589,15 +589,15 @@ func TestCompletedState_Execute(t *testing.T) {
 	prov := getProvider(t)
 	customKMS := newKMS(t, prov.StoreProvider)
 	pubKey := newED25519DIDKey(t, customKMS)
-	cStore, err := newConnectionStore(&prov)
+	connRec, err := connection.NewRecorder(&prov)
 
 	require.NoError(t, err)
-	require.NotNil(t, cStore)
+	require.NotNil(t, connRec)
 
 	ctx := &context{
-		crypto:          &tinkcrypto.Crypto{},
-		connectionStore: cStore,
-		kms:             customKMS,
+		crypto:             &tinkcrypto.Crypto{},
+		connectionRecorder: connRec,
+		kms:                customKMS,
 	}
 	newDIDDoc := createDIDDocWithKey(pubKey)
 	c := &Connection{
@@ -630,7 +630,7 @@ func TestCompletedState_Execute(t *testing.T) {
 			InvitationID:  invitation.ID,
 			RecipientKeys: []string{pubKey},
 		}
-		err = ctx.connectionStore.saveConnectionRecordWithMapping(connRec)
+		err = ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc(t)}
 		require.NoError(t, err)
@@ -648,9 +648,10 @@ func TestCompletedState_Execute(t *testing.T) {
 			ConnectionID:  "123",
 			RecipientKeys: []string{pubKey},
 		}
-		err = ctx.connectionStore.saveConnectionRecord(connRec)
+		err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
-		err = ctx.connectionStore.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType), connRec.ConnectionID)
+		err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType),
+			connRec.ConnectionID)
 		require.NoError(t, err)
 		ack := &model.Ack{
 			Type:   AckMsgType,
@@ -706,15 +707,15 @@ func TestCompletedState_Execute(t *testing.T) {
 func TestVerifySignature(t *testing.T) {
 	prov := getProvider(t)
 	pubKey := newED25519DIDKey(t, prov.KMS())
-	cStore, err := newConnectionStore(&prov)
+	connRec, err := connection.NewRecorder(&prov)
 
 	require.NoError(t, err)
-	require.NotNil(t, cStore)
+	require.NotNil(t, connRec)
 
 	ctx := &context{
-		crypto:          &tinkcrypto.Crypto{},
-		connectionStore: cStore,
-		kms:             prov.KMS(),
+		crypto:             &tinkcrypto.Crypto{},
+		connectionRecorder: connRec,
+		kms:                prov.KMS(),
 	}
 	newDIDDoc := createDIDDocWithKey(pubKey)
 	c := &Connection{
@@ -872,15 +873,15 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.Equal(t, c.DID, sigDataConnection.DID)
 	})
 	t.Run("implicit invitation with DID - success", func(t *testing.T) {
-		cStore, err := newConnectionStore(&prov)
+		connRec, err := connection.NewRecorder(&prov)
 		require.NoError(t, err)
-		require.NotNil(t, cStore)
+		require.NotNil(t, connRec)
 
 		ctx2 := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument},
 			crypto:             &tinkcrypto.Crypto{},
-			connectionStore:    cStore,
+			connectionRecorder: connRec,
 			kms:                prov.CustomKMS,
 		}
 		connectionSignature, err := ctx2.prepareConnectionSignature(c, doc.DIDDocument.ID)
@@ -906,7 +907,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 			ID:   randomString(),
 			DID:  "test",
 		}
-		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 		connectionSignature, err := ctx.prepareConnectionSignature(c, inv.ID)
 		require.Error(t, err)
@@ -914,16 +915,16 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature error", func(t *testing.T) {
-		cStore, err := newConnectionStore(&prov)
+		connRec, err := connection.NewRecorder(&prov)
 		require.NoError(t, err)
-		require.NotNil(t, cStore)
+		require.NotNil(t, connRec)
 
 		ctx := &context{
 			crypto: &mockcrypto.Crypto{
 				SignErr: errors.New("sign error"),
 			},
-			connectionStore: cStore,
-			kms:             prov.KMS(),
+			connectionRecorder: connRec,
+			kms:                prov.KMS(),
 		}
 		c := &Connection{
 			DIDDoc: mockdiddoc.GetMockDIDDoc(t),
@@ -955,17 +956,20 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	t.Run("successful response to invitation with public did", func(t *testing.T) {
 		prov := getProvider(t)
 		doc := createDIDDoc(t, prov.CustomKMS)
-		cStore, err := newConnectionStore(&protocol.MockProvider{})
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		didConnStore, err := didstore.NewConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
-			connectionStore: cStore,
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: doc},
+			connectionRecorder: connRec,
+			connectionStore:    didConnStore,
 		}
-		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{publicDID: doc.ID},
+		_, connRecord, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{publicDID: doc.ID},
 			&connection.Record{})
 		require.NoError(t, err)
-		require.NotNil(t, connRec.MyDID)
-		require.Equal(t, connRec.MyDID, doc.ID)
+		require.NotNil(t, connRecord.MyDID)
+		require.Equal(t, connRecord.MyDID, doc.ID)
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := protocol.MockProvider{}
@@ -1008,25 +1012,30 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.Nil(t, connRec)
 	})
 	t.Run("unsuccessful new response from request due to sign error", func(t *testing.T) {
-		cStore, err := newConnectionStore(&prov)
+		connRec, err := connection.NewRecorder(&prov)
 		require.NoError(t, err)
-		require.NotNil(t, cStore)
+		require.NotNil(t, connRec)
+
+		didConnStore, err := didstore.NewConnectionStore(&prov)
+		require.NoError(t, err)
+		require.NotNil(t, didConnStore)
 
 		ctx := &context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
-			crypto:          &mockcrypto.Crypto{SignErr: errors.New("sign error")},
-			connectionStore: cStore,
-			routeSvc:        &mockroute.MockMediatorSvc{},
-			kms:             prov.CustomKMS,
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			crypto:             &mockcrypto.Crypto{SignErr: errors.New("sign error")},
+			connectionRecorder: connRec,
+			connectionStore:    didConnStore,
+			routeSvc:           &mockroute.MockMediatorSvc{},
+			kms:                prov.CustomKMS,
 		}
 
 		request, err := createRequest(t, ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
+		_, connRecord, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sign error")
-		require.Nil(t, connRec)
+		require.Nil(t, connRecord)
 	})
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
 		ctx := &context{vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")}}
@@ -1140,11 +1149,14 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	k := newKMS(t, mockstorage.NewMockStoreProvider())
 	t.Run("successfully getting did doc and connection for public did", func(t *testing.T) {
 		doc := createDIDDoc(t, k)
-		cStore, err := newConnectionStore(&protocol.MockProvider{})
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		didConnStore, err := didstore.NewConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
-			connectionStore: cStore,
+			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: doc},
+			connectionRecorder: connRec,
+			connectionStore:    didConnStore,
 		}
 		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
 		require.NoError(t, err)
@@ -1162,30 +1174,6 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.Nil(t, didDoc)
 		require.Nil(t, conn)
 	})
-	t.Run("error saving pub did connection", func(t *testing.T) {
-		doc := createDIDDoc(t, k)
-
-		cStore, err := newConnectionStore(&protocol.MockProvider{})
-		require.NoError(t, err)
-
-		cStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
-			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string]mockstorage.DBEntry),
-				ErrPut: fmt.Errorf("did error"),
-			}),
-		})
-		require.NoError(t, err)
-
-		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{ResolveValue: doc},
-			connectionStore: cStore,
-		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "did error")
-		require.Nil(t, didDoc)
-		require.Nil(t, conn)
-	})
 	t.Run("error creating peer did", func(t *testing.T) {
 		ctx := context{
 			vdRegistry: &mockvdr.MockVDRegistry{CreateErr: errors.New("creator error")},
@@ -1198,12 +1186,15 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.Nil(t, conn)
 	})
 	t.Run("successfully created peer did", func(t *testing.T) {
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		didConnStore, err := didstore.NewConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
-			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{},
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			connectionRecorder: connRec,
+			connectionStore:    didConnStore,
+			routeSvc:           &mockroute.MockMediatorSvc{},
 		}
 		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
 		require.NoError(t, err)
@@ -1211,36 +1202,12 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NotNil(t, conn)
 		require.Equal(t, didDoc.ID, conn.DID)
 	})
-	t.Run("error saving peer did connection", func(t *testing.T) {
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
-		require.NoError(t, err)
-
-		connectionStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
-			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string]mockstorage.DBEntry),
-				ErrPut: fmt.Errorf("did error"),
-			}),
-		})
-		require.NoError(t, err)
-
-		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
-			connectionStore: connectionStore,
-			routeSvc:        &mockroute.MockMediatorSvc{},
-		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "did error")
-		require.Nil(t, didDoc)
-		require.Nil(t, conn)
-	})
-
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
-			connectionStore: connectionStore,
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
 				ConfigErr:   errors.New("router config error"),
@@ -1254,11 +1221,11 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		ctx := context{
-			vdRegistry:      &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
-			connectionStore: connectionStore,
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
 				AddKeyErr:   errors.New("router add key error"),
@@ -1278,9 +1245,9 @@ func TestGetVerKey(t *testing.T) {
 		expected := newServiceBlock()
 		invitation := newOOBInvite(expected)
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 		}
-		err := ctx.connectionStore.SaveInvitation(invitation.ThreadID, invitation)
+		err := ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
 		require.NoError(t, err)
 
 		result, err := ctx.getVerKey(invitation.ThreadID)
@@ -1291,12 +1258,12 @@ func TestGetVerKey(t *testing.T) {
 		publicDID := createDIDDoc(t, k)
 		invitation := newOOBInvite(publicDID.ID)
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveValue: publicDID,
 			},
 		}
-		err := ctx.connectionStore.SaveInvitation(invitation.ThreadID, invitation)
+		err := ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
 		require.NoError(t, err)
 
 		result, err := ctx.getVerKey(invitation.ThreadID)
@@ -1307,9 +1274,9 @@ func TestGetVerKey(t *testing.T) {
 		expected := newServiceBlock()
 		invitation := newDidExchangeInvite("", expected)
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 		}
-		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
 		result, err := ctx.getVerKey(invitation.ID)
@@ -1319,7 +1286,7 @@ func TestGetVerKey(t *testing.T) {
 	t.Run("returns verkey from implicit didexchange invitation", func(t *testing.T) {
 		publicDID := createDIDDoc(t, k)
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveValue: publicDID,
 			},
@@ -1335,9 +1302,9 @@ func TestGetVerKey(t *testing.T) {
 	t.Run("fails for oob invitation with no target", func(t *testing.T) {
 		invalid := newOOBInvite(nil)
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 		}
-		err := ctx.connectionStore.SaveInvitation(invalid.ThreadID, invalid)
+		err := ctx.connectionRecorder.SaveInvitation(invalid.ThreadID, invalid)
 		require.NoError(t, err)
 
 		_, err = ctx.getVerKey(invalid.ThreadID)
@@ -1353,11 +1320,11 @@ func TestGetVerKey(t *testing.T) {
 			},
 		}
 		ctx := &context{
-			connectionStore: connStore(t, pr),
+			connectionRecorder: connRecorder(t, pr),
 		}
 
 		invitation := newOOBInvite(newServiceBlock())
-		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
 		_, err = ctx.getVerKey(invitation.ID)
@@ -1366,7 +1333,7 @@ func TestGetVerKey(t *testing.T) {
 	t.Run("wraps error from vdr resolution", func(t *testing.T) {
 		expected := errors.New("test")
 		ctx := &context{
-			connectionStore: connStore(t, testProvider()),
+			connectionRecorder: connRecorder(t, testProvider()),
 			vdRegistry: &mockvdr.MockVDRegistry{
 				ResolveErr: expected,
 			},
@@ -1441,14 +1408,18 @@ func getContext(t *testing.T, prov *protocol.MockProvider) *context {
 	t.Helper()
 
 	pubKey := newED25519DIDKey(t, prov.KMS())
-	connStore, err := newConnectionStore(prov)
+	connRec, err := connection.NewRecorder(prov)
+	require.NoError(t, err)
+
+	didConnStore, err := didstore.NewConnectionStore(prov)
 	require.NoError(t, err)
 
 	return &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		crypto:             &tinkcrypto.Crypto{},
-		connectionStore:    connStore,
+		connectionRecorder: connRec,
+		connectionStore:    didConnStore,
 		routeSvc:           &mockroute.MockMediatorSvc{},
 		kms:                prov.KMS(),
 	}
@@ -1528,12 +1499,12 @@ func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Re
 		RecipientKeys: []string{pubKey},
 	}
 
-	err = ctx.connectionStore.saveConnectionRecord(connRec)
+	err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ctx.connectionStore.SaveNamespaceThreadID(response.Thread.ID, findNamespace(ResponseMsgType),
+	err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(ResponseMsgType),
 		connRec.ConnectionID)
 	if err != nil {
 		return nil, err
@@ -1551,7 +1522,7 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
-	err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+	err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
 		return nil, err
 	}
@@ -1618,8 +1589,8 @@ func newServiceBlock() *diddoc.Service {
 	}
 }
 
-func connStore(t *testing.T, p provider) *connectionStore {
-	s, err := newConnectionStore(p)
+func connRecorder(t *testing.T, p provider) *connection.Recorder {
+	s, err := connection.NewRecorder(p)
 	require.NoError(t, err)
 
 	return s

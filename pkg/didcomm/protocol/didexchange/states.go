@@ -474,7 +474,7 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}, nil
 }
 
-// nolint: funlen,gocyclo
+// nolint:gocyclo,funlen
 func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []string) (*did.Doc, *Connection, error) {
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
@@ -637,7 +637,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, err
 	}
 
-	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
+	connRecord, err := ctx.connectionRecorder.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get connection record: %w", err)
 	}
@@ -746,7 +746,7 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 	if isDID(invitationID) {
 		invitation = Invitation{ID: invitationID, DID: invitationID}
 	} else {
-		err = ctx.connectionStore.GetInvitation(invitationID, &invitation)
+		err = ctx.connectionRecorder.GetInvitation(invitationID, &invitation)
 		if err != nil {
 			return "", fmt.Errorf("get invitation for signature: %w", err)
 		}
@@ -783,7 +783,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 
 	var invitation OOBInvitation
 
-	err := ctx.connectionStore.GetInvitation(invitationID, &invitation)
+	err := ctx.connectionRecorder.GetInvitation(invitationID, &invitation)
 	if errors.Is(err, storage.ErrDataNotFound) {
 		return "", errVerKeyNotFound
 	}

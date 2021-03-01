@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -26,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -54,7 +54,7 @@ type Aries struct {
 	secretLock                 secretlock.Service
 	crypto                     crypto.Crypto
 	packagerCreator            packager.Creator
-	packager                   commontransport.Packager
+	packager                   transport.Packager
 	packerCreator              packer.Creator
 	packerCreators             []packer.Creator
 	primaryPacker              packer.Packer
@@ -62,6 +62,7 @@ type Aries struct {
 	vdrRegistry                vdrapi.Registry
 	vdr                        []vdrapi.VDR
 	verifiableStore            verifiable.Store
+	didConnectionStore         did.ConnectionStore
 	transportReturnRoute       string
 	id                         string
 }
@@ -125,6 +126,11 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 
 	// Create messenger handler
 	if err := createMessengerHandler(frameworkOpts); err != nil {
+		return nil, err
+	}
+
+	// Create DID connection store
+	if err := createDIDConnectionStore(frameworkOpts); err != nil {
 		return nil, err
 	}
 
@@ -268,6 +274,14 @@ func WithVerifiableStore(store verifiable.Store) Option {
 	}
 }
 
+// WithDIDConnectionStore injects a DID connection store.
+func WithDIDConnectionStore(store did.ConnectionStore) Option {
+	return func(opts *Aries) error {
+		opts.didConnectionStore = store
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -289,6 +303,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithAriesFrameworkID(a.id),
 		context.WithMessageServiceProvider(a.msgSvcProvider),
 		context.WithVerifiableStore(a.verifiableStore),
+		context.WithDIDConnectionStore(a.didConnectionStore),
 	)
 }
 
@@ -421,6 +436,24 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 	return nil
 }
 
+func createDIDConnectionStore(frameworkOpts *Aries) error {
+	if frameworkOpts.didConnectionStore != nil {
+		return nil
+	}
+
+	ctx, err := context.New(
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
+	)
+	if err != nil {
+		return fmt.Errorf("context creation failed: %w", err)
+	}
+
+	frameworkOpts.didConnectionStore, err = did.NewConnectionStore(ctx)
+
+	return err
+}
+
 func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithCrypto(frameworkOpts.crypto),
@@ -429,6 +462,7 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithAriesFrameworkID(frameworkOpts.id),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 		context.WithMessengerHandler(frameworkOpts.messenger),
+		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -464,6 +498,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithRouterEndpoint(routingEndpoint(frameworkOpts)),
 		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 		context.WithVerifiableStore(frameworkOpts.verifiableStore),
+		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 	)
 	if err != nil {

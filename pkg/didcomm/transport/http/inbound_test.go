@@ -20,23 +20,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
 type mockProvider struct {
-	packagerValue commontransport.Packager
+	packagerValue transport.Packager
 }
 
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte, myDID, theirDID string) error {
-		logger.Debugf("message received is %s", message)
+	return func(envelope *transport.Envelope) error {
+		logger.Debugf("message received is %s", envelope.Message)
 		return nil
 	}
 }
 
-func (p *mockProvider) Packager() commontransport.Packager {
+func (p *mockProvider) Packager() transport.Packager {
 	return p.packagerValue
 }
 
@@ -50,7 +49,7 @@ func TestInboundHandler(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, inHandler)
 
-	mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}
+	mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}}
 
 	// now create a valid inboundHandler to continue testing..
 	inHandler, err = NewInboundHandler(&mockProvider{packagerValue: mockPackager})
@@ -151,7 +150,7 @@ func TestInboundTransport(t *testing.T) {
 		inbound, err := NewInbound(":26603", "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
-		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}
+		mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 
@@ -190,7 +189,7 @@ func TestInboundTransport(t *testing.T) {
 		require.NotEmpty(t, inbound)
 
 		// start server
-		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}
+		mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 		require.NoError(t, listenFor("localhost:26605", time.Second))

@@ -13,13 +13,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcutil/base58"
-
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -39,9 +36,8 @@ type Creator func(prov Provider) (transport.Packager, error)
 
 // Packager is the basic implementation of Packager.
 type Packager struct {
-	primaryPacker   packer.Packer
-	packers         map[string]packer.Packer
-	connectionStore *did.ConnectionStore
+	primaryPacker packer.Packer
+	packers       map[string]packer.Packer
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -52,15 +48,9 @@ type PackerCreator struct {
 
 // New return new instance of LegacyPackager implementation of Packager.
 func New(ctx Provider) (*Packager, error) {
-	didConnStore, err := did.NewConnectionStore(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new packager: %w", err)
-	}
-
 	basePackager := Packager{
-		primaryPacker:   nil,
-		packers:         map[string]packer.Packer{},
-		connectionStore: didConnStore,
+		primaryPacker: nil,
+		packers:       map[string]packer.Packer{},
 	}
 
 	for _, packerType := range ctx.Packers() {
@@ -194,23 +184,6 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 	if err != nil {
 		return nil, fmt.Errorf("unpack: %w", err)
 	}
-
-	//	ignore error - agents can communicate without using DIDs - for example, in DIDExchange
-	theirDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.FromKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get their did: %w", err)
-	}
-
-	// ignore error - at beginning of DIDExchange, you might be about to generate a DID
-	myDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.ToKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get my did: %w", err)
-	}
-
-	envelope.ToDID = myDID
-	envelope.FromDID = theirDID
 
 	return envelope, nil
 }

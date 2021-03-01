@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -48,6 +49,13 @@ const (
 	routerConnsMetadataKey = "routerConnections"
 )
 
+const (
+	myNSPrefix = "my"
+	// TODO: https://github.com/hyperledger/aries-framework-go/issues/556 It will not be constant, this namespace
+	//  will need to be figured with verification key
+	theirNSPrefix = "their"
+)
+
 // message type to store data for eventing. This is retrieved during callback.
 type message struct {
 	Msg           service.DIDCommMsgMap
@@ -66,6 +74,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
+	DIDConnectionStore() didstore.ConnectionStore
 	Crypto() crypto.Crypto
 	KMS() kms.KeyManager
 	VDRegistry() vdrapi.Registry
@@ -83,16 +92,18 @@ type stateMachineMsg struct {
 type Service struct {
 	service.Action
 	service.Message
-	ctx             *context
-	callbackChannel chan *message
-	connectionStore *connectionStore
+	ctx                *context
+	callbackChannel    chan *message
+	connectionRecorder *connection.Recorder
+	connectionStore    didstore.ConnectionStore
 }
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
 	crypto             crypto.Crypto
 	kms                kms.KeyManager
-	connectionStore    *connectionStore
+	connectionRecorder *connection.Recorder
+	connectionStore    didstore.ConnectionStore
 	vdRegistry         vdrapi.Registry
 	routeSvc           mediator.ProtocolService
 }
@@ -111,9 +122,9 @@ type opts interface {
 
 // New return didexchange service.
 func New(prov provider) (*Service, error) {
-	connRecorder, err := newConnectionStore(prov)
+	connRecorder, err := connection.NewRecorder(prov)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize connection store : %w", err)
+		return nil, fmt.Errorf("failed to initialize connection recorder: %w", err)
 	}
 
 	s, err := prov.Service(mediator.Coordination)
@@ -134,12 +145,14 @@ func New(prov provider) (*Service, error) {
 			crypto:             prov.Crypto(),
 			kms:                prov.KMS(),
 			vdRegistry:         prov.VDRegistry(),
-			connectionStore:    connRecorder,
+			connectionRecorder: connRecorder,
+			connectionStore:    prov.DIDConnectionStore(),
 			routeSvc:           routeSvc,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		callbackChannel: make(chan *message, callbackChannelSize),
-		connectionStore: connRecorder,
+		callbackChannel:    make(chan *message, callbackChannelSize),
+		connectionRecorder: connRecorder,
+		connectionStore:    prov.DIDConnectionStore(),
 	}
 
 	// start the listener
@@ -270,7 +283,7 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 	return next, nil
 }
 
-func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint: funlen
+func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint:funlen,gocyclo
 	logger.Debugf("handling msg: %+v", msg)
 
 	next, err := stateFromName(msg.NextStateName)
@@ -315,6 +328,13 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		}
 
 		logger.Debugf("updated connection record %+v", connectionRecord)
+
+		if connectionRecord.State == StateIDCompleted {
+			err = s.connectionStore.SaveDIDByResolving(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
+			if err != nil {
+				return fmt.Errorf("save theirDID: %w", err)
+			}
+		}
 
 		if err = action(); err != nil {
 			return fmt.Errorf("failed to execute state action '%s': %w", next.Name(), err)
@@ -469,7 +489,7 @@ func (s *Service) RespondTo(i *OOBInvitation, routerConnections []string) (strin
 func (s *Service) SaveInvitation(i *OOBInvitation) error {
 	i.Type = oobMsgType
 
-	err := s.connectionStore.SaveInvitation(i.ThreadID, i)
+	err := s.connectionRecorder.SaveInvitation(i.ThreadID, i)
 	if err != nil {
 		return fmt.Errorf("failed to save oob invitation : %w", err)
 	}
@@ -483,7 +503,7 @@ func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string,
 		return fmt.Errorf("failed to accept invitation for connectionID=%s : %s : %w", connectionID, errMsg, err)
 	}
 
-	connRecord, err := s.connectionStore.GetConnectionRecord(connectionID)
+	connRecord, err := s.connectionRecorder.GetConnectionRecord(connectionID)
 	if err != nil {
 		return fmt.Errorf("%s : %w", errMsg, err)
 	}
@@ -504,11 +524,11 @@ func (s *Service) storeEventProtocolStateData(msg *message) error {
 		return fmt.Errorf("store protocol state data : %w", err)
 	}
 
-	return s.connectionStore.SaveEvent(msg.ConnRecord.ConnectionID, bytes)
+	return s.connectionRecorder.SaveEvent(msg.ConnRecord.ConnectionID, bytes)
 }
 
 func (s *Service) getEventProtocolStateData(connectionID string) (*message, error) {
-	val, err := s.connectionStore.GetEvent(connectionID)
+	val, err := s.connectionRecorder.GetEvent(connectionID)
 	if err != nil {
 		return nil, fmt.Errorf("get protocol state data : %w", err)
 	}
@@ -531,7 +551,7 @@ func (s *Service) abandon(thID string, msg service.DIDCommMsg, processErr error)
 		return err
 	}
 
-	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
+	connRec, err := s.connectionRecorder.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
 	}
@@ -567,7 +587,7 @@ func isNoOp(s state) bool {
 }
 
 func (s *Service) currentState(nsThID string) (state, error) {
-	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
+	connRec, err := s.connectionRecorder.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
@@ -579,14 +599,14 @@ func (s *Service) currentState(nsThID string) (state, error) {
 	return stateFromName(connRec.State)
 }
 
-func (s *Service) update(msgType string, connectionRecord *connection.Record) error {
-	if (msgType == RequestMsgType && connectionRecord.State == StateIDRequested) ||
-		(msgType == InvitationMsgType && connectionRecord.State == StateIDInvited) ||
-		(msgType == oobMsgType && connectionRecord.State == StateIDInvited) {
-		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
+func (s *Service) update(msgType string, record *connection.Record) error {
+	if (msgType == RequestMsgType && record.State == StateIDRequested) ||
+		(msgType == InvitationMsgType && record.State == StateIDInvited) ||
+		(msgType == oobMsgType && record.State == StateIDInvited) {
+		return s.connectionRecorder.SaveConnectionRecordWithMappings(record)
 	}
 
-	return s.connectionStore.saveConnectionRecord(connectionRecord)
+	return s.connectionRecorder.SaveConnectionRecord(record)
 }
 
 // CreateConnection saves the record to the connection store and maps TheirDID to their recipient keys in
@@ -602,7 +622,7 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 		return fmt.Errorf("vdr failed to store theirDID : %w", err)
 	}
 
-	return s.connectionStore.saveConnectionRecord(record)
+	return s.connectionRecorder.SaveConnectionRecord(record)
 }
 
 func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
@@ -658,7 +678,7 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		connRecord.InvitationDID = publicDID
 	}
 
-	if err := s.connectionStore.SaveConnectionRecord(connRecord); err != nil {
+	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
@@ -695,7 +715,7 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 		Namespace:       findNamespace(msg.Type()),
 	}
 
-	if err := s.connectionStore.SaveConnectionRecord(connRecord); err != nil {
+	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
@@ -725,7 +745,7 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		Namespace:    theirNSPrefix,
 	}
 
-	if err := s.connectionStore.SaveConnectionRecord(connRecord); err != nil {
+	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
 		return nil, err
 	}
 
@@ -755,7 +775,7 @@ func (s *Service) fetchConnectionRecord(nsPrefix string, payload service.DIDComm
 		return nil, err
 	}
 
-	return s.connectionStore.GetConnectionRecordByNSThreadID(key)
+	return s.connectionRecorder.GetConnectionRecordByNSThreadID(key)
 }
 
 func generateRandomID() string {
@@ -804,7 +824,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
 		Namespace:       findNamespace(InvitationMsgType),
 	}
 
-	if e := s.connectionStore.saveConnectionRecordWithMapping(connRecord); e != nil {
+	if e := s.connectionRecorder.SaveConnectionRecordWithMappings(connRecord); e != nil {
 		return "", fmt.Errorf("failed to save new connection record for implicit invitation: %w", e)
 	}
 

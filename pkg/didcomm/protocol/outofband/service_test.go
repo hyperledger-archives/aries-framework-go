@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
@@ -587,7 +588,7 @@ func TestHandleDIDEvent(t *testing.T) {
 				didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 			},
 		}
-		provider.InboundMsgHandler = func([]byte, string, string) error {
+		provider.InboundMsgHandler = func(envelope *transport.Envelope) error {
 			return nil
 		}
 

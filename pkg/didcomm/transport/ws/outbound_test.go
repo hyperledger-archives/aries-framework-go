@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
@@ -81,7 +81,7 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+			&mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}},
 		},
 		))
 
@@ -114,7 +114,7 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+			&mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}},
 		},
 		))
 
@@ -134,7 +134,7 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+			&mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}},
 		},
 		))
 
@@ -151,7 +151,7 @@ func TestClient(t *testing.T) {
 		require.NotNil(t, outbound)
 
 		require.NoError(t, outbound.Start(&mockProvider{
-			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}},
+			&mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}},
 		},
 		))
 

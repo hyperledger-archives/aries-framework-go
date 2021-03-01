@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
@@ -40,7 +40,7 @@ func TestInboundTransport(t *testing.T) {
 		inbound, err := NewInbound(":"+strconv.Itoa(transportutil.GetRandomPort(5)), "", "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
-		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}
+		mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 
@@ -83,7 +83,7 @@ func TestInboundDataProcessing(t *testing.T) {
 		require.NotEmpty(t, inbound)
 
 		// start server
-		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("valid-data")}}
+		mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("valid-data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 
@@ -131,7 +131,7 @@ func TestInboundDataProcessing(t *testing.T) {
 		require.NotEmpty(t, inbound)
 
 		// start server
-		mockPackager := &mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("invalid-data")}}
+		mockPackager := &mockpackager.Packager{UnpackValue: &transport.Envelope{Message: []byte("invalid-data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 

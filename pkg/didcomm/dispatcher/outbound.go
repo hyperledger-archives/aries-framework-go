@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -25,7 +24,7 @@ import (
 
 // provider interface for outbound ctx.
 type provider interface {
-	Packager() commontransport.Packager
+	Packager() transport.Packager
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
 	VDRegistry() vdr.Registry
@@ -35,7 +34,7 @@ type provider interface {
 // OutboundDispatcher dispatch msgs to destination.
 type OutboundDispatcher struct {
 	outboundTransports   []transport.OutboundTransport
-	packager             commontransport.Packager
+	packager             transport.Packager
 	transportReturnRoute string
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
@@ -106,7 +105,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		packedMsg, err := o.packager.PackMessage(
-			&commontransport.Envelope{Message: req, FromKey: sender, ToKeys: des.RecipientKeys})
+			&transport.Envelope{Message: req, FromKey: sender, ToKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
 		}
@@ -190,7 +189,7 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
 	//  algorithm(auth/anon crypt) for Forward(router) message
 	packedMsg, err := o.packager.PackMessage(
-		&commontransport.Envelope{Message: req, FromKey: senderVerKey, ToKeys: des.RoutingKeys})
+		&transport.Envelope{Message: req, FromKey: senderVerKey, ToKeys: des.RoutingKeys})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
 	}

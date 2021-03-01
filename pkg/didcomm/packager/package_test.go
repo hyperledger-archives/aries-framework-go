@@ -15,11 +15,11 @@ import (
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	. "github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -386,56 +386,6 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		unpackedMsg, err := packager.UnpackMessage(packMsg)
 		require.NoError(t, err)
 		require.Equal(t, unpackedMsg.Message, []byte("msg1"))
-	})
-
-	t.Run("test failure - did lookup broke", func(t *testing.T) {
-		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
-		require.NoError(t, err)
-		require.NotEmpty(t, customKMS)
-
-		mockedProviders := &mockProvider{
-			storage: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
-				Store:  make(map[string]mockstorage.DBEntry),
-				ErrGet: fmt.Errorf("bad error"),
-			}),
-			kms:           customKMS,
-			primaryPacker: nil,
-			packers:       nil,
-		}
-
-		// create a real testPacker (no mocking here)
-		testPacker := legacy.New(mockedProviders)
-		require.NoError(t, err)
-		mockedProviders.primaryPacker = testPacker
-
-		mockedProviders.packers = []packer.Packer{testPacker}
-
-		// now create a new packager with the above provider context
-		packager, err := New(mockedProviders)
-		require.NoError(t, err)
-
-		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
-		require.NoError(t, err)
-
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
-		require.NoError(t, err)
-
-		didKey, _ := fingerprint.CreateDIDKey(toKey)
-
-		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&transport.Envelope{
-			Message: []byte("msg1"),
-			FromKey: fromKey,
-			ToKeys:  []string{didKey},
-		})
-		require.NoError(t, err)
-
-		// unpack the packed message above - should pass and match the same payload (msg1)
-		unpackedMsg, err := packager.UnpackMessage(packMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "bad error")
-		require.Nil(t, unpackedMsg)
 	})
 }
 
