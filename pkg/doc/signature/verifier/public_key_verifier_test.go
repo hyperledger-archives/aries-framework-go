@@ -370,6 +370,46 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	})
 }
 
+func TestTransformFromBlankNodes(t *testing.T) {
+	const (
+		a  = "<urn:bnid:_:c14n0>"
+		ae = "_:c14n0"
+		b  = "<urn:bnid:_:c14n0> "
+		be = "_:c14n0 "
+		c  = "abcd <urn:bnid:_:c14n0> "
+		ce = "abcd _:c14n0 "
+		d  = "abcd <urn:bnid:_:c14n0> efgh"
+		de = "abcd _:c14n0 efgh"
+		e  = "abcd <urn:bnid:_:c14n23> efgh"
+		ee = "abcd _:c14n23 efgh"
+		f  = "abcd <urn:bnid:_:c14n> efgh"
+		fe = "abcd _:c14n efgh"
+		g  = ""
+		ge = ""
+	)
+
+	at := transformFromBlankNode(a)
+	require.Equal(t, ae, at)
+
+	bt := transformFromBlankNode(b)
+	require.Equal(t, be, bt)
+
+	ct := transformFromBlankNode(c)
+	require.Equal(t, ce, ct)
+
+	dt := transformFromBlankNode(d)
+	require.Equal(t, de, dt)
+
+	et := transformFromBlankNode(e)
+	require.Equal(t, ee, et)
+
+	ft := transformFromBlankNode(f)
+	require.Equal(t, fe, ft)
+
+	gt := transformFromBlankNode(g)
+	require.Equal(t, ge, gt)
+}
+
 //nolint:lll
 func TestNewBBSG2SignatureVerifier(t *testing.T) {
 	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2

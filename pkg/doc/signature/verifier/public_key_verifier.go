@@ -423,11 +423,37 @@ func splitMessageIntoLines(msg string) [][]byte {
 
 	for i := range rows {
 		if strings.TrimSpace(rows[i]) != "" {
-			msgs = append(msgs, []byte(rows[i]))
+			msgs = append(msgs, []byte(transformFromBlankNode(rows[i])))
 		}
 	}
 
 	return msgs
+}
+
+func transformFromBlankNode(row string) string {
+	// transform from "urn:bnid:_:c14n0" to "_:c14n0"
+	const (
+		emptyNodePlaceholder = "<urn:bnid:_:c14n"
+		emptyNodePrefixLen   = 10
+	)
+
+	prefixIndex := strings.Index(row, emptyNodePlaceholder)
+	if prefixIndex < 0 {
+		return row
+	}
+
+	sepIndex := strings.Index(row[prefixIndex:], ">")
+	if sepIndex < 0 {
+		return row
+	}
+
+	sepIndex += prefixIndex
+
+	prefix := row[:prefixIndex]
+	blankNode := row[prefixIndex+emptyNodePrefixLen : sepIndex]
+	suffix := row[sepIndex+1:]
+
+	return fmt.Sprintf("%s%s%s", prefix, blankNode, suffix)
 }
 
 type ellipticCurve struct {
