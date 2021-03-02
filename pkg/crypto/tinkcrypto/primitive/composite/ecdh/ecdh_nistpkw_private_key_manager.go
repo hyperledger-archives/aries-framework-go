@@ -90,6 +90,21 @@ func (km *nistPECDHKWPrivateKeyManager) NewKey(serializedKeyFormat []byte) (prot
 		return nil, errInvalidNISTPECDHKWPrivateKeyFormat
 	}
 
+	// If CEK is present, this key is used for primitive execution only, ie this is a dummy key, not meant to be stored.
+	// This avoids creating a real key to improve performance.
+	if keyFormat.Params.EncParams.CEK != nil {
+		return &ecdhpb.EcdhAeadPrivateKey{
+			Version:  nistpECDHKWPrivateKeyVersion,
+			KeyValue: []byte{},
+			PublicKey: &ecdhpb.EcdhAeadPublicKey{
+				Version: nistpECDHKWPrivateKeyVersion,
+				Params:  keyFormat.Params,
+				X:       []byte{},
+				Y:       []byte{},
+			},
+		}, nil
+	}
+
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	if err != nil {
 		return nil, fmt.Errorf("nistpkw_ecdh_private_key_manager: GenerateECDHKeyPair failed: %w", err)
