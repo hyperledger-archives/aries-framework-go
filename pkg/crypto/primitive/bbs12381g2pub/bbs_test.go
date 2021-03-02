@@ -150,6 +150,14 @@ func TestBBSG2Pub_VerifyProof(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("test payload revealed bigger from messages", func(t *testing.T) {
+		wrongProofBytes, errDecode := base64.StdEncoding.DecodeString(`AAwP/4nFun/RtaXtUVTppUimMRTcEROs3gbjh9iqjGQAsvD+ne2uzME26gY4zNBcMKpvyLD4I6UGm8ATKLQI4OUiBXHNCQZI4YEM5hWI7AzhFXLEEVDFL0Gzr4S04PvcJsmV74BqST8iI1HUO2TCjdT1LkhgPabP/Zy8IpnbWUtLZO1t76NFwCV8+R1YpOozTNKRQQAAAHSpyGry6Rx3PRuOZUeqk4iGFq67iHSiBybjo6muud7aUyCxd9AW3onTlV2Nxz8AJD0AAAACB3FmuAUcklAj5cdSdw7VY57y7p4VmfPCKaEp1SSJTJRZXiE2xUqDntend+tkq+jjHhLCk56zk5GoZzr280IeuLne4WgpB2kNN7n5dqRpy4+UkS5+kiorLtKiJuWhk+OFTiB8jFlTbm0dH3O3tm5CzQAAAAIhY6I8vQ96tdSoyGy09wEMCdWzB06GElVHeQhWVw8fukq1dUAwWRXmZKT8kxDNAlp2NS7fXpEGXZ9fF7+c1IJp`)
+		require.NoError(t, errDecode)
+		err = bls.VerifyProof(revealedMessagesBytes, wrongProofBytes, nonce, pkBytes)
+		require.Error(t, err)
+		require.EqualError(t, err, "payload revealed bigger from messages")
+	})
+
 	t.Run("invalid size of signature proof payload", func(t *testing.T) {
 		err = bls.VerifyProof(revealedMessagesBytes, []byte("?"), nonce, pkBytes)
 		require.Error(t, err)
