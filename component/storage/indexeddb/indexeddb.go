@@ -45,6 +45,9 @@ const (
 		"it must be in the following format: TagName:TagValue"
 )
 
+// TODO (#2540): Use proper IndexedDB indexing instead of the "Tag Map" once aries-framework-go is updated to use the
+// new storage interface. The tag names used in the predefined stores (see getStoreNames()) will need to be passed in
+// somehow.
 type tagMapping map[string]map[string]struct{} // map[TagName](Set of database Keys)
 
 // Provider is an IndexedDB implementation of the storage.Provider interface.
@@ -99,11 +102,10 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	return p.stores[name], nil
 }
 
-// SetStoreConfig sets the configuration on a store. This must be done before storing any data in order to make use
-// of the Query method.
-// TODO (#2540): Use proper IndexedDB indexing instead of the "Tag Map" once aries-framework-go is updated to use the
-// new storage interface. The tag names used in the predefined stores (see getStoreNames()) will need to be passed in
-// somehow.
+// SetStoreConfig sets the configuration on a store.
+// With the current implementation, this does not need to be called in order to use tags and querying.
+// For consistency with other storage implementations, the store configuration is still stored (but it otherwise serves
+// no purpose).
 func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
 	store, ok := p.stores[name]
 	if !ok {
@@ -118,17 +120,6 @@ func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration
 	err = store.Put(storeConfigKey, configBytes)
 	if err != nil {
 		return fmt.Errorf("failed to put store store configuration: %w", err)
-	}
-
-	// Create the tag map if it doesn't exist already.
-	_, err = store.Get(tagMapKey)
-	if errors.Is(err, storage.ErrDataNotFound) {
-		err = store.Put(tagMapKey, []byte("{}"))
-		if err != nil {
-			return fmt.Errorf(`failed to create tag map for "%s": %w`, name, err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("unexpected failure while getting tag data bytes: %w", err)
 	}
 
 	return nil
@@ -185,7 +176,20 @@ func (p *Provider) openDB(db string, names ...string) error {
 	}
 
 	for _, name := range names {
-		p.stores[name] = &store{name: name, db: v}
+		newStore := &store{name: name, db: v}
+
+		// Create the tag map if it doesn't exist already.
+		_, err = newStore.Get(tagMapKey)
+		if errors.Is(err, storage.ErrDataNotFound) {
+			err = newStore.Put(tagMapKey, []byte("{}"))
+			if err != nil {
+				return fmt.Errorf(`failed to create tag map for "%s": %w`, name, err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("unexpected failure while getting tag data bytes: %w", err)
+		}
+
+		p.stores[name] = newStore
 	}
 
 	return nil
@@ -288,10 +292,6 @@ func (s *store) Query(expression string, options ...storage.QueryOption) (storag
 
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			return nil, fmt.Errorf("tag map not found. Was the store configuration set? error: %w", err)
-		}
-
 		return nil, fmt.Errorf("failed to get tag map: %w", err)
 	}
 
@@ -378,10 +378,6 @@ func (s *store) Close() error {
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			return fmt.Errorf("tag map not found. Was the store configuration set? error: %w", err)
-		}
-
 		return fmt.Errorf("failed to get tag map: %w", err)
 	}
 
