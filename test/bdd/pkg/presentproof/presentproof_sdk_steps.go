@@ -10,26 +10,56 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
 const timeout = time.Second * 15
+
+// nolint: gochecknoglobals
+var (
+	strFilterType = "string"
+
+	// schemaURI is being set in init() function.
+	schemaURI string
+)
+
+// nolint: gochecknoinits
+func init() {
+	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		//nolint: gosec,errcheck
+		res.Write([]byte(verifiable.DefaultSchema))
+	}))
+
+	schemaURI = server.URL
+}
 
 const vpStrFromWallet = `
 {
@@ -101,9 +131,13 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends a request presentation to the "([^"]*)"$`, a.sendRequestPresentation)
+	s.Step(`^"([^"]*)" sends a request presentation with presentation definition to the "([^"]*)"$`,
+		a.sendRequestPresentationDefinition)
 	s.Step(`^"([^"]*)" sends a propose presentation to the "([^"]*)"$`, a.sendProposePresentation)
 	s.Step(`^"([^"]*)" negotiates about the request presentation with a proposal$`, a.negotiateRequestPresentation)
 	s.Step(`^"([^"]*)" accepts a request and sends a presentation to the "([^"]*)"$`, a.acceptRequestPresentation)
+	s.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the "([^"]*)"$`,
+		a.acceptRequestPresentationBBS)
 	s.Step(`^"([^"]*)" declines a request presentation$`, a.declineRequestPresentation)
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
 	s.Step(`^"([^"]*)" declines a propose presentation$`, a.declineProposePresentation)
@@ -186,6 +220,50 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 	return err
 }
 
+func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) error {
+	conn, err := a.getConnection(agent1, agent2)
+	if err != nil {
+		return err
+	}
+
+	ID := uuid.New().String()
+
+	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
+		Formats: []protocol.Format{
+			{
+				Format:   "dif/presentation-exchange/definitions@v1.0",
+				AttachID: ID,
+			},
+		},
+		RequestPresentationsAttach: []decorator.Attachment{{
+			ID: ID,
+			Data: decorator.AttachmentData{
+				JSON: map[string]interface{}{
+					"presentation_definition": &presexch.PresentationDefinition{
+						ID: uuid.New().String(),
+						InputDescriptors: []*presexch.InputDescriptor{{
+							Schema: []*presexch.Schema{{
+								URI: schemaURI,
+							}},
+							ID: uuid.New().String(),
+							Constraints: &presexch.Constraints{
+								LimitDisclosure: true,
+								Fields: []*presexch.Field{{
+									Path:   []string{"$.credentialSubject.degree.degreeSchool"},
+									Filter: &presexch.Filter{Type: &strFilterType},
+								}},
+							},
+						}},
+					},
+				},
+			},
+		}},
+		WillConfirm: true,
+	}, conn.MyDID, conn.TheirDID)
+
+	return err
+}
+
 func (a *SDKSteps) getActionID(agent string) (string, error) {
 	select {
 	case e := <-a.actions[agent]:
@@ -247,6 +325,92 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		PresentationsAttach: []decorator.Attachment{{
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
+			},
+		}},
+	})
+}
+
+func (a *SDKSteps) acceptRequestPresentationBBS(prover, _ string) error { // nolint: funlen
+	const bls12381g2pub = 0xeb
+
+	PIID, err := a.getActionID(prover)
+	if err != nil {
+		return err
+	}
+
+	km := a.bddContext.AgentCtx[prover].KMS()
+	cr := a.bddContext.AgentCtx[prover].Crypto()
+
+	kid, pubKey, err := km.CreateAndExportPubKeyBytes(kms.BLS12381G2Type)
+	if err != nil {
+		return err
+	}
+
+	methodID := fingerprint.KeyFingerprint(bls12381g2pub, pubKey)
+	didKey := fmt.Sprintf("%s#%s", fmt.Sprintf("did:key:%s", methodID), methodID)
+
+	vc := &verifiable.Credential{
+		ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://w3id.org/security/bbs/v1",
+		},
+		Types: []string{
+			"VerifiableCredential",
+			"UniversityDegreeCredential",
+		},
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		Subject: verifiable.Subject{
+			ID: "did:example:b34ca6cd37bbf23",
+			CustomFields: map[string]interface{}{
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"degree": map[string]interface{}{
+					"degree":       "MIT",
+					"degreeSchool": "MIT school",
+					"type":         "BachelorDegree",
+				},
+			},
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Now(),
+		},
+		Expired: &util.TimeWithTrailingZeroMsec{
+			Time: time.Now().AddDate(1, 0, 0),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:489398593",
+		},
+		CustomFields: map[string]interface{}{
+			"identifier":  "83627465",
+			"name":        "Permanent Resident Card",
+			"description": "Government of Example Permanent Resident Card.",
+		},
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		Suite: bbsblssignature2020.New(
+			suite.WithSigner(newBBSSigner(km, cr, kid)),
+			suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
+		),
+		VerificationMethod: didKey,
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+
+	if err != nil {
+		return fmt.Errorf("failed to key kid for kms: %w", err)
+	}
+
+	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
+		PresentationsAttach: []decorator.Attachment{{
+			MimeType: "application/ld+json",
+			Data: decorator.AttachmentData{
+				JSON: vc,
 			},
 		}},
 	})
@@ -382,3 +546,142 @@ func (s *signer) Sign(data []byte) ([]byte, error) {
 
 	return s.cr.Sign(data, kh)
 }
+
+type bbsSigner struct{ *signer }
+
+func newBBSSigner(km kms.KeyManager, cr crypto.Crypto, keyID string) *bbsSigner {
+	return &bbsSigner{&signer{km: km, cr: cr, keyID: keyID}}
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	kh, err := s.km.Get(s.keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.cr.SignMulti(s.textToLines(string(data)), kh)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
+}
+
+func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+	loader := presexch.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
+	if err != nil {
+		panic(err)
+	}
+
+	loader.AddDocument("https://w3id.org/security/bbs/v1", reader)
+
+	return loader
+}
+
+const contextBBSContent = `{
+  "@context": {
+    "@version": 1.1,
+    "id": "@id",
+    "type": "@type",
+    "ldssk": "https://w3id.org/security#",
+    "BbsBlsSignature2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "proofValue": "sec:proofValue",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "BbsBlsSignatureProof2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "proofValue": "sec:proofValue",
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
+  }
+}`

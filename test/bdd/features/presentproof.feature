@@ -15,6 +15,14 @@ Feature: Present Proof protocol
     And "Alice" accepts a presentation with name "license"
     And "Alice" checks that presentation is being stored under "license" name
     Then "Bob" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
+  @begin_with_request_presentation_bbs
+  Scenario: The Verifier begins with a request presentation (BBS+)
+    Given "Julia" exchange DIDs with "Max"
+    Then "Julia" sends a request presentation with presentation definition to the "Max"
+    And "Max" accepts a request and sends credentials with BBS to the "Julia"
+    And "Julia" accepts a presentation with name "bbs-license"
+    And "Julia" checks that presentation is being stored under "bbs-license" name
+    Then "Max" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
   @decline_presentation
   Scenario: The Verifier declines presentation
     Given "Thomas" exchange DIDs with "Paul"
