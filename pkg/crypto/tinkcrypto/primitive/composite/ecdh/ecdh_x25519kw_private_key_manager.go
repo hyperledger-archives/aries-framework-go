@@ -92,6 +92,20 @@ func (km *x25519ECDHKWPrivateKeyManager) NewKey(serializedKeyFormat []byte) (pro
 		return nil, errInvalidx25519ECDHKWPrivateKeyFormat
 	}
 
+	// If CEK is present, this key is used for primitive execution only, ie this is a dummy key, not meant to be stored.
+	// This avoids creating a real key to improve performance.
+	if keyFormat.Params.EncParams.CEK != nil {
+		return &ecdhpb.EcdhAeadPrivateKey{
+			Version:  x25519ECDHKWPrivateKeyVersion,
+			KeyValue: []byte{},
+			PublicKey: &ecdhpb.EcdhAeadPublicKey{
+				Version: x25519ECDHKWPrivateKeyVersion,
+				Params:  keyFormat.Params,
+				X:       []byte{},
+			},
+		}, nil
+	}
+
 	pub, pvt, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("x25519kw_ecdh_private_key_manager: GenerateECDHKeyPair failed: %w", err)

@@ -9,6 +9,7 @@ package ecdh
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
@@ -63,6 +64,8 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 			require.Error(t, err)
 			require.Empty(t, ct)
 
+			elapsed := time.Now()
+
 			// now try to create a new KH for primitive execution and try to encrypt
 			if strings.Contains(tc.tcName, "XChacha") {
 				kt = X25519ECDHXChachaKeyTemplateWithCEK(cek)
@@ -70,8 +73,12 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 				kt = NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
 			}
 
+			t.Logf("time spent in ECDH keyTemplateWithCEK: %s", time.Since(elapsed))
+
 			kh, err = keyset.NewHandle(kt)
 			require.NoError(t, err)
+
+			t.Logf("time spent in ECDH keyTemplateWithCEK + NewHandle(): %s", time.Since(elapsed))
 
 			pubKH, err = kh.Public()
 			require.NoError(t, err)
