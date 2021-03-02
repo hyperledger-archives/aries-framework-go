@@ -350,7 +350,7 @@ func TestPresentationDefinition(t *testing.T) {
 						ID: uuid.New().String(),
 						Schemas: []verifiable.TypedID{{
 							ID:   schemaURI,
-							Type: verifiableCredentialType,
+							Type: verifiable.VCType,
 						}},
 						CustomFields: map[string]interface{}{
 							"first_name": "Jesse",
@@ -408,7 +408,7 @@ func TestPresentationDefinition(t *testing.T) {
 					JSON: &verifiable.Credential{
 						ID:      "http://example.edu/credentials/1872",
 						Context: []string{"https://www.w3.org/2018/credentials/v1"},
-						Types:   []string{verifiableCredentialType},
+						Types:   []string{verifiable.VCType},
 						Schemas: []verifiable.TypedID{{
 							ID:   schemaURI,
 							Type: "JsonSchemaValidator2018",

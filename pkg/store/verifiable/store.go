@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -217,7 +218,10 @@ func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentati
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
+	vp, err := verifiable.ParsePresentation(vpBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(presexch.CachingJSONLDLoader()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("new presentation failed: %w", err)
 	}

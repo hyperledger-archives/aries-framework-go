@@ -575,7 +575,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 					"type":              credential.Types,
 					"@context":          credential.Context,
 					"issuer":            credential.Issuer,
-					"credentialSubject": credential.Subject,
+					"credentialSubject": toSubject(credential.Subject),
 					"issuanceDate":      credential.Issued,
 				})
 				if err != nil {
@@ -597,6 +597,15 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 	}
 
 	return result, nil
+}
+
+func toSubject(subject interface{}) interface{} {
+	sub, ok := subject.([]verifiable.Subject)
+	if ok && len(sub) == 1 {
+		return sub[0]
+	}
+
+	return subject
 }
 
 func tmpID(id string) string {

@@ -29,7 +29,6 @@ const (
 	namesKey                      = "names"
 
 	mimeTypeApplicationLdJSON = "application/ld+json"
-	verifiableCredentialType  = "VerifiableCredential"
 	peDefinitionFormat        = "dif/presentation-exchange/definitions@v1.0"
 	peSubmissionFormat        = "dif/presentation-exchange/submission@v1.0"
 )
@@ -138,7 +137,7 @@ func PresentationDefinition(p Provider) presentproof.Middleware {
 				return fmt.Errorf("unmarshal definition: %w", err)
 			}
 
-			credentials, err := parseCredentials(metadata.Presentation().PresentationsAttach)
+			credentials, err := parseCredentials(vdr, metadata.Presentation().PresentationsAttach)
 			if err != nil {
 				return fmt.Errorf("parse credentials: %w", err)
 			}
@@ -150,12 +149,12 @@ func PresentationDefinition(p Provider) presentproof.Middleware {
 				return fmt.Errorf("create VP: %w", err)
 			}
 
-			metadata.Presentation().PresentationsAttach = append(
-				metadata.Presentation().PresentationsAttach, decorator.Attachment{
-					ID:       uuid.New().String(),
-					MimeType: mimeTypeApplicationLdJSON,
-					Data:     decorator.AttachmentData{JSON: presentation},
-				})
+			// TODO: sign the presentation
+			metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
+				ID:       uuid.New().String(),
+				MimeType: mimeTypeApplicationLdJSON,
+				Data:     decorator.AttachmentData{JSON: presentation},
+			}}
 
 			return next.Handle(metadata)
 		})
@@ -172,7 +171,8 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func parseCredentials(attachments []decorator.Attachment) ([]*verifiable.Credential, error) { // nolint: gocyclo
+// nolint: gocyclo
+func parseCredentials(vdr vdrapi.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
 	var credentials []*verifiable.Credential
 
 	for i := range attachments {
@@ -207,11 +207,15 @@ func parseCredentials(attachments []decorator.Attachment) ([]*verifiable.Credent
 			}
 		}
 
-		if !contains(credentialTypes, verifiableCredentialType) {
+		if !contains(credentialTypes, verifiable.VCType) {
 			continue
 		}
 
-		credential, err := verifiable.ParseCredential(src, verifiable.WithDisabledProofCheck())
+		credential, err := verifiable.ParseCredential(src,
+			verifiable.WithPublicKeyFetcher(
+				verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
+			),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -268,9 +272,12 @@ func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.Attachment) 
 			return nil, fmt.Errorf("fetch: %w", err)
 		}
 
-		presentation, err := verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
-		))
+		presentation, err := verifiable.ParsePresentation(raw,
+			verifiable.WithPresPublicKeyFetcher(
+				verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithPresJSONLDDocumentLoader(presexch.CachingJSONLDLoader()),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("parse presentation: %w", err)
 		}
