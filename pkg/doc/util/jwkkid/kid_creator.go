@@ -62,7 +62,7 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		return bbsKID, nil
 	}
 
-	jwk, err := buildJWK(keyBytes, kt)
+	jwk, err := BuildJWK(keyBytes, kt)
 	if err != nil {
 		return "", fmt.Errorf("createKID: failed to build jwk: %w", err)
 	}
@@ -75,7 +75,8 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
-func buildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
+// BuildJWK builds a go jose JWK from keyBytes with key type kt.
+func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 	var (
 		jwk *jose.JWK
 		err error
