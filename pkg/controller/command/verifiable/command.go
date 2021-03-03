@@ -482,7 +482,7 @@ func (o *Command) DeriveCredential(rw io.Writer, req io.Reader) command.Error {
 			fmt.Errorf("failed to marshal derived credential  : %w", err))
 	}
 
-	command.WriteNillableResponse(rw, &SignCredentialResponse{
+	command.WriteNillableResponse(rw, &DeriveCredentialResponse{
 		VerifiableCredential: vcBytes,
 	}, logger)
 
