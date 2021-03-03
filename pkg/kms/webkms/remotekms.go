@@ -66,6 +66,7 @@ type exportKeyResp struct {
 type importKeyReq struct {
 	KeyBytes string `json:"keyBytes,omitempty"`
 	KeyType  string `json:"keyType,omitempty"`
+	KeyID    string `json:"keyID,omitempty"`
 }
 
 type importKeyResp struct {
@@ -394,6 +395,12 @@ func (r *RemoteKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (interfac
 //  - error if import failure (key empty, invalid, doesn't match KeyType, unsupported KeyType or storing key failed)
 func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
+	pOpts := kms.NewOpt()
+
+	for _, opt := range opts {
+		opt(pOpts)
+	}
+
 	destination := r.keystoreURL + "/import"
 
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
@@ -404,6 +411,7 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	httpReqJSON := &importKeyReq{
 		KeyBytes: base64.URLEncoding.EncodeToString(keyBytes),
 		KeyType:  string(kt),
+		KeyID:    pOpts.KsID(),
 	}
 
 	marshaledReq, err := r.marshalFunc(httpReqJSON)
