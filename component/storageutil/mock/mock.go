@@ -7,18 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package mock
 
 import (
-	"errors"
-
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Provider is a mocked implementation of spi.Provider.
 type Provider struct {
-	OpenStoreReturn      spi.Store
-	ErrOpenStore         error
-	ErrSetStoreConfig    error
+	OpenStoreReturn spi.Store
+	ErrOpenStore    error
+
+	ErrSetStoreConfig error
+
 	GetStoreConfigReturn spi.StoreConfiguration
 	ErrGetStoreConfig    error
+
+	GetOpenStoresReturn []spi.Store
+
+	ErrClose error
 }
 
 // OpenStore returns mocked results.
@@ -38,20 +42,37 @@ func (p *Provider) GetStoreConfig(string) (spi.StoreConfiguration, error) {
 
 // GetOpenStores returns mocked results.
 func (p *Provider) GetOpenStores() []spi.Store {
-	return nil
+	return p.GetOpenStoresReturn
 }
 
 // Close returns mocked results.
 func (p *Provider) Close() error {
-	return errors.New("close failure")
+	return p.ErrClose
 }
 
 // Store is a mocked implementation of spi.Store.
 type Store struct {
-	ErrPut    error
+	ErrPut error
+
 	GetReturn []byte
 	ErrGet    error
-	ErrQuery  error
+
+	GetTagsReturn []spi.Tag
+	ErrGetTags    error
+
+	GetBulkReturn [][]byte
+	ErrGetBulk    error
+
+	QueryReturn spi.Iterator
+	ErrQuery    error
+
+	ErrDelete error
+
+	ErrBatch error
+
+	ErrFlush error
+
+	ErrClose error
 }
 
 // Put returns mocked results.
@@ -66,64 +87,77 @@ func (s *Store) Get(string) ([]byte, error) {
 
 // GetTags returns mocked results.
 func (s *Store) GetTags(string) ([]spi.Tag, error) {
-	return nil, nil
+	return s.GetTagsReturn, s.ErrGetTags
 }
 
 // GetBulk returns mocked results.
 func (s *Store) GetBulk(...string) ([][]byte, error) {
-	panic("implement me")
+	return s.GetBulkReturn, s.ErrGetBulk
 }
 
 // Query returns mocked results.
 func (s *Store) Query(string, ...spi.QueryOption) (spi.Iterator, error) {
-	return &Iterator{}, s.ErrQuery
+	return s.QueryReturn, s.ErrQuery
 }
 
 // Delete returns mocked results.
 func (s *Store) Delete(string) error {
-	panic("implement me")
+	return s.ErrDelete
 }
 
 // Batch returns mocked results.
 func (s *Store) Batch([]spi.Operation) error {
-	return errors.New("batch failure")
+	return s.ErrBatch
 }
 
 // Flush returns mocked results.
 func (s *Store) Flush() error {
-	return errors.New("flush failure")
+	return s.ErrFlush
 }
 
 // Close returns mocked results.
 func (s *Store) Close() error {
-	return errors.New("close failure")
+	return s.ErrClose
 }
 
 // Iterator is a mocked implementation of spi.Iterator.
 type Iterator struct {
+	NextReturn bool
+	ErrNext    error
+
+	KeyReturn string
+	ErrKey    error
+
+	ValueReturn []byte
+	ErrValue    error
+
+	TagsReturn []spi.Tag
+	ErrTags    error
+
+	ErrClose error
 }
 
 // Next returns mocked results.
 func (i *Iterator) Next() (bool, error) {
-	return false, errors.New("next failure")
+	return i.NextReturn, i.ErrNext
 }
 
 // Key returns mocked results.
 func (i *Iterator) Key() (string, error) {
-	return "", errors.New("key failure")
+	return i.KeyReturn, i.ErrKey
 }
 
 // Value returns mocked results.
 func (i *Iterator) Value() ([]byte, error) {
-	return nil, errors.New("value failure")
+	return i.ValueReturn, i.ErrValue
 }
 
 // Tags returns mocked results.
 func (i *Iterator) Tags() ([]spi.Tag, error) {
-	return nil, errors.New("tags failure")
+	return i.TagsReturn, i.ErrTags
 }
 
 // Close returns mocked results.
 func (i *Iterator) Close() error {
-	return errors.New("close failure")
+	return i.ErrClose
 }

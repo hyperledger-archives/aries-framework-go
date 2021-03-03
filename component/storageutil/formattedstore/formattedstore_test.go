@@ -122,7 +122,7 @@ func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 
 func TestFormattedProvider_Close(t *testing.T) {
 	t.Run("Fail to close underlying provider", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
+		provider := formattedstore.NewProvider(&mock.Provider{ErrClose: errors.New("close failure")},
 			&mockFormatter{})
 		require.NotNil(t, provider)
 
@@ -302,7 +302,8 @@ func TestFormatStore_Batch(t *testing.T) {
 		require.EqualError(t, err, "failed to format data: key formatting failure")
 	})
 	t.Run("Fail to perform formatted operations in underlying store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
+		provider := formattedstore.NewProvider(
+			&mock.Provider{OpenStoreReturn: &mock.Store{ErrBatch: errors.New("batch failure")}},
 			&exampleformatters.NoOpFormatter{})
 		require.NotNil(t, provider)
 
@@ -322,7 +323,8 @@ func TestFormatStore_Batch(t *testing.T) {
 
 func TestFormatStore_Close(t *testing.T) {
 	t.Run("Fail to close underlying store", func(t *testing.T) {
-		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
+		provider := formattedstore.NewProvider(
+			&mock.Provider{OpenStoreReturn: &mock.Store{ErrClose: errors.New("close failure")}},
 			&exampleformatters.NoOpFormatter{})
 		require.NotNil(t, provider)
 
@@ -336,7 +338,13 @@ func TestFormatStore_Close(t *testing.T) {
 }
 
 func TestFormattedIterator(t *testing.T) {
-	provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
+	provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{QueryReturn: &mock.Iterator{
+		ErrNext:  errors.New("next failure"),
+		ErrKey:   errors.New("key failure"),
+		ErrValue: errors.New("value failure"),
+		ErrTags:  errors.New("tags failure"),
+		ErrClose: errors.New("close failure"),
+	}}},
 		&exampleformatters.NoOpFormatter{})
 	require.NotNil(t, provider)
 
@@ -346,6 +354,7 @@ func TestFormattedIterator(t *testing.T) {
 
 	iterator, err := store.Query("TagName1")
 	require.NoError(t, err)
+	require.NotNil(t, iterator)
 
 	t.Run("Next: fail to move entry pointer in the underlying iterator", func(t *testing.T) {
 		ok, err := iterator.Next()
