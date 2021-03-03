@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -71,6 +72,7 @@ type metaData struct {
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
 	request             *RequestPresentation
+	addProofFn          func(presentation *verifiable.Presentation) error
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -105,6 +107,10 @@ func (md *metaData) Properties() map[string]interface{} {
 	return md.properties
 }
 
+func (md *metaData) GetAddProofFn() func(presentation *verifiable.Presentation) error {
+	return md.addProofFn
+}
+
 // Action contains helpful information about action.
 type Action struct {
 	// Protocol instance ID
@@ -122,6 +128,23 @@ type Opt func(md *metaData)
 func WithPresentation(msg *Presentation) Opt {
 	return func(md *metaData) {
 		md.presentation = msg
+	}
+}
+
+// WithAddProofFn allows providing function that will sign the Presentation.
+// USAGE: This fn can be provided after receiving a Request message.
+func WithAddProofFn(addProof func(presentation *verifiable.Presentation) error) Opt {
+	return func(md *metaData) {
+		md.addProofFn = addProof
+	}
+}
+
+// WithMultiOptions allows combining several options into one.
+func WithMultiOptions(opts ...Opt) Opt {
+	return func(md *metaData) {
+		for _, opt := range opts {
+			opt(md)
+		}
 	}
 }
 

@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package presentproof
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+)
 
 // Handler describes middleware interface.
 type Handler interface {
@@ -40,4 +43,6 @@ type Metadata interface {
 	StateName() string
 	// Properties provides the possibility to set properties
 	Properties() map[string]interface{}
+	// GetAddProofFn provides function to sign the Presentation.
+	GetAddProofFn() func(presentation *verifiable.Presentation) error
 }

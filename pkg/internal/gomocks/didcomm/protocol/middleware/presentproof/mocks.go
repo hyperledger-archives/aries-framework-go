@@ -6,10 +6,13 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	crypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	verifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
+	verifiable0 "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	reflect "reflect"
 )
 
@@ -36,6 +39,34 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
+// Crypto mocks base method
+func (m *MockProvider) Crypto() crypto.Crypto {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Crypto")
+	ret0, _ := ret[0].(crypto.Crypto)
+	return ret0
+}
+
+// Crypto indicates an expected call of Crypto
+func (mr *MockProviderMockRecorder) Crypto() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Crypto", reflect.TypeOf((*MockProvider)(nil).Crypto))
+}
+
+// KMS mocks base method
+func (m *MockProvider) KMS() kms.KeyManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KMS")
+	ret0, _ := ret[0].(kms.KeyManager)
+	return ret0
+}
+
+// KMS indicates an expected call of KMS
+func (mr *MockProviderMockRecorder) KMS() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KMS", reflect.TypeOf((*MockProvider)(nil).KMS))
+}
+
 // VDRegistry mocks base method
 func (m *MockProvider) VDRegistry() vdr.Registry {
 	m.ctrl.T.Helper()
@@ -51,10 +82,10 @@ func (mr *MockProviderMockRecorder) VDRegistry() *gomock.Call {
 }
 
 // VerifiableStore mocks base method
-func (m *MockProvider) VerifiableStore() verifiable.Store {
+func (m *MockProvider) VerifiableStore() verifiable0.Store {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VerifiableStore")
-	ret0, _ := ret[0].(verifiable.Store)
+	ret0, _ := ret[0].(verifiable0.Store)
 	return ret0
 }
 
@@ -85,6 +116,20 @@ func NewMockMetadata(ctrl *gomock.Controller) *MockMetadata {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockMetadata) EXPECT() *MockMetadataMockRecorder {
 	return m.recorder
+}
+
+// GetAddProofFn mocks base method
+func (m *MockMetadata) GetAddProofFn() func(*verifiable.Presentation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAddProofFn")
+	ret0, _ := ret[0].(func(*verifiable.Presentation) error)
+	return ret0
+}
+
+// GetAddProofFn indicates an expected call of GetAddProofFn
+func (mr *MockMetadataMockRecorder) GetAddProofFn() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddProofFn", reflect.TypeOf((*MockMetadata)(nil).GetAddProofFn))
 }
 
 // Message mocks base method

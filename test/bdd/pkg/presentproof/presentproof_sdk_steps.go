@@ -136,7 +136,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends a propose presentation to the "([^"]*)"$`, a.sendProposePresentation)
 	s.Step(`^"([^"]*)" negotiates about the request presentation with a proposal$`, a.negotiateRequestPresentation)
 	s.Step(`^"([^"]*)" accepts a request and sends a presentation to the "([^"]*)"$`, a.acceptRequestPresentation)
-	s.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the "([^"]*)"$`,
+	s.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the "([^"]*)" and proof "([^"]*)"$`,
 		a.acceptRequestPresentationBBS)
 	s.Step(`^"([^"]*)" declines a request presentation$`, a.declineRequestPresentation)
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
@@ -145,6 +145,8 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover$`, a.acceptProposePresentation)
 	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)"$`, a.acceptPresentation)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name$`, a.checkPresentation)
+	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name and has "([^"]*)" proof$`,
+		a.checkPresentationAndProof)
 	s.Step(`^"([^"]*)" checks the history of events "([^"]*)"$`, a.checkHistoryEvents)
 }
 
@@ -162,23 +164,42 @@ func (a *SDKSteps) waitFor(agent, name string) error {
 }
 
 func (a *SDKSteps) checkPresentation(agent, name string) error {
+	_, err := a.getPresentation(agent, name)
+
+	return err
+}
+
+func (a *SDKSteps) getPresentation(agent, name string) (*verifiable.Presentation, error) {
 	if err := a.waitFor(agent, "done"); err != nil {
-		return err
+		return nil, err
 	}
 
 	store, err := verifiableStore.New(a.bddContext.AgentCtx[agent])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ID, err := store.GetPresentationIDByName(name)
 	if err != nil {
+		return nil, err
+	}
+
+	return store.GetPresentation(ID)
+}
+
+func (a *SDKSteps) checkPresentationAndProof(agent, name, proof string) error {
+	vp, err := a.getPresentation(agent, name)
+	if err != nil {
 		return err
 	}
 
-	_, err = store.GetPresentation(ID)
+	for i := range vp.Proofs {
+		if vp.Proofs[i]["type"] == proof {
+			return nil
+		}
+	}
 
-	return err
+	return errors.New("no proof")
 }
 
 func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
@@ -327,10 +348,10 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
 			},
 		}},
-	})
+	}, nil)
 }
 
-func (a *SDKSteps) acceptRequestPresentationBBS(prover, _ string) error { // nolint: funlen
+func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error { // nolint: funlen
 	const bls12381g2pub = 0xeb
 
 	PIID, err := a.getActionID(prover)
@@ -406,6 +427,28 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _ string) error { // nol
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}
 
+	var signFn func(presentation *verifiable.Presentation) error
+
+	if proof == "default" {
+		signFn = nil
+	}
+
+	if proof == "BbsBlsSignature2020" {
+		signFn = func(presentation *verifiable.Presentation) error {
+			presentation.Context = append(presentation.Context, "https://w3id.org/security/bbs/v1")
+
+			return presentation.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+				SignatureType:           "BbsBlsSignature2020",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+				Suite: bbsblssignature2020.New(
+					suite.WithSigner(newBBSSigner(km, cr, kid)),
+					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
+				),
+				VerificationMethod: didKey,
+			}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+		}
+	}
+
 	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
 		PresentationsAttach: []decorator.Attachment{{
 			MimeType: "application/ld+json",
@@ -413,7 +456,7 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _ string) error { // nol
 				JSON: vc,
 			},
 		}},
-	})
+	}, signFn)
 }
 
 func (a *SDKSteps) receiveProblemReport(agent string) error {
