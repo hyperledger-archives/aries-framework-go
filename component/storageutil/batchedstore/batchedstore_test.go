@@ -34,7 +34,8 @@ func TestProvider_OpenStore(t *testing.T) {
 
 func TestProvider_Close(t *testing.T) {
 	t.Run("Failed to close open store", func(t *testing.T) {
-		provider := batchedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, 3)
+		provider := batchedstore.NewProvider(
+			&mock.Provider{OpenStoreReturn: &mock.Store{ErrClose: errors.New("close failure")}}, 3)
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -46,7 +47,7 @@ func TestProvider_Close(t *testing.T) {
 			`failed to close underlying store: close failure`)
 	})
 	t.Run("Failed to close underlying provider", func(t *testing.T) {
-		provider := batchedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, 3)
+		provider := batchedstore.NewProvider(&mock.Provider{ErrClose: errors.New("close failure")}, 3)
 		require.NotNil(t, provider)
 
 		err := provider.Close()

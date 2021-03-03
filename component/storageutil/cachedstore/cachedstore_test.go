@@ -64,13 +64,14 @@ func TestCachedProvider_SetStoreConfig(t *testing.T) {
 
 func TestCachedProvider_Close(t *testing.T) {
 	t.Run("Fail to close the main provider", func(t *testing.T) {
-		provider := cachedstore.NewProvider(&mock.Provider{}, mem.NewProvider())
+		provider := cachedstore.NewProvider(&mock.Provider{ErrClose: errors.New("close failure")}, mem.NewProvider())
 
 		err := provider.Close()
 		require.EqualError(t, err, "failed to close main provider: close failure")
 	})
 	t.Run("Fail to close the cache provider", func(t *testing.T) {
-		provider := cachedstore.NewProvider(mem.NewProvider(), &mock.Provider{})
+		provider := cachedstore.NewProvider(mem.NewProvider(),
+			&mock.Provider{ErrClose: errors.New("close failure")})
 
 		err := provider.Close()
 		require.EqualError(t, err, "failed to close cache provider: close failure")
@@ -116,7 +117,8 @@ func TestStore_Get(t *testing.T) {
 
 func TestStore_Close(t *testing.T) {
 	t.Run("Fail to close the main store", func(t *testing.T) {
-		provider := cachedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}}, mem.NewProvider())
+		provider := cachedstore.NewProvider(
+			&mock.Provider{OpenStoreReturn: &mock.Store{ErrClose: errors.New("close failure")}}, mem.NewProvider())
 
 		store, err := provider.OpenStore("TestStore")
 		require.NoError(t, err)
@@ -125,7 +127,8 @@ func TestStore_Close(t *testing.T) {
 		require.EqualError(t, err, "failed to close the main store: close failure")
 	})
 	t.Run("Fail to close the cache store", func(t *testing.T) {
-		provider := cachedstore.NewProvider(mem.NewProvider(), &mock.Provider{OpenStoreReturn: &mock.Store{}})
+		provider := cachedstore.NewProvider(
+			mem.NewProvider(), &mock.Provider{OpenStoreReturn: &mock.Store{ErrClose: errors.New("close failure")}})
 
 		store, err := provider.OpenStore("TestStore")
 		require.NoError(t, err)
