@@ -37,6 +37,7 @@ const (
 	GetCredentialByNamePath    = verifiableCredentialPath + "/name" + "/{name}"
 	GetCredentialsPath         = VerifiableOperationID + "/credentials"
 	SignCredentialsPath        = VerifiableOperationID + "/signcredential"
+	DeriveCredentialPath       = VerifiableOperationID + "/derivecredential"
 	RemoveCredentialByNamePath = verifiableCredentialPath + "/remove/name" + "/{name}"
 
 	// presentation paths.
@@ -89,6 +90,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(GetCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
 		cmdutil.NewHTTPHandler(GetCredentialsPath, http.MethodGet, o.GetCredentials),
 		cmdutil.NewHTTPHandler(SignCredentialsPath, http.MethodPost, o.SignCredential),
+		cmdutil.NewHTTPHandler(DeriveCredentialPath, http.MethodPost, o.DeriveCredential),
 		cmdutil.NewHTTPHandler(GeneratePresentationPath, http.MethodPost, o.GeneratePresentation),
 		cmdutil.NewHTTPHandler(GeneratePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
 		cmdutil.NewHTTPHandler(SavePresentationPath, http.MethodPost, o.SavePresentation),
@@ -209,6 +211,17 @@ func (o *Operation) GetCredentials(rw http.ResponseWriter, req *http.Request) {
 //        200: signCredentialRes
 func (o *Operation) SignCredential(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.SignCredential, rw, req.Body)
+}
+
+// DeriveCredential swagger:route POST /verifiable/derivecredential verifiable deriveCredentialReq
+//
+// Derives a given verifiable credential for selective disclosure.
+//
+// Responses:
+//    default: genericError
+//        200: deriveCredentialRes
+func (o *Operation) DeriveCredential(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.DeriveCredential, rw, req.Body)
 }
 
 // GetPresentations swagger:route GET /verifiable/presentations verifiable

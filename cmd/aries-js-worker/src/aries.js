@@ -997,6 +997,16 @@ const Aries = function (opts) {
             },
 
             /**
+             *  Derives a given verifiable credential for selective disclosure and returns it in response body.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            deriveCredential: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "DeriveCredential", req, "timeout while deriving credential")
+            },
+
+            /**
              * Generates a verifiable presentation from a verifiable credential.
              *
              * @param req - json document

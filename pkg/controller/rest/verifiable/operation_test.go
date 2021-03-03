@@ -8,6 +8,7 @@ package verifiable
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,16 +17,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -33,6 +39,8 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
 
 const (
@@ -202,6 +210,66 @@ const udPresentation = `{
     }
 `
 
+const vcForDerive = `
+	{
+	 	"@context": [
+	   		"https://www.w3.org/2018/credentials/v1",
+	   		"https://w3id.org/citizenship/v1",
+	   		"https://w3id.org/security/bbs/v1"
+	 	],
+	 	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	 	"type": [
+	   		"VerifiableCredential",
+	   		"PermanentResidentCard"
+	 	],
+	 	"issuer": "did:example:489398593",
+	 	"identifier": "83627465",
+	 	"name": "Permanent Resident Card",
+	 	"description": "Government of Example Permanent Resident Card.",
+	 	"issuanceDate": "2019-12-03T12:19:52Z",
+	 	"expirationDate": "2029-12-03T12:19:52Z",
+	 	"credentialSubject": {
+	   		"id": "did:example:b34ca6cd37bbf23",
+	   		"type": [
+	     		"PermanentResident",
+	     		"Person"
+	   		],
+	   		"givenName": "JOHN",
+	   		"familyName": "SMITH",
+	   		"gender": "Male",
+	   		"image": "data:image/png;base64,iVBORw0KGgokJggg==",
+	   		"residentSince": "2015-01-01",
+	   		"lprCategory": "C09",
+	   		"lprNumber": "999-999-999",
+	   		"commuterClassification": "C1",
+	   		"birthCountry": "Bahamas",
+	   		"birthDate": "1958-07-17"
+	 	}
+	}
+`
+
+const sampleFrame = `
+	{
+	"@context": [
+    	"https://www.w3.org/2018/credentials/v1",
+		"https://w3id.org/citizenship/v1",
+    	"https://w3id.org/security/bbs/v1"
+	],
+  	"type": ["VerifiableCredential", "PermanentResidentCard"],
+  	"@explicit": true,
+  	"identifier": {},
+  	"issuer": {},
+  	"issuanceDate": {},
+  	"credentialSubject": {
+    	"@explicit": true,
+    	"type": ["PermanentResident", "Person"],
+    	"givenName": {},
+    	"familyName": {},
+    	"gender": {}
+  	}
+	}
+`
+
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
@@ -209,7 +277,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 13, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 14, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -1032,6 +1100,123 @@ func TestSignCredential(t *testing.T) {
 	})
 }
 
+func TestDeriveCredential(t *testing.T) {
+	r := require.New(t)
+
+	vc, err := verifiableapi.ParseCredential([]byte(vcForDerive))
+	r.NoError(err)
+
+	r.Len(vc.Proofs, 0)
+	didKey := signVCWithBBS(r, vc)
+	r.Len(vc.Proofs, 1)
+
+	requestVC, err := vc.MarshalJSON()
+	r.NoError(err)
+	r.NotEmpty(requestVC)
+
+	mockVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			if didID == didKey {
+				k := key.New()
+
+				d, e := k.Read(didKey)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	var frameDoc map[string]interface{}
+
+	r.NoError(json.Unmarshal([]byte(sampleFrame), &frameDoc))
+
+	getRequest := func(r *require.Assertions, rq *verifiable.DeriveCredentialRequest) io.Reader {
+		b, e := json.Marshal(rq)
+		r.NoError(e)
+		r.NotEmpty(b)
+
+		return bytes.NewBuffer(b)
+	}
+
+	t.Run("derive credential success", func(t *testing.T) {
+		cmd, cmdErr := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      mockVDR,
+			KMSValue:             &kmsmock.KeyManager{},
+			CryptoValue:          &cryptomock.Crypto{},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, cmdErr)
+
+		nonce := uuid.New().String()
+
+		// call derive credential
+		handler := lookupHandler(t, cmd, DeriveCredentialPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, getRequest(r, &verifiable.DeriveCredentialRequest{
+			Credential: json.RawMessage(requestVC),
+			Frame:      frameDoc,
+			Nonce:      nonce,
+		},
+		), handler.Path())
+		require.NoError(t, err)
+
+		var response deriveCredentialRes
+		err = json.Unmarshal(buf.Bytes(), &response)
+		r.NoError(err)
+
+		r.NotEmpty(response)
+		r.NotEmpty(response.VerifiableCredential)
+
+		// verify VC
+		derived, err := verifiableapi.ParseCredential(response.VerifiableCredential, verifiableapi.WithPublicKeyFetcher(
+			verifiableapi.NewDIDKeyResolver(mockVDR).PublicKeyFetcher(),
+		))
+
+		// check expected proof
+		r.NoError(err)
+		r.NotEmpty(derived)
+		r.Len(derived.Proofs, 1)
+		r.Equal(derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
+		r.NotEmpty(derived.Proofs[0]["nonce"])
+		r.EqualValues(derived.Proofs[0]["nonce"], base64.StdEncoding.EncodeToString([]byte(nonce)))
+		r.NotEmpty(derived.Proofs[0]["proofValue"])
+	})
+
+	t.Run("derive credential failure", func(t *testing.T) {
+		cmd, cmdErr := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      mockVDR,
+			KMSValue:             &kmsmock.KeyManager{},
+			CryptoValue:          &cryptomock.Crypto{},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, cmdErr)
+
+		nonce := uuid.New().String()
+
+		// call derive credential
+		handler := lookupHandler(t, cmd, DeriveCredentialPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, getRequest(r, &verifiable.DeriveCredentialRequest{
+			Credential: json.RawMessage(vcWithDIDNotAvailble),
+			Frame:      frameDoc,
+			Nonce:      nonce,
+			SkipVerify: true,
+		},
+		), handler.Path())
+
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyError(t, verifiable.DeriveCredentialErrorCode, "failed to derive credential", buf.Bytes())
+	})
+}
+
 func TestRemoveVCByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
@@ -1204,4 +1389,80 @@ func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, da
 
 func stringToJSONRaw(jsonStr string) json.RawMessage {
 	return []byte(jsonStr)
+}
+
+// signVCWithBBS signs VC with bbs and returns did used for signing.
+func signVCWithBBS(r *require.Assertions, vc *verifiableapi.Credential) string {
+	pubKey, privKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+	r.NoError(err)
+	r.NotEmpty(privKey)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	r.NoError(err)
+
+	methodID := fingerprint.KeyFingerprint(0xeb, pubKeyBytes)
+	didKey := fmt.Sprintf("did:key:%s", methodID)
+	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
+
+	bbsSigner, err := newBBSSigner(privKey)
+	r.NoError(err)
+
+	sigSuite := bbsblssignature2020.New(
+		suite.WithSigner(bbsSigner),
+		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+
+	ldpContext := &verifiableapi.LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: verifiableapi.SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      keyID,
+	}
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	r.NoError(err)
+
+	vcSignedBytes, err := json.Marshal(vc)
+	r.NoError(err)
+	r.NotEmpty(vcSignedBytes)
+
+	vcVerified, err := verifiableapi.ParseCredential(vcSignedBytes,
+		verifiableapi.WithEmbeddedSignatureSuites(sigSuite),
+		verifiableapi.WithPublicKeyFetcher(verifiableapi.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+	)
+	r.NoError(err)
+	r.NotNil(vcVerified)
+
+	return didKey
+}
+
+type bbsSigner struct {
+	privKeyBytes []byte
+}
+
+func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+	privKeyBytes, err := privKey.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &bbsSigner{privKeyBytes: privKeyBytes}, nil
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	msgs := s.textToLines(string(data))
+
+	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
 }

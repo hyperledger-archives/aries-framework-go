@@ -154,6 +154,10 @@ const pkgs = {
             path: "/verifiable/signcredential",
             method: "POST"
         },
+        DeriveCredential: {
+            path: "/verifiable/derivecredential",
+            method: "POST"
+        },
         GeneratePresentation: {
             path: "/verifiable/presentation/generate",
             method: "POST"
