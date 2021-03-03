@@ -253,7 +253,7 @@ func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPresentation))
 	}
 
-	if err := c.client.AcceptRequestPresentation(args.PIID, args.Presentation); err != nil {
+	if err := c.client.AcceptRequestPresentation(args.PIID, args.Presentation, nil); err != nil {
 		logutil.LogError(logger, CommandName, AcceptRequestPresentation, err.Error())
 		return command.NewExecuteError(AcceptRequestPresentationErrorCode, err)
 	}

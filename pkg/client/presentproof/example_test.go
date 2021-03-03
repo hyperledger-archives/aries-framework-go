@@ -145,7 +145,7 @@ func ExampleClient_SendRequestPresentation() {
 			case e := <-actionsAlice:
 				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
 			case e := <-actionsBob:
-				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{})
+				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{}, nil)
 			}
 
 			if acceptErr != nil {
@@ -214,7 +214,7 @@ func ExampleClient_SendRequestPresentation_second() {
 			case e := <-actionsAlice:
 				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
 			case e := <-actionsBob:
-				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{})
+				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{}, nil)
 			}
 
 			if acceptErr != nil {
@@ -302,7 +302,7 @@ func ExampleClient_SendProposePresentation() {
 			}
 
 			if e.Message.Type() == presentproof.RequestPresentationMsgType {
-				acceptErr = clientAlice.AcceptRequestPresentation(piid, &Presentation{})
+				acceptErr = clientAlice.AcceptRequestPresentation(piid, &Presentation{}, nil)
 			}
 
 			if acceptErr != nil {

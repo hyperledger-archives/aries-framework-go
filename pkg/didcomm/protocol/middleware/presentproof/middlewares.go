@@ -10,15 +10,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -31,6 +39,7 @@ const (
 	mimeTypeApplicationLdJSON = "application/ld+json"
 	peDefinitionFormat        = "dif/presentation-exchange/definitions@v1.0"
 	peSubmissionFormat        = "dif/presentation-exchange/submission@v1.0"
+	bbsContext                = "https://w3id.org/security/bbs/v1"
 )
 
 // Metadata is an alias to the original Metadata.
@@ -40,6 +49,8 @@ type Metadata presentproof.Metadata
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
 	VDRegistry() vdrapi.Registry
+	KMS() kms.KeyManager
+	Crypto() crypto.Crypto
 }
 
 // SavePresentation the helper function for the present proof protocol which saves the presentations.
@@ -103,10 +114,72 @@ type presentationExchangePayload struct {
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition"`
 }
 
+// OptPD represents option function for the PresentationDefinition middleware.
+type OptPD func(o *pdOptions)
+
+// WithAddProofFn allows providing function that will sign the Presentation.
+func WithAddProofFn(sign func(presentation *verifiable.Presentation) error) OptPD {
+	return func(o *pdOptions) {
+		o.addProof = sign
+	}
+}
+
+type pdOptions struct {
+	addProof func(presentation *verifiable.Presentation) error
+}
+
+func defaultPdOptions() *pdOptions {
+	return &pdOptions{
+		addProof: func(presentation *verifiable.Presentation) error {
+			return nil
+		},
+	}
+}
+
+// AddBBSProofFn add BBS+ proof to the Presentation.
+func AddBBSProofFn(p Provider) func(presentation *verifiable.Presentation) error {
+	const bls12381g2pub = 0xeb
+
+	km, cr := p.KMS(), p.Crypto()
+
+	return func(presentation *verifiable.Presentation) error {
+		bbsLoader, err := bbsJSONLDDocumentLoader()
+		if err != nil {
+			return err
+		}
+
+		kid, pubKey, err := km.CreateAndExportPubKeyBytes(kms.BLS12381G2Type)
+		if err != nil {
+			return err
+		}
+
+		methodID := fingerprint.KeyFingerprint(bls12381g2pub, pubKey)
+		didKey := fmt.Sprintf("%s#%s", fmt.Sprintf("did:key:%s", methodID), methodID)
+
+		presentation.Context = append(presentation.Context, bbsContext)
+
+		return presentation.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "BbsBlsSignature2020",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+			Suite: bbsblssignature2020.New(
+				suite.WithSigner(newBBSSigner(km, cr, kid)),
+				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
+			),
+			VerificationMethod: didKey,
+		}, jsonld.WithDocumentLoader(bbsLoader))
+	}
+}
+
 // PresentationDefinition the helper function for the present proof protocol that creates VP based on credentials that
 // were provided in the attachments according to the requested presentation definition.
-func PresentationDefinition(p Provider) presentproof.Middleware {
+func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware { // nolint: funlen,gocyclo
 	vdr := p.VDRegistry()
+
+	options := defaultPdOptions()
+
+	for i := range opts {
+		opts[i](options)
+	}
 
 	return func(next presentproof.Handler) presentproof.Handler {
 		return presentproof.HandlerFunc(func(metadata presentproof.Metadata) error {
@@ -149,7 +222,16 @@ func PresentationDefinition(p Provider) presentproof.Middleware {
 				return fmt.Errorf("create VP: %w", err)
 			}
 
-			// TODO: sign the presentation
+			singFn := metadata.GetAddProofFn()
+			if singFn == nil {
+				singFn = options.addProof
+			}
+
+			err = singFn(presentation)
+			if err != nil {
+				return fmt.Errorf("add proof: %w", err)
+			}
+
 			metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
 				ID:       uuid.New().String(),
 				MimeType: mimeTypeApplicationLdJSON,
@@ -287,3 +369,147 @@ func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.Attachment) 
 
 	return presentations, nil
 }
+
+type bbsSigner struct {
+	km    kms.KeyManager
+	cr    crypto.Crypto
+	keyID string
+}
+
+func newBBSSigner(km kms.KeyManager, cr crypto.Crypto, keyID string) *bbsSigner {
+	return &bbsSigner{km: km, cr: cr, keyID: keyID}
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	kh, err := s.km.Get(s.keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.cr.SignMulti(s.textToLines(string(data)), kh)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
+}
+
+// TODO: context should not be loaded here, the loader should be defined once for the whole system.
+func bbsJSONLDDocumentLoader() (*ld.CachingDocumentLoader, error) {
+	loader := presexch.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
+	if err != nil {
+		return nil, err
+	}
+
+	loader.AddDocument(bbsContext, reader)
+
+	return loader, nil
+}
+
+const contextBBSContent = `{
+  "@context": {
+    "@version": 1.1,
+    "id": "@id",
+    "type": "@type",
+    "ldssk": "https://w3id.org/security#",
+    "BbsBlsSignature2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "proofValue": "sec:proofValue",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "BbsBlsSignatureProof2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "proofValue": "sec:proofValue",
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
+  }
+}`

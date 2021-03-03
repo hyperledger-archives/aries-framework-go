@@ -105,6 +105,7 @@ func TestService_Use(t *testing.T) {
 				require.Equal(t, meta.request, metadata.RequestPresentation())
 				require.Equal(t, meta.presentationNames, metadata.PresentationNames())
 				require.Equal(t, meta.state.Name(), metadata.StateName())
+				require.Nil(t, metadata.GetAddProofFn())
 
 				executed = true
 				return next.Handle(metadata)
@@ -457,7 +458,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithPresentation(&Presentation{}))
+		action.Continue(WithMultiOptions(WithPresentation(&Presentation{}), WithAddProofFn(nil)))
 
 		select {
 		case <-done:

@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
@@ -29,6 +30,10 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/presentproof"
 	mocksvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	mocksstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 // nolint: gochecknoglobals
@@ -263,8 +268,20 @@ func TestPresentationDefinition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	cr, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	km, err := localkms.New("local-lock://custom/master/key/",
+		mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{}))
+	require.NoError(t, err)
+
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().KMS().Return(km).AnyTimes()
+	provider.EXPECT().Crypto().Return(cr).AnyTimes()
+
+	require.NotNil(t, defaultPdOptions().addProof)
+	require.NoError(t, defaultPdOptions().addProof(nil))
 
 	next := presentproof.HandlerFunc(func(metadata presentproof.Metadata) error {
 		return nil
@@ -395,12 +412,14 @@ func TestPresentationDefinition(t *testing.T) {
 		const errMsg = "create VP: credentials do not satisfy requirements"
 		require.EqualError(t, PresentationDefinition(provider)(next).Handle(metadata), errMsg)
 	})
-
-	t.Run("No credentials", func(t *testing.T) {
+	t.Run("Sign error", func(t *testing.T) {
 		ID := uuid.New().String()
 
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameRequestReceived)
+		metadata.EXPECT().GetAddProofFn().Return(func(presentation *verifiable.Presentation) error {
+			return errors.New("test")
+		})
 		metadata.EXPECT().Presentation().Return(&presentproof.Presentation{
 			PresentationsAttach: []decorator.Attachment{{
 				MimeType: mimeTypeApplicationLdJSON,
@@ -467,6 +486,81 @@ func TestPresentationDefinition(t *testing.T) {
 			}},
 		}))
 
-		require.Nil(t, PresentationDefinition(provider)(next).Handle(metadata))
+		require.EqualError(t, PresentationDefinition(provider)(next).Handle(metadata), "add proof: test")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		ID := uuid.New().String()
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameRequestReceived)
+		metadata.EXPECT().GetAddProofFn().Return(nil)
+		metadata.EXPECT().Presentation().Return(&presentproof.Presentation{
+			PresentationsAttach: []decorator.Attachment{{
+				MimeType: mimeTypeApplicationLdJSON,
+				Data: decorator.AttachmentData{
+					JSON: &verifiable.Credential{
+						ID:      "http://example.edu/credentials/1872",
+						Context: []string{"https://www.w3.org/2018/credentials/v1"},
+						Types:   []string{verifiable.VCType},
+						Schemas: []verifiable.TypedID{{
+							ID:   schemaURI,
+							Type: "JsonSchemaValidator2018",
+						}},
+						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						Issued: &util.TimeWithTrailingZeroMsec{
+							Time: time.Now(),
+						},
+						Issuer: verifiable.Issuer{
+							ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						},
+						CustomFields: map[string]interface{}{
+							"first_name": "First name",
+							"last_name":  "Last name",
+							"info":       "Info",
+						},
+					},
+				},
+			}, {
+				MimeType: "application/json",
+				Data: decorator.AttachmentData{
+					JSON: map[string]struct{}{},
+				},
+			}},
+		}).AnyTimes()
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.RequestPresentation{
+			Formats: []presentproof.Format{{
+				AttachID: ID,
+				Format:   peDefinitionFormat,
+			}},
+			Type: presentproof.RequestPresentationMsgType,
+			RequestPresentationsAttach: []decorator.Attachment{{
+				ID: ID,
+				Data: decorator.AttachmentData{
+					JSON: map[string]interface{}{
+						"presentation_definition": &presexch.PresentationDefinition{
+							ID: uuid.New().String(),
+							InputDescriptors: []*presexch.InputDescriptor{{
+								ID: uuid.New().String(),
+								Schema: []*presexch.Schema{{
+									URI: schemaURI,
+								}},
+								Constraints: &presexch.Constraints{
+									Fields: []*presexch.Field{{
+										Path:   []string{"$.first_name"},
+										Filter: &presexch.Filter{Type: &strFilterType},
+									}, {
+										Path:   []string{"$.last_name"},
+										Filter: &presexch.Filter{Type: &strFilterType},
+									}},
+								},
+							}},
+						},
+					},
+				},
+			}},
+		}))
+
+		require.Nil(t, PresentationDefinition(provider, WithAddProofFn(AddBBSProofFn(provider)))(next).Handle(metadata))
 	})
 }

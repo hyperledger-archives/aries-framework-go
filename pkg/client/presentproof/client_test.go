@@ -132,7 +132,7 @@ func TestClient_AcceptRequestPresentation(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptRequestPresentation("PIID", &Presentation{}))
+	require.NoError(t, client.AcceptRequestPresentation("PIID", &Presentation{}, nil))
 }
 
 func TestClient_DeclineRequestPresentation(t *testing.T) {

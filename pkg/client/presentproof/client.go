@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 type (
@@ -96,9 +97,11 @@ func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirD
 	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
+type addProof func(presentation *verifiable.Presentation) error
+
 // AcceptRequestPresentation is used by the Prover is to accept a presentation request.
-func (c *Client) AcceptRequestPresentation(piID string, msg *Presentation) error {
-	return c.service.ActionContinue(piID, WithPresentation(msg))
+func (c *Client) AcceptRequestPresentation(piID string, msg *Presentation, sign addProof) error {
+	return c.service.ActionContinue(piID, WithMultiOptions(WithPresentation(msg), WithAddProofFn(sign)))
 }
 
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
@@ -154,6 +157,17 @@ func WithPresentation(msg *Presentation) presentproof.Opt {
 	origin := presentproof.Presentation(*msg)
 
 	return presentproof.WithPresentation(&origin)
+}
+
+// WithMultiOptions allows combining several options into one.
+func WithMultiOptions(opts ...presentproof.Opt) presentproof.Opt {
+	return presentproof.WithMultiOptions(opts...)
+}
+
+// WithAddProofFn allows providing function that will sign the Presentation.
+// Use this option to respond to RequestPresentation.
+func WithAddProofFn(sign addProof) presentproof.Opt {
+	return presentproof.WithAddProofFn(sign)
 }
 
 // WithProposePresentation allows providing ProposePresentation message

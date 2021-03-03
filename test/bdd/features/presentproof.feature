@@ -19,10 +19,18 @@ Feature: Present Proof protocol
   Scenario: The Verifier begins with a request presentation (BBS+)
     Given "Julia" exchange DIDs with "Max"
     Then "Julia" sends a request presentation with presentation definition to the "Max"
-    And "Max" accepts a request and sends credentials with BBS to the "Julia"
+    And "Max" accepts a request and sends credentials with BBS to the "Julia" and proof "BbsBlsSignature2020"
     And "Julia" accepts a presentation with name "bbs-license"
-    And "Julia" checks that presentation is being stored under "bbs-license" name
+    And "Julia" checks that presentation is being stored under "bbs-license" name and has "BbsBlsSignature2020" proof
     Then "Max" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
+  @begin_with_request_presentation_default_sign_bbs
+  Scenario: The Verifier begins with a request presentation (default sign with BBS+)
+    Given "Jennifer" exchange DIDs with "John"
+    Then "Jennifer" sends a request presentation with presentation definition to the "John"
+    And "John" accepts a request and sends credentials with BBS to the "Jennifer" and proof "default"
+    And "Jennifer" accepts a presentation with name "bbs-license"
+    And "Jennifer" checks that presentation is being stored under "bbs-license" name and has "BbsBlsSignature2020" proof
+    Then "John" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
   @decline_presentation
   Scenario: The Verifier declines presentation
     Given "Thomas" exchange DIDs with "Paul"
