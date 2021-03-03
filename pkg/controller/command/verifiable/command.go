@@ -77,6 +77,9 @@ const (
 
 	// RemovePresentationByNameErrorCode for remove vp by name errors.
 	RemovePresentationByNameErrorCode
+
+	// DeriveCredentialErrorCode for derive credential error.
+	DeriveCredentialErrorCode
 )
 
 // constants for the Verifiable protocol.
@@ -90,6 +93,7 @@ const (
 	GetCredentialByNameCommandMethod      = "GetCredentialByName"
 	GetCredentialsCommandMethod           = "GetCredentials"
 	SignCredentialCommandMethod           = "SignCredential"
+	DeriveCredentialCommandMethod         = "DeriveCredential"
 	SavePresentationCommandMethod         = "SavePresentation"
 	GetPresentationCommandMethod          = "GetPresentation"
 	GetPresentationsCommandMethod         = "GetPresentations"
@@ -104,6 +108,8 @@ const (
 	errEmptyCredentialID     = "credential id is mandatory"
 	errEmptyPresentationID   = "presentation id is mandatory"
 	errEmptyDID              = "did is mandatory"
+	errEmptyCredential       = "credential is mandatory is mandatory"
+	errEmptyFrame            = "frame is mandatory is mandatory"
 
 	// log constants.
 	vcID   = "vcID"
@@ -209,6 +215,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, GetCredentialByNameCommandMethod, o.GetCredentialByName),
 		cmdutil.NewCommandHandler(CommandName, GetCredentialsCommandMethod, o.GetCredentials),
 		cmdutil.NewCommandHandler(CommandName, SignCredentialCommandMethod, o.SignCredential),
+		cmdutil.NewCommandHandler(CommandName, DeriveCredentialCommandMethod, o.DeriveCredential),
 		cmdutil.NewCommandHandler(CommandName, GeneratePresentationCommandMethod, o.GeneratePresentation),
 		cmdutil.NewCommandHandler(CommandName, GeneratePresentationByIDCommandMethod, o.GeneratePresentationByID),
 		cmdutil.NewCommandHandler(CommandName, SavePresentationCommandMethod, o.SavePresentation),
@@ -417,6 +424,69 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 	}, logger)
 
 	logutil.LogDebug(logger, CommandName, SignCredentialCommandMethod, "success")
+
+	return nil
+}
+
+// DeriveCredential derives a given verifiable credential for selective disclosure and returns it in response body.
+func (o *Command) DeriveCredential(rw io.Writer, req io.Reader) command.Error {
+	request := &DeriveCredentialRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, DeriveCredentialCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if len(request.Credential) == 0 {
+		logutil.LogDebug(logger, CommandName, DeriveCredentialCommandMethod, errEmptyCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredential))
+	}
+
+	if len(request.Frame) == 0 {
+		logutil.LogDebug(logger, CommandName, DeriveCredentialCommandMethod, errEmptyFrame)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyFrame))
+	}
+
+	var credOpts []verifiable.CredentialOpt
+	if request.SkipVerify {
+		credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
+	} else {
+		credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
+		))
+	}
+
+	credential, err := verifiable.ParseCredential(request.Credential, credOpts...)
+	if err != nil {
+		logutil.LogError(logger, CommandName, DeriveCredentialCommandMethod,
+			fmt.Sprintf("failed to parse request vc : %s", err))
+
+		return command.NewValidationError(DeriveCredentialErrorCode, fmt.Errorf("failed to parse request vc : %w", err))
+	}
+
+	derived, err := credential.GenerateBBSSelectiveDisclosure(request.Frame, []byte(request.Nonce), credOpts...)
+	if err != nil {
+		logutil.LogError(logger, CommandName, DeriveCredentialCommandMethod,
+			fmt.Sprintf("failed to derive credential : %s", err))
+
+		return command.NewExecuteError(DeriveCredentialErrorCode, fmt.Errorf("failed to derive credential : %w", err))
+	}
+
+	vcBytes, err := derived.MarshalJSON()
+	if err != nil {
+		logutil.LogError(logger, CommandName, DeriveCredentialCommandMethod,
+			fmt.Sprintf("failed to marshal derived credential : %s", err))
+
+		return command.NewExecuteError(DeriveCredentialErrorCode,
+			fmt.Errorf("failed to marshal derived credential  : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &SignCredentialResponse{
+		VerifiableCredential: vcBytes,
+	}, logger)
+
+	logutil.LogDebug(logger, CommandName, DeriveCredentialCommandMethod, "success")
 
 	return nil
 }

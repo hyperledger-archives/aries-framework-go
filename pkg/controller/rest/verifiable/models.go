@@ -212,3 +212,26 @@ type signCredentialRes struct {
 	// in: body
 	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
 }
+
+// deriveCredentialReq model
+//
+// This is used for deriving a credential.
+//
+// swagger:parameters deriveCredentialReq
+type deriveCredentialReq struct { // nolint: unused,deadcode
+	// Params for deriving a credential
+	//
+	// in: body
+	Params verifiable.DeriveCredentialRequest
+}
+
+// deriveCredentialRes model
+//
+// This is used for returning the derive credential response.
+//
+// swagger:response deriveCredentialRes
+type deriveCredentialRes struct {
+
+	// in: body
+	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
+}
