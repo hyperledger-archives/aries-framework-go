@@ -69,6 +69,35 @@ const vc = `
 }
 `
 
+const bbsVc = `{
+   "@context":[
+      "https://www.w3.org/2018/credentials/v1",
+      "https://www.w3.org/2018/credentials/examples/v1",
+      "https://w3id.org/security/bbs/v1"
+   ],
+   "credentialSubject":{
+      "degree":{
+         "degree":"MIT",
+         "degreeSchool":"MIT school",
+         "type":"BachelorDegree"
+      },
+      "id":"did:example:b34ca6cd37bbf23",
+      "name":"Jayden Doe",
+      "spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"
+   },
+   "description":"Government of Example Permanent Resident Card.",
+   "expirationDate":"2022-03-04T11:53:29.728412319+02:00",
+   "id":"https://issuer.oidp.uscis.gov/credentials/83627465",
+   "identifier":"83627465",
+   "issuanceDate":"2021-03-04T11:53:29.728412269+02:00",
+   "issuer":"did:example:489398593",
+   "name":"Permanent Resident Card",
+   "type":[
+      "VerifiableCredential",
+      "UniversityDegreeCredential"
+   ]
+}`
+
 //nolint:lll
 const vcWithDIDNotAvailble = `{ 
    "@context":[ 
@@ -2073,6 +2102,47 @@ func TestCommand_SignCredential(t *testing.T) {
 		require.Contains(t, vc.Proofs[0]["type"], "JsonWebSignature2020")
 	})
 
+	t.Run("test sign credential with proof options - success (BbsBlsSignature2020)", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		signatureRepresentation := verifiable.SignatureProofValue
+
+		req := SignCredentialRequest{
+			Credential: []byte(bbsVc),
+			ProofOptions: &ProofOptions{
+				Domain:                  "issuer.example.com",
+				Challenge:               "sample-random-test-value",
+				SignatureRepresentation: &signatureRepresentation,
+				Created:                 &createdTime,
+				SignatureType:           BbsBlsSignature2020,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vc, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vc.Proofs)
+		require.Len(t, vc.Proofs, 1)
+		require.Equal(t, vc.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vc.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vc.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vc.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+		require.Contains(t, vc.Proofs[0]["type"], "BbsBlsSignature2020")
+	})
+
 	t.Run("test sign credential with proof options - success (ed25519 jsonwebsignature)", func(t *testing.T) {
 		createdTime := time.Now().AddDate(-1, 0, 0)
 		req := SignCredentialRequest{
@@ -2556,9 +2626,7 @@ func signVCWithBBS(r *require.Assertions, vc *verifiable.Credential) string {
 	pubKeyBytes, err := pubKey.Marshal()
 	r.NoError(err)
 
-	methodID := fingerprint.KeyFingerprint(0xeb, pubKeyBytes)
-	didKey := fmt.Sprintf("did:key:%s", methodID)
-	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
+	didKey, keyID := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, pubKeyBytes)
 
 	bbsSigner, err := newBBSSigner(privKey)
 	r.NoError(err)

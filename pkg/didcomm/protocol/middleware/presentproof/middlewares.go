@@ -138,8 +138,6 @@ func defaultPdOptions() *pdOptions {
 
 // AddBBSProofFn add BBS+ proof to the Presentation.
 func AddBBSProofFn(p Provider) func(presentation *verifiable.Presentation) error {
-	const bls12381g2pub = 0xeb
-
 	km, cr := p.KMS(), p.Crypto()
 
 	return func(presentation *verifiable.Presentation) error {
@@ -153,19 +151,15 @@ func AddBBSProofFn(p Provider) func(presentation *verifiable.Presentation) error
 			return err
 		}
 
-		methodID := fingerprint.KeyFingerprint(bls12381g2pub, pubKey)
-		didKey := fmt.Sprintf("%s#%s", fmt.Sprintf("did:key:%s", methodID), methodID)
+		_, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, pubKey)
 
 		presentation.Context = append(presentation.Context, bbsContext)
 
 		return presentation.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite: bbsblssignature2020.New(
-				suite.WithSigner(newBBSSigner(km, cr, kid)),
-				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
-			),
-			VerificationMethod: didKey,
+			Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
+			VerificationMethod:      didKey,
 		}, jsonld.WithDocumentLoader(bbsLoader))
 	}
 }
