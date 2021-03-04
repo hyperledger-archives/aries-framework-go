@@ -1300,20 +1300,6 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
 
-	t.Run("test generate presentation helper- error", func(t *testing.T) {
-		v := &verifiable.Credential{}
-		err := json.Unmarshal([]byte(vc), v)
-		require.NoError(t, err)
-
-		credList := make([]*verifiable.Credential, 1)
-		credList[0] = v
-
-		var b bytes.Buffer
-		err = cmd.generatePresentation(&b, credList, nil, "did:example", &ProofOptions{VerificationMethod: "pk"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "prepare vp: failed to sign vp: wrong id [pk] to resolve")
-	})
-
 	t.Run("test generate presentation by id helper- error", func(t *testing.T) {
 		cred := &verifiable.Credential{}
 		err := json.Unmarshal([]byte(vc), cred)
