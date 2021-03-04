@@ -34,6 +34,7 @@ var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
 // processorOpts holds options for canonicalization of JSON LD docs.
 type processorOpts struct {
 	removeInvalidRDF    bool
+	frameBlankNodes     bool
 	validateRDF         bool
 	documentLoader      ld.DocumentLoader
 	externalContexts    []string
@@ -47,6 +48,14 @@ type ProcessorOpts func(opts *processorOpts)
 func WithRemoveAllInvalidRDF() ProcessorOpts {
 	return func(opts *processorOpts) {
 		opts.removeInvalidRDF = true
+	}
+}
+
+// WithFrameBlankNodes option for transforming blank node identifiers into nodes.
+// For example, _:c14n0 is transformed into <urn:bnid:_:c14n0>.
+func WithFrameBlankNodes() ProcessorOpts {
+	return func(opts *processorOpts) {
+		opts.frameBlankNodes = true
 	}
 }
 
@@ -196,15 +205,49 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 	options.ProcessingMode = ld.JsonLd_1_1
 	options.Format = format
 	options.ProduceGeneralizedRdf = true
+	options.OmitGraph = true
 
 	procOptions := prepareOpts(opts)
 
 	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
 
 	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
+	inputDocCopy, randomIds, err := removeDuplicateIDs(inputDoc, proc, options)
+	if err != nil {
+		return nil, fmt.Errorf("removing duplicate ids failed: %w", err)
+	}
+
+	inputDocCopy, err = p.transformBlankNodes(inputDocCopy, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("transforming frame input failed: %w", err)
+	}
+
+	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, options)
+	if err != nil {
+		return nil, fmt.Errorf("framing failed: %w", err)
+	}
+
+	framedInputDoc["@context"] = frameDoc["@context"]
+
+	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
+	if len(randomIds) == 0 {
+		return framedInputDoc, nil
+	}
+
+	visitJSONMap(framedInputDoc, func(key, val string) (string, bool) {
+		v, ok := randomIds[val]
+
+		return v, ok
+	})
+
+	return framedInputDoc, nil
+}
+
+func removeDuplicateIDs(inputDoc map[string]interface{}, proc *ld.JsonLdProcessor,
+	options *ld.JsonLdOptions) (map[string]interface{}, map[string]string, error) {
 	duplicatedIDs, err := getDuplicatedIDs(inputDoc, proc, options)
 	if err != nil {
-		return nil, fmt.Errorf("get duplicated ids: %w", err)
+		return nil, nil, fmt.Errorf("get duplicated ids: %w", err)
 	}
 
 	var inputDocCopy map[string]interface{}
@@ -221,7 +264,7 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 				return "", false
 			}
 
-			randomID := uuid.New().String()
+			randomID := fmt.Sprintf("urn:uuid:%s", uuid.New().String())
 			randomIds[randomID] = id
 
 			return randomID, true
@@ -230,26 +273,7 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 		inputDocCopy = inputDoc
 	}
 
-	options.OmitGraph = true
-
-	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, options)
-	if err != nil {
-		return nil, err
-	}
-
-	framedInputDoc["@context"] = frameDoc["@context"]
-
-	if len(duplicatedIDs) == 0 {
-		return framedInputDoc, nil
-	}
-
-	visitJSONMap(framedInputDoc, func(key, val string) (string, bool) {
-		v, ok := randomIds[val]
-
-		return v, ok
-	})
-
-	return framedInputDoc, nil
+	return inputDocCopy, randomIds, nil
 }
 
 func copyMap(m map[string]interface{}) map[string]interface{} {
@@ -373,6 +397,98 @@ func (p *Processor) removeMatchingInvalidRDFs(view string, opts *processorOpts) 
 
 	// all invalid RDF dataset from view are removed, re-generate
 	return p.normalizeFilteredDataset(filteredView)
+}
+
+func fromRDF(docStatements []string, context interface{},
+	opts ...ProcessorOpts) (map[string]interface{}, error) {
+	doc := strings.Join(docStatements, "\n")
+
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.ProcessingMode = ld.JsonLd_1_1
+	options.Format = format
+	options.ProduceGeneralizedRdf = true
+
+	procOptions := prepareOpts(opts)
+
+	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+
+	transformedDoc, err := proc.FromRDF(doc, options)
+	if err != nil {
+		return nil, fmt.Errorf("rdf processing failed: %w", err)
+	}
+
+	transformedDocMap, err := proc.Compact(transformedDoc, context, options)
+	if err != nil {
+		return nil, fmt.Errorf("compacting failed: %w", err)
+	}
+
+	return transformedDocMap, nil
+}
+
+func (p *Processor) transformBlankNodes(docMap map[string]interface{},
+	opts ...ProcessorOpts) (map[string]interface{}, error) {
+	procOptions := prepareOpts(opts)
+
+	if !procOptions.frameBlankNodes {
+		return docMap, nil
+	}
+
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.ProcessingMode = ld.JsonLd_1_1
+	options.Format = format
+	options.ProduceGeneralizedRdf = true
+	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+
+	docBytes, err := proc.ToRDF(docMap, options)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := splitMessageIntoLines(docBytes.(string))
+
+	for i, row := range rows {
+		rows[i] = TransformBlankNode(row)
+	}
+
+	return fromRDF(rows, docMap["@context"], opts...)
+}
+
+// TransformBlankNode replaces blank node identifiers in the RDF statements.
+// For example, transform from "_:c14n0" to "urn:bnid:_:c14n0".
+func TransformBlankNode(row string) string {
+	prefixIndex := strings.Index(row, "_:c14n")
+	if prefixIndex < 0 {
+		return row
+	}
+
+	sepIndex := strings.Index(row[prefixIndex:], " ")
+	if sepIndex < 0 {
+		sepIndex = len(row)
+	} else {
+		sepIndex += prefixIndex
+	}
+
+	prefix := row[:prefixIndex]
+	blankNode := row[prefixIndex:sepIndex]
+	suffix := row[sepIndex:]
+
+	return fmt.Sprintf("%s<urn:bnid:%s>%s", prefix, blankNode, suffix)
+}
+
+func splitMessageIntoLines(msg string) []string {
+	rows := strings.Split(msg, "\n")
+
+	msgs := make([]string, 0, len(rows))
+
+	for i := range rows {
+		if strings.TrimSpace(rows[i]) != "" {
+			msgs = append(msgs, rows[i])
+		}
+	}
+
+	return msgs
 }
 
 // normalizeFilteredDataset recreates json-ld from RDF view and

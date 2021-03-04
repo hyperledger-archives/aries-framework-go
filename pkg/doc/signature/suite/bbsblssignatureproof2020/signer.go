@@ -34,17 +34,10 @@ type keyResolver interface {
 // (with BbsBlsSignature2020 type).
 func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[string]interface{},
 	nonce []byte, resolver keyResolver, opts ...jsonld.ProcessorOpts) (map[string]interface{}, error) {
-	docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
+	docWithoutProof, rawProofs, err := prepareDocAndProof(doc, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("compact doc with security schema: %w", err)
+		return nil, fmt.Errorf("preparing doc failed: %w", err)
 	}
-
-	rawProofs := docCompacted["proof"]
-	if rawProofs == nil {
-		return nil, errors.New("document does not have a proof")
-	}
-
-	delete(docCompacted, "proof")
 
 	blsSignatures, err := getBlsProofs(rawProofs)
 	if err != nil {
@@ -55,7 +48,7 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 		return nil, errors.New("no BbsBlsSignature2020 proof present")
 	}
 
-	docVerData, pErr := buildDocVerificationData(docCompacted, revealDoc, opts...)
+	docVerData, pErr := buildDocVerificationData(docWithoutProof, revealDoc, opts...)
 	if pErr != nil {
 		return nil, fmt.Errorf("build document verification data: %w", pErr)
 	}
@@ -80,6 +73,29 @@ func (s *Suite) SelectiveDisclosure(doc map[string]interface{}, revealDoc map[st
 	revealDocumentResult["proof"] = proofs
 
 	return revealDocumentResult, nil
+}
+
+func prepareDocAndProof(doc map[string]interface{},
+	opts ...jsonld.ProcessorOpts) (map[string]interface{}, interface{}, error) {
+	docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("compact doc with security schema: %w", err)
+	}
+
+	rawProofs := docCompacted["proof"]
+	if rawProofs == nil {
+		return nil, nil, errors.New("document does not have a proof")
+	}
+
+	docCopy := make(map[string]interface{})
+
+	for k, v := range doc {
+		docCopy[k] = v
+	}
+
+	delete(docCopy, "proof")
+
+	return docCopy, rawProofs, nil
 }
 
 func generateSignatureProof(blsSignature map[string]interface{}, resolver keyResolver, nonce []byte,
@@ -166,7 +182,7 @@ func buildVerificationData(blsProof map[string]interface{}, docVerData *docVerif
 	}
 
 	numberOfProofStatements := len(proofStatements)
-	revealIndexes := make([]int, numberOfProofStatements+len(docVerData.documentStatements))
+	revealIndexes := make([]int, numberOfProofStatements+len(docVerData.revealIndexes))
 
 	for i := 0; i < numberOfProofStatements; i++ {
 		revealIndexes[i] = i
@@ -187,17 +203,17 @@ func buildVerificationData(blsProof map[string]interface{}, docVerData *docVerif
 
 func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
 	opts ...jsonld.ProcessorOpts) (*docVerificationData, error) {
-	documentStatements, err := createVerifyDocumentData(docCompacted, opts...)
+	documentStatements, transformedStatements, err := createVerifyDocumentData(docCompacted, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("create verify document data: %w", err)
 	}
 
-	revealDocumentResult, err := jsonld.Default().Frame(docCompacted, revealDoc, opts...)
+	revealDocumentResult, err := jsonld.Default().Frame(docCompacted, revealDoc, jsonld.WithFrameBlankNodes())
 	if err != nil {
 		return nil, fmt.Errorf("frame doc with reveal doc: %w", err)
 	}
 
-	revealDocumentStatements, err := createVerifyDocumentData(revealDocumentResult, opts...)
+	revealDocumentStatements, err := createVerifyRevealData(revealDocumentResult, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("create verify reveal document data: %w", err)
 	}
@@ -205,7 +221,7 @@ func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
 	revealIndexes := make([]int, len(revealDocumentStatements))
 
 	documentStatementsMap := make(map[string]int)
-	for i, statement := range documentStatements {
+	for i, statement := range transformedStatements {
 		documentStatementsMap[statement] = i
 	}
 
@@ -253,7 +269,24 @@ func getProofs(appProofs interface{}) ([]map[string]interface{}, error) {
 	}
 }
 
-func createVerifyDocumentData(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]string, error) {
+func createVerifyDocumentData(doc map[string]interface{},
+	opts ...jsonld.ProcessorOpts) ([]string, []string, error) {
+	docBytes, err := jsonld.Default().GetCanonicalDocument(doc, opts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("canonicalizing document failed: %w", err)
+	}
+
+	documentStatements := splitMessageIntoLines(string(docBytes))
+	transformedStatements := make([]string, len(documentStatements))
+
+	for i, row := range documentStatements {
+		transformedStatements[i] = jsonld.TransformBlankNode(row)
+	}
+
+	return documentStatements, transformedStatements, nil
+}
+
+func createVerifyRevealData(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]string, error) {
 	docBytes, err := jsonld.Default().GetCanonicalDocument(doc, opts...)
 	if err != nil {
 		return nil, err
