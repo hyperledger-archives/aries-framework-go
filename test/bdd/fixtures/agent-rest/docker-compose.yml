@@ -32,6 +32,21 @@ services:
     networks:
       - bdd_net
 
+  static-file-server:
+    container_name: static-file-server
+    image: halverneus/static-file-server:latest
+    environment:
+      - PORT=8089
+      - FOLDER=/web
+      - CORS=true
+      - VIRTUAL_PORT=8089
+    ports:
+      - 8089:8089
+    volumes:
+      - ./schema:/web
+    networks:
+      - bdd_net
+
   erin.agent.example.com:
     container_name: erin.aries.example.com
     image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}

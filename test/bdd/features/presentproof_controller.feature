@@ -21,6 +21,18 @@ Feature: Present Proof using controller API
     Then  "Alice" successfully accepts a presentation with "passport" name through PresentProof controller
       And "Alice" checks that presentation is being stored under the "passport" name
 
+  @present_proof_controller_bbs
+  Scenario: The Verifier begins with a presentation request (BBS+)
+    Given "Jennifer" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Julia" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Jennifer" has established connection with "Julia" through PresentProof controller
+
+    When  "Jennifer" sends a request presentation with presentation definition to "Julia" through PresentProof controller
+    And "Julia" accepts a request and sends credentials with BBS to the Verifier through PresentProof controller
+
+    Then  "Jennifer" successfully accepts a presentation with "bbs-passport" name through PresentProof controller
+    And "Jennifer" checks that presentation is being stored under the "bbs-passport" name
+
   Scenario: The Prover begins with a presentation proposal
     Given "Carol" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
       And "Dan" agent is running on "localhost" port "9081" with controller "https://localhost:9082"

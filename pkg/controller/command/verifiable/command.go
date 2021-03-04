@@ -156,14 +156,21 @@ type kmsSigner struct {
 	bbs       bool
 }
 
-func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
-	// creator will contain didID#keyID
-	idSplit := strings.Split(creator, "#")
-	if len(idSplit) != creatorParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+func getKID(opts *ProofOptions) string {
+	if opts.KID != "" {
+		return opts.KID
 	}
 
-	keyHandler, err := keyManager.Get(idSplit[1])
+	idSplit := strings.Split(opts.VerificationMethod, "#")
+	if len(idSplit) == creatorParts {
+		return idSplit[1]
+	}
+
+	return ""
+}
+
+func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, kid string) (*kmsSigner, error) {
+	keyHandler, err := keyManager.Get(kid)
 	if err != nil {
 		return nil, err
 	}
@@ -847,7 +854,7 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 }
 
 func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
-	s, err := newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
+	s, err := newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), getKID(opts))
 	if err != nil {
 		return err
 	}
