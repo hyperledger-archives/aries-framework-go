@@ -448,16 +448,7 @@ func (o *Command) DeriveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyFrame))
 	}
 
-	var credOpts []verifiable.CredentialOpt
-	if request.SkipVerify {
-		credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
-	} else {
-		credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
-		))
-	}
-
-	credential, err := verifiable.ParseCredential(request.Credential, credOpts...)
+	credential, err := verifiable.ParseCredential(request.Credential, o.getCredentialOpts(request.SkipVerify)...)
 	if err != nil {
 		logutil.LogError(logger, CommandName, DeriveCredentialCommandMethod,
 			fmt.Sprintf("failed to parse request vc : %s", err))
@@ -465,7 +456,8 @@ func (o *Command) DeriveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(DeriveCredentialErrorCode, fmt.Errorf("failed to parse request vc : %w", err))
 	}
 
-	derived, err := credential.GenerateBBSSelectiveDisclosure(request.Frame, []byte(request.Nonce), credOpts...)
+	derived, err := credential.GenerateBBSSelectiveDisclosure(request.Frame, []byte(request.Nonce),
+		o.getCredentialOpts(false)...)
 	if err != nil {
 		logutil.LogError(logger, CommandName, DeriveCredentialCommandMethod,
 			fmt.Sprintf("failed to derive credential : %s", err))
@@ -868,16 +860,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 	var vcs []*verifiable.Credential
 
 	for _, vcRaw := range request.VerifiableCredentials {
-		var credOpts []verifiable.CredentialOpt
-		if request.SkipVerify {
-			credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
-		} else {
-			credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
-			))
-		}
-
-		vc, e := verifiable.ParseCredential(vcRaw, credOpts...)
+		vc, e := verifiable.ParseCredential(vcRaw, o.getCredentialOpts(request.SkipVerify)...)
 		if e != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to parse credential from request, invalid credential: "+e.Error())
@@ -931,6 +914,16 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 	}
 
 	return nil, nil, nil, fmt.Errorf("invalid request, no valid credentials/presentation found")
+}
+
+func (o *Command) getCredentialOpts(disableProofCheck bool) []verifiable.CredentialOpt {
+	if disableProofCheck {
+		return []verifiable.CredentialOpt{verifiable.WithDisabledProofCheck()}
+	}
+
+	return []verifiable.CredentialOpt{verifiable.WithPublicKeyFetcher(
+		verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
+	)}
 }
 
 func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
