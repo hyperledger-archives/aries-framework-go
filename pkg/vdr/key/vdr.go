@@ -19,6 +19,8 @@ const (
 	DIDMethod = "key"
 	// EncryptionKey encryption key.
 	EncryptionKey = "encryptionKey"
+	// KeyType option to create a new kms key for DIDDocs with empty VerificationMethod.
+	KeyType = "keyType"
 )
 
 // VDR implements did:key method support.

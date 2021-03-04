@@ -14,11 +14,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestBuild(t *testing.T) {
 	const (
 		pubKeyBase58Ed25519 = "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
+		pubKeyBase58BBS     = "25EEkQtcLKsEzQ6JTo9cg4W7NHpaurn4Wg6LaNPFq6JQXnrP91SDviUz7KrJVMJd76CtAZFsRLYzvgX2JGxo2ccUHtuHk7ELCWwrkBDfrXCFVfqJKDootee9iVaF6NpdJtBE" //nolint:lll
+		pubKeyBase58P256    = "3YRwdf868zp2t8c4oT4XdYfCihMsfR1zrVYyXS5SS4FwQ7wftDfoY5nohvhdgSk9LxyfzjTLzffJPmHgFBqizX9v"
+		pubKeyBase58P384    = "tAjHMcvoBXs3BSihDV85trHmstc3V3vTP7o2Si72eCWdVzeGgGvRd8h5neHEbqSL989h53yNj7M7wHckB2bKpGKQjnPDD7NphDa9nUUBggCB6aCWterfdXbH5DfWPZx5oXU"                                                 //nolint:lll
+		pubKeyBase58P521    = "mTQ9pPr2wkKdiTHhVG7xmLwyJ5mrgq1FKcHFz2XJprs4zAPtjXWFiEz6vsscbseSEzGdjAVzcUhwdodT5cbrRjQqFdz8d1yYVqMHXsVCdCUrmWNNHcZLJeYCn1dCtQX9YRVdDFfnzczKFxDXe9HusLqBWTobbxVvdj9cTi7rSWVznP5Emfo" //nolint:lll
 	)
 
 	t.Run("validate did:key compliance with generic syntax", func(t *testing.T) {
@@ -52,6 +62,177 @@ func TestBuild(t *testing.T) {
 
 		assertEd25519Doc(t, docResolution.DIDDocument)
 	})
+
+	t.Run("build with BLS12381G2 key type", func(t *testing.T) {
+		v := New()
+
+		pubKey := did.VerificationMethod{
+			Type:  bls12381G2Key2020,
+			Value: base58.Decode(pubKeyBase58BBS),
+		}
+
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.BLS12381G2Type))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertBBSDoc(t, docResolution.DIDDocument)
+	})
+
+	t.Run("build with NIST P-256 key type", func(t *testing.T) {
+		v := New()
+
+		pubKey := did.VerificationMethod{
+			Type:  jsonWebKey2020,
+			Value: base58.Decode(pubKeyBase58P256),
+		}
+
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP256TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP256Doc(t, docResolution.DIDDocument)
+
+		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP256TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP256Doc(t, docResolution.DIDDocument)
+	})
+
+	t.Run("build with NIST P-384 key type", func(t *testing.T) {
+		v := New()
+
+		pubKey := did.VerificationMethod{
+			Type:  jsonWebKey2020,
+			Value: base58.Decode(pubKeyBase58P384),
+		}
+
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP384TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP384Doc(t, docResolution.DIDDocument)
+
+		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP384TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP384Doc(t, docResolution.DIDDocument)
+	})
+
+	t.Run("build with NIST P-521 key type", func(t *testing.T) {
+		v := New()
+
+		pubKey := did.VerificationMethod{
+			Type:  jsonWebKey2020,
+			Value: base58.Decode(pubKeyBase58P521),
+		}
+
+		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP521TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP521Doc(t, docResolution.DIDDocument)
+
+		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
+			vdr.WithOption(KeyType, kms.ECDSAP521TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertP521Doc(t, docResolution.DIDDocument)
+	})
+
+	t.Run("build with ED25519 key type created in the KMS", func(t *testing.T) {
+		v := New()
+		km := createKMS(t)
+
+		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ED25519Type))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		expectedPrefix := "did:key:z6Mk"
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+	})
+
+	t.Run("build with BLS12381G2 key type created in the KMS", func(t *testing.T) {
+		v := New()
+		km := createKMS(t)
+
+		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.BLS12381G2Type))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		expectedPrefix := "did:key:zUC7"
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+	})
+
+	t.Run("build with P-256 key type created in the KMS", func(t *testing.T) {
+		v := New()
+		km := createKMS(t)
+
+		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP256TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		expectedPrefix := "did:key:zru"
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+
+		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP256TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+	})
+
+	t.Run("build with P-384 key type created in the KMS", func(t *testing.T) {
+		v := New()
+		km := createKMS(t)
+
+		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP384TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		expectedPrefix := "did:key:zFw"
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+
+		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP384TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+	})
+
+	t.Run("build with P-521 key type created in the KMS", func(t *testing.T) {
+		v := New()
+		km := createKMS(t)
+
+		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP521TypeDER))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		expectedPrefix := "did:key:zWG"
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+
+		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
+			vdr.WithOption(KeyType, kms.ECDSAP521TypeIEEEP1363))
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
+	})
 }
 
 func assertEd25519Doc(t *testing.T, doc *did.Doc) {
@@ -66,6 +247,54 @@ func assertEd25519Doc(t *testing.T, doc *did.Doc) {
 
 	assertDualBase58Doc(t, doc, didKey, didKeyID, ed25519VerificationKey2018, pubKeyBase58,
 		agreementKeyID, x25519KeyAgreementKey2019, keyAgreementBase58)
+}
+
+func assertBBSDoc(t *testing.T, doc *did.Doc) {
+	// did key from  https://w3c-ccg.github.io/did-method-key/#example-6
+	const (
+		didKey       = "did:key:zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAkERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY"                                                                                                                                         //nolint:lll
+		didKeyID     = "did:key:zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAkERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY#zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAkERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY" //nolint:lll
+		pubKeyBase58 = "25EEkQtcLKsEzQ6JTo9cg4W7NHpaurn4Wg6LaNPFq6JQXnrP91SDviUz7KrJVMJd76CtAZFsRLYzvgX2JGxo2ccUHtuHk7ELCWwrkBDfrXCFVfqJKDootee9iVaF6NpdJtBE"                                                                                                                                                    //nolint:lll
+	)
+
+	assertDualBase58Doc(t, doc, didKey, didKeyID, bls12381G2Key2020, pubKeyBase58,
+		"", "", "")
+}
+
+func assertP256Doc(t *testing.T, doc *did.Doc) {
+	// did key from  https://w3c-ccg.github.io/did-method-key/#example-7
+	const (
+		didKey       = "did:key:zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z"
+		didKeyID     = "did:key:zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z#zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z" //nolint:lll
+		pubKeyBase58 = "3YRwdf868zp2t8c4oT4XdYfCihMsfR1zrVYyXS5SS4FwQ7wftDfoY5nohvhdgSk9LxyfzjTLzffJPmHgFBqizX9v"
+	)
+
+	assertDualBase58Doc(t, doc, didKey, didKeyID, jsonWebKey2020, pubKeyBase58,
+		"", "", "")
+}
+
+func assertP384Doc(t *testing.T, doc *did.Doc) {
+	// did key from  https://w3c-ccg.github.io/did-method-key/#example-8
+	const (
+		didKey       = "did:key:zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU"                                                                                                                                         //nolint:lll
+		didKeyID     = "did:key:zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU#zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU" //nolint:lll
+		pubKeyBase58 = "tAjHMcvoBXs3BSihDV85trHmstc3V3vTP7o2Si72eCWdVzeGgGvRd8h5neHEbqSL989h53yNj7M7wHckB2bKpGKQjnPDD7NphDa9nUUBggCB6aCWterfdXbH5DfWPZx5oXU"                                                                                                                                                     //nolint:lll
+	)
+
+	assertDualBase58Doc(t, doc, didKey, didKeyID, jsonWebKey2020, pubKeyBase58,
+		"", "", "")
+}
+
+func assertP521Doc(t *testing.T, doc *did.Doc) {
+	// did key from  https://w3c-ccg.github.io/did-method-key/#example-9
+	const (
+		didKey       = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK"                                                                                                                                                                                          //nolint:lll
+		didKeyID     = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK#zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK" //nolint:lll
+		pubKeyBase58 = "mTQ9pPr2wkKdiTHhVG7xmLwyJ5mrgq1FKcHFz2XJprs4zAPtjXWFiEz6vsscbseSEzGdjAVzcUhwdodT5cbrRjQqFdz8d1yYVqMHXsVCdCUrmWNNHcZLJeYCn1dCtQX9YRVdDFfnzczKFxDXe9HusLqBWTobbxVvdj9cTi7rSWVznP5Emfo"                                                                                                                                                                                                       //nolint:lll
+	)
+
+	assertDualBase58Doc(t, doc, didKey, didKeyID, jsonWebKey2020, pubKeyBase58,
+		"", "", "")
 }
 
 func assertBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, pubKeyBase58 string) {
@@ -109,8 +338,10 @@ func assertDualBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyTyp
 	// validate capabilityInvocation
 	assertPubKey(t, expectedPubKey, &doc.CapabilityInvocation[0].VerificationMethod)
 
-	// validate keyAgreement
-	assertPubKey(t, expectedKeyAgreement, &doc.KeyAgreement[0].VerificationMethod)
+	if len(doc.KeyAgreement) > 0 {
+		// validate keyAgreement
+		assertPubKey(t, expectedKeyAgreement, &doc.KeyAgreement[0].VerificationMethod)
+	}
 }
 
 func assertPubKey(t *testing.T, expectedPubKey, actualPubKey *did.VerificationMethod) {
@@ -119,4 +350,15 @@ func assertPubKey(t *testing.T, expectedPubKey, actualPubKey *did.VerificationMe
 	require.Equal(t, expectedPubKey.Type, actualPubKey.Type)
 	require.Equal(t, expectedPubKey.Controller, actualPubKey.Controller)
 	require.Equal(t, expectedPubKey.Value, actualPubKey.Value)
+}
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://test/key/uri", p)
+	require.NoError(t, err)
+
+	return k
 }

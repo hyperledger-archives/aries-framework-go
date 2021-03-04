@@ -18,14 +18,30 @@ import (
 )
 
 const (
+	// X25519PubKeyMultiCodec for Curve25519 public key in multicodec table.
 	// source: https://github.com/multiformats/multicodec/blob/master/table.csv.
-	ed25519pub = 0xed // Ed25519 public key in multicodec table
+	X25519PubKeyMultiCodec = 0xec
+	// ED25519PubKeyMultiCodec for Ed25519 public key in multicodec table.
+	ED25519PubKeyMultiCodec = 0xed
+	// BLS12381g2PubKeyMultiCodec for BLS12-381 G2 public key in multicodec table.
+	BLS12381g2PubKeyMultiCodec = 0xeb
+	// P256PubKeyMultiCodec for NIST P-256 public key in multicodec table.
+	P256PubKeyMultiCodec = 0x1200
+	// P384PubKeyMultiCodec for NIST P-384 public key in multicodec table.
+	P384PubKeyMultiCodec = 0x1201
+	// P521PubKeyMultiCodec for NIST P-521 public key in multicodec table.
+	P521PubKeyMultiCodec = 0x1202
 )
 
-// CreateDIDKey creates a did:key ID using the multicodec key fingerprint as per the did:key format spec found at:
-// https://w3c-ccg.github.io/did-method-key/#format.
+// CreateDIDKey calls CreateDIDKeyByCode with Ed25519 key code.
 func CreateDIDKey(pubKey []byte) (string, string) {
-	methodID := KeyFingerprint(ed25519pub, pubKey)
+	return CreateDIDKeyByCode(ED25519PubKeyMultiCodec, pubKey)
+}
+
+// CreateDIDKeyByCode creates a did:key ID using the multicodec key fingerprint as per the did:key format spec found at:
+// https://w3c-ccg.github.io/did-method-key/#format.
+func CreateDIDKeyByCode(code uint64, pubKey []byte) (string, string) {
+	methodID := KeyFingerprint(code, pubKey)
 	didKey := fmt.Sprintf("did:key:%s", methodID)
 	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
 
@@ -76,6 +92,9 @@ func PubKeyFromFingerprint(fingerprint string) ([]byte, uint64, error) {
 }
 
 // PubKeyFromDIDKey parses the did:key DID and returns the key's raw value.
+// note: for NIST P ECDSA keys, the raw value does not have the compression point.
+//	In order to use elliptic.Unmarshal() with the raw value, the uncompressed point ([]byte{4}) must be prepended.
+//	see https://github.com/golang/go/blob/master/src/crypto/elliptic/elliptic.go#L319.
 func PubKeyFromDIDKey(didKey string) ([]byte, error) {
 	id, err := did.Parse(didKey)
 	if err != nil {
@@ -95,7 +114,8 @@ func PubKeyFromDIDKey(didKey string) ([]byte, error) {
 	}
 
 	switch code {
-	case ed25519pub:
+	case X25519PubKeyMultiCodec, ED25519PubKeyMultiCodec, BLS12381g2PubKeyMultiCodec,
+		P256PubKeyMultiCodec, P384PubKeyMultiCodec, P521PubKeyMultiCodec:
 		break
 	default:
 		return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
