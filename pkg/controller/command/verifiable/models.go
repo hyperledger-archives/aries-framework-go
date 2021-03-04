@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
+	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -40,7 +41,8 @@ type IDArg struct {
 // ProofOptions is model to allow the dynamic proofing options by the user.
 type ProofOptions struct {
 	// VerificationMethod is the URI of the verificationMethod used for the proof.
-	VerificationMethod string `json:"verificationMethod,omitempty"`
+	VerificationMethod      string                                 `json:"verificationMethod,omitempty"`
+	SignatureRepresentation *docverifiable.SignatureRepresentation `json:"signatureRepresentation,omitempty"`
 	// Created date of the proof. If omitted current system time will be used.
 	Created *time.Time `json:"created,omitempty"`
 	// Domain is operational domain of a digital proof.

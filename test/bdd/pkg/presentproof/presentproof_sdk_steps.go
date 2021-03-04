@@ -352,8 +352,6 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 }
 
 func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error { // nolint: funlen
-	const bls12381g2pub = 0xeb
-
 	PIID, err := a.getActionID(prover)
 	if err != nil {
 		return err
@@ -367,8 +365,7 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 		return err
 	}
 
-	methodID := fingerprint.KeyFingerprint(bls12381g2pub, pubKey)
-	didKey := fmt.Sprintf("%s#%s", fmt.Sprintf("did:key:%s", methodID), methodID)
+	_, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, pubKey)
 
 	vc := &verifiable.Credential{
 		ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
@@ -416,11 +413,8 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "BbsBlsSignature2020",
 		SignatureRepresentation: verifiable.SignatureProofValue,
-		Suite: bbsblssignature2020.New(
-			suite.WithSigner(newBBSSigner(km, cr, kid)),
-			suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
-		),
-		VerificationMethod: didKey,
+		Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
+		VerificationMethod:      didKey,
 	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 
 	if err != nil {
@@ -440,11 +434,8 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 			return presentation.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 				SignatureType:           "BbsBlsSignature2020",
 				SignatureRepresentation: verifiable.SignatureProofValue,
-				Suite: bbsblssignature2020.New(
-					suite.WithSigner(newBBSSigner(km, cr, kid)),
-					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
-				),
-				VerificationMethod: didKey,
+				Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
+				VerificationMethod:      didKey,
 			}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 		}
 	}

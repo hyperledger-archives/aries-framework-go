@@ -499,11 +499,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite: bbsblssignature2020.New(
-				suite.WithSigner(signer),
-				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
-			),
-			VerificationMethod: "did:example:123456#key1",
+			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			VerificationMethod:      "did:example:123456#key1",
 		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc},
@@ -623,11 +620,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite: bbsblssignature2020.New(
-				suite.WithSigner(signer),
-				suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()),
-			),
-			VerificationMethod: "did:example:123456#key1",
+			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			VerificationMethod:      "did:example:123456#key1",
 		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc},

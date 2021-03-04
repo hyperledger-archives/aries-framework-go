@@ -13,14 +13,18 @@ import (
 	"io"
 	"strings"
 
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -123,6 +127,9 @@ const (
 	// JSONWebSignature2020 json web signature suite.
 	JSONWebSignature2020 = "JsonWebSignature2020"
 
+	// BbsBlsSignature2020 BBS signature suite.
+	BbsBlsSignature2020 = "BbsBlsSignature2020"
+
 	// Ed25519KeyType ed25519 key type.
 	Ed25519KeyType = "Ed25519"
 
@@ -132,6 +139,8 @@ const (
 	// Ed25519VerificationKey ED25519 verification key type.
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
+
+const bbsContext = "https://w3id.org/security/bbs/v1"
 
 type provable interface {
 	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
@@ -144,6 +153,7 @@ type keyResolver interface {
 type kmsSigner struct {
 	keyHandle interface{}
 	crypto    ariescrypto.Crypto
+	bbs       bool
 }
 
 func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
@@ -161,7 +171,24 @@ func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator strin
 	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
 }
 
+func (s *kmsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
+}
+
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
+	if s.bbs {
+		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
+	}
+
 	v, err := s.crypto.Sign(data, s.keyHandle)
 	if err != nil {
 		return nil, err
@@ -832,13 +859,22 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
+	case BbsBlsSignature2020:
+		s.bbs = true
+		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
 	default:
 		return fmt.Errorf("signature type unsupported %s", opts.SignatureType)
 	}
 
+	signatureRepresentation := verifiable.SignatureJWS
+
+	if opts.SignatureRepresentation == nil {
+		opts.SignatureRepresentation = &signatureRepresentation
+	}
+
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      opts.VerificationMethod,
-		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureRepresentation: *opts.SignatureRepresentation,
 		SignatureType:           opts.SignatureType,
 		Suite:                   signatureSuite,
 		Created:                 opts.Created,
@@ -847,7 +883,12 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 		Purpose:                 opts.proofPurpose,
 	}
 
-	err = p.AddLinkedDataProof(signingCtx)
+	bbsLoader, err := bbsJSONLDDocumentLoader()
+	if err != nil {
+		return err
+	}
+
+	err = p.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(bbsLoader))
 	if err != nil {
 		return fmt.Errorf("failed to add linked data proof: %w", err)
 	}
@@ -1038,3 +1079,115 @@ func getProofPurpose(method did.VerificationRelationship) (string, error) {
 
 	return "assertionMethod", nil
 }
+
+// TODO: context should not be loaded here, the loader should be defined once for the whole system.
+func bbsJSONLDDocumentLoader() (*ld.CachingDocumentLoader, error) {
+	loader := presexch.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
+	if err != nil {
+		return nil, err
+	}
+
+	loader.AddDocument(bbsContext, reader)
+
+	return loader, nil
+}
+
+const contextBBSContent = `{
+  "@context": {
+    "@version": 1.1,
+    "id": "@id",
+    "type": "@type",
+    "ldssk": "https://w3id.org/security#",
+    "BbsBlsSignature2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "proofValue": "sec:proofValue",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "BbsBlsSignatureProof2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "sec": "https://w3id.org/security#",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "challenge": "sec:challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "xsd:dateTime"
+        },
+        "domain": "sec:domain",
+        "nonce": "sec:nonce",
+        "proofPurpose": {
+          "@id": "sec:proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "sec:assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "sec:authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "proofValue": "sec:proofValue",
+        "verificationMethod": {
+          "@id": "sec:verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
+  }
+}`

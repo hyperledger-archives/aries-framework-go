@@ -1400,9 +1400,7 @@ func signVCWithBBS(r *require.Assertions, vc *verifiableapi.Credential) string {
 	pubKeyBytes, err := pubKey.Marshal()
 	r.NoError(err)
 
-	methodID := fingerprint.KeyFingerprint(0xeb, pubKeyBytes)
-	didKey := fmt.Sprintf("did:key:%s", methodID)
-	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
+	didKey, keyID := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, pubKeyBytes)
 
 	bbsSigner, err := newBBSSigner(privKey)
 	r.NoError(err)
