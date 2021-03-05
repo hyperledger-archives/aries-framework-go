@@ -11,7 +11,9 @@ on:
     paths:
     - 'pkg/doc/verifiable/**'
     - 'pkg/crypto/primitive/**'
+    - 'pkg/doc/signature/jsonld/**'
     - 'pkg/doc/signature/suite/bbsblssignature2020/**'
+    - 'pkg/doc/signature/suite/bbsblssignatureproof2020/**'
     - 'scripts/check_bbs_interop.sh'
     - '.github/workflows/bbs-interop.yml'
     - 'Makefile'
@@ -19,7 +21,9 @@ on:
     paths:
     - 'pkg/doc/verifiable/**'
     - 'pkg/crypto/primitive/**'
+    - 'pkg/doc/signature/jsonld/**'
     - 'pkg/doc/signature/suite/bbsblssignature2020/**'
+    - 'pkg/doc/signature/suite/bbsblssignatureproof2020/**'
     - 'scripts/check_bbs_interop.sh'
     - '.github/workflows/bbs-interop.yml'
     - 'Makefile'

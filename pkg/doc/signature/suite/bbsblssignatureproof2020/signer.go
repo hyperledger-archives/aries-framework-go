@@ -87,15 +87,9 @@ func prepareDocAndProof(doc map[string]interface{},
 		return nil, nil, errors.New("document does not have a proof")
 	}
 
-	docCopy := make(map[string]interface{})
+	delete(docCompacted, "proof")
 
-	for k, v := range doc {
-		docCopy[k] = v
-	}
-
-	delete(docCopy, "proof")
-
-	return docCopy, rawProofs, nil
+	return docCompacted, rawProofs, nil
 }
 
 func generateSignatureProof(blsSignature map[string]interface{}, resolver keyResolver, nonce []byte,
@@ -208,7 +202,9 @@ func buildDocVerificationData(docCompacted, revealDoc map[string]interface{},
 		return nil, fmt.Errorf("create verify document data: %w", err)
 	}
 
-	revealDocumentResult, err := jsonld.Default().Frame(docCompacted, revealDoc, jsonld.WithFrameBlankNodes())
+	optionsWithBlankFrames := append(opts, jsonld.WithFrameBlankNodes())
+
+	revealDocumentResult, err := jsonld.Default().Frame(docCompacted, revealDoc, optionsWithBlankFrames...)
 	if err != nil {
 		return nil, fmt.Errorf("frame doc with reveal doc: %w", err)
 	}
