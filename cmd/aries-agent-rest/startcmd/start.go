@@ -20,6 +20,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
@@ -54,7 +55,7 @@ const (
 	databaseTypeEnvKey        = "ARIESD_DATABASE_TYPE"
 	databaseTypeFlagShorthand = "q"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem. " +
+		"Supported options: mem, leveldb. " +
 		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
 
 	databasePrefixFlagName      = "database-prefix"
@@ -158,7 +159,8 @@ const (
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
-	databaseTypeMemOption = "mem"
+	databaseTypeMemOption     = "mem"
+	databaseTypeLevelDBOption = "leveldb"
 )
 
 var (
@@ -188,6 +190,9 @@ type dbParam struct {
 var supportedStorageProviders = map[string]func(prefix string) (storage.Provider, error){
 	databaseTypeMemOption: func(_ string) (storage.Provider, error) { // nolint:unparam
 		return mem.NewProvider(), nil
+	},
+	databaseTypeLevelDBOption: func(path string) (storage.Provider, error) { // nolint:unparam
+		return leveldb.NewProvider(path), nil
 	},
 }
 
