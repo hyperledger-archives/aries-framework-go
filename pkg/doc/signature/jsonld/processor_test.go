@@ -1567,3 +1567,43 @@ func TestProcessor_Frame(t *testing.T) {
 	},
 		framedView["credentialSubject"])
 }
+
+func TestTransformBlankNodes(t *testing.T) {
+	const (
+		a  = "_:c14n0"
+		ae = "<urn:bnid:_:c14n0>"
+		b  = "_:c14n0 "
+		be = "<urn:bnid:_:c14n0> "
+		c  = "abcd _:c14n0 "
+		ce = "abcd <urn:bnid:_:c14n0> "
+		d  = "abcd _:c14n0 efgh"
+		de = "abcd <urn:bnid:_:c14n0> efgh"
+		e  = "abcd _:c14n23 efgh"
+		ee = "abcd <urn:bnid:_:c14n23> efgh"
+		f  = "abcd _:c14n efgh"
+		fe = "abcd <urn:bnid:_:c14n> efgh"
+		g  = ""
+		ge = ""
+	)
+
+	at := TransformBlankNode(a)
+	require.Equal(t, ae, at)
+
+	bt := TransformBlankNode(b)
+	require.Equal(t, be, bt)
+
+	ct := TransformBlankNode(c)
+	require.Equal(t, ce, ct)
+
+	dt := TransformBlankNode(d)
+	require.Equal(t, de, dt)
+
+	et := TransformBlankNode(e)
+	require.Equal(t, ee, et)
+
+	ft := TransformBlankNode(f)
+	require.Equal(t, fe, ft)
+
+	gt := TransformBlankNode(g)
+	require.Equal(t, ge, gt)
+}
