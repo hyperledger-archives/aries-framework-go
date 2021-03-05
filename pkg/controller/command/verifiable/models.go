@@ -134,8 +134,3 @@ type DeriveCredentialRequest struct {
 	// SkipVerify can be used to skip verification of `Credential` provided.
 	SkipVerify bool `json:"skipVerify,omitempty"`
 }
-
-// DeriveCredentialResponse is model for derive credential response.
-type DeriveCredentialResponse struct {
-	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
-}

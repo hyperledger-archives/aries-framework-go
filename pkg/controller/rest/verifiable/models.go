@@ -233,5 +233,5 @@ type deriveCredentialReq struct { // nolint: unused,deadcode
 type deriveCredentialRes struct {
 
 	// in: body
-	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
+	verifiable.Credential
 }

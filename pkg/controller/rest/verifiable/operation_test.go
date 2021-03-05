@@ -1173,9 +1173,8 @@ func TestDeriveCredential(t *testing.T) {
 		r.NotEmpty(response.VerifiableCredential)
 
 		// verify VC
-		derived, err := verifiableapi.ParseCredential(response.VerifiableCredential, verifiableapi.WithPublicKeyFetcher(
-			verifiableapi.NewDIDKeyResolver(mockVDR).PublicKeyFetcher(),
-		))
+		derived, err := verifiableapi.ParseCredential([]byte(response.VerifiableCredential),
+			verifiableapi.WithPublicKeyFetcher(verifiableapi.NewDIDKeyResolver(mockVDR).PublicKeyFetcher()))
 
 		// check expected proof
 		r.NoError(err)
