@@ -119,7 +119,7 @@ func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration
 
 	err = store.Put(storeConfigKey, configBytes)
 	if err != nil {
-		return fmt.Errorf("failed to put store store configuration: %w", err)
+		return fmt.Errorf("failed to put store configuration: %w", err)
 	}
 
 	return nil

@@ -53,7 +53,7 @@ check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesCouchDBStorageTest"
 check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesEDVStorageTest"
 }
 
-## Running aries-framework-go unit test
+# Running aries-framework-go unit test
 PKGS=$(go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | grep -v /mocks | grep -v /aries-js-worker)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
@@ -70,11 +70,17 @@ PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storageutil/.
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 
+# Running storage/leveldb unit tests
+cd ../storage/leveldb/
+PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storage/leveldb/... 2> /dev/null)
+$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+
 if [ "$SKIP_DOCKER" = true ]; then
     echo "Skipping edv unit tests"
 else
   # Running storage/edv unit tests
-  cd ../..
+  cd ../../..
 
   . "$ROOT"/scripts/start_edv_test_docker_images.sh
 
