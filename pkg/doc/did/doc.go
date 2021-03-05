@@ -341,9 +341,13 @@ type Proof struct {
 // UnmarshalJSON unmarshals a DID Document.
 func (doc *Doc) UnmarshalJSON(data []byte) error {
 	_doc, err := ParseDocument(data)
+	if err != nil {
+		return fmt.Errorf("failed to parse did doc: %w", err)
+	}
+
 	*doc = *_doc
 
-	return err
+	return nil
 }
 
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
