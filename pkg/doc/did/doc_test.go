@@ -1152,6 +1152,15 @@ func TestMarshalJSON(t *testing.T) {
 	}
 }
 
+func TestUnmarshalJSON(t *testing.T) {
+	t.Run("does not panic if parsing fails", func(t *testing.T) {
+		d := &Doc{}
+		err := d.UnmarshalJSON(nil)
+
+		require.Error(t, err)
+	})
+}
+
 func TestNewPublicKeyFromJWK(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
