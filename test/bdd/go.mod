@@ -25,7 +25,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210305152013-b276ca413681
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
-	github.com/piprate/json-gold v0.3.1-0.20201222165305-f4ce31c02ca3
+	github.com/piprate/json-gold v0.4.0
 	github.com/trustbloc/sidetree-core-go v0.1.6-0.20210114211953-cf95801cfe3e
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect

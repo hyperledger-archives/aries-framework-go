@@ -197,6 +197,11 @@ func verifyProofVC(pubKeyB64, vcJSON string) error {
 func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) {
 	pubKeyBytes := base58.Decode(pubKeyB64)
 
+	nonceBytes, err := base64.StdEncoding.DecodeString(nonce)
+	if err != nil {
+		return nil, err
+	}
+
 	jsonldLoader := createLDPBBS2020DocumentLoader()
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldLoader),
@@ -212,7 +217,7 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 		return nil, fmt.Errorf("unmarshal reveal doc: %w", err)
 	}
 
-	vcSD, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, []byte(nonce),
+	vcSD, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, nonceBytes,
 		verifiable.WithJSONLDDocumentLoader(jsonldLoader),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")))
 	if err != nil {
