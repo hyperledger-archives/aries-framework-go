@@ -2519,7 +2519,7 @@ func TestCommand_DeriveCredential(t *testing.T) {
 			Nonce:      nonce,
 		}))
 
-		var response DeriveCredentialResponse
+		var response Credential
 		err = json.Unmarshal(b.Bytes(), &response)
 		r.NoError(err)
 
@@ -2527,7 +2527,7 @@ func TestCommand_DeriveCredential(t *testing.T) {
 		r.NotEmpty(response.VerifiableCredential)
 
 		// verify VC
-		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
+		derived, err := verifiable.ParseCredential([]byte(response.VerifiableCredential), verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(mockVDR).PublicKeyFetcher(),
 		))
 
