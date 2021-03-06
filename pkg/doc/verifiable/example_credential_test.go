@@ -679,8 +679,8 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//		"givenName": "JOHN",
 	//		"id": "did:example:b34ca6cd37bbf23",
 	//		"type": [
-	//			"PermanentResident",
-	//			"Person"
+	//			"Person",
+	//			"PermanentResident"
 	//		]
 	//	},
 	//	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
@@ -696,8 +696,8 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	//		"verificationMethod": "did:example:123456#key1"
 	//	},
 	//	"type": [
-	//		"VerifiableCredential",
-	//		"PermanentResidentCard"
+	//		"PermanentResidentCard",
+	//		"VerifiableCredential"
 	//	]
 	//}
 }

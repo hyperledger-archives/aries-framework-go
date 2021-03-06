@@ -15,8 +15,11 @@ const {documentLoaders} = require("jsonld");
 
 const bbsContext = JSON.parse(fs.readFileSync("data/context/ldp-bbs2020.jsonld", 'utf-8'));
 const citizenVocab = JSON.parse(fs.readFileSync("data/context/citizenship.jsonld", 'utf-8'));
+const vcexampleVocab = JSON.parse(fs.readFileSync("data/context/vcexample.jsonld", 'utf-8'));
 const keyPairOptions = JSON.parse(fs.readFileSync("data/keyPair.json", 'utf-8'));
+const keyPair2Options = JSON.parse(fs.readFileSync("data/keyPair2.json", 'utf-8'));
 const revealDocument = JSON.parse(fs.readFileSync("data/revealDocument.json", 'utf-8'));
+const case19RevealDocument = JSON.parse(fs.readFileSync("data/case-19-reveal.json", 'utf-8'));
 
 const documents = {
     "did:example:489398593#test": keyPairOptions,
@@ -25,8 +28,15 @@ const documents = {
         "id": "did:example:489398593",
         "assertionMethod": ["did:example:489398593#test"]
     },
+    "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2#zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2": keyPair2Options,
+    "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2": {
+        "@context": "https://w3id.org/security/v2",
+        "id": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2",
+        "assertionMethod": ["did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2#zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2"]
+    },
     "https://w3id.org/security/bbs/v1": bbsContext,
-    "https://w3id.org/citizenship/v1": citizenVocab
+    "https://w3id.org/citizenship/v1": citizenVocab,
+    "https://www.w3.org/2018/credentials/examples/v1": vcexampleVocab
 };
 
 const customDocLoader = (url) => {
@@ -91,7 +101,7 @@ describe("BBS+ interop fixtures", function () {
 
         let signedVC = await signAries(keyPairOptions.privateKeyBase58, JSON.stringify(vc), "did:example:489398593#test");
 
-        const nonce = "nonce";
+        const nonce = "lEixQKDQvRecCifKl789TQj+Ii6YWDLSwn3AxR0VpPJ1QV5htod/0VCchVf1zVM0y2E=";
         let derivedProof = await deriveProofAries(keyPairOptions.publicKeyBase58, signedVC, JSON.stringify(revealDocument), nonce);
 
         let verified = await verifyMattr(JSON.parse(derivedProof), {
@@ -119,6 +129,37 @@ describe("BBS+ interop fixtures", function () {
 
         await verifyProofAries(keyPairOptions.publicKeyBase58, JSON.stringify(derivedProof));
     })
+
+    it('case 18->19: derive signature proof with Aries and verify with Mattr', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/case-18.json", 'utf-8'));
+
+        const nonce = "lEixQKDQvRecCifKl789TQj+Ii6YWDLSwn3AxR0VpPJ1QV5htod/0VCchVf1zVM0y2E=";
+
+        let derivedProof = await deriveProofAries(keyPair2Options.publicKeyBase58, JSON.stringify(vc), JSON.stringify(case19RevealDocument), nonce);
+
+        let verified = await verifyMattr(JSON.parse(derivedProof), {
+            suite: new BbsBlsSignatureProof2020(),
+            purpose: new purposes.AssertionProofPurpose(),
+            documentLoader
+        });
+        assert.isTrue(verified.verified);
+    })
+
+    it('case 18->19: derive signature proof with Mattr and verify with Aries', async function () {
+        const vc = JSON.parse(fs.readFileSync("data/case-18.json", 'utf-8'));
+        const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+
+        const nonce = "lEixQKDQvRecCifKl789TQj+Ii6YWDLSwn3AxR0VpPJ1QV5htod/0VCchVf1zVM0y2E=";
+        let nonceBuffer = Buffer.from(nonce, "base64")
+
+        const derivedProof = await deriveProofMattr(vc, case19RevealDocument, {
+            suite: new BbsBlsSignatureProof2020(),
+            nonce: new Uint8Array(nonceBuffer),
+            documentLoader
+        });
+
+        await verifyProofAries(keyPair2Options.publicKeyBase58, JSON.stringify(derivedProof));
+    })    
 })
 
 function sleep(ms) {

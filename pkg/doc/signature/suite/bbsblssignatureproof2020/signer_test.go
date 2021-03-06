@@ -406,7 +406,6 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		require.NotEmpty(t, proofs[0]["proofValue"])
 
 		case18DerivationBytes, err := json.Marshal(docWithSelectiveDisclosure)
-		t.Log(string(case18DerivationBytes))
 
 		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes,"Bls12381G2Key2020")
 		docLoader := createLDPBBS2020DocumentLoader()

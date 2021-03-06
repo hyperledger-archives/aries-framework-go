@@ -389,7 +389,7 @@ type BBSG2SignatureVerifier struct {
 func (v *BBSG2SignatureVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
-	return bbs.Verify(splitMessageIntoLines(string(doc)), signature, pubKeyValue.Value)
+	return bbs.Verify(splitMessageIntoLines(string(doc), false), signature, pubKeyValue.Value)
 }
 
 // NewBBSG2SignatureProofVerifier creates a new BBSG2SignatureProofVerifier.
@@ -413,18 +413,25 @@ type BBSG2SignatureProofVerifier struct {
 func (v *BBSG2SignatureProofVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
-	return bbs.VerifyProof(splitMessageIntoLines(string(doc)), signature, v.nonce, pubKeyValue.Value)
+	return bbs.VerifyProof(splitMessageIntoLines(string(doc), true),
+		signature, v.nonce, pubKeyValue.Value)
 }
 
-func splitMessageIntoLines(msg string) [][]byte {
+func splitMessageIntoLines(msg string, transformBlankNodes bool) [][]byte {
 	rows := strings.Split(msg, "\n")
 
 	msgs := make([][]byte, 0, len(rows))
 
-	for i := range rows {
-		if strings.TrimSpace(rows[i]) != "" {
-			msgs = append(msgs, []byte(transformFromBlankNode(rows[i])))
+	for _, row := range rows {
+		if strings.TrimSpace(row) == "" {
+			continue
 		}
+
+		if transformBlankNodes {
+			row = transformFromBlankNode(row)
+		}
+
+		msgs = append(msgs, []byte(row))
 	}
 
 	return msgs

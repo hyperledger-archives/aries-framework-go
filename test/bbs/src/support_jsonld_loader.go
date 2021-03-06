@@ -38,6 +38,12 @@ func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
 	addJSONLDCachedContextFromFile(loader,
 		"https://w3id.org/citizenship/v1", "citizenship.jsonld")
 
+	addJSONLDCachedContextFromFile(loader,
+		"https://www.w3.org/2018/credentials/examples/v1", "vcexample.jsonld")
+
+	addJSONLDCachedContextFromFile(loader,
+		"https://www.w3.org/ns/odrl.jsonld", "ordl.jsonld")
+
 	return loader
 }
 

@@ -434,19 +434,12 @@ func (p *Processor) transformBlankNodes(docMap map[string]interface{},
 		return docMap, nil
 	}
 
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
-
-	docBytes, err := proc.ToRDF(docMap, options)
+	docBytes, err := p.GetCanonicalDocument(docMap, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	rows := splitMessageIntoLines(docBytes.(string))
+	rows := splitMessageIntoLines(string(docBytes))
 
 	for i, row := range rows {
 		rows[i] = TransformBlankNode(row)
