@@ -5,8 +5,8 @@
 #
 
 # Release Parameters
-BASE_VERSION=0.1.7
-IS_RELEASE=false
+BASE_VERSION=0.1.6
+IS_RELEASE=true
 
 ARCH=$(go env GOARCH)
 
@@ -19,5 +19,5 @@ else
 fi
 
 export IS_RELEASE
-export AGENT_IMAGE_TAG=$ARCH-$PROJECT_VERSION
+export AGENT_IMAGE_TAG=$PROJECT_VERSION
 export NPM_PKG_TAG=$PROJECT_VERSION
