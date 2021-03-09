@@ -231,14 +231,13 @@ func (s *ControllerSteps) validateCredential(holder, credential string) error {
 		util.FilterStateID("done"),
 		util.FilterPIID(s.nameToPIID[credential]),
 	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
 
 	if !reflect.DeepEqual(msg.Message.Properties["names"], []interface{}{credential}) {
 		return fmt.Errorf("properties: expected names [%s], got %v", credential,
 			msg.Message.Properties["names"])
-	}
-
-	if err != nil {
-		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
 	url, ok := s.bddContext.GetControllerURL(holder)
