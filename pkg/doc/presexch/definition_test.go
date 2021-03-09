@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -1656,7 +1657,7 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 	return linesBytes
 }
 
-func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+func createTestJSONLDDocumentLoader() *jld.CachingDocumentLoader {
 	loader := CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))

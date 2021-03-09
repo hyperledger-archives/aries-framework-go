@@ -21,8 +21,8 @@ func NewDefaultCachingDocumentLoader() *CachingDocumentLoader {
 
 // NewCachingDocumentLoaderWithRemote creates a Document Loader with remote enabled.
 // TODO: remove once framework is updated to preload context from stores.
-func NewCachingDocumentLoaderWithRemote() *ld.CachingDocumentLoader {
-	return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+func NewCachingDocumentLoaderWithRemote() *CachingDocumentLoader {
+	return NewCachingDocLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
 }
 
 type disabledNetworkTransport struct{}

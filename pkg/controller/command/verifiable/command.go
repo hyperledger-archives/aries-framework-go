@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -1088,7 +1089,7 @@ func getProofPurpose(method did.VerificationRelationship) (string, error) {
 }
 
 // TODO: context should not be loaded here, the loader should be defined once for the whole system.
-func bbsJSONLDDocumentLoader() (*ld.CachingDocumentLoader, error) {
+func bbsJSONLDDocumentLoader() (*jld.CachingDocumentLoader, error) {
 	loader := presexch.CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))

@@ -22,7 +22,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hyperledger/aries-framework-go v0.1.6-0.20210304193329-f56b2cebc386
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210305152013-b276ca413681
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210305152013-b276ca413681
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210310001230-bc1bd8ea889c
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/piprate/json-gold v0.4.0

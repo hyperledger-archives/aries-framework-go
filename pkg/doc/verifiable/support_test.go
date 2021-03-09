@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -249,7 +250,7 @@ func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 //nolint:gochecknoglobals
 var testDocumentLoader = createTestJSONLDDocumentLoader()
 
-func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+func createTestJSONLDDocumentLoader() *jld.CachingDocumentLoader {
 	loader := CachingJSONLDLoader()
 
 	addJSONLDCachedContextFromFile(loader,
@@ -286,7 +287,7 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 	return loader
 }
 
-func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
+func addJSONLDCachedContextFromFile(loader *jld.CachingDocumentLoader, contextURL, contextFile string) {
 	contextContent, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
 		jsonldContextPrefix, contextFile)))
 	if err != nil {
@@ -296,7 +297,7 @@ func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL
 	addJSONLDCachedContext(loader, contextURL, string(contextContent))
 }
 
-func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contextContent string) {
+func addJSONLDCachedContext(loader *jld.CachingDocumentLoader, contextURL, contextContent string) {
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextContent))
 	if err != nil {
 		panic(err)
