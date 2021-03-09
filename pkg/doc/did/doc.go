@@ -1322,7 +1322,7 @@ func BuildDoc(opts ...DocOption) *Doc {
 
 // CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded base JSON-LD DID and security contexts.
 func CachingJSONLDLoader() ld.DocumentLoader {
-	loader := jld.NewCachingDocumentLoader()
+	loader := jld.NewDefaultCachingDocumentLoader()
 
 	cacheContext := func(source, url string) {
 		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck

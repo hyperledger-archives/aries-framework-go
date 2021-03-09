@@ -8,8 +8,10 @@ package jsonld
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
@@ -86,7 +88,7 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedSampleVP_extraContext,
 				opts: []ProcessorOpts{
 					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
-					WithDocumentLoaderCache(createContextCache("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
+					WithDocumentLoaderCache(createContextCache()),
 				},
 			},
 			{
@@ -95,8 +97,8 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedSampleVP_extraContext,
 				opts: []ProcessorOpts{
 					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
-					WithDocumentLoaderCache(createContextCache("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
-					WithDocumentLoader(jsonld.NewCachingDocumentLoader()),
+					WithDocumentLoaderCache(createContextCache()),
+					WithDocumentLoader(jsonld.NewDefaultCachingDocumentLoader()),
 				},
 			},
 			{
@@ -105,8 +107,8 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedSampleVP_extraContext,
 				opts: []ProcessorOpts{
 					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
-					WithDocumentLoaderCache(createContextCache("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
-					WithDocumentLoader(jsonld.NewCachingDocumentLoader()),
+					WithDocumentLoaderCache(createContextCache()),
+					WithDocumentLoader(jsonld.NewDefaultCachingDocumentLoader()),
 				},
 			},
 			{
@@ -171,10 +173,27 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedJSONCredential,
 			},
 			{
-				name:   "canonizing sample VC document with proper proper context but remove all invalid RDF",
+				name:   "canonizing sample VC document with proper context but remove all invalid RDF",
 				doc:    jsonVCWithProperContexts,
 				result: canonizedJSONCredential,
 				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2 but remove all invalid RDF",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2 with document loader cache",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+				opts:   []ProcessorOpts{WithDocumentLoaderCache(map[string]interface{}{})},
 			},
 			{
 				name:   "canonizing sample VC document with improper context",
@@ -265,8 +284,8 @@ func TestCompact(t *testing.T) {
 	})
 }
 
-func createInMemoryDocumentLoader(url, inMemoryContext string) *ld.CachingDocumentLoader {
-	loader := jsonld.NewCachingDocumentLoader()
+func createInMemoryDocumentLoader(url, inMemoryContext string) *jsonld.CachingDocumentLoader {
+	loader := jsonld.NewDefaultCachingDocumentLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(inMemoryContext))
 	if err != nil {
@@ -278,9 +297,9 @@ func createInMemoryDocumentLoader(url, inMemoryContext string) *ld.CachingDocume
 	return loader
 }
 
-func createContextCache(url, inMemoryContext string) map[string]interface{} {
+func createContextCache() map[string]interface{} {
 	return map[string]interface{}{
-		url: inMemoryContext,
+		"http://localhost:8652/dummy.jsonld": extraJSONLDContext,
 	}
 }
 
@@ -289,6 +308,15 @@ func stringToMap(t *testing.T, s string) map[string]interface{} {
 
 	err := json.Unmarshal([]byte(s), &m)
 	require.NoError(t, err)
+
+	return m
+}
+
+func stringToMapBench(b *testing.B, s string) map[string]interface{} {
+	var m map[string]interface{}
+
+	err := json.Unmarshal([]byte(s), &m)
+	require.NoError(b, err)
 
 	return m
 }
@@ -686,6 +714,25 @@ const jsonVCWithProperContexts = `{
 }`
 
 // nolint
+const jsonVCWithProperContexts2 = `{
+    "@context": "https://w3id.org/security/v2",
+    "id": "http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865",
+    "allowedAction": ["read", "write"],
+    "invocationTarget": {
+        "ID": "http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865",
+        "Type": "urn:edv:document"
+    },
+    "proof": [{
+        "created": "2020-12-04T15:28:14.673975717-05:00",
+        "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..6OfIULug35ZmoU7lysChVpD6sjYfV71UwxqIZ8u0woYSIzRtzCo3MsZJw6cGIZMEaMssnQyRqIzo8B0yHEL2Dw",
+        "nonce": "da7CcJahAdFG0GXN-JnS2f2mywcFNtaLyXtGVqku2DwVwUaJbGpUQjhlNi5kDbS4ZMi2cNhEN5ac6LponS-C9w",
+        "proofPurpose": "capabilityDelegation",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:key:z6MkmkFTTczYKzU94t45sG65iZi2HA21tAU9ns8bXSmBEap4#z6MkmkFTTczYKzU94t45sG65iZi2HA21tAU9ns8bXSmBEap4"
+    }]
+}`
+
+// nolint
 const jsonVCWithIncorrectContexts = `{
     "@context": [
         "https://www.w3.org/2018/credentials/v1", 
@@ -743,6 +790,19 @@ _:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3c-ccg.githu
 _:c14n1 <https://w3id.org/security#jws> "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PyBEIah5rLOUIkfa3bDkEccDPn6RD9iL2n9Hndwgionu5ZcghR3ekt-4UjBKIhU7VMNcggxOQGD1srAIFlCEBw" _:c14n2 .
 _:c14n1 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> _:c14n2 .
 _:c14n1 <https://w3id.org/security#verificationMethod> <did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L3lCQUJlV0RHakJicUQ3eTNUWTgwc2Nrb3FUR3V0VS1TSC1CRDF5aEM4RTA9> _:c14n2 .
+`
+
+// nolint
+const canonizedJSONCredential2 = `<http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865> <https://w3id.org/security#allowedAction> "read" .
+<http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865> <https://w3id.org/security#allowedAction> "write" .
+<http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865> <https://w3id.org/security#invocationTarget> _:c14n2 .
+<http://www.example.org/foo/documents/a3480d17-df7f-449f-9480-e2c35e20a865> <https://w3id.org/security#proof> _:c14n1 .
+_:c14n0 <http://purl.org/dc/terms/created> "2020-12-04T15:28:14.673975717-05:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> _:c14n1 .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#Ed25519Signature2018> _:c14n1 .
+_:c14n0 <https://w3id.org/security#jws> "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..6OfIULug35ZmoU7lysChVpD6sjYfV71UwxqIZ8u0woYSIzRtzCo3MsZJw6cGIZMEaMssnQyRqIzo8B0yHEL2Dw" _:c14n1 .
+_:c14n0 <https://w3id.org/security#nonce> "da7CcJahAdFG0GXN-JnS2f2mywcFNtaLyXtGVqku2DwVwUaJbGpUQjhlNi5kDbS4ZMi2cNhEN5ac6LponS-C9w" _:c14n1 .
+_:c14n0 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#capabilityDelegationMethod> _:c14n1 .
+_:c14n0 <https://w3id.org/security#verificationMethod> <did:key:z6MkmkFTTczYKzU94t45sG65iZi2HA21tAU9ns8bXSmBEap4#z6MkmkFTTczYKzU94t45sG65iZi2HA21tAU9ns8bXSmBEap4> _:c14n1 .
 `
 
 // nolint
@@ -1606,4 +1666,263 @@ func TestTransformBlankNodes(t *testing.T) {
 
 	gt := TransformBlankNode(g)
 	require.Equal(t, ge, gt)
+}
+
+func BenchmarkWithDocumentLoaderCache(b *testing.B) {
+	b.Run("Benchmark get canonical document", func(b *testing.B) {
+		tests := []struct {
+			name   string
+			doc    string
+			result string
+			opts   []ProcessorOpts
+		}{
+			{
+				name:   "canonizing document with 1 incorrect RDF",
+				doc:    jsonLdWithIncorrectRDF,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF",
+				doc:    jsonLdWithIncorrectRDF,
+				result: canonizedIncorrectRDF,
+				opts:   []ProcessorOpts{},
+			},
+			{
+				name:   "canonizing valid document 1",
+				doc:    jsonLdSample1,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing valid document 1",
+				doc:    jsonLdSample1,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []ProcessorOpts{},
+			},
+			{
+				name:   "canonizing sample proof document",
+				doc:    jsonLDProofSample,
+				result: canonizedJsonLDProof,
+			},
+			{
+				name:   "canonizing sample document with multiple incorrect RDFs 1",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_filtered,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample document with extra context",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(),
+					WithExternalContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra dummy context and in-memory document loader",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoader(createInMemoryDocumentLoader("http://localhost:8652/dummy.jsonld", extraJSONLDContext)),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra cached dummy context",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoaderCache(createContextCache()),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra cached dummy context and cached document loader",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoaderCache(createContextCache()),
+					WithDocumentLoader(jsonld.NewDefaultCachingDocumentLoader()),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra cached dummy context and non caching document loader",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoaderCache(createContextCache()),
+					WithDocumentLoader(jsonld.NewDefaultCachingDocumentLoader()),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra byte cached dummy context",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoaderCache(map[string]interface{}{
+						"http://localhost:8652/dummy.jsonld": []byte(extraJSONLDContext),
+					}),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra map cached dummy context",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoaderCache(map[string]interface{}{
+						"http://localhost:8652/dummy.jsonld": stringToMapBench(b, extraJSONLDContext),
+					}),
+				},
+			},
+			{
+				name:   "canonizing sample document with extra io.Reader cached dummy context",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{
+					WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy123.jsonld"),
+					WithDocumentLoaderCache(map[string]interface{}{
+						// see Note comment of WithDocumentLoaderCache() for more information.
+						// SyncReader is used instead for thread-safety.
+						"http://localhost:8652/dummy123.jsonld": &SyncReader{
+							strings.NewReader(extraJSONLDContext),
+							[]byte(nil), *new(sync.Mutex), // nolint:gocritic // *new used here for testing only
+						},
+					}),
+				},
+			},
+			{
+				name:   "canonizing sample document with multiple incorrect RDFs 3",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP,
+			},
+			{
+				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (array type)",
+				doc:    invalidRDFMessingUpLabelPrefixCounter,
+				result: canonizedSampleVP2,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (string type)",
+				doc:    invalidRDFMessingUpLabelPrefixCounterStringType,
+				result: canonizedSampleVP2,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF11",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_allfiltered,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context",
+				doc:    jsonVCWithProperContexts,
+				result: canonizedJSONCredential,
+			},
+			{
+				name:   "canonizing sample VC document with proper context but remove all invalid RDF",
+				doc:    jsonVCWithProperContexts,
+				result: canonizedJSONCredential,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2 but remove all invalid RDF",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context 2 with document loader cache",
+				doc:    jsonVCWithProperContexts2,
+				result: canonizedJSONCredential2,
+				opts:   []ProcessorOpts{WithDocumentLoaderCache(map[string]interface{}{})},
+			},
+			{
+				name:   "canonizing sample VC document with improper context",
+				doc:    jsonVCWithIncorrectContexts,
+				result: canonizedJSONCredential_notfiltered,
+				opts:   []ProcessorOpts{},
+			},
+			{
+				name:   "canonizing sample VC document with improper context but remove all invalid RDF",
+				doc:    jsonVCWithIncorrectContexts,
+				result: canonizedJSONCredential_filtered,
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing empty document",
+				doc:    `{}`,
+				result: "",
+			},
+		}
+
+		for _, test := range tests {
+			tc := test
+			var r string
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					var jsonldDoc map[string]interface{}
+					err := json.Unmarshal([]byte(tc.doc), &jsonldDoc)
+					require.NoError(b, err)
+
+					response, err := NewProcessor(defaultAlgorithm).GetCanonicalDocument(jsonldDoc,
+						append([]ProcessorOpts{jsonldCache}, tc.opts...)...)
+
+					require.NoError(b, err)
+					require.EqualValues(b, tc.result, string(response))
+				}
+				r = tc.result
+			})
+
+			result = r
+		}
+	})
+}
+
+// nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks.
+var result string
+
+// SyncReader wraps an io.Reader to be used in a tread-safe fashion.
+// implementation adaptation of https://gist.github.com/jmackie/11570bdcd8a4c10d72619a5e1f21c5f8.
+type SyncReader struct {
+	io.Reader
+
+	s   []byte     // buffered io.Reader data
+	mux sync.Mutex // could maybe be replaced by an RWMutex
+}
+
+// Read data in a thread-safe fashion.
+func (r *SyncReader) Read(data []byte) (int, error) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	// Declare the returned error here. It is only assigned by calls to
+	// r.Reader.Read (`if` block below). That way callers see the io.EOF
+	// error only when they reach the limit of r.s
+	var err error
+
+	// If the client has asked for more data than is available, we need to
+	// grow the buffer.
+	if int64(len(data)) > int64(len(r.s)) {
+		cp := make([]byte, len(data))
+
+		var n int // don't shadow err
+
+		n, err = r.Reader.Read(cp)
+		r.s = append(r.s, cp[:n]...)
+	}
+
+	n := copy(data, r.s)
+
+	return n, err
 }

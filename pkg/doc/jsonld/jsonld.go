@@ -14,9 +14,9 @@ import (
 	"github.com/piprate/json-gold/ld"
 )
 
-// NewCachingDocumentLoader creates a Document Loader with default framework options.
-func NewCachingDocumentLoader() *ld.CachingDocumentLoader {
-	return ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(httpclient()))
+// NewDefaultCachingDocumentLoader creates a Document Loader with default framework options.
+func NewDefaultCachingDocumentLoader() *CachingDocumentLoader {
+	return NewCachingDocLoader(ld.NewRFC7324CachingDocumentLoader(httpclient()))
 }
 
 // NewCachingDocumentLoaderWithRemote creates a Document Loader with remote enabled.

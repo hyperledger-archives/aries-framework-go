@@ -381,7 +381,7 @@ func mapDIDKeyType(proofType string) string {
 
 // CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded VC and security JSON-LD contexts.
 func CachingJSONLDLoader() ld.DocumentLoader {
-	loader := jld.NewCachingDocumentLoader()
+	loader := jld.NewDefaultCachingDocumentLoader()
 
 	cacheContext := func(source, url string) {
 		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck

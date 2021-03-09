@@ -18,7 +18,7 @@ import (
 
 const jsonldContextPrefix = "testdata/context"
 
-func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
+func addJSONLDCachedContextFromFile(loader *jsonld.CachingDocumentLoader, contextURL, contextFile string) {
 	contextContent, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
 		jsonldContextPrefix, contextFile)))
 	if err != nil {
@@ -29,7 +29,7 @@ func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL
 }
 
 func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
-	loader := jsonld.NewCachingDocumentLoader()
+	loader := jsonld.NewDefaultCachingDocumentLoader()
 
 	addJSONLDCachedContextFromFile(loader,
 		"https://www.w3.org/2018/credentials/v1", "vc.jsonld")
@@ -49,7 +49,7 @@ func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
 	return loader
 }
 
-func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contextContent string) {
+func addJSONLDCachedContext(loader *jsonld.CachingDocumentLoader, contextURL, contextContent string) {
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextContent))
 	if err != nil {
 		panic(err)

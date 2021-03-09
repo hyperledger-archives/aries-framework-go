@@ -44,6 +44,10 @@ license:
 unit-test: mocks
 	@scripts/check_unit.sh
 
+.PHONY: benchmark
+benchmark:
+	@scripts/check_bench.sh
+
 .PHONY: unit-test-wasm
 unit-test-wasm: export GOBIN=$(GOBIN_PATH)
 unit-test-wasm: depend
