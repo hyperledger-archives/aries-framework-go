@@ -19,9 +19,9 @@ type ProposePresentation struct {
 	// Formats contains an entry for each proposal~attach array entry, including an optional value of the
 	// attachment @id (if attachments are present) and the verifiable presentation format and version of the attachment.
 	Formats []Format `json:"formats,omitempty"`
-	// FilterAttach is an array of attachments that further define the presentation request being proposed.
+	// ProposalsAttach is an array of attachments that further define the presentation request being proposed.
 	// This might be used to clarify which formats or format versions are wanted.
-	ProposalAttach []decorator.Attachment `json:"proposal~attach,omitempty"`
+	ProposalsAttach []decorator.Attachment `json:"proposals~attach,omitempty"`
 }
 
 // RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.

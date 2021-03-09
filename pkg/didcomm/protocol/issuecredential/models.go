@@ -20,12 +20,12 @@ type ProposeCredential struct {
 	// CredentialProposal is an optional JSON-LD object that represents
 	// the credential data that the Prover wants to receive.
 	CredentialProposal PreviewCredential `json:"credential_proposal,omitempty"`
-	// Formats contains an entry for each filter~attach array entry, providing the the value of the attachment @id
+	// Formats contains an entry for each filters~attach array entry, providing the the value of the attachment @id
 	// and the verifiable credential format and version of the attachment.
 	Formats []Format `json:"formats,omitempty"`
-	// FilterAttach is an array of attachments that further define the credential being proposed.
+	// FiltersAttach is an array of attachments that further define the credential being proposed.
 	// This might be used to clarify which formats or format versions are wanted.
-	FilterAttach []decorator.Attachment `json:"filter~attach,omitempty"`
+	FiltersAttach []decorator.Attachment `json:"filters~attach,omitempty"`
 }
 
 // Format contains the the value of the attachment @id and the verifiable credential format of the attachment.
