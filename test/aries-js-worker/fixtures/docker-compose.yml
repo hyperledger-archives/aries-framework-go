@@ -87,5 +87,3 @@ services:
       - SIDETREE_MOCK_DID_NAMESPACE=did:sidetree:test
     ports:
       - 48326:48326
-    volumes:
-      - ../keys/tls:/etc/sidetree/tls
