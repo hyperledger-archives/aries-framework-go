@@ -69,28 +69,29 @@ type Operation struct {
 
 // Provider represents a storage provider.
 type Provider interface {
-	// OpenStore opens a store with the given name and returns a handle.
-	// If the store has never been opened before, then it is created.
+	// OpenStore opens a Store with the given name and returns a handle.
+	// If the underlying database for the given name has never been created before, then it is created.
 	// Store names are not case-sensitive. If name is blank, then an error will be returned.
 	OpenStore(name string) (Store, error)
 
-	// SetStoreConfig sets the configuration on a store.
-	// The store must be created prior to calling this method.
-	// If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
+	// SetStoreConfig sets the configuration on a Store. If the underlying database for the given name has never been
+	// created by a call to OpenStore at some point, then an error wrapping ErrStoreNotFound will be returned. This
+	// method will not open a Store in the Provider.
 	// If name is blank, then an error will be returned.
 	SetStoreConfig(name string, config StoreConfiguration) error
 
-	// GetStoreConfig gets the current store configuration.
-	// The store must be created prior to calling this method.
-	// If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned.
+	// GetStoreConfig gets the current Store configuration.
+	// If the underlying database for the given name has never been
+	// created by a call to OpenStore at some point, then an error wrapping ErrStoreNotFound will be returned. This
+	// method will not open a store in the Provider.
 	// If name is blank, then an error will be returned.
 	GetStoreConfig(name string) (StoreConfiguration, error)
 
-	// GetOpenStores returns all currently open stores.
+	// GetOpenStores returns all Stores currently open in the Provider.
 	GetOpenStores() []Store
 
-	// Close closes all stores created under this store provider.
-	// For persistent store implementations, this does not delete any data in the stores.
+	// Close closes all open Stores in this Provider
+	// For persistent Store implementations, this does not delete any data in the underlying databases.
 	Close() error
 }
 

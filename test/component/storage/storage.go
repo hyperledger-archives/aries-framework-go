@@ -167,6 +167,25 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		require.Error(t, err)
 		require.Nil(t, store)
 	})
+	t.Run("Demonstrate that store names are not case-sensitive", func(t *testing.T) {
+		// Per the interface, store names are not supposed to be case sensitive in order to ensure consistency across
+		// storage implementations - some of which don't support case sensitivity in their database names.
+
+		storeWithCapitalLetter, err := provider.OpenStore("Some-store-name")
+		require.NoError(t, err)
+
+		err = storeWithCapitalLetter.Put("key", []byte("value"))
+		require.NoError(t, err)
+
+		// If the store names are properly case-insensitive, then it's expected that the store below
+		// contains the same data as the one above.
+		storeWithLowercaseLetter, err := provider.OpenStore("some-store-name")
+		require.NoError(t, err)
+
+		value, err := storeWithLowercaseLetter.Get("key")
+		require.NoError(t, err)
+		require.Equal(t, "value", string(value))
+	})
 }
 
 // TestProviderGetOpenStores tests common Provider GetOpenStores functionality.
@@ -196,6 +215,14 @@ func TestProviderGetOpenStores(t *testing.T, provider spi.Provider) {
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 2)
 
+	// Now we will attempt to open a store with the same name as before, but different casing. Since store names are
+	// supposed to be case-insensitive, this shouldn't change the number of currently open stores..
+	_, err = provider.OpenStore("teststore2")
+	require.NoError(t, err)
+
+	openStores = provider.GetOpenStores()
+	require.Len(t, openStores, 2)
+
 	err = store1.Close()
 	require.NoError(t, err)
 
@@ -220,24 +247,53 @@ func TestProviderClose(t *testing.T, provider spi.Provider) {
 // TestPutGet tests common Store Put and Get functionality.
 func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test file
 	testKey := "TestKey"
-	testValue := "TestValue"
+
+	testValueSimpleString := "TestValue"
 
 	t.Run("Put and get a single value from a single store", func(t *testing.T) {
-		store, err := provider.OpenStore(randomStoreName())
-		require.NoError(t, err)
+		t.Run("Value is simple text", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
 
-		err = store.Put(testKey, []byte(testValue))
-		require.NoError(t, err)
+			err = store.Put(testKey, []byte(testValueSimpleString))
+			require.NoError(t, err)
 
-		value, err := store.Get(testKey)
-		require.NoError(t, err)
-		require.Equal(t, testValue, string(value))
+			value, err := store.Get(testKey)
+			require.NoError(t, err)
+			require.Equal(t, testValueSimpleString, string(value))
+		})
+		t.Run("Value is JSON-formatted text", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
+
+			err = store.Put(testKey, []byte(testValueJSON))
+			require.NoError(t, err)
+
+			value, err := store.Get(testKey)
+			require.NoError(t, err)
+			require.Equal(t, testValueJSON, string(value))
+		})
+		t.Run("Value is binary data", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			valueBytes := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
+
+			err = store.Put(testKey, valueBytes)
+			require.NoError(t, err)
+
+			value, err := store.Get(testKey)
+			require.NoError(t, err)
+			require.Equal(t, valueBytes, value)
+		})
 	})
 	t.Run("Put a single value, then delete it, then put again using the same key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
-		err = store.Put(testKey, []byte(testValue))
+		err = store.Put(testKey, []byte(testValueSimpleString))
 		require.NoError(t, err)
 
 		err = store.Delete(testKey)
@@ -256,7 +312,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			store1, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
-			err = store1.Put(testKey, []byte(testValue))
+			err = store1.Put(testKey, []byte(testValueSimpleString))
 			require.NoError(t, err)
 
 			store2, err := provider.OpenStore(randomStoreName())
@@ -273,18 +329,18 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValue))
+				err = store1.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValue))
+				err = store2.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
 
-				newTestValue := testValue + "_new"
+				newTestValue := testValueSimpleString + "_new"
 
 				// Now update the value in only store 1.
 				err = store1.Put(testKey, []byte(newTestValue))
@@ -298,7 +354,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				// Store 2 should still have the old value.
 				value, err = store2.Get(testKey)
 				require.NoError(t, err)
-				require.Equal(t, testValue, string(value))
+				require.Equal(t, testValueSimpleString, string(value))
 			})
 		t.Run("Put same key + value in two stores with different names, then delete value in one store, "+
 			"then check that the other store still has its key+value pair intact",
@@ -306,13 +362,13 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValue))
+				err = store1.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValue))
+				err = store2.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
@@ -329,7 +385,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				// Store 2 should still have the key + value pair.
 				value, err = store2.Get(testKey)
 				require.NoError(t, err)
-				require.Equal(t, testValue, string(value))
+				require.Equal(t, testValueSimpleString, string(value))
 			})
 		t.Run("Put same key + value in two stores with the same name (so they should point to the same "+
 			"underlying databases), then update value in one store, then check that the other store also reflects this",
@@ -339,7 +395,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValue))
+				err = store1.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
@@ -364,14 +420,14 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValue))
+				err = store1.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
 				store2, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValue))
+				err = store2.Put(testKey, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
@@ -401,7 +457,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
-		err = store.Put("", []byte(testValue))
+		err = store.Put("", []byte(testValueSimpleString))
 		require.Error(t, err)
 	})
 	t.Run("Put with vil value", func(t *testing.T) {
