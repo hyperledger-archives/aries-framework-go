@@ -13,7 +13,10 @@ import (
 )
 
 func TestNewVerifier(t *testing.T) {
-	loader := NewCachingDocumentLoader()
+	loader := NewDefaultCachingDocumentLoader()
 	_, err := loader.LoadDocument("https://www.w3.org/2018/credentials/v1")
 	require.Error(t, err, "network should be disabled")
+
+	rLoader := NewCachingDocumentLoaderWithRemote()
+	require.NotEmpty(t, rLoader)
 }

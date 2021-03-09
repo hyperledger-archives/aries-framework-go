@@ -68,10 +68,12 @@ func WithDocumentLoader(loader ld.DocumentLoader) ProcessorOpts {
 
 // WithDocumentLoaderCache option is for passing cached contexts to be used by JSON-LD context document loader.
 // Supported value types: map[string]interface{}, string, []byte, io.Reader.
+// Note: Most io.Reader implementations (eg: strings.NewReader()) contain a non thread-safe buffer. Make sure to use
+// one that is thread-safe.
 func WithDocumentLoaderCache(cache map[string]interface{}) ProcessorOpts {
 	return func(opts *processorOpts) {
 		if opts.documentLoaderCache == nil {
-			opts.documentLoaderCache = make(map[string]interface{})
+			opts.documentLoaderCache = map[string]interface{}{}
 		}
 
 		for k, v := range cache {
@@ -514,7 +516,7 @@ func useDocumentLoader(ldOptions *ld.JsonLdOptions, loader ld.DocumentLoader, ca
 	ldOptions.DocumentLoader = getCachingDocumentLoader(loader, cache)
 }
 
-func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interface{}) *ld.CachingDocumentLoader {
+func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interface{}) *jsonld.CachingDocumentLoader {
 	cachingLoader := createCachingDocumentLoader(loader)
 
 	for k, v := range cache {
@@ -524,16 +526,16 @@ func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interfa
 	return cachingLoader
 }
 
-func createCachingDocumentLoader(loader ld.DocumentLoader) *ld.CachingDocumentLoader {
+func createCachingDocumentLoader(loader ld.DocumentLoader) *jsonld.CachingDocumentLoader {
 	if loader == nil {
-		return jsonld.NewCachingDocumentLoader()
+		return jsonld.NewDefaultCachingDocumentLoader()
 	}
 
-	if cachingLoader, ok := loader.(*ld.CachingDocumentLoader); ok {
+	if cachingLoader, ok := loader.(*jsonld.CachingDocumentLoader); ok {
 		return cachingLoader
 	}
 
-	return ld.NewCachingDocumentLoader(loader)
+	return jsonld.NewCachingDocLoader(loader)
 }
 
 // prepareOpts prepare processorOpts from given CanonicalizationOpts arguments.
