@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package indexeddb
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -207,7 +208,8 @@ func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
 
 	m := make(map[string]interface{})
 	m["key"] = key
-	m["value"] = string(value)
+
+	m["value"] = base64.StdEncoding.EncodeToString(value)
 
 	if len(tags) > 0 {
 		tagsBytes, err := json.Marshal(tags)
@@ -249,7 +251,14 @@ func (s *store) Get(key string) ([]byte, error) {
 		return nil, storage.ErrDataNotFound
 	}
 
-	return []byte(data.Get("value").String()), nil
+	valueBase64Encoded := data.Get("value").String()
+
+	value, err := base64.StdEncoding.DecodeString(valueBase64Encoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64 decode the store value: %w", err)
+	}
+
+	return value, nil
 }
 
 func (s *store) GetTags(key string) ([]storage.Tag, error) {
