@@ -246,63 +246,55 @@ func TestProviderClose(t *testing.T, provider spi.Provider) {
 
 // TestPutGet tests common Store Put and Get functionality.
 func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test file
-	testKey := "TestKey"
+	testKeyNonURL := "TestKey"
+	testKeyURL := "https://example.com"
 
 	testValueSimpleString := "TestValue"
 
 	t.Run("Put and get a single value from a single store", func(t *testing.T) {
-		t.Run("Value is simple text", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
-			require.NoError(t, err)
+		t.Run("Key is not a URL", func(t *testing.T) {
+			t.Run("Value is simple text", func(t *testing.T) {
+				doSingleValuePutGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
+			})
+			t.Run("Value is JSON-formatted text", func(t *testing.T) {
+				testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
 
-			err = store.Put(testKey, []byte(testValueSimpleString))
-			require.NoError(t, err)
-
-			value, err := store.Get(testKey)
-			require.NoError(t, err)
-			require.Equal(t, testValueSimpleString, string(value))
+				doSingleValuePutGetTest(t, provider, testKeyNonURL, []byte(testValueJSON))
+			})
+			t.Run("Value is binary data", func(t *testing.T) {
+				testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
+				doSingleValuePutGetTest(t, provider, testKeyNonURL, testBinaryData)
+			})
 		})
-		t.Run("Value is JSON-formatted text", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
-			require.NoError(t, err)
+		t.Run("Key is a URL", func(t *testing.T) {
+			t.Run("Value is simple text", func(t *testing.T) {
+				doSingleValuePutGetTest(t, provider, testKeyURL, []byte(testValueSimpleString))
+			})
+			t.Run("Value is JSON-formatted text", func(t *testing.T) {
+				testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
 
-			testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
-
-			err = store.Put(testKey, []byte(testValueJSON))
-			require.NoError(t, err)
-
-			value, err := store.Get(testKey)
-			require.NoError(t, err)
-			require.Equal(t, testValueJSON, string(value))
-		})
-		t.Run("Value is binary data", func(t *testing.T) {
-			store, err := provider.OpenStore(randomStoreName())
-			require.NoError(t, err)
-
-			valueBytes := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
-
-			err = store.Put(testKey, valueBytes)
-			require.NoError(t, err)
-
-			value, err := store.Get(testKey)
-			require.NoError(t, err)
-			require.Equal(t, valueBytes, value)
+				doSingleValuePutGetTest(t, provider, testKeyURL, []byte(testValueJSON))
+			})
+			t.Run("Value is binary data", func(t *testing.T) {
+				testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
+				doSingleValuePutGetTest(t, provider, testKeyURL, testBinaryData)
+			})
 		})
 	})
 	t.Run("Put a single value, then delete it, then put again using the same key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
-		err = store.Put(testKey, []byte(testValueSimpleString))
+		err = store.Put(testKeyNonURL, []byte(testValueSimpleString))
 		require.NoError(t, err)
 
-		err = store.Delete(testKey)
+		err = store.Delete(testKeyNonURL)
 		require.NoError(t, err)
 
-		err = store.Put(testKey, []byte("TestValue2"))
+		err = store.Put(testKeyNonURL, []byte("TestValue2"))
 		require.NoError(t, err)
 
-		value, err := store.Get(testKey)
+		value, err := store.Get(testKeyNonURL)
 		require.NoError(t, err)
 		require.Equal(t, "TestValue2", string(value))
 	})
@@ -312,14 +304,14 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			store1, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
-			err = store1.Put(testKey, []byte(testValueSimpleString))
+			err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 			require.NoError(t, err)
 
 			store2, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
 			// Store 2 should be disjoint from store 1. It should not contain the key + value pair from store 1.
-			value, err := store2.Get(testKey)
+			value, err := store2.Get(testKeyNonURL)
 			require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 			require.Nil(t, value)
 		})
@@ -329,13 +321,13 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValueSimpleString))
+				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValueSimpleString))
+				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
@@ -343,16 +335,16 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				newTestValue := testValueSimpleString + "_new"
 
 				// Now update the value in only store 1.
-				err = store1.Put(testKey, []byte(newTestValue))
+				err = store1.Put(testKeyNonURL, []byte(newTestValue))
 				require.NoError(t, err)
 
 				// Store 1 should have the new value.
-				value, err := store1.Get(testKey)
+				value, err := store1.Get(testKeyNonURL)
 				require.NoError(t, err)
 				require.Equal(t, newTestValue, string(value))
 
 				// Store 2 should still have the old value.
-				value, err = store2.Get(testKey)
+				value, err = store2.Get(testKeyNonURL)
 				require.NoError(t, err)
 				require.Equal(t, testValueSimpleString, string(value))
 			})
@@ -362,28 +354,28 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValueSimpleString))
+				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValueSimpleString))
+				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
 
 				// Now delete the key + value pair in only store 1.
-				err = store1.Delete(testKey)
+				err = store1.Delete(testKeyNonURL)
 				require.NoError(t, err)
 
 				// Store 1 should no longer have the key + value pair.
-				value, err := store1.Get(testKey)
+				value, err := store1.Get(testKeyNonURL)
 				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 
 				// Store 2 should still have the key + value pair.
-				value, err = store2.Get(testKey)
+				value, err = store2.Get(testKeyNonURL)
 				require.NoError(t, err)
 				require.Equal(t, testValueSimpleString, string(value))
 			})
@@ -395,7 +387,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValueSimpleString))
+				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
@@ -404,10 +396,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 
 				// Store 2 should find the same data that was put in store 1
 
-				valueFromStore1, err := store1.Get(testKey)
+				valueFromStore1, err := store1.Get(testKeyNonURL)
 				require.NoError(t, err)
 
-				valueFromStore2, err := store2.Get(testKey)
+				valueFromStore2, err := store2.Get(testKeyNonURL)
 				require.NoError(t, err)
 
 				require.Equal(t, string(valueFromStore1), string(valueFromStore2))
@@ -420,28 +412,28 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store1.Put(testKey, []byte(testValueSimpleString))
+				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
 				store2, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
-				err = store2.Put(testKey, []byte(testValueSimpleString))
+				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Now both store 1 and 2 contain the same key + value pair.
 
 				// Now delete the key + value pair in store 1.
-				err = store1.Delete(testKey)
+				err = store1.Delete(testKeyNonURL)
 				require.NoError(t, err)
 
 				// Both store 1 and store 2 should no longer have the key + value pair.
-				value, err := store1.Get(testKey)
+				value, err := store1.Get(testKeyNonURL)
 				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 
-				value, err = store2.Get(testKey)
+				value, err = store2.Get(testKeyNonURL)
 				require.True(t, errors.Is(err, spi.ErrDataNotFound), "Got unexpected error or no error")
 				require.Nil(t, value)
 			})
@@ -464,7 +456,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
-		err = store.Put(testKey, nil)
+		err = store.Put(testKeyNonURL, nil)
 		require.Error(t, err)
 	})
 }
@@ -1279,6 +1271,18 @@ func TestStoreClose(t *testing.T, provider spi.Provider) {
 		err = store.Close()
 		require.NoError(t, err)
 	})
+}
+
+func doSingleValuePutGetTest(t *testing.T, provider spi.Provider, key string, value []byte) {
+	store, err := provider.OpenStore(randomStoreName())
+	require.NoError(t, err)
+
+	err = store.Put(key, value)
+	require.NoError(t, err)
+
+	retrievedValue, err := store.Get(key)
+	require.NoError(t, err)
+	require.Equal(t, value, retrievedValue)
 }
 
 func randomStoreName() string {
