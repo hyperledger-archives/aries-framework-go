@@ -22,6 +22,7 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
 
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -926,7 +927,7 @@ func credentialMatchSchema(cred *verifiable.Credential, schemaID string) bool {
 
 // CachingJSONLDLoader creates JSON_LD CachingDocumentLoader with preloaded base JSON-LD document.
 // TODO: this needs to be removed in followup PR.
-func CachingJSONLDLoader() *ld.CachingDocumentLoader {
+func CachingJSONLDLoader() *jld.CachingDocumentLoader {
 	loader := verifiable.CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(presentationSubmissionContext))

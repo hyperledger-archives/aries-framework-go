@@ -113,16 +113,23 @@ func benchmark(b *testing.B, h func() hash.Hash, iter int) {
 	_, err := rand.Read(salt)
 	require.NoError(b, err)
 
+	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		lck, err = NewMasterLock(password, h, iter, salt)
 		require.NoError(b, err)
+
+		mlck, ok := lck.(*masterLockPBKDF2)
+		require.True(b, ok)
+
+		sink += uint8(mlck.aead.Overhead())
 	}
 
-	mlck, ok := lck.(*masterLockPBKDF2)
-	require.True(b, ok)
-
-	sink += uint8(mlck.aead.Overhead()) // nolint: ineffassign // used to reference mlck only.
+	MajorSink = sink
 }
+
+// nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks (avoid optimize loop body).
+var MajorSink uint8
 
 func BenchmarkHMACSHA256_4k(b *testing.B) {
 	benchmark(b, sha256.New, 4096)

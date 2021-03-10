@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -397,7 +398,7 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 }
 
 // TODO: context should not be loaded here, the loader should be defined once for the whole system.
-func bbsJSONLDDocumentLoader() (*ld.CachingDocumentLoader, error) {
+func bbsJSONLDDocumentLoader() (*jld.CachingDocumentLoader, error) {
 	loader := presexch.CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))

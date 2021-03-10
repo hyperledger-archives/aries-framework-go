@@ -267,7 +267,7 @@ const vcJSONLD = `
 `
 
 // CachingJSONLDLoader creates JSON_LD CachingDocumentLoader with preloaded base JSON-LD document.
-func CachingJSONLDLoader() *ld.CachingDocumentLoader {
+func CachingJSONLDLoader() *jld.CachingDocumentLoader {
 	// TODO: remove remote as default
 	loader := jld.NewCachingDocumentLoaderWithRemote()
 

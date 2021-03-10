@@ -14,6 +14,7 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -1108,7 +1109,7 @@ func toExampleMap(v interface{}) map[string]interface{} {
 	return m
 }
 
-func cachedJSONLDContextLoader(ctxURLToVocab map[string]string) *ld.CachingDocumentLoader {
+func cachedJSONLDContextLoader(ctxURLToVocab map[string]string) *jld.CachingDocumentLoader {
 	loader := CachingJSONLDLoader()
 
 	for contextURL, vocab := range ctxURLToVocab {

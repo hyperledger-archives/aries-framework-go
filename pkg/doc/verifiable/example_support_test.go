@@ -16,6 +16,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -49,7 +50,7 @@ func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&cp)
 }
 
-func getJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+func getJSONLDDocumentLoader() *jld.CachingDocumentLoader {
 	loader := verifiable.CachingJSONLDLoader()
 
 	addJSONLDCachedContextFromFile(loader,
@@ -75,7 +76,7 @@ func getJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 	return loader
 }
 
-func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
+func addJSONLDCachedContextFromFile(loader *jld.CachingDocumentLoader, contextURL, contextFile string) {
 	contextContent, err := ioutil.ReadFile(filepath.Clean(filepath.Join("testdata", "context", contextFile)))
 	if err != nil {
 		panic(err)
@@ -84,7 +85,7 @@ func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL
 	addJSONLDCachedContext(loader, contextURL, string(contextContent))
 }
 
-func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contextContent string) {
+func addJSONLDCachedContext(loader *jld.CachingDocumentLoader, contextURL, contextContent string) {
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextContent))
 	if err != nil {
 		panic(err)

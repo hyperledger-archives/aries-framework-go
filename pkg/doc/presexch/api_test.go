@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -429,7 +430,7 @@ func randomURI() string {
 	return fmt.Sprintf("https://my.test.context.jsonld/%s", uuid.New().String())
 }
 
-func jsonldContextLoader(t *testing.T, contextURL string) *ld.CachingDocumentLoader {
+func jsonldContextLoader(t *testing.T, contextURL string) *jld.CachingDocumentLoader {
 	const jsonLDContext = `{
     "@context":{
       "@version":1.1,

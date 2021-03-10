@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -609,7 +610,7 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 	return linesBytes
 }
 
-func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+func createTestJSONLDDocumentLoader() *jld.CachingDocumentLoader {
 	loader := presexch.CachingJSONLDLoader()
 
 	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))

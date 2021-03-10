@@ -1868,7 +1868,7 @@ func BenchmarkWithDocumentLoaderCache(b *testing.B) {
 
 		for _, test := range tests {
 			tc := test
-			var r string
+			var sink string
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					var jsonldDoc map[string]interface{}
@@ -1881,16 +1881,16 @@ func BenchmarkWithDocumentLoaderCache(b *testing.B) {
 					require.NoError(b, err)
 					require.EqualValues(b, tc.result, string(response))
 				}
-				r = tc.result
+				sink = tc.result
 			})
 
-			result = r
+			MajorSink = sink
 		}
 	})
 }
 
-// nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks.
-var result string
+// nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks (avoid optimize loop body).
+var MajorSink string
 
 // SyncReader wraps an io.Reader to be used in a tread-safe fashion.
 // implementation adaptation of https://gist.github.com/jmackie/11570bdcd8a4c10d72619a5e1f21c5f8.
