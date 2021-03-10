@@ -71,28 +71,6 @@ type LdpType struct {
 	ProofType []string `json:"proof_type,omitempty"`
 }
 
-// presentationSubmissionContext from https://identity.foundation/presentation-exchange/submission/v1
-const presentationSubmissionContext = `
-{
-  "@context": {
-    "@version": 1.1,
-	"type": "@type",
-    "PresentationSubmission": {
-      "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
-      "@context": {
-        "@version": 1.1,
-        "presentation_submission": {
-          "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
-          "@type": "@json"
-        }
-      }
-    }
-  }
-}
-`
-
-const presentationSubmissionContextURI = "https://identity.foundation/presentation-exchange/submission/v1"
-
 // PresentationDefinition presentation definitions (https://identity.foundation/presentation-exchange/).
 type PresentationDefinition struct {
 	// ID unique resource identifier.
@@ -183,7 +161,7 @@ type Filter struct {
 // ValidateSchema validates presentation definition.
 func (pd *PresentationDefinition) ValidateSchema() error {
 	result, err := gojsonschema.Validate(
-		gojsonschema.NewStringLoader(definitionSchema),
+		gojsonschema.NewStringLoader(DefinitionJSONSchema),
 		gojsonschema.NewGoLoader(struct {
 			PD *PresentationDefinition `json:"presentation_definition"`
 		}{PD: pd}),
@@ -334,7 +312,7 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 		return nil, err
 	}
 
-	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContext)
+	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContextIRI)
 	vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
 
 	vp.CustomFields = verifiable.CustomFields{
@@ -930,12 +908,12 @@ func credentialMatchSchema(cred *verifiable.Credential, schemaID string) bool {
 func CachingJSONLDLoader() *jld.CachingDocumentLoader {
 	loader := verifiable.CachingJSONLDLoader()
 
-	reader, err := ld.DocumentFromReader(strings.NewReader(presentationSubmissionContext))
+	reader, err := ld.DocumentFromReader(strings.NewReader(PresentationSubmissionJSONLDContext))
 	if err != nil {
 		panic(err)
 	}
 
-	loader.AddDocument(presentationSubmissionContextURI, reader)
+	loader.AddDocument(PresentationSubmissionJSONLDContextIRI, reader)
 
 	return loader
 }
