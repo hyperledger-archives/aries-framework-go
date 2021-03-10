@@ -23,6 +23,8 @@
     "puppeteer": "2.1.1"
   },
   "dependencies": {
+    "base-58": "^0.0.1",
+    "base64-js": "1.5.1",
     "minimist": "^1.2.5"
   }
 }
