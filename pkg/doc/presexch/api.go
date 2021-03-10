@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	// PresentationSubmissionJSONLDContext is the JSONLD context of presentation submissions.
-	PresentationSubmissionJSONLDContext = "https://identity.foundation/presentation-exchange/submission/v1"
+	// PresentationSubmissionJSONLDContextIRI is the JSONLD context of presentation submissions.
+	PresentationSubmissionJSONLDContextIRI = "https://identity.foundation/presentation-exchange/submission/v1"
 	// PresentationSubmissionJSONLDType is the JSONLD type of presentation submissions.
 	PresentationSubmissionJSONLDType = "PresentationSubmission"
 
@@ -167,8 +167,9 @@ func (pd *PresentationDefinition) inputDescriptor(id string) *InputDescriptor {
 }
 
 func checkJSONLDContextType(vp *verifiable.Presentation) error {
-	if !stringsContain(vp.Context, PresentationSubmissionJSONLDContext) {
-		return fmt.Errorf("input verifiable presentation must have json-ld context %s", PresentationSubmissionJSONLDContext)
+	if !stringsContain(vp.Context, PresentationSubmissionJSONLDContextIRI) {
+		return fmt.Errorf(
+			"input verifiable presentation must have json-ld context %s", PresentationSubmissionJSONLDContextIRI)
 	}
 
 	if !stringsContain(vp.Type, PresentationSubmissionJSONLDType) {
