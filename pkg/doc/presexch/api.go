@@ -13,7 +13,6 @@ import (
 
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
-	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -49,16 +48,16 @@ type InputDescriptorMapping struct {
 
 // MatchOptions is a holder of options that can set when matching a submission against definitions.
 type MatchOptions struct {
-	JSONLDDocumentLoader ld.DocumentLoader
+	CredentialOptions []verifiable.CredentialOpt
 }
 
 // MatchOption is an option that sets an option for when matching.
 type MatchOption func(*MatchOptions)
 
-// WithJSONLDDocumentLoader sets the loader to use when parsing the embedded verifiable credentials.
-func WithJSONLDDocumentLoader(l ld.DocumentLoader) MatchOption {
+// WithCredentialOptions used when parsing the embedded credentials.
+func WithCredentialOptions(options ...verifiable.CredentialOpt) MatchOption {
 	return func(m *MatchOptions) {
-		m.JSONLDDocumentLoader = l
+		m.CredentialOptions = options
 	}
 }
 
@@ -108,7 +107,7 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 				descriptorMapProperty, mapping.ID)
 		}
 
-		vc, selectErr := selectByPath(builder, typelessVP, mapping.Path, opts.JSONLDDocumentLoader)
+		vc, selectErr := selectByPath(builder, typelessVP, mapping.Path, opts)
 		if selectErr != nil {
 			return nil, fmt.Errorf("failed to select vc from submission: %w", selectErr)
 		}
@@ -219,7 +218,7 @@ func descriptorIDs(input []*InputDescriptor) []string {
 // string expression that selects the credential to be submit in relation to the identified Input Descriptor
 // identified, when executed against the top-level of the object the Presentation Submission is embedded within.
 func selectByPath(builder gval.Language, vp interface{}, jsonPath string,
-	loader ld.DocumentLoader) (*verifiable.Credential, error) {
+	options *MatchOptions) (*verifiable.Credential, error) {
 	path, err := builder.NewEvaluable(jsonPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build new json path evaluator: %w", err)
@@ -235,13 +234,7 @@ func selectByPath(builder gval.Language, vp interface{}, jsonPath string,
 		return nil, fmt.Errorf("failed to marshal credential: %w", err)
 	}
 
-	vcOpts := make([]verifiable.CredentialOpt, 0)
-
-	if loader != nil {
-		vcOpts = append(vcOpts, verifiable.WithJSONLDDocumentLoader(loader))
-	}
-
-	vc, err := verifiable.ParseCredential(credBits, vcOpts...)
+	vc, err := verifiable.ParseCredential(credBits, options.CredentialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse credential: %w", err)
 	}

@@ -1056,7 +1056,7 @@ func ExamplePresentationDefinition_Match() {
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
 		receivedVP,
-		WithJSONLDDocumentLoader(loader),
+		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)),
 	)
 	if err != nil {
 		panic(fmt.Errorf("presentation submission did not match definitions: %w", err))
