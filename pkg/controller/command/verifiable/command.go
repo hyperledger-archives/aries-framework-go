@@ -219,6 +219,7 @@ type Command struct {
 	didStore        *didstore.Store
 	kResolver       keyResolver
 	ctx             provider
+	docLoader       ld.DocumentLoader
 }
 
 // New returns new verifiable credential controller command instance.
@@ -233,11 +234,23 @@ func New(p provider) (*Command, error) {
 		return nil, fmt.Errorf("new did store : %w", err)
 	}
 
+	presExchDoc, err := ld.DocumentFromReader(strings.NewReader(presexch.PresentationSubmissionJSONLDContext))
+	if err != nil {
+		return nil, fmt.Errorf("failed to preload presentation-exchange jsonld context: %w", err)
+	}
+
+	docLoader := verifiable.CachingJSONLDLoader()
+	docLoader.AddDocument(
+		presexch.PresentationSubmissionJSONLDContextIRI,
+		presExchDoc,
+	)
+
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
 		kResolver:       verifiable.NewDIDKeyResolver(p.VDRegistry()),
 		ctx:             p,
+		docLoader:       docLoader,
 	}, nil
 }
 
@@ -931,7 +944,11 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 
 func (o *Command) parsePresentation(request *PresentationRequest,
 	didDoc *did.Doc) ([]*verifiable.Credential, *verifiable.Presentation, *ProofOptions, error) {
-	presentation, err := verifiable.ParsePresentation(request.Presentation, verifiable.WithPresDisabledProofCheck())
+	presentation, err := verifiable.ParsePresentation(
+		request.Presentation,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(o.docLoader),
+	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 			"failed to parse presentation from request: "+err.Error())
