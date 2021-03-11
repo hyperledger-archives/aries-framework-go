@@ -6,6 +6,12 @@
 - Two agents establish connection using did exchange protocol sdk with public did in invitation (didexchange_public_dids)
 - Resolve did document against [sidetree-mock](https://github.com/trustbloc/sidetree-mock)  (didresolver)
 
+##Prerequisites
+To run BBD tests you need to add `static-file-server-js` domain to your ` /etc/hosts` file.
+To do that simply execute the following command:
+```bash
+echo '127.0.0.1 static-file-server-js' | sudo tee -a /etc/hosts
+```
 
 ## Run all tests
 Run all bdd tests using the following make target from project root directory.
