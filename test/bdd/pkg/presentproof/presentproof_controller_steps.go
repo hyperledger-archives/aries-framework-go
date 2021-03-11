@@ -7,16 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
-	"time"
+	"runtime"
+	"strings"
 
 	"github.com/cucumber/godog"
-	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
@@ -25,8 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	docutil "github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -70,15 +72,11 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through PresentProof controller$`, s.establishConnection)
-	gs.Step(`^"([^"]*)" sends a request presentation to "([^"]*)" through PresentProof controller$`, s.sendRequestPresentation)
-	gs.Step(`^"([^"]*)" sends a request presentation with presentation definition to "([^"]*)" through PresentProof controller$`, s.sendRequestPresentationDefinition)
 	gs.Step(`^"([^"]*)" sends a propose presentation to "([^"]*)" through PresentProof controller$`, s.sendProposePresentation)
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
-	gs.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover through PresentProof controller$`, s.acceptProposePresentation)
-	gs.Step(`^"([^"]*)" accepts a request and sends a presentation to the Verifier through PresentProof controller$`, s.acceptRequestPresentation)
-	gs.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the Verifier through PresentProof controller$`, s.acceptRequestPresentationBBS)
 	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name through PresentProof controller$`, s.acceptPresentation)
 	gs.Step(`^"([^"]*)" checks that presentation is being stored under the "([^"]*)" name$`, s.checkPresentation)
+	gs.Step(`^"([^"]*)" sends "([^"]*)" to "([^"]*)" through PresentProof controller$`, s.sendMessage)
 }
 
 func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
@@ -107,62 +105,154 @@ func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
 	return nil
 }
 
-func (s *ControllerSteps) sendRequestPresentation(verifier, prover string) error {
+type msgType struct {
+	Type string `json:"@type"`
+}
+
+func getMsgBytes(msgFile string) (string, []byte, error) {
+	_, path, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", nil, errors.New("did not get a path")
+	}
+
+	fullPath := strings.Join([]string{filepath.Dir(path), "testdata", msgFile}, string(filepath.Separator))
+
+	file, err := os.Open(filepath.Clean(fullPath))
+	if err != nil {
+		return "", nil, err
+	}
+
+	defer func() { _ = file.Close() }() // nolint: errcheck
+
+	buf := &bytes.Buffer{}
+
+	_, err = io.Copy(buf, file)
+	if err != nil {
+		return "", nil, err
+	}
+
+	var mt *msgType
+
+	err = json.Unmarshal(buf.Bytes(), &mt)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return mt.Type, buf.Bytes(), err
+}
+
+func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 	url, ok := s.bddContext.GetControllerURL(verifier)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
-		MyDID:               s.did[verifier],
-		TheirDID:            s.did[prover],
-		RequestPresentation: &presentproof.RequestPresentation{WillConfirm: true},
+	mt, msg, err := getMsgBytes(msgFile)
+	if err != nil {
+		return err
+	}
+
+	piid, _ := s.actionPIID(verifier) // nolint: errcheck
+
+	switch mt {
+	case protocol.RequestPresentationMsgType:
+		if piid != "" {
+			return sendAcceptProposePresentation(url, piid, msg)
+		}
+
+		return sendRequestPresentationMsg(url, s.did[verifier], s.did[prover], msg)
+	case protocol.PresentationMsgType:
+		return sendPresentationMsg(url, piid, msg)
+	default:
+		return errors.New("message type is not supported")
+	}
+}
+
+func sendPresentationMsg(url, piid string, msg []byte) error {
+	var presentation *presentproof.Presentation
+
+	err := json.Unmarshal(msg, &presentation)
+	if err != nil {
+		return err
+	}
+
+	res := &kms.CreateKeySetResponse{}
+
+	err = postToURL(url+"/kms/keyset", kms.CreateKeySetRequest{KeyType: arieskms.BLS12381G2}, res)
+	if err != nil {
+		return err
+	}
+
+	publicKey, err := base64.RawURLEncoding.DecodeString(res.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	didBBS, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, publicKey)
+
+	for i := range presentation.PresentationsAttach {
+		if presentation.PresentationsAttach[i].MimeType != "application/ld+json" {
+			continue
+		}
+
+		credential, err := presentation.PresentationsAttach[i].Data.Fetch()
+		if err != nil {
+			return err
+		}
+
+		vRes := &verifiable.SignCredentialResponse{}
+
+		signatureRepresentation := docverifiable.SignatureProofValue
+
+		err = postToURL(url+"/verifiable/signcredential", verifiable.SignCredentialRequest{
+			Credential: credential,
+			DID:        didBBS,
+			ProofOptions: &verifiable.ProofOptions{
+				KID:                     res.KeyID,
+				VerificationMethod:      didKey,
+				SignatureRepresentation: &signatureRepresentation,
+				SignatureType:           "BbsBlsSignature2020",
+			},
+		}, vRes)
+		if err != nil {
+			return err
+		}
+
+		presentation.PresentationsAttach[i].Data = decorator.AttachmentData{
+			Base64: base64.StdEncoding.EncodeToString(vRes.VerifiableCredential),
+		}
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), presentproofcmd.AcceptRequestPresentationArgs{
+		Presentation: presentation,
 	}, nil)
 }
 
-func (s *ControllerSteps) sendRequestPresentationDefinition(verifier, prover string) error {
-	url, ok := s.bddContext.GetControllerURL(verifier)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
+func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
+	var requestPresentation *presentproof.RequestPresentation
+
+	err := json.Unmarshal(msg, &requestPresentation)
+	if err != nil {
+		return err
 	}
 
-	ID := uuid.New().String()
-
 	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
-		MyDID:    s.did[verifier],
-		TheirDID: s.did[prover],
-		RequestPresentation: &presentproof.RequestPresentation{
-			Formats: []protocol.Format{
-				{
-					Format:   "dif/presentation-exchange/definitions@v1.0",
-					AttachID: ID,
-				},
-			},
-			RequestPresentationsAttach: []decorator.Attachment{{
-				ID: ID,
-				Data: decorator.AttachmentData{
-					JSON: map[string]interface{}{
-						"presentation_definition": &presexch.PresentationDefinition{
-							ID: uuid.New().String(),
-							InputDescriptors: []*presexch.InputDescriptor{{
-								Schema: []*presexch.Schema{{
-									URI: "http://static-file-server:8089/schema.json",
-								}},
-								ID: uuid.New().String(),
-								Constraints: &presexch.Constraints{
-									LimitDisclosure: true,
-									Fields: []*presexch.Field{{
-										Path:   []string{"$.credentialSubject.degree.degreeSchool"},
-										Filter: &presexch.Filter{Type: &strFilterType},
-									}},
-								},
-							}},
-						},
-					},
-				},
-			}},
-			WillConfirm: true,
-		},
+		MyDID:               myDID,
+		TheirDID:            theirDID,
+		RequestPresentation: requestPresentation,
+	}, nil)
+}
+
+func sendAcceptProposePresentation(url, piid string, msg []byte) error {
+	var requestPresentation *presentproof.RequestPresentation
+
+	err := json.Unmarshal(msg, &requestPresentation)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), presentproofcmd.AcceptProposePresentationArgs{
+		RequestPresentation: requestPresentation,
 	}, nil)
 }
 
@@ -192,149 +282,6 @@ func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
 
 	return postToURL(url+fmt.Sprintf(negotiateRequestPresentation, piid), presentproofcmd.NegotiateRequestPresentationArgs{
 		ProposePresentation: &presentproof.ProposePresentation{},
-	}, nil)
-}
-
-func (s *ControllerSteps) acceptProposePresentation(verifier string) error {
-	url, ok := s.bddContext.GetControllerURL(verifier)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
-	}
-
-	piid, err := s.actionPIID(verifier)
-	if err != nil {
-		return err
-	}
-
-	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), presentproofcmd.AcceptProposePresentationArgs{
-		RequestPresentation: &presentproof.RequestPresentation{
-			WillConfirm: true,
-		},
-	}, nil)
-}
-
-func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
-	url, ok := s.bddContext.GetControllerURL(prover)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
-	}
-
-	piid, err := s.actionPIID(prover)
-	if err != nil {
-		return err
-	}
-
-	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), presentproofcmd.AcceptRequestPresentationArgs{
-		Presentation: &presentproof.Presentation{
-			PresentationsAttach: []decorator.Attachment{{
-				Data: decorator.AttachmentData{
-					Base64: "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=", // nolint: lll
-				},
-			}},
-		},
-	}, nil)
-}
-
-func (s *ControllerSteps) acceptRequestPresentationBBS(prover string) error { // nolint: funlen
-	url, ok := s.bddContext.GetControllerURL(prover)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
-	}
-
-	piid, err := s.actionPIID(prover)
-	if err != nil {
-		return err
-	}
-
-	res := &kms.CreateKeySetResponse{}
-
-	err = postToURL(url+"/kms/keyset", kms.CreateKeySetRequest{KeyType: arieskms.BLS12381G2}, res)
-	if err != nil {
-		return err
-	}
-
-	publicKey, err := base64.RawURLEncoding.DecodeString(res.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	didBBS, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, publicKey)
-
-	vc := &docverifiable.Credential{
-		ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
-		Context: []string{
-			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://w3id.org/security/bbs/v1",
-		},
-		Types: []string{
-			"VerifiableCredential",
-			"UniversityDegreeCredential",
-		},
-		Schemas: []docverifiable.TypedID{{
-			ID:   "http://static-file-server:8089/schema.json",
-			Type: "JsonSchemaValidator2018",
-		}},
-		Subject: docverifiable.Subject{
-			ID: "did:example:b34ca6cd37bbf23",
-			CustomFields: map[string]interface{}{
-				"name":   "Jayden Doe",
-				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"degree": map[string]interface{}{
-					"degree":       "MIT",
-					"degreeSchool": "MIT school",
-					"type":         "BachelorDegree",
-				},
-			},
-		},
-		Issued: &docutil.TimeWithTrailingZeroMsec{
-			Time: time.Now(),
-		},
-		Expired: &docutil.TimeWithTrailingZeroMsec{
-			Time: time.Now().AddDate(1, 0, 0),
-		},
-		Issuer: docverifiable.Issuer{
-			ID: "did:example:489398593",
-		},
-		CustomFields: map[string]interface{}{
-			"identifier":  "83627465",
-			"name":        "Permanent Resident Card",
-			"description": "Government of Example Permanent Resident Card.",
-		},
-	}
-
-	credential, err := vc.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	vRes := &verifiable.SignCredentialResponse{}
-
-	signatureRepresentation := docverifiable.SignatureProofValue
-
-	err = postToURL(url+"/verifiable/signcredential", verifiable.SignCredentialRequest{
-		Credential: credential,
-		DID:        didBBS,
-		ProofOptions: &verifiable.ProofOptions{
-			KID:                     res.KeyID,
-			VerificationMethod:      didKey,
-			SignatureRepresentation: &signatureRepresentation,
-			SignatureType:           "BbsBlsSignature2020",
-		},
-	}, vRes)
-	if err != nil {
-		return err
-	}
-
-	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), presentproofcmd.AcceptRequestPresentationArgs{
-		Presentation: &presentproof.Presentation{
-			PresentationsAttach: []decorator.Attachment{{
-				MimeType: "application/ld+json",
-				Data: decorator.AttachmentData{
-					Base64: base64.StdEncoding.EncodeToString(vRes.VerifiableCredential),
-				},
-			}},
-		},
 	}, nil)
 }
 

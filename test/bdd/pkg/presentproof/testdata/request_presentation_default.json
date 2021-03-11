@@ -1,0 +1,4 @@
+{
+  "@type":"https://didcomm.org/present-proof/2.0/request-presentation",
+  "will_confirm":true
+}
