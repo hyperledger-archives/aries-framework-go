@@ -168,7 +168,7 @@ func Close(iterator Iterator, logger spi.Logger) { //nolint: interfacer // The l
 		if logger == nil {
 			standardlog.Println(fmt.Sprintf("failed to close iterator: %s", errClose.Error()))
 		} else {
-			logger.Errorf("failed to close records iterator: %s", errClose.Error())
+			logger.Errorf("failed to close iterator: %s", errClose.Error())
 		}
 	}
 }
