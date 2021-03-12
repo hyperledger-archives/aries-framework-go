@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	defaultPath  = "/.well-known/doc.json"
-	documentPath = "/doc.json"
+	defaultPath  = "/.well-known/did.json"
+	documentPath = "/did.json"
 )
 
 // parseDIDWeb consumes a did:web identifier and returns the URL location of the did Doc.

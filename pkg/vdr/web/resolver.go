@@ -30,7 +30,7 @@ func (v *VDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocResoluti
 		opt(docOpts)
 	}
 
-	address, host, err := parseDIDWeb(didID)
+	address, _, err := parseDIDWeb(didID)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving did:web did --> could not parse did:web did --> %w", err)
 	}
@@ -40,14 +40,11 @@ func (v *VDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocResoluti
 		return nil, fmt.Errorf("error resolving did:web did --> http request unsuccessful --> %w", err)
 	}
 
-	for _, i := range resp.TLS.PeerCertificates {
-		err = (*i).VerifyHostname(host)
-		if err != nil {
-			return nil, fmt.Errorf("error resolving did:web did --> identifier does not match TLS host --> %w", err)
-		}
-	}
-
 	defer closeResponseBody(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http server returned status code [%d]", resp.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
