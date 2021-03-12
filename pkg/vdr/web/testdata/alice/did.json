@@ -1,0 +1,32 @@
+{
+  "@context": "https://w3id.org/did/v0.11",
+  "id": "did:web:did.actor:alice",
+  "publicKey": [
+    {
+      "id": "did:web:did.actor:alice#z6MkrmNwty5ajKtFqc1U48oL2MMLjWjartwc5sf2AihZwXDN",
+      "controller": "did:web:did.actor:alice",
+      "type": "Ed25519VerificationKey2018",
+      "publicKeyBase58": "DK7uJiq9PnPnj7AmNZqVBFoLuwTjT1hFPrk6LSjZ2JRz"
+    }
+  ],
+  "authentication": [
+    "did:web:did.actor:alice#z6MkrmNwty5ajKtFqc1U48oL2MMLjWjartwc5sf2AihZwXDN"
+  ],
+  "assertionMethod": [
+    "did:web:did.actor:alice#z6MkrmNwty5ajKtFqc1U48oL2MMLjWjartwc5sf2AihZwXDN"
+  ],
+  "capabilityDelegation": [
+    "did:web:did.actor:alice#z6MkrmNwty5ajKtFqc1U48oL2MMLjWjartwc5sf2AihZwXDN"
+  ],
+  "capabilityInvocation": [
+    "did:web:did.actor:alice#z6MkrmNwty5ajKtFqc1U48oL2MMLjWjartwc5sf2AihZwXDN"
+  ],
+  "keyAgreement": [
+    {
+      "id": "did:web:did.actor:alice#zC8GybikEfyNaausDA4mkT4egP7SNLx2T1d1kujLQbcP6h",
+      "type": "X25519KeyAgreementKey2019",
+      "controller": "did:web:did.actor:alice",
+      "publicKeyBase58": "CaSHXEvLKS6SfN9aBfkVGBpp15jSnaHazqHgLHp8KZ3Y"
+    }
+  ]
+}

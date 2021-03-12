@@ -35,6 +35,11 @@ func TestCreateDIDKey(t *testing.T) {
 		ecP521PubKeyBase58     = "mTQ9pPr2wkKdiTHhVG7xmLwyJ5mrgq1FKcHFz2XJprs4zAPtjXWFiEz6vsscbseSEzGdjAVzcUhwdodT5cbrRjQqFdz8d1yYVqMHXsVCdCUrmWNNHcZLJeYCn1dCtQX9YRVdDFfnzczKFxDXe9HusLqBWTobbxVvdj9cTi7rSWVznP5Emfo"                                                                                                                                                                                                       //nolint:lll
 		ecP521ExpectedDIDKey   = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK"                                                                                                                                                                                          //nolint:lll
 		ecP521ExpectedDIDKeyID = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK#zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK" //nolint:lll
+
+		bbsPubKeyG1Base58       = "6TBZrWMsPSFrJ2u7xFNyNA6VZs3gWpCwLi4jk8gB9EQ1bgNYK2Zjsxhku68mypBHke"
+		bbsPubKeyG2Base58       = "26jjNXrWtHvbrVaiYBKcFRkCvzyTUfg1W4odspRJjfQRfoT33jr91dEn2wqzaWVVVw1WmFwpGxrioYvy3sbvgphfu2D4nJUvrmQ7ZtoykgXA4EuJhmmV3TnnfHnBkKKBWn5q"                                                                                                                                                                                                                                                                                        //nolint:lll
+		bbsExpectedG1G2DIDKey   = "did:key:z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo"                                                                                                                                                                                                           //nolint:lll
+		bbsExpectedG1G2DIDKeyID = "did:key:z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo#z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo" //nolint:lll
 	)
 
 	tests := []struct {
@@ -79,15 +84,29 @@ func TestCreateDIDKey(t *testing.T) {
 			DIDKeyID: ecP521ExpectedDIDKeyID,
 			keyCode:  P521PubKeyMultiCodec,
 		},
+		{
+			name:     "test BBS+ with G1G2",
+			keyB58:   bbsPubKeyG2Base58,
+			DIDKey:   bbsExpectedG1G2DIDKey,
+			DIDKeyID: bbsExpectedG1G2DIDKeyID,
+			keyCode:  BLS12381g1g2PubKeyMultiCodec,
+		},
 	}
 
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name+" CreateDIDKey", func(t *testing.T) {
-			didKey, keyID := CreateDIDKeyByCode(tc.keyCode, base58.Decode(tc.keyB58))
+			keyBytes := base58.Decode(tc.keyB58)
+			// append G1G2 public keys for Creation of DIDKey for BLS12381g1g2PubKeyMultiCodec
+			if tc.keyCode == BLS12381g1g2PubKeyMultiCodec {
+				g1Bytes := base58.Decode(bbsPubKeyG1Base58)
+				keyBytes = append(g1Bytes, keyBytes...)
+			}
 
-			require.Equal(t, didKey, tc.DIDKey)
-			require.Equal(t, keyID, tc.DIDKeyID)
+			didKey, keyID := CreateDIDKeyByCode(tc.keyCode, keyBytes)
+
+			require.Equal(t, tc.DIDKey, didKey)
+			require.Equal(t, tc.DIDKeyID, keyID)
 		})
 
 		t.Run(tc.name+" PubKeyFromFingerprint success", func(t *testing.T) {
