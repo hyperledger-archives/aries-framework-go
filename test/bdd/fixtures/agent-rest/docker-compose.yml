@@ -36,12 +36,12 @@ services:
     container_name: static-file-server
     image: halverneus/static-file-server:latest
     environment:
-      - PORT=8089
+      - PORT=8079
       - FOLDER=/web
       - CORS=true
-      - VIRTUAL_PORT=8089
+      - VIRTUAL_PORT=8079
     ports:
-      - 8089:8089
+      - 8079:8079
     volumes:
       - ./schema:/web
     networks:

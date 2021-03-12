@@ -11,7 +11,7 @@
           ],
           "credentialSchema":[
             {
-              "id":"http://static-file-server:8089/schema.json",
+              "id":"http://static-file-server:8079/schema.json",
               "type":"JsonSchemaValidator2018"
             }
           ],
@@ -33,7 +33,7 @@
           "age":2,
           "credentialSchema":[
             {
-              "id":"http://static-file-server:8089/schema.json"
+              "id":"http://static-file-server:8079/schema.json"
             }
           ],
           "credentialSubject":"fa7ec857-4b25-4d35-9785-0d8d9a6ba960",
@@ -56,7 +56,7 @@
           "age":17,
           "credentialSchema":[
             {
-              "id":"http://static-file-server:8089/schema.json"
+              "id":"http://static-file-server:8079/schema.json"
             }
           ],
           "credentialSubject":"5dd636b7-3fb7-4977-930a-f6cdab3b7eb4",
