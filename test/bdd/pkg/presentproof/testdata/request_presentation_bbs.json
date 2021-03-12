@@ -20,7 +20,7 @@
                 "id":"f5a19811-06b1-42ae-b9ae-56e95ef67bee",
                 "schema":[
                   {
-                    "uri":"http://static-file-server:8089/schema.json"
+                    "uri":"http://static-file-server:7089/schema.json"
                   }
                 ],
                 "constraints":{
