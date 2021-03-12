@@ -13,7 +13,7 @@
           ],
           "credentialSchema":[
             {
-              "id":"http://static-file-server:8089/schema.json",
+              "id":"http://static-file-server:7089/schema.json",
               "type":"JsonSchemaValidator2018"
             }
           ],
