@@ -43,7 +43,7 @@ func createDIDDocFromPubKey(kid string, code uint64, pubKeyBytes []byte) (*did.D
 	switch code {
 	case fingerprint.ED25519PubKeyMultiCodec:
 		return createEd25519DIDDoc(kid, pubKeyBytes)
-	case fingerprint.BLS12381g2PubKeyMultiCodec:
+	case fingerprint.BLS12381g2PubKeyMultiCodec, fingerprint.BLS12381g1g2PubKeyMultiCodec:
 		return createBase58DIDDoc(kid, bls12381G2Key2020, pubKeyBytes)
 	case fingerprint.P256PubKeyMultiCodec, fingerprint.P384PubKeyMultiCodec, fingerprint.P521PubKeyMultiCodec:
 		return createBase58DIDDoc(kid, jsonWebKey2020, pubKeyBytes)

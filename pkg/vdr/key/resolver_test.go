@@ -68,6 +68,10 @@ func TestReadBBS(t *testing.T) {
 		k2       = "did:key:zUC7KKoJk5ttwuuc8pmQDiUmtckEPTwcaFVZe4DSFV7fURuoRnD17D3xkBK3A9tZqdADkTTMKSwNkhjo9Hs6HfgNUXo48TNRaxU6XPLSPdRgMc15jCD5DfN34ixjoVemY62JxnW"                                                                                                                                         //nolint:lll
 		k2KID    = "did:key:zUC7KKoJk5ttwuuc8pmQDiUmtckEPTwcaFVZe4DSFV7fURuoRnD17D3xkBK3A9tZqdADkTTMKSwNkhjo9Hs6HfgNUXo48TNRaxU6XPLSPdRgMc15jCD5DfN34ixjoVemY62JxnW#zUC7KKoJk5ttwuuc8pmQDiUmtckEPTwcaFVZe4DSFV7fURuoRnD17D3xkBK3A9tZqdADkTTMKSwNkhjo9Hs6HfgNUXo48TNRaxU6XPLSPdRgMc15jCD5DfN34ixjoVemY62JxnW" //nolint:lll
 		k2Base58 = "25VFRgQEfbJ3Pit6Z3mnZbKPK9BdQYGwdmfdcmderjYZ12BFNQYeowjMN1AYKKKcacF3UH35ZNpBqCR8y8QLeeaGLL7UKdKLcFje3VQnosesDNHsU8jBvtvYmLJusxXsSUBC"                                                                                                                                                    //nolint:lll
+
+		g1g2    = "did:key:z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo"                                                                                                                                                                                                           //nolint:lll
+		g1g2KID = "did:key:z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo#z5TcDLDFhBEndYdwFKkQMgVTgtRHx2sniQisVxdiXZ96pcrRy2ehWvcHfhSrfDmozq8dQNxhu2u7y9FUKJ8R3VPZNPjEgsozTSx47WysNM9GESUMmyniFxbdbpxNdocx6SbRyf6nBTFzoXojbWjSsDN4LhNz1sAMzTXgh5HvLYtYzJXo1JtLZBwHgmvtWyEQqtxtjV2eo" //nolint:lll
+		g1g2B58 = "26jjNXrWtHvbrVaiYBKcFRkCvzyTUfg1W4odspRJjfQRfoT33jr91dEn2wqzaWVVVw1WmFwpGxrioYvy3sbvgphfu2D4nJUvrmQ7ZtoykgXA4EuJhmmV3TnnfHnBkKKBWn5q"                                                                                                                                                                                                                                                                                        //nolint:lll
 	)
 
 	t.Run("key 1", func(t *testing.T) {
@@ -84,6 +88,14 @@ func TestReadBBS(t *testing.T) {
 		require.NotNil(t, docResolution.DIDDocument)
 
 		assertBase58Doc(t, docResolution.DIDDocument, k2, k2KID, bls12381G2Key2020, k2Base58)
+	})
+
+	t.Run("G1G2 concatenated keys resolved as Bls12381G2Key2020", func(t *testing.T) {
+		docResolution, err := v.Read(g1g2)
+		require.NoError(t, err)
+		require.NotNil(t, docResolution.DIDDocument)
+
+		assertBase58Doc(t, docResolution.DIDDocument, g1g2, g1g2KID, bls12381G2Key2020, g1g2B58)
 	})
 }
 
