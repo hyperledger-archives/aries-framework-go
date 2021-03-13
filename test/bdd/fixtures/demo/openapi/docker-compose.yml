@@ -8,7 +8,7 @@ version: '2'
 services:
 
   alice.openapi.demo.com:
-    container_name: alice.openpi.demo.com
+    container_name: alice.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${ALICE_API_HOST}.yml
@@ -21,7 +21,7 @@ services:
       - agent-rest_bdd_net
 
   bob.openapi.demo.com:
-    container_name: bob.openpi.demo.com
+    container_name: bob.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${BOB_API_HOST}.yml
@@ -34,7 +34,7 @@ services:
       - agent-rest_bdd_net
 
   carl.openapi.demo.com:
-    container_name: carl.openpi.demo.com
+    container_name: carl.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${CARL_API_HOST}.yml
@@ -47,7 +47,7 @@ services:
       - agent-rest_bdd_net
 
   carl.router.openapi.demo.com:
-    container_name: carl.router.openpi.demo.com
+    container_name: carl.router.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${CARL_ROUTER_API_HOST}.yml
@@ -60,7 +60,7 @@ services:
       - agent-rest_bdd_net
 
   dave.openapi.demo.com:
-    container_name: dave.openpi.demo.com
+    container_name: dave.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${DAVE_API_HOST}.yml
@@ -73,7 +73,7 @@ services:
       - agent-rest_bdd_net
 
   dave.router.openapi.demo.com:
-    container_name: dave.router.openpi.demo.com
+    container_name: dave.router.openapi.demo.com
     image: swaggerapi/swagger-ui
     environment:
       - SWAGGER_JSON=/specs/openapi-${DAVE_ROUTER_API_HOST}.yml
