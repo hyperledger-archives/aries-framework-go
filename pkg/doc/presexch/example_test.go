@@ -23,7 +23,7 @@ import (
 const dummy = "DUMMY"
 
 func ExamplePresentationDefinition_CreateVP() {
-	predicate := Required
+	required := Required
 
 	pd := &PresentationDefinition{
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -35,10 +35,10 @@ func ExamplePresentationDefinition_CreateVP() {
 				URI: schemaURI,
 			}},
 			Constraints: &Constraints{
-				LimitDisclosure: true,
+				LimitDisclosure: &required,
 				Fields: []*Field{{
 					Path:      []string{"$.age"},
-					Predicate: &predicate,
+					Predicate: &required,
 					Filter: &Filter{
 						Type:    &intFilterType,
 						Minimum: 18,
@@ -306,6 +306,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 }
 
 func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
+	required := Required
+
 	pd := &PresentationDefinition{
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
 		Purpose: "To sell you a drink we need to know that you are an adult.",
@@ -331,7 +333,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				URI: schemaURI,
 			}},
 			Constraints: &Constraints{
-				LimitDisclosure: true,
+				LimitDisclosure: &required,
 				Fields: []*Field{{
 					Path: []string{"$.first_name"},
 					Filter: &Filter{
@@ -517,6 +519,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 }
 
 func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosure() {
+	required := Required
+
 	pd := &PresentationDefinition{
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
 		Purpose: "To sell you a drink we need to know that you are an adult.",
@@ -565,7 +569,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				URI: schemaURI,
 			}},
 			Constraints: &Constraints{
-				LimitDisclosure: true,
+				LimitDisclosure: &required,
 				Fields: []*Field{{
 					Path: []string{"$.photo"},
 					Filter: &Filter{
@@ -582,7 +586,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				URI: schemaURI,
 			}},
 			Constraints: &Constraints{
-				LimitDisclosure: true,
+				LimitDisclosure: &required,
 				Fields: []*Field{{
 					Path: []string{"$.image"},
 					Filter: &Filter{

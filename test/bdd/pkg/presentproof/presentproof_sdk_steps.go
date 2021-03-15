@@ -243,6 +243,8 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 }
 
 func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) error {
+	limitDisclosure := presexch.Required
+
 	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
@@ -269,7 +271,7 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 							}},
 							ID: uuid.New().String(),
 							Constraints: &presexch.Constraints{
-								LimitDisclosure: true,
+								LimitDisclosure: &limitDisclosure,
 								Fields: []*presexch.Field{{
 									Path:   []string{"$.credentialSubject.degree.degreeSchool"},
 									Filter: &presexch.Filter{Type: &strFilterType},

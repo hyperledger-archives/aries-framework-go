@@ -366,7 +366,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Predicate (limit disclosure)", func(t *testing.T) {
-		predicate := Required
+		required := Required
 
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
@@ -376,10 +376,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					LimitDisclosure: true,
+					LimitDisclosure: &required,
 					Fields: []*Field{{
 						Path:      []string{"$.first_name", "$.last_name"},
-						Predicate: &predicate,
+						Predicate: &required,
 						Filter:    &Filter{Type: &strFilterType},
 					}},
 				},
@@ -428,6 +428,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Limit disclosure BBS+", func(t *testing.T) {
+		required := Required
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -436,7 +438,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 				ID: uuid.New().String(),
 				Constraints: &Constraints{
-					LimitDisclosure: true,
+					LimitDisclosure: &required,
 					Fields: []*Field{{
 						Path:   []string{"$.credentialSubject.degree.degreeSchool"},
 						Filter: &Filter{Type: &strFilterType},
@@ -536,7 +538,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Predicate and limit disclosure BBS+ (no proof)", func(t *testing.T) {
-		predicate := Required
+		required := Required
 
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
@@ -546,11 +548,11 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 				ID: uuid.New().String(),
 				Constraints: &Constraints{
-					LimitDisclosure: true,
+					LimitDisclosure: &required,
 					Fields: []*Field{{
 						Path:      []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
 						Filter:    &Filter{Type: &strFilterType},
-						Predicate: &predicate,
+						Predicate: &required,
 					}, {
 						Path:   []string{"$.credentialSubject.type"},
 						Filter: &Filter{Type: &arrFilterType},
@@ -834,6 +836,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
 		issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+		required := Required
 
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
@@ -844,7 +847,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
-					LimitDisclosure: true,
+					LimitDisclosure: &required,
 					Fields: []*Field{{
 						Path:   []string{"$.first_name"},
 						Filter: &Filter{Type: &strFilterType},
@@ -952,6 +955,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Create new credential (error)", func(t *testing.T) {
+		required := Required
+
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -960,7 +965,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					URI: schemaURI,
 				}},
 				Constraints: &Constraints{
-					LimitDisclosure: true,
+					LimitDisclosure: &required,
 					Fields: []*Field{{
 						Path: []string{"$.first_name"},
 						Filter: &Filter{
