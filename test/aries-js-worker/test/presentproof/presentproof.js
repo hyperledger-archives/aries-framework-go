@@ -150,7 +150,7 @@ async function presentProofBBS(mode) {
                                                 },
                                             ],
                                             constraints: {
-                                                limit_disclosure: true,
+                                                limit_disclosure: "required",
                                                 fields: [
                                                     {
                                                         path: [

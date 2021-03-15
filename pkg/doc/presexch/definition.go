@@ -51,6 +51,14 @@ type (
 	StrOrInt interface{}
 )
 
+func (v *Preference) isRequired() bool {
+	if v == nil {
+		return false
+	}
+
+	return *v == Required
+}
+
 // Format describes PresentationDefinition`s Format field.
 type Format struct {
 	Jwt   *JwtType `json:"jwt,omitempty"`
@@ -127,7 +135,7 @@ type Holder struct {
 
 // Constraints describes InputDescriptor`s Constraints field.
 type Constraints struct {
-	LimitDisclosure bool        `json:"limit_disclosure,omitempty"`
+	LimitDisclosure *Preference `json:"limit_disclosure,omitempty"`
 	SubjectIsIssuer *Preference `json:"subject_is_issuer,omitempty"`
 	IsHolder        []*Holder   `json:"is_holder,omitempty"`
 	Fields          []*Field    `json:"fields,omitempty"`
@@ -499,9 +507,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 	var result []*verifiable.Credential
 
 	for _, credential := range creds {
-		if constraints.SubjectIsIssuer != nil &&
-			*constraints.SubjectIsIssuer == Required &&
-			!subjectIsIssuer(credential) {
+		if constraints.SubjectIsIssuer.isRequired() && !subjectIsIssuer(credential) {
 			continue
 		}
 
@@ -533,7 +539,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 				return nil, fmt.Errorf("filter field.%d: %w", i, err)
 			}
 
-			if field.Predicate != nil && *field.Predicate == Required {
+			if field.Predicate.isRequired() {
 				predicate = true
 			}
 
@@ -544,10 +550,10 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			continue
 		}
 
-		if constraints.LimitDisclosure || predicate {
+		if constraints.LimitDisclosure.isRequired() || predicate {
 			template := credentialSrc
 
-			if constraints.LimitDisclosure {
+			if constraints.LimitDisclosure.isRequired() {
 				template, err = json.Marshal(map[string]interface{}{
 					"id":                credential.ID,
 					"credentialSchema":  credential.Schemas,
@@ -637,14 +643,14 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 			var val interface{} = true
 
 			if !modifiedByPredicate {
-				modifiedByPredicate = f.Predicate != nil && *f.Predicate == Required
+				modifiedByPredicate = f.Predicate.isRequired()
 			}
 
 			if f.Predicate == nil || *f.Predicate != Required {
 				val = gjson.GetBytes(src, path[1]).Value()
 			}
 
-			if constraints.LimitDisclosure && BBSSupport {
+			if constraints.LimitDisclosure.isRequired() && BBSSupport {
 				chunks := strings.Split(path[0], ".")
 				explicitPath := strings.Join(chunks[:len(chunks)-1], ".")
 				explicitPaths[explicitPath] = true
@@ -657,7 +663,7 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 		}
 	}
 
-	if !constraints.LimitDisclosure || !BBSSupport || modifiedByPredicate {
+	if !constraints.LimitDisclosure.isRequired() || !BBSSupport || modifiedByPredicate {
 		opts = append(opts, verifiable.WithDisabledProofCheck())
 		return verifiable.ParseCredential(limitedCred, opts...)
 	}
