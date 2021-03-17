@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -307,14 +306,14 @@ func createPackedMsgForForward(t *testing.T) []byte {
 
 // mockProvider mock provider.
 type mockProvider struct {
-	packagerValue           commontransport.Packager
+	packagerValue           transport.Packager
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
 	vdr                     vdrapi.Registry
 	kms                     kms.KeyManager
 }
 
-func (p *mockProvider) Packager() commontransport.Packager {
+func (p *mockProvider) Packager() transport.Packager {
 	return p.packagerValue
 }
 
@@ -368,10 +367,10 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 type mockPackager struct {
 }
 
-func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) {
+func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
 	return e.Message, nil
 }
 
-func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
+func (m *mockPackager) UnpackMessage(encMessage []byte) (*transport.Envelope, error) {
 	return nil, nil
 }

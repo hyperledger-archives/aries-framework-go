@@ -8,7 +8,6 @@ package transport
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 )
 
 // OutboundTransport interface definition for transport layer
@@ -28,15 +27,25 @@ type OutboundTransport interface {
 	Accept(string) bool
 }
 
+// Envelope holds message data and metadata for inbound and outbound messaging.
+type Envelope struct {
+	Message []byte
+	FromKey []byte
+	// ToKeys stores keys for an outbound message packing
+	ToKeys []string
+	// ToKey holds the key that was used to decrypt an inbound message
+	ToKey []byte
+}
+
 // InboundMessageHandler handles the inbound requests. The transport will unpack the payload prior to the
 // message handle invocation.
-type InboundMessageHandler func(message []byte, myDID, theirDID string) error
+type InboundMessageHandler func(envelope *Envelope) error
 
 // Provider contains dependencies for starting the inbound/outbound transports.
 // It is typically created by using aries.Context().
 type Provider interface {
 	InboundMessageHandler() InboundMessageHandler
-	Packager() transport.Packager
+	Packager() Packager
 	AriesFrameworkID() string
 }
 
@@ -50,4 +59,35 @@ type InboundTransport interface {
 
 	// returns the endpoint
 	Endpoint() string
+}
+
+// Packager manages the handling, building and parsing of DIDComm raw messages in JSON envelopes.
+//
+// These envelopes are used as wire-level wrappers of messages sent in Aries agent-agent communication.
+type Packager interface {
+	// PackMessage Pack a message for one or more recipients.
+	//
+	// Args:
+	//
+	// envelope: The message to pack
+	//
+	// Returns:
+	//
+	// []byte: The packed message
+	//
+	// error: error
+	PackMessage(envelope *Envelope) ([]byte, error)
+
+	// UnpackMessage Unpack a message.
+	//
+	// Args:
+	//
+	// encMessage: The encrypted message
+	//
+	// Returns:
+	//
+	// envelope: unpack message
+	//
+	// error: error
+	UnpackMessage(encMessage []byte) (*Envelope, error)
 }

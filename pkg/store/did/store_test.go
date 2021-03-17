@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package did
+package did_test
 
 import (
 	"crypto/ed25519"
@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 
 func TestNew(t *testing.T) {
 	t.Run("test new store", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mem.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -37,7 +38,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test error from open store", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
 			},
@@ -50,7 +51,7 @@ func TestNew(t *testing.T) {
 
 func TestSaveDID(t *testing.T) {
 	t.Run("test save did doc - success", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestSaveDID(t *testing.T) {
 	})
 
 	t.Run("test save did doc - error from store put", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
@@ -71,7 +72,7 @@ func TestSaveDID(t *testing.T) {
 	})
 
 	t.Run("test save did doc - empty name", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("error put"),
@@ -84,7 +85,7 @@ func TestSaveDID(t *testing.T) {
 	})
 
 	t.Run("test save did doc - error getting existing mapping for name", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
@@ -97,7 +98,7 @@ func TestSaveDID(t *testing.T) {
 	})
 
 	t.Run("test save did doc - name already exists", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
@@ -111,7 +112,7 @@ func TestSaveDID(t *testing.T) {
 
 func TestGetDIDDoc(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
@@ -123,7 +124,7 @@ func TestGetDIDDoc(t *testing.T) {
 	})
 
 	t.Run("test error from store get", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
@@ -137,7 +138,7 @@ func TestGetDIDDoc(t *testing.T) {
 	})
 
 	t.Run("test error data not found", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
@@ -155,7 +156,7 @@ func TestDIDBasedOnName(t *testing.T) {
 		store := make(map[string]mockstore.DBEntry)
 		store[didNameDataKey(sampleDIDName)] = mockstore.DBEntry{Value: []byte(sampleDIDID)}
 
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
 		require.NoError(t, err)
@@ -166,7 +167,7 @@ func TestDIDBasedOnName(t *testing.T) {
 	})
 
 	t.Run("test get didDoc based on name - db error", func(t *testing.T) {
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
@@ -184,7 +185,7 @@ func TestDIDBasedOnName(t *testing.T) {
 func TestGetCredentials(t *testing.T) {
 	t.Run("test get dids", func(t *testing.T) {
 		store := make(map[string]mockstore.DBEntry)
-		s, err := New(&mockprovider.Provider{
+		s, err := didstore.New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
 		})
 		require.NoError(t, err)
@@ -216,6 +217,10 @@ func TestGetCredentials(t *testing.T) {
 		records = s.GetDIDRecords()
 		require.Equal(t, 1+n, len(records))
 	})
+}
+
+func didNameDataKey(name string) string {
+	return fmt.Sprintf("didname_%s", name)
 }
 
 func createDIDDoc() *did.Doc {

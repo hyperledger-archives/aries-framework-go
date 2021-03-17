@@ -7,18 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -35,7 +39,7 @@ type Provider struct {
 	kms                        kms.KeyManager
 	secretLock                 secretlock.Service
 	crypto                     crypto.Crypto
-	packager                   commontransport.Packager
+	packager                   transport.Packager
 	primaryPacker              packer.Packer
 	packers                    []packer.Packer
 	serviceEndpoint            string
@@ -45,6 +49,7 @@ type Provider struct {
 	outboundTransports         []transport.OutboundTransport
 	vdr                        vdrapi.Registry
 	verifiableStore            verifiable.Store
+	didConnectionStore         did.ConnectionStore
 	transportReturnRoute       string
 	frameworkID                string
 }
@@ -114,7 +119,7 @@ func (p *Provider) Crypto() crypto.Crypto {
 }
 
 // Packager returns a packager service.
-func (p *Provider) Packager() commontransport.Packager {
+func (p *Provider) Packager() transport.Packager {
 	return p.packager
 }
 
@@ -158,9 +163,9 @@ func (p *Provider) tryToHandle(svc service.InboundHandler, msg service.DIDCommMs
 }
 
 // InboundMessageHandler return an inbound message handler.
-func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte, myDID, theirDID string) error {
-		msg, err := service.ParseDIDCommMsgMap(message)
+func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //nolint:gocyclo
+	return func(envelope *transport.Envelope) error {
+		msg, err := service.ParseDIDCommMsgMap(envelope.Message)
 		if err != nil {
 			return err
 		}
@@ -168,6 +173,19 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Type()) {
+				var myDID, theirDID string
+
+				switch svc.Name() {
+				// perf: DID exchange doesn't require myDID and theirDID
+				case didexchange.DIDExchange:
+					break
+				default:
+					myDID, theirDID, err = p.getDIDs(envelope)
+					if err != nil {
+						return fmt.Errorf("inbound message handler: %w", err)
+					}
+				}
+
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 
 				return err
@@ -187,12 +205,33 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 			}
 
 			if svc.Accept(msg.Type(), h.Purpose) {
+				myDID, theirDID, err := p.getDIDs(envelope)
+				if err != nil {
+					return fmt.Errorf("inbound message handler: %w", err)
+				}
+
 				return p.tryToHandle(svc, msg, myDID, theirDID)
 			}
 		}
 
 		return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
 	}
+}
+
+func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
+	myDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
+	if errors.Is(err, did.ErrNotFound) {
+	} else if err != nil {
+		return "", "", fmt.Errorf("failed to get my did: %w", err)
+	}
+
+	theirDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
+	if errors.Is(err, did.ErrNotFound) {
+	} else if err != nil {
+		return "", "", fmt.Errorf("failed to get their did: %w", err)
+	}
+
+	return myDID, theirDID, nil
 }
 
 // OutboundMessageHandler returns a handler composed of all registered protocol services.
@@ -231,6 +270,11 @@ func (p *Provider) AriesFrameworkID() string {
 // VerifiableStore returns a verifiable credential store.
 func (p *Provider) VerifiableStore() verifiable.Store {
 	return p.verifiableStore
+}
+
+// DIDConnectionStore returns a DID connection store.
+func (p *Provider) DIDConnectionStore() did.ConnectionStore {
+	return p.didConnectionStore
 }
 
 // ProviderOption configures the framework.
@@ -341,7 +385,7 @@ func WithProtocolStateStorageProvider(s storage.Provider) ProviderOption {
 }
 
 // WithPackager injects a packager into the context.
-func WithPackager(p commontransport.Packager) ProviderOption {
+func WithPackager(p transport.Packager) ProviderOption {
 	return func(opts *Provider) error {
 		opts.packager = p
 		return nil
@@ -382,6 +426,14 @@ func WithMessageServiceProvider(msv api.MessageServiceProvider) ProviderOption {
 func WithVerifiableStore(store verifiable.Store) ProviderOption {
 	return func(opts *Provider) error {
 		opts.verifiableStore = store
+		return nil
+	}
+}
+
+// WithDIDConnectionStore injects a DID connection store into the context.
+func WithDIDConnectionStore(store did.ConnectionStore) ProviderOption {
+	return func(opts *Provider) error {
+		opts.didConnectionStore = store
 		return nil
 	}
 }

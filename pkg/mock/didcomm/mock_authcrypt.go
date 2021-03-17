@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package didcomm
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+import "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 
 // MockAuthCrypt mock auth crypt.
 type MockAuthCrypt struct {

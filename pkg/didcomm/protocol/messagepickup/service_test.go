@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -985,16 +984,16 @@ func getService() (*Service, error) {
 
 // mockProvider mock provider.
 type mockTransportProvider struct {
-	packagerValue commontransport.Packager
+	packagerValue transport.Packager
 }
 
-func (p *mockTransportProvider) Packager() commontransport.Packager {
+func (p *mockTransportProvider) Packager() transport.Packager {
 	return p.packagerValue
 }
 
 func (p *mockTransportProvider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte, myDID, theirDID string) error {
-		logger.Debugf("message received is %s", message)
+	return func(envelope *transport.Envelope) error {
+		logger.Debugf("message received is %s", envelope.Message)
 		return nil
 	}
 }
@@ -1007,12 +1006,12 @@ func (p *mockTransportProvider) AriesFrameworkID() string {
 type mockPackager struct {
 }
 
-func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) {
+func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
 	return e.Message, nil
 }
 
-func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
-	return &commontransport.Envelope{
+func (m *mockPackager) UnpackMessage(encMessage []byte) (*transport.Envelope, error) {
+	return &transport.Envelope{
 		Message: []byte(`{
 			"id": "8910",     
 			"~transport": {

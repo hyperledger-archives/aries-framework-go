@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	didapi "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -21,6 +22,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -125,4 +127,32 @@ func (p *MockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 // OutboundMessageHandler handles an outbound message.
 func (p *MockProvider) OutboundMessageHandler() service.OutboundHandler {
 	return p.OutboundMsgHandler
+}
+
+// DIDConnectionStore returns DID connection store.
+func (p *MockProvider) DIDConnectionStore() did.ConnectionStore {
+	return &mockConnectionStore{}
+}
+
+type mockConnectionStore struct {
+}
+
+// GetDID returns DID associated with key.
+func (m *mockConnectionStore) GetDID(key string) (string, error) {
+	return "", nil
+}
+
+// SaveDID saves DID to the underlying storage.
+func (m *mockConnectionStore) SaveDID(d string, keys ...string) error {
+	return nil
+}
+
+// SaveDIDFromDoc saves DID from did.Doc to the underlying storage.
+func (m *mockConnectionStore) SaveDIDFromDoc(doc *didapi.Doc) error {
+	return nil
+}
+
+// SaveDIDByResolving saves DID resolved by VDR to the underlying storage.
+func (m *mockConnectionStore) SaveDIDByResolving(d string, keys ...string) error {
+	return nil
 }

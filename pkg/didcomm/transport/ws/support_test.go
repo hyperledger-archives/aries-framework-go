@@ -22,21 +22,20 @@ import (
 	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
 
 type mockProvider struct {
-	packagerValue commontransport.Packager
+	packagerValue transport.Packager
 }
 
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte, myDID, theirDID string) error {
-		logger.Infof("message received is %s", string(message))
+	return func(envelope *transport.Envelope) error {
+		logger.Infof("message received is %s", string(envelope.Message))
 
-		if string(message) == "invalid-data" {
+		if string(envelope.Message) == "invalid-data" {
 			return errors.New("error")
 		}
 
@@ -44,7 +43,7 @@ func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
-func (p *mockProvider) Packager() commontransport.Packager {
+func (p *mockProvider) Packager() transport.Packager {
 	return p.packagerValue
 }
 
@@ -143,17 +142,17 @@ type mockPackager struct {
 	verKey string
 }
 
-func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) {
+func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
 	return e.Message, nil
 }
 
-func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
-	return &commontransport.Envelope{Message: encMessage, FromKey: base58.Decode(m.verKey)}, nil
+func (m *mockPackager) UnpackMessage(encMessage []byte) (*transport.Envelope, error) {
+	return &transport.Envelope{Message: encMessage, FromKey: base58.Decode(m.verKey)}, nil
 }
 
 type mockTransportProvider struct {
-	packagerValue  commontransport.Packager
-	executeInbound func(message []byte, myDID, theirDID string) error
+	packagerValue  transport.Packager
+	executeInbound func(envelope *transport.Envelope) error
 	frameworkID    string
 }
 
@@ -161,7 +160,7 @@ func (p *mockTransportProvider) InboundMessageHandler() transport.InboundMessage
 	return p.executeInbound
 }
 
-func (p *mockTransportProvider) Packager() commontransport.Packager {
+func (p *mockTransportProvider) Packager() transport.Packager {
 	return p.packagerValue
 }
 

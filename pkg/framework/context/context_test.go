@@ -12,14 +12,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
@@ -30,8 +32,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocklock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -73,9 +76,18 @@ func TestNewProvider(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("test new with DID connection store", func(t *testing.T) {
+		prov, err := New(WithDIDConnectionStore(didStoreMocks.NewMockConnectionStore(ctrl)))
+		require.NoError(t, err)
+		require.NotNil(t, prov.DIDConnectionStore())
+	})
+
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", nil).AnyTimes()
 
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
@@ -100,63 +112,206 @@ func TestNewProvider(t *testing.T) {
 
 				return uuid.New().String(), nil
 			},
-		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()), WithMessengerHandler(messengerHandler))
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 
 		inboundHandler := ctx.InboundMessageHandler()
 
 		// valid json and message type
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), "", "")
+		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.NoError(t, err)
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"), "", "")
+		err = inboundHandler(&transport.Envelope{Message: []byte("invalid json")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"), "", "")
+		err = inboundHandler(&transport.Envelope{Message: []byte("invalid json")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// no handlers
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@type": "invalid-message-type",
 			"label": "Bob"
-		}`), "", "")
+		}`)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no message handlers found for the message type: invalid-message-type")
 
 		// valid json, message type but service handlers returns error
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"label": "Carol",
 			"@type": "valid-message-type"
-		}`), "", "")
+		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})
 
-	t.Run("Messenger handle inbound error", func(t *testing.T) {
-		errTest := errors.New("test")
-
+	t.Run("inbound message handler for didexchange protocol doesn't call GetDID", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
 			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(errTest).
-			Times(1)
+			Return(nil).
+			AnyTimes()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", nil).Times(0)
+
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName: didexchange.DIDExchange,
+			AcceptFunc:   func(msgType string) bool { return true },
+			HandleFunc:   func(msg service.DIDCommMsg) (string, error) { return uuid.New().String(), nil },
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore))
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		require.NoError(t, err)
+	})
+
+	t.Run("inbound message handler: DID not found is ok", func(t *testing.T) {
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", did.ErrNotFound)
+
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			AcceptFunc:   func(msgType string) bool { return true },
+			HandleFunc:   func(msg service.DIDCommMsg) (string, error) { return uuid.New().String(), nil },
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore))
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		require.NoError(t, err)
+	})
+
+	t.Run("inbound message handler: failed to get my did", func(t *testing.T) {
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().
+			GetDID(base58.Encode([]byte("toKey"))).
+			Return("", errors.New("get DID error")).
+			AnyTimes()
+
+		connectionStore.EXPECT().
+			GetDID(base58.Encode([]byte("fromKey"))).
+			Return("", nil).
+			AnyTimes()
+
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			AcceptFunc:   func(msgType string) bool { return true },
+			HandleFunc:   func(msg service.DIDCommMsg) (string, error) { return uuid.New().String(), nil },
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore))
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get my did")
+	})
+
+	t.Run("inbound message handler: failed to get their did", func(t *testing.T) {
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().
+			GetDID(base58.Encode([]byte("toKey"))).
+			Return("", nil).
+			AnyTimes()
+
+		connectionStore.EXPECT().
+			GetDID(base58.Encode([]byte("fromKey"))).
+			Return("", errors.New("get DID error")).
+			AnyTimes()
+
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			AcceptFunc:   func(msgType string) bool { return true },
+			HandleFunc:   func(msg service.DIDCommMsg) (string, error) { return uuid.New().String(), nil },
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore))
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get their did")
+	})
+
+	t.Run("generic message handler: failed to get did", func(t *testing.T) {
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
 
 		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", errors.New("get DID error")).AnyTimes()
 
 		ctx, err := New(
 			WithMessageServiceProvider(mockMsgHandler),
 			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
@@ -167,11 +322,49 @@ func TestNewProvider(t *testing.T) {
 		inboundHandler := ctx.InboundMessageHandler()
 
 		// valid json and message type
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), "", "")
+		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get my did")
+	})
+
+	t.Run("messenger handle inbound error", func(t *testing.T) {
+		errTest := errors.New("test")
+
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errTest).
+			Times(1)
+
+		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", nil).AnyTimes()
+
+		ctx, err := New(
+			WithMessageServiceProvider(mockMsgHandler),
+			WithMessengerHandler(messengerHandler),
+			WithDIDConnectionStore(connectionStore),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+		require.NotEmpty(t, ctx.Messenger())
+
+		require.NoError(t, mockMsgHandler.Register(&generic.MockMessageSvc{}))
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		// valid json and message type
+		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 
 		require.EqualError(t, errors.Unwrap(err), errTest.Error())
 	})
@@ -232,7 +425,12 @@ func TestNewProvider(t *testing.T) {
 			AnyTimes()
 
 		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
-		prov, err := New(WithMessageServiceProvider(mockMsgHandler), WithMessengerHandler(messenger))
+
+		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
+		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", nil).AnyTimes()
+
+		prov, err := New(WithMessageServiceProvider(mockMsgHandler), WithMessengerHandler(messenger),
+			WithDIDConnectionStore(connectionStore))
 		require.NoError(t, err)
 
 		err = mockMsgHandler.Register(&generic.MockMessageSvc{
@@ -248,11 +446,11 @@ func TestNewProvider(t *testing.T) {
 
 		inboundHandler := prov.InboundMessageHandler()
 
-		err = inboundHandler([]byte(fmt.Sprintf(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(fmt.Sprintf(`
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "%s"
-		}`, sampleMsgType)), "did1", "did2")
+		}`, sampleMsgType)), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.NoError(t, err)
 
 		select {
@@ -334,14 +532,14 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with storage provider", func(t *testing.T) {
-		s := storage.NewMockStoreProvider()
+		s := mockstorage.NewMockStoreProvider()
 		prov, err := New(WithStorageProvider(s))
 		require.NoError(t, err)
 		require.Equal(t, s, prov.StorageProvider())
 	})
 
 	t.Run("test new with protocol state storage provider", func(t *testing.T) {
-		s := storage.NewMockStoreProvider()
+		s := mockstorage.NewMockStoreProvider()
 		prov, err := New(WithProtocolStateStorageProvider(s))
 		require.NoError(t, err)
 		require.Equal(t, s, prov.ProtocolStateStorageProvider())

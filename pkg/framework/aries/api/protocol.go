@@ -11,12 +11,12 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -38,9 +38,10 @@ type Provider interface {
 	RouterEndpoint() string
 	VDRegistry() vdrapi.Registry
 	ProtocolStateStorageProvider() storage.Provider
-	InboundMessageHandler() didcommtransport.InboundMessageHandler
+	InboundMessageHandler() transport.InboundMessageHandler
 	OutboundMessageHandler() service.OutboundHandler
 	VerifiableStore() verifiable.Store
+	DIDConnectionStore() did.ConnectionStore
 }
 
 // ProtocolSvcCreator method to create new protocol service.

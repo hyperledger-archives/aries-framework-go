@@ -13,7 +13,6 @@ import (
 
 	"nhooyr.io/websocket"
 
-	commtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -27,7 +26,7 @@ const (
 type connPool struct {
 	connMap map[string]*websocket.Conn
 	sync.RWMutex
-	packager   commtransport.Packager
+	packager   transport.Packager
 	msgHandler transport.InboundMessageHandler
 }
 
@@ -102,13 +101,13 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 
 		didKey, _ := fingerprint.CreateDIDKey(unpackMsg.FromKey)
 
-		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
+		if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
 			d.add(didKey, conn)
 		}
 
 		messageHandler := d.msgHandler
 
-		err = messageHandler(unpackMsg.Message, unpackMsg.ToDID, unpackMsg.FromDID)
+		err = messageHandler(unpackMsg)
 		if err != nil {
 			logger.Errorf("incoming msg processing failed: %v", err)
 		}
