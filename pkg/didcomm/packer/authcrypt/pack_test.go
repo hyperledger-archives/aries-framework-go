@@ -22,9 +22,11 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -34,6 +36,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
+	spilog "github.com/hyperledger/aries-framework-go/spi/log"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -44,26 +47,51 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 		name    string
 		keyType kms.KeyType
 		encAlg  afgjose.EncAlg
+		cty     string
 	}{
 		{
-			"authpack using NISTP256ECDHKW and AES256-GCM",
-			kms.NISTP256ECDHKWType,
-			afgjose.A256GCM,
+			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"authpack using X25519ECDHKW and XChacha20Poly1305",
-			kms.X25519ECDHKWType,
-			afgjose.XC20P,
+			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"authpack using NISTP256ECDHKW and XChacha20Poly1305",
-			kms.NISTP256ECDHKWType,
-			afgjose.XC20P,
+			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"authpack using X25519ECDHKW and AES256-GCM",
-			kms.X25519ECDHKWType,
-			afgjose.A256GCM,
+			name:    "anoncrypt using X25519ECDHKW and AES256-GCM",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     packer.ContentEncodingTypeV2,
+		},
+		{
+			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+		},
+		{
+			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+		},
+		{
+			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.XC20P,
+		},
+		{
+			name:    "anoncrypt using X25519ECDHKW and AES256-GCM without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
 		},
 	}
 
@@ -83,6 +111,8 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 				Store: thirdPartyKeyStore,
 			}}
 
+			log.SetLevel("aries-framework/pkg/didcomm/packer/authcrypt", spilog.DEBUG)
+
 			cryptoSvc, err := tinkcrypto.New()
 			require.NoError(t, err)
 
@@ -94,7 +124,7 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 			thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
 
 			origMsg := []byte("secret message")
-			ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
+			ct, err := authPacker.Pack(tc.cty, origMsg, []byte(skid), recipientsKeys)
 			require.NoError(t, err)
 
 			jweStr, err := prettyPrint(ct)
@@ -107,15 +137,20 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 			recKey, err := exportPubKeyBytes(keyHandles[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
+
+			jweJSON, err := afgjose.Deserialize(string(ct))
+			require.NoError(t, err)
+
+			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 
 			// try with only 1 recipient to force compact JWE serialization
-			ct, err = authPacker.Pack(origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+			ct, err = authPacker.Pack(tc.cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
 			require.NoError(t, err)
 
 			t.Logf("* authcrypt JWE Compact seriliazation (using first recipient only): %s", ct)
 
-			jweJSON, err := afgjose.Deserialize(string(ct))
+			jweJSON, err = afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
 
 			jweStr, err = jweJSON.FullSerialize(json.Marshal)
@@ -125,11 +160,23 @@ func TestAuthryptPackerSuccess(t *testing.T) {
 			msg, err = authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
 
-			require.Equal(t, encodingType, authPacker.EncodingType())
+			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
 	}
+}
+
+func verifyJWETypes(t *testing.T, cty string, jweHeader afgjose.Headers) {
+	encodingType, ok := jweHeader.Type()
+	require.True(t, ok)
+
+	require.Equal(t, packer.EnvelopeEncodingTypeV2, encodingType)
+
+	contentType, ok := jweHeader.ContentType()
+	require.True(t, contentType == "" || contentType != "" && ok)
+
+	require.Equal(t, cty, contentType)
 }
 
 func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
@@ -150,6 +197,8 @@ func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	copy(recipientsKeys[1], recipientsKey2[0])
 	copy(recipientsKeys[2], recipientsKey3[0])
 
+	cty := packer.ContentEncodingTypeV2
+
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
 	thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
@@ -168,7 +217,7 @@ func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
 
 	origMsg := []byte("secret message")
-	ct, err := authPacker.Pack(origMsg, []byte(skid), recipientsKeys)
+	ct, err := authPacker.Pack(cty, origMsg, []byte(skid), recipientsKeys)
 	require.NoError(t, err)
 
 	t.Logf("authcrypt JWE: %s", ct)
@@ -179,21 +228,26 @@ func TestAuthryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles1[0])
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
 
 	// try with only 1 recipient
-	ct, err = authPacker.Pack(origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+	ct, err = authPacker.Pack(cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
 	require.NoError(t, err)
 
 	msg, err = authPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
 
-	require.Equal(t, encodingType, authPacker.EncodingType())
+	jweJSON, err := afgjose.Deserialize(string(ct))
+	require.NoError(t, err)
+
+	verifyJWETypes(t, cty, jweJSON.ProtectedHeaders)
 }
 
 func TestAuthcryptPackerFail(t *testing.T) {
+	cty := packer.ContentEncodingTypeV2
+
 	k := createKMS(t)
 
 	cryptoSvc, err := tinkcrypto.New()
@@ -235,12 +289,12 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	skidB := []byte(skid)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
-		_, err = authPacker.Pack(origMsg, nil, nil)
+		_, err = authPacker.Pack(cty, origMsg, nil, nil)
 		require.EqualError(t, err, "authcrypt Pack: empty recipientsPubKeys")
 	})
 
 	t.Run("pack fail with invalid recipients keys", func(t *testing.T) {
-		_, err = authPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
+		_, err = authPacker.Pack(cty, origMsg, nil, [][]byte{[]byte("invalid")})
 		require.EqualError(t, err, "authcrypt Pack: failed to convert recipient keys: invalid character 'i' "+
 			"looking for beginning of value")
 	})
@@ -250,7 +304,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.EncAlg(invalidAlg))
 		require.NoError(t, err)
 
-		_, err = invalidAuthPacker.Pack(origMsg, skidB, recipientsKeys)
+		_, err = invalidAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.EqualError(t, err, fmt.Sprintf("authcrypt Pack: failed to new JWEEncrypt instance: encryption"+
 			" algorithm '%s' not supported", invalidAlg))
 	})
@@ -266,7 +320,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		_, err = badAuthPacker.Pack(origMsg, skidB, recipientsKeys)
+		_, err = badAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.Contains(t, fmt.Sprintf("%v", err), "bad fake key ID")
 	})
 
@@ -274,7 +328,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		_, err = validAuthPacker.Pack(origMsg, skidB, recipientsKeys)
+		_, err = validAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.NoError(t, err)
 
 		_, err = validAuthPacker.Unpack([]byte("invalid jwe envelope"))
@@ -286,7 +340,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		ct, err := validAuthPacker.Pack(origMsg, skidB, [][]byte{recipientsKeys[0]})
+		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, [][]byte{recipientsKeys[0]})
 		require.NoError(t, err)
 
 		jwe, err := afgjose.Deserialize(string(ct))
@@ -306,7 +360,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		ct, err := validAuthPacker.Pack(origMsg, skidB, newRecKeys)
+		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, newRecKeys)
 		require.NoError(t, err)
 
 		// rotate keys to update keyID and force a failure

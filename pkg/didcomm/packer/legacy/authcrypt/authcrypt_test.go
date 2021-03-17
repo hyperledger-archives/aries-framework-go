@@ -125,6 +125,13 @@ func (p *provider) SecretLock() secretlock.Service {
 	return p.secretLock
 }
 
+func createKey(t *testing.T, km kms.KeyManager) []byte {
+	_, key, err := km.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
+	return key
+}
+
 func TestEncodingType(t *testing.T) {
 	testKMS, store := newKMS(t)
 	require.NotEmpty(t, testKMS)
@@ -138,13 +145,6 @@ func TestEncodingType(t *testing.T) {
 	require.Equal(t, encodingType, packer.EncodingType())
 }
 
-func createKey(t *testing.T, km kms.KeyManager) []byte {
-	_, key, err := km.CreateAndExportPubKeyBytes(kms.ED25519Type)
-	require.NoError(t, err)
-
-	return key
-}
-
 func TestEncrypt(t *testing.T) {
 	testingKMS, _ := newKMS(t)
 	senderKey := createKey(t, testingKMS)
@@ -153,7 +153,7 @@ func TestEncrypt(t *testing.T) {
 		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
-		_, err := packer.Pack([]byte("Test Message"), senderKey, [][]byte{})
+		_, err := packer.Pack("", []byte("Test Message"), senderKey, [][]byte{})
 		require.EqualError(t, err, "empty recipients keys, must have at least one recipient")
 	})
 
@@ -163,7 +163,7 @@ func TestEncrypt(t *testing.T) {
 
 		badKey := "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"
 
-		_, err := packer.Pack([]byte("Test Message"), senderKey, [][]byte{base58.Decode(badKey)})
+		_, err := packer.Pack("", []byte("Test Message"), senderKey, [][]byte{base58.Decode(badKey)})
 		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build "+
 			"recipient: buildRecipient: failed to convert public Ed25519 to Curve25519: error converting public key")
 	})
@@ -174,7 +174,7 @@ func TestEncrypt(t *testing.T) {
 		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
-		_, err := packer.Pack([]byte("Test Message"), []byte{1, 2, 3}, [][]byte{recipientKey})
+		_, err := packer.Pack("", []byte("Test Message"), []byte{1, 2, 3}, [][]byte{recipientKey})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "getKeySet: failed to read json keyset from reader: cannot read data"+
 			" for keysetID")
@@ -184,7 +184,7 @@ func TestEncrypt(t *testing.T) {
 		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
-		enc, e := packer.Pack([]byte("Pack my box with five dozen liquor jugs!"),
+		enc, e := packer.Pack("", []byte("Pack my box with five dozen liquor jugs!"),
 			senderKey, [][]byte{recipientKey})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
@@ -201,7 +201,7 @@ func TestEncrypt(t *testing.T) {
 		packer := newWithKMSAndCrypto(t, testingKMS)
 		require.NotEmpty(t, packer)
 
-		enc, err := packer.Pack([]byte("God! a red nugget! A fat egg under a dog!"), senderKey1, recipientKeys)
+		enc, err := packer.Pack("", []byte("God! a red nugget! A fat egg under a dog!"), senderKey1, recipientKeys)
 		require.NoError(t, err)
 		require.NotEmpty(t, enc)
 	})
@@ -223,7 +223,7 @@ func TestEncrypt(t *testing.T) {
 		packer := newWithKMSAndCrypto(t, kms2)
 		require.NotEmpty(t, packer)
 		packer.randSource = constRand
-		enc, err := packer.Pack(nil, base58.Decode(senderPub), [][]byte{base58.Decode(recipientPub)})
+		enc, err := packer.Pack("", nil, base58.Decode(senderPub), [][]byte{base58.Decode(recipientPub)})
 		require.NoError(t, err)
 
 		test := "eyJwcm90ZWN0ZWQiOiJleUpsYm1NaU9pSmphR0ZqYUdFeU1IQnZiSGt4TXpBMVgybGxkR1lpTENKMGVYQWlPaUpLVjAwdk1TNHdJaXdpWVd4bklqb2lRWFYwYUdOeWVYQjBJaXdpY21WamFYQnBaVzUwY3lJNlczc2laVzVqY25sd2RHVmtYMnRsZVNJNklqSmlVRFl0VnpaWldXZHpjMlZpVWxOaU0xWlljV0pMTlZWa2FpMDNOSGxGTTFFdFZXaHpjMUF3Vm1aclRHNVhiMFk0WjBSNVVHRkJlREI0VWtGM2NIVWlMQ0pvWldGa1pYSWlPbnNpYTJsa0lqb2lRMUF4WlZadlJuaERaM1ZSWlRGMGRFUmlVek5NTXpWYWFVcGphMW80VUZwNWExZ3hVME5FVG1kRldWb2lMQ0p6Wlc1a1pYSWlPaUpHYzIwMU5WOUNTRkJzVkdsd2RUQlFabEZDY2t0SmRuZ3lTRGw0VTBndFVtbHpXRzgxVVdoemQwTTNjR28yTm5BMVNtOUpVVjlIT1hGdFRrVldNRzVGVG5sTVIwczFlVVZuUzJoeU5ESTBVMnBJYkRWSmQzQnljRnBqYUdGNVprNWtWa2xJTFdKNlprRnhjbXhDWTIxUVZEWkpkR2R4Y3poclRHczlJaXdpYVhZaU9pSm1OV3BVT0VKS2FHeEVZbTQwUWxvMFNGcGZSSEExTkU5TGQyWmxRV1JSTWlKOWZWMTkiLCJpdiI6ImlLZHFxRWpzTktpeW4taGsiLCJ0YWciOiIySm5SbF9iXzM2QS1WaWFKNzNCb1FBPT0ifQ==" // nolint: lll
@@ -249,6 +249,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, packer)
 		packer.randSource = constRand
 		enc, err := packer.Pack(
+			"",
 			[]byte("Sphinx of black quartz, judge my vow!"),
 			base58.Decode(senderPub),
 			[][]byte{rec1Pub, rec2Pub, rec3Pub, rec4Pub})
@@ -275,6 +276,7 @@ func TestEncryptComponents(t *testing.T) {
 		packer.randSource = failRand
 
 		_, err := packer.Pack(
+			"",
 			[]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.EqualError(t, err, "pack: failed to generate random nonce: mock Reader has failed intentionally")
@@ -285,6 +287,7 @@ func TestEncryptComponents(t *testing.T) {
 		packer.randSource = failRand
 
 		_, err := packer.Pack(
+			"",
 			[]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.EqualError(t, err, "pack: failed to generate cek: mock Reader has failed intentionally")
@@ -294,8 +297,9 @@ func TestEncryptComponents(t *testing.T) {
 		failRand := newFailReader(2, rand.Reader)
 		packer.randSource = failRand
 
-		_, err := packer.Pack([]byte(
-			"Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
+		_, err := packer.Pack(
+			"", []byte(
+				"Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build "+
 			"recipient: buildRecipient: failed to generate random nonce: mock Reader has failed intentionally")
@@ -306,6 +310,7 @@ func TestEncryptComponents(t *testing.T) {
 		packer.randSource = failRand
 
 		_, err := packer.Pack(
+			"",
 			[]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build"+
@@ -317,6 +322,7 @@ func TestEncryptComponents(t *testing.T) {
 		packer.randSource = failRand
 
 		_, err := packer.Pack(
+			"",
 			[]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.NoError(t, err)
@@ -354,7 +360,7 @@ func TestDecrypt(t *testing.T) {
 			env *transport.Envelope
 		)
 
-		enc, err = packer.Pack(msgIn, senderKey, [][]byte{recKey})
+		enc, err = packer.Pack("", msgIn, senderKey, [][]byte{recKey})
 		require.NoError(t, err)
 		env, err = packer.Unpack(enc)
 		require.NoError(t, err)
@@ -386,7 +392,7 @@ func TestDecrypt(t *testing.T) {
 			env *transport.Envelope
 		)
 
-		enc, err = sendPacker.Pack(msgIn, senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
+		enc, err = sendPacker.Pack("", msgIn, senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, err)
 		env, err = rec2Packer.Unpack(enc)
 		require.NoError(t, err)

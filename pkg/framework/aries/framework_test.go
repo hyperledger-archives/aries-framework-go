@@ -102,17 +102,15 @@ func TestFramework(t *testing.T) {
 			WithCrypto(&mockcrypto.Crypto{SignValue: []byte("mockValue")}),
 			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
 				return &didcomm.MockAuthCrypt{
-					EncryptValue: func(payload, senderPubKey []byte, recipients [][]byte) (bytes []byte, e error) {
+					EncryptValue: func(cty string, payload, senderPubKey []byte, recipients [][]byte) (bytes []byte, e error) {
 						return []byte("packed message"), nil
 					},
 					DecryptValue: nil,
-					Type:         "",
 				}, nil
 			},
 				func(ctx packer.Provider) (packer.Packer, error) {
 					return &didcomm.MockAuthCrypt{
 						EncryptValue: nil,
-						Type:         "dummy format",
 					}, nil
 				}))
 		require.NoError(t, err)

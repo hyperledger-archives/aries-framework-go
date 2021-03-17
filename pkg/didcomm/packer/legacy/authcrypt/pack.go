@@ -24,7 +24,7 @@ import (
 
 // Pack will encode the payload argument
 // Using the protocol defined by Aries RFC 0019.
-func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte, error) {
+func (p *Packer) Pack(_ string, payload, sender []byte, recipientPubKeys [][]byte) ([]byte, error) {
 	var err error
 
 	if len(recipientPubKeys) == 0 {

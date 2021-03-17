@@ -21,9 +21,11 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -32,6 +34,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	spilog "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
 func TestAnoncryptPackerSuccess(t *testing.T) {
@@ -41,26 +44,51 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 		name    string
 		keyType kms.KeyType
 		encAlg  afgjose.EncAlg
+		cty     string
 	}{
 		{
-			"anoncrypt using NISTP256ECDHKW and AES256-GCM",
-			kms.NISTP256ECDHKWType,
-			afgjose.A256GCM,
+			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"anoncrypt using X25519ECDHKW and XChacha20Poly1305",
-			kms.X25519ECDHKWType,
-			afgjose.XC20P,
+			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
-			kms.NISTP256ECDHKWType,
-			afgjose.XC20P,
+			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     packer.ContentEncodingTypeV2,
 		},
 		{
-			"anoncrypt using X25519ECDHKW and AES256-GCM",
-			kms.X25519ECDHKWType,
-			afgjose.A256GCM,
+			name:    "anoncrypt using X25519ECDHKW and AES256-GCM",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     packer.ContentEncodingTypeV2,
+		},
+		{
+			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+		},
+		{
+			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+		},
+		{
+			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.XC20P,
+		},
+		{
+			name:    "anoncrypt using X25519ECDHKW and AES256-GCM without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
 		},
 	}
 
@@ -72,6 +100,8 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			t.Logf("anoncrypt packing - creating recipient %s keys...", tc.keyType)
 			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
+			log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
+
 			cryptoSvc, err := tinkcrypto.New()
 			require.NoError(t, err)
 
@@ -79,7 +109,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			require.NoError(t, err)
 
 			origMsg := []byte("secret message")
-			ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
+			ct, err := anonPacker.Pack(tc.cty, origMsg, nil, recipientsKeys)
 			require.NoError(t, err)
 
 			jweStr, err := prettyPrint(ct)
@@ -92,15 +122,20 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			recKey, err := exportPubKeyBytes(keyHandles[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
+
+			jweJSON, err := afgjose.Deserialize(string(ct))
+			require.NoError(t, err)
+
+			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 
 			// try with only 1 recipient
-			ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+			ct, err = anonPacker.Pack(tc.cty, origMsg, nil, [][]byte{recipientsKeys[0]})
 			require.NoError(t, err)
 
 			t.Logf("* anoncrypt JWE Compact seriliazation (using first recipient only): %s", ct)
 
-			jweJSON, err := afgjose.Deserialize(string(ct))
+			jweJSON, err = afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
 
 			jweStr, err = jweJSON.FullSerialize(json.Marshal)
@@ -110,27 +145,46 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			msg, err = anonPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
 
-			require.Equal(t, encodingType, anonPacker.EncodingType())
+			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
 	}
 }
 
+func verifyJWETypes(t *testing.T, cty string, jweHeader afgjose.Headers) {
+	encodingType, ok := jweHeader.Type()
+	require.True(t, ok)
+
+	require.Equal(t, packer.EnvelopeEncodingTypeV2, encodingType)
+
+	contentType, ok := jweHeader.ContentType()
+	require.True(t, contentType == "" || contentType != "" && ok)
+
+	require.Equal(t, cty, contentType)
+}
+
 func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
+	log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
+
 	k := createKMS(t)
 	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
 	_, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP384ECDHKW)
 	_, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP521ECDHKW)
+	_, recipientsKey4, _ := createRecipientsByKeyType(t, k, 1, kms.X25519ECDHKW)
 
-	recipientsKeys := make([][]byte, 3)
+	recipientsKeys := make([][]byte, 4)
 	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
 	recipientsKeys[1] = make([]byte, len(recipientsKey2[0]))
 	recipientsKeys[2] = make([]byte, len(recipientsKey3[0]))
+	recipientsKeys[3] = make([]byte, len(recipientsKey4[0]))
 
 	copy(recipientsKeys[0], recipientsKey1[0])
 	copy(recipientsKeys[1], recipientsKey2[0])
 	copy(recipientsKeys[2], recipientsKey3[0])
+	copy(recipientsKeys[3], recipientsKey4[0])
+
+	cty := packer.ContentEncodingTypeV2
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -139,10 +193,13 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	origMsg := []byte("secret message")
-	ct, err := anonPacker.Pack(origMsg, nil, recipientsKeys)
+	ct, err := anonPacker.Pack(cty, origMsg, nil, recipientsKeys)
 	require.NoError(t, err)
 
-	t.Logf("anoncrypt JWE: %s", ct)
+	ctStr, err := prettyPrint(ct)
+	require.NoError(t, err)
+
+	t.Logf("anoncrypt JWE: %s", ctStr)
 
 	msg, err := anonPacker.Unpack(ct)
 	require.NoError(t, err)
@@ -150,21 +207,21 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles1[0])
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
 
 	// try with only 1 recipient
-	ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+	ct, err = anonPacker.Pack(cty, origMsg, nil, [][]byte{recipientsKeys[0]})
 	require.NoError(t, err)
 
 	msg, err = anonPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
-
-	require.Equal(t, encodingType, anonPacker.EncodingType())
+	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
 }
 
 func TestAnoncryptPackerFail(t *testing.T) {
+	cty := packer.ContentEncodingTypeV2
+
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
@@ -180,12 +237,12 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
-		_, err = anonPacker.Pack(origMsg, nil, nil)
+		_, err = anonPacker.Pack(cty, origMsg, nil, nil)
 		require.EqualError(t, err, "anoncrypt Pack: empty recipientsPubKeys")
 	})
 
 	t.Run("pack fail with invalid recipients keys", func(t *testing.T) {
-		_, err = anonPacker.Pack(origMsg, nil, [][]byte{[]byte("invalid")})
+		_, err = anonPacker.Pack(cty, origMsg, nil, [][]byte{[]byte("invalid")})
 		require.EqualError(t, err, "anoncrypt Pack: failed to convert recipient keys: invalid character 'i' "+
 			"looking for beginning of value")
 	})
@@ -195,7 +252,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		invalidAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.EncAlg(invalidAlg))
 		require.NoError(t, err)
 
-		_, err = invalidAnonPacker.Pack(origMsg, nil, recipientsKeys)
+		_, err = invalidAnonPacker.Pack(cty, origMsg, nil, recipientsKeys)
 		require.EqualError(t, err, fmt.Sprintf("anoncrypt Pack: failed to new JWEEncrypt instance: encryption"+
 			" algorithm '%s' not supported", invalidAlg))
 	})
@@ -204,7 +261,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		_, err = validAnonPacker.Pack(origMsg, nil, recipientsKeys)
+		_, err = validAnonPacker.Pack(cty, origMsg, nil, recipientsKeys)
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Unpack([]byte("invalid jwe envelope"))
@@ -216,7 +273,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		ct, err := validAnonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+		ct, err := validAnonPacker.Pack(cty, origMsg, nil, [][]byte{recipientsKeys[0]})
 		require.NoError(t, err)
 
 		jwe, err := afgjose.Deserialize(string(ct))
@@ -236,7 +293,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
-		ct, err := validAnonPacker.Pack(origMsg, nil, newRecKeys)
+		ct, err := validAnonPacker.Pack(cty, origMsg, nil, newRecKeys)
 		require.NoError(t, err)
 
 		// rotate keys to update keyID and force a failure

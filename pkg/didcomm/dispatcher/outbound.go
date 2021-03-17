@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -104,8 +105,13 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 			return fmt.Errorf("outboundDispatcher.Send: failed to extract pubKeyBytes from senderVerKey: %w", err)
 		}
 
+		// TODO since o.packager's primary packer is LegacyPacker, CTY Envelope field is ignored. When DIDComm V2 is
+		//  is used, make sure it's set here or passed in by the caller and remove below hard coded cty variable. The
+		//  JWE packers will add it to the Protected Headers of the envelope if it's set.
+		cty := packer.ContentEncodingTypeV1
+
 		packedMsg, err := o.packager.PackMessage(
-			&transport.Envelope{Message: req, FromKey: sender, ToKeys: des.RecipientKeys})
+			&transport.Envelope{CTY: cty, Message: req, FromKey: sender, ToKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
 		}
@@ -188,8 +194,13 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	// pack above message using auth crypt
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
 	//  algorithm(auth/anon crypt) for Forward(router) message
+	// TODO since o.packager's primary packer is LegacyPacker, CTY Envelope field is ignored. When DIDComm V2 is
+	//  is used, make sure it's set here or passed in by the caller and remove below hard coded cty variable. The
+	//  JWE packers will add it to the Protected Headers of the envelope if it's set.
+	cty := packer.ContentEncodingTypeV1
+
 	packedMsg, err := o.packager.PackMessage(
-		&transport.Envelope{Message: req, FromKey: senderVerKey, ToKeys: des.RoutingKeys})
+		&transport.Envelope{CTY: cty, Message: req, FromKey: senderVerKey, ToKeys: des.RoutingKeys})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
 	}

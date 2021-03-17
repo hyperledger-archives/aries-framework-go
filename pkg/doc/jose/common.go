@@ -87,8 +87,6 @@ const (
 	A256GCMALG = "A256GCM"
 	// XC20PALG represented XChacha20Poly1305 content encryption algorithm value.
 	XC20PALG = "XC20P"
-	// DIDCommEncType representing the JWE 'Typ' protected type header.
-	DIDCommEncType = "didcomm-envelope-enc"
 )
 
 // Headers represents JOSE headers.
@@ -117,6 +115,11 @@ func (h Headers) Encryption() (string, bool) {
 // Type gets content encryption type from JOSE headers.
 func (h Headers) Type() (string, bool) {
 	return h.stringValue(HeaderType)
+}
+
+// ContentType gets the payload content type from JOSE headers.
+func (h Headers) ContentType() (string, bool) {
+	return h.stringValue(HeaderContentType)
 }
 
 func (h Headers) stringValue(key string) (string, bool) {

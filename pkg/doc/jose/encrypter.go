@@ -55,12 +55,13 @@ type JWEEncrypt struct {
 	senderKH       *keyset.Handle
 	encAlg         EncAlg
 	encTyp         string
+	cty            string
 	crypto         cryptoapi.Crypto
 }
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
 // senderKID and senderKH are used for Authcrypt (to authenticate the sender), if not set JWEEncrypt assumes Anoncrypt.
-func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+func NewJWEEncrypt(encAlg EncAlg, encType, cty, senderKID string, senderKH *keyset.Handle,
 	recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
@@ -89,6 +90,7 @@ func NewJWEEncrypt(encAlg EncAlg, encType, senderKID string, senderKH *keyset.Ha
 		senderKH:       senderKH,
 		encAlg:         encAlg,
 		encTyp:         encType,
+		cty:            cty,
 		crypto:         crypto,
 	}, nil
 }
@@ -125,9 +127,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 		HeaderType:       je.encTyp,
 	}
 
-	if je.skid != "" {
-		protectedHeaders[HeaderSenderKeyID] = je.skid
-	}
+	je.addExtraProtectedHeaders(protectedHeaders)
 
 	cek := random.GetRandomBytes(uint32(cryptoapi.DefKeySize))
 
@@ -423,6 +423,18 @@ func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey) ([]*Rec
 	}
 
 	return recipients, singleRecipientHeaders, nil
+}
+
+func (je *JWEEncrypt) addExtraProtectedHeaders(protectedHeaders map[string]interface{}) {
+	// set cty if it's not empty
+	if je.cty != "" {
+		protectedHeaders[HeaderContentType] = je.cty
+	}
+
+	// set skid if it's not empty
+	if je.skid != "" {
+		protectedHeaders[HeaderSenderKeyID] = je.skid
+	}
 }
 
 func decodeAPUAPV(headers *RecipientHeaders) ([]byte, []byte, error) {
