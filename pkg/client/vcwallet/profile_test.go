@@ -29,6 +29,7 @@ func TestCreateNewProfile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
+		require.NotEmpty(t, profile.ID)
 		require.Equal(t, profile.KeyServerURL, sampleKeyServerURL)
 		require.Empty(t, profile.MasterLockCipher)
 	})
@@ -38,6 +39,7 @@ func TestCreateNewProfile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
+		require.NotEmpty(t, profile.ID)
 		require.Empty(t, profile.KeyServerURL, "")
 		require.NotEmpty(t, profile.MasterLockCipher)
 	})
@@ -49,6 +51,7 @@ func TestCreateNewProfile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
+		require.NotEmpty(t, profile.ID)
 		require.Empty(t, profile.KeyServerURL, "")
 		require.Equal(t, profile.MasterLockCipher, sampleMasterCipherText)
 	})

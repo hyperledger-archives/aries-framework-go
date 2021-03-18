@@ -64,6 +64,9 @@ type Client struct {
 	// wallet profile
 	profile *profile
 
+	// wallet content store
+	contents *contentStore
+
 	// storage provider
 	storeProvider storage.Provider
 }
@@ -83,7 +86,12 @@ func New(userID string, ctx provider) (*Client, error) {
 		return nil, fmt.Errorf("failed to get VC wallet profile: %w", err)
 	}
 
-	return &Client{userID: userID, profile: profile, storeProvider: ctx.StorageProvider()}, nil
+	contents, err := newContentStore(ctx.StorageProvider(), profile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wallet content store: %w", err)
+	}
+
+	return &Client{userID: userID, profile: profile, storeProvider: ctx.StorageProvider(), contents: contents}, nil
 }
 
 // CreateProfile creates a new verifiable credential wallet profile for given user.
@@ -107,14 +115,30 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...KeyMana
 		opt(opts)
 	}
 
-	profile, err := createProfile(userID, opts.passphrase, opts.secretLockSvc, opts.keyServerURL)
-	if err != nil {
-		return fmt.Errorf("failed to create new VC wallet client: %w", err)
-	}
-
 	store, err := newProfileStore(ctx.StorageProvider())
 	if err != nil {
 		return fmt.Errorf("failed to get store to save VC wallet profile: %w", err)
+	}
+
+	var profile *profile
+
+	if update {
+		// find existing profile and update it.
+		profile, err = store.get(userID)
+		if err != nil {
+			return fmt.Errorf("failed to update wallet user profile: %w", err)
+		}
+
+		err = profile.setKMSOptions(opts.passphrase, opts.secretLockSvc, opts.keyServerURL)
+		if err != nil {
+			return fmt.Errorf("failed to update wallet user profile KMS options: %w", err)
+		}
+	} else {
+		// create new profile.
+		profile, err = createProfile(userID, opts.passphrase, opts.secretLockSvc, opts.keyServerURL)
+		if err != nil {
+			return fmt.Errorf("failed to create new  wallet user profile: %w", err)
+		}
 	}
 
 	err = store.save(profile, update)
@@ -170,6 +194,9 @@ func (c *Client) Export(auth string) (json.RawMessage, error) {
 // Supported data models:
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 func (c *Client) Import(auth string, contents json.RawMessage) error {
 	// TODO to be added #2433
@@ -181,10 +208,13 @@ func (c *Client) Import(auth string, contents json.RawMessage) error {
 // Supported data models:
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Client) Add(model json.RawMessage) error {
-	// TODO to be added #2433
-	return fmt.Errorf("to be implemented")
+// TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
+func (c *Client) Add(contentType ContentType, content json.RawMessage) error {
+	return c.contents.Save(contentType, content)
 }
 
 // Remove removes wallet content by content ID.
@@ -192,10 +222,12 @@ func (c *Client) Add(model json.RawMessage) error {
 // Supported data models:
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Client) Remove(contentID string) error {
-	// TODO to be added #2433
-	return fmt.Errorf("to be implemented")
+func (c *Client) Remove(contentType ContentType, contentID string) error {
+	return c.contents.Remove(contentType, contentID)
 }
 
 // Get fetches a wallet content by content ID.
@@ -203,10 +235,12 @@ func (c *Client) Remove(contentID string) error {
 // Supported data models:
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Client) Get(contentID string) (json.RawMessage, error) {
-	// TODO to be added #2433
-	return nil, fmt.Errorf("to be implemented")
+func (c *Client) Get(contentType ContentType, contentID string) (json.RawMessage, error) {
+	return c.contents.Get(contentType, contentID)
 }
 
 // Query returns a collection of results based on current wallet contents.
