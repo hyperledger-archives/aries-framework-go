@@ -8,6 +8,7 @@ package vcwallet
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -98,21 +99,42 @@ func TestCreate(t *testing.T) {
 		require.Error(t, err)
 		require.Empty(t, wallet)
 	})
+
+	t.Run("test create new wallet failure - create content store error", func(t *testing.T) {
+		mockctx := newMockProvider()
+		mockctx.storeProvider = &mockStorageProvider{
+			MockStoreProvider: mockstorage.NewMockStoreProvider(),
+			failure:           fmt.Errorf(sampleClientErr),
+		}
+
+		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.Error(t, err)
+		require.Empty(t, wallet)
+		require.Contains(t, err.Error(), "failed to get wallet content store:")
+	})
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("test update wallet client using local kms passphrase", func(t *testing.T) {
 		mockctx := newMockProvider()
+		createSampleProfile(t, mockctx)
+
 		err := UpdateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 
 		wallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, wallet)
+		require.NotEmpty(t, wallet.profile.MasterLockCipher)
 	})
 
 	t.Run("test update wallet client using local kms secret lock service", func(t *testing.T) {
 		mockctx := newMockProvider()
+		createSampleProfile(t, mockctx)
+
 		err := UpdateProfile(sampleUserID, mockctx, WithSecretLockService(&secretlock.MockSecretLock{}))
 		require.NoError(t, err)
 
@@ -123,19 +145,37 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("test update wallet client using remote kms key server URL", func(t *testing.T) {
 		mockctx := newMockProvider()
+		createSampleProfile(t, mockctx)
+
 		err := UpdateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
 
 		wallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, wallet)
+		require.Empty(t, wallet.profile.MasterLockCipher)
+		require.NotEmpty(t, wallet.profile.KeyServerURL)
 	})
 
 	t.Run("test update wallet failure", func(t *testing.T) {
 		mockctx := newMockProvider()
+		createSampleProfile(t, mockctx)
+
 		err := UpdateProfile(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid create profile options")
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+		require.NotEmpty(t, wallet.profile.MasterLockCipher)
+	})
+
+	t.Run("test update wallet failure - profile doesn't exists", func(t *testing.T) {
+		mockctx := newMockProvider()
+		err := UpdateProfile(sampleUserID, mockctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "profile does not exist")
 
 		wallet, err := New(sampleUserID, mockctx)
 		require.Error(t, err)
@@ -159,19 +199,19 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("test update wallet failure - save profile error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockstorage.MockStoreProvider{
-			Store: &mockstorage.MockStore{
-				ErrPut: fmt.Errorf(sampleClientErr),
-			},
-		}
+		createSampleProfile(t, mockctx)
+
+		mockctx.storeProvider.(*mockstorage.MockStoreProvider).Store.ErrPut = fmt.Errorf(sampleClientErr)
 
 		err := UpdateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleClientErr)
 
 		wallet, err := New(sampleUserID, mockctx)
-		require.Error(t, err)
-		require.Empty(t, wallet)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+		require.Empty(t, wallet.profile.KeyServerURL)
+		require.NotEmpty(t, wallet.profile.MasterLockCipher)
 	})
 }
 
@@ -344,23 +384,8 @@ func TestClient_Add(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	err = vcWalletClient.Add(nil)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
-}
-
-func TestClient_Remove(t *testing.T) {
-	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	err = vcWalletClient.Add(Metadata, []byte(sampleContentValid))
 	require.NoError(t, err)
-
-	vcWalletClient, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, vcWalletClient)
-	require.NoError(t, err)
-
-	err = vcWalletClient.Remove("")
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
 }
 
 func TestClient_Get(t *testing.T) {
@@ -372,10 +397,38 @@ func TestClient_Get(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	result, err := vcWalletClient.Get("")
-	require.Empty(t, result)
+	err = vcWalletClient.Add(Metadata, []byte(sampleContentValid))
+	require.NoError(t, err)
+
+	content, err := vcWalletClient.Get(Metadata, "did:example:123456789abcdefghi")
+	require.NoError(t, err)
+	require.NotEmpty(t, content)
+	require.Equal(t, sampleContentValid, string(content))
+}
+
+func TestClient_Remove(t *testing.T) {
+	mockctx := newMockProvider()
+	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	require.NoError(t, err)
+
+	vcWalletClient, err := New(sampleUserID, mockctx)
+	require.NotEmpty(t, vcWalletClient)
+	require.NoError(t, err)
+
+	err = vcWalletClient.Add(Metadata, []byte(sampleContentValid))
+	require.NoError(t, err)
+
+	content, err := vcWalletClient.Get(Metadata, "did:example:123456789abcdefghi")
+	require.NoError(t, err)
+	require.NotEmpty(t, content)
+
+	err = vcWalletClient.Remove(Metadata, "did:example:123456789abcdefghi")
+	require.NoError(t, err)
+
+	content, err = vcWalletClient.Get(Metadata, "did:example:123456789abcdefghi")
+	require.Empty(t, content)
 	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+	require.True(t, errors.Is(err, storage.ErrDataNotFound))
 }
 
 func TestClient_Query(t *testing.T) {
@@ -449,4 +502,14 @@ func (p *mockProvider) StorageProvider() storage.Provider {
 
 func newMockProvider() *mockProvider {
 	return &mockProvider{storeProvider: mockstorage.NewMockStoreProvider()}
+}
+
+func createSampleProfile(t *testing.T, mockctx *mockProvider) {
+	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	wallet, err := New(sampleUserID, mockctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, wallet)
+	require.NotEmpty(t, wallet.profile.MasterLockCipher)
 }

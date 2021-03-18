@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -25,6 +27,9 @@ var ErrProfileNotFound = errors.New("profile does not exist")
 
 // profile of VC wallet contains wallet specific settings of wallet user to be remembered.
 type profile struct {
+	// ID unique identifier assigned to this wallet profile.
+	ID string
+
 	// User ID of the wallet profile user.
 	User string
 
@@ -38,7 +43,18 @@ type profile struct {
 // createProfile creates new verifiable credential wallet profile for given user and saves it in store.
 // This profile is required for creating verifiable credential wallet client.
 func createProfile(user, passphrase string, secretLockSvc secretlock.Service, keyServerURL string) (*profile, error) {
-	profile := &profile{User: user}
+	profile := &profile{User: user, ID: uuid.New().String()}
+
+	err := profile.setKMSOptions(passphrase, secretLockSvc, keyServerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return profile, nil
+}
+
+func (pr *profile) setKMSOptions(passphrase string, secretLockSvc secretlock.Service, keyServerURL string) error {
+	pr.resetKMSOptions()
 
 	var err error
 
@@ -47,28 +63,32 @@ func createProfile(user, passphrase string, secretLockSvc secretlock.Service, ke
 		// localkms with passphrase
 		secretLockSvc, err = getDefaultSecretLock(passphrase)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		profile.MasterLockCipher, err = createMasterLock(secretLockSvc)
+		pr.MasterLockCipher, err = createMasterLock(secretLockSvc)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		// local
 	case secretLockSvc != nil:
 		// localkms with secret lock service
-		profile.MasterLockCipher, err = createMasterLock(secretLockSvc)
+		pr.MasterLockCipher, err = createMasterLock(secretLockSvc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	case keyServerURL != "":
 		// remotekms
-		profile.KeyServerURL = keyServerURL
+		pr.KeyServerURL = keyServerURL
 	default:
-		return nil, fmt.Errorf("invalid create profile options")
+		return fmt.Errorf("invalid create profile options")
 	}
 
-	return profile, nil
+	return nil
+}
+
+func (pr *profile) resetKMSOptions() {
+	pr.KeyServerURL = ""
+	pr.MasterLockCipher = ""
 }
 
 // getUserKeyPrefix is key prefix for vc wallet profile store user key.
