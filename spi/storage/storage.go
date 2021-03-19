@@ -29,6 +29,7 @@ var ErrDataNotFound = errors.New("data not found")
 // StoreConfiguration represents the configuration of a store.
 type StoreConfiguration struct {
 	// TagNames is a list of Tag names that key + value pairs in this store can be associated with.
+	// Tag names cannot contain any ':' characters.
 	TagNames []string `json:"tagNames,omitempty"`
 }
 
@@ -54,9 +55,11 @@ func WithPageSize(size int) QueryOption {
 type Tag struct {
 	// Name can be used to tag a given key + value pair as belonging to a group.
 	// Tag Names are static values that the store must be configured with (see TagNames in StoreConfiguration).
+	// Tag Names cannot contain any ':' characters.
 	Name string `json:"name,omitempty"`
 	// Value can be used to indicate some optional metadata associated with a given key + value pair + tag name.
 	// Unlike Tag Names, Tag Values are dynamic and are not specified during store creation.
+	// Tag Values cannot contain any ':' characters.
 	Value string `json:"value,omitempty"`
 }
 
