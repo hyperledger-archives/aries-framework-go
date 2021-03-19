@@ -35,7 +35,6 @@ import (
 // occurred between the sender and the recipient(s).
 
 const (
-	encodingType = "didcomm-envelope-enc"
 	// ThirdPartyKeysDB is a store name containing keys of third party agents.
 	ThirdPartyKeysDB = "thirdpartykeysdb"
 )
@@ -50,7 +49,8 @@ type Packer struct {
 	cryptoService cryptoapi.Crypto
 }
 
-// New will create an Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys.
+// New will create a Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys using
+// DIDComm typ V2 value (default envelope 'typ' protected header).
 // It opens thirdPartyKS store (or fetch cached one) that contains third party keys. This store must be
 // pre-populated with the sender key required by a recipient to Unpack a JWE envelope. It is not needed by the sender
 // (as the sender packs the envelope with its own key).
@@ -89,13 +89,13 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	}, nil
 }
 
-// Pack will encode the payload argument
+// Pack will encode the payload argument with contentType argument
 // Using the protocol defined by the Authcrypt message of Aries RFC 0334
 // with the following arguments:
 // payload: the payload message that will be protected
 // senderID: the key id of the sender (stored in the KMS)
 // recipientsPubKeys: public keys.
-func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]byte, error) {
+func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPubKeys [][]byte) ([]byte, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("authcrypt Pack: empty recipientsPubKeys")
 	}
@@ -110,8 +110,8 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, string(senderID), kh.(*keyset.Handle), recECKeys,
-		p.cryptoService)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, string(senderID),
+		kh.(*keyset.Handle), recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -120,6 +120,13 @@ func (p *Packer) Pack(payload, senderID []byte, recipientsPubKeys [][]byte) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to encrypt payload: %w", err)
 	}
+
+	mPh, err := json.Marshal(jwe.ProtectedHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("anoncrypt Pack: %w", err)
+	}
+
+	logger.Debugf("protected headers: %s", mPh)
 
 	var s string
 
@@ -172,9 +179,9 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 
 // Unpack will decode the envelope using a standard format.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
-	jwe, err := jose.Deserialize(string(envelope))
+	jwe, cty, err := deserializeEnvelope(envelope)
 	if err != nil {
-		return nil, fmt.Errorf("authcrypt Unpack: failed to deserialize JWE message: %w", err)
+		return nil, err
 	}
 
 	for i := range jwe.Recipients {
@@ -225,12 +232,24 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
+			CTY:     cty,
 			Message: pt,
 			ToKey:   ecdh1puPubKeyByes,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("authcrypt Unpack: no matching recipient in envelope")
+}
+
+func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, error) {
+	jwe, err := jose.Deserialize(string(envelope))
+	if err != nil {
+		return nil, "", fmt.Errorf("authcrypt Unpack: failed to deserialize JWE message: %w", err)
+	}
+
+	cty, _ := jwe.ProtectedHeaders.ContentType()
+
+	return jwe, cty, nil
 }
 
 func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
@@ -269,5 +288,5 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 
 // EncodingType for didcomm.
 func (p *Packer) EncodingType() string {
-	return encodingType
+	return packer.EnvelopeEncodingTypeV2
 }

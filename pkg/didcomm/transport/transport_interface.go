@@ -29,6 +29,8 @@ type OutboundTransport interface {
 
 // Envelope holds message data and metadata for inbound and outbound messaging.
 type Envelope struct {
+	// CTY is the Message content type.
+	CTY     string
 	Message []byte
 	FromKey []byte
 	// ToKeys stores keys for an outbound message packing

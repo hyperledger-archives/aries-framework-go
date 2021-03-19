@@ -32,8 +32,6 @@ import (
 // messages anonymously between parties with message repudiation, ie the sender identity is not revealed (and therefore
 // not authenticated) to the recipient(s).
 
-const encodingType = "didcomm-envelope-enc"
-
 var logger = log.New("aries-framework/pkg/didcomm/packer/anoncrypt")
 
 // Packer represents an Anoncrypt Pack/Unpacker that outputs/reads Aries envelopes.
@@ -63,10 +61,10 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 	}, nil
 }
 
-// Pack will encode the payload argument
-// Using the protocol defined by the Anoncrypt message of Aries RFC 0334
-// Anoncrypt ignores the sender argument, it's added to meet the Packer interface.
-func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, error) {
+// Pack will encode the payload argument using the protocol defined by the Anoncrypt message of Aries RFC 0334.
+// Anoncrypt ignores the sender argument, it's added to meet the Packer interface. It uses DIDComm typ V2 header value
+// (default envelope 'typ' protected header).
+func (p *Packer) Pack(contentType string, payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("anoncrypt Pack: empty recipientsPubKeys")
 	}
@@ -76,7 +74,8 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 		return nil, fmt.Errorf("anoncrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, encodingType, "", nil, recECKeys, p.cryptoService)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, "",
+		nil, recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("anoncrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -85,6 +84,13 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 	if err != nil {
 		return nil, fmt.Errorf("anoncrypt Pack: failed to encrypt payload: %w", err)
 	}
+
+	mPh, err := json.Marshal(jwe.ProtectedHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("anoncrypt Pack: %w", err)
+	}
+
+	logger.Debugf("protected headers: %s", mPh)
 
 	var s string
 
@@ -137,9 +143,9 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 
 // Unpack will decode the envelope using a standard format.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
-	jwe, err := jose.Deserialize(string(envelope))
+	jwe, cty, err := deserializeEnvelope(envelope)
 	if err != nil {
-		return nil, fmt.Errorf("anoncrypt Unpack: failed to deserialize JWE message: %w", err)
+		return nil, err
 	}
 
 	for i := range jwe.Recipients {
@@ -184,12 +190,24 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
+			CTY:     cty,
 			Message: pt,
 			ToKey:   ecdhesPubKeyByes,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("anoncrypt Unpack: no matching recipient in envelope")
+}
+
+func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, error) {
+	jwe, err := jose.Deserialize(string(envelope))
+	if err != nil {
+		return nil, "", fmt.Errorf("anoncrypt Unpack: failed to deserialize JWE message: %w", err)
+	}
+
+	cty, _ := jwe.ProtectedHeaders.ContentType()
+
+	return jwe, cty, nil
 }
 
 func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
@@ -228,5 +246,5 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 
 // EncodingType for didcomm.
 func (p *Packer) EncodingType() string {
-	return encodingType
+	return packer.EnvelopeEncodingTypeV2
 }

@@ -156,6 +156,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// PackMessage should pass with both value from and to keys
 		packMsg, err := packager.PackMessage(&transport.Envelope{
+			CTY:     packer.ContentEncodingTypeV2,
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
 			ToKeys:  []string{didKey},
@@ -190,17 +191,15 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
-		e := func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
+		e := func(cty string, payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			p, e := authcrypt.New(mockedProviders, jose.A256GCM)
 			require.NoError(t, e)
-			return p.Pack(payload, senderPubKey, recipientsKeys)
+			return p.Pack(cty, payload, senderPubKey, recipientsKeys)
 		}
 
-		// Type must match the packer ID since this is a mock packer. Since EncryptValue calls Authcrypt, tweak the type
-		// to match the packerID of authcrypt (encType + "-authcrypt")
 		mockPacker := &didcomm.MockAuthCrypt{
 			DecryptValue: decryptValue,
-			EncryptValue: e, Type: "didcomm-envelope-enc-authcrypt",
+			EncryptValue: e, Type: packer.EnvelopeEncodingTypeV2 + "-authcrypt",
 		}
 
 		mockedProviders.primaryPacker = mockPacker
@@ -224,6 +223,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// now try to pack with non empty envelope - should pass
 		packMsg, err = packager.PackMessage(&transport.Envelope{
+			CTY:     packer.ContentEncodingTypeV2,
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
 			ToKeys:  []string{didKey},
@@ -238,7 +238,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.EqualError(t, err, "unpack: unpack error")
 
 		// now mock pack failure to test PackMessage with non empty envelope
-		e = func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
+		e = func(cty string, payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			return nil, fmt.Errorf("pack error")
 		}
 		mockPacker = &didcomm.MockAuthCrypt{EncryptValue: e}
@@ -246,6 +246,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err = New(mockedProviders)
 		require.NoError(t, err)
 		packMsg, err = packager.PackMessage(&transport.Envelope{
+			CTY:     packer.ContentEncodingTypeV2,
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
 			ToKeys:  []string{didKey},
@@ -296,6 +297,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
+			CTY:     packer.ContentEncodingTypeV2,
 			Message: []byte("msg1"),
 			FromKey: []byte(fromKID),
 			ToKeys:  []string{didKey},
@@ -329,6 +331,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKey)
 
 		packMsg, err = packager2.PackMessage(&transport.Envelope{
+			CTY:     packer.ContentEncodingTypeV1, // or empty since legacyPacker ignores cty protectHeader.
 			Message: []byte("msg2"),
 			FromKey: fromKey,
 			ToKeys:  []string{legacyDIDKey},
@@ -376,6 +379,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
+			// not passing CTY intentionally because packager.primaryPacker is legacyPacker (it ignores CTY).
 			Message: []byte("msg1"),
 			FromKey: fromKey,
 			ToKeys:  []string{didKey},

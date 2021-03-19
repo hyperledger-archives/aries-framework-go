@@ -37,8 +37,15 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
+const (
+	// EnvelopeEncodingType representing the JWE 'Typ' protected type header for DIDComm V2 (example for tests).
+	EnvelopeEncodingType = "application/didcomm-encrypted+json"
+	// DIDCommContentEncodingType represent the JWE `Cty` protected type header for DIDComm V2 (example for tests).
+	DIDCommContentEncodingType = "application/didcomm-plain+json"
+)
+
 func TestJWEEncryptRoundTrip(t *testing.T) {
-	_, err := ariesjose.NewJWEEncrypt("", "", "", nil, nil, nil)
+	_, err := ariesjose.NewJWEEncrypt("", "", "", "", nil, nil, nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
@@ -236,12 +243,12 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
 
-			_, err = ariesjose.NewJWEEncrypt("", "", "", nil, recECKeys, cryptoSvc)
+			_, err = ariesjose.NewJWEEncrypt("", "", "", "", nil, recECKeys, cryptoSvc)
 			require.EqualError(t, err, "encryption algorithm '' not supported",
 				"NewJWEEncrypt should fail with empty encAlg")
 
-			jweEncrypter, err := ariesjose.NewJWEEncrypt(tc.enc, ariesjose.DIDCommEncType,
-				"", nil, recECKeys, cryptoSvc)
+			jweEncrypter, err := ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType,
+				DIDCommContentEncodingType, "", nil, recECKeys, cryptoSvc)
 			require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 			pt := []byte("secret message")
@@ -418,7 +425,7 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *tes
 
 	eo := &jose.EncrypterOptions{}
 	gjEncrypter, err := jose.NewEncrypter(jose.A256GCM, gjRecipients[0],
-		eo.WithType(ariesjose.DIDCommEncType))
+		eo.WithType(EnvelopeEncodingType))
 	require.NoError(t, err)
 
 	pt := []byte("Test secret message")
@@ -454,7 +461,7 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecrypt(t *testing.T) {
 
 	eo := &jose.EncrypterOptions{}
 	gjEncrypter, err := jose.NewMultiEncrypter(jose.A256GCM, gjRecipients,
-		eo.WithType(ariesjose.DIDCommEncType))
+		eo.WithType(EnvelopeEncodingType))
 	require.NoError(t, err)
 
 	pt := []byte("Test secret message")
@@ -501,7 +508,8 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType, "", nil, recECKeys, c)
+	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, EnvelopeEncodingType, DIDCommContentEncodingType,
+		"", nil, recECKeys, c)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -542,7 +550,8 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	})
 
 	// encrypt using local jose package
-	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType, "", nil, recECKeys, c)
+	jweEncrypter, err := ariesjose.NewJWEEncrypt(ariesjose.A256GCM, EnvelopeEncodingType, DIDCommContentEncodingType,
+		"", nil, recECKeys, c)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
@@ -685,7 +694,6 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 
 	jwkByte, err := jwk.MarshalJSON()
 	require.NoError(t, err)
-
 	jwkStr, err := prettyPrint(jwkByte)
 	require.NoError(t, err)
 
@@ -712,7 +720,8 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 
 	recipients, recsKH, kids := createRecipients(t, 2)
 
-	_, err = ariesjose.NewJWEEncrypt(ariesjose.A256GCM, ariesjose.DIDCommEncType, "", recsKH[kids[0]], recipients, c)
+	_, err = ariesjose.NewJWEEncrypt(ariesjose.A256GCM, EnvelopeEncodingType, DIDCommContentEncodingType,
+		"", recsKH[kids[0]], recipients, c)
 	require.EqualError(t, err, "senderKID is required with senderKH")
 }
 
@@ -916,8 +925,8 @@ func TestECDH1PU(t *testing.T) {
 			senderPubKey, err := json.Marshal(senders[0])
 			require.NoError(t, err)
 
-			jweEnc, err := ariesjose.NewJWEEncrypt(tc.enc, ariesjose.DIDCommEncType, senderKIDs[0],
-				senderKHs[senderKIDs[0]], recipients, c)
+			jweEnc, err := ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType, DIDCommContentEncodingType,
+				senderKIDs[0], senderKHs[senderKIDs[0]], recipients, c)
 			require.NoError(t, err)
 			require.NotEmpty(t, jweEnc)
 

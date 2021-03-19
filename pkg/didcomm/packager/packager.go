@@ -46,7 +46,7 @@ type PackerCreator struct {
 	Creator    packer.Creator
 }
 
-// New return new instance of LegacyPackager implementation of Packager.
+// New return new instance of Packager implementation of transport.Packager.
 func New(ctx Provider) (*Packager, error) {
 	basePackager := Packager{
 		primaryPacker: nil,
@@ -107,7 +107,7 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 
 	// TODO find a way to dynamically select a packer based on FromKey, recipients and their types.
 	//      https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
-	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, messageEnvelope.FromKey, recipients)
+	bytes, err := bp.primaryPacker.Pack(messageEnvelope.CTY, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
 	if err != nil {
 		return nil, fmt.Errorf("packMessage: failed to pack: %w", err)
 	}

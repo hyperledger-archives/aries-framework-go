@@ -6,19 +6,20 @@ SPDX-License-Identifier: Apache-2.0
 
 package didcomm
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+)
 
 // MockAuthCrypt mock auth crypt.
 type MockAuthCrypt struct {
-	EncryptValue func(payload, senderPubKey []byte, recipients [][]byte) ([]byte, error)
+	EncryptValue func(cty string, payload, senderPubKey []byte, recipients [][]byte) ([]byte, error)
 	DecryptValue func(envelope []byte) (*transport.Envelope, error)
 	Type         string
 }
 
 // Pack mock message packing.
-func (m *MockAuthCrypt) Pack(payload, senderPubKey []byte,
-	recipients [][]byte) ([]byte, error) {
-	return m.EncryptValue(payload, senderPubKey, recipients)
+func (m *MockAuthCrypt) Pack(cty string, payload, senderPubKey []byte, recipients [][]byte) ([]byte, error) {
+	return m.EncryptValue(cty, payload, senderPubKey, recipients)
 }
 
 // Unpack mock message unpacking.

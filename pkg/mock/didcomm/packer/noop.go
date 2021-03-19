@@ -26,6 +26,7 @@ type envelope struct {
 
 type header struct {
 	Type string `json:"typ,omitempty"`
+	CTY  string `json:"cty,omitempty"`
 }
 
 // Packer encodes messages using the NO-OP format - sending them as-is, with only a header to indicate message format.
@@ -41,9 +42,10 @@ func New(ctx packer.Provider) *Packer {
 }
 
 // Pack will wrap the payload in a bit of JSON and send it as plaintext. Will fail on non-string payloads.
-func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte, error) {
+func (p *Packer) Pack(cty string, payload, sender []byte, recipientPubKeys [][]byte) ([]byte, error) {
 	head := header{
 		Type: encodingType,
+		CTY:  cty,
 	}
 
 	headerBytes, err := json.Marshal(&head)
@@ -91,6 +93,7 @@ func (p *Packer) Unpack(message []byte) (*transport.Envelope, error) {
 	}
 
 	return &transport.Envelope{
+		CTY:     head.CTY,
 		Message: []byte(env.Message),
 		FromKey: base58.Decode(env.Sender),
 		ToKey:   base58.Decode(env.Recipient),

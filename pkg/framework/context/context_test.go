@@ -468,7 +468,7 @@ func TestNewProvider(t *testing.T) {
 			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
 			WithPacker(
 				&mockdidcomm.MockAuthCrypt{
-					EncryptValue: func(p, spk []byte, rpks [][]byte) ([]byte, error) {
+					EncryptValue: func(cty string, p, spk []byte, rpks [][]byte) ([]byte, error) {
 						return []byte("data data"), nil
 					},
 					DecryptValue: nil,
@@ -488,7 +488,7 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
 
-		v, err = prov.PrimaryPacker().Pack(nil, nil, nil)
+		v, err = prov.PrimaryPacker().Pack("", nil, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, []byte("data data"), v)
 

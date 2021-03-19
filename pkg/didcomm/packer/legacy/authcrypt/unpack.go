@@ -15,6 +15,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -62,6 +63,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	data, err := p.decodeCipherText(cek, &envelopeData)
 
 	return &transport.Envelope{
+		CTY:     packer.ContentEncodingTypeV1, // return V1 content type for legacy packer since it's not set in Pack().
 		Message: data,
 		FromKey: senderKey,
 		ToKey:   recKey,
