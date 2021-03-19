@@ -23,7 +23,6 @@ import (
 // constants for the OutOfBand protocol operations.
 const (
 	OperationID      = "/outofband"
-	CreateRequest    = OperationID + "/create-request"
 	CreateInvitation = OperationID + "/create-invitation"
 	AcceptRequest    = OperationID + "/accept-request"
 	AcceptInvitation = OperationID + "/accept-invitation"
@@ -60,9 +59,7 @@ func (c *Operation) GetRESTHandlers() []rest.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(CreateRequest, http.MethodPost, c.CreateRequest),
 		cmdutil.NewHTTPHandler(CreateInvitation, http.MethodPost, c.CreateInvitation),
-		cmdutil.NewHTTPHandler(AcceptRequest, http.MethodPost, c.AcceptRequest),
 		cmdutil.NewHTTPHandler(AcceptInvitation, http.MethodPost, c.AcceptInvitation),
 		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
 		cmdutil.NewHTTPHandler(ActionContinue, http.MethodPost, c.ActionContinue),
@@ -110,17 +107,6 @@ func (c *Operation) ActionStop(rw http.ResponseWriter, req *http.Request) {
 	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
 }
 
-// CreateRequest swagger:route POST /outofband/create-request outofband outofbandCreateRequest
-//
-// Creates a request.
-//
-// Responses:
-//    default: genericError
-//        200: outofbandCreateRequestResponse
-func (c *Operation) CreateRequest(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.CreateRequest, rw, req.Body)
-}
-
 // CreateInvitation swagger:route POST /outofband/create-invitation outofband outofbandCreateInvitation
 //
 // Creates an invitation.
@@ -130,17 +116,6 @@ func (c *Operation) CreateRequest(rw http.ResponseWriter, req *http.Request) {
 //        200: outofbandCreateInvitationResponse
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.CreateInvitation, rw, req.Body)
-}
-
-// AcceptRequest swagger:route POST /outofband/accept-request outofband outofbandAcceptRequest
-//
-// Accepts a request.
-//
-// Responses:
-//    default: genericError
-//        200: outofbandAcceptRequestResponse
-func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.AcceptRequest, rw, req.Body)
 }
 
 // AcceptInvitation swagger:route POST /outofband/accept-invitation outofband outofbandAcceptInvitation

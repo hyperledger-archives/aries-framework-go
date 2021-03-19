@@ -70,7 +70,7 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 		require.Equal(t, thid, result)
 	})
 
-	t.Run("Empty Request Presentation", func(t *testing.T) {
+	t.Run("Empty Invitation Presentation", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 
 		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
@@ -107,7 +107,7 @@ func TestClient_SendProposePresentation(t *testing.T) {
 		require.Equal(t, thid, result)
 	})
 
-	t.Run("Empty Request Presentation", func(t *testing.T) {
+	t.Run("Empty Invitation Presentation", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 
 		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)

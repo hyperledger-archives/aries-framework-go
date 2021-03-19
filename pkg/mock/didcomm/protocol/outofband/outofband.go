@@ -13,14 +13,12 @@ import (
 // MockOobService is a mock of OobService interface.
 type MockOobService struct {
 	AcceptInvitationHandle      func(*outofband.Invitation, string, []string) (string, error)
-	AcceptRequestHandle         func(*outofband.Request, string, []string) (string, error)
 	ActionContinueHandle        func(string, outofband.Options) error
 	ActionStopHandle            func(string, error) error
 	ActionsHandle               func() ([]outofband.Action, error)
 	RegisterActionEventHandle   func(chan<- service.DIDCommAction) error
 	RegisterMsgEventHandle      func(chan<- service.StateMsg) error
 	SaveInvitationHandle        func(*outofband.Invitation) error
-	SaveRequestHandle           func(*outofband.Request) error
 	UnregisterActionEventHandle func(chan<- service.DIDCommAction) error
 	UnregisterMsgEventHandle    func(chan<- service.StateMsg) error
 }
@@ -29,15 +27,6 @@ type MockOobService struct {
 func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 string, arg2 []string) (string, error) {
 	if m.AcceptInvitationHandle != nil {
 		return m.AcceptInvitationHandle(arg0, arg1, arg2)
-	}
-
-	return "", nil
-}
-
-// AcceptRequest mock implementation.
-func (m *MockOobService) AcceptRequest(arg0 *outofband.Request, arg1 string, arg2 []string) (string, error) {
-	if m.AcceptRequestHandle != nil {
-		return m.AcceptRequestHandle(arg0, arg1, arg2)
 	}
 
 	return "", nil
@@ -92,15 +81,6 @@ func (m *MockOobService) RegisterMsgEvent(arg0 chan<- service.StateMsg) error {
 func (m *MockOobService) SaveInvitation(arg0 *outofband.Invitation) error {
 	if m.SaveInvitationHandle != nil {
 		return m.SaveInvitationHandle(arg0)
-	}
-
-	return nil
-}
-
-// SaveRequest mock implementation.
-func (m *MockOobService) SaveRequest(arg0 *outofband.Request) error {
-	if m.SaveRequestHandle != nil {
-		return m.SaveRequestHandle(arg0)
 	}
 
 	return nil

@@ -199,16 +199,16 @@ const pkgs = {
             method: "POST",
             pathParam:"piid"
         },
-        SendProposalWithOOBRequest: {
-            path: "/introduce/send-proposal-with-oob-request",
+        SendProposalWithOOBInvitation: {
+            path: "/introduce/send-proposal-with-oob-invitation",
             method: "POST",
         },
         SendRequest: {
             path: "/introduce/send-request",
             method: "POST",
         },
-        AcceptProposalWithOOBRequest: {
-            path: "/introduce/{piid}/accept-proposal-with-oob-request",
+        AcceptProposalWithOOBInvitation: {
+            path: "/introduce/{piid}/accept-proposal-with-oob-invitation",
             method: "POST",
             pathParam: "piid"
         },
@@ -217,8 +217,8 @@ const pkgs = {
             method: "POST",
             pathParam: "piid"
         },
-        AcceptRequestWithPublicOOBRequest: {
-            path: "/introduce/{piid}/accept-request-with-public-oob-request",
+        AcceptRequestWithPublicOOBInvitation: {
+            path: "/introduce/{piid}/accept-request-with-public-oob-invitation",
             method: "POST",
             pathParam: "piid"
         },
@@ -253,16 +253,8 @@ const pkgs = {
             method: "POST",
             pathParam: "piid"
         },
-        CreateRequest: {
-            path: "/outofband/create-request",
-            method: "POST",
-        },
         CreateInvitation: {
             path: "/outofband/create-invitation",
-            method: "POST",
-        },
-        AcceptRequest: {
-            path: "/outofband/accept-request",
             method: "POST",
         },
         AcceptInvitation: {

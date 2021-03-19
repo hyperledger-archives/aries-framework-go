@@ -113,13 +113,13 @@ func TestIntroduce_SendProposal(t *testing.T) {
 	})
 }
 
-func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
-	t.Run("test it performs a send proposal with out-of-band request", func(t *testing.T) {
+func TestIntroduce_SendProposalWithOOBInvitation(t *testing.T) {
+	t.Run("test it performs a send proposal with out-of-band invitation", func(t *testing.T) {
 		i := getIntroduceController(t)
 
 		i.httpClient = &mockHTTPClient{
 			data:   mockPIID,
-			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposalWithOOBRequest,
+			method: http.MethodPost, url: mockAgentURL + opintroduce.SendProposalWithOOBInvitation,
 		}
 
 		reqData := fmt.Sprintf(`{
@@ -127,12 +127,12 @@ func TestIntroduce_SendProposalWithOOBRequest(t *testing.T) {
 			"my_did": "did:mydid:123",
 			"their_did": "gopher1:example:001"
 	},
-	"request":	{
+	"invitation":	{
 			"@type": "%s"
 	}
-}`, outofband.RequestMsgType)
+}`, outofband.InvitationMsgType)
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := i.SendProposalWithOOBRequest(req)
+		resp := i.SendProposalWithOOBInvitation(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
@@ -175,13 +175,13 @@ func TestIntroduce_AcceptProposalWithOOBRequest(t *testing.T) {
 	"piid": "a13832dc-88b8-4714-b697-e5410d23abe2"
 }`
 
-		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptProposalWithOOBRequest, reqData)
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptProposalWithOOBInvitation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
 		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := i.AcceptProposalWithOOBRequest(req)
+		resp := i.AcceptProposalWithOOBInvitation(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
@@ -223,13 +223,13 @@ func TestIntroduce_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	"to": {}
 }`
 
-		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptRequestWithPublicOOBRequest, reqData)
+		mockURL, err := parseURL(mockAgentURL, opintroduce.AcceptRequestWithPublicOOBInvitation, reqData)
 		require.NoError(t, err, "failed to parse test url")
 
 		i.httpClient = &mockHTTPClient{data: mockResponse, method: http.MethodPost, url: mockURL}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := i.AcceptRequestWithPublicOOBRequest(req)
+		resp := i.AcceptRequestWithPublicOOBInvitation(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)

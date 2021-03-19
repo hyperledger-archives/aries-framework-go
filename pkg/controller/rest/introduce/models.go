@@ -55,29 +55,29 @@ type introduceSendProposalResponse struct { // nolint: unused,deadcode
 	}
 }
 
-// introduceSendProposalWithOOBRequest model
+// introduceSendProposalWithOOBInvitation model
 //
-// This is used for operation to send a proposal with OOBRequest.
+// This is used for operation to send a proposal with OOBInvitation.
 //
-// swagger:parameters introduceSendProposalWithOOBRequest
-type introduceSendProposalWithOOBRequest struct { // nolint: unused,deadcode
+// swagger:parameters introduceSendProposalWithOOBInvitation
+type introduceSendProposalWithOOBInvitation struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// Request is the out-of-band protocol's 'request' message.
 		// required: true
-		Request struct{ *outofband.Request } `json:"request"`
+		Request struct{ *outofband.Invitation } `json:"invitation"`
 		// Recipient specifies to whom proposal will be sent
 		// required: true
 		Recipient struct{ *protocol.Recipient } `json:"recipient"`
 	}
 }
 
-// introduceSendProposalWithOOBRequestResponse model
+// introduceSendProposalWithOOBInvitationResponse model
 //
-// Represents a SendProposalWithOOBRequest response message.
+// Represents a SendProposalWithOOBInvitation response message.
 //
-// swagger:response introduceSendProposalWithOOBRequestResponse
-type introduceSendProposalWithOOBRequestResponse struct { // nolint: unused,deadcode
+// swagger:response introduceSendProposalWithOOBInvitationResponse
+type introduceSendProposalWithOOBInvitationResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// PIID Protocol instance ID. It can be used as a correlation ID
@@ -85,12 +85,12 @@ type introduceSendProposalWithOOBRequestResponse struct { // nolint: unused,dead
 	}
 }
 
-// introduceAcceptProposalWithOOBRequest model
+// introduceAcceptProposalWithOOBInvitation model
 //
 // This is used for operation to accept a proposal with OOBRequest.
 //
-// swagger:parameters introduceAcceptProposalWithOOBRequest
-type introduceAcceptProposalWithOOBRequest struct { // nolint: unused,deadcode
+// swagger:parameters introduceAcceptProposalWithOOBInvitation
+type introduceAcceptProposalWithOOBInvitation struct { // nolint: unused,deadcode
 	// Protocol instance ID
 	//
 	// in: path
@@ -98,14 +98,14 @@ type introduceAcceptProposalWithOOBRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 	// in: body
 	Body struct {
-		// Request is the out-of-band protocol's 'request' message.
-		Request struct{ *outofband.Request } `json:"request"`
+		// Request is the out-of-band protocol's 'invitation' message.
+		Request struct{ *outofband.Invitation } `json:"invitation"`
 	}
 }
 
 // introduceAcceptProposalWithOOBRequestResponse model
 //
-// Represents a AcceptProposalWithOOBRequest response message.
+// Represents a AcceptProposalWithOOBInvitation response message.
 //
 // swagger:response introduceAcceptProposalWithOOBRequestResponse
 type introduceAcceptProposalWithOOBRequestResponse struct { // nolint: unused,deadcode
@@ -113,12 +113,12 @@ type introduceAcceptProposalWithOOBRequestResponse struct { // nolint: unused,de
 	Body struct{}
 }
 
-// introduceAcceptRequestWithPublicOOBRequest model
+// introduceAcceptRequestWithPublicOOBInvitation model
 //
 // This is used for operation to accept a request with public OOBRequest.
 //
-// swagger:parameters introduceAcceptRequestWithPublicOOBRequest
-type introduceAcceptRequestWithPublicOOBRequest struct { // nolint: unused,deadcode
+// swagger:parameters introduceAcceptRequestWithPublicOOBInvitation
+type introduceAcceptRequestWithPublicOOBInvitation struct { // nolint: unused,deadcode
 	// Protocol instance ID
 	//
 	// in: path
@@ -126,19 +126,19 @@ type introduceAcceptRequestWithPublicOOBRequest struct { // nolint: unused,deadc
 	PIID string `json:"piid"`
 	// in: body
 	Body struct {
-		// Request is the out-of-band protocol's 'request' message.
-		Request struct{ *outofband.Request } `json:"request"`
+		// Request is the out-of-band protocol's 'invitation' message.
+		Request struct{ *outofband.Invitation } `json:"invitation"`
 		// To keeps information about the introduction
 		To struct{ *protocol.To } `json:"to"`
 	}
 }
 
-// introduceAcceptRequestWithPublicOOBRequestResponse model
+// introduceAcceptRequestWithPublicOOBInvitationResponse model
 //
-// Represents a AcceptRequestWithPublicOOBRequest response message.
+// Represents a AcceptRequestWithPublicOOBInvitation response message.
 //
-// swagger:response introduceAcceptRequestWithPublicOOBRequestResponse
-type introduceAcceptRequestWithPublicOOBRequestResponse struct { // nolint: unused,deadcode
+// swagger:response introduceAcceptRequestWithPublicOOBInvitationResponse
+type introduceAcceptRequestWithPublicOOBInvitationResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct{}
 }

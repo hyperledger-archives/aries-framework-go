@@ -63,16 +63,16 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)"$`, a.sendProposal)
-	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band request$`,
+	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band invitation$`,
 		a.sendProposalWithInvitation)
 	s.Step(`^"([^"]*)" sends introduce request to the "([^"]*)" asking about "([^"]*)"$`, a.sendRequest)
 	s.Step(`^"([^"]*)" sends introduce proposal back to the "([^"]*)" and requested introduce$`, a.handleRequest)
-	s.Step(`^"([^"]*)" sends introduce proposal back to the requester with public out-of-band request$`,
+	s.Step(`^"([^"]*)" sends introduce proposal back to the requester with public out-of-band invitation$`,
 		a.handleRequestWithInvitation)
 	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve$`, a.checkAndContinue)
-	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request$`, //nolint:lll
+	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band invitation$`, //nolint:lll
 		a.checkAndContinueWithInvitation)
-	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request with an embedded "([^"]*)"$`, //nolint:lll
+	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band invitation with an embedded "([^"]*)"$`, //nolint:lll
 		a.checkAndContinueWithInvitationAndEmbeddedRequest)
 	s.Step(`^"([^"]*)" doesn't want to know "([^"]*)" and sends introduce response$`, a.checkAndStop)
 	s.Step(`^"([^"]*)" stops the introduce protocol$`, a.stopProtocol)
@@ -151,12 +151,12 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 		return err
 	}
 
-	if err := a.outofbandSDKS.CreateRequestWithDID(introducer); err != nil {
+	if err := a.outofbandSDKS.CreateInvitationWithDID(introducer); err != nil {
 		return err
 	}
 
 	for _, introducee := range strings.Split(introducees, ",") {
-		if err := a.outofbandSDKS.ReceiveRequest(introducee, introducer); err != nil {
+		if err := a.outofbandSDKS.ReceiveInvitation(introducee, introducer); err != nil {
 			return err
 		}
 
@@ -215,7 +215,7 @@ func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
 				return fmt.Errorf("history of events doesn't meet the expectation %q != %q", stateID, e.StateID)
 			}
 		case <-time.After(timeout):
-			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
+			return fmt.Errorf("%s waited for %s: history of events doesn't meet the expectation", agentID, stateID)
 		}
 	}
 
@@ -230,7 +230,7 @@ func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
 				return fmt.Errorf("history of events doesn't meet the expectation %q != %q", stateID, e.StateID)
 			}
 		case <-time.After(timeout):
-			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
+			return fmt.Errorf("%s waited for %s: history of events doesn't meet the expectation", agentID, stateID)
 		}
 	}
 
@@ -318,14 +318,14 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 
 		introduceTo := request.PleaseIntroduceTo.Name
 
-		req, err := a.newOOBRequest(introduceTo)
+		req, err := a.newOOBInvitation(introduceTo)
 		if err != nil {
 			return err
 		}
 
 		to := &introduce.To{Name: req.Label}
 
-		e.Continue(introduce.WithPublicOOBRequest(req, to))
+		e.Continue(introduce.WithPublicOOBInvitation(req, to))
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -352,7 +352,7 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 
 		e.Continue(nil)
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
+		go a.outofbandSDKS.ApproveOOBInvitation(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -379,14 +379,14 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
 		}
 
-		req, err := a.newOOBRequest(agentID)
+		inv, err := a.newOOBInvitation(agentID)
 		if err != nil {
 			return err
 		}
 
-		e.Continue(introduce.WithOOBRequest(req))
+		e.Continue(introduce.WithOOBInvitation(inv))
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
+		go a.outofbandSDKS.ApproveOOBInvitation(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -413,14 +413,14 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
 		}
 
-		req, err := a.newOOBRequest(agentID, request)
+		req, err := a.newOOBInvitation(agentID, request)
 		if err != nil {
 			return err
 		}
 
-		e.Continue(introduce.WithOOBRequest(req))
+		e.Continue(introduce.WithOOBInvitation(req))
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
+		go a.outofbandSDKS.ApproveOOBInvitation(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -505,12 +505,12 @@ func (a *SDKSteps) sendProposalWithInvitation(introducer, introducee1, introduce
 		return err
 	}
 
-	req, err := a.newOOBRequest(introducee2)
+	req, err := a.newOOBInvitation(introducee2)
 	if err != nil {
 		return err
 	}
 
-	_, err = a.clients[introducer].SendProposalWithOOBRequest(req, &introduce.Recipient{
+	_, err = a.clients[introducer].SendProposalWithOOBInvitation(req, &introduce.Recipient{
 		To:       &protocol.To{Name: introducee2},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
@@ -532,24 +532,18 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 	return err
 }
 
-func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outofband.Request, error) {
+func (a *SDKSteps) newOOBInvitation(agentID string, requests ...interface{}) (*outofband.Invitation, error) {
 	client, err := outofband.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return nil, err
 	}
 
-	// default
-	attachments := []*decorator.Attachment{{
-		ID:          uuid.New().String(),
-		Description: "test",
-		Data: decorator.AttachmentData{
-			JSON: map[string]interface{}{},
-		},
-	}}
+	opts := []outofband.MessageOption{
+		outofband.WithLabel(agentID),
+	}
 
 	if len(requests) > 0 {
-		// override
-		attachments = []*decorator.Attachment{}
+		var attachments []*decorator.Attachment
 
 		for _, r := range requests {
 			if r != "route-request" {
@@ -572,17 +566,22 @@ func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outo
 				},
 			})
 		}
+
+		opts = append(opts, outofband.WithAttachments(attachments...))
 	}
 
-	r, err := client.CreateRequest(attachments, outofband.WithLabel(agentID))
+	inv, err := client.CreateInvitation(
+		nil,
+		opts...,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// sets invitationID for the running scenario
-	a.invitationID = r.ID
+	a.invitationID = inv.ID
 
-	return r, nil
+	return inv, nil
 }
 
 //  creates clients for other protocols (eg. out-of-band, did-exchange)

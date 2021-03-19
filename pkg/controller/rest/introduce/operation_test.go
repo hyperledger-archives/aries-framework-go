@@ -77,7 +77,7 @@ func TestOperation_SendProposal(t *testing.T) {
 	})
 }
 
-func TestOperation_SendProposalWithOOBRequest(t *testing.T) {
+func TestOperation_SendProposalWithOOBInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -86,9 +86,9 @@ func TestOperation_SendProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, SendProposalWithOOBRequest),
-			bytes.NewBufferString(`{"request":{}, "recipient":{}}`),
-			strings.Replace(SendProposalWithOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, SendProposalWithOOBInvitation),
+			bytes.NewBufferString(`{"invitation":{}, "recipient":{}}`),
+			strings.Replace(SendProposalWithOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -124,8 +124,8 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptProposalWithOOBRequest), nil,
-			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptProposalWithOOBInvitation), nil,
+			strings.Replace(AcceptProposalWithOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -133,19 +133,19 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
-	t.Run("Empty request", func(t *testing.T) {
+	t.Run("Empty invitation", func(t *testing.T) {
 		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptProposalWithOOBRequest),
+			handlerLookup(t, operation, AcceptProposalWithOOBInvitation),
 			bytes.NewBufferString(`{}`),
-			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			strings.Replace(AcceptProposalWithOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "empty request")
+		require.Contains(t, buf.String(), "empty invitation")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -153,9 +153,9 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptProposalWithOOBRequest),
-			bytes.NewBufferString(`{"request":{}}`),
-			strings.Replace(AcceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptProposalWithOOBInvitation),
+			bytes.NewBufferString(`{"invitation":{}}`),
+			strings.Replace(AcceptProposalWithOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -191,8 +191,8 @@ func TestOperation_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptRequestWithPublicOOBRequest), nil,
-			strings.Replace(AcceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequestWithPublicOOBInvitation), nil,
+			strings.Replace(AcceptRequestWithPublicOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -205,9 +205,9 @@ func TestOperation_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptRequestWithPublicOOBRequest),
-			bytes.NewBufferString(`{"request":{},"to":{}}`),
-			strings.Replace(AcceptRequestWithPublicOOBRequest, `{piid}`, "1234", 1),
+			handlerLookup(t, operation, AcceptRequestWithPublicOOBInvitation),
+			bytes.NewBufferString(`{"invitation":{},"to":{}}`),
+			strings.Replace(AcceptRequestWithPublicOOBInvitation, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)

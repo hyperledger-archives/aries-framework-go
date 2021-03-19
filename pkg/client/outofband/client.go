@@ -23,8 +23,6 @@ import (
 )
 
 type (
-	// Request is the out-of-band protocol's 'request' message.
-	Request outofband.Request
 	// Invitation is this protocol's `invitation` message.
 	Invitation outofband.Invitation
 	// Action contains helpful information about action.
@@ -32,8 +30,6 @@ type (
 )
 
 const (
-	// RequestMsgType is the request message's '@type'.
-	RequestMsgType = outofband.RequestMsgType
 	// InvitationMsgType is the '@type' for the invitation message.
 	InvitationMsgType = outofband.InvitationMsgType
 )
@@ -67,14 +63,16 @@ type Event interface {
 }
 
 // MessageOption allow you to customize the way out-of-band messages are built.
-type MessageOption func(*message) error
+type MessageOption func(*message)
 
 type message struct {
-	Label             string
-	Goal              string
-	GoalCode          string
-	RouterConnections []string
-	Service           []interface{}
+	Label              string
+	Goal               string
+	GoalCode           string
+	RouterConnections  []string
+	Service            []interface{}
+	HandshakeProtocols []string
+	Attachments        []*decorator.Attachment
 }
 
 func (m *message) RouterConnection() string {
@@ -88,9 +86,7 @@ func (m *message) RouterConnection() string {
 // OobService defines the outofband service.
 type OobService interface {
 	service.Event
-	AcceptRequest(*outofband.Request, string, []string) (string, error)
 	AcceptInvitation(*outofband.Invitation, string, []string) (string, error)
-	SaveRequest(*outofband.Request) error
 	SaveInvitation(*outofband.Invitation) error
 	Actions() ([]outofband.Action, error)
 	ActionContinue(string, outofband.Options) error
@@ -131,64 +127,15 @@ func New(p Provider) (*Client, error) {
 	}, nil
 }
 
-// CreateRequest creates and saves an Out-Of-Band request message.
-// At least one attachment must be provided.
-// Service entries can be optionally provided. If none are provided then a new one will be automatically created for
-// you.
-func (c *Client) CreateRequest(attchmnts []*decorator.Attachment, opts ...MessageOption) (*Request, error) {
-	msg := &message{}
-
-	for _, opt := range opts {
-		if err := opt(msg); err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-	}
-
-	req := &Request{
-		ID:       uuid.New().String(),
-		Type:     RequestMsgType,
-		Label:    msg.Label,
-		Goal:     msg.Goal,
-		GoalCode: msg.GoalCode,
-		Service:  msg.Service,
-		Requests: attchmnts,
-	}
-
-	// TODO open question whether requests w/o attachments should be allowed:
-	//  https://github.com/hyperledger/aries-rfcs/issues/451
-	if len(req.Requests) == 0 {
-		return nil, errors.New("must provide at least one attachment to create an out-of-band request")
-	}
-
-	if len(req.Service) == 0 {
-		svc, err := c.didDocSvcFunc(msg.RouterConnection())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create a new inlined did doc service block : %w", err)
-		}
-
-		req.Service = []interface{}{svc}
-	}
-
-	cast := outofband.Request(*req)
-
-	err := c.oobService.SaveRequest(&cast)
-	if err != nil {
-		return nil, fmt.Errorf("outofband service failed to save request : %w", err)
-	}
-
-	return req, nil
-}
-
 // CreateInvitation creates and saves an out-of-band invitation.
-// Protocols is an optional list of protocol identifier URIs that can be used to form connections. A default
-// will be set if none are provided.
-func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*Invitation, error) {
+// Services are required in the RFC, but optional in this implementation. If not provided, a default will be assigned.
+// TODO HandShakeProtocols are optional in the RFC and as arguments to this function.
+//  However, if not provided, a default will be assigned for you.
+func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption) (*Invitation, error) {
 	msg := &message{}
 
 	for _, opt := range opts {
-		if err := opt(msg); err != nil {
-			return nil, fmt.Errorf("failed to create invitation: %w", err)
-		}
+		opt(msg)
 	}
 
 	inv := &Invitation{
@@ -197,8 +144,9 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 		Label:     msg.Label,
 		Goal:      msg.Goal,
 		GoalCode:  msg.GoalCode,
-		Service:   msg.Service,
-		Protocols: protocols,
+		Service:   services,
+		Protocols: msg.HandshakeProtocols,
+		Requests:  msg.Attachments,
 	}
 
 	if len(inv.Service) == 0 {
@@ -208,6 +156,11 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 		}
 
 		inv.Service = []interface{}{svc}
+	} else {
+		err := validateServices(inv.Service...)
+		if err != nil {
+			return nil, fmt.Errorf("invalid service: %w", err)
+		}
 	}
 
 	if len(inv.Protocols) == 0 {
@@ -246,9 +199,7 @@ func (c *Client) ActionContinue(piID, label string, opts ...MessageOption) error
 	msg := &message{}
 
 	for _, opt := range opts {
-		if err := opt(msg); err != nil {
-			return fmt.Errorf("accept request: %w", err)
-		}
+		opt(msg)
 	}
 
 	return c.oobService.ActionContinue(piID, &EventOptions{
@@ -262,34 +213,12 @@ func (c *Client) ActionStop(piID string, err error) error {
 	return c.oobService.ActionStop(piID, err)
 }
 
-// AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Client) AcceptRequest(r *Request, myLabel string, opts ...MessageOption) (string, error) {
-	msg := &message{}
-
-	for _, opt := range opts {
-		if err := opt(msg); err != nil {
-			return "", fmt.Errorf("accept request: %w", err)
-		}
-	}
-
-	cast := outofband.Request(*r)
-
-	connID, err := c.oobService.AcceptRequest(&cast, myLabel, msg.RouterConnections)
-	if err != nil {
-		return "", fmt.Errorf("out-of-band service failed to accept request : %w", err)
-	}
-
-	return connID, err
-}
-
 // AcceptInvitation from another agent and return the ID of the new connection records.
 func (c *Client) AcceptInvitation(i *Invitation, myLabel string, opts ...MessageOption) (string, error) {
 	msg := &message{}
 
 	for _, opt := range opts {
-		if err := opt(msg); err != nil {
-			return "", fmt.Errorf("accept invitation: %w", err)
-		}
+		opt(msg)
 	}
 
 	cast := outofband.Invitation(*i)
@@ -304,63 +233,60 @@ func (c *Client) AcceptInvitation(i *Invitation, myLabel string, opts ...Message
 
 // WithLabel allows you to specify the label on the message.
 func WithLabel(l string) MessageOption {
-	return func(m *message) error {
+	return func(m *message) {
 		m.Label = l
-
-		return nil
 	}
 }
 
 // WithGoal allows you to specify the `goal` and `goalCode` for the message.
 func WithGoal(goal, goalCode string) MessageOption {
-	return func(m *message) error {
+	return func(m *message) {
 		m.Goal = goal
 		m.GoalCode = goalCode
-
-		return nil
 	}
 }
 
 // WithRouterConnections allows you to specify the router connections.
 func WithRouterConnections(conn ...string) MessageOption {
-	return func(m *message) error {
-		for _, conn := range conn {
+	return func(m *message) {
+		for _, c := range conn {
 			// filters out empty connections
-			if conn != "" {
-				m.RouterConnections = append(m.RouterConnections, conn)
+			if c != "" {
+				m.RouterConnections = append(m.RouterConnections, c)
 			}
 		}
-
-		return nil
 	}
 }
 
-// WithServices allows you to specify service entries to include in the request message.
-// Each entry must be either a valid DID (string) or a `service` object.
-func WithServices(svcs ...interface{}) MessageOption {
-	return func(m *message) error {
-		all := make([]interface{}, len(svcs))
-
-		for i := range svcs {
-			switch svc := svcs[i].(type) {
-			case string:
-				all[i] = svc
-
-				// TODO uncomment this after fixing the sidetree implementation in BDD tests.
-				//  That sidetree vdr is producing invalid DID IDs.
-				//  https://github.com/hyperledger/aries-framework-go/issues/1642
-				// _, err := did.Parse(svc)
-			case *did.Service:
-				all[i] = svc
-			default:
-				return fmt.Errorf("unsupported service data type : %+v", svc)
-			}
-		}
-
-		m.Service = all
-
-		return nil
+// WithHandshakeProtocols allows you to customize the handshake_protocols to include in the Invitation.
+func WithHandshakeProtocols(proto ...string) MessageOption {
+	return func(m *message) {
+		m.HandshakeProtocols = proto
 	}
+}
+
+// WithAttachments allows you to include attachments in the Invitation.
+func WithAttachments(a ...*decorator.Attachment) MessageOption {
+	return func(m *message) {
+		m.Attachments = a
+	}
+}
+
+func validateServices(svcs ...interface{}) error {
+	for i := range svcs {
+		switch svc := svcs[i].(type) {
+		case string:
+			_, err := did.Parse(svc)
+			if err != nil {
+				return fmt.Errorf("invalid DID [%s]: %w", svc, err)
+			}
+		case did.Service, *did.Service:
+		default:
+			return fmt.Errorf("unsupported service data type: %+v", svc)
+		}
+	}
+
+	return nil
 }
 
 // DidDocServiceFunc returns a function that returns a DID doc `service` entry.

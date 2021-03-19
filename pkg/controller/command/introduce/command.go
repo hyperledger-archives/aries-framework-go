@@ -38,8 +38,8 @@ const (
 	AcceptProposalWithOOBRequestErrorCode
 	// AcceptProposalErrorCode is for failures in accept proposal command.
 	AcceptProposalErrorCode
-	// AcceptRequestWithPublicOOBRequestErrorCode is for failures in accept request with public OOBRequest command.
-	AcceptRequestWithPublicOOBRequestErrorCode
+	// AcceptRequestWithPublicOOBInvitationErrorCode is for failures in accept request with public OOBRequest command.
+	AcceptRequestWithPublicOOBInvitationErrorCode
 	// AcceptRequestWithRecipientsErrorCode is for failures in accept request with recipients command.
 	AcceptRequestWithRecipientsErrorCode
 	// DeclineProposalErrorCode failures in decline proposal command.
@@ -58,20 +58,20 @@ const (
 
 	CommandName = "introduce"
 
-	Actions                           = "Actions"
-	SendProposal                      = "SendProposal"
-	SendProposalWithOOBRequest        = "SendProposalWithOOBRequest"
-	SendRequest                       = "SendRequest"
-	AcceptProposalWithOOBRequest      = "AcceptProposalWithOOBRequest"
-	AcceptProposal                    = "AcceptProposal"
-	AcceptRequestWithPublicOOBRequest = "AcceptRequestWithPublicOOBRequest"
-	AcceptRequestWithRecipients       = "AcceptRequestWithRecipients"
-	DeclineProposal                   = "DeclineProposal"
-	DeclineRequest                    = "DeclineRequest"
-	AcceptProblemReport               = "AcceptProblemReport"
+	Actions                              = "Actions"
+	SendProposal                         = "SendProposal"
+	SendProposalWithOOBInvitation        = "SendProposalWithOOBInvitation"
+	SendRequest                          = "SendRequest"
+	AcceptProposalWithOOBInvitation      = "AcceptProposalWithOOBInvitation"
+	AcceptProposal                       = "AcceptProposal"
+	AcceptRequestWithPublicOOBInvitation = "AcceptRequestWithPublicOOBInvitation"
+	AcceptRequestWithRecipients          = "AcceptRequestWithRecipients"
+	DeclineProposal                      = "DeclineProposal"
+	DeclineRequest                       = "DeclineRequest"
+	AcceptProblemReport                  = "AcceptProblemReport"
 	// error messages.
 	errTwoRecipients          = "two recipients must be specified"
-	errEmptyRequest           = "empty request"
+	errEmptyInvitation        = "empty invitation"
 	errEmptyRecipient         = "empty recipient"
 	errEmptyMyDID             = "empty my_did"
 	errEmptyTheirDID          = "empty their_did"
@@ -123,11 +123,11 @@ func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
 		cmdutil.NewCommandHandler(CommandName, SendProposal, c.SendProposal),
-		cmdutil.NewCommandHandler(CommandName, SendProposalWithOOBRequest, c.SendProposalWithOOBRequest),
+		cmdutil.NewCommandHandler(CommandName, SendProposalWithOOBInvitation, c.SendProposalWithOOBInvitation),
 		cmdutil.NewCommandHandler(CommandName, SendRequest, c.SendRequest),
-		cmdutil.NewCommandHandler(CommandName, AcceptProposalWithOOBRequest, c.AcceptProposalWithOOBRequest),
+		cmdutil.NewCommandHandler(CommandName, AcceptProposalWithOOBInvitation, c.AcceptProposalWithOOBInvitation),
 		cmdutil.NewCommandHandler(CommandName, AcceptProposal, c.AcceptProposal),
-		cmdutil.NewCommandHandler(CommandName, AcceptRequestWithPublicOOBRequest, c.AcceptRequestWithPublicOOBRequest),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequestWithPublicOOBInvitation, c.AcceptRequestWithPublicOOBInvitation),
 		cmdutil.NewCommandHandler(CommandName, AcceptRequestWithRecipients, c.AcceptRequestWithRecipients),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposal, c.DeclineProposal),
 		cmdutil.NewCommandHandler(CommandName, DeclineRequest, c.DeclineRequest),
@@ -179,34 +179,35 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
-func (c *Command) SendProposalWithOOBRequest(rw io.Writer, req io.Reader) command.Error {
-	var args SendProposalWithOOBRequestArgs
+// SendProposalWithOOBInvitation sends a proposal to the introducee (the client has published an out-of-band
+// invitation).
+func (c *Command) SendProposalWithOOBInvitation(rw io.Writer, req io.Reader) command.Error {
+	var args SendProposalWithOOBInvitationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, SendProposalWithOOBRequest, err.Error())
+		logutil.LogInfo(logger, CommandName, SendProposalWithOOBInvitation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	if args.Request == nil {
-		logutil.LogDebug(logger, CommandName, SendProposalWithOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
+	if args.Invitation == nil {
+		logutil.LogDebug(logger, CommandName, SendProposalWithOOBInvitation, errEmptyInvitation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyInvitation))
 	}
 
 	if args.Recipient == nil {
-		logutil.LogDebug(logger, CommandName, SendProposalWithOOBRequest, errEmptyRecipient)
+		logutil.LogDebug(logger, CommandName, SendProposalWithOOBInvitation, errEmptyRecipient)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRecipient))
 	}
 
-	piid, err := c.client.SendProposalWithOOBRequest(args.Request, args.Recipient)
+	piid, err := c.client.SendProposalWithOOBInvitation(args.Invitation, args.Recipient)
 	if err != nil {
-		logutil.LogError(logger, CommandName, SendProposalWithOOBRequest, err.Error())
+		logutil.LogError(logger, CommandName, SendProposalWithOOBInvitation, err.Error())
 		return command.NewExecuteError(SendProposalWithOOBRequestErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &SendProposalWithOOBRequestResponse{PIID: piid}, logger)
 
-	logutil.LogDebug(logger, CommandName, SendProposalWithOOBRequest, successString)
+	logutil.LogDebug(logger, CommandName, SendProposalWithOOBInvitation, successString)
 
 	return nil
 }
@@ -249,33 +250,33 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
-func (c *Command) AcceptProposalWithOOBRequest(rw io.Writer, req io.Reader) command.Error {
-	var args AcceptProposalWithOOBRequestArgs
+// AcceptProposalWithOOBInvitation is used when introducee wants to provide an out-of-band request.
+func (c *Command) AcceptProposalWithOOBInvitation(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProposalWithOOBInvitationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, AcceptProposalWithOOBRequest, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptProposalWithOOBInvitation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBRequest, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBInvitation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if args.Request == nil {
-		logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
+	if args.Invitation == nil {
+		logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBInvitation, errEmptyInvitation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyInvitation))
 	}
 
-	if err := c.client.AcceptProposalWithOOBRequest(args.PIID, args.Request); err != nil {
-		logutil.LogError(logger, CommandName, AcceptProposalWithOOBRequest, err.Error())
+	if err := c.client.AcceptProposalWithOOBInvitation(args.PIID, args.Invitation); err != nil {
+		logutil.LogError(logger, CommandName, AcceptProposalWithOOBInvitation, err.Error())
 		return command.NewExecuteError(AcceptProposalWithOOBRequestErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &AcceptProposalWithOOBRequestResponse{}, logger)
+	command.WriteNillableResponse(rw, &AcceptProposalWithOOBInvitationResponse{}, logger)
 
-	logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBRequest, successString)
+	logutil.LogDebug(logger, CommandName, AcceptProposalWithOOBInvitation, successString)
 
 	return nil
 }
@@ -306,39 +307,39 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
+// AcceptRequestWithPublicOOBInvitation is used when introducer wants to provide a published out-of-band request.
 // nolint: dupl
-func (c *Command) AcceptRequestWithPublicOOBRequest(rw io.Writer, req io.Reader) command.Error {
-	var args AcceptRequestWithPublicOOBRequestArgs
+func (c *Command) AcceptRequestWithPublicOOBInvitation(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptRequestWithPublicOOBInvitationArgs
 
 	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, AcceptRequestWithPublicOOBRequest, err.Error())
+		logutil.LogInfo(logger, CommandName, AcceptRequestWithPublicOOBInvitation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if args.PIID == "" {
-		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBRequest, errEmptyPIID)
+		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBInvitation, errEmptyPIID)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if args.Request == nil {
-		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
+	if args.Invitation == nil {
+		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBInvitation, errEmptyInvitation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyInvitation))
 	}
 
 	if args.To == nil {
-		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBRequest, errEmptyTo)
+		logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBInvitation, errEmptyTo)
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTo))
 	}
 
-	if err := c.client.AcceptRequestWithPublicOOBRequest(args.PIID, args.Request, args.To); err != nil {
-		logutil.LogError(logger, CommandName, AcceptRequestWithPublicOOBRequest, err.Error())
-		return command.NewExecuteError(AcceptRequestWithPublicOOBRequestErrorCode, err)
+	if err := c.client.AcceptRequestWithPublicOOBInvitation(args.PIID, args.Invitation, args.To); err != nil {
+		logutil.LogError(logger, CommandName, AcceptRequestWithPublicOOBInvitation, err.Error())
+		return command.NewExecuteError(AcceptRequestWithPublicOOBInvitationErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &AcceptRequestWithPublicOOBRequestResponse{}, logger)
+	command.WriteNillableResponse(rw, &AcceptRequestWithPublicOOBInvitationResponse{}, logger)
 
-	logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBRequest, successString)
+	logutil.LogDebug(logger, CommandName, AcceptRequestWithPublicOOBInvitation, successString)
 
 	return nil
 }

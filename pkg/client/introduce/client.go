@@ -86,13 +86,13 @@ func (c *Client) SendProposal(recipient1, recipient2 *Recipient) (string, error)
 	return c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
 }
 
-// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
-func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *Recipient) (string, error) {
+// SendProposalWithOOBInvitation sends a proposal to the introducee (the client has published an out-of-band request).
+func (c *Client) SendProposalWithOOBInvitation(inv *outofband.Invitation, recipient *Recipient) (string, error) {
 	_recipient := introduce.Recipient(*recipient)
-	_req := outofbandsvc.Request(*req)
+	_req := outofbandsvc.Invitation(*inv)
 
 	proposal := introduce.CreateProposal(&_recipient)
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, &_req)
+	introduce.WrapWithMetadataPublicOOBInvitation(proposal, &_req)
 
 	return c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 }
@@ -108,10 +108,10 @@ func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) (str
 	}), myDID, theirDID)
 }
 
-// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
+// AcceptProposalWithOOBInvitation is used when introducee wants to provide an out-of-band request.
 // Introducee can provide this request only after receiving ProposalMsgType.
-func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Request) error {
-	return c.service.ActionContinue(piID, WithOOBRequest(req))
+func (c *Client) AcceptProposalWithOOBInvitation(piID string, inv *outofband.Invitation) error {
+	return c.service.ActionContinue(piID, WithOOBInvitation(inv))
 }
 
 // AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest.
@@ -119,10 +119,10 @@ func (c *Client) AcceptProposal(piID string) error {
 	return c.service.ActionContinue(piID, nil)
 }
 
-// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
+// AcceptRequestWithPublicOOBInvitation is used when introducer wants to provide a published out-of-band request.
 // Introducer can provide invitation only after receiving RequestMsgType.
-func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *To) error {
-	return c.service.ActionContinue(piID, WithPublicOOBRequest(req, to))
+func (c *Client) AcceptRequestWithPublicOOBInvitation(piID string, inv *outofband.Invitation, to *To) error {
+	return c.service.ActionContinue(piID, WithPublicOOBInvitation(inv, to))
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
@@ -175,22 +175,22 @@ func WithRecipients(to *To, recipient *Recipient) introduce.Opt {
 	return introduce.WithRecipients(&_to, &_recipient)
 }
 
-// WithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
+// WithPublicOOBInvitation is used when introducer wants to provide a published out-of-band request.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicOOBRequest(req, to)).
-func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
+// USAGE: event.Continue(WithPublicOOBInvitation(req, to)).
+func WithPublicOOBInvitation(req *outofband.Invitation, to *To) introduce.Opt {
 	_to := introduce.To(*to)
-	_req := outofbandsvc.Request(*req)
+	_req := outofbandsvc.Invitation(*req)
 
-	return introduce.WithPublicOOBRequest(&_req, &_to)
+	return introduce.WithPublicOOBInvitation(&_req, &_to)
 }
 
-// WithOOBRequest is used when introducee wants to provide an out-of-band request with an optional
+// WithOOBInvitation is used when introducee wants to provide an out-of-band request with an optional
 // series of attachments.
 // NOTE: Introducee can provide the request only after receiving ProposalMsgType
-// USAGE: event.Continue(WithOOBRequest(inv)).
-func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
-	_req := outofbandsvc.Request(*req)
+// USAGE: event.Continue(WithOOBInvitation(inv)).
+func WithOOBInvitation(req *outofband.Invitation, a ...*decorator.Attachment) introduce.Opt {
+	_req := outofbandsvc.Invitation(*req)
 
-	return introduce.WithOOBRequest(&_req, a...)
+	return introduce.WithOOBInvitation(&_req, a...)
 }

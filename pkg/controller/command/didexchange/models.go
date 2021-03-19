@@ -70,7 +70,7 @@ type ReceiveInvitationResponse struct {
 	// Invitation mode
 	Mode string `json:"invitation_mode,omitempty"`
 
-	// Request ID of invitation response
+	// Invitation ID of invitation response
 	RequestID string `json:"request_id"`
 
 	// My DID
@@ -119,7 +119,7 @@ type AcceptInvitationResponse struct {
 	// My DID
 	DID string `json:"my_did,omitempty"`
 
-	// Request ID of invitation response
+	// Invitation ID of invitation response
 	RequestID string `json:"request_id,omitempty"`
 
 	// Other party's label
@@ -254,7 +254,7 @@ type ExchangeResponse struct {
 	// TheirDID is other party's DID
 	TheirDID string `json:"their_did"`
 
-	// Request ID of the connection request
+	// Invitation ID of the connection request
 	RequestID string `json:"request_id"`
 
 	// Invitation mode

@@ -124,7 +124,7 @@ type Action struct {
 type Opt func(md *metaData)
 
 // WithPresentation allows providing Presentation message
-// USAGE: This message can be provided after receiving a Request message.
+// USAGE: This message can be provided after receiving a Invitation message.
 func WithPresentation(msg *Presentation) Opt {
 	return func(md *metaData) {
 		md.presentation = msg
@@ -132,7 +132,7 @@ func WithPresentation(msg *Presentation) Opt {
 }
 
 // WithAddProofFn allows providing function that will sign the Presentation.
-// USAGE: This fn can be provided after receiving a Request message.
+// USAGE: This fn can be provided after receiving a Invitation message.
 func WithAddProofFn(addProof func(presentation *verifiable.Presentation) error) Opt {
 	return func(md *metaData) {
 		md.addProofFn = addProof
@@ -149,7 +149,7 @@ func WithMultiOptions(opts ...Opt) Opt {
 }
 
 // WithProposePresentation allows providing ProposePresentation message
-// USAGE: This message can be provided after receiving a Request message.
+// USAGE: This message can be provided after receiving a Invitation message.
 func WithProposePresentation(msg *ProposePresentation) Opt {
 	return func(md *metaData) {
 		md.proposePresentation = msg

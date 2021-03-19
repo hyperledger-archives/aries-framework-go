@@ -109,7 +109,7 @@ func mockContext(agent string, tr map[string]chan payload, done chan struct{}) P
 
 				fmt.Println(agent, "received", didMap.Type(), "from", msg.theirDID)
 
-				if didMap.Type() == outofband.RequestMsgType {
+				if didMap.Type() == outofband.InvitationMsgType {
 					err = svc.OOBMessageReceived(service.StateMsg{
 						Type:    service.PostState,
 						StateID: "requested",
@@ -205,8 +205,8 @@ func ExampleClient_SendProposal() {
 			case e := <-actionsBob:
 				e.Continue(nil)
 			case e := <-actionsCarol:
-				e.Continue(WithOOBRequest(&outofband.Request{
-					Type: outofband.RequestMsgType,
+				e.Continue(WithOOBInvitation(&outofband.Invitation{
+					Type: outofband.InvitationMsgType,
 				}))
 			}
 		}
@@ -234,10 +234,10 @@ func ExampleClient_SendProposal() {
 	// Alice received https://didcomm.org/introduce/1.0/response from Bob
 	// Carol received https://didcomm.org/introduce/1.0/proposal from Alice
 	// Alice received https://didcomm.org/introduce/1.0/response from Carol
-	// Bob received https://didcomm.org/oob-request/1.0/request from Alice
+	// Bob received https://didcomm.org/out-of-band/1.0/invitation from Alice
 }
 
-func ExampleClient_SendProposalWithOOBRequest() {
+func ExampleClient_SendProposalWithOOBInvitation() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -284,9 +284,9 @@ func ExampleClient_SendProposalWithOOBRequest() {
 		}
 	}()
 
-	_, err = clientAlice.SendProposalWithOOBRequest(
-		&outofband.Request{
-			Type: outofband.RequestMsgType,
+	_, err = clientAlice.SendProposalWithOOBInvitation(
+		&outofband.Invitation{
+			Type: outofband.InvitationMsgType,
 		},
 		&Recipient{
 			MyDID:    Alice,
@@ -303,7 +303,7 @@ func ExampleClient_SendProposalWithOOBRequest() {
 	// Output:
 	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
 	// Alice received https://didcomm.org/introduce/1.0/response from Bob
-	// Bob received https://didcomm.org/oob-request/1.0/request from Alice
+	// Bob received https://didcomm.org/out-of-band/1.0/invitation from Alice
 }
 
 // nolint: gocyclo
@@ -370,8 +370,8 @@ func ExampleClient_SendRequest() {
 			case e := <-actionsBob:
 				e.Continue(nil)
 			case e := <-actionsCarol:
-				e.Continue(WithOOBRequest(&outofband.Request{
-					Type: outofband.RequestMsgType,
+				e.Continue(WithOOBInvitation(&outofband.Invitation{
+					Type: outofband.InvitationMsgType,
 				}))
 			}
 		}
@@ -396,7 +396,7 @@ func ExampleClient_SendRequest() {
 	// Alice received https://didcomm.org/introduce/1.0/response from Bob
 	// Carol received https://didcomm.org/introduce/1.0/proposal from Alice
 	// Alice received https://didcomm.org/introduce/1.0/response from Carol
-	// Bob received https://didcomm.org/oob-request/1.0/request from Alice
+	// Bob received https://didcomm.org/out-of-band/1.0/invitation from Alice
 }
 
 func ExampleClient_SendRequest_second() {
@@ -440,8 +440,8 @@ func ExampleClient_SendRequest_second() {
 		for {
 			select {
 			case e := <-actionsAlice:
-				e.Continue(WithPublicOOBRequest(&outofband.Request{
-					Type: outofband.RequestMsgType,
+				e.Continue(WithPublicOOBInvitation(&outofband.Invitation{
+					Type: outofband.InvitationMsgType,
 				}, &To{Name: Carol}))
 			case e := <-actionsBob:
 				e.Continue(nil)
@@ -466,5 +466,5 @@ func ExampleClient_SendRequest_second() {
 	// Alice received https://didcomm.org/introduce/1.0/request from Bob
 	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
 	// Alice received https://didcomm.org/introduce/1.0/response from Bob
-	// Bob received https://didcomm.org/oob-request/1.0/request from Alice
+	// Bob received https://didcomm.org/out-of-band/1.0/invitation from Alice
 }

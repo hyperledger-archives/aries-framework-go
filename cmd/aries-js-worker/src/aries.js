@@ -239,13 +239,13 @@ const Aries = function (opts) {
             },
 
             /**
-             * SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
+             * SendProposalWithOOBInvitation sends a proposal to the introducee (the client has published an out-of-band invitation).
              *
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            sendProposalWithOOBRequest: function (req) {
-                return invoke(aw, pending, this.pkgname, "SendProposalWithOOBRequest", req, "timeout while sending a proposal with OOB request")
+            sendProposalWithOOBInvitation: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposalWithOOBInvitation", req, "timeout while sending a proposal with OOB invitation")
             },
 
             /**
@@ -264,8 +264,8 @@ const Aries = function (opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            acceptProposalWithOOBRequest: function (req) {
-                return invoke(aw, pending, this.pkgname, "AcceptProposalWithOOBRequest", req, "timeout while accepting a proposal with OOBRequest")
+            acceptProposalWithOOBInvitation: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposalWithOOBInvitation", req, "timeout while accepting a proposal with OOBInvitation")
             },
 
             /**
@@ -285,8 +285,8 @@ const Aries = function (opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            acceptRequestWithPublicOOBRequest: function (req) {
-                return invoke(aw, pending, this.pkgname, "AcceptRequestWithPublicOOBRequest", req, "timeout while accepting a request with public OOBRequest")
+            acceptRequestWithPublicOOBInvitation: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestWithPublicOOBInvitation", req, "timeout while accepting a request with public OOBInvitation")
             },
 
             /**
@@ -354,26 +354,6 @@ const Aries = function (opts) {
              */
             actionStop: async function (req) {
                 return invoke(aw, pending, this.pkgname, "ActionStop", req, "timeout action continue")
-            },
-
-            /**
-             * CreateRequest creates and saves an Out-Of-Band request message.
-             *
-             * @param req - json document
-             * @returns {Promise<Object>}
-             */
-            createRequest: async function (req) {
-                return invoke(aw, pending, this.pkgname, "CreateRequest", req, "timeout while creating a request")
-            },
-
-            /**
-             * AcceptRequest from another agent and return the ID of a new connection record.
-             *
-             * @param req - json document
-             * @returns {Promise<Object>}
-             */
-            acceptRequest: async function (req) {
-                return invoke(aw, pending, this.pkgname, "AcceptRequest", req, "timeout while accepting a request")
             },
 
             /**

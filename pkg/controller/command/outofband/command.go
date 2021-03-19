@@ -27,12 +27,8 @@ const (
 	// InvalidRequestErrorCode is typically a code for validation errors
 	// for invalid outofband controller requests.
 	InvalidRequestErrorCode = command.Code(iota + command.Outofband)
-	// CreateRequestErrorCode is for failures in create request command.
-	CreateRequestErrorCode
 	// CreateInvitationErrorCode is for failures in create invitation command.
 	CreateInvitationErrorCode
-	// AcceptRequestErrorCode is for failures in accept request command.
-	AcceptRequestErrorCode
 	// AcceptInvitationErrorCode is for failures in accept invitation command.
 	AcceptInvitationErrorCode
 	// ActionStopErrorCode is for failures in action stop command.
@@ -47,19 +43,16 @@ const (
 const (
 	// command name.
 	CommandName      = "outofband"
-	CreateRequest    = "CreateRequest"
 	CreateInvitation = "CreateInvitation"
-	AcceptRequest    = "AcceptRequest"
 	AcceptInvitation = "AcceptInvitation"
 	ActionStop       = "ActionStop"
 	Actions          = "Actions"
 	ActionContinue   = "ActionContinue"
 
 	// error messages.
-	errOneAttachmentMustBeProvided = "at least one attachment must be provided"
-	errEmptyRequest                = "request was not provided"
-	errEmptyMyLabel                = "my_label was not provided"
-	errEmptyPIID                   = "piid was not provided"
+	errEmptyRequest = "request was not provided"
+	errEmptyMyLabel = "my_label was not provided"
+	errEmptyPIID    = "piid was not provided"
 	// log constants.
 	successString = "success"
 
@@ -105,50 +98,12 @@ func New(ctx outofband.Provider, notifier command.Notifier) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command.
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(CommandName, CreateRequest, c.CreateRequest),
 		cmdutil.NewCommandHandler(CommandName, CreateInvitation, c.CreateInvitation),
-		cmdutil.NewCommandHandler(CommandName, AcceptRequest, c.AcceptRequest),
 		cmdutil.NewCommandHandler(CommandName, AcceptInvitation, c.AcceptInvitation),
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
 		cmdutil.NewCommandHandler(CommandName, ActionContinue, c.ActionContinue),
 		cmdutil.NewCommandHandler(CommandName, ActionStop, c.ActionStop),
 	}
-}
-
-// CreateRequest creates and saves an Out-Of-Band request message.
-// At least one attachment must be provided.
-// Service entries can be optionally provided. If none are provided then a new one will be automatically created for
-// you.
-func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
-	var args CreateRequestArgs
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, CreateRequest, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if len(args.Attachments) == 0 {
-		logutil.LogDebug(logger, CommandName, CreateRequest, errOneAttachmentMustBeProvided)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errOneAttachmentMustBeProvided))
-	}
-
-	request, err := c.client.CreateRequest(args.Attachments, []outofband.MessageOption{
-		outofband.WithGoal(args.Goal, args.GoalCode),
-		outofband.WithLabel(args.Label),
-		outofband.WithServices(args.Service...),
-		outofband.WithRouterConnections(args.RouterConnectionID),
-	}...)
-	if err != nil {
-		logutil.LogError(logger, CommandName, CreateRequest, err.Error())
-		return command.NewExecuteError(CreateRequestErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &CreateRequestResponse{
-		Request: request,
-	}, logger)
-
-	logutil.LogDebug(logger, CommandName, CreateRequest, successString)
-
-	return nil
 }
 
 // CreateInvitation creates and saves an out-of-band invitation.
@@ -161,12 +116,13 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	invitation, err := c.client.CreateInvitation(args.Protocols, []outofband.MessageOption{
+	invitation, err := c.client.CreateInvitation(
+		args.Service,
 		outofband.WithGoal(args.Goal, args.GoalCode),
 		outofband.WithLabel(args.Label),
-		outofband.WithServices(args.Service...),
+		outofband.WithHandshakeProtocols(args.Protocols...),
 		outofband.WithRouterConnections(args.RouterConnectionID),
-	}...)
+	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
@@ -177,40 +133,6 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	}, logger)
 
 	logutil.LogDebug(logger, CommandName, CreateInvitation, successString)
-
-	return nil
-}
-
-// AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
-	var args AcceptRequestArgs
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.Request == nil {
-		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
-	}
-
-	if args.MyLabel == "" {
-		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyMyLabel)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
-	}
-
-	connID, err := c.client.AcceptRequest(args.Request, args.MyLabel,
-		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...))
-	if err != nil {
-		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
-		return command.NewExecuteError(AcceptRequestErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &AcceptRequestResponse{
-		ConnectionID: connID,
-	}, logger)
-
-	logutil.LogDebug(logger, CommandName, AcceptRequest, successString)
 
 	return nil
 }

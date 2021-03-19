@@ -26,9 +26,9 @@ import (
 
 const (
 	acceptProposal                    = "/introduce/{piid}/accept-proposal"
-	acceptProposalWithOOBRequest      = "/introduce/{piid}/accept-proposal-with-oob-request"
-	acceptRequestWithPublicOOBRequest = "/introduce/{piid}/accept-request-with-public-oob-request"
-	sendProposalWithOOBRequest        = "/introduce/send-proposal-with-oob-request"
+	acceptProposalWithOOBRequest      = "/introduce/{piid}/accept-proposal-with-oob-invitation"
+	acceptRequestWithPublicOOBRequest = "/introduce/{piid}/accept-request-with-public-oob-invitation"
+	sendProposalWithOOBRequest        = "/introduce/send-proposal-with-oob-invitation"
 	sendProposal                      = "/introduce/send-proposal"
 	sendRequest                       = "/introduce/send-request"
 	acceptRequestWithRecipients       = "/introduce/{piid}/accept-request-with-recipients"
@@ -59,7 +59,7 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through the controller$`, s.establishConnection)
-	gs.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band request `+
+	gs.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band invitation `+
 		`through the controller$`,
 		s.sendProposalWithInvitation)
 	gs.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve through the controller$`,
@@ -67,10 +67,10 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has did exchange connection with "([^"]*)" through the controller$`,
 		s.connectionEstablished)
 	gs.Step(`^"([^"]*)" sends introduce request to the "([^"]*)" asking about "([^"]*)" through the controller$`, s.sendRequest)
-	gs.Step(`^"([^"]*)" sends introduce proposal back to the requester with public out-of-band request through the controller$`,
+	gs.Step(`^"([^"]*)" sends introduce proposal back to the requester with public out-of-band invitation through the controller$`,
 		s.handleRequestWithInvitation)
 	gs.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)" through the controller$`, s.sendProposal)
-	gs.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request through the controller$`, //nolint:lll
+	gs.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band invitation through the controller$`, //nolint:lll
 		s.checkAndContinueWithInvitation)
 	gs.Step(`^"([^"]*)" sends introduce proposal back to the "([^"]*)" and requested introduce through the controller$`, s.handleRequest)
 }
@@ -137,7 +137,7 @@ func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID s
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	req, err := s.outofband.NewRequest(agentID)
+	req, err := s.outofband.NewInvitation(agentID)
 	if err != nil {
 		return err
 	}
@@ -145,8 +145,8 @@ func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID s
 	// sets invitationID for the running scenario
 	s.invitationID = req.ID
 
-	payload, err := json.Marshal(introduce.AcceptProposalWithOOBRequestArgs{
-		Request: req,
+	payload, err := json.Marshal(introduce.AcceptProposalWithOOBInvitationArgs{
+		Invitation: req,
 	})
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
 
 	introduceTo := request.PleaseIntroduceTo.Name
 
-	req, err := s.outofband.NewRequest(introduceTo)
+	req, err := s.outofband.NewInvitation(introduceTo)
 	if err != nil {
 		return err
 	}
@@ -222,9 +222,9 @@ func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
 	// sets invitationID for the running scenario
 	s.invitationID = req.ID
 
-	msg, err := json.Marshal(&introduce.AcceptRequestWithPublicOOBRequestArgs{
-		Request: req,
-		To:      &client.To{Name: req.Label},
+	msg, err := json.Marshal(&introduce.AcceptRequestWithPublicOOBInvitationArgs{
+		Invitation: req,
+		To:         &client.To{Name: req.Label},
 	})
 	if err != nil {
 		return err
@@ -274,7 +274,7 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 		return fmt.Errorf("get connection %s-%s: %w", introducer, introducee1, err)
 	}
 
-	oobReq, err := s.outofband.NewRequest(introducee2)
+	oobReq, err := s.outofband.NewInvitation(introducee2)
 	if err != nil {
 		return fmt.Errorf("create OOBRequest for agent %s: %w", introducee2, err)
 	}
@@ -287,8 +287,8 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", introducer)
 	}
 
-	req, err := json.Marshal(introduce.SendProposalWithOOBRequestArgs{
-		Request: oobReq,
+	req, err := json.Marshal(introduce.SendProposalWithOOBInvitationArgs{
+		Invitation: oobReq,
 		Recipient: &client.Recipient{
 			To:       &protocol.To{Name: introducee2},
 			MyDID:    conn.MyDID,

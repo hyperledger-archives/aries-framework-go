@@ -15,12 +15,6 @@ Feature: Out-Of-Band protocol
     Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
     And "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
 
-  Scenario: New connection after Alice sends an out-of-band request to Bob
-    Given "Alice" constructs an out-of-band request with no attachments (controller)
-    When "Alice" sends the request to "Bob" through an out-of-band channel (controller)
-    And "Bob" accepts the request and connects with "Alice" (controller)
-    Then "Alice" and "Bob" have a connection (controller)
-
   Scenario: New connection after Alice sends an ouf-of-band invitation to Bob
     Given "Alice" constructs an out-of-band invitation (controller)
     When "Alice" sends the invitation to "Bob" through an out-of-band channel (controller)

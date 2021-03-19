@@ -14,15 +14,6 @@ const restMode = 'rest'
 const wasmMode = 'wasm'
 const actionsTopic = "out-of-band_actions"
 
-describe("Outofband - New connection after Alice sends an out-of-band request to Bob", async function () {
-    describe(restMode, function () {
-        outofbandRequest(restMode)
-    })
-    describe(wasmMode, function () {
-        outofbandRequest(wasmMode)
-    })
-})
-
 describe("Outofband - New connection after Alice sends an ouf-of-band invitation to Bob", async function () {
     describe(restMode, function () {
         outofbandInvitation(restMode)
@@ -32,48 +23,10 @@ describe("Outofband - New connection after Alice sends an ouf-of-band invitation
     })
 })
 
-async function outofbandRequest(mode) {
-    let didexClient
-
-    before(async () => {
-        didexClient = await client(mode)
-    })
-
-    after(async () => {
-        await didexClient.destroy()
-    })
-
-    let request;
-    it("Alice constructs an out-of-band request with no attachments", async function () {
-        request = await didexClient.agent1.outofband.createRequest(createRequest(didexClient.agent1RouterConnection, "Alice"))
-    })
-
-    it("Bob accepts the request and connects with Alice", async function () {
-        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, request.request['@id'], didexClient.agent1RouterConnection)
-
-        await didexClient.agent2.outofband.acceptRequest({
-            my_label: "Bob",
-            request: request.request,
-            router_connections: didexClient.agent2RouterConnection,
-        })
-
-        await checked
-    })
-}
-
-export function createRequest(router, label) {
+export function createInvitation(router, label) {
     return {
         label: label,
         router_connection_id: router,
-        attachments: [
-            {
-                "@id": getRandom(1, 9) + "955adee-bdb4-437f-884a-b466e38d5884",
-                description: "dummy",
-                "mime-type": "text/plain",
-                "lastmod_time": "0001-01-01T00:00:00Z",
-                data: {"json": {}}
-            }
-        ]
     }
 }
 

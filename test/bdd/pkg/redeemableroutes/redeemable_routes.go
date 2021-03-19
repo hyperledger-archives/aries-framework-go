@@ -198,20 +198,21 @@ func (b *BDDSteps) routerApprovesIntroduction(router, serviceEndpoint, routingKe
 		return fmt.Errorf("failed to marshal route-request : %w", err)
 	}
 
-	req, err := b.context.OutOfBandClients[router].CreateRequest(
-		[]*decorator.Attachment{{
+	req, err := b.context.OutOfBandClients[router].CreateInvitation(
+		nil,
+		outofband.WithLabel(router),
+		outofband.WithAttachments(&decorator.Attachment{
 			Description: "please redeem your route code",
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString(bits),
 			},
-		}},
-		outofband.WithLabel(router),
+		}),
 	)
 	if err != nil {
-		return fmt.Errorf("%s failed to create an oob request : %w", router, err)
+		return fmt.Errorf("%s failed to create an oob invitation : %w", router, err)
 	}
 
-	b.introApprovals[router] <- introClient.WithOOBRequest(
+	b.introApprovals[router] <- introClient.WithOOBInvitation(
 		req,
 		&decorator.Attachment{
 			Description: "pre-approved routing keys and service endpoints",
@@ -229,7 +230,7 @@ func (b *BDDSteps) routerApprovesIntroduction(router, serviceEndpoint, routingKe
 
 func (b *BDDSteps) bobConnectsWithRouterAndRequestsRoute(bob, router string) error {
 	// bob approves oob request received via the introducer
-	b.oobSdk.ApproveOOBRequest(bob, &outofband.EventOptions{Label: bob})
+	b.oobSdk.ApproveOOBInvitation(bob, &outofband.EventOptions{Label: bob})
 
 	err := b.oobSdk.ApproveDIDExchangeRequest(router)
 	if err != nil {

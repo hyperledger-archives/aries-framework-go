@@ -116,21 +116,6 @@ func (mr *MockOobServiceMockRecorder) AcceptInvitation(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInvitation", reflect.TypeOf((*MockOobService)(nil).AcceptInvitation), arg0, arg1, arg2)
 }
 
-// AcceptRequest mocks base method
-func (m *MockOobService) AcceptRequest(arg0 *outofband.Request, arg1 string, arg2 []string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AcceptRequest", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AcceptRequest indicates an expected call of AcceptRequest
-func (mr *MockOobServiceMockRecorder) AcceptRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptRequest", reflect.TypeOf((*MockOobService)(nil).AcceptRequest), arg0, arg1, arg2)
-}
-
 // ActionContinue mocks base method
 func (m *MockOobService) ActionContinue(arg0 string, arg1 outofband.Options) error {
 	m.ctrl.T.Helper()
@@ -214,20 +199,6 @@ func (m *MockOobService) SaveInvitation(arg0 *outofband.Invitation) error {
 func (mr *MockOobServiceMockRecorder) SaveInvitation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveInvitation", reflect.TypeOf((*MockOobService)(nil).SaveInvitation), arg0)
-}
-
-// SaveRequest mocks base method
-func (m *MockOobService) SaveRequest(arg0 *outofband.Request) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveRequest", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveRequest indicates an expected call of SaveRequest
-func (mr *MockOobServiceMockRecorder) SaveRequest(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRequest", reflect.TypeOf((*MockOobService)(nil).SaveRequest), arg0)
 }
 
 // UnregisterActionEvent mocks base method

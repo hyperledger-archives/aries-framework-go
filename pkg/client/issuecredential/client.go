@@ -34,7 +34,7 @@ type (
 	// this message initiates the protocol.
 	RequestCredential issuecredential.RequestCredential
 	// IssueCredential contains as attached payload the credentials being issued and is
-	// sent in response to a valid Request Credential message.
+	// sent in response to a valid Invitation Credential message.
 	IssueCredential issuecredential.IssueCredential
 	// Action contains helpful information about action.
 	Action issuecredential.Action

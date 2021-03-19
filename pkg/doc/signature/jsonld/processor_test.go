@@ -1193,7 +1193,7 @@ const odrlDoc = `
     "Assertion":           "odrl:Assertion",
     "Offer":               "odrl:Offer",
     "Privacy":             "odrl:Privacy",
-    "Request":             "odrl:Request",
+    "Invitation":             "odrl:Invitation",
     "Set":                 "odrl:Set",
     "Ticket":              "odrl:Ticket",
 

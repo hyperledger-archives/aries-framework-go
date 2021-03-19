@@ -44,7 +44,7 @@ SPDX-License-Identifier: Apache-2.0
 //         switch event.Message.Type() {
 //         case outofband.RequestMsgType:
 //             // inspect the request
-//             req := &outofband.Request{}
+//             req := &outofband.Invitation{}
 //             err = event.Message.Decode(req)
 //             if err != nil {
 //                 panic(err)

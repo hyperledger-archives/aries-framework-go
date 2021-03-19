@@ -11,29 +11,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
-// CreateRequestArgs model
-//
-// This is used for creating a request
-//
-type CreateRequestArgs struct {
-	Label              string        `json:"label"`
-	Goal               string        `json:"goal"`
-	GoalCode           string        `json:"goal_code"`
-	Service            []interface{} `json:"service"`
-	RouterConnectionID string        `json:"router_connection_id"`
-
-	// Attachments is intended to provide the possibility to include files, links or even JSON payload to the message.
-	Attachments []*decorator.Attachment `json:"attachments"`
-}
-
-// CreateRequestResponse model
-//
-// Represents a CreateRequest response message
-//
-type CreateRequestResponse struct {
-	Request *outofband.Request `json:"request"`
-}
-
 // CreateInvitationArgs model
 //
 // This is used for creating an invitation
@@ -45,6 +22,8 @@ type CreateInvitationArgs struct {
 	Service            []interface{} `json:"service"`
 	Protocols          []string      `json:"protocols"`
 	RouterConnectionID string        `json:"router_connection_id"`
+	// Attachments is intended to provide the possibility to include files, links or even JSON payload to the message.
+	Attachments []*decorator.Attachment `json:"attachments"`
 }
 
 // CreateInvitationResponse model
@@ -53,24 +32,6 @@ type CreateInvitationArgs struct {
 //
 type CreateInvitationResponse struct {
 	Invitation *outofband.Invitation `json:"invitation"`
-}
-
-// AcceptRequestArgs model
-//
-// This is used for accepting a request
-//
-type AcceptRequestArgs struct {
-	Request           *outofband.Request `json:"request"`
-	MyLabel           string             `json:"my_label"`
-	RouterConnections string             `json:"router_connections"`
-}
-
-// AcceptRequestResponse model
-//
-// Represents a AcceptRequest response message
-//
-type AcceptRequestResponse struct {
-	ConnectionID string `json:"connection_id"`
 }
 
 // AcceptInvitationArgs model
