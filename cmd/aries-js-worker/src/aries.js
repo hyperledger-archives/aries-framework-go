@@ -825,6 +825,16 @@ const Aries = function (opts) {
             },
 
             /**
+             * Create a did document.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createDID: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateDID", req, "timeout while creating did document")
+            },
+
+            /**
              * Retrieves a did document.
              *
              * @param req - json document

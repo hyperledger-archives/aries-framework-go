@@ -329,6 +329,10 @@ func getVDREndpoints() map[string]*endpoint {
 			Path:   opvdr.ResolveDIDPath,
 			Method: http.MethodGet,
 		},
+		cmdvdr.CreateDIDCommandMethod: {
+			Path:   opvdr.CreateDIDPath,
+			Method: http.MethodPost,
+		},
 	}
 }
 

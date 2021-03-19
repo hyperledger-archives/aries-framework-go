@@ -52,7 +52,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 4, len(handlers))
+		require.Equal(t, 5, len(handlers))
 	})
 
 	t.Run("test new command - did store error", func(t *testing.T) {
@@ -165,6 +165,98 @@ func TestSaveDID(t *testing.T) {
 		err = cmd.SaveDID(&b, bytes.NewBuffer(didReqBytes))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save did doc")
+	})
+}
+
+func TestCreateDID(t *testing.T) {
+	t.Run("test create did - success", func(t *testing.T) {
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      &mockvdr.MockVDRegistry{CreateValue: didDoc},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		createDIDReq := CreateDIDRequest{Method: "peer", DID: json.RawMessage(doc), Opts: map[string]string{"k1": "v1"}}
+		reqBytes, err := json.Marshal(createDIDReq)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.CreateDID(&getRW, bytes.NewBuffer(reqBytes))
+		require.NoError(t, cmdErr)
+
+		response := Document{}
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.DID)
+	})
+
+	t.Run("test create did - invalid did doc", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      &mockvdr.MockVDRegistry{},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		createDIDReq := CreateDIDRequest{Method: "peer", DID: []byte("{}"), Opts: map[string]string{"k1": "v1"}}
+		reqBytes, err := json.Marshal(createDIDReq)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		err = cmd.CreateDID(&getRW, bytes.NewBuffer(reqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "parse did doc")
+	})
+
+	t.Run("test create did - invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.CreateDID(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test create did - no did method in the request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.CreateDID(&b, bytes.NewBufferString("{}"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did method is mandatory")
+	})
+
+	t.Run("test create did - create error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("failed to create")},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		createDIDReq := CreateDIDRequest{Method: "peer", DID: json.RawMessage(doc)}
+		reqBytes, err := json.Marshal(createDIDReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.CreateDID(&b, bytes.NewBuffer(reqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create")
 	})
 }
 

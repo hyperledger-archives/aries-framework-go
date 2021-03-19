@@ -17,6 +17,9 @@ type VDRController interface {
 	// SaveDID saves the did doc to the store.
 	SaveDID(request *models.RequestEnvelope) *models.ResponseEnvelope
 
+	// CreateDID create the did doc.
+	CreateDID(request *models.RequestEnvelope) *models.ResponseEnvelope
+
 	// GetDID retrieves the did from the store.
 	GetDID(request *models.RequestEnvelope) *models.ResponseEnvelope
 

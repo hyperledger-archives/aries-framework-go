@@ -58,7 +58,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 4, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 5, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -80,6 +80,55 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 	handlers := svc.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
+}
+
+func TestCreateDID(t *testing.T) {
+	t.Run("test create did - success", func(t *testing.T) {
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRegistryValue:      &mockvdr.MockVDRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		didReq := vdr.CreateDIDRequest{
+			DID:    json.RawMessage(doc),
+			Method: sampleDIDName,
+		}
+		jsonStr, err := json.Marshal(didReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, CreateDIDPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		// verify response
+		require.NotEmpty(t, buf)
+	})
+
+	t.Run("test create did - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		didReq := vdr.CreateDIDRequest{
+			Method: sampleDIDName,
+		}
+		jsonStr, err := json.Marshal(didReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, CreateDIDPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, vdr.CreateDIDErrorCode, "parse did doc", buf.Bytes())
+	})
 }
 
 func TestSaveDID(t *testing.T) {
