@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package command
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,6 +73,29 @@ func TestVDR_GetDIDRecords(t *testing.T) {
 
 		req := &models.RequestEnvelope{Payload: []byte(payload)}
 		resp := vdrController.GetDIDRecords(req)
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t,
+			mockResponse,
+			string(resp.Payload))
+	})
+}
+
+func TestVDR_CreateDID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		vdrController := getVDRController(t)
+
+		mockResponse := mockDocument
+		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
+		vdrController.handlers[cmdvdr.CreateDIDCommandMethod] = fakeHandler.exec
+
+		reqCreate := cmdvdr.CreateDIDRequest{Method: "test", DID: []byte(mockDocument)}
+
+		reqBytes, err := json.Marshal(reqCreate)
+		require.NoError(t, err)
+
+		req := &models.RequestEnvelope{Payload: reqBytes}
+		resp := vdrController.CreateDID(req)
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
 		require.Equal(t,

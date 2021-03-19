@@ -35,6 +35,22 @@ func (v *VDR) ResolveDID(request *models.RequestEnvelope) *models.ResponseEnvelo
 	return &models.ResponseEnvelope{Payload: response}
 }
 
+// CreateDID create the did doc.
+func (v *VDR) CreateDID(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdvdr.CreateDIDRequest{}
+
+	if err := json.Unmarshal(request.Payload, &args); err != nil {
+		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
+	}
+
+	response, cmdErr := exec(v.handlers[cmdvdr.CreateDIDCommandMethod], args)
+	if cmdErr != nil {
+		return &models.ResponseEnvelope{Error: cmdErr}
+	}
+
+	return &models.ResponseEnvelope{Payload: response}
+}
+
 // SaveDID saves the did doc to the store.
 func (v *VDR) SaveDID(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := cmdvdr.DIDArgs{}

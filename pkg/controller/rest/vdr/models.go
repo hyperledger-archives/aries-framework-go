@@ -25,6 +25,18 @@ type saveDIDReq struct { // nolint: unused,deadcode
 	Params vdrcommand.DIDArgs
 }
 
+// createDIDReq model
+//
+// This is used to create the did.
+//
+// swagger:parameters saveDIDReq
+type createIDReq struct { // nolint: unused,deadcode
+	// Params for creating the did document
+	//
+	// in: body
+	Params vdrcommand.CreateDIDRequest
+}
+
 // getDIDReq model
 //
 // This is used to retrieve the did document.

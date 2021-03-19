@@ -18,7 +18,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	storage "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 var logger = log.New("aries-framework/command/vdr")
@@ -36,6 +36,9 @@ const (
 
 	// ResolveDIDErrorCode for get did error.
 	ResolveDIDErrorCode
+
+	// CreateDIDErrorCode for create did error.
+	CreateDIDErrorCode
 )
 
 // constants for the VDR controller's methods.
@@ -48,10 +51,12 @@ const (
 	GetDIDsCommandMethod    = "GetDIDRecords"
 	GetDIDCommandMethod     = "GetDID"
 	ResolveDIDCommandMethod = "ResolveDID"
+	CreateDIDCommandMethod  = "CreateDID"
 
 	// error messages.
-	errEmptyDIDName = "name is mandatory"
-	errEmptyDIDID   = "did is mandatory"
+	errEmptyDIDName   = "name is mandatory"
+	errEmptyDIDID     = "did is mandatory"
+	errEmptyDIDMETHOD = "did method is mandatory"
 
 	// log constants.
 	didID = "did"
@@ -90,7 +95,59 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, GetDIDCommandMethod, o.GetDID),
 		cmdutil.NewCommandHandler(CommandName, GetDIDsCommandMethod, o.GetDIDRecords),
 		cmdutil.NewCommandHandler(CommandName, ResolveDIDCommandMethod, o.ResolveDID),
+		cmdutil.NewCommandHandler(CommandName, CreateDIDCommandMethod, o.CreateDID),
 	}
+}
+
+// CreateDID reate did.
+func (o *Command) CreateDID(rw io.Writer, req io.Reader) command.Error {
+	var request CreateDIDRequest
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveDIDCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.Method == "" {
+		logutil.LogDebug(logger, CommandName, CreateDIDCommandMethod, errEmptyDIDMETHOD)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDMETHOD))
+	}
+
+	didDoc, err := did.ParseDocument(request.DID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, CreateDIDCommandMethod, "parse did doc: "+err.Error())
+
+		return command.NewValidationError(CreateDIDErrorCode, fmt.Errorf("parse did doc: %w", err))
+	}
+
+	opts := make([]vdrapi.DIDMethodOption, 0)
+
+	for k, v := range request.Opts {
+		opts = append(opts, vdrapi.WithOption(k, v))
+	}
+
+	doc, err := o.ctx.VDRegistry().Create(request.Method, didDoc, opts...)
+	if err != nil {
+		logutil.LogError(logger, CommandName, CreateDIDCommandMethod, "create did doc: "+err.Error())
+
+		return command.NewValidationError(CreateDIDErrorCode, fmt.Errorf("create did doc: %w", err))
+	}
+
+	docBytes, err := doc.DIDDocument.JSONBytes()
+	if err != nil {
+		logutil.LogError(logger, CommandName, CreateDIDCommandMethod, "unmarshal did doc: "+err.Error())
+
+		return command.NewValidationError(CreateDIDErrorCode, fmt.Errorf("unmarshal did doc: %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &Document{
+		DID: docBytes,
+	}, logger)
+
+	logutil.LogDebug(logger, CommandName, CreateDIDCommandMethod, "success")
+
+	return nil
 }
 
 // ResolveDID resolve did.

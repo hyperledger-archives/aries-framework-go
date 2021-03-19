@@ -30,6 +30,11 @@ func (v *VDR) SaveDID(request *models.RequestEnvelope) *models.ResponseEnvelope 
 	return v.createRespEnvelope(request, cmdvdr.SaveDIDCommandMethod)
 }
 
+// CreateDID create the did doc.
+func (v *VDR) CreateDID(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return v.createRespEnvelope(request, cmdvdr.CreateDIDCommandMethod)
+}
+
 // GetDID retrieves the did from the store.
 func (v *VDR) GetDID(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	return v.createRespEnvelope(request, cmdvdr.GetDIDCommandMethod)

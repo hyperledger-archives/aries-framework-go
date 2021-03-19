@@ -28,6 +28,7 @@ const (
 	SaveDIDPath       = vdrDIDPath
 	GetDIDPath        = vdrDIDPath + "/{id}"
 	ResolveDIDPath    = vdrDIDPath + "/resolve/{id}"
+	CreateDIDPath     = vdrDIDPath + "/create"
 	GetDIDRecordsPath = vdrDIDPath + "/records"
 )
 
@@ -68,9 +69,21 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(SaveDIDPath, http.MethodPost, o.SaveDID),
 		cmdutil.NewHTTPHandler(ResolveDIDPath, http.MethodGet, o.ResolveDID),
+		cmdutil.NewHTTPHandler(CreateDIDPath, http.MethodPost, o.CreateDID),
 		cmdutil.NewHTTPHandler(GetDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
 		cmdutil.NewHTTPHandler(GetDIDPath, http.MethodGet, o.GetDID),
 	}
+}
+
+// CreateDID swagger:route POST /vdr/create vdr createDIDReq
+//
+// Create a did document.
+//
+// Responses:
+//    default: genericError
+//        200: documentRes
+func (o *Operation) CreateDID(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.CreateDID, rw, req.Body)
 }
 
 // SaveDID swagger:route POST /vdr/did vdr saveDIDReq

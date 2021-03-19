@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
+	cmdvdr "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	opvdr "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 )
 
@@ -78,6 +80,33 @@ func TestVDR_GetDIDRecords(t *testing.T) {
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
 		resp := vdrController.GetDIDRecords(req)
+
+		require.NotNil(t, resp)
+		require.Nil(t, resp.Error)
+		require.Equal(t, mockResponse, string(resp.Payload))
+	})
+}
+
+func TestVDR_CreateDID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		vdrController := getVDRController(t)
+
+		reqCreate := cmdvdr.CreateDIDRequest{Method: "test", DID: []byte(mockDocument)}
+
+		reqData, err := json.Marshal(reqCreate)
+		require.NoError(t, err)
+
+		mockURL, err := parseURL(mockAgentURL, opvdr.CreateDIDPath, string(reqData))
+		require.NoError(t, err, "failed to parse test url")
+
+		mockResponse := mockDocument
+		vdrController.httpClient = &mockHTTPClient{
+			data:   mockResponse,
+			method: http.MethodPost, url: mockURL,
+		}
+
+		req := &models.RequestEnvelope{Payload: reqData}
+		resp := vdrController.CreateDID(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
