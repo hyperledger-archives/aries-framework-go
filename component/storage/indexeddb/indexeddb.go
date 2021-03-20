@@ -42,6 +42,9 @@ const (
 	expressionTagNameOnlyLength     = 1
 	expressionTagNameAndValueLength = 2
 
+	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
+
 	invalidQueryExpressionFormat = `"%s" is not in a valid expression format. ` +
 		"it must be in the following format: TagName:TagValue"
 )
@@ -108,6 +111,12 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 // For consistency with other storage implementations, the store configuration is still stored (but it otherwise serves
 // no purpose).
 func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	store, ok := p.stores[name]
 	if !ok {
 		return storage.ErrStoreNotFound
@@ -204,6 +213,16 @@ type store struct {
 func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
 	if key == "" || value == nil {
 		return errors.New("key and value are mandatory")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
 	}
 
 	m := make(map[string]interface{})

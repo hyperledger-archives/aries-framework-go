@@ -157,6 +157,20 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		err := provider.SetStoreConfig("NonExistentStore", spi.StoreConfiguration{})
 		require.True(t, errors.Is(err, spi.ErrStoreNotFound), "Got unexpected error or no error")
 	})
+	t.Run("Attempt to set a config that specifies a tag name with a ':' character", func(t *testing.T) {
+		testStoreName := randomStoreName()
+
+		store, err := provider.OpenStore(testStoreName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		// Tag names cannot contain any ':' characters since it's a reserved character in the query syntax.
+		// It would be impossible to do a query for one of these tags, so we must not allow it in the first place.
+		config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagNameWith:Character"}}
+
+		err = provider.SetStoreConfig(testStoreName, config)
+		require.Error(t, err)
+	})
 	t.Run("Attempt to get config without opening store first", func(t *testing.T) {
 		config, err := provider.GetStoreConfig("NonExistentStore")
 		require.True(t, errors.Is(err, spi.ErrStoreNotFound), "Got unexpected error or no error")
@@ -250,34 +264,59 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 	testKeyURL := "https://example.com"
 
 	testValueSimpleString := "TestValue"
+	testValueSimpleString2 := "TestValue2"
+	testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
+	testValueJSON2 := `{"someKey1":"someStringValue2","someKey2":3,"someKey3":true}`
+	testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
+	testBinaryData2 := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f}
 
-	t.Run("Put and get a single value from a single store", func(t *testing.T) {
+	t.Run("Put and get a value", func(t *testing.T) {
 		t.Run("Key is not a URL", func(t *testing.T) {
 			t.Run("Value is simple text", func(t *testing.T) {
-				doSingleValuePutGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
+				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
 			})
 			t.Run("Value is JSON-formatted text", func(t *testing.T) {
-				testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
-
-				doSingleValuePutGetTest(t, provider, testKeyNonURL, []byte(testValueJSON))
+				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSON))
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
-				testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
-				doSingleValuePutGetTest(t, provider, testKeyNonURL, testBinaryData)
+				doPutThenGetTest(t, provider, testKeyNonURL, testBinaryData)
 			})
 		})
 		t.Run("Key is a URL", func(t *testing.T) {
 			t.Run("Value is simple text", func(t *testing.T) {
-				doSingleValuePutGetTest(t, provider, testKeyURL, []byte(testValueSimpleString))
+				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString))
 			})
 			t.Run("Value is JSON-formatted text", func(t *testing.T) {
-				testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
-
-				doSingleValuePutGetTest(t, provider, testKeyURL, []byte(testValueJSON))
+				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueJSON))
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
-				testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
-				doSingleValuePutGetTest(t, provider, testKeyURL, testBinaryData)
+				doPutThenGetTest(t, provider, testKeyURL, testBinaryData)
+			})
+		})
+	})
+	t.Run("Put a value, update it, and get the updated value", func(t *testing.T) {
+		t.Run("Key is not a URL", func(t *testing.T) {
+			t.Run("Value is simple text", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL,
+					[]byte(testValueSimpleString), []byte(testValueSimpleString2))
+			})
+			t.Run("Value is JSON-formatted text", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSON), []byte(testValueJSON2))
+			})
+			t.Run("Value is binary data", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL, testBinaryData, testBinaryData2)
+			})
+		})
+		t.Run("Key is a URL", func(t *testing.T) {
+			t.Run("Value is simple text", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString),
+					[]byte(testValueSimpleString2))
+			})
+			t.Run("Value is JSON-formatted text", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyURL, []byte(testValueJSON), []byte(testValueJSON2))
+			})
+			t.Run("Value is binary data", func(t *testing.T) {
+				doPutThenUpdateThenGetTest(t, provider, testKeyURL, testBinaryData, testBinaryData2)
 			})
 		})
 	})
@@ -459,6 +498,52 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		err = store.Put(testKeyNonURL, nil)
 		require.Error(t, err)
 	})
+	t.Run("Put with tag containing a ':' character", func(t *testing.T) {
+		t.Run("First tag name contains a ':'", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			err = store.Put(testKeyNonURL, []byte("value"),
+				[]spi.Tag{
+					{Name: "TagName1With:Character", Value: "TagValue1"},
+					{Name: "TagName2", Value: "TagValue2"},
+				}...)
+			require.Error(t, err)
+		})
+		t.Run("First tag value contains a ':'", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			err = store.Put(testKeyNonURL, []byte("value"),
+				[]spi.Tag{
+					{Name: "TagName1", Value: "TagValue1With:Character"},
+					{Name: "TagName2", Value: "TagValue2"},
+				}...)
+			require.Error(t, err)
+		})
+		t.Run("Second tag name contains a ':'", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			err = store.Put(testKeyNonURL, []byte("value"),
+				[]spi.Tag{
+					{Name: "TagName1", Value: "TagValue1"},
+					{Name: "TagName2With:Character", Value: "TagValue2"},
+				}...)
+			require.Error(t, err)
+		})
+		t.Run("Second tag value contains a ':'", func(t *testing.T) {
+			store, err := provider.OpenStore(randomStoreName())
+			require.NoError(t, err)
+
+			err = store.Put(testKeyNonURL, []byte("value"),
+				[]spi.Tag{
+					{Name: "TagName1", Value: "TagValue1"},
+					{Name: "TagName2", Value: "TagValue2With:Character"},
+				}...)
+			require.Error(t, err)
+		})
+	})
 }
 
 // TestStoreGetTags tests common Store GetTags functionality.
@@ -474,7 +559,7 @@ func TestStoreGetTags(t *testing.T, provider spi.Provider) {
 	t.Run("Successfully retrieve tags", func(t *testing.T) {
 		tags := []spi.Tag{{Name: "tagName1", Value: "tagValue1"}, {Name: "tagName2", Value: "tagValue2"}}
 
-		key := "did:example:1"
+		key := "key"
 
 		err = store.Put(key, []byte("value1"), tags...)
 		require.NoError(t, err)
@@ -617,39 +702,36 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 
 // TestStoreDelete tests common Store Delete functionality.
 func TestStoreDelete(t *testing.T, provider spi.Provider) {
-	const commonKey = "did:example:1234"
+	t.Run("Delete a stored key", func(t *testing.T) {
+		const testKey = "key"
 
-	data := []byte("value1")
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
 
-	store, err := provider.OpenStore(randomStoreName())
-	require.NoError(t, err)
+		err = store.Put(testKey, []byte("value1"))
+		require.NoError(t, err)
 
-	// Put in store 1
-	err = store.Put(commonKey, data)
-	require.NoError(t, err)
+		err = store.Delete(testKey)
+		require.NoError(t, err)
 
-	// Try getting from store 1 - should be found.
-	doc, err := store.Get(commonKey)
-	require.NoError(t, err)
-	require.NotEmpty(t, doc)
-	require.Equal(t, data, doc)
+		value, err := store.Get(testKey)
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Empty(t, value)
+	})
+	t.Run("Delete a key that doesn't exist (not considered an error)", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
 
-	// Delete an existing key - should succeed.
-	err = store.Delete(commonKey)
-	require.NoError(t, err)
+		err = store.Delete("NonExistentKey")
+		require.NoError(t, err)
+	})
+	t.Run("Delete with blank key argument", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
 
-	// Delete a key which never existed. Should not throw any error.
-	err = store.Delete("k1")
-	require.NoError(t, err)
-
-	// Try to get the value stored under the deleted key - should fail.
-	doc, err = store.Get(commonKey)
-	require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
-	require.Empty(t, doc)
-
-	// Try Delete with an empty key - should fail.
-	err = store.Delete("")
-	require.Error(t, err)
+		err = store.Delete("")
+		require.Error(t, err)
+	})
 }
 
 // TestStoreQuery tests common Store Query functionality.
@@ -1007,10 +1089,14 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
 		require.NoError(t, err)
 
+		key1TagsToStore := []spi.Tag{{Name: "tagName1"}}
+		key2TagsToStore := []spi.Tag{{Name: "tagName2"}}
+		key3TagsToStore := []spi.Tag{{Name: "tagName3"}}
+
 		operations := []spi.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1"}}},
-			{Key: "key2", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2"}}},
-			{Key: "key3", Value: []byte("value3"), Tags: []spi.Tag{{Name: "tagName3"}}},
+			{Key: "key1", Value: []byte("value1"), Tags: key1TagsToStore},
+			{Key: "key2", Value: []byte("value2"), Tags: key2TagsToStore},
+			{Key: "key3", Value: []byte("value3"), Tags: key3TagsToStore},
 		}
 
 		err = store.Batch(operations)
@@ -1021,14 +1107,23 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1", string(value))
+		retrievedTags, err := store.GetTags("key1")
+		require.True(t, equalTags(key1TagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2", string(value))
+		retrievedTags, err = store.GetTags("key2")
+		require.True(t, equalTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3", string(value))
+		retrievedTags, err = store.GetTags("key3")
+		require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 	})
 	t.Run("Success: update three different previously-stored values via Batch", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1053,10 +1148,14 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		err = store.Put("key3", []byte("value3"), []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
 		require.NoError(t, err)
 
+		key1UpdatedTagsToStore := []spi.Tag{{Name: "tagName1"}}
+		key2UpdatedTagsToStore := []spi.Tag{{Name: "tagName2_new", Value: "tagValue2"}}
+		key3UpdatedTagsToStore := []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}
+
 		operations := []spi.Operation{
-			{Key: "key1", Value: []byte("value1_new"), Tags: []spi.Tag{{Name: "tagName1"}}},
-			{Key: "key2", Value: []byte("value2_new"), Tags: []spi.Tag{{Name: "tagName2_new", Value: "tagValue2"}}},
-			{Key: "key3", Value: []byte("value3_new"), Tags: []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}},
+			{Key: "key1", Value: []byte("value1_new"), Tags: key1UpdatedTagsToStore},
+			{Key: "key2", Value: []byte("value2_new"), Tags: key2UpdatedTagsToStore},
+			{Key: "key3", Value: []byte("value3_new"), Tags: key3UpdatedTagsToStore},
 		}
 
 		err = store.Batch(operations)
@@ -1067,14 +1166,23 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
+		retrievedTags, err := store.GetTags("key1")
+		require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
+		retrievedTags, err = store.GetTags("key2")
+		require.True(t, equalTags(key2UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
+		retrievedTags, err = store.GetTags("key3")
+		require.True(t, equalTags(key3UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 	})
 	t.Run("Success: Delete three different previously-stored values via Batch", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1110,14 +1218,23 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+		tags, err := store.GetTags("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
 
 		value, err = store.Get("key2")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+		tags, err = store.GetTags("key2")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
 
 		value, err = store.Get("key3")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+		tags, err = store.GetTags("key3")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
 	})
 	t.Run("Success: Put value and then delete it in the same Batch call", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1143,6 +1260,9 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+		tags, err := store.GetTags("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
 	})
 	t.Run("Success: Put value and update it in the same Batch call", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1155,9 +1275,11 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
 		require.NoError(t, err)
 
+		updatedTagsToStore := []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}
+
 		operations := []spi.Operation{
 			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
-			{Key: "key1", Value: []byte("value2"), Tags: []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}},
+			{Key: "key1", Value: []byte("value2"), Tags: updatedTagsToStore},
 		}
 
 		err = store.Batch(operations)
@@ -1168,6 +1290,9 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value2", string(value))
+		retrievedTags, err := store.GetTags("key1")
+		require.True(t, equalTags(updatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 	})
 	t.Run("Success: Put values in one batch call, then delete in a second batch call, then put again using "+
 		"the same keys that were used in the first batch call in a third batch call", func(t *testing.T) {
@@ -1199,10 +1324,14 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		err = store.Batch(operations)
 		require.NoError(t, err)
 
+		key1FinalTagsToStore := []spi.Tag{{Name: "tagName1_new", Value: "tagValue1_new"}}
+		key2FinalTagsToStore := []spi.Tag{{Name: "tagName2_new", Value: "tagValue2_new"}}
+		key3FinalTagsToStore := []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}
+
 		operations = []spi.Operation{
-			{Key: "key1", Value: []byte("value1_new"), Tags: []spi.Tag{{Name: "tagName1_new", Value: "tagValue1_new"}}},
-			{Key: "key2", Value: []byte("value2_new"), Tags: []spi.Tag{{Name: "tagName2_new", Value: "tagValue2_new"}}},
-			{Key: "key3", Value: []byte("value3_new"), Tags: []spi.Tag{{Name: "tagName3_new", Value: "tagValue3_new"}}},
+			{Key: "key1", Value: []byte("value1_new"), Tags: key1FinalTagsToStore},
+			{Key: "key2", Value: []byte("value2_new"), Tags: key2FinalTagsToStore},
+			{Key: "key3", Value: []byte("value3_new"), Tags: key3FinalTagsToStore},
 		}
 
 		err = store.Batch(operations)
@@ -1213,14 +1342,23 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
+		retrievedTags, err := store.GetTags("key1")
+		require.True(t, equalTags(key1FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
+		retrievedTags, err = store.GetTags("key2")
+		require.True(t, equalTags(key2FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
+		retrievedTags, err = store.GetTags("key3")
+		require.True(t, equalTags(key3FinalTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
 	})
 	t.Run("Failure: Operation has an empty key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
@@ -1273,7 +1411,7 @@ func TestStoreClose(t *testing.T, provider spi.Provider) {
 	})
 }
 
-func doSingleValuePutGetTest(t *testing.T, provider spi.Provider, key string, value []byte) {
+func doPutThenGetTest(t *testing.T, provider spi.Provider, key string, value []byte) {
 	store, err := provider.OpenStore(randomStoreName())
 	require.NoError(t, err)
 
@@ -1283,6 +1421,21 @@ func doSingleValuePutGetTest(t *testing.T, provider spi.Provider, key string, va
 	retrievedValue, err := store.Get(key)
 	require.NoError(t, err)
 	require.Equal(t, value, retrievedValue)
+}
+
+func doPutThenUpdateThenGetTest(t *testing.T, provider spi.Provider, key string, value, updatedValue []byte) {
+	store, err := provider.OpenStore(randomStoreName())
+	require.NoError(t, err)
+
+	err = store.Put(key, value)
+	require.NoError(t, err)
+
+	err = store.Put(key, updatedValue)
+	require.NoError(t, err)
+
+	retrievedValue, err := store.Get(key)
+	require.NoError(t, err)
+	require.Equal(t, updatedValue, retrievedValue)
 }
 
 func randomStoreName() string {
