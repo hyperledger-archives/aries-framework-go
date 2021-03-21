@@ -86,12 +86,26 @@ Prerequisite - There should be a [connection](#Steps-for-DIDExchange) between Al
 ## Steps for HTTP over DIDComm message handling
 Steps http over did comm message handling is same as [above](#steps-for-custom-message-handling), but you can use `HTTP POST /http-over-didcomm/register` to register http-over-didcomm message handlers.
 
-## Steps for creating public DID using vdr endpoint
-To create public DID use `HTTP POST /vdr/create-public-did` endpoint. 
-For example, to create a "sidetree" public DID in alice agent, go to `HTTP POST /vdr/create-public-did` of alice agent and use below parameters.
+## Steps for creating DID using vdr endpoint
+To create DID use `HTTP POST /vdr/did/create` endpoint. 
+For example, to create a "peer" DID in alice agent, go to `HTTP POST /vdr/did/create` of alice agent and use below parameters.
 ```
-    method : sidetree
-    header : {"alg":"","kid":"","operation":"create"}
+    {
+   "method":"peer",
+   "did":{
+      "verificationMethod":[
+         {
+            "controller":"did:example:123",
+            "id":"e2cbb249-8c25-4e6e-8b92-b1ceee211c8c",
+            "publicKeyBase58":"7qf5xCRSGP3NW6PAUonYLmq1LCz6Ux5ynek9nbzGgCnP",
+            "type":"Ed25519VerificationKey2018"
+         }
+      ]
+    },
+   "opts":{
+      "k1":"v1"
+    }
+   }
 ```
 
 ## How to create a did-connection through the out-of-band protocol?
