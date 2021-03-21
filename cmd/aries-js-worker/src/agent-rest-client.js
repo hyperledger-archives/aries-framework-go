@@ -57,7 +57,7 @@ const pkgs = {
             method: "POST"
         },
         CreateDID: {
-            path: "/vdr/create",
+            path: "/vdr/did/create",
             method: "POST"
         },
         GetDID: {

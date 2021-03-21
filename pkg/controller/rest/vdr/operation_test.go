@@ -115,9 +115,7 @@ func TestCreateDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		didReq := vdr.CreateDIDRequest{
-			Method: sampleDIDName,
-		}
+		didReq := vdr.CreateDIDRequest{}
 		jsonStr, err := json.Marshal(didReq)
 		require.NoError(t, err)
 
@@ -127,7 +125,7 @@ func TestCreateDID(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, vdr.CreateDIDErrorCode, "parse did doc", buf.Bytes())
+		verifyError(t, vdr.InvalidRequestErrorCode, "did method is mandatory", buf.Bytes())
 	})
 }
 

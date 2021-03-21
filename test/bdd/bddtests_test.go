@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/presentproof"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/redeemableroutes"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
@@ -195,5 +196,6 @@ func features() []feature {
 		presentproof.NewPresentProofSDKSteps(),
 		presentproof.NewPresentProofControllerSteps(),
 		redeemableroutes.NewBDDSteps(),
+		vdr.NewVDRControllerSteps(),
 	}
 }

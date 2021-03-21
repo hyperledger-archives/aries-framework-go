@@ -105,7 +105,7 @@ func (o *Command) CreateDID(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
-		logutil.LogInfo(logger, CommandName, ResolveDIDCommandMethod, err.Error())
+		logutil.LogInfo(logger, CommandName, CreateDIDCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
@@ -114,11 +114,15 @@ func (o *Command) CreateDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDMETHOD))
 	}
 
-	didDoc, err := did.ParseDocument(request.DID)
-	if err != nil {
-		logutil.LogError(logger, CommandName, CreateDIDCommandMethod, "parse did doc: "+err.Error())
+	didDoc := &did.Doc{}
 
-		return command.NewValidationError(CreateDIDErrorCode, fmt.Errorf("parse did doc: %w", err))
+	if len(request.DID) != 0 {
+		didDoc, err = did.ParseDocument(request.DID)
+		if err != nil {
+			logutil.LogError(logger, CommandName, CreateDIDCommandMethod, "parse did doc: "+err.Error())
+
+			return command.NewValidationError(CreateDIDErrorCode, fmt.Errorf("parse did doc: %w", err))
+		}
 	}
 
 	opts := make([]vdrapi.DIDMethodOption, 0)
