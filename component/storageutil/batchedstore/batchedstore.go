@@ -15,7 +15,11 @@ import (
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-const failFlush = "failure while flushing data: %w"
+const (
+	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
+	failFlush       = "failure while flushing data: %w"
+)
 
 var errEmptyKey = errors.New("key cannot be empty")
 
@@ -78,6 +82,12 @@ func (p *Provider) OpenStore(name string) (spi.Store, error) {
 // If the store cannot be found, then an error wrapping ErrStoreNotFound will be returned by the underlying provider.
 // If name is blank, then an error will be returned by the underlying provider.
 func (p *Provider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	err := p.underlyingProvider.SetStoreConfig(name, config)
 	if err != nil {
 		return fmt.Errorf("failed to set store config in underlying provider: %w", err)
@@ -166,6 +176,16 @@ func (s *store) Put(key string, value []byte, tags ...spi.Tag) error {
 
 	if value == nil {
 		return errors.New("value cannot be nil")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
 	}
 
 	s.Lock()

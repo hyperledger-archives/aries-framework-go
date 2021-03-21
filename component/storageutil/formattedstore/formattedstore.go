@@ -20,6 +20,8 @@ const (
 	expressionTagNameOnlyLength     = 1
 	expressionTagNameAndValueLength = 2
 
+	invalidTagName                 = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue                = `"%s" is an invalid tag value since it contains one or more ':' characters`
 	failFormat                     = `failed to format %s "%s": %w`
 	failFormatData                 = `failed to format data: %w`
 	failDeformat                   = `failed to deformat %s "%s" returned from the underlying store: %w`
@@ -104,6 +106,12 @@ func (f *FormattedProvider) OpenStore(name string) (spi.Store, error) {
 // If the store cannot be found, then an error wrapping spi.ErrStoreNotFound will be
 // returned from the underlying provider.
 func (f *FormattedProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	storeName := strings.ToLower(name)
 
 	tags := make([]spi.Tag, len(config.TagNames))
@@ -236,6 +244,16 @@ func (f *formatStore) Put(key string, value []byte, tags ...spi.Tag) error {
 
 	if value == nil {
 		return errors.New("value cannot be nil")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
 	}
 
 	formattedKey, formattedValue, formattedTags, err := f.formatter.Format(key, value, tags...)

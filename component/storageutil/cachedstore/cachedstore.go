@@ -15,6 +15,11 @@ import (
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+const (
+	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
+)
+
 type closer func(name string)
 
 // CachedProvider is a spi.Provider that allows for automatic caching of data.
@@ -78,6 +83,12 @@ func (c *CachedProvider) OpenStore(name string) (spi.Store, error) {
 
 // SetStoreConfig sets the configuration on a store.
 func (c *CachedProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	err := c.mainProvider.SetStoreConfig(name, config)
 	if err != nil {
 		return fmt.Errorf("failed to set store configuration in main provider: %w", err)
@@ -150,6 +161,16 @@ type store struct {
 }
 
 func (s *store) Put(key string, value []byte, tags ...spi.Tag) error {
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
+	}
+
 	err := s.mainStore.Put(key, value, tags...)
 	if err != nil {
 		return fmt.Errorf("failed to put key, values and tags in the main store: %w", err)

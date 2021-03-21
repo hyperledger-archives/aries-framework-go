@@ -12,8 +12,8 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210310160016-d5eea2ecdd50
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210310160016-d5eea2ecdd50
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210320144851-40976de98ccf
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210320144851-40976de98ccf
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
