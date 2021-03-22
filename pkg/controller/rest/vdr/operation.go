@@ -75,7 +75,7 @@ func (o *Operation) registerHandler() {
 	}
 }
 
-// CreateDID swagger:route POST /vdr/create vdr createDIDReq
+// CreateDID swagger:route POST /vdr/did/create vdr createDIDReq
 //
 // Create a did document.
 //
