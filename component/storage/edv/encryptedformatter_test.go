@@ -102,8 +102,8 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	err = json.Unmarshal(buf.Bytes(), ecPubKey)
 	require.NoError(t, err)
 
-	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "EDVEncryptedDocument", "", nil,
-		[]*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
+	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "EDVEncryptedDocument",
+		"application/json", "", nil, []*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
 	require.NoError(t, err)
 
 	decrypter := jose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
