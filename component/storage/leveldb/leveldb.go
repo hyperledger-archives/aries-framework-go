@@ -24,6 +24,8 @@ import (
 const (
 	pathPattern = "%s-%s"
 
+	invalidTagName                  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue                 = `"%s" is an invalid tag value since it contains one or more ':' characters`
 	tagMapKey                       = "TagMap"
 	storeConfigKey                  = "StoreConfig"
 	expressionTagNameOnlyLength     = 1
@@ -72,6 +74,12 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 // SetStoreConfig isn't needed for LevelDB. For consistency with other store implementations, it saves
 // the store config for later retrieval.
 func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	name = strings.ToLower(name)
 
 	openStore, ok := p.dbs[name]
@@ -207,6 +215,16 @@ func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
 
 	if value == nil {
 		return errors.New("value cannot be nil")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
 	}
 
 	var newDBEntry dbEntry

@@ -18,6 +18,9 @@ import (
 const (
 	expressionTagNameOnlyLength     = 1
 	expressionTagNameAndValueLength = 2
+
+	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
 )
 
 var (
@@ -67,6 +70,12 @@ func (p *Provider) OpenStore(name string) (spi.Store, error) {
 // The store must be created prior to calling this method.
 // If the store cannot be found, then an error wrapping spi.ErrStoreNotFound will be returned.
 func (p *Provider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
 	storeName := strings.ToLower(name)
 
 	p.lock.Lock()
@@ -154,6 +163,16 @@ func (m *memStore) Put(key string, value []byte, tags ...spi.Tag) error {
 
 	if value == nil {
 		return errors.New("value cannot be nil")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
 	}
 
 	m.Lock()
