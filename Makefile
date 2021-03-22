@@ -72,6 +72,10 @@ bdd-test-js:
 bdd-test-js-local:
 	@scripts/check_js_integration.sh test-local
 
+bdd-test-js-debug:
+	@scripts/check_js_integration.sh test-debug
+
+
 .PHONY: vc-test-suite
 vc-test-suite: clean
 	@scripts/run_vc_test_suite.sh

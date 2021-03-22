@@ -9,7 +9,6 @@ module.exports = function (config) {
         frameworks: ["mocha", "chai"],
         browsers: ["ChromeHeadless_cors"],
         singleRun: true,
-        captureConsole: true,
         files: [
             { pattern: "public/aries-framework-go/assets/*", included: false },
             {
