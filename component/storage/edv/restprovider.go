@@ -21,6 +21,9 @@ import (
 const (
 	expressionTagNameOnlyLength     = 1
 	expressionTagNameAndValueLength = 2
+
+	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
+	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
 )
 
 var (
@@ -146,6 +149,14 @@ func (r *RESTProvider) OpenStore(name string) (spi.Store, error) {
 // via the GetStoreConfig method, which allows it to be more consistent with how other store implementations work.
 // TODO (#2492) Store store config in persistent EDV storage for true consistency with other store implementations.
 func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
+	for _, tagName := range config.TagNames {
+		if strings.Contains(tagName, ":") {
+			return fmt.Errorf(invalidTagName, tagName)
+		}
+	}
+
+	name = strings.ToLower(name)
+
 	openStore, ok := r.openStores[name]
 	if !ok {
 		return spi.ErrStoreNotFound
@@ -158,6 +169,8 @@ func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration
 
 // GetStoreConfig returns the store configuration currently stored in memory.
 func (r *RESTProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
+	name = strings.ToLower(name)
+
 	openStore, ok := r.openStores[name]
 	if !ok {
 		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
@@ -212,12 +225,9 @@ type restStore struct {
 
 // Put stores data into an EDV server.
 func (r *restStore) Put(key string, value []byte, tags ...spi.Tag) error {
-	if key == "" {
-		return errEmptyKey
-	}
-
-	if value == nil {
-		return errors.New("value cannot be nil")
+	errInputValidation := validateInput(key, value, tags)
+	if errInputValidation != nil {
+		return errInputValidation
 	}
 
 	// If the batch endpoint extension is enabled, we can avoid the need to read the document first since the batch
@@ -587,6 +597,28 @@ func (r *restIterator) Tags() ([]spi.Tag, error) {
 
 // Nothing to close for a restIterator.
 func (r *restIterator) Close() error {
+	return nil
+}
+
+func validateInput(key string, value []byte, tags []spi.Tag) error {
+	if key == "" {
+		return errEmptyKey
+	}
+
+	if value == nil {
+		return errors.New("value cannot be nil")
+	}
+
+	for _, tag := range tags {
+		if strings.Contains(tag.Name, ":") {
+			return fmt.Errorf(invalidTagName, tag.Name)
+		}
+
+		if strings.Contains(tag.Value, ":") {
+			return fmt.Errorf(invalidTagValue, tag.Value)
+		}
+	}
+
 	return nil
 }
 
