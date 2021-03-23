@@ -107,6 +107,58 @@ const validDoc = `{
 }`
 
 //nolint:lll
+const invalidDoc = `{
+  "@context": ["https://w3id.org/did/v1"],
+  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
+  "publicKey": [
+    {
+      "id": "did:example:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "owner": "did:example:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "did:example:123456789abcdefghw#key2",
+      "type": "RsaVerificationKey2018",
+      "owner": "did:example:123456789abcdefghw",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+  ],
+  "authentication": [
+    {
+      "type": "Secp256k1VerificationKey2018",
+      "publicKey": "did:example:123456789abcdefghi#keys-1"
+    },
+    {
+      "id": "did:example:123456789abcdefghs#key3",
+      "type": "RsaVerificationKey2018",
+      "owner": "did:example:123456789abcdefghs",
+      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
+    }
+  ],
+  "service": [
+    {
+      "id": "did:example:123456789abcdefghi#inbox",
+      "type": "SocialWebInboxService",
+      "serviceEndpoint": "https://social.example.com/83hfh37dj",
+      "spamCost": {
+        "amount": "0.50",
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "did:example:123456789abcdefghi#did-communication",
+      "type": "did-communication",
+      "serviceEndpoint": "https://agent.example.com/",
+      "priority" : 0,
+      "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
+      "routingKeys" : ["did:example:123456789abcdefghi#key2"]
+    }
+  ],
+  "created": "2002-10-10T17:00:00Z"
+}`
+
+//nolint:lll
 const validDocV011 = `{
   "@context": ["https://w3id.org/did/v0.11"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
@@ -163,7 +215,7 @@ const validDocWithBase = `{
   "@context": ["https://w3id.org/did/v1",
    { "@base": "did:example:123456789abcdefghi"}],
   "id": "did:example:123456789abcdefghi",
-  "publicKey": [
+  "verificationMethod": [
     {
       "id": "#keys-1",
       "type": "Secp256k1VerificationKey2018",
@@ -422,6 +474,13 @@ func TestValid(t *testing.T) {
 		}
 		require.EqualValues(t, eServices, doc.Service)
 	}
+}
+
+func TestInvalid(t *testing.T) {
+	doc, err := ParseDocument([]byte(invalidDoc))
+	require.Error(t, err)
+	require.Nil(t, doc)
+	require.Contains(t, err.Error(), "did document not valid")
 }
 
 func TestValidWithProof(t *testing.T) {
@@ -1775,7 +1834,7 @@ const validDocWithProof = `{
 		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
 		"type": "Ed25519Signature2018"
 	}],
-	"publicKey": [{
+	"verificationMethod": [{
 		"controller": "did:method:abc",
 		"id": "did:method:abc#key-1",
 		"publicKeyBase58": "GY4GunSXBPBfhLCzDL7iGmP5dR3sBDCJZkkaGK8VgYQf",
@@ -1801,7 +1860,7 @@ const validDocWithProofAndJWK = `
       "type": "Ed25519Signature2018"
     }
   ],
-  "publicKey": [
+  "verificationMethod": [
     {
       "controller": "did:method:abc",
       "id": "did:method:abc#key-1",

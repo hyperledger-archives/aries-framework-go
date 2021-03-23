@@ -56,6 +56,45 @@ func GetMockDIDDoc(t *testing.T) *did.Doc {
 	}
 }
 
+// GetMockIndyDoc creates a mock DID Doc for testing.
+func GetMockIndyDoc(t *testing.T) *did.Doc {
+	t.Helper()
+
+	return &did.Doc{
+		Context: []string{"https://w3id.org/did/v1"},
+		ID:      "did:sov:AyRHrP7u6rF1dKViGf5shA",
+		VerificationMethod: []did.VerificationMethod{
+			{
+				ID:         "did:sov:AyRHrP7u6rF1dKViGf5shA#1",
+				Type:       "Ed25519VerificationKey2018",
+				Controller: "did:sov:AyRHrP7u6rF1dKViGf5shA",
+				Value:      base58.Decode("6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"),
+			},
+		},
+		Service: []did.Service{
+			{
+				ID:              "did:sov:AyRHrP7u6rF1dKViGf5shA;indy",
+				Type:            "IndyAgent",
+				Priority:        0,
+				RecipientKeys:   []string{"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"},
+				ServiceEndpoint: "https://localhost:8090",
+			},
+		},
+		Authentication: []did.Verification{
+			{
+				VerificationMethod: did.VerificationMethod{
+					ID:         "did:sov:AyRHrP7u6rF1dKViGf5shA#1",
+					Type:       "Ed25519VerificationKey2018",
+					Controller: "did:sov:AyRHrP7u6rF1dKViGf5shA",
+					Value:      base58.Decode("6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"),
+				},
+				Relationship: 1,
+				Embedded:     false,
+			},
+		},
+	}
+}
+
 // MockDIDKey returns a new did:key DID for testing purposes.
 func MockDIDKey(t *testing.T) string {
 	t.Helper()

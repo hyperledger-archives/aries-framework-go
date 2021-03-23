@@ -9,6 +9,7 @@ package didexchange
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1177,8 +1178,86 @@ func TestInvitationRecord(t *testing.T) {
 	require.Contains(t, err.Error(), "save connection record")
 }
 
+func Test_getRequestConnection(t *testing.T) {
+	t.Run("success - connection member exists", func(t *testing.T) {
+		r := Request{Connection: &Connection{DID: "test", DIDDoc: newPeerDID(t)}}
+
+		conn, err := getRequestConnection(&r)
+		require.NoError(t, err)
+		require.Equal(t, "test", conn.DID)
+	})
+
+	t.Run("success - did_doc~attach present", func(t *testing.T) {
+		testDoc := newPeerDID(t)
+		docBytes, err := testDoc.MarshalJSON()
+		require.NoError(t, err)
+
+		attachment := decorator.Attachment{
+			Data: decorator.AttachmentData{
+				Base64: base64.StdEncoding.EncodeToString(docBytes),
+			},
+		}
+
+		r := Request{DID: "test", DocAttach: &attachment}
+
+		conn, err := getRequestConnection(&r)
+		require.NoError(t, err)
+		require.Equal(t, "test", conn.DID)
+	})
+
+	t.Run("failure - no connection or did_doc~attach", func(t *testing.T) {
+		_, err := getRequestConnection(&Request{DID: "test"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing did_doc~attach")
+	})
+
+	t.Run("failure - did_doc~attach not valid base64", func(t *testing.T) {
+		_, err := getRequestConnection(&Request{DID: "test", DocAttach: &decorator.Attachment{
+			Data: decorator.AttachmentData{
+				Base64: "abc %$#@abc test test bad data ^",
+			},
+		}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse base64 attachment data")
+	})
+
+	t.Run("failure - did_doc~attach not valid did doc", func(t *testing.T) {
+		_, err := getRequestConnection(&Request{DID: "test", DocAttach: &decorator.Attachment{
+			Data: decorator.AttachmentData{
+				Base64: base64.StdEncoding.EncodeToString([]byte("this is not a valid did doc")),
+			},
+		}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse did document")
+	})
+
+	t.Run("test pad", func(t *testing.T) {
+		in := []string{
+			"abcdabcdabcdabcda",
+			"abcdabcdabcdabcdab",
+			"abcdabcdabcdabcdabc",
+			"abcdabcdabcdabcdabcd",
+			"abcdabcdabcdabcdabcda",
+			"abcdabcdabcdabcdabcdab",
+		}
+
+		out := []string{
+			"abcdabcdabcdabcda",
+			"abcdabcdabcdabcdab==",
+			"abcdabcdabcdabcdabc=",
+			"abcdabcdabcdabcdabcd",
+			"abcdabcdabcdabcdabcda",
+			"abcdabcdabcdabcdabcdab==",
+		}
+
+		for i, input := range in {
+			require.Equal(t, out[i], pad(input))
+		}
+	})
+}
+
 func TestRequestRecord(t *testing.T) {
-	t.Run("returns connection reecord", func(t *testing.T) {
+	t.Run("returns connection record", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -1192,6 +1271,26 @@ func TestRequestRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
+	})
+
+	t.Run("returns connection record from request without connection", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), uuid.New().String())
+		require.NotEmpty(t, didcommMsg.ParentThreadID())
+		delete(didcommMsg, "connection")
+		didcommMsg["did"] = "did:test:abc"
+
+		conn, err := svc.requestMsgRecord(didcommMsg)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
+		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
+		require.Equal(t, "did:test:abc", conn.TheirDID)
 	})
 
 	t.Run("fails on db error", func(t *testing.T) {
@@ -1751,7 +1850,7 @@ func TestFetchConnectionRecord(t *testing.T) {
 	})
 }
 
-func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) service.DIDCommMsg {
+func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) service.DIDCommMsgMap {
 	connRec, err := connection.NewRecorder(prov)
 	require.NoError(t, err)
 	require.NotNil(t, connRec)

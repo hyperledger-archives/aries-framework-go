@@ -996,6 +996,20 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, connRec.MyDID)
 		require.NotNil(t, connRec.TheirDID)
 	})
+
+	t.Run("unsuccessful new response from request due to get connection error", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		request.Connection = nil
+
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "extracting connection data")
+		require.Nil(t, connRec)
+	})
+
 	t.Run("unsuccessful new response from request due to create did error", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		ctx := &context{
@@ -1011,6 +1025,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
 	})
+
 	t.Run("unsuccessful new response from request due to sign error", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&prov)
 		require.NoError(t, err)
@@ -1037,6 +1052,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.Contains(t, err.Error(), "sign error")
 		require.Nil(t, connRecord)
 	})
+
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
 		ctx := &context{vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")}}
 		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
