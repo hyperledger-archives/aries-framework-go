@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 var logger = log.New("aries-framework/vdr/httpbinding")
@@ -58,8 +57,7 @@ func (v *VDR) Accept(method string) bool {
 }
 
 // Create did doc.
-func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
-	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	return nil, fmt.Errorf("build not supported in http binding vdr")
 }
 

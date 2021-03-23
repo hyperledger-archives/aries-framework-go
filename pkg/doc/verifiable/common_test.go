@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 )
@@ -228,7 +227,7 @@ func Test_proofsToRaw(t *testing.T) {
 }
 
 func TestNewDIDKeyResolver(t *testing.T) {
-	resolver := NewDIDKeyResolver(vdr.New(&mockprovider.Provider{}))
+	resolver := NewDIDKeyResolver(vdr.New())
 	require.NotNil(t, resolver)
 }
 

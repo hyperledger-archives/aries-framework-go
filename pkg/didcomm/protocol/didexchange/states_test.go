@@ -973,7 +973,10 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := protocol.MockProvider{}
+		customKMS := newKMS(t, prov.StoreProvider)
+
 		ctx := &context{
+			kms:                customKMS,
 			outboundDispatcher: prov.OutboundDispatcher(), routeSvc: &mockroute.MockMediatorSvc{},
 			vdRegistry: &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create DID error")},
 		}
@@ -1191,7 +1194,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.Nil(t, conn)
 	})
 	t.Run("error creating peer did", func(t *testing.T) {
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
+			kms:        customKMS,
 			vdRegistry: &mockvdr.MockVDRegistry{CreateErr: errors.New("creator error")},
 			routeSvc:   &mockroute.MockMediatorSvc{},
 		}
@@ -1206,7 +1211,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NoError(t, err)
 		didConnStore, err := didstore.NewConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
+			kms:                customKMS,
 			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionRecorder: connRec,
 			connectionStore:    didConnStore,
@@ -1221,7 +1228,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
+			kms:                customKMS,
 			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
@@ -1239,7 +1248,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
+			kms:                customKMS,
 			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
 			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{

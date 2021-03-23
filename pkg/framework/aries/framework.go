@@ -395,7 +395,7 @@ func createVDR(frameworkOpts *Aries) error {
 	k := key.New()
 	opts = append(opts, vdr.WithVDR(k))
 
-	frameworkOpts.vdrRegistry = vdr.New(ctx, opts...)
+	frameworkOpts.vdrRegistry = vdr.New(opts...)
 
 	return nil
 }

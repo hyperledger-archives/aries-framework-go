@@ -140,7 +140,14 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	t.Helper()
 
 	docResolution, err := a.VDRegistry().Create(
-		peer.DIDMethod, &did.Doc{Service: []did.Service{{ServiceEndpoint: "http://example.com/didcomm"}}},
+		peer.DIDMethod, &did.Doc{
+			Service: []did.Service{
+				{ServiceEndpoint: "http://example.com/didcomm"},
+			},
+			VerificationMethod: []did.VerificationMethod{
+				getSigningKey(t, a),
+			},
+		},
 	)
 	require.NoError(t, err)
 
@@ -149,6 +156,13 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	t.Log("DID Doc created: ***\n" + strJ + "\n***")
 
 	return docResolution.DIDDocument
+}
+
+func getSigningKey(t *testing.T, a *context.Provider) did.VerificationMethod {
+	keyID, pubBytes, err := a.KMS().CreateAndExportPubKeyBytes(kms.ED25519)
+	require.NoError(t, err)
+
+	return did.VerificationMethod{ID: "#" + keyID, Value: pubBytes, Type: "Ed25519VerificationKey2018"}
 }
 
 func formatDoc(t *testing.T, d *did.Doc) string {

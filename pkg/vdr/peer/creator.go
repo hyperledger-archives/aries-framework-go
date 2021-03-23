@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
@@ -22,8 +21,7 @@ const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 
 // Create create new DID Document.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2466
-func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
-	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	docOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 	// Apply options
 	for _, opt := range opts {
@@ -43,7 +41,7 @@ func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
 	}
 
 	if !store {
-		docResolution, err := build(keyManager, didDoc, docOpts)
+		docResolution, err := build(didDoc, docOpts)
 		if err != nil {
 			return nil, fmt.Errorf("create peer DID : %w", err)
 		}
@@ -59,19 +57,10 @@ func (v *VDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
 }
 
 //nolint: funlen,gocyclo
-func build(keyManager kms.KeyManager, didDoc *did.Doc,
+func build(didDoc *did.Doc,
 	docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
 	if len(didDoc.VerificationMethod) == 0 {
-		id, pubKeyBytes, err := keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create and export public key: %w", err)
-		}
-
-		didDoc.VerificationMethod = append(didDoc.VerificationMethod, did.VerificationMethod{
-			ID:    "#" + id,
-			Type:  ed25519VerificationKey2018,
-			Value: pubKeyBytes,
-		})
+		return nil, fmt.Errorf("verification method is empty")
 	}
 
 	var publicKey did.VerificationMethod

@@ -14,12 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestBuild(t *testing.T) {
@@ -39,7 +33,7 @@ func TestBuild(t *testing.T) {
 			Value: ed25519.PublicKey(base58.Decode(pubKeyBase58Ed25519)),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -56,7 +50,7 @@ func TestBuild(t *testing.T) {
 			Value: base58.Decode(pubKeyBase58Ed25519),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -71,8 +65,7 @@ func TestBuild(t *testing.T) {
 			Value: base58.Decode(pubKeyBase58BBS),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.BLS12381G2Type))
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -87,15 +80,13 @@ func TestBuild(t *testing.T) {
 			Value: base58.Decode(pubKeyBase58P256),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP256TypeDER))
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
 		assertP256Doc(t, docResolution.DIDDocument)
 
-		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP256TypeIEEEP1363))
+		docResolution, err = v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -110,15 +101,13 @@ func TestBuild(t *testing.T) {
 			Value: base58.Decode(pubKeyBase58P384),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP384TypeDER))
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
 		assertP384Doc(t, docResolution.DIDDocument)
 
-		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP384TypeIEEEP1363))
+		docResolution, err = v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -133,105 +122,17 @@ func TestBuild(t *testing.T) {
 			Value: base58.Decode(pubKeyBase58P521),
 		}
 
-		docResolution, err := v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP521TypeDER))
+		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
 		assertP521Doc(t, docResolution.DIDDocument)
 
-		docResolution, err = v.Create(nil, &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}},
-			vdr.WithOption(KeyType, kms.ECDSAP521TypeIEEEP1363))
+		docResolution, err = v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
 		assertP521Doc(t, docResolution.DIDDocument)
-	})
-
-	t.Run("build with ED25519 key type created in the KMS", func(t *testing.T) {
-		v := New()
-		km := createKMS(t)
-
-		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ED25519Type))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		expectedPrefix := "did:key:z6Mk"
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-	})
-
-	t.Run("build with BLS12381G2 key type created in the KMS", func(t *testing.T) {
-		v := New()
-		km := createKMS(t)
-
-		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.BLS12381G2Type))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		expectedPrefix := "did:key:zUC7"
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-	})
-
-	t.Run("build with P-256 key type created in the KMS", func(t *testing.T) {
-		v := New()
-		km := createKMS(t)
-
-		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP256TypeDER))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		expectedPrefix := "did:key:zru"
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-
-		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP256TypeIEEEP1363))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-	})
-
-	t.Run("build with P-384 key type created in the KMS", func(t *testing.T) {
-		v := New()
-		km := createKMS(t)
-
-		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP384TypeDER))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		expectedPrefix := "did:key:zFw"
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-
-		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP384TypeIEEEP1363))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-	})
-
-	t.Run("build with P-521 key type created in the KMS", func(t *testing.T) {
-		v := New()
-		km := createKMS(t)
-
-		docResolution, err := v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP521TypeDER))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		expectedPrefix := "did:key:zWG"
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
-
-		docResolution, err = v.Create(km, &did.Doc{VerificationMethod: []did.VerificationMethod{}},
-			vdr.WithOption(KeyType, kms.ECDSAP521TypeIEEEP1363))
-		require.NoError(t, err)
-		require.NotNil(t, docResolution.DIDDocument)
-
-		require.EqualValues(t, expectedPrefix, docResolution.DIDDocument.VerificationMethod[0].ID[:len(expectedPrefix)])
 	})
 }
 
@@ -350,15 +251,4 @@ func assertPubKey(t *testing.T, expectedPubKey, actualPubKey *did.VerificationMe
 	require.Equal(t, expectedPubKey.Type, actualPubKey.Type)
 	require.Equal(t, expectedPubKey.Controller, actualPubKey.Controller)
 	require.Equal(t, expectedPubKey.Value, actualPubKey.Value)
-}
-
-func createKMS(t *testing.T) *localkms.LocalKMS {
-	t.Helper()
-
-	p := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
-
-	k, err := localkms.New("local-lock://test/key/uri", p)
-	require.NoError(t, err)
-
-	return k
 }

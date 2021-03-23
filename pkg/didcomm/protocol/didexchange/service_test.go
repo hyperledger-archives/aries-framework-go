@@ -1902,8 +1902,9 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		didConnStore, err := didstore.NewConnectionStore(prov)
 		require.NoError(t, err)
 		require.NotNil(t, didConnStore)
-
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := &context{
+			kms:                customKMS,
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: newDIDDoc},
 			connectionRecorder: connRec,

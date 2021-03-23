@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
@@ -34,7 +33,7 @@ type Registry interface {
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2475
 type VDR interface {
 	Read(did string, opts ...ResolveOption) (*did.DocResolution, error)
-	Create(keyManager kms.KeyManager, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
+	Create(did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
 	Accept(method string) bool
 	Update(did *did.Doc, opts ...DIDMethodOption) error
 	Deactivate(did string, opts ...DIDMethodOption) error

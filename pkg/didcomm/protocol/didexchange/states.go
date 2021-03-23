@@ -46,11 +46,12 @@ const (
 	// StateIDCompleted marks the completed phase of the did-exchange protocol.
 	StateIDCompleted = "completed"
 	// StateIDAbandoned marks the abandoned phase of the did-exchange protocol.
-	StateIDAbandoned   = "abandoned"
-	ackStatusOK        = "ok"
-	didCommServiceType = "did-communication"
-	didMethod          = "peer"
-	timestamplen       = 8
+	StateIDAbandoned           = "abandoned"
+	ackStatusOK                = "ok"
+	didCommServiceType         = "did-communication"
+	didMethod                  = "peer"
+	timestamplen               = 8
+	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 )
 
 var errVerKeyNotFound = errors.New("verkey not found")
@@ -515,9 +516,23 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 		services = append(services, did.Service{})
 	}
 
+	id, pubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create and export public key: %w", err)
+	}
+
 	// by default use peer did
 	docResolution, err := ctx.vdRegistry.Create(
-		didMethod, &did.Doc{Service: services},
+		didMethod, &did.Doc{
+			Service: services,
+			VerificationMethod: []did.VerificationMethod{
+				{
+					ID:    "#" + id,
+					Type:  ed25519VerificationKey2018,
+					Value: pubKeyBytes,
+				},
+			},
+		},
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
