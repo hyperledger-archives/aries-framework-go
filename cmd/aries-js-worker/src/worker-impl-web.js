@@ -8,17 +8,21 @@ SPDX-License-Identifier: Apache-2.0
 // We need the parameters "wasm" and "wasmJS" that point to the absolute path of the wasm binary and
 // the Go webssembly JS wrapper script respectively.
 const args = {};
-location.search.slice(1).split("&").forEach(param => {
-    const kv = param.split("=")
-    args[kv[0]] = kv[1]
-})
+location.search
+    .slice(1)
+    .split("&")
+    .forEach((param) => {
+        const kv = param.split("=");
+        args[kv[0]] = kv[1];
+    });
 
-const wasmJS = args["wasmJS"]
-const wasm = args["wasm"]
+const wasmJS = args["wasmJS"];
+const wasm = args["wasm"];
 
-self.importScripts(wasmJS)
+self.importScripts(wasmJS);
 
-if (!WebAssembly.instantiateStreaming) { // polyfill
+if (!WebAssembly.instantiateStreaming) {
+    // polyfill
     WebAssembly.instantiateStreaming = async (resp, importObject) => {
         const source = await (await resp).arrayBuffer();
         return await WebAssembly.instantiate(source, importObject);
@@ -30,15 +34,23 @@ const go = new Go();
 // Cannot override Accept-Encoding header for the fetch call (would've liked to use brotli).
 // Accept-Encoding is one of the forbidden headers of the Fetch API: https://fetch.spec.whatwg.org/#forbidden-header-name
 WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
-    result => {go.run(result.instance);},
-    err => {throw new Error("failed to fetch wasm blob: " + err.message)}
-)
+    (result) => {
+        go.run(result.instance);
+    },
+    (err) => {
+        throw new Error("failed to fetch wasm blob: " + err.message);
+    }
+);
 
-handleResult = function(r) {
-    postMessage(JSON.parse(r))
-}
+handleResult = function (r) {
+    postMessage(JSON.parse(r));
+};
 
-onmessage = function(m) {
+print_log = function (type, err) {
+    postMessage({ type: type, msg: err });
+};
+
+onmessage = function (m) {
     // handleMsg is not defined here but is instead defined by the WASM blob during initialization
-    handleMsg(JSON.stringify(m.data))
-}
+    handleMsg(JSON.stringify(m.data));
+};

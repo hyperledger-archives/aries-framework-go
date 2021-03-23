@@ -4,6 +4,8 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+import { environment } from "./environment.js";
+
 var AriesWeb = null;
 var AriesREST = null;
 
@@ -40,7 +42,7 @@ export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = 
         "auto-accept": true,
         "outbound-transport": ["ws", "http"],
         "transport-return-route": "all",
-        "log-level": "debug",
+        "log-level": environment.LOG_LEVEL,
         "db-namespace": dbNS
     })
 }

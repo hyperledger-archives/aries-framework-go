@@ -29,7 +29,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	spilog "github.com/hyperledger/aries-framework-go/spi/log"
 )
+
+func init() {
+	log.Initialize(New())
+}
 
 const (
 	wasmStartupTopic = "asset-ready"
@@ -477,4 +482,47 @@ func postInitMsg() {
 	}
 
 	js.Global().Call(handleResultFn, string(out))
+}
+
+// New returns new Logger.
+func New() *Logger {
+	return &Logger{}
+}
+
+// Logger describes logger structure.
+type Logger struct{}
+
+// GetLogger returns logger implementation.
+func (l *Logger) GetLogger(module string) spilog.Logger {
+	return loggerWrapper{}
+}
+
+type loggerWrapper struct{}
+
+func (w loggerWrapper) Fatalf(msg string, args ...interface{}) {
+	w.write("log_error", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) Panicf(msg string, args ...interface{}) {
+	w.write("log_error", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) Debugf(msg string, args ...interface{}) {
+	w.write("log_debug", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) Infof(msg string, args ...interface{}) {
+	w.write("log_info", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) Warnf(msg string, args ...interface{}) {
+	w.write("log_warn", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) Errorf(msg string, args ...interface{}) {
+	w.write("log_error", fmt.Sprintf(msg, args...))
+}
+
+func (w loggerWrapper) write(t, msg string) {
+	js.Global().Call("print_log", t, msg)
 }

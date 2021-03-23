@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "test": "bash scripts/setup_assets.sh && node init.js && karma start",
-    "test-local": "bash scripts/setup_assets.sh && node init.js && karma start --browsers=Chrome_without_security --single-run=false"
+    "test-local": "bash scripts/setup_assets.sh && node init.js && karma start --browsers=Chrome_without_security --single-run=false",
+    "test-debug": "bash scripts/setup_assets.sh && node init.js --log-level=DEBUG && karma start"
   },
   "author": "hyperledger/aries",
   "license": "Apache-2.0",
