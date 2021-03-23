@@ -27,3 +27,8 @@ func (n *NoOpFormatter) Deformat(formattedKey string, formattedValue []byte, for
 	[]byte, []spi.Tag, error) {
 	return formattedKey, formattedValue, formattedTags, nil
 }
+
+// UsesDeterministicKeyFormatting always returns true since NoOpFormatter always does deterministic key formatting.
+func (n *NoOpFormatter) UsesDeterministicKeyFormatting() bool {
+	return true
+}

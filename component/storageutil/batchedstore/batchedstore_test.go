@@ -65,7 +65,8 @@ func TestCommon(t *testing.T) {
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 0)
+				formattedstore.NewProvider(mem.NewProvider(),
+					exampleformatters.NewBase64Formatter(true)), 0)
 			require.NotNil(t, provider)
 
 			storagetest.TestAll(t, provider)
@@ -80,7 +81,8 @@ func TestCommon(t *testing.T) {
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
-				formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 1)
+				formattedstore.NewProvider(mem.NewProvider(),
+					exampleformatters.NewBase64Formatter(true)), 1)
 			require.NotNil(t, provider)
 
 			storagetest.TestAll(t, provider)
@@ -103,7 +105,8 @@ func TestCommon(t *testing.T) {
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
-					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 2)
+					formattedstore.NewProvider(mem.NewProvider(),
+						exampleformatters.NewBase64Formatter(true)), 2)
 				require.NotNil(t, provider)
 
 				storagetest.TestAll(t, provider)
@@ -127,7 +130,8 @@ func TestCommon(t *testing.T) {
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
-					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 10)
+					formattedstore.NewProvider(mem.NewProvider(),
+						exampleformatters.NewBase64Formatter(true)), 10)
 				require.NotNil(t, provider)
 
 				storagetest.TestAll(t, provider)
@@ -151,7 +155,8 @@ func TestCommon(t *testing.T) {
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
-					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{}), 100)
+					formattedstore.NewProvider(mem.NewProvider(),
+						exampleformatters.NewBase64Formatter(true)), 100)
 				require.NotNil(t, provider)
 
 				storagetest.TestAll(t, provider)
