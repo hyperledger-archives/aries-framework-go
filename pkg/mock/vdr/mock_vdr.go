@@ -9,17 +9,15 @@ package vdr
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // MockVDR mock implementation of vdr
 // to be used only for unit tests.
 type MockVDR struct {
-	AcceptValue bool
-	StoreErr    error
-	ReadFunc    func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
-	CreateFunc  func(keyManager kms.KeyManager, did *did.Doc,
-		opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+	AcceptValue    bool
+	StoreErr       error
+	ReadFunc       func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
+	CreateFunc     func(did *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 	UpdateFunc     func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error
 	DeactivateFunc func(did string, opts ...vdrapi.DIDMethodOption) error
 	CloseErr       error
@@ -35,10 +33,9 @@ func (m *MockVDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocReso
 }
 
 // Create did.
-func (m *MockVDR) Create(keyManager kms.KeyManager, didDoc *did.Doc,
-	opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+func (m *MockVDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(keyManager, didDoc, opts...)
+		return m.CreateFunc(didDoc, opts...)
 	}
 
 	return nil, nil

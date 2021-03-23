@@ -1014,11 +1014,20 @@ func newPeerDID(t *testing.T) *did.Doc {
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            vdr.DIDCommServiceType,
 			ServiceEndpoint: "http://agent.example.com/didcomm",
-		}}},
+		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}},
 	)
 	require.NoError(t, err)
 
 	return d.DIDDocument
+}
+
+func getSigningKey() did.VerificationMethod {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return did.VerificationMethod{Value: pub[:], Type: "Ed25519VerificationKey2018"}
 }
 
 func toBytes(t *testing.T, v interface{}) []byte {

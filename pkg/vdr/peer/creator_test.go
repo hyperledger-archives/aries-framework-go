@@ -28,8 +28,7 @@ func TestDIDCreator(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		docResolution, err := c.Create(nil,
-			&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}})
+		docResolution, err := c.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}})
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
@@ -43,7 +42,7 @@ func TestDIDCreator(t *testing.T) {
 		require.NotNil(t, c)
 
 		routingKeys := []string{"abc", "xyz"}
-		docResolution, err := c.Create(nil,
+		docResolution, err := c.Create(
 			&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}, Service: []did.Service{{
 				ServiceEndpoint: "request-endpoint",
 				Type:            "request-type",
@@ -79,7 +78,7 @@ func TestBuild(t *testing.T) {
 		c, err := New(storage.NewMockStoreProvider())
 		require.NoError(t, err)
 
-		result, err := c.Create(nil,
+		result, err := c.Create(
 			&did.Doc{VerificationMethod: []did.VerificationMethod{expected}, Service: []did.Service{{
 				Type: "did-communication",
 			}}})

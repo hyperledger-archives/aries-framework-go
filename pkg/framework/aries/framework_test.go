@@ -168,7 +168,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		originalDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
-		_, err = store.Create(nil, originalDoc)
+		_, err = store.Create(originalDoc)
 		require.NoError(t, err)
 
 		err = dbprov.Close()

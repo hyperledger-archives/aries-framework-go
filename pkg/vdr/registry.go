@@ -13,29 +13,22 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 // Option is a vdr instance option.
 type Option func(opts *Registry)
 
-// provider contains dependencies for the did creator.
-type provider interface {
-	KMS() kms.KeyManager
-}
-
 // Registry vdr registry.
 type Registry struct {
 	vdr                []vdrapi.VDR
-	kms                kms.KeyManager
 	defServiceEndpoint string
 	defServiceType     string
 }
 
 // New return new instance of vdr.
-func New(ctx provider, opts ...Option) *Registry {
-	baseVDR := &Registry{kms: ctx.KMS()}
+func New(opts ...Option) *Registry {
+	baseVDR := &Registry{}
 
 	// Apply options
 	for _, opt := range opts {
@@ -119,7 +112,7 @@ func (r *Registry) Create(didMethod string, did *diddoc.Doc,
 		return nil, err
 	}
 
-	didDocResolution, err := method.Create(r.kms, did, r.applyDefaultDocOpts(docOpts, opts...)...)
+	didDocResolution, err := method.Create(did, r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err
 	}

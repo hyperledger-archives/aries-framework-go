@@ -7,14 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package vdr
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
@@ -53,7 +57,18 @@ func (a *ControllerSteps) createDID(agentID, method string) error {
 			agentID)
 	}
 
-	didDocBytes, err := json.Marshal(vdrcmd.CreateDIDRequest{Method: method})
+	didDoc := &did.Doc{
+		Context:            []string{"https://w3id.org/did/v1"},
+		ID:                 uuid.New().String(),
+		VerificationMethod: []did.VerificationMethod{getSigningKey()},
+	}
+
+	b, err := didDoc.JSONBytes()
+	if err != nil {
+		return err
+	}
+
+	didDocBytes, err := json.Marshal(vdrcmd.CreateDIDRequest{Method: method, DID: b})
 	if err != nil {
 		return err
 	}
@@ -71,4 +86,13 @@ func (a *ControllerSteps) createDID(agentID, method string) error {
 	}
 
 	return nil
+}
+
+func getSigningKey() did.VerificationMethod {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return did.VerificationMethod{Value: pub[:], Type: "Ed25519VerificationKey2018"}
 }
