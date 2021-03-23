@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -722,6 +724,43 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 	return connRecord, nil
 }
 
+// nolint:gomnd
+func pad(b64 string) string {
+	mod := len(b64) % 4
+	if mod <= 1 {
+		return b64
+	}
+
+	return b64 + strings.Repeat("=", 4-mod)
+}
+
+func getRequestConnection(r *Request) (*Connection, error) {
+	// Interop: accept the 'connection' attribute of rfc 0160 (connection protocol) if present
+	if r.Connection != nil {
+		return r.Connection, nil
+	}
+
+	if r.DocAttach == nil {
+		return nil, fmt.Errorf("missing did_doc~attach from request")
+	}
+
+	docData, err := base64.StdEncoding.DecodeString(pad(r.DocAttach.Data.Base64))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse base64 attachment data: %w", err)
+	}
+
+	doc, err := did.ParseDocument(docData)
+	if err != nil {
+		logger.Errorf("doc bytes: '%s'", string(docData))
+		return nil, fmt.Errorf("failed to parse did document: %w", err)
+	}
+
+	return &Connection{
+		DID:    r.DID,
+		DIDDoc: doc,
+	}, nil
+}
+
 func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	request := Request{}
 
@@ -740,9 +779,15 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
 		State:        stateNameNull,
-		TheirDID:     request.Connection.DID,
 		InvitationID: invitationID,
 		Namespace:    theirNSPrefix,
+	}
+
+	// Interop: read their DID from the connection attribute if present
+	if request.Connection != nil {
+		connRecord.TheirDID = request.Connection.DID
+	} else {
+		connRecord.TheirDID = request.DID
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {

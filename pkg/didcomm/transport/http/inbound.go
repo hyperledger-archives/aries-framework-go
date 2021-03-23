@@ -21,6 +21,11 @@ import (
 
 var logger = log.New("aries-framework/http")
 
+const (
+	// acceptInboundContentType additional content type to be accepted for inbound messages.
+	acceptInboundContentType = "application/ssi-agent-wire"
+)
+
 // TODO https://github.com/hyperledger/aries-framework-go/issues/891 Support for Transport Return Route (Duplex)
 
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs
@@ -98,7 +103,9 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	ct := r.Header.Get("Content-type")
-	if ct != commContentType {
+
+	// Interop: accept application/ssi-agent-wire legacy content type for inbound messages
+	if ct != commContentType && ct != acceptInboundContentType {
 		http.Error(w, fmt.Sprintf("Unsupported Content-type \"%s\"", ct), http.StatusUnsupportedMediaType)
 		return false
 	}

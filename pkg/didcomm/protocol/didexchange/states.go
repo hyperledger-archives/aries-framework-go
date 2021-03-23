@@ -389,7 +389,12 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
-	requestDidDoc, err := ctx.resolveDidDocFromConnection(request.Connection)
+	reqConn, err := getRequestConnection(request)
+	if err != nil {
+		return nil, nil, fmt.Errorf("extracting connection data from request: %w", err)
+	}
+
+	requestDidDoc, err := ctx.resolveDidDocFromConnection(reqConn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve did doc from exchange request connection: %w", err)
 	}
@@ -417,7 +422,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 		ConnectionSignature: encodedConnectionSignature,
 	}
 
-	connRec.TheirDID = request.Connection.DID
+	connRec.TheirDID = reqConn.DID
 	connRec.MyDID = connection.DID
 	connRec.TheirLabel = request.Label
 

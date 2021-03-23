@@ -360,6 +360,12 @@ func ParseDocument(data []byte) (*Doc, error) {
 	} else if raw == nil {
 		return nil, errors.New("document payload is not provided")
 	}
+
+	// Interop: handle legacy did docs that incorrectly indicate they use the new format
+	if requiresLegacyHandling(raw) {
+		raw.Context = []string{contextV011}
+	}
+
 	// validate did document
 	err = validate(data, raw.schemaLoader())
 	if err != nil {
@@ -402,6 +408,23 @@ func ParseDocument(data []byte) (*Doc, error) {
 	doc.Proof = proofs
 
 	return doc, nil
+}
+
+func requiresLegacyHandling(raw *rawDoc) bool {
+	// docs in v1 format don't have a top-level publicKey array, but verificationMethod instead
+	if len(raw.PublicKey) == 0 || len(raw.VerificationMethod) > 0 {
+		return false
+	}
+
+	context, _ := parseContext(raw.Context)
+
+	for _, ctx := range context {
+		if ctx == Context { // docs that state they use v1 format but still have a top-level publicKey array
+			return true
+		}
+	}
+
+	return false // docs in older formats
 }
 
 func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {

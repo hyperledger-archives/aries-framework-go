@@ -69,11 +69,18 @@ type Invitation struct {
 // Request defines a2a DID exchange request
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#1-exchange-request
 type Request struct {
-	Type       string            `json:"@type,omitempty"`
-	ID         string            `json:"@id,omitempty"`
-	Label      string            `json:"label,omitempty"`
-	Connection *Connection       `json:"connection,omitempty"`
-	Thread     *decorator.Thread `json:"~thread,omitempty"`
+	Type   string            `json:"@type,omitempty"`
+	ID     string            `json:"@id,omitempty"`
+	Label  string            `json:"label,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
+	// DID the did of the requester.
+	// Mandatory in did-exchange, but optional for backwards-compatibility with rfc 0160 connection protocol.
+	DID string `json:"did,omitempty"`
+	// DocAttach an attachment containing the did doc of the requester.
+	// Optional, a requester may provide a publicly-resolvable DID, rather than including an attached did doc.
+	DocAttach *decorator.Attachment `json:"did_doc~attach,omitempty"`
+	// Connection is used for backwards-compatibility with rfc 0160 connection protocol.
+	Connection *Connection `json:"connection,omitempty"`
 }
 
 // Response defines a2a DID exchange response
