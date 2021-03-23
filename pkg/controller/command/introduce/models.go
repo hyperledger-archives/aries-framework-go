@@ -37,20 +37,20 @@ type SendProposalResponse struct {
 	PIID string `json:"piid"`
 }
 
-// SendProposalWithOOBRequestArgs model
+// SendProposalWithOOBInvitationArgs model
 //
 // This is used for sending a proposal with OOBRequest
 //
-type SendProposalWithOOBRequestArgs struct {
-	// Request is the out-of-band protocol's 'request' message.
-	Request *outofband.Request `json:"request"`
+type SendProposalWithOOBInvitationArgs struct {
+	// Invitation is the out-of-band protocol's 'invitation' message.
+	Invitation *outofband.Invitation `json:"invitation"`
 	// Recipient specifies to whom proposal will be sent
 	Recipient *introduce.Recipient `json:"recipient"`
 }
 
 // SendProposalWithOOBRequestResponse model
 //
-// Represents a SendProposalWithOOBRequest response message
+// Represents a SendProposalWithOOBInvitation response message
 //
 type SendProposalWithOOBRequestResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -79,41 +79,41 @@ type SendRequestResponse struct {
 	PIID string `json:"piid"`
 }
 
-// AcceptProposalWithOOBRequestArgs model
+// AcceptProposalWithOOBInvitationArgs model
 //
 // This is used for accepting a proposal with public OOBRequest
 //
-type AcceptProposalWithOOBRequestArgs struct {
+type AcceptProposalWithOOBInvitationArgs struct {
 	// PIID Protocol instance ID
 	PIID string `json:"piid"`
-	// Request is the out-of-band protocol's 'request' message.
-	Request *outofband.Request `json:"request"`
+	// Invitation is the out-of-band protocol's 'request' message.
+	Invitation *outofband.Invitation `json:"invitation"`
 }
 
-// AcceptProposalWithOOBRequestResponse model
+// AcceptProposalWithOOBInvitationResponse model
 //
-// Represents a AcceptProposalWithOOBRequest response message
+// Represents a AcceptProposalWithOOBInvitation response message
 //
-type AcceptProposalWithOOBRequestResponse struct{}
+type AcceptProposalWithOOBInvitationResponse struct{}
 
-// AcceptRequestWithPublicOOBRequestArgs model
+// AcceptRequestWithPublicOOBInvitationArgs model
 //
 // This is used for accepting a request with public OOBRequest
 //
-type AcceptRequestWithPublicOOBRequestArgs struct {
+type AcceptRequestWithPublicOOBInvitationArgs struct {
 	// PIID Protocol instance ID
 	PIID string `json:"piid"`
-	// Request is the out-of-band protocol's 'request' message.
-	Request *outofband.Request `json:"request"`
+	// Invitation is the out-of-band protocol's 'request' message.
+	Invitation *outofband.Invitation `json:"invitation"`
 	// To keeps information about the introduction
 	To *introduce.To `json:"to"`
 }
 
-// AcceptRequestWithPublicOOBRequestResponse model
+// AcceptRequestWithPublicOOBInvitationResponse model
 //
-// Represents a AcceptRequestWithPublicOOBRequest response message
+// Represents a AcceptRequestWithPublicOOBInvitation response message
 //
-type AcceptRequestWithPublicOOBRequestResponse struct{}
+type AcceptRequestWithPublicOOBInvitationResponse struct{}
 
 // AcceptRequestWithRecipientsArgs model
 //

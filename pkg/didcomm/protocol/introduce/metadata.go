@@ -26,22 +26,22 @@ const (
 // Opt describes option signature for the Continue function.
 type Opt func(m map[string]interface{})
 
-// WithOOBRequest is used when introducee wants to provide an out-of-band request.
+// WithOOBInvitation is used when introducee wants to provide an out-of-band request.
 // NOTE: Introducee can provide this request only after receiving ProposalMsgType
-// USAGE: event.Continue(WithOOBRequest(req)).
-func WithOOBRequest(req *outofband.Request, attachments ...*decorator.Attachment) Opt {
+// USAGE: event.Continue(WithOOBInvitation(req)).
+func WithOOBInvitation(inv *outofband.Invitation, attachments ...*decorator.Attachment) Opt {
 	return func(m map[string]interface{}) {
-		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
+		m[metaOOBMessage] = service.NewDIDCommMsgMap(inv)
 		m[metaAttachment] = attachments
 	}
 }
 
-// WithPublicOOBRequest is used when introducer wants to provide public an out-of-band request.
+// WithPublicOOBInvitation is used when introducer wants to provide public an out-of-band request.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicOOBRequest(req, to)).
-func WithPublicOOBRequest(req *outofband.Request, to *To) Opt {
+// USAGE: event.Continue(WithPublicOOBInvitation(req, to)).
+func WithPublicOOBInvitation(inv *outofband.Invitation, to *To) Opt {
 	return func(m map[string]interface{}) {
-		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
+		m[metaOOBMessage] = service.NewDIDCommMsgMap(inv)
 		m[metaSkipProposal] = true
 		m[metaRecipients] = []interface{}{&Recipient{
 			To: to,
@@ -72,10 +72,10 @@ func WrapWithMetadataPIID(msgMap ...service.DIDCommMsg) {
 	}
 }
 
-// WrapWithMetadataPublicOOBRequest wraps message with metadata.
+// WrapWithMetadataPublicOOBInvitation wraps message with metadata.
 // The function is used by the introduce client to define skip proposal.
 // It also saves invitation and will provide it later to the introducee.
-func WrapWithMetadataPublicOOBRequest(msg service.DIDCommMsgMap, req *outofband.Request) {
+func WrapWithMetadataPublicOOBInvitation(msg service.DIDCommMsgMap, req *outofband.Invitation) {
 	msg.Metadata()[metaOOBMessage] = service.NewDIDCommMsgMap(req)
 	msg.Metadata()[metaSkipProposal] = true
 }

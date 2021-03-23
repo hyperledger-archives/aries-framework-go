@@ -202,7 +202,7 @@ func TestCommand_SendProposal(t *testing.T) {
 	})
 }
 
-func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
+func TestCommand_SendProposalWithOOBInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -219,7 +219,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SendProposalWithOOBRequest(&b, bytes.NewBufferString("}"))
+		cmdErr := cmd.SendProposalWithOOBInvitation(&b, bytes.NewBufferString("}"))
 
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
@@ -232,10 +232,10 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SendProposalWithOOBRequest(&b, bytes.NewBufferString("{}"))
+		cmdErr := cmd.SendProposalWithOOBInvitation(&b, bytes.NewBufferString("{}"))
 
 		require.Error(t, cmdErr)
-		require.Contains(t, cmdErr.Error(), errEmptyRequest)
+		require.Contains(t, cmdErr.Error(), errEmptyInvitation)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
 		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
@@ -246,7 +246,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SendProposalWithOOBRequest(&b, bytes.NewBufferString(`{"request":{}}`))
+		cmdErr := cmd.SendProposalWithOOBInvitation(&b, bytes.NewBufferString(`{"invitation":{}}`))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), errEmptyRecipient)
@@ -254,7 +254,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
 
-	t.Run("SendProposalWithOOBRequest (error)", func(t *testing.T) {
+	t.Run("SendProposalWithOOBInvitation (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -271,7 +271,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SendProposalWithOOBRequest(&b, bytes.NewBufferString(`{"request":{},"recipient":{}}`))
+		cmdErr := cmd.SendProposalWithOOBInvitation(&b, bytes.NewBufferString(`{"invitation":{},"recipient":{}}`))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), "error message")
@@ -293,8 +293,8 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		const jsonPayload = `{"request":{},"recipient":{}}`
-		require.NoError(t, cmd.SendProposalWithOOBRequest(&b, bytes.NewBufferString(jsonPayload)))
+		const jsonPayload = `{"invitation":{},"recipient":{}}`
+		require.NoError(t, cmd.SendProposalWithOOBInvitation(&b, bytes.NewBufferString(jsonPayload)))
 	})
 }
 
@@ -426,7 +426,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptProposalWithOOBRequest(&b, bytes.NewBufferString("}"))
+		cmdErr := cmd.AcceptProposalWithOOBInvitation(&b, bytes.NewBufferString("}"))
 
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
@@ -439,7 +439,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptProposalWithOOBRequest(&b, bytes.NewBufferString("{}"))
+		cmdErr := cmd.AcceptProposalWithOOBInvitation(&b, bytes.NewBufferString("{}"))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), errEmptyPIID)
@@ -453,15 +453,15 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptProposalWithOOBRequest(&b, bytes.NewBufferString(`{"piid":"piid"}`))
+		cmdErr := cmd.AcceptProposalWithOOBInvitation(&b, bytes.NewBufferString(`{"piid":"piid"}`))
 
 		require.Error(t, cmdErr)
-		require.Contains(t, cmdErr.Error(), errEmptyRequest)
+		require.Contains(t, cmdErr.Error(), errEmptyInvitation)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
 		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
 
-	t.Run("AcceptProposalWithOOBRequest (error)", func(t *testing.T) {
+	t.Run("AcceptProposalWithOOBInvitation (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -477,8 +477,8 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		const jsonPayload = `{"piid":"piid","request":{}}`
-		cmdErr := cmd.AcceptProposalWithOOBRequest(&b, bytes.NewBufferString(jsonPayload))
+		const jsonPayload = `{"piid":"piid","invitation":{}}`
+		cmdErr := cmd.AcceptProposalWithOOBInvitation(&b, bytes.NewBufferString(jsonPayload))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), "error message")
@@ -500,8 +500,8 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		const jsonPayload = `{"piid":"piid","request":{}}`
-		require.NoError(t, cmd.AcceptProposalWithOOBRequest(&b, bytes.NewBufferString(jsonPayload)))
+		const jsonPayload = `{"piid":"piid","invitation":{}}`
+		require.NoError(t, cmd.AcceptProposalWithOOBInvitation(&b, bytes.NewBufferString(jsonPayload)))
 	})
 }
 
@@ -604,7 +604,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString("}"))
+		cmdErr := cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString("}"))
 
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
@@ -617,7 +617,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString("{}"))
+		cmdErr := cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString("{}"))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), errEmptyPIID)
@@ -631,10 +631,10 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString(`{"piid":"piid"}`))
+		cmdErr := cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString(`{"piid":"piid"}`))
 
 		require.Error(t, cmdErr)
-		require.Contains(t, cmdErr.Error(), errEmptyRequest)
+		require.Contains(t, cmdErr.Error(), errEmptyInvitation)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
 		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
@@ -645,7 +645,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString(`{"piid":"piid","request":{}}`))
+		cmdErr := cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString(`{"piid":"piid","invitation":{}}`))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), errEmptyTo)
@@ -653,7 +653,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
 
-	t.Run("AcceptRequestWithPublicOOBRequest (error)", func(t *testing.T) {
+	t.Run("AcceptRequestWithPublicOOBInvitation (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -669,12 +669,12 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		const jsonPayload = `{"piid":"piid","request":{},"to":{}}`
-		cmdErr := cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString(jsonPayload))
+		const jsonPayload = `{"piid":"piid","invitation":{},"to":{}}`
+		cmdErr := cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString(jsonPayload))
 
 		require.Error(t, cmdErr)
 		require.Contains(t, cmdErr.Error(), "error message")
-		require.Equal(t, AcceptRequestWithPublicOOBRequestErrorCode, cmdErr.Code())
+		require.Equal(t, AcceptRequestWithPublicOOBInvitationErrorCode, cmdErr.Code())
 		require.Equal(t, command.ExecuteError, cmdErr.Type())
 	})
 
@@ -692,8 +692,8 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		const jsonPayload = `{"piid":"piid","request":{},"to":{}}`
-		require.NoError(t, cmd.AcceptRequestWithPublicOOBRequest(&b, bytes.NewBufferString(jsonPayload)))
+		const jsonPayload = `{"piid":"piid","invitation":{},"to":{}}`
+		require.NoError(t, cmd.AcceptRequestWithPublicOOBInvitation(&b, bytes.NewBufferString(jsonPayload)))
 	})
 }
 

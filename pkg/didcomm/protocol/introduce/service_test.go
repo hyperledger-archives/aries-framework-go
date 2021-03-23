@@ -100,10 +100,10 @@ func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[stri
 				didMap, err := service.ParseDIDCommMsgMap(msg.msg)
 				require.NoError(t, err)
 
-				if didMap.Type() == outofband.RequestMsgType {
+				if didMap.Type() == outofband.InvitationMsgType {
 					require.NoError(t, svc.OOBMessageReceived(service.StateMsg{
 						Type:    service.PostState,
-						StateID: "requested",
+						StateID: "invited",
 						Msg:     didMap,
 					}))
 
@@ -261,8 +261,8 @@ func TestService_SkipProposal(t *testing.T) {
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
 	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
-		Type: outofband.RequestMsgType,
+	introduce.WrapWithMetadataPublicOOBInvitation(proposal, &outofband.Invitation{
+		Type: outofband.InvitationMsgType,
 	})
 
 	_, err := alice.HandleOutbound(proposal, Alice, Bob)
@@ -307,8 +307,8 @@ func TestService_Proposal(t *testing.T) {
 	), checkDIDCommAction(t, Bob,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}),
 		},
 	))
@@ -375,8 +375,8 @@ func TestService_ProposalActionContinue(t *testing.T) {
 		require.Equal(t, actions[0].MyDID, Bob)
 		require.Equal(t, actions[0].TheirDID, Alice)
 
-		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
-			Type: outofband.RequestMsgType,
+		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBInvitation(&outofband.Invitation{
+			Type: outofband.InvitationMsgType,
 		})))
 
 		runtime.Goexit()
@@ -444,8 +444,8 @@ func TestService_ProposalSecond(t *testing.T) {
 	), checkDIDCommAction(t, Carol,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}),
 		},
 	))
@@ -512,8 +512,8 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 		require.Equal(t, actions[0].MyDID, Carol)
 		require.Equal(t, actions[0].TheirDID, Alice)
 
-		require.NoError(t, carol.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
-			Type: outofband.RequestMsgType,
+		require.NoError(t, carol.ActionContinue(actions[0].PIID, introduce.WithOOBInvitation(&outofband.Invitation{
+			Type: outofband.InvitationMsgType,
 		})))
 
 		runtime.Goexit()
@@ -629,8 +629,8 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	})
 
 	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
-		Type: outofband.RequestMsgType,
+	introduce.WrapWithMetadataPublicOOBInvitation(proposal, &outofband.Invitation{
+		Type: outofband.InvitationMsgType,
 	})
 
 	_, err := alice.HandleOutbound(proposal, Alice, Bob)
@@ -678,8 +678,8 @@ func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 	})
 
 	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
-		Type: outofband.RequestMsgType,
+	introduce.WrapWithMetadataPublicOOBInvitation(proposal, &outofband.Invitation{
+		Type: outofband.InvitationMsgType,
 	})
 
 	_, err := alice.HandleOutbound(proposal, Alice, Bob)
@@ -933,8 +933,8 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	), checkDIDCommAction(t, Bob,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}),
 		},
 	))
@@ -1018,8 +1018,8 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		require.Equal(t, actions[0].MyDID, Bob)
 		require.Equal(t, actions[0].TheirDID, Alice)
 
-		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
-			Type: outofband.RequestMsgType,
+		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBInvitation(&outofband.Invitation{
+			Type: outofband.InvitationMsgType,
 		})))
 
 		runtime.Goexit()
@@ -1098,8 +1098,8 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 	), checkDIDCommAction(t, Carol,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}),
 		},
 	))
@@ -1332,8 +1332,8 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	), checkDIDCommAction(t, Alice,
 		action{
 			Expected: introduce.RequestMsgType,
-			Opt: introduce.WithPublicOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithPublicOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}, &introduce.To{
 				Name: Carol,
 			}),
@@ -1381,8 +1381,8 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	), checkDIDCommAction(t, Alice,
 		action{
 			Expected: introduce.RequestMsgType,
-			Opt: introduce.WithPublicOOBRequest(&outofband.Request{
-				Type: outofband.RequestMsgType,
+			Opt: introduce.WithPublicOOBInvitation(&outofband.Invitation{
+				Type: outofband.InvitationMsgType,
 			}, &introduce.To{
 				Name: Carol,
 			}),

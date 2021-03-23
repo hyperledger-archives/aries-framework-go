@@ -8,7 +8,7 @@ import {newAries, newAriesREST, watchForEvent} from "../common.js"
 import {
     checkConnection,
     connectAgents,
-    createRequest,
+    createInvitation,
     getAction as getOutofbandAction
 } from "../outofband/outofband.js";
 import {didExchangeClient} from "../didexchange/didexchange_e2e.js";
@@ -21,7 +21,7 @@ const restMode = 'rest'
 const wasmMode = 'wasm'
 const actionsTopic = "introduce_actions"
 
-describe("Introduce - Alice has Carol's public out-of-band request", async function () {
+describe("Introduce - Alice has Carol's public out-of-band invitation", async function () {
     describe(restMode, function () {
         skipProposal(restMode)
     })
@@ -30,7 +30,7 @@ describe("Introduce - Alice has Carol's public out-of-band request", async funct
     })
 })
 
-describe("Introduce - Alice has Carol's public out-of-band request. The protocol starts with introduce request.", async function () {
+describe("Introduce - Alice has Carol's public out-of-band invitation. The protocol starts with introduce request.", async function () {
     describe(restMode, function () {
         skipProposalWithRequest(restMode)
     })
@@ -39,7 +39,7 @@ describe("Introduce - Alice has Carol's public out-of-band request. The protocol
     })
 })
 
-describe("Introduce - Bob sends a response with approve and an out-of-band request.", async function () {
+describe("Introduce - Bob sends a response with approve and an out-of-band invitation.", async function () {
     describe(restMode, function () {
         proposal(restMode)
     })
@@ -48,7 +48,7 @@ describe("Introduce - Bob sends a response with approve and an out-of-band reque
     })
 })
 
-describe("Introduce - Bob sends a response with approve and an out-of-band request. The protocol starts with introduce request", async function () {
+describe("Introduce - Bob sends a response with approve and an out-of-band invitation. The protocol starts with introduce request", async function () {
     describe(restMode, function () {
         proposalWithRequest(restMode)
     })
@@ -84,7 +84,7 @@ async function proposalWithRequest(mode) {
         })
     })
 
-    let request;
+    let invitation;
     let bobAction;
     let carolAction;
     it("Alice sends introduce proposal back to the Bob and requested introduce", async function () {
@@ -94,7 +94,6 @@ async function proposalWithRequest(mode) {
         let conn = await alice.didexchange.queryConnectionByID({id: alice_carol[0]})
         await alice.introduce.acceptRequestWithRecipients({
             piid: (await aliceAction).Properties.piid,
-
             "recipient": {
                 "to": {"name": "Bob", "img~attach": {"content": {}}},
                 "my_did": conn.result.MyDID,
@@ -104,18 +103,18 @@ async function proposalWithRequest(mode) {
         })
     })
 
-    it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
-        request = await bob.outofband.createRequest(createRequest(bob.routerConnection, "Bob"))
-        await bob.introduce.acceptProposalWithOOBRequest({
+    it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band invitation", async function () {
+        invitation = await bob.outofband.createInvitation(createInvitation(bob.routerConnection, "Bob"))
+        await bob.introduce.acceptProposalWithOOBInvitation({
             piid: (await bobAction).Properties.piid,
-            "request": request.request
+            "invitation": invitation.invitation
         })
     })
 
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
-        let checked = checkConnection(mode, bob, carol, request.request['@id'], bob.routerConnection)
+        let checked = checkConnection(mode, bob, carol, invitation.invitation['@id'], bob.routerConnection)
 
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
@@ -147,7 +146,7 @@ async function proposal(mode) {
         alice_carol = await connectAgents(mode, alice, carol)
     })
 
-    let request;
+    let invitation;
     let bobAction;
     let carolAction;
     it("Alice sends introduce proposal to the Bob and Carol", async function () {
@@ -172,18 +171,18 @@ async function proposal(mode) {
         })
     })
 
-    it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
-        request = await bob.outofband.createRequest(createRequest(bob.routerConnection, "Bob"))
-        await bob.introduce.acceptProposalWithOOBRequest({
+    it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band invitation", async function () {
+        invitation = await bob.outofband.createInvitation(createInvitation(bob.routerConnection, "Bob"))
+        await bob.introduce.acceptProposalWithOOBInvitation({
             piid: (await bobAction).Properties.piid,
-            "request": request.request
+            "invitation": invitation.invitation
         })
     })
 
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(carol)
 
-        let checked = checkConnection(mode, bob, carol, request.request['@id'], bob.routerConnection)
+        let checked = checkConnection(mode, bob, carol, invitation.invitation['@id'], bob.routerConnection)
 
         await carol.introduce.acceptProposal({
             piid: (await carolAction).Properties.piid,
@@ -215,7 +214,7 @@ async function skipProposalWithRequest(mode) {
         alice_carol = await connectAgents(mode, alice, carol)
     })
 
-    let request;
+    let invitation;
     let action;
     it("Bob sends introduce request to the Alice asking about Carol", async function () {
         action = getAction(alice)
@@ -229,19 +228,19 @@ async function skipProposalWithRequest(mode) {
     })
 
     let bobAction;
-    it("Alice sends introduce proposal back to the requester with public out-of-band request", async function () {
+    it("Alice sends introduce proposal back to the requester with public out-of-band invitation", async function () {
         bobAction = getAction(bob)
-        request = await carol.outofband.createRequest(createRequest(carol.routerConnection, "Carol"))
-        await alice.introduce.acceptRequestWithPublicOOBRequest({
+        invitation = await carol.outofband.createInvitation(createInvitation(carol.routerConnection, "Carol"))
+        await alice.introduce.acceptRequestWithPublicOOBInvitation({
             piid: (await action).Properties.piid,
-            "request": request.request, "to": {"name": "Carol", "img~attach": {"content": {}}}
+            "invitation": invitation.invitation, "to": {"name": "Carol", "img~attach": {"content": {}}}
         })
     })
 
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
-        let checked = checkConnection(mode, carol, bob, request.request['@id'], carol.routerConnection)
+        let checked = checkConnection(mode, carol, bob, invitation.invitation['@id'], carol.routerConnection)
 
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,
@@ -273,16 +272,16 @@ async function skipProposal(mode) {
         alice_carol = await connectAgents(mode, alice, carol)
     })
 
-    let request;
+    let invitation;
     let bobAction;
-    it("Alice sends introduce proposal to the Bob with Carol out-of-band request", async function () {
+    it("Alice sends introduce proposal to the Bob with Carol out-of-band invitation", async function () {
         bobAction = getAction(bob)
 
         let conn = await alice.didexchange.queryConnectionByID({id: alice_bob[0]})
-        request = await carol.outofband.createRequest(createRequest(carol.routerConnection, "Carol"))
+        invitation = await carol.outofband.createInvitation(createInvitation(carol.routerConnection, "Carol"))
 
-        await alice.introduce.sendProposalWithOOBRequest({
-            "request": request.request,
+        await alice.introduce.sendProposalWithOOBInvitation({
+            "invitation": invitation.invitation,
             "recipient": {
                 "to": {"name": "Carol"},
                 "my_did": conn.result.MyDID,
@@ -294,7 +293,7 @@ async function skipProposal(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let outofbandAction = getOutofbandAction(bob)
 
-        let checked = checkConnection(mode, carol, bob, request.request['@id'], carol.routerConnection)
+        let checked = checkConnection(mode, carol, bob, invitation.invitation['@id'], carol.routerConnection)
 
         await bob.introduce.acceptProposal({
             piid: (await bobAction).Properties.piid,

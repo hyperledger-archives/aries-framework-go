@@ -564,7 +564,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Offer Credential Continue with Request", func(t *testing.T) {
+	t.Run("Receive Offer Credential Continue with Invitation", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -679,7 +679,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Credential Stop", func(t *testing.T) {
+	t.Run("Receive Invitation Credential Stop", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -737,7 +737,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Credential Continue", func(t *testing.T) {
+	t.Run("Receive Invitation Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1223,7 +1223,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "action offer-sent: "+errMsg)
 	})
 
-	t.Run("Send Request Credential", func(t *testing.T) {
+	t.Run("Send Invitation Credential", func(t *testing.T) {
 		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
@@ -1258,7 +1258,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Send Request with error", func(t *testing.T) {
+	t.Run("Send Invitation with error", func(t *testing.T) {
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)

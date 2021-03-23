@@ -162,7 +162,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
-	// Bob now sends a did-exchange Request
+	// Bob now sends a did-exchange Invitation
 	payloadBytes, err := json.Marshal(
 		&Request{
 			Type:  RequestMsgType,

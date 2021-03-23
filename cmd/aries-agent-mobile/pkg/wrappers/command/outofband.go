@@ -19,22 +19,6 @@ type OutOfBand struct {
 	handlers map[string]command.Exec
 }
 
-// CreateRequest creates and saves an Out-Of-Band request message.
-func (oob *OutOfBand) CreateRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := outofband.CreateRequestArgs{}
-
-	if err := json.Unmarshal(request.Payload, &args); err != nil {
-		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
-	}
-
-	response, cmdErr := exec(oob.handlers[outofband.CreateRequest], args)
-	if cmdErr != nil {
-		return &models.ResponseEnvelope{Error: cmdErr}
-	}
-
-	return &models.ResponseEnvelope{Payload: response}
-}
-
 // CreateInvitation creates and saves an out-of-band invitation.
 func (oob *OutOfBand) CreateInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
 	args := outofband.CreateInvitationArgs{}
@@ -44,22 +28,6 @@ func (oob *OutOfBand) CreateInvitation(request *models.RequestEnvelope) *models.
 	}
 
 	response, cmdErr := exec(oob.handlers[outofband.CreateInvitation], args)
-	if cmdErr != nil {
-		return &models.ResponseEnvelope{Error: cmdErr}
-	}
-
-	return &models.ResponseEnvelope{Payload: response}
-}
-
-// AcceptRequest from another agent and return the ID of a new connection record.
-func (oob *OutOfBand) AcceptRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := outofband.AcceptRequestArgs{}
-
-	if err := json.Unmarshal(request.Payload, &args); err != nil {
-		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
-	}
-
-	response, cmdErr := exec(oob.handlers[outofband.AcceptRequest], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

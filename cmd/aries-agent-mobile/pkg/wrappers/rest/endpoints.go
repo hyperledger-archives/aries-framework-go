@@ -64,24 +64,24 @@ func getIntroduceEndpoints() map[string]*endpoint {
 			Path:   opintroduce.SendProposal,
 			Method: http.MethodPost,
 		},
-		cmdintroduce.SendProposalWithOOBRequest: {
-			Path:   opintroduce.SendProposalWithOOBRequest,
+		cmdintroduce.SendProposalWithOOBInvitation: {
+			Path:   opintroduce.SendProposalWithOOBInvitation,
 			Method: http.MethodPost,
 		},
 		cmdintroduce.SendRequest: {
 			Path:   opintroduce.SendRequest,
 			Method: http.MethodPost,
 		},
-		cmdintroduce.AcceptProposalWithOOBRequest: {
-			Path:   opintroduce.AcceptProposalWithOOBRequest,
+		cmdintroduce.AcceptProposalWithOOBInvitation: {
+			Path:   opintroduce.AcceptProposalWithOOBInvitation,
 			Method: http.MethodPost,
 		},
 		cmdintroduce.AcceptProposal: {
 			Path:   opintroduce.AcceptProposal,
 			Method: http.MethodPost,
 		},
-		cmdintroduce.AcceptRequestWithPublicOOBRequest: {
-			Path:   opintroduce.AcceptRequestWithPublicOOBRequest,
+		cmdintroduce.AcceptRequestWithPublicOOBInvitation: {
+			Path:   opintroduce.AcceptRequestWithPublicOOBInvitation,
 			Method: http.MethodPost,
 		},
 		cmdintroduce.AcceptRequestWithRecipients: {
@@ -408,16 +408,8 @@ func getOutOfBandEndpoints() map[string]*endpoint {
 			Path:   opoob.AcceptInvitation,
 			Method: http.MethodPost,
 		},
-		cmdoob.CreateRequest: {
-			Path:   opoob.CreateRequest,
-			Method: http.MethodPost,
-		},
 		cmdoob.CreateInvitation: {
 			Path:   opoob.CreateInvitation,
-			Method: http.MethodPost,
-		},
-		cmdoob.AcceptRequest: {
-			Path:   opoob.AcceptRequest,
 			Method: http.MethodPost,
 		},
 		cmdoob.ActionContinue: {

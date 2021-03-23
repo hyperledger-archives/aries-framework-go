@@ -121,6 +121,7 @@ func TestNotifyUnsupportedProtocol(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{"badURL"})
 
 	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
+	require.Error(t, err)
 
 	require.Contains(t, err.Error(), "unsupported protocol")
 }
@@ -167,16 +168,19 @@ func TestNotifyMalformedJSON(t *testing.T) {
    }
 		`)
 	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "400 Bad Request")
 }
 
 func TestWebhookNotificationMalformedURL(t *testing.T) {
 	err := notifyWH("%", nil)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), `invalid URL escape "%"`)
 }
 
 func TestWebhookNotificationNoResponse(t *testing.T) {
 	err := notifyWH(localhost8080URL, nil)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "connection refused")
 }
 
@@ -184,6 +188,7 @@ func TestNotifyEmptyTopic(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
 
 	err := testNotifier.Notify("", getTestBasicMessageJSON())
+	require.Error(t, err)
 
 	require.Equal(t, emptyTopicErrMsg, err.Error())
 }
@@ -192,6 +197,7 @@ func TestNotifyEmptyMessage(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
 
 	err := testNotifier.Notify("someTopic", nil)
+	require.Error(t, err)
 
 	require.Equal(t, emptyMessageErrMsg, err.Error())
 }
@@ -200,6 +206,7 @@ func TestNotifyMultipleErrors(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{"badURL1", "badURL2"})
 
 	err := testNotifier.Notify("someTopic", []byte(`{}`))
+	require.Error(t, err)
 
 	require.Contains(t, err.Error(), `unsupported protocol scheme`)
 }
@@ -223,6 +230,7 @@ func TestWebhookNotificationClient500Response(t *testing.T) {
 	}
 
 	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "500 Internal Server Error", err.Error())
 }
 

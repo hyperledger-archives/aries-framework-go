@@ -36,10 +36,8 @@ func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockOobService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-	service.EXPECT().SaveRequest(gomock.Any()).Return(nil).AnyTimes()
 	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 	service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
-	service.EXPECT().AcceptRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
 	service.EXPECT().ActionContinue(piid, &client.EventOptions{Label: label}).AnyTimes()
 	service.EXPECT().ActionStop(piid, errors.New(reason)).AnyTimes()
 	service.EXPECT().Actions().AnyTimes()
@@ -63,30 +61,6 @@ func TestNew(t *testing.T) {
 	require.EqualError(t, err, errMsg)
 }
 
-func TestOperation_CreateRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
-	require.NoError(t, err)
-
-	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, CreateRequest),
-		bytes.NewBufferString(`{
-			"attachments":[{}],
-			"service":["s1"]
-		}`),
-		CreateRequest,
-	)
-
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, code)
-
-	res := make(map[string]interface{})
-	require.NoError(t, json.Unmarshal(b.Bytes(), &res))
-	require.NotEmpty(t, res["request"])
-}
-
 func TestOperation_CreateInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -97,7 +71,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	b, code, err := sendRequestToHandler(
 		handlerLookup(t, operation, CreateInvitation),
 		bytes.NewBufferString(`{
-			"service":["s1"]
+			"service":["did:example:123"]
 		}`),
 		CreateInvitation,
 	)
@@ -124,30 +98,6 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 			"my_label":"label"
 		}`),
 		AcceptInvitation,
-	)
-
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, code)
-
-	res := make(map[string]interface{})
-	require.NoError(t, json.Unmarshal(b.Bytes(), &res))
-	require.NotEmpty(t, res["connection_id"])
-}
-
-func TestOperation_AcceptRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
-	require.NoError(t, err)
-
-	b, code, err := sendRequestToHandler(
-		handlerLookup(t, operation, AcceptRequest),
-		bytes.NewBufferString(`{
-			"request":{},
-			"my_label":"label"
-		}`),
-		AcceptRequest,
 	)
 
 	require.NoError(t, err)

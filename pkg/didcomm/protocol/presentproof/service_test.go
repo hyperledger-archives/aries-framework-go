@@ -350,7 +350,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: invalid state transition")
 	})
 
-	t.Run("Receive Request Presentation (Stop)", func(t *testing.T) {
+	t.Run("Receive Invitation Presentation (Stop)", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -406,7 +406,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Presentation (continue with presentation)", func(t *testing.T) {
+	t.Run("Receive Invitation Presentation (continue with presentation)", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -468,7 +468,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Presentation (continue with presentation) async", func(t *testing.T) {
+	t.Run("Receive Invitation Presentation (continue with presentation) async", func(t *testing.T) {
 		done := make(chan struct{})
 
 		memProvider := mem.NewProvider()
@@ -516,7 +516,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Presentation (Stop) async", func(t *testing.T) {
+	t.Run("Receive Invitation Presentation (Stop) async", func(t *testing.T) {
 		done := make(chan struct{})
 
 		memProvider := mem.NewProvider()
@@ -563,7 +563,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Receive Request Presentation (continue with proposal)", func(t *testing.T) {
+	t.Run("Receive Invitation Presentation (continue with proposal)", func(t *testing.T) {
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -944,7 +944,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Send Request Presentation", func(t *testing.T) {
+	t.Run("Send Invitation Presentation", func(t *testing.T) {
 		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
@@ -983,7 +983,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}
 	})
 
-	t.Run("Send Request Presentation with error", func(t *testing.T) {
+	t.Run("Send Invitation Presentation with error", func(t *testing.T) {
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)

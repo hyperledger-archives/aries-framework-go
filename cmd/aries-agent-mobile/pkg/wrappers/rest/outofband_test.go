@@ -60,27 +60,6 @@ func TestOutOfBand_AcceptInvitation(t *testing.T) {
 	})
 }
 
-func TestOutOfBand_AcceptRequest(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		controller := getOutOfBandController(t)
-
-		reqData := `{"request":{},"my_label":"label"}`
-		mockResponse := mockConnectionIDJSON
-
-		controller.httpClient = &mockHTTPClient{
-			data:   mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.AcceptRequest,
-		}
-
-		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := controller.AcceptRequest(req)
-
-		require.NotNil(t, resp)
-		require.Nil(t, resp.Error)
-		require.Equal(t, mockResponse, string(resp.Payload))
-	})
-}
-
 func TestOutOfBand_ActionContinue(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		controller := getOutOfBandController(t)
@@ -180,17 +159,17 @@ func TestOutOfBand_CreateRequest(t *testing.T) {
 
 		reqData := `{"label":"label","goal":"goal","goal_code":"goal_code","service":["s1"],
 "attachments":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}]}`
-		mockResponse := `{"request":{"@id":"26169718-f261-48f1-addd-67018977a89f",
-"@type":"https://didcomm.org/oob-request/1.0/request","label":"label","goal":"goal","goal-code":"goal_code",
+		mockResponse := `{"invitation":{"@id":"26169718-f261-48f1-addd-67018977a89f",
+"@type":"https://didcomm.org/out-of-band/1.0/invitation","label":"label","goal":"goal","goal-code":"goal_code",
 "request~attach":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}],"service":["s1"]}}`
 
 		controller.httpClient = &mockHTTPClient{
 			data:   mockResponse,
-			method: http.MethodPost, url: mockAgentURL + outofband.CreateRequest,
+			method: http.MethodPost, url: mockAgentURL + outofband.CreateInvitation,
 		}
 
 		req := &models.RequestEnvelope{Payload: []byte(reqData)}
-		resp := controller.CreateRequest(req)
+		resp := controller.CreateInvitation(req)
 
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)

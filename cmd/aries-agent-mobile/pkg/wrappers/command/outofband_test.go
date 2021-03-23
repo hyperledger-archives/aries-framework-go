@@ -58,26 +58,6 @@ func TestOutOfBand_AcceptInvitation(t *testing.T) {
 	})
 }
 
-func TestOutOfBand_AcceptRequest(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		controller := getOutOfBandController(t)
-
-		mockResponse := mockConnectionIDJSON
-		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
-		controller.handlers[outofband.AcceptRequest] = fakeHandler.exec
-
-		payload := `{"request":{},"my_label":"label"}`
-
-		req := &models.RequestEnvelope{Payload: []byte(payload)}
-		resp := controller.AcceptRequest(req)
-		require.NotNil(t, resp)
-		require.Nil(t, resp.Error)
-		require.Equal(t,
-			mockResponse,
-			string(resp.Payload))
-	})
-}
-
 func TestOutOfBand_ActionContinue(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		controller := getOutOfBandController(t)
@@ -153,30 +133,6 @@ func TestOutOfBand_CreateInvitation(t *testing.T) {
 
 		req := &models.RequestEnvelope{Payload: []byte(payload)}
 		resp := controller.CreateInvitation(req)
-		require.NotNil(t, resp)
-		require.Nil(t, resp.Error)
-		require.Equal(t,
-			mockResponse,
-			string(resp.Payload))
-	})
-}
-
-func TestOutOfBand_CreateRequest(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		controller := getOutOfBandController(t)
-
-		mockResponse := `{"request":{"@id":"26169718-f261-48f1-addd-67018977a89f",
-"@type":"https://didcomm.org/oob-request/1.0/request","label":"label","goal":"goal","goal-code":"goal_code",
-"request~attach":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}],"service":["s1"]}}`
-
-		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
-		controller.handlers[outofband.CreateRequest] = fakeHandler.exec
-
-		payload := `{"label":"label","goal":"goal","goal_code":"goal_code","service":["s1"],
-"attachments":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}]}`
-
-		req := &models.RequestEnvelope{Payload: []byte(payload)}
-		resp := controller.CreateRequest(req)
 		require.NotNil(t, resp)
 		require.Nil(t, resp.Error)
 		require.Equal(t,

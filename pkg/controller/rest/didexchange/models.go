@@ -43,7 +43,7 @@ type createInvitationResponse struct { // nolint: unused,deadcode
 //
 // swagger:parameters receiveInvitation
 type receiveInvitationRequest struct { // nolint: unused,deadcode
-	// The Invitation Request to receive
+	// The Invitation Invitation to receive
 	//
 	// required: true
 	// in: body

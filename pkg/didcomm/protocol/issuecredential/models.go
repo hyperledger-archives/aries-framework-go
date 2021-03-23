@@ -73,7 +73,7 @@ type RequestCredential struct {
 }
 
 // IssueCredential contains as attached payload the credentials being issued and is
-// sent in response to a valid Request Credential message.
+// sent in response to a valid Invitation Credential message.
 // TODO: Need to add ~please-ack decorator [Issue #1299].
 type IssueCredential struct {
 	Type string `json:"@type,omitempty"`

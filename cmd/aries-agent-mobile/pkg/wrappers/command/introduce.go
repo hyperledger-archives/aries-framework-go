@@ -45,15 +45,15 @@ func (i *Introduce) Actions(request *models.RequestEnvelope) *models.ResponseEnv
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
-func (i *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdintroduce.SendProposalWithOOBRequestArgs{}
+// SendProposalWithOOBInvitation sends a proposal to the introducee (the client has published an out-of-band request).
+func (i *Introduce) SendProposalWithOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdintroduce.SendProposalWithOOBInvitationArgs{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(i.handlers[cmdintroduce.SendProposalWithOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.SendProposalWithOOBInvitation], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -77,15 +77,15 @@ func (i *Introduce) SendRequest(request *models.RequestEnvelope) *models.Respons
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
-func (i *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdintroduce.AcceptProposalWithOOBRequestArgs{}
+// AcceptProposalWithOOBInvitation is used when introducee wants to provide an out-of-band request.
+func (i *Introduce) AcceptProposalWithOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdintroduce.AcceptProposalWithOOBInvitationArgs{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptProposalWithOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptProposalWithOOBInvitation], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -109,15 +109,15 @@ func (i *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.Resp
 	return &models.ResponseEnvelope{Payload: response}
 }
 
-// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
-func (i *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdintroduce.AcceptRequestWithPublicOOBRequestArgs{}
+// AcceptRequestWithPublicOOBInvitation is used when introducer wants to provide a published out-of-band request.
+func (i *Introduce) AcceptRequestWithPublicOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	args := cmdintroduce.AcceptRequestWithPublicOOBInvitationArgs{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptRequestWithPublicOOBRequest], args)
+	response, cmdErr := exec(i.handlers[cmdintroduce.AcceptRequestWithPublicOOBInvitation], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

@@ -12,12 +12,10 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
-	"github.com/google/uuid"
 
 	didexClient "github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 )
@@ -25,7 +23,6 @@ import (
 // SDKSteps for the out-of-band protocol.
 type SDKSteps struct {
 	context            *context.BDDContext
-	pendingRequests    map[string]*outofband.Request
 	pendingInvitations map[string]*outofband.Invitation
 	connectionIDs      map[string]string
 	bddDIDExchSDK      *bddDIDExchange.SDKSteps
@@ -35,7 +32,6 @@ type SDKSteps struct {
 // NewOutOfBandSDKSteps returns the out-of-band protocol's BDD steps using the SDK binding.
 func NewOutOfBandSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		pendingRequests:    make(map[string]*outofband.Request),
 		pendingInvitations: make(map[string]*outofband.Invitation),
 		connectionIDs:      make(map[string]string),
 		bddDIDExchSDK:      bddDIDExchange.NewDIDExchangeSDKSteps(),
@@ -51,32 +47,11 @@ func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 
 // RegisterSteps registers the BDD steps on the suite.
 func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
-	suite.Step(
-		`^"([^"]*)" constructs an out-of-band request with no attachments$`, sdk.constructOOBRequestWithNoAttachments)
 	suite.Step(`^"([^"]*)" constructs an out-of-band invitation$`, sdk.constructOOBInvitation)
 	suite.Step(
-		`^"([^"]*)" sends the request to "([^"]*)" through an out-of-band channel$`, sdk.sendRequestThruOOBChannel)
-	suite.Step(
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel$`, sdk.sendInvitationThruOOBChannel)
-	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)"$`, sdk.acceptRequestAndConnect)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"$`, sdk.acceptInvitationAndConnect)
 	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection is "([^"]*)"$`, sdk.ConfirmConnections)
-}
-
-func (sdk *SDKSteps) constructOOBRequestWithNoAttachments(agentID string) error {
-	err := sdk.registerClients(agentID)
-	if err != nil {
-		return fmt.Errorf("failed to register outofband client : %w", err)
-	}
-
-	req, err := sdk.newRequest(agentID)
-	if err != nil {
-		return fmt.Errorf("failed to create an out-of-band request : %w", err)
-	}
-
-	sdk.pendingRequests[agentID] = req
-
-	return nil
 }
 
 func (sdk *SDKSteps) constructOOBInvitation(agentID string) error {
@@ -95,25 +70,6 @@ func (sdk *SDKSteps) constructOOBInvitation(agentID string) error {
 	return nil
 }
 
-// sends a the sender's pending request to the receiver and returns the sender and receiver's new connection IDs.
-func (sdk *SDKSteps) sendRequestThruOOBChannel(senderID, receiverID string) error {
-	err := sdk.registerClients([]string{senderID, receiverID}...)
-	if err != nil {
-		return fmt.Errorf("failed to register framework clients : %w", err)
-	}
-
-	req, found := sdk.pendingRequests[senderID]
-	if !found {
-		return fmt.Errorf("no request found for %s", senderID)
-	}
-
-	delete(sdk.pendingRequests, senderID)
-
-	sdk.pendingRequests[receiverID] = req
-
-	return nil
-}
-
 func (sdk *SDKSteps) sendInvitationThruOOBChannel(sender, receiver string) error {
 	err := sdk.registerClients([]string{sender, receiver}...)
 	if err != nil {
@@ -128,24 +84,6 @@ func (sdk *SDKSteps) sendInvitationThruOOBChannel(sender, receiver string) error
 	sdk.pendingInvitations[receiver] = inv
 
 	return nil
-}
-
-func (sdk *SDKSteps) acceptRequestAndConnect(receiverID, senderID string) error {
-	request, found := sdk.pendingRequests[receiverID]
-	if !found {
-		return fmt.Errorf("no pending requests found for %s", receiverID)
-	}
-
-	return sdk.acceptAndConnect(receiverID, senderID, func(r *outofband.Client) error {
-		var err error
-
-		sdk.connectionIDs[receiverID], err = r.AcceptRequest(request, receiverID)
-		if err != nil {
-			return fmt.Errorf("%s failed to accept out-of-band request : %w", receiverID, err)
-		}
-
-		return nil
-	})
 }
 
 func (sdk *SDKSteps) acceptInvitationAndConnect(receiverID, senderID string) error {
@@ -286,30 +224,6 @@ func (sdk *SDKSteps) registerClients(agentIDs ...string) error {
 	return nil
 }
 
-func (sdk *SDKSteps) newRequest(agentID string) (*outofband.Request, error) {
-	agent, found := sdk.context.OutOfBandClients[agentID]
-	if !found {
-		return nil, fmt.Errorf("no agent for %s was found", agentID)
-	}
-
-	req, err := agent.CreateRequest(
-		[]*decorator.Attachment{{
-			ID:          uuid.New().String(),
-			Description: "dummy",
-			MimeType:    "text/plain",
-			Data: decorator.AttachmentData{
-				JSON: map[string]interface{}{},
-			},
-		}},
-		outofband.WithLabel(agentID),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request for %s : %w", agentID, err)
-	}
-
-	return req, nil
-}
-
 func (sdk *SDKSteps) newInvitation(agentID string) (*outofband.Invitation, error) {
 	agent, found := sdk.context.OutOfBandClients[agentID]
 	if !found {
@@ -364,8 +278,8 @@ func (sdk *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DI
 	}
 }
 
-// ApproveOOBRequest approves an out-of-band request for this agent.
-func (sdk *SDKSteps) ApproveOOBRequest(agentID string, args interface{}) {
+// ApproveOOBInvitation approves an out-of-band request for this agent.
+func (sdk *SDKSteps) ApproveOOBInvitation(agentID string, args interface{}) {
 	// sends the signal which automatically handles events
 	sdk.nextAction[agentID] <- args
 }
@@ -375,10 +289,10 @@ func (sdk *SDKSteps) ApproveDIDExchangeRequest(agentID string) error {
 	return sdk.bddDIDExchSDK.ApproveRequest(agentID)
 }
 
-// CreateRequestWithDID creates an out-of-band request message and sets its 'service' to a single
+// CreateInvitationWithDID creates an out-of-band request message and sets its 'service' to a single
 // entry containing a public DID registered in the BDD context.
 // The request is registered internally.
-func (sdk *SDKSteps) CreateRequestWithDID(agent string) error {
+func (sdk *SDKSteps) CreateInvitationWithDID(agent string) error {
 	did, found := sdk.context.PublicDIDDocs[agent]
 	if !found {
 		return fmt.Errorf("no public did found for %s", agent)
@@ -389,29 +303,22 @@ func (sdk *SDKSteps) CreateRequestWithDID(agent string) error {
 		return fmt.Errorf("no oob client found for %s", agent)
 	}
 
-	req, err := client.CreateRequest(
-		[]*decorator.Attachment{{
-			ID:          uuid.New().String(),
-			Description: "bdd test",
-			Data: decorator.AttachmentData{
-				JSON: map[string]interface{}{},
-			},
-		}},
+	req, err := client.CreateInvitation(
+		[]interface{}{did.ID},
 		outofband.WithLabel(agent),
-		outofband.WithServices(did.ID),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create oob request for %s : %w", agent, err)
 	}
 
-	sdk.pendingRequests[agent] = req
+	sdk.pendingInvitations[agent] = req
 
 	return nil
 }
 
-// ReceiveRequest makes 'to' accept a pre-registered out-of-band request created by 'from'.
-func (sdk *SDKSteps) ReceiveRequest(to, from string) error {
-	req, found := sdk.pendingRequests[from]
+// ReceiveInvitation makes 'to' accept a pre-registered out-of-band invitation created by 'from'.
+func (sdk *SDKSteps) ReceiveInvitation(to, from string) error {
+	inv, found := sdk.pendingInvitations[from]
 	if !found {
 		return fmt.Errorf("%s does not have a pending request", from)
 	}
@@ -421,7 +328,7 @@ func (sdk *SDKSteps) ReceiveRequest(to, from string) error {
 		return fmt.Errorf("%s does not have a registered oob client", to)
 	}
 
-	connID, err := receiver.AcceptRequest(req, to)
+	connID, err := receiver.AcceptInvitation(inv, to)
 	if err != nil {
 		return fmt.Errorf("%s failed to accept request from %s : %w", to, from, err)
 	}

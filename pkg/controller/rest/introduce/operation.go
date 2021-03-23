@@ -26,18 +26,18 @@ import (
 
 // constants for operation introduce.
 const (
-	OperationID                       = "/introduce"
-	Actions                           = OperationID + "/actions"
-	SendProposal                      = OperationID + "/send-proposal"
-	SendProposalWithOOBRequest        = OperationID + "/send-proposal-with-oob-request"
-	SendRequest                       = OperationID + "/send-request"
-	AcceptProposalWithOOBRequest      = OperationID + "/{piid}/accept-proposal-with-oob-request"
-	AcceptProposal                    = OperationID + "/{piid}/accept-proposal"
-	AcceptRequestWithPublicOOBRequest = OperationID + "/{piid}/accept-request-with-public-oob-request"
-	AcceptRequestWithRecipients       = OperationID + "/{piid}/accept-request-with-recipients"
-	DeclineProposal                   = OperationID + "/{piid}/decline-proposal"
-	DeclineRequest                    = OperationID + "/{piid}/decline-request"
-	AcceptProblemReport               = OperationID + "/{piid}/accept-problem-report"
+	OperationID                          = "/introduce"
+	Actions                              = OperationID + "/actions"
+	SendProposal                         = OperationID + "/send-proposal"
+	SendProposalWithOOBInvitation        = OperationID + "/send-proposal-with-oob-invitation"
+	SendRequest                          = OperationID + "/send-request"
+	AcceptProposalWithOOBInvitation      = OperationID + "/{piid}/accept-proposal-with-oob-invitation"
+	AcceptProposal                       = OperationID + "/{piid}/accept-proposal"
+	AcceptRequestWithPublicOOBInvitation = OperationID + "/{piid}/accept-request-with-public-oob-invitation"
+	AcceptRequestWithRecipients          = OperationID + "/{piid}/accept-request-with-recipients"
+	DeclineProposal                      = OperationID + "/{piid}/decline-proposal"
+	DeclineRequest                       = OperationID + "/{piid}/decline-request"
+	AcceptProblemReport                  = OperationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for the introduce.
@@ -70,11 +70,11 @@ func (c *Operation) registerHandler() {
 	c.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
 		cmdutil.NewHTTPHandler(SendProposal, http.MethodPost, c.SendProposal),
-		cmdutil.NewHTTPHandler(SendProposalWithOOBRequest, http.MethodPost, c.SendProposalWithOOBRequest),
+		cmdutil.NewHTTPHandler(SendProposalWithOOBInvitation, http.MethodPost, c.SendProposalWithOOBInvitation),
 		cmdutil.NewHTTPHandler(SendRequest, http.MethodPost, c.SendRequest),
-		cmdutil.NewHTTPHandler(AcceptProposalWithOOBRequest, http.MethodPost, c.AcceptProposalWithOOBRequest),
+		cmdutil.NewHTTPHandler(AcceptProposalWithOOBInvitation, http.MethodPost, c.AcceptProposalWithOOBInvitation),
 		cmdutil.NewHTTPHandler(AcceptProposal, http.MethodPost, c.AcceptProposal),
-		cmdutil.NewHTTPHandler(AcceptRequestWithPublicOOBRequest, http.MethodPost, c.AcceptRequestWithPublicOOBRequest),
+		cmdutil.NewHTTPHandler(AcceptRequestWithPublicOOBInvitation, http.MethodPost, c.AcceptRequestWithPublicOOBInvitation),
 		cmdutil.NewHTTPHandler(AcceptRequestWithRecipients, http.MethodPost, c.AcceptRequestWithRecipients),
 		cmdutil.NewHTTPHandler(DeclineProposal, http.MethodPost, c.DeclineProposal),
 		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
@@ -104,15 +104,15 @@ func (c *Operation) SendProposal(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.SendProposal, rw, req.Body)
 }
 
-// SendProposalWithOOBRequest swagger:route POST /introduce/send-proposal-with-oob-request introduce introduceSendProposalWithOOBRequest
+// SendProposalWithOOBInvitation swagger:route POST /introduce/send-proposal-with-oob-invitation introduce introduceSendProposalWithOOBInvitation
 //
 // Sends a proposal with OOBRequest.
 //
 // Responses:
 //    default: genericError
-//        200: introduceSendProposalWithOOBRequestResponse
-func (c *Operation) SendProposalWithOOBRequest(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendProposalWithOOBRequest, rw, req.Body)
+//        200: introduceSendProposalWithOOBInvitationResponse
+func (c *Operation) SendProposalWithOOBInvitation(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.SendProposalWithOOBInvitation, rw, req.Body)
 }
 
 // SendRequest swagger:route POST /introduce/send-request introduce introduceSendRequest
@@ -126,16 +126,16 @@ func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.SendRequest, rw, req.Body)
 }
 
-// AcceptProposalWithOOBRequest swagger:route POST /introduce/{piid}/accept-proposal-with-oob-request introduce introduceAcceptProposalWithOOBRequest
+// AcceptProposalWithOOBInvitation swagger:route POST /introduce/{piid}/accept-proposal-with-oob-invitation introduce introduceAcceptProposalWithOOBInvitation
 //
 // Accepts a proposal with OOBRequest.
 //
 // Responses:
 //    default: genericError
 //        200: introduceAcceptProposalWithOOBRequestResponse
-func (c *Operation) AcceptProposalWithOOBRequest(rw http.ResponseWriter, req *http.Request) {
+func (c *Operation) AcceptProposalWithOOBInvitation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
-		rest.Execute(c.command.AcceptProposalWithOOBRequest, rw, r)
+		rest.Execute(c.command.AcceptProposalWithOOBInvitation, rw, r)
 	}
 }
 
@@ -151,16 +151,16 @@ func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.AcceptProposal, rw, bytes.NewBufferString(payload))
 }
 
-// AcceptRequestWithPublicOOBRequest swagger:route POST /introduce/{piid}/accept-request-with-public-oob-request introduce introduceAcceptRequestWithPublicOOBRequest
+// AcceptRequestWithPublicOOBInvitation swagger:route POST /introduce/{piid}/accept-request-with-public-oob-invitation introduce introduceAcceptRequestWithPublicOOBInvitation
 //
 // Accept a request with public OOBRequest.
 //
 // Responses:
 //    default: genericError
-//        200: introduceAcceptRequestWithPublicOOBRequestResponse
-func (c *Operation) AcceptRequestWithPublicOOBRequest(rw http.ResponseWriter, req *http.Request) {
+//        200: introduceAcceptRequestWithPublicOOBInvitationResponse
+func (c *Operation) AcceptRequestWithPublicOOBInvitation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
-		rest.Execute(c.command.AcceptRequestWithPublicOOBRequest, rw, r)
+		rest.Execute(c.command.AcceptRequestWithPublicOOBInvitation, rw, r)
 	}
 }
 

@@ -15,13 +15,11 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
-	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -29,9 +27,7 @@ import (
 
 const (
 	connections      = "/connections"
-	createRequest    = "/outofband/create-request"
 	createInvitation = "/outofband/create-invitation"
-	acceptRequest    = "/outofband/accept-request"
 	acceptInvitation = "/outofband/accept-invitation"
 
 	stateCompleted = "completed"
@@ -40,7 +36,6 @@ const (
 // ControllerSteps is steps for outofband with controller.
 type ControllerSteps struct {
 	bddContext         *context.BDDContext
-	pendingRequests    map[string]*outofband.Request
 	pendingInvitations map[string]*outofband.Invitation
 	connections        map[string]string
 	didexchange        *didexsteps.ControllerSteps
@@ -50,7 +45,6 @@ type ControllerSteps struct {
 func NewOutofbandControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		didexchange:        didexsteps.NewDIDExchangeControllerSteps(),
-		pendingRequests:    make(map[string]*outofband.Request),
 		pendingInvitations: make(map[string]*outofband.Invitation),
 		connections:        make(map[string]string),
 	}
@@ -65,14 +59,9 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
-	suite.Step(
-		`^"([^"]*)" constructs an out-of-band request with no attachments \(controller\)$`, s.constructOOBRequestWithNoAttachments)
 	suite.Step(`^"([^"]*)" constructs an out-of-band invitation \(controller\)$`, s.constructOOBInvitation)
 	suite.Step(
-		`^"([^"]*)" sends the request to "([^"]*)" through an out-of-band channel \(controller\)$`, s.sendRequestThruOOBChannel)
-	suite.Step(
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel \(controller\)$`, s.sendInvitationThruOOBChannel)
-	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)" \(controller\)$`, s.acceptRequestAndConnect)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)" \(controller\)$`, s.acceptInvitationAndConnect)
 	suite.Step(`^"([^"]*)" and "([^"]*)" have a connection \(controller\)$`, s.CheckConnection)
 }
@@ -247,87 +236,23 @@ func (s *ControllerSteps) GetConnection(receiver, sender string, opts ...QueryOp
 	return nil, errors.New("no connection between agents")
 }
 
-func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) error {
-	request, found := s.pendingRequests[receiverID]
-	if !found {
-		return fmt.Errorf("no pending requests found for %s", receiverID)
-	}
-
-	controllerURL, ok := s.bddContext.GetControllerURL(receiverID)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", receiverID)
-	}
-
-	payload, err := json.Marshal(outofbandcmd.AcceptRequestArgs{
-		Request: request,
-		MyLabel: receiverID,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal create request: %w", err)
-	}
-
-	res := outofbandcmd.AcceptRequestResponse{}
-
-	err = util.SendHTTP(http.MethodPost, controllerURL+acceptRequest, payload, &res)
-	if err != nil {
-		return fmt.Errorf("accept request: %w", err)
-	}
-
-	s.connections[receiverID+senderID] = res.ConnectionID
-
-	return s.DidExchangeApproveRequest(receiverID, senderID)
-}
-
-func (s *ControllerSteps) constructOOBRequestWithNoAttachments(agentID string) error {
-	req, err := s.NewRequest(agentID)
-	if err != nil {
-		return fmt.Errorf("failed to create an out-of-band request : %w", err)
-	}
-
-	s.pendingRequests[agentID] = req
-
-	return nil
-}
-
-// sends a the sender's pending request to the receiver and returns the sender and receiver's new connection IDs.
-func (s *ControllerSteps) sendRequestThruOOBChannel(senderID, receiverID string) error {
-	req, found := s.pendingRequests[senderID]
-	if !found {
-		return fmt.Errorf("no request found for %s", senderID)
-	}
-
-	delete(s.pendingRequests, senderID)
-
-	s.pendingRequests[receiverID] = req
-
-	return nil
-}
-
-// NewRequest creates a new request.
-func (s *ControllerSteps) NewRequest(agentID string) (*outofband.Request, error) {
+// NewInvitation creates a new request.
+func (s *ControllerSteps) NewInvitation(agentID string) (*outofband.Invitation, error) {
 	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	req, err := json.Marshal(outofbandcmd.CreateRequestArgs{
+	req, err := json.Marshal(outofbandcmd.CreateInvitationArgs{
 		Label: agentID,
-		Attachments: []*decorator.Attachment{{
-			ID:          uuid.New().String(),
-			Description: "dummy",
-			MimeType:    "text/plain",
-			Data: decorator.AttachmentData{
-				JSON: map[string]interface{}{},
-			},
-		}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal create request: %w", err)
 	}
 
-	res := outofbandcmd.CreateRequestResponse{}
+	res := outofbandcmd.CreateInvitationResponse{}
 
-	return res.Request, util.SendHTTP(http.MethodPost, controllerURL+createRequest, req, &res)
+	return res.Invitation, util.SendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
 }
 
 // ConnectAll connects all agents to each other.

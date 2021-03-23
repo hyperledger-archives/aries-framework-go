@@ -127,7 +127,7 @@ func TestClient_SendProposal(t *testing.T) {
 	})
 }
 
-func TestClient_SendProposalWithOOBRequest(t *testing.T) {
+func TestClient_SendProposalWithOOBInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -147,8 +147,8 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	req := &outofband.Request{}
-	piid, err := client.SendProposalWithOOBRequest(req, &Recipient{
+	req := &outofband.Invitation{}
+	piid, err := client.SendProposalWithOOBInvitation(req, &Recipient{
 		MyDID:    "firstMyDID",
 		TheirDID: "firstTheirDID",
 	})
@@ -191,7 +191,7 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().ActionContinue(
 			gomock.AssignableToTypeOf(""),
-			gomock.AssignableToTypeOf(introduce.WithOOBRequest(nil)),
+			gomock.AssignableToTypeOf(introduce.WithOOBInvitation(nil)),
 		).DoAndReturn(
 			func(piid string, opt introduce.Opt) error {
 				require.Equal(t, expectedPIID, piid)
@@ -205,7 +205,7 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		err = client.AcceptProposalWithOOBRequest(expectedPIID, &outofband.Request{})
+		err = client.AcceptProposalWithOOBInvitation(expectedPIID, &outofband.Invitation{})
 		require.NoError(t, err)
 	})
 }
@@ -240,7 +240,7 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().ActionContinue(
 			gomock.AssignableToTypeOf(""),
-			gomock.AssignableToTypeOf(introduce.WithPublicOOBRequest(nil, nil)),
+			gomock.AssignableToTypeOf(introduce.WithPublicOOBInvitation(nil, nil)),
 		).DoAndReturn(
 			func(piid string, opt introduce.Opt) error {
 				require.Equal(t, expectedPIID, piid)
@@ -254,7 +254,7 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		err = client.AcceptRequestWithPublicOOBRequest(expectedPIID, &outofband.Request{}, &To{})
+		err = client.AcceptRequestWithPublicOOBInvitation(expectedPIID, &outofband.Invitation{}, &To{})
 		require.NoError(t, err)
 	})
 }

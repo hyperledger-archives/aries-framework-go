@@ -31,10 +31,10 @@ func (ir *Introduce) SendProposal(request *models.RequestEnvelope) *models.Respo
 	return ir.createRespEnvelope(request, cmdintroduce.SendProposal)
 }
 
-// SendProposalWithOOBRequest sends a proposal to the introducee
+// SendProposalWithOOBInvitation sends a proposal to the introducee
 // (the client has published an out-of-band request) via HTTP.
-func (ir *Introduce) SendProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	return ir.createRespEnvelope(request, cmdintroduce.SendProposalWithOOBRequest)
+func (ir *Introduce) SendProposalWithOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return ir.createRespEnvelope(request, cmdintroduce.SendProposalWithOOBInvitation)
 }
 
 // SendRequest sends a request showing that the introducee is willing to share their own out-of-band message (via HTTP).
@@ -42,9 +42,9 @@ func (ir *Introduce) SendRequest(request *models.RequestEnvelope) *models.Respon
 	return ir.createRespEnvelope(request, cmdintroduce.SendRequest)
 }
 
-// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request (via HTTP).
-func (ir *Introduce) AcceptProposalWithOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	return ir.createRespEnvelope(request, cmdintroduce.AcceptProposalWithOOBRequest)
+// AcceptProposalWithOOBInvitation is used when introducee wants to provide an out-of-band request (via HTTP).
+func (ir *Introduce) AcceptProposalWithOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return ir.createRespEnvelope(request, cmdintroduce.AcceptProposalWithOOBInvitation)
 }
 
 // AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest (via HTTP).
@@ -52,10 +52,10 @@ func (ir *Introduce) AcceptProposal(request *models.RequestEnvelope) *models.Res
 	return ir.createRespEnvelope(request, cmdintroduce.AcceptProposal)
 }
 
-// AcceptRequestWithPublicOOBRequest is used when an introducer
+// AcceptRequestWithPublicOOBInvitation is used when an introducer
 // wants to provide a published out-of-band request (via HTTP).
-func (ir *Introduce) AcceptRequestWithPublicOOBRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	return ir.createRespEnvelope(request, cmdintroduce.AcceptRequestWithPublicOOBRequest)
+func (ir *Introduce) AcceptRequestWithPublicOOBInvitation(request *models.RequestEnvelope) *models.ResponseEnvelope {
+	return ir.createRespEnvelope(request, cmdintroduce.AcceptRequestWithPublicOOBInvitation)
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand

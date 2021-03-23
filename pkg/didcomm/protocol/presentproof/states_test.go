@@ -286,7 +286,7 @@ func TestRequestSent_Execute(t *testing.T) {
 		require.NoError(t, action(messenger))
 	})
 
-	t.Run("Request presentation is absent", func(t *testing.T) {
+	t.Run("Invitation presentation is absent", func(t *testing.T) {
 		followup, action, err := (&requestSent{}).Execute(&metaData{
 			transitionalPayload: transitionalPayload{Action: Action{Msg: randomInboundMessage("")}},
 		})
