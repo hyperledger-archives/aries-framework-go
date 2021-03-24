@@ -614,6 +614,8 @@ func (s *Service) update(msgType string, record *connection.Record) error {
 // CreateConnection saves the record to the connection store and maps TheirDID to their recipient keys in
 // the did connection store.
 func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc) error {
+	logger.Debugf("creating connection using record [%+v] and theirDID [%+v]", record, theirDID)
+
 	didMethod, err := vdr.GetDidMethod(theirDID.ID)
 	if err != nil {
 		return err
@@ -622,6 +624,16 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 	_, err = s.ctx.vdRegistry.Create(didMethod, theirDID, vdrapi.WithOption("store", true))
 	if err != nil {
 		return fmt.Errorf("vdr failed to store theirDID : %w", err)
+	}
+
+	err = s.connectionStore.SaveDIDFromDoc(theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to save theirDID to the did.ConnectionStore: %w", err)
+	}
+
+	err = s.connectionStore.SaveDIDByResolving(record.MyDID)
+	if err != nil {
+		return fmt.Errorf("failed to save myDID to the did.ConnectionStore: %w", err)
 	}
 
 	return s.connectionRecorder.SaveConnectionRecord(record)

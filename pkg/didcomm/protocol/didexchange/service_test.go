@@ -666,6 +666,7 @@ func TestCreateConnection(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
+			DIDConnectionStoreValue: &mockConnectionStore{},
 		}
 		s, err := New(provider)
 		require.NoError(t, err)
@@ -714,6 +715,53 @@ func TestCreateConnection(t *testing.T) {
 			VDRegistryValue:                   &mockvdr.MockVDRegistry{},
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+			DIDConnectionStoreValue: &mockConnectionStore{},
+		})
+		require.NoError(t, err)
+
+		err = s.CreateConnection(&connection.Record{
+			State: StateIDCompleted,
+		}, newPeerDID(t))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("wraps did.ConnectionStore.SaveDIDFromDoc error", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			KMSValue:                          &mockkms.KeyManager{},
+			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			VDRegistryValue:                   &mockvdr.MockVDRegistry{},
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+			DIDConnectionStoreValue: &mockConnectionStore{
+				saveDIDFromDocErr: expected,
+			},
+		})
+		require.NoError(t, err)
+
+		err = s.CreateConnection(&connection.Record{
+			State: StateIDCompleted,
+		}, newPeerDID(t))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("wraps did.ConnectionStore.SaveDIDByResolving error", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			KMSValue:                          &mockkms.KeyManager{},
+			StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
+			VDRegistryValue:                   &mockvdr.MockVDRegistry{},
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+			DIDConnectionStoreValue: &mockConnectionStore{
+				saveDIDByResolvingErr: expected,
 			},
 		})
 		require.NoError(t, err)
@@ -2151,4 +2199,29 @@ func newPeerDID(t *testing.T) *did.Doc {
 	require.NoError(t, err)
 
 	return doc
+}
+
+type mockConnectionStore struct {
+	saveDIDByResolvingErr error
+	saveDIDFromDocErr     error
+}
+
+// GetDID returns DID associated with key.
+func (m *mockConnectionStore) GetDID(string) (string, error) {
+	return "", nil
+}
+
+// SaveDID saves DID to the underlying storage.
+func (m *mockConnectionStore) SaveDID(string, ...string) error {
+	return nil
+}
+
+// SaveDIDFromDoc saves DID from did.Doc to the underlying storage.
+func (m *mockConnectionStore) SaveDIDFromDoc(*did.Doc) error {
+	return m.saveDIDFromDocErr
+}
+
+// SaveDIDByResolving saves DID resolved by VDR to the underlying storage.
+func (m *mockConnectionStore) SaveDIDByResolving(string, ...string) error {
+	return m.saveDIDByResolvingErr
 }
