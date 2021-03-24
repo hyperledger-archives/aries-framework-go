@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vcwallet
+package wallet
 
 import (
 	"bytes"
@@ -74,8 +74,8 @@ type walletKeyManager struct {
 	gstore gcache.Cache
 }
 
-func (k *walletKeyManager) createKeyManager(profileInfo *profile, storeProvider storage.Provider, auth string,
-	secretLockSvc secretlock.Service, expiration time.Duration) (string, error) {
+func (k *walletKeyManager) createKeyManager(profileInfo *profile,
+	storeProvider storage.Provider, opts *unlockOpts) (string, error) {
 	if profileInfo.MasterLockCipher == "" && profileInfo.KeyServerURL == "" {
 		return "", fmt.Errorf("invalid wallet profile")
 	}
@@ -93,21 +93,21 @@ func (k *walletKeyManager) createKeyManager(profileInfo *profile, storeProvider 
 	// create key manager
 	if profileInfo.MasterLockCipher != "" {
 		// local kms
-		keyManager, err = createLocalKeyManager(profileInfo.User, auth,
-			profileInfo.MasterLockCipher, secretLockSvc, storeProvider)
+		keyManager, err = createLocalKeyManager(profileInfo.User, opts.passphrase,
+			profileInfo.MasterLockCipher, opts.secretLockSvc, storeProvider)
 		if err != nil {
 			return "", fmt.Errorf("failed to create local key manager: %w", err)
 		}
 	} else {
 		// remote kms
-		keyManager = createRemoteKeyManager(auth, profileInfo.KeyServerURL)
+		keyManager = createRemoteKeyManager(opts.authToken, profileInfo.KeyServerURL)
 	}
 
 	// generate token
 	token = uuid.New().String()
 
 	// save key manager
-	err = k.saveKeyManger(profileInfo.User, token, keyManager, expiration)
+	err = k.saveKeyManger(profileInfo.User, token, keyManager, opts.tokenExpiry)
 	if err != nil {
 		return "", fmt.Errorf("failed to persist local key manager: %w", err)
 	}
