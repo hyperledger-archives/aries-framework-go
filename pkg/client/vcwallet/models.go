@@ -9,6 +9,8 @@ package vcwallet
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 // QueryParams model
@@ -27,20 +29,27 @@ type QueryParams struct {
 // ProofOptions model
 //
 // Options for adding linked data proofs to a verifiable credential or a verifiable presentation.
+// To be used as options for issue/prove wallet features.
 //
 type ProofOptions struct {
-	// VerificationMethod is the URI of the verificationMethod used for the proof.
-	VerificationMethod string `json:"verificationMethod,omitempty"`
-	// ProofPurpose is purpose of the proof.
-	ProofPurpose string `json:"proofPurpose,omitempty"`
-	// Controller is a DID to be for signing.
+	// Controller is a DID to be for signing. This option is required for issue/prove wallet features.
 	Controller string `json:"controller,omitempty"`
-	// Created date of the proof. If omitted current system time will be used.
+	// VerificationMethod is the URI of the verificationMethod used for the proof.
+	// Optional, by default Controller public key matching 'assertion' for issue or 'authentication' for prove functions.
+	VerificationMethod string `json:"verificationMethod,omitempty"`
+	// Created date of the proof.
+	// Optional, current system time will be used.
 	Created *time.Time `json:"created,omitempty"`
 	// Domain is operational domain of a digital proof.
+	// Optional, by default domain will not be part of proof.
 	Domain string `json:"domain,omitempty"`
-	// Challenge is a random or pseudo-random value option authentication
+	// Challenge is a random or pseudo-random value option authentication.
+	// Optional, by default challenge will not be part of proof.
 	Challenge string `json:"challenge,omitempty"`
-	// ProofType is signature type used for signing
+	// ProofType is signature type used for signing.
+	// Optional, by default proof will be generated in Ed25519Signature2018 format.
 	ProofType string `json:"proofType,omitempty"`
+	// ProofRepresentation is type of proof data expected, (Refer verifiable.SignatureProofValue)
+	// Optional, by default proof will be represented as 'verifiable.SignatureProofValue'.
+	ProofRepresentation *verifiable.SignatureRepresentation `json:"proofRepresentation,omitempty"`
 }

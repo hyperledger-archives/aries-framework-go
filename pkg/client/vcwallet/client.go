@@ -8,17 +8,64 @@ package vcwallet
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
+)
+
+// Proof types.
+const (
+	// Ed25519Signature2018 ed25519 signature suite.
+	Ed25519Signature2018 = "Ed25519Signature2018"
+	// JSONWebSignature2020 json web signature suite.
+	JSONWebSignature2020 = "JsonWebSignature2020"
+	// BbsBlsSignature2020 BBS signature suite.
+	BbsBlsSignature2020 = "BbsBlsSignature2020"
+)
+
+// miscellaneous constants.
+const (
+	bbsContext = "https://w3id.org/security/bbs/v1"
+)
+
+// proof options.
+// nolint:gochecknoglobals
+var (
+	defaultSignatureRepresentation = verifiable.SignatureJWS
+	supportedRelationships         = map[did.VerificationRelationship]string{
+		did.Authentication:  "authentication",
+		did.AssertionMethod: "assertionMethod",
+	}
 )
 
 // provider contains dependencies for the verifiable credential wallet client
 // and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
+	VDRegistry() vdr.Registry
+	Crypto() crypto.Crypto
+}
+
+type provable interface {
+	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
 }
 
 // kmsOpts contains options for creating verifiable credential wallet client.
@@ -68,7 +115,7 @@ type Client struct {
 	contents *contentStore
 
 	// storage provider
-	storeProvider storage.Provider
+	ctx provider
 }
 
 // New returns new verifiable credential wallet client for given user.
@@ -91,7 +138,7 @@ func New(userID string, ctx provider) (*Client, error) {
 		return nil, fmt.Errorf("failed to get wallet content store: %w", err)
 	}
 
-	return &Client{userID: userID, profile: profile, storeProvider: ctx.StorageProvider(), contents: contents}, nil
+	return &Client{userID: userID, profile: profile, ctx: ctx, contents: contents}, nil
 }
 
 // CreateProfile creates a new verifiable credential wallet profile for given user.
@@ -158,7 +205,7 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...KeyMana
 //
 //	Returns token with expiry that can be used for subsequent use of wallet features.
 func (c *Client) Open(auth string, secretLockSvc secretlock.Service, tokenExpiry time.Duration) (string, error) {
-	return keyManager().createKeyManager(c.profile, c.storeProvider, auth, secretLockSvc, tokenExpiry)
+	return keyManager().createKeyManager(c.profile, c.ctx.StorageProvider(), auth, secretLockSvc, tokenExpiry)
 }
 
 // Close expires token issued to this VC wallet client.
@@ -260,9 +307,26 @@ func (c *Client) Query(query *QueryParams) ([]json.RawMessage, error) {
 //		- A verifiable credential with or without proof
 //		- Proof options
 //
-func (c *Client) Issue(credential json.RawMessage, options *ProofOptions) (json.RawMessage, error) {
-	// TODO to be added #2433
-	return nil, fmt.Errorf("to be implemented")
+func (c *Client) Issue(authToken string, credential json.RawMessage,
+	options *ProofOptions) (*verifiable.Credential, error) {
+	vc, err := verifiable.ParseCredential(credential, verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse credential: %w", err)
+	}
+
+	purpose := did.AssertionMethod
+
+	err = c.validateProofOption(options, purpose)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare proof: %w", err)
+	}
+
+	err = c.addLinkedDataProof(authToken, vc, options, purpose)
+	if err != nil {
+		return nil, fmt.Errorf("failed to issue credential: %w", err)
+	}
+
+	return vc, nil
 }
 
 // Prove produces a Verifiable Presentation.
@@ -286,3 +350,244 @@ func (c *Client) Verify(raw json.RawMessage) (bool, error) {
 	// TODO to be added #2433
 	return false, fmt.Errorf("to be implemented")
 }
+
+func (c *Client) addLinkedDataProof(authToken string, p provable, opts *ProofOptions,
+	relationship did.VerificationRelationship) error {
+	s, err := newKMSSigner(authToken, c.ctx.Crypto(), opts)
+	if err != nil {
+		return err
+	}
+
+	var signatureSuite signer.SignatureSuite
+
+	var processorOpts []jsonld.ProcessorOpts
+
+	switch opts.ProofType {
+	case Ed25519Signature2018:
+		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
+	case JSONWebSignature2020:
+		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
+	case BbsBlsSignature2020:
+		// TODO document loader to be part of common API, to be removed
+		bbsLoader, e := bbsJSONLDDocumentLoader()
+		if e != nil {
+			return e
+		}
+
+		processorOpts = append(processorOpts, jsonld.WithDocumentLoader(bbsLoader))
+
+		addContext(p, bbsContext)
+
+		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
+	default:
+		return fmt.Errorf("unsupported signature type '%s'", opts.ProofType)
+	}
+
+	signingCtx := &verifiable.LinkedDataProofContext{
+		VerificationMethod:      opts.VerificationMethod,
+		SignatureRepresentation: *opts.ProofRepresentation,
+		SignatureType:           opts.ProofType,
+		Suite:                   signatureSuite,
+		Created:                 opts.Created,
+		Domain:                  opts.Domain,
+		Challenge:               opts.Challenge,
+		Purpose:                 supportedRelationships[relationship],
+	}
+
+	err = p.AddLinkedDataProof(signingCtx, processorOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to add linked data proof: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) validateProofOption(opts *ProofOptions, method did.VerificationRelationship) error {
+	if opts == nil || opts.Controller == "" {
+		return errors.New("invalid proof option, 'controller' is required")
+	}
+
+	didDoc, err := c.getDIDDocument(opts.Controller)
+	if err != nil {
+		return err
+	}
+
+	err = c.validateVerificationMethod(didDoc, opts, method)
+	if err != nil {
+		return err
+	}
+
+	if opts.ProofRepresentation == nil {
+		opts.ProofRepresentation = &defaultSignatureRepresentation
+	}
+
+	if opts.ProofType == "" {
+		opts.ProofType = Ed25519Signature2018
+	}
+
+	return nil
+}
+
+// TODO stored DIDResolution response & DID Doc metadata should be read first before trying to resolve using VDR.
+func (c *Client) getDIDDocument(didID string) (*did.Doc, error) {
+	doc, err := c.ctx.VDRegistry().Resolve(didID)
+	//  if DID not found in VDR, look through in wallet content storage.
+	if err != nil {
+		docBytes, err := c.contents.Get(DIDResolutionResponse, didID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read DID document from wallet store or from VDR: %w", err)
+		}
+
+		doc, err = did.ParseDocumentResolution(docBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse stored DID: %w", err)
+		}
+
+		return doc.DIDDocument, nil
+	}
+
+	return doc.DIDDocument, nil
+}
+
+func (c *Client) validateVerificationMethod(didDoc *did.Doc, opts *ProofOptions,
+	relationship did.VerificationRelationship) error {
+	vms := didDoc.VerificationMethods(relationship)[relationship]
+
+	for _, vm := range vms {
+		if opts.VerificationMethod != "" {
+			// if verification method is provided as an option, then validate if it belongs to given method.
+			if opts.VerificationMethod == vm.VerificationMethod.ID {
+				return nil
+			}
+
+			continue
+		} else {
+			// by default first public key matching relationship.
+			opts.VerificationMethod = vm.VerificationMethod.ID
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unable to find '%s' for given verification method", supportedRelationships[relationship])
+}
+
+// addContext adds context if not found in given data model.
+func addContext(v interface{}, context string) {
+	if vc, ok := v.(*verifiable.Credential); ok {
+		for _, ctx := range vc.Context {
+			if ctx == context {
+				return
+			}
+		}
+
+		vc.Context = append(vc.Context, context)
+	}
+}
+
+// TODO: context should not be loaded here, the loader should be defined once for the whole system.
+func bbsJSONLDDocumentLoader() (*jld.CachingDocumentLoader, error) {
+	loader := presexch.CachingJSONLDLoader()
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
+	if err != nil {
+		return nil, err
+	}
+
+	loader.AddDocument(bbsContext, reader)
+
+	return loader, nil
+}
+
+const contextBBSContent = `{
+  "@context": {
+    "@version": 1.1,
+    "id": "@id",
+    "type": "@type",
+    "BbsBlsSignature2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignature2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "challenge": "https://w3id.org/security#challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+        },
+        "domain": "https://w3id.org/security#domain",
+        "proofValue": "https://w3id.org/security#proofValue",
+        "nonce": "https://w3id.org/security#nonce",
+        "proofPurpose": {
+          "@id": "https://w3id.org/security#proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "assertionMethod": {
+              "@id": "https://w3id.org/security#assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "https://w3id.org/security#authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "verificationMethod": {
+          "@id": "https://w3id.org/security#verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "BbsBlsSignatureProof2020": {
+      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+
+        "challenge": "https://w3id.org/security#challenge",
+        "created": {
+          "@id": "http://purl.org/dc/terms/created",
+          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+        },
+        "domain": "https://w3id.org/security#domain",
+        "nonce": "https://w3id.org/security#nonce",
+        "proofPurpose": {
+          "@id": "https://w3id.org/security#proofPurpose",
+          "@type": "@vocab",
+          "@context": {
+            "@version": 1.1,
+            "@protected": true,
+            "id": "@id",
+            "type": "@type",
+            "sec": "https://w3id.org/security#",
+            "assertionMethod": {
+              "@id": "https://w3id.org/security#assertionMethod",
+              "@type": "@id",
+              "@container": "@set"
+            },
+            "authentication": {
+              "@id": "https://w3id.org/security#authenticationMethod",
+              "@type": "@id",
+              "@container": "@set"
+            }
+          }
+        },
+        "proofValue": "https://w3id.org/security#proofValue",
+        "verificationMethod": {
+          "@id": "https://w3id.org/security#verificationMethod",
+          "@type": "@id"
+        }
+      }
+    },
+    "Bls12381G2Key2020": "https://w3id.org/security#Bls12381G2Key2020"
+  }
+}`

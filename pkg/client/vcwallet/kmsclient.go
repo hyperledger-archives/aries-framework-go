@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -32,11 +34,22 @@ const (
 	// LocalKeyURIPrefix for locally stored keys.
 	localKeyURIPrefix = "local-lock://"
 
+	// default cache expiry time.
 	defaultCacheExpiry = 10 * time.Minute
+
+	// number of sections in verification method.
+	vmSectionCount = 2
 )
 
-// ErrAlreadyUnlocked error when key manager is already created for a given user.
-var ErrAlreadyUnlocked = errors.New("profile already unlocked")
+// errors.
+// nolint: gochecknoglobals
+var (
+	// ErrAlreadyUnlocked error when key manager is already created for a given user.
+	ErrAlreadyUnlocked = errors.New("profile already unlocked")
+
+	// WalletLocked when key manager operation is attempted without unlocking wallet.
+	ErrWalletLocked = errors.New("wallet locked")
+)
 
 // walletKMSInstance is key manager store singleton - access only via keyManager()
 //nolint:gochecknoglobals
@@ -204,4 +217,60 @@ func createRemoteKeyManager(auth, keyServerURL string) *webkms.RemoteKMS {
 
 		return &req.Header, nil
 	}))
+}
+
+type kmsSigner struct {
+	keyHandle interface{}
+	crypto    crypto.Crypto
+	multiMsg  bool
+}
+
+func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSigner, error) {
+	keyManager, err := keyManager().getKeyManger(authToken)
+	if err != nil {
+		if errors.Is(err, gcache.KeyNotFoundError) {
+			return nil, ErrWalletLocked
+		}
+
+		return nil, fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	vmSplit := strings.Split(opts.VerificationMethod, "#")
+
+	if len(vmSplit) != vmSectionCount {
+		return nil, errors.New("invalid verification method format")
+	}
+
+	keyHandler, err := keyManager.Get(vmSplit[vmSectionCount-1])
+	if err != nil {
+		return nil, err
+	}
+
+	return &kmsSigner{keyHandle: keyHandler, crypto: c, multiMsg: opts.ProofType == BbsBlsSignature2020}, nil
+}
+
+func (s *kmsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
+}
+
+func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
+	if s.multiMsg {
+		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
+	}
+
+	v, err := s.crypto.Sign(data, s.keyHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
