@@ -21,15 +21,22 @@ import (
 )
 
 type mockFormatter struct {
-	errFormat error
+	errFormat                     error
+	errDeformat                   error
+	useDeterministicKeyFormatting bool
+	formatTagsReturn              []spi.Tag
 }
 
 func (m *mockFormatter) Format(string, []byte, ...spi.Tag) (string, []byte, []spi.Tag, error) {
-	return "", nil, nil, m.errFormat
+	return "", nil, m.formatTagsReturn, m.errFormat
 }
 
 func (m *mockFormatter) Deformat(string, []byte, ...spi.Tag) (string, []byte, []spi.Tag, error) {
-	return "", nil, nil, errors.New("key, value or tags deformatting failure")
+	return "", nil, nil, m.errDeformat
+}
+
+func (m *mockFormatter) UsesDeterministicKeyFormatting() bool {
+	return m.useDeterministicKeyFormatting
 }
 
 func TestCommon(t *testing.T) {
@@ -40,10 +47,20 @@ func TestCommon(t *testing.T) {
 		storagetest.TestAll(t, provider)
 	})
 	t.Run("With base64 formatter", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.Base64Formatter{})
-		require.NotNil(t, provider)
+		t.Run("With non-deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				exampleformatters.NewBase64Formatter(false))
+			require.NotNil(t, provider)
 
-		storagetest.TestAll(t, provider)
+			storagetest.TestAll(t, provider)
+		})
+		t.Run("With base64 formatter", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				exampleformatters.NewBase64Formatter(true))
+			require.NotNil(t, provider)
+
+			storagetest.TestAll(t, provider)
+		})
 	})
 }
 
@@ -64,7 +81,7 @@ func TestFormattedProvider_OpenStore(t *testing.T) {
 func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 	t.Run("Fail to format tag names", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("tags formatting failure")})
+			&mockFormatter{errFormat: errors.New("tags formatting failure"), useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -85,7 +102,8 @@ func TestFormattedProvider_SetStoreConfig(t *testing.T) {
 		require.NotNil(t, store)
 
 		err = provider.SetStoreConfig("StoreName", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
-		require.EqualError(t, err, "failed to store config in store config store: "+
+		require.EqualError(t, err, "failed to store store configuration: "+
+			"failed to store config bytes in the store config store: failed to format and put data: "+
 			"failed to put formatted data in underlying store: put failure")
 	})
 }
@@ -102,6 +120,7 @@ func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 
 		config, err := provider.GetStoreConfig("StoreName")
 		require.EqualError(t, err, "failed to get store config from the store config store: "+
+			"failed to get value stored under deterministically generated key: "+
 			"failed to get formatted value from underlying store: get failure")
 		require.Empty(t, config)
 	})
@@ -123,7 +142,7 @@ func TestFormattedProvider_GetStoreConfig(t *testing.T) {
 func TestFormattedProvider_Close(t *testing.T) {
 	t.Run("Fail to close underlying provider", func(t *testing.T) {
 		provider := formattedstore.NewProvider(&mock.Provider{ErrClose: errors.New("close failure")},
-			&mockFormatter{})
+			&mockFormatter{useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		err := provider.Close()
@@ -133,8 +152,44 @@ func TestFormattedProvider_Close(t *testing.T) {
 
 func TestFormatStore_Put(t *testing.T) {
 	t.Run("Fail to format", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("formatting failure")})
+		t.Run("Formatter uses non-deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{errFormat: errors.New("formatting failure"), useDeterministicKeyFormatting: false})
+			require.NotNil(t, provider)
+
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
+			require.EqualError(t, err, "failed to store data using non-deterministic key formatting: "+
+				"failed to query using the key tag: failed to format tag: formatting failure")
+		})
+		t.Run("Formatter uses deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{errFormat: errors.New("formatting failure"), useDeterministicKeyFormatting: true})
+			require.NotNil(t, provider)
+
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
+			require.EqualError(t, err, "failed to format and put data: failed to format data: formatting failure")
+		})
+	})
+	t.Run("Fail to get next result from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					ErrNext: errors.New("next error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -142,14 +197,60 @@ func TestFormatStore_Put(t *testing.T) {
 		require.NotNil(t, store)
 
 		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
-		require.EqualError(t, err, "failed to format data: formatting failure")
+		require.EqualError(t, err, "failed to store data using non-deterministic key formatting: "+
+			"failed to get next result from iterator: next error")
+	})
+	t.Run("Fail to get key from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+					ErrKey:     errors.New("key error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
+		require.EqualError(t, err, "failed to store data using non-deterministic key formatting: "+
+			"failed to get key from iterator: key error")
+	})
+	t.Run("Unexpectedly found multiple keys matching query", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Put("KeyName", []byte("value"), spi.Tag{Name: "TagName1", Value: "TagValue1"})
+		require.EqualError(t, err, "failed to store data using non-deterministic key formatting: "+
+			"unexpectedly found multiple results matching query. Only one is expected")
 	})
 }
 
 func TestFormatStore_Get(t *testing.T) {
 	t.Run("Fail to format key", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("key formatting failure")})
+			&mockFormatter{errFormat: errors.New("key formatting failure"), useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -157,12 +258,30 @@ func TestFormatStore_Get(t *testing.T) {
 		require.NotNil(t, store)
 
 		value, err := store.Get("KeyName")
-		require.EqualError(t, err, `failed to format key "KeyName": key formatting failure`)
+		require.EqualError(t, err, `failed to get value stored under deterministically generated key: `+
+			`failed to format key "KeyName": key formatting failure`)
+		require.Nil(t, value)
+	})
+	t.Run("Fail to format tags", func(t *testing.T) {
+		provider := formattedstore.NewProvider(mem.NewProvider(),
+			&mockFormatter{errFormat: errors.New("formatting failure"), useDeterministicKeyFormatting: false})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		value, err := store.Get("KeyName")
+		require.EqualError(t, err, "failed to get value stored under non-deterministically generated key: "+
+			"failed to query store: failed to format tag: formatting failure")
 		require.Nil(t, value)
 	})
 	t.Run("Fail to deformat", func(t *testing.T) {
 		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{GetReturn: []byte("value")}},
-			&mockFormatter{})
+			&mockFormatter{
+				errDeformat:                   errors.New("key, value or tags deformatting failure"),
+				useDeterministicKeyFormatting: true,
+			})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -170,16 +289,86 @@ func TestFormatStore_Get(t *testing.T) {
 		require.NotNil(t, store)
 
 		value, err := store.Get("KeyName")
-		require.EqualError(t, err, `failed to deformat value "value" returned from the underlying store: `+
+		require.EqualError(t, err, `failed to get value stored under deterministically generated key: `+
+			`failed to deformat value "value" returned from the underlying store: `+
 			`key, value or tags deformatting failure`)
 		require.Nil(t, value)
+	})
+	t.Run("Fail to get next result from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					ErrNext: errors.New("next error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.Get("KeyName")
+		require.EqualError(t, err, "failed to get value stored under non-deterministically generated key: "+
+			"failed to get next result from iterator: failed to move the entry pointer in the underlying iterator: "+
+			"next error")
+	})
+	t.Run("Fail to get value from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+					ErrValue:   errors.New("value error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.Get("KeyName")
+		require.EqualError(t, err, "failed to get value stored under non-deterministically generated key: "+
+			"failed to get value from iterator: "+
+			"failed to get formatted value from the underlying iterator: value error")
+	})
+	t.Run("Unexpectedly found multiple keys matching query", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.Get("KeyName")
+		require.EqualError(t, err, "failed to get value stored under non-deterministically generated key: "+
+			"unexpectedly found multiple results matching query. Only one is expected")
 	})
 }
 
 func TestFormatStore_GetTags(t *testing.T) {
 	t.Run("Fail to format key", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("key formatting failure")})
+			&mockFormatter{errFormat: errors.New("key formatting failure"), useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -187,12 +376,30 @@ func TestFormatStore_GetTags(t *testing.T) {
 		require.NotNil(t, store)
 
 		value, err := store.GetTags("KeyName")
-		require.EqualError(t, err, `failed to format key "KeyName": key formatting failure`)
+		require.EqualError(t, err, `failed to get tags stored under deterministically generated key: `+
+			`failed to format key "KeyName": key formatting failure`)
+		require.Nil(t, value)
+	})
+	t.Run("Fail to format tags (using non-deterministic key formatting)", func(t *testing.T) {
+		provider := formattedstore.NewProvider(mem.NewProvider(),
+			&mockFormatter{errFormat: errors.New("formatting failure"), useDeterministicKeyFormatting: false})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		value, err := store.GetTags("KeyName")
+		require.EqualError(t, err, "failed to get tags stored under non-deterministically generated key: "+
+			"failed to query store: failed to format tag: formatting failure")
 		require.Nil(t, value)
 	})
 	t.Run("Fail to deformat tags", func(t *testing.T) {
 		provider := formattedstore.NewProvider(&mock.Provider{OpenStoreReturn: &mock.Store{}},
-			&mockFormatter{})
+			&mockFormatter{
+				errDeformat:                   errors.New("key, value or tags deformatting failure"),
+				useDeterministicKeyFormatting: true,
+			})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -200,15 +407,84 @@ func TestFormatStore_GetTags(t *testing.T) {
 		require.NotNil(t, store)
 
 		value, err := store.GetTags("KeyName")
-		require.EqualError(t, err, "failed to deformat tags: key, value or tags deformatting failure")
+		require.EqualError(t, err, "failed to get tags stored under deterministically generated key: "+
+			"failed to deformat tags: key, value or tags deformatting failure")
 		require.Nil(t, value)
+	})
+	t.Run("Fail to get next result from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					ErrNext: errors.New("next error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.GetTags("KeyName")
+		require.EqualError(t, err, "failed to get tags stored under non-deterministically generated key: "+
+			"failed to get next result from iterator: failed to move the entry pointer in the underlying iterator: "+
+			"next error")
+	})
+	t.Run("Fail to get tags from iterator", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+					ErrValue:   errors.New("value error"),
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.GetTags("KeyName")
+		require.EqualError(t, err, "failed to get tags stored under non-deterministically generated key: "+
+			"failed to get tags from iterator: failed to get formatted value from the underlying iterator: value error")
+	})
+	t.Run("Unexpectedly found multiple keys matching query", func(t *testing.T) {
+		provider := formattedstore.NewProvider(&mock.Provider{
+			OpenStoreReturn: &mock.Store{
+				QueryReturn: &mock.Iterator{
+					NextReturn: true,
+				},
+			},
+		},
+			&mockFormatter{
+				useDeterministicKeyFormatting: false,
+				formatTagsReturn:              []spi.Tag{{}},
+			})
+		require.NotNil(t, provider)
+
+		store, err := provider.OpenStore("StoreName")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		_, err = store.GetTags("KeyName")
+		require.EqualError(t, err, "failed to get tags stored under non-deterministically generated key: "+
+			"unexpectedly found multiple results matching query. Only one is expected")
 	})
 }
 
 func TestFormatStore_GetBulk(t *testing.T) {
 	t.Run("Fail to format key", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("key formatting failure")})
+			&mockFormatter{errFormat: errors.New("key formatting failure"), useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -216,7 +492,8 @@ func TestFormatStore_GetBulk(t *testing.T) {
 		require.NotNil(t, store)
 
 		value, err := store.GetBulk("KeyName")
-		require.EqualError(t, err, `failed to format key "KeyName": key formatting failure`)
+		require.EqualError(t, err, `failed to get values stored under deterministically generated keys: `+
+			`failed to format key "KeyName": key formatting failure`)
 		require.Nil(t, value)
 	})
 }
@@ -224,7 +501,7 @@ func TestFormatStore_GetBulk(t *testing.T) {
 func TestFormatStore_Query(t *testing.T) {
 	t.Run("Fail to format tags", func(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("tags formatting failure")})
+			&mockFormatter{errFormat: errors.New("tags formatting failure"), useDeterministicKeyFormatting: true})
 		require.NotNil(t, provider)
 
 		store, err := provider.OpenStore("StoreName")
@@ -269,37 +546,86 @@ func TestFormatStore_Query(t *testing.T) {
 }
 
 func TestFormatStore_Delete(t *testing.T) {
-	t.Run("Fail to format key", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("key formatting failure")})
-		require.NotNil(t, provider)
+	t.Run("Fail to format", func(t *testing.T) {
+		t.Run("Formatter uses non-deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{
+					errFormat:                     errors.New("formatting failure"),
+					useDeterministicKeyFormatting: false,
+				})
+			require.NotNil(t, provider)
 
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
 
-		err = store.Delete("KeyName")
-		require.EqualError(t, err, `failed to format key "KeyName": key formatting failure`)
+			err = store.Delete("KeyName")
+			require.EqualError(t, err, "failed to delete data stored under non-deterministic key: "+
+				"failed to query using the key tag: failed to format tag: formatting failure")
+		})
+		t.Run("Formatter uses deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{
+					errFormat:                     errors.New("key formatting failure"),
+					useDeterministicKeyFormatting: true,
+				})
+			require.NotNil(t, provider)
+
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = store.Delete("KeyName")
+			require.EqualError(t, err, `failed to delete data stored under deterministic key: `+
+				`failed to format key "KeyName": key formatting failure`)
+		})
 	})
 }
 
 func TestFormatStore_Batch(t *testing.T) {
 	t.Run("Fail to format key", func(t *testing.T) {
-		provider := formattedstore.NewProvider(mem.NewProvider(),
-			&mockFormatter{errFormat: errors.New("key formatting failure")})
-		require.NotNil(t, provider)
+		t.Run("Formatter uses non-deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{errFormat: errors.New("key formatting failure")})
+			require.NotNil(t, provider)
 
-		store, err := provider.OpenStore("StoreName")
-		require.NoError(t, err)
-		require.NotNil(t, store)
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
 
-		err = store.Batch([]spi.Operation{
-			{
-				Key:   "KeyName",
-				Value: []byte("Value1"),
-			},
+			err = store.Batch([]spi.Operation{
+				{
+					Key:   "KeyName",
+					Value: []byte("Value1"),
+				},
+			})
+			require.EqualError(t, err, "failed to perform batch operations using non-deterministic keys: "+
+				"failed to generate formatted operations: failed to prepare formatted put operation: "+
+				"unexpected failure while determining formatted key to use: "+
+				"unexpected failure while attempting to determine formatted key via store query: "+
+				"failed to query using the key tag: failed to format tag: key formatting failure")
 		})
-		require.EqualError(t, err, "failed to format data: key formatting failure")
+		t.Run("Formatter uses deterministic key formatting", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				&mockFormatter{
+					errFormat:                     errors.New("key formatting failure"),
+					useDeterministicKeyFormatting: true,
+				})
+			require.NotNil(t, provider)
+
+			store, err := provider.OpenStore("StoreName")
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = store.Batch([]spi.Operation{
+				{
+					Key:   "KeyName",
+					Value: []byte("Value1"),
+				},
+			})
+			require.EqualError(t, err, "failed to perform batch operations using deterministic keys: "+
+				"failed to format data: key formatting failure")
+		})
 	})
 	t.Run("Fail to perform formatted operations in underlying store", func(t *testing.T) {
 		provider := formattedstore.NewProvider(
@@ -317,7 +643,8 @@ func TestFormatStore_Batch(t *testing.T) {
 				Value: []byte("Value1"),
 			},
 		})
-		require.EqualError(t, err, "failed to perform formatted operations in underlying store: batch failure")
+		require.EqualError(t, err, "failed to perform batch operations using deterministic keys: "+
+			"failed to perform formatted operations in underlying store: batch failure")
 	})
 }
 
