@@ -27,9 +27,9 @@ const (
 	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
 	Credential ContentType = "credential"
 
-	// DIDDocument content type for handling DID document data models.
-	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
-	DIDDocument ContentType = "diddocument"
+	// DIDResolutionResponse content type for handling DID document data models.
+	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+	DIDResolutionResponse ContentType = "didResolutionResponse"
 
 	// Metadata content type for handling wallet metadata data models.
 	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
@@ -43,12 +43,12 @@ const (
 // IsValid checks if underlying content type is supported.
 func (ct ContentType) IsValid() error {
 	switch ct {
-	case Collection, Credential, DIDDocument, Metadata, Connection:
+	case Collection, Credential, DIDResolutionResponse, Metadata, Connection:
 		return nil
 	}
 
 	return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
-		[]ContentType{Collection, Credential, DIDDocument, Metadata, Connection})
+		[]ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection})
 }
 
 // Name of the content type.
@@ -73,7 +73,7 @@ func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
 	}
 
 	err = p.SetStoreConfig(pr.ID, storage.StoreConfiguration{TagNames: []string{
-		Collection.Name(), Credential.Name(), Connection.Name(), DIDDocument.Name(), Connection.Name(),
+		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(),
 	}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set store config for user '%s' : %w", pr.User, err)

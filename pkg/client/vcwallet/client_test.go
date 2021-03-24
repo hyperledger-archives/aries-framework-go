@@ -7,23 +7,133 @@ SPDX-License-Identifier: Apache-2.0
 package vcwallet
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/pbkdf2"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+// nolint: lll
 const (
 	sampleUserID       = "sample-user01"
+	sampleFakeTkn      = "fake-auth-tkn"
 	toBeImplementedErr = "to be implemented"
 	sampleClientErr    = "sample client err"
+	sampleCreatedDate  = "2020-12-25"
+	sampleChallenge    = "sample-challenge"
+	sampleDomain       = "sample-domain"
+	sampleUDCVC        = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1",
+		"https://w3id.org/security/bbs/v1"
+      ],
+      "credentialSchema": [],
+      "credentialSubject": {
+        "degree": {
+          "type": "BachelorDegree",
+          "university": "MIT"
+        },
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe",
+        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+      },
+      "expirationDate": "2020-01-01T19:23:24Z",
+      "id": "http://example.edu/credentials/1872",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+        "name": "Example University"
+      },
+      "referenceNumber": 83294847,
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+	sampleInvalidDIDID = "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdI"
+	sampleInvalidDID   = `{
+    	"@context": ["https://w3id.org/did/v1"],
+    	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdI",
+    	"verificationMethod": [{
+        	"controller": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+        	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+        	"publicKeyBase58": "5yKdnU7ToTjAoRNDzfuzVTfWBH38qyhE1b9xh4v8JaWF",
+        	"type": "Ed25519VerificationKey2018"
+    	}],
+    	"capabilityDelegation": ["did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"],
+    	"capabilityInvocation": ["did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"],
+    	"keyAgreement": [{
+        	"controller": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+        	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6LShKMZ117txS1WuExddVM2rbJ2zy3AKFtZVY5WNi44aKzA",
+        	"publicKeyBase58": "6eBPUhK2ryHmoras6qq5Y15Z9pW3ceiQcZMptFQXrxDQ",
+        	"type": "X25519KeyAgreementKey2019"
+    	}],
+    	"created": "2021-03-23T16:23:39.682869-04:00",
+    	"updated": "2021-03-23T16:23:39.682869-04:00"
+		}`
+	sampleInvalidDIDContent = `{
+    	"@context": ["https://w3id.org/did/v1"],
+    	"id": "did:example:sampleInvalidDIDContent"
+		}`
+
+	sampleDocResolutionResponse = `{
+  		"@context": [
+    		"https://w3id.org/wallet/v1",
+	    	"https://w3id.org/did-resolution/v1"
+  		],
+  		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+  		"type": ["DIDResolutionResponse"],
+  		"name": "Farming Sensor DID Document",
+  		"image": "https://via.placeholder.com/150",
+  		"description": "An IoT device in the middle of a corn field.",
+  		"tags": ["professional"],
+  		"correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+  		"created": "2017-06-18T21:19:10Z",
+  		"expires": "2026-06-18T21:19:10Z",
+  		"didDocument": {
+    		"@context": ["https://w3id.org/did/v1"],
+    		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+    		"verificationMethod": [{
+        		"controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+        		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+        		"publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh",
+        		"type": "Ed25519VerificationKey2018"
+    		}],
+    		"authentication": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    		"assertionMethod": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    		"capabilityDelegation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    		"capabilityInvocation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    		"keyAgreement": [{
+        		"controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+        		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
+        		"publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN",
+        		"type": "X25519KeyAgreementKey2019"
+    		}],
+    		"created": "2021-03-23T19:25:18.513655-04:00",
+    		"updated": "2021-03-23T19:25:18.513655-04:00"
+		} 
+	}`
 )
 
 func TestCreate(t *testing.T) {
@@ -70,7 +180,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("test create new wallet failure - create store error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockstorage.MockStoreProvider{
+		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
 
@@ -85,7 +195,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("test create new wallet failure - save profile error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockstorage.MockStoreProvider{
+		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{
 				ErrPut: fmt.Errorf(sampleClientErr),
 			},
@@ -102,7 +212,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("test create new wallet failure - create content store error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockStorageProvider{
+		mockctx.StorageProviderValue = &mockStorageProvider{
 			MockStoreProvider: mockstorage.NewMockStoreProvider(),
 			failure:           fmt.Errorf(sampleClientErr),
 		}
@@ -184,7 +294,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("test update wallet failure - create store error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockstorage.MockStoreProvider{
+		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
 
@@ -201,7 +311,7 @@ func TestUpdate(t *testing.T) {
 		mockctx := newMockProvider()
 		createSampleProfile(t, mockctx)
 
-		mockctx.storeProvider.(*mockstorage.MockStoreProvider).Store.ErrPut = fmt.Errorf(sampleClientErr)
+		mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider).Store.ErrPut = fmt.Errorf(sampleClientErr)
 
 		err := UpdateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
 		require.Error(t, err)
@@ -240,7 +350,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("test update wallet failure - save profile error", func(t *testing.T) {
 		mockctx := newMockProvider()
-		mockctx.storeProvider = &mockstorage.MockStoreProvider{
+		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
 
@@ -447,18 +557,319 @@ func TestClient_Query(t *testing.T) {
 }
 
 func TestClient_Issue(t *testing.T) {
+	didKey := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	pkBase58 := "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
+	kid := "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			if didID == sampleInvalidDIDID {
+				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				require.NoError(t, e)
+
+				return &did.DocResolution{DIDDocument: d}, nil
+			} else if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
 	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, vcWalletClient)
-	require.NoError(t, err)
+	t.Run("Test VC wallet client issue using controller - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
 
-	result, err := vcWalletClient.Issue(nil, &ProofOptions{})
-	require.Empty(t, result)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+		// unlock wallet
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+	})
+
+	t.Run("Test VC wallet client issue using verification method - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// issue
+		result, err := vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller:         didKey,
+			VerificationMethod: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5", //nolint:lll
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+	})
+
+	t.Run("Test VC wallet client issue using all options - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// issue credential
+		proofRepr := verifiable.SignatureJWS
+		vm := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+		created, err := time.Parse("2006-01-02", sampleCreatedDate)
+		require.NoError(t, err)
+
+		result, err := vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller:          didKey,
+			VerificationMethod:  vm,
+			ProofType:           JSONWebSignature2020,
+			Challenge:           sampleChallenge,
+			Domain:              sampleDomain,
+			Created:             &created,
+			ProofRepresentation: &proofRepr,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+
+		require.Equal(t, result.Proofs[0]["challenge"], sampleChallenge)
+		require.Equal(t, result.Proofs[0]["created"], "2020-12-25T00:00:00Z")
+		require.Equal(t, result.Proofs[0]["domain"], sampleDomain)
+		require.NotEmpty(t, result.Proofs[0]["jws"])
+		require.Equal(t, result.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Equal(t, result.Proofs[0]["type"], JSONWebSignature2020)
+		require.Equal(t, result.Proofs[0]["verificationMethod"], vm)
+	})
+
+	// nolint:lll
+	t.Run("Test VC wallet client issue using BBS - success", func(t *testing.T) {
+		didKeyBBS := "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
+		pkBBSBase58 := "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
+		keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
+
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		privKeyBBS, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(pkBBSBase58))
+		require.NoError(t, err)
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
+
+		// sign with just controller
+		proofRepr := verifiable.SignatureProofValue
+		result, err := vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller:          didKeyBBS,
+			ProofType:           BbsBlsSignature2020,
+			ProofRepresentation: &proofRepr,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+	})
+
+	t.Run("Test VC wallet client issue using stored DID - success", func(t *testing.T) {
+		mockctx1 := newMockProvider()
+		mockctx1.VDRegistryValue = &mockvdr.MockVDRegistry{}
+		mockctx1.CryptoValue = &cryptomock.Crypto{}
+
+		err := CreateProfile(sampleUserID, mockctx1, WithPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
+		vcWalletClient, err := New(sampleUserID, mockctx1)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// save DID Resolution response
+		err = vcWalletClient.Add(DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		require.NoError(t, err)
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+	})
+
+	t.Run("Test VC wallet client issue failure - invalid VC", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		result, err := vcWalletClient.Issue(sampleFakeTkn, []byte("--"), &ProofOptions{})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse credential")
+	})
+
+	t.Run("Test VC wallet client issue failure - proof option validation", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// no controller
+		result, err := vcWalletClient.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
+
+		// DID not found
+		result, err = vcWalletClient.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+			Controller: "did:example:1234",
+		})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read DID document from wallet store or from VDR")
+
+		// no assertion method
+		result, err = vcWalletClient.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+			Controller: sampleInvalidDIDID,
+		})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to find 'assertionMethod' for given verification method")
+
+		// invalid DID in store
+		err = vcWalletClient.Add(DIDResolutionResponse, []byte(sampleInvalidDIDContent))
+		require.NoError(t, err)
+
+		result, err = vcWalletClient.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+			Controller: "did:example:sampleInvalidDIDContent",
+		})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse stored DID")
+	})
+
+	t.Run("Test VC wallet client issue failure - add proof errors", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		// wallet locked
+		result, err := vcWalletClient.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+		})
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "wallet locked")
+
+		// get token
+		authToken, err := vcWalletClient.Open(samplePassPhrase, nil, 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer vcWalletClient.Close()
+
+		// key not found
+		result, err = vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+		})
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), "cannot read data for keysetID")
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// invalid signature type
+		result, err = vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+			ProofType:  "invalid",
+		})
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), " unsupported signature type 'invalid'")
+
+		// wrong key type
+		result, err = vcWalletClient.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+			ProofType:  BbsBlsSignature2020,
+		})
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), "failed to add linked data proof")
+	})
 }
 
 func TestClient_Prove(t *testing.T) {
@@ -491,20 +902,11 @@ func TestClient_Verify(t *testing.T) {
 	require.EqualError(t, err, toBeImplementedErr)
 }
 
-type mockProvider struct {
-	storeProvider storage.Provider
+func newMockProvider() *mockprovider.Provider {
+	return &mockprovider.Provider{StorageProviderValue: mockstorage.NewMockStoreProvider()}
 }
 
-// StorageProvider returns the mock storage provider.
-func (p *mockProvider) StorageProvider() storage.Provider {
-	return p.storeProvider
-}
-
-func newMockProvider() *mockProvider {
-	return &mockProvider{storeProvider: mockstorage.NewMockStoreProvider()}
-}
-
-func createSampleProfile(t *testing.T, mockctx *mockProvider) {
+func createSampleProfile(t *testing.T, mockctx *mockprovider.Provider) {
 	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 

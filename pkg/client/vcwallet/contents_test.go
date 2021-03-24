@@ -50,8 +50,8 @@ func TestContentTypes(t *testing.T) {
 		}{
 			{
 				name:     "validation success",
-				inputs:   []string{"collection", "credential", "diddocument", "metadata", "connection"},
-				expected: []ContentType{Collection, Credential, DIDDocument, Metadata, Connection},
+				inputs:   []string{"collection", "credential", "didResolutionResponse", "metadata", "connection"},
+				expected: []ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection},
 			},
 			{
 				name:   "validation error",
@@ -90,7 +90,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 		require.EqualValues(t, sp.config.TagNames,
-			[]string{"collection", "credential", "connection", "diddocument", "connection"})
+			[]string{"collection", "credential", "connection", "didResolutionResponse", "connection"})
 	})
 
 	t.Run("create new content store - failure", func(t *testing.T) {
