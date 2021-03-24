@@ -54,7 +54,7 @@ func TestCommon(t *testing.T) {
 
 			storagetest.TestAll(t, provider)
 		})
-		t.Run("With base64 formatter", func(t *testing.T) {
+		t.Run("With deterministic key formatting", func(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(),
 				exampleformatters.NewBase64Formatter(true))
 			require.NotNil(t, provider)
@@ -599,8 +599,8 @@ func TestFormatStore_Batch(t *testing.T) {
 					Value: []byte("Value1"),
 				},
 			})
-			require.EqualError(t, err, "failed to perform batch operations using non-deterministic keys: "+
-				"failed to generate formatted operations: failed to prepare formatted put operation: "+
+			require.EqualError(t, err, "failed to generate formatted operations using non-deterministic "+
+				"keys: failed to prepare formatted put operation: "+
 				"unexpected failure while determining formatted key to use: "+
 				"unexpected failure while attempting to determine formatted key via store query: "+
 				"failed to query using the key tag: failed to format tag: key formatting failure")
@@ -623,7 +623,7 @@ func TestFormatStore_Batch(t *testing.T) {
 					Value: []byte("Value1"),
 				},
 			})
-			require.EqualError(t, err, "failed to perform batch operations using deterministic keys: "+
+			require.EqualError(t, err, "failed to generate formatted operations using deterministic keys: "+
 				"failed to format data: key formatting failure")
 		})
 	})
@@ -643,8 +643,7 @@ func TestFormatStore_Batch(t *testing.T) {
 				Value: []byte("Value1"),
 			},
 		})
-		require.EqualError(t, err, "failed to perform batch operations using deterministic keys: "+
-			"failed to perform formatted operations in underlying store: batch failure")
+		require.EqualError(t, err, "failed to perform formatted operations in underlying store: batch failure")
 	})
 }
 

@@ -431,18 +431,28 @@ func (f *formatStore) Batch(operations []spi.Operation) error {
 		}
 	}
 
-	if f.formatter.UsesDeterministicKeyFormatting() {
-		err := f.batchUsingDeterministicKeys(operations)
-		if err != nil {
-			return fmt.Errorf("failed to perform batch operations using deterministic keys: %w", err)
-		}
+	var formattedOperations []spi.Operation
 
-		return nil
+	var err error
+
+	if f.formatter.UsesDeterministicKeyFormatting() {
+		formattedOperations, err = f.generateFormattedOperationsUsingDeterministicKeys(operations)
+		if err != nil {
+			return fmt.Errorf("failed to generate formatted operations using deterministic keys: %w", err)
+		}
+	} else {
+		f.lock.Lock()
+		defer f.lock.Unlock()
+
+		formattedOperations, err = f.generateFormattedOperationsUsingNonDeterministicKeys(operations)
+		if err != nil {
+			return fmt.Errorf("failed to generate formatted operations using non-deterministic keys: %w", err)
+		}
 	}
 
-	err := f.batchUsingNonDeterministicKeys(operations)
+	err = f.underlyingStore.Batch(formattedOperations)
 	if err != nil {
-		return fmt.Errorf("failed to perform batch operations using non-deterministic keys: %w", err)
+		return fmt.Errorf("failed to perform formatted operations in underlying store: %w", err)
 	}
 
 	return nil
@@ -765,14 +775,15 @@ func (f *formatStore) deleteDataStoredUnderNonDeterministicKey(key string) error
 	return nil
 }
 
-func (f *formatStore) batchUsingDeterministicKeys(operations []spi.Operation) error {
+func (f *formatStore) generateFormattedOperationsUsingDeterministicKeys(
+	operations []spi.Operation) ([]spi.Operation, error) {
 	formattedOperations := make([]spi.Operation, len(operations))
 
 	for i, operation := range operations {
 		formattedKey, formattedValue, formattedTags, err :=
 			f.formatter.Format(operation.Key, operation.Value, operation.Tags...)
 		if err != nil {
-			return fmt.Errorf(failFormatData, err)
+			return nil, fmt.Errorf(failFormatData, err)
 		}
 
 		if operation.Value == nil {
@@ -793,120 +804,119 @@ func (f *formatStore) batchUsingDeterministicKeys(operations []spi.Operation) er
 		}
 	}
 
-	err := f.underlyingStore.Batch(formattedOperations)
-	if err != nil {
-		return fmt.Errorf("failed to perform formatted operations in underlying store: %w", err)
-	}
-
-	return nil
+	return formattedOperations, nil
 }
 
-func (f *formatStore) batchUsingNonDeterministicKeys(operations []spi.Operation) error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	formattedOperations, err := f.generateFormattedOperations(operations)
-	if err != nil {
-		return fmt.Errorf("failed to generate formatted operations: %w", err)
-	}
-
-	err = f.underlyingStore.Batch(formattedOperations)
-	if err != nil {
-		return fmt.Errorf("failed to perform formatted operations in underlying store: %w", err)
-	}
-
-	return nil
-}
-
-func (f *formatStore) generateFormattedOperations(operations []spi.Operation) ([]spi.Operation, error) {
-	formattedOperations := make([]spi.Operation, len(operations))
+func (f *formatStore) generateFormattedOperationsUsingNonDeterministicKeys(
+	operations []spi.Operation) ([]spi.Operation, error) {
+	var formattedOperations []spi.Operation
 
 	resolvedKeys := make(map[string]string, len(operations))
 
-	for i, operation := range operations {
+	for _, operation := range operations {
 		if operation.Value == nil {
-			err := f.prepareFormattedDeleteOperation(formattedOperations, resolvedKeys, operation, i)
+			deleteOperation, err := f.createFormattedDeleteOperation(resolvedKeys, operation)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare formatted delete operation: %w", err)
 			}
+
+			// An empty key in the returned operation means that it's not needed or is redundant with another delete operation.
+			if deleteOperation.Key != "" {
+				formattedOperations = append(formattedOperations, deleteOperation)
+			}
 		} else {
-			err := f.prepareFormattedPutOperation(formattedOperations, resolvedKeys, operation, i)
+			putOperation, err := f.createFormattedPutOperation(resolvedKeys, operation)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare formatted put operation: %w", err)
 			}
+
+			formattedOperations = append(formattedOperations, putOperation)
 		}
 	}
 
 	return formattedOperations, nil
 }
 
-func (f *formatStore) prepareFormattedDeleteOperation(formattedOperations []spi.Operation,
-	resolvedKeys map[string]string, operation spi.Operation, currentOperationIndex int) error {
-	// We must determine which formatted key to use. There are to cases to consider:
-	// 1. First, check the previous operations in this batch to this one to see if any of them
-	//    are puts for the same key. If so, then we must use that formatted key in order to ensure
-	//    consistency.
-	// 2. If the previous operations don't have the formatted key, then we have to query the store. If
+func (f *formatStore) createFormattedDeleteOperation(resolvedKeys map[string]string,
+	operation spi.Operation) (spi.Operation, error) {
+	// We must determine which formatted key to use. There are two cases to consider:
+	// 1. First, check the resolvedKeys slice. It contains the formatted keys used in previous put operations within
+	//    this batch. If the key is found, then we must use that formatted key in order to ensure consistency.
+	// 2. If the resolvedKeys slice doesn't have the formatted key, then we have to query the store. If
 	//    a value is found, then we have the formatted key we must use. If no value is found, then that means
 	//    that this key was never stored, and since we know none of the prior operations store this key
-	//    either, then that means that there's nothing to do here, so this delete operation can be dropped.
+	//    either, then that means that there's nothing to do here, so this delete operation is dropped.
 	formattedKey, err := f.determineFormattedKeyToUse(resolvedKeys, operation.Key)
 	if err != nil {
-		return fmt.Errorf("unexpected failure while determining formatted key to use: %w", err)
+		return spi.Operation{}, fmt.Errorf("unexpected failure while determining formatted key to use: %w", err)
 	}
 
-	resolvedKeys[operation.Key] = formattedKey
+	// If the formatted key wasn't found, or is already being deleted (is blank either way),
+	// then there's nothing to delete, and so this operation is not needed.
+	if formattedKey != "" {
+		// In the event that a user does a Put, Delete, Put within the same batch, all with the same key, then we
+		// should make sure that second Put uses a fresh non-deterministically generated formatted key.
+		// This is in order to be consistent with what would normally happen when doing a Put after a Delete in a
+		// non-batch call. The key is mapped to a blank formatted string below, which is used to indicate that
+		// a new formatted key should be generated in any subsequent Put operations for the same key within this batch.
+		resolvedKeys[operation.Key] = ""
 
-	// If the formatted key still wasn't found, then there's nothing to delete, and this operation is not
-	// needed. We will drop this formatted operation later.
-
-	formattedOperations[currentOperationIndex] = spi.Operation{
-		Key: formattedKey,
+		return spi.Operation{Key: formattedKey}, nil
 	}
 
-	return nil
+	// This empty operation will be dropped in the parent method.
+	return spi.Operation{}, nil
 }
 
-func (f *formatStore) prepareFormattedPutOperation(formattedOperations []spi.Operation, resolvedKeys map[string]string,
-	operation spi.Operation, currentOperationIndex int) error {
-	// We must first determine which formatted key to use. There are two cases to consider:
-	// 2a. First, check the previous operations in this batch to this one to see if any of them
-	//     are puts for the same key. If so, then we must use that formatted key in order to ensure consistency.
-	// 2b. If the previous operations don't have the formatted key, then we have to query the store. If a value
-	//     is found, then that means that we must use that existing formatted key. If value is found, then that
-	//     means that this is a not an update and we must generate a new key.
+func (f *formatStore) createFormattedPutOperation(resolvedKeys map[string]string,
+	operation spi.Operation) (spi.Operation, error) {
 	formattedKey, err := f.determineFormattedKeyToUse(resolvedKeys, operation.Key)
 	if err != nil {
-		return fmt.Errorf("unexpected failure while determining formatted key to use: %w", err)
+		return spi.Operation{}, fmt.Errorf("unexpected failure while determining formatted key to use: %w", err)
 	}
 
 	tagsToFormat := generateTagsToFormat(operation)
 
+	var putOperation spi.Operation
+
 	if formattedKey == "" {
-		err := f.prepareFormattedPutOperationUsingNewFormattedKey(formattedOperations,
-			resolvedKeys, operation, currentOperationIndex, tagsToFormat)
+		putOperation, err = f.createFormattedPutOperationUsingNewFormattedKey(resolvedKeys, operation, tagsToFormat)
 		if err != nil {
-			return fmt.Errorf("failed to prepare formatted put operation using non-previously-resolved "+
+			return spi.Operation{}, fmt.Errorf("failed to prepare formatted put operation using non-previously-resolved "+
 				"formatted key: %w", err)
 		}
 	} else {
-		err := f.prepareFormattedPutOperationUsingExistingFormattedKey(formattedOperations, resolvedKeys,
-			formattedKey, operation, tagsToFormat, currentOperationIndex)
+		putOperation, err = f.createFormattedPutOperationUsingExistingFormattedKey(resolvedKeys, formattedKey,
+			operation, tagsToFormat)
 		if err != nil {
-			return fmt.Errorf("failed to prepare formatted put operation using previously-resolved "+
+			return spi.Operation{}, fmt.Errorf("failed to prepare formatted put operation using previously-resolved "+
 				"formatted key: %w", err)
 		}
 	}
 
-	return nil
+	return putOperation, nil
 }
 
 func (f *formatStore) determineFormattedKeyToUse(resolvedKeys map[string]string,
 	currentOperationKey string) (string, error) {
-	formattedKeyToUse := getFormattedKeyFromPreviouslyResolvedKeys(resolvedKeys, currentOperationKey)
+	// There are several cases to consider:
+	// 1. First, check the resolvedKeys slice. It contains the formatted keys used in previous put operations within
+	//	  this batch. If the key if found then we must use that formatted key in order to ensure we don't create
+	//    duplicates in the database. If a formatted key is found in the map but it's set to a blank string,
+	//    then we know from the createFormattedDeleteOperation method that this formatted key has been effectively
+	//    marked for deletion and should not be reused.
+	// 2. If the resolvedKeys slice doesn't have the formatted key and the key wasn't previously marked for deletion,
+	//    then we have to query the store. If a value is found, then that means that we must use that existing
+	//    formatted key for whichever operation is calling this method.
+	// 3. If the formatted key was marked for deletion, then we should not query the store. In the case of a Put,
+	//    we want to make sure that a fresh non-deterministically formatted key gets generated instead of reusing the
+	//    old one in order to be consistent with the equivalent non-batched operations.
+	//    In the case of a Delete, the query is simply unnecessary.
+	formattedKeyToUse, isMarkedForDeletion := getFormattedKeyFromPreviouslyResolvedKeys(resolvedKeys, currentOperationKey)
 
-	// If we haven't determined the formatted key yet, then we must query the store.
-	if formattedKeyToUse == "" {
+	// If we haven't determined the formatted key yet, then we must query the store. If the formatted key still
+	// can't be found, then it must not exist.
+	if formattedKeyToUse == "" && !isMarkedForDeletion {
 		var err error
 
 		formattedKeyToUse, err = f.getFormattedKeyViaStoreQuery(currentOperationKey)
@@ -919,45 +929,39 @@ func (f *formatStore) determineFormattedKeyToUse(resolvedKeys map[string]string,
 	return formattedKeyToUse, nil
 }
 
-func (f *formatStore) prepareFormattedPutOperationUsingNewFormattedKey(
-	formattedOperations []spi.Operation, resolvedKeys map[string]string, operation spi.Operation,
-	currentOperationIndex int, tagsToFormat []spi.Tag) error {
+func (f *formatStore) createFormattedPutOperationUsingNewFormattedKey(resolvedKeys map[string]string,
+	operation spi.Operation, tagsToFormat []spi.Tag) (spi.Operation, error) {
 	// This is a new value, so there is no previous key to use. Must generate a new one.
 	formattedKey, formattedValue, formattedTags, err :=
 		f.formatter.Format(operation.Key, operation.Value, tagsToFormat...)
 	if err != nil {
-		return fmt.Errorf(failFormatData, err)
-	}
-
-	formattedOperations[currentOperationIndex] = spi.Operation{
-		Key:   formattedKey,
-		Value: formattedValue,
-		Tags:  formattedTags,
+		return spi.Operation{}, fmt.Errorf(failFormatData, err)
 	}
 
 	resolvedKeys[operation.Key] = formattedKey
 
-	return nil
+	return spi.Operation{
+		Key:   formattedKey,
+		Value: formattedValue,
+		Tags:  formattedTags,
+	}, nil
 }
 
-func (f *formatStore) prepareFormattedPutOperationUsingExistingFormattedKey(formattedOperations []spi.Operation,
-	resolvedKeys map[string]string, formattedKey string, operation spi.Operation,
-	tagsToFormat []spi.Tag, currentOperationIndex int) error {
+func (f *formatStore) createFormattedPutOperationUsingExistingFormattedKey(resolvedKeys map[string]string,
+	formattedKey string, operation spi.Operation, tagsToFormat []spi.Tag) (spi.Operation, error) {
 	_, formattedValue, formattedTags, err :=
 		f.formatter.Format(formattedKey, operation.Value, tagsToFormat...)
 	if err != nil {
-		return fmt.Errorf(failFormatData, err)
-	}
-
-	formattedOperations[currentOperationIndex] = spi.Operation{
-		Key:   formattedKey,
-		Value: formattedValue,
-		Tags:  formattedTags,
+		return spi.Operation{}, fmt.Errorf(failFormatData, err)
 	}
 
 	resolvedKeys[operation.Key] = formattedKey
 
-	return nil
+	return spi.Operation{
+		Key:   formattedKey,
+		Value: formattedValue,
+		Tags:  formattedTags,
+	}, nil
 }
 
 func (f *formatStore) getFormattedKeyViaStoreQuery(key string) (string, error) {
@@ -1156,17 +1160,21 @@ func filterOutKeyTag(tags []spi.Tag, tagValueToFilterOut string) []spi.Tag {
 	return filteredTags
 }
 
-func getFormattedKeyFromPreviouslyResolvedKeys(resolvedKeys map[string]string, key string) string {
-	var formattedKeyToUse string
-
+func getFormattedKeyFromPreviouslyResolvedKeys(resolvedKeys map[string]string,
+	key string) (formattedKeyToUse string, isMarkedForDeletion bool) {
 	for unformattedKey, formattedKey := range resolvedKeys {
 		if unformattedKey == key {
 			formattedKeyToUse = formattedKey
+
+			if formattedKey == "" {
+				isMarkedForDeletion = true
+			}
+
 			break
 		}
 	}
 
-	return formattedKeyToUse
+	return formattedKeyToUse, isMarkedForDeletion
 }
 
 func generateTagsToFormat(operation spi.Operation) []spi.Tag {
