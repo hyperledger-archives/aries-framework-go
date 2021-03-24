@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vcwallet
+package wallet
 
 import (
 	"crypto/sha256"
@@ -47,7 +47,7 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			samplePassPhrase, nil, 0)
+			&unlockOpts{passphrase: samplePassPhrase})
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
@@ -58,7 +58,7 @@ func TestKeyManager(t *testing.T) {
 
 		// try to create again before expiry
 		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			samplePassPhrase, nil, 0)
+			&unlockOpts{passphrase: samplePassPhrase})
 		require.Error(t, err)
 		require.Equal(t, err, ErrAlreadyUnlocked)
 		require.Empty(t, tkn)
@@ -79,7 +79,7 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			"", masterLock, 0)
+			&unlockOpts{secretLockSvc: masterLock})
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
@@ -90,7 +90,7 @@ func TestKeyManager(t *testing.T) {
 
 		// try to create again before expiry
 		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			"", masterLock, 0)
+			&unlockOpts{secretLockSvc: masterLock})
 		require.Error(t, err)
 		require.Equal(t, err, ErrAlreadyUnlocked)
 		require.Empty(t, tkn)
@@ -112,7 +112,7 @@ func TestKeyManager(t *testing.T) {
 
 		// use wrong passphrase
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			samplePassPhrase+"wrong", nil, 0)
+			&unlockOpts{passphrase: samplePassPhrase + "wrong"})
 		require.Empty(t, tkn)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "message authentication failed")
@@ -143,7 +143,7 @@ func TestKeyManager(t *testing.T) {
 		require.NoError(t, err)
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			"", masterLockBad, 0)
+			&unlockOpts{secretLockSvc: masterLockBad})
 		require.Empty(t, tkn)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "message authentication failed")
@@ -163,7 +163,7 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
@@ -177,7 +177,7 @@ func TestKeyManager(t *testing.T) {
 
 		// try to create again before expiry
 		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.Error(t, err)
 		require.Equal(t, err, ErrAlreadyUnlocked)
 		require.Empty(t, tkn)
@@ -189,7 +189,7 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.Empty(t, tkn)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid wallet profile")
@@ -209,7 +209,7 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
@@ -220,7 +220,7 @@ func TestKeyManager(t *testing.T) {
 
 		// try to create again before expiry
 		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.Error(t, err)
 		require.Equal(t, err, ErrAlreadyUnlocked)
 		require.Empty(t, tkn)
@@ -237,7 +237,7 @@ func TestKeyManager(t *testing.T) {
 
 		// try again to create
 		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			sampleRemoteKMSAuth, nil, 0)
+			&unlockOpts{authToken: sampleRemoteKMSAuth})
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
