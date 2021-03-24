@@ -1125,7 +1125,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
-	t.Run("Success: update three different previously-stored values via Batch", func(t *testing.T) {
+	t.Run("Success: update three different previously-stored values", func(t *testing.T) {
 		storeName := randomStoreName()
 
 		store, err := provider.OpenStore(storeName)
@@ -1184,7 +1184,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, equalTags(key3UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
-	t.Run("Success: Delete three different previously-stored values via Batch", func(t *testing.T) {
+	t.Run("Success: delete three different previously-stored values", func(t *testing.T) {
 		storeName := randomStoreName()
 
 		store, err := provider.OpenStore(storeName)
@@ -1213,7 +1213,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		err = store.Batch(operations)
 		require.NoError(t, err)
 
-		// Check and make sure values can't be found now
+		// Check and make sure the values can't be found now
 
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
@@ -1236,7 +1236,49 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
 	})
-	t.Run("Success: Put value and then delete it in the same Batch call", func(t *testing.T) {
+	t.Run("Success: delete three values, only two of which were previously-stored", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
+		require.NoError(t, err)
+
+		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+		require.NoError(t, err)
+
+		err = store.Put("key3", []byte("value3"), []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}...)
+		require.NoError(t, err)
+
+		operations := []spi.Operation{
+			{Key: "key1", Value: nil, Tags: nil},
+			{Key: "key2", Value: nil, Tags: nil}, // key2 doesn't exist in the store, but this should not cause an error
+			{Key: "key3", Value: nil, Tags: nil},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		// Check and make sure the values can't be found now
+
+		value, err := store.Get("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, value)
+		tags, err := store.GetTags("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
+
+		value, err = store.Get("key3")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, value)
+		tags, err = store.GetTags("key3")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
+	})
+	t.Run("Success: put value and then delete it in the same Batch call", func(t *testing.T) {
 		storeName := randomStoreName()
 
 		store, err := provider.OpenStore(storeName)
@@ -1264,7 +1306,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
 	})
-	t.Run("Success: Put value and update it in the same Batch call", func(t *testing.T) {
+	t.Run("Success: put value and update it in the same Batch call", func(t *testing.T) {
 		storeName := randomStoreName()
 
 		store, err := provider.OpenStore(storeName)
@@ -1285,7 +1327,8 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		err = store.Batch(operations)
 		require.NoError(t, err)
 
-		// Check and make sure that the second put effectively "overrode" the first put in the Batch call.
+		// Check and make sure that the second put operation effectively "overrode" the first operation
+		// from the user's perspective.
 
 		value, err := store.Get("key1")
 		require.NoError(t, err)
@@ -1294,7 +1337,84 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, equalTags(updatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
-	t.Run("Success: Put values in one batch call, then delete in a second batch call, then put again using "+
+	t.Run("Success: update previously-stored value and delete it in the same Batch call", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{
+				"tagName1", "tagName2", "tagName3",
+				"tagName2_new", "tagName3_new",
+			}})
+		require.NoError(t, err)
+
+		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+		require.NoError(t, err)
+
+		key1UpdatedTagsToStore := []spi.Tag{{Name: "tagName1"}}
+
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1_new"), Tags: key1UpdatedTagsToStore},
+			{Key: "key1"},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		// Check and make sure the value can't be found now
+
+		value, err := store.Get("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, value)
+		tags, err := store.GetTags("key1")
+		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+		require.Nil(t, tags)
+	})
+	t.Run("Success: update previously-stored value, then delete it, "+
+		"then put it in again using the same key from the first operation, "+
+		"all in the same Batch call", func(t *testing.T) {
+		storeName := randomStoreName()
+
+		store, err := provider.OpenStore(storeName)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = provider.SetStoreConfig(storeName,
+			spi.StoreConfiguration{TagNames: []string{
+				"tagName1", "tagName2", "tagName3",
+				"tagName2_new", "tagName3_new",
+			}})
+		require.NoError(t, err)
+
+		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+		require.NoError(t, err)
+
+		key1UpdatedTagsToStore := []spi.Tag{{Name: "tagName1"}}
+		key1SecondUpdatedTagsToStore := []spi.Tag{{Name: "tagName2"}}
+
+		operations := []spi.Operation{
+			{Key: "key1", Value: []byte("value1_new"), Tags: key1UpdatedTagsToStore},
+			{Key: "key1"},
+			{Key: "key1", Value: []byte("value1_new2"), Tags: key1SecondUpdatedTagsToStore},
+		}
+
+		err = store.Batch(operations)
+		require.NoError(t, err)
+
+		// Check and make sure that the third operation effectively "overrode" the first two
+		// from the user's perspective.
+
+		value, err := store.Get("key1")
+		require.NoError(t, err)
+		require.Equal(t, "value1_new2", string(value))
+		retrievedTags, err := store.GetTags("key1")
+		require.True(t, equalTags(key1SecondUpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+		require.NoError(t, err)
+	})
+	t.Run("Success: put values in one batch call, then delete in a second batch call, then put again using "+
 		"the same keys that were used in the first batch call in a third batch call", func(t *testing.T) {
 		storeName := randomStoreName()
 
