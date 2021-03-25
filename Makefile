@@ -167,14 +167,14 @@ define create_mock
   $(eval mocks_dir := $(subst pkg,$(GOMOCKS),$(1)))
   @echo Creating $(mocks_dir)
   @mkdir -p $(mocks_dir) && rm -rf $(mocks_dir)/*
-  @$(MOCKGEN) -destination $(mocks_dir)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+  @$(MOCKGEN) -destination $(mocks_dir)/mocks.gen.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
 define create_spi_provider_mocks
   $(eval mocks_dir := $(GOMOCKS)/spi/storage)
   @echo Creating $(mocks_dir)
   @mkdir -p $(mocks_dir) && rm -rf $(mocks_dir)/*
-  @$(MOCKGEN) -destination $(mocks_dir)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+  @$(MOCKGEN) -destination $(mocks_dir)/mocks.gen.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
 depend:
