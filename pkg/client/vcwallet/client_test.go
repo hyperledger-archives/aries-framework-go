@@ -612,18 +612,65 @@ func TestClient_Issue(t *testing.T) {
 }
 
 func TestClient_Prove(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
 	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, vcWalletClient)
-	require.NoError(t, err)
+	t.Run("Test VC wallet client prove using controller - failure", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
 
-	result, err := vcWalletClient.Prove(nil, &wallet.ProofOptions{})
-	require.Empty(t, result)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+		defer vcWalletClient.Close()
+
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+
+		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
+			wallet.WithStoredCredentials("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentials([]byte(sampleUDCVC)),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read json keyset from reader")
+		require.Empty(t, result)
+	})
+
+	t.Run("Test VC wallet client prove using controller - wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+
+		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
+			wallet.WithStoredCredentials("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentials([]byte(sampleUDCVC)),
+		)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+	})
 }
 
 func TestClient_Verify(t *testing.T) {

@@ -9,6 +9,7 @@ package wallet
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -96,7 +97,6 @@ const (
     	"@context": ["https://w3id.org/did/v1"],
     	"id": "did:example:sampleInvalidDIDContent"
 		}`
-
 	sampleDocResolutionResponse = `{
   		"@context": [
     		"https://w3id.org/wallet/v1",
@@ -134,6 +134,7 @@ const (
     		"updated": "2021-03-23T19:25:18.513655-04:00"
 		} 
 	}`
+	sampleVerificationMethod = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 )
 
 func TestCreate(t *testing.T) {
@@ -640,7 +641,7 @@ func TestWallet_Issue(t *testing.T) {
 		// issue
 		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
 			Controller:         didKey,
-			VerificationMethod: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5", //nolint:lll
+			VerificationMethod: sampleVerificationMethod,
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
@@ -668,7 +669,7 @@ func TestWallet_Issue(t *testing.T) {
 
 		// issue credential
 		proofRepr := verifiable.SignatureJWS
-		vm := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+		vm := sampleVerificationMethod
 		created, err := time.Parse("2006-01-02", sampleCreatedDate)
 		require.NoError(t, err)
 
@@ -872,6 +873,363 @@ func TestWallet_Issue(t *testing.T) {
 	})
 }
 
+func TestWallet_Prove(t *testing.T) {
+	didKey := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	pkBase58 := "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
+	kid := "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+
+	didKeyBBS := "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
+	pkBBSBase58 := "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
+	keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
+
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			if didID == sampleInvalidDIDID {
+				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				require.NoError(t, e)
+
+				return &did.DocResolution{DIDDocument: d}, nil
+			} else if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	mockctx := newMockProvider()
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	// create profile
+	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	// prepare VCs for tests
+	vcs := make(map[string]*verifiable.Credential, 2)
+	walletForIssue, err := New(sampleUserID, mockctx)
+	require.NotEmpty(t, walletForIssue)
+	require.NoError(t, err)
+
+	authToken, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+	require.NotEmpty(t, authToken)
+
+	// import ED25519 & BLS12381G2Type keys manually
+	kmgr, err := keyManager().getKeyManger(authToken)
+	require.NoError(t, err)
+
+	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+	// nolint: errcheck, gosec
+	kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+	privKeyBBS, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(pkBBSBase58))
+	require.NoError(t, err)
+	// nolint: errcheck, gosec
+	kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
+
+	// issue a credential with Ed25519Signature2018
+	result, err := walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		Controller: didKey,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+	require.Len(t, result.Proofs, 1)
+	vcs["edvc"] = result
+
+	// issue a credential with BbsBlsSignature2020
+	proofRepr := verifiable.SignatureProofValue
+	result, err = walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		Controller:          didKeyBBS,
+		ProofType:           BbsBlsSignature2020,
+		ProofRepresentation: &proofRepr,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+	require.Len(t, result.Proofs, 1)
+	vcs["bbsvc"] = result
+
+	walletForIssue.Close()
+
+	t.Run("Test prove using stored & raw credential - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// save one VC in store
+		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"])
+		defer cleanup()
+
+		// import keys manually for signing presentation
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		edVCBytes, err := json.Marshal(vcs["edvc"])
+		require.NoError(t, err)
+
+		bbsVCBytes, err := json.Marshal(vcs["bbsvc"])
+		require.NoError(t, err)
+
+		// sign with just controller (one stored & one raw bytes)
+		result, err := walletInstance.Prove(authToken,
+			&ProofOptions{Controller: didKey},
+			WithStoredCredentials(vcs["edvc"].ID), WithRawCredentials(bbsVCBytes),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+		require.Equal(t, result.Holder, didKey)
+
+		// sign with just controller with all raw credentials
+		result, err = walletInstance.Prove(authToken,
+			&ProofOptions{Controller: didKey},
+			WithRawCredentials(edVCBytes, bbsVCBytes),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+		require.Equal(t, result.Holder, didKey)
+	})
+
+	t.Run("Test prove using various proof options - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// save all VCs in store
+		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
+		defer cleanup()
+
+		// import keys manually for signing presentation
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// prepare opts
+		proofRepr := verifiable.SignatureJWS
+		vm := sampleVerificationMethod
+		created, err := time.Parse("2006-01-02", sampleCreatedDate)
+		require.NoError(t, err)
+
+		// sign with just controller (one stored & one raw)
+		result, err := walletInstance.Prove(authToken, &ProofOptions{
+			Controller:          didKey,
+			VerificationMethod:  vm,
+			ProofType:           JSONWebSignature2020,
+			Challenge:           sampleChallenge,
+			Domain:              sampleDomain,
+			Created:             &created,
+			ProofRepresentation: &proofRepr,
+		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+
+		require.Equal(t, result.Proofs[0]["challenge"], sampleChallenge)
+		require.Equal(t, result.Proofs[0]["created"], "2020-12-25T00:00:00Z")
+		require.Equal(t, result.Proofs[0]["domain"], sampleDomain)
+		require.NotEmpty(t, result.Proofs[0]["jws"])
+		require.Equal(t, result.Proofs[0]["proofPurpose"], "authentication")
+		require.Equal(t, result.Proofs[0]["type"], JSONWebSignature2020)
+		require.Equal(t, result.Proofs[0]["verificationMethod"], vm)
+	})
+
+	t.Run("Test prove without credentials (DIDAuth) - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// import keys manually for signing presentation
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// prepare opts
+		proofRepr := verifiable.SignatureJWS
+		vm := sampleVerificationMethod
+		created, err := time.Parse("2006-01-02", sampleCreatedDate)
+		require.NoError(t, err)
+
+		// sign with just controller (one stored & one raw)
+		result, err := walletInstance.Prove(authToken, &ProofOptions{
+			Controller:          didKey,
+			VerificationMethod:  vm,
+			ProofType:           JSONWebSignature2020,
+			Challenge:           sampleChallenge,
+			Domain:              sampleDomain,
+			Created:             &created,
+			ProofRepresentation: &proofRepr,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Empty(t, result.Credentials())
+
+		require.Len(t, result.Proofs, 1)
+		require.Equal(t, result.Proofs[0]["challenge"], sampleChallenge)
+		require.Equal(t, result.Proofs[0]["created"], "2020-12-25T00:00:00Z")
+		require.Equal(t, result.Proofs[0]["domain"], sampleDomain)
+		require.NotEmpty(t, result.Proofs[0]["jws"])
+		require.Equal(t, result.Proofs[0]["proofPurpose"], "authentication")
+		require.Equal(t, result.Proofs[0]["type"], JSONWebSignature2020)
+		require.Equal(t, result.Proofs[0]["verificationMethod"], vm)
+	})
+
+	t.Run("Test prove failure - invalid credentials", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{}, WithRawCredentials([]byte("123")))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve credentials from request")
+
+		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+			WithStoredCredentials("non-existing-credential"))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+
+		// save invalid VC in store
+		require.NoError(t, walletInstance.Add(Credential, []byte(sampleInvalidDIDContent)))
+		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+			WithStoredCredentials("did:example:sampleInvalidDIDContent"))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "build new credential")
+	})
+
+	t.Run("Test prove failures - proof option validation", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// save all VCs in store
+		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
+		defer cleanup()
+
+		// no controller
+		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
+
+		// DID not found
+		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:1234"},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read DID document from wallet store or from VDR")
+
+		// no assertion method
+		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: sampleInvalidDIDID},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to find 'authentication' for given verification method")
+
+		// invalid DID in store
+		err = walletInstance.Add(DIDResolutionResponse, []byte(sampleInvalidDIDContent))
+		require.NoError(t, err)
+
+		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:sampleInvalidDIDContent"},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse stored DID")
+	})
+
+	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
+		defer cleanup()
+
+		// wallet locked
+		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: didKey},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "wallet locked")
+
+		// get token
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// key not found
+		result, err = walletInstance.Prove(authToken, &ProofOptions{
+			Controller: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+		},
+			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), "cannot read data for keysetID")
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// invalid signature type
+		result, err = walletInstance.Prove(authToken, &ProofOptions{
+			Controller: didKey,
+			ProofType:  "invalid",
+		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), " unsupported signature type 'invalid'")
+
+		// wrong key type
+		result, err = walletInstance.Prove(authToken, &ProofOptions{
+			Controller: didKey,
+			ProofType:  BbsBlsSignature2020,
+		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		require.Empty(t, result)
+		require.Contains(t, err.Error(), "failed to add linked data proof")
+	})
+}
+
 func Test_AddContext(t *testing.T) {
 	vc, err := verifiable.ParseCredential([]byte(sampleUDCVC))
 	require.NoError(t, err)
@@ -882,21 +1240,6 @@ func Test_AddContext(t *testing.T) {
 	require.Len(t, vc.Context, 3)
 	addContext(vc, bbsContext+".01")
 	require.Len(t, vc.Context, 4)
-}
-
-func TestWallet_Prove(t *testing.T) {
-	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
-	require.NoError(t, err)
-
-	walletInstance, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, walletInstance)
-	require.NoError(t, err)
-
-	result, err := walletInstance.Prove(nil, &ProofOptions{})
-	require.Empty(t, result)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
 }
 
 func TestWallet_Verify(t *testing.T) {
@@ -926,4 +1269,20 @@ func createSampleProfile(t *testing.T, mockctx *mockprovider.Provider) {
 	require.NoError(t, err)
 	require.NotEmpty(t, wallet)
 	require.NotEmpty(t, wallet.profile.MasterLockCipher)
+}
+
+// adds credentials to wallet and returns handle for cleanup.
+func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, vcs ...*verifiable.Credential) func() {
+	for _, vc := range vcs {
+		vcBytes, err := vc.MarshalJSON()
+		require.NoError(t, err)
+
+		require.NoError(t, walletInstance.Add(Credential, vcBytes))
+	}
+
+	return func() {
+		for _, vc := range vcs {
+			t.Log(walletInstance.Remove(Credential, vc.ID))
+		}
+	}
 }

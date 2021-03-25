@@ -154,6 +154,31 @@ func WithUnlockExpiry(tokenExpiry time.Duration) UnlockOptions {
 	}
 }
 
+// proveOpts contains options for proving credentials.
+type proveOpts struct {
+	// credentials already saved in wallet.
+	storedCredentials []string
+	// credential being supplied to wallet to prove.
+	rawCredentials []json.RawMessage
+}
+
+// CredentialToProve options for proving credential to prove from wallet.
+type CredentialToProve func(opts *proveOpts)
+
+// WithStoredCredentials option for providing stored credential IDs for wallet to prove.
+func WithStoredCredentials(ids ...string) CredentialToProve {
+	return func(opts *proveOpts) {
+		opts.storedCredentials = ids
+	}
+}
+
+// WithRawCredentials option for providing raw credential for wallet to prove.
+func WithRawCredentials(raw ...json.RawMessage) CredentialToProve {
+	return func(opts *proveOpts) {
+		opts.rawCredentials = raw
+	}
+}
+
 // Wallet enables access to verifiable credential wallet features.
 type Wallet struct {
 	// ID of wallet content owner
@@ -359,8 +384,9 @@ func (c *Wallet) Query(query *QueryParams) ([]json.RawMessage, error) {
 // Issue adds proof to a Verifiable Credential.
 //
 //	Args:
-//		- A verifiable credential with or without proof
-//		- Proof options
+//		- auth token for unlocking kms.
+//		- A verifiable credential with or without proof.
+//		- Proof options.
 //
 func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 	options *ProofOptions) (*verifiable.Credential, error) {
@@ -387,12 +413,37 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 // Prove produces a Verifiable Presentation.
 //
 //	Args:
-//		- List of verifiable credentials IDs.
-//		- Proof options
+// 		- auth token for unlocking kms.
+//		- list of interfaces (string of credential IDs which can be resolvable to stored credentials in wallet or
+//		raw credential).
+//		- proof options
 //
-func (c *Wallet) Prove(credentialIDs []string, options *ProofOptions) (json.RawMessage, error) {
-	// TODO to be added #2433
-	return nil, fmt.Errorf("to be implemented")
+func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToProve) (*verifiable.Presentation, error) { //nolint: lll
+	resolved, err := c.resolveCredentials(credentials...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
+	}
+
+	purpose := did.Authentication
+
+	err = c.validateProofOption(proofOptions, purpose)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare proof: %w", err)
+	}
+
+	presentation, err := verifiable.NewPresentation(verifiable.WithCredentials(resolved...))
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare presentation: %w", err)
+	}
+
+	presentation.Holder = proofOptions.Controller
+
+	err = c.addLinkedDataProof(authToken, presentation, proofOptions, purpose)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prove credentials: %w", err)
+	}
+
+	return presentation, nil
 }
 
 // Verify takes Takes a Verifiable Credential or Verifiable Presentation as input,.
@@ -404,6 +455,41 @@ func (c *Wallet) Prove(credentialIDs []string, options *ProofOptions) (json.RawM
 func (c *Wallet) Verify(raw json.RawMessage) (bool, error) {
 	// TODO to be added #2433
 	return false, fmt.Errorf("to be implemented")
+}
+
+func (c *Wallet) resolveCredentials(credentials ...CredentialToProve) ([]*verifiable.Credential, error) {
+	var response []*verifiable.Credential
+
+	opts := &proveOpts{}
+
+	for _, opt := range credentials {
+		opt(opts)
+	}
+
+	for _, id := range opts.storedCredentials {
+		raw, err := c.contents.Get(Credential, id)
+		if err != nil {
+			return nil, err
+		}
+
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		if err != nil {
+			return nil, err
+		}
+
+		response = append(response, credential)
+	}
+
+	for _, raw := range opts.rawCredentials {
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		if err != nil {
+			return nil, err
+		}
+
+		response = append(response, credential)
+	}
+
+	return response, nil
 }
 
 func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOptions,
