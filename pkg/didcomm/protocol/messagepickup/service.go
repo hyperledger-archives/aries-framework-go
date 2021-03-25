@@ -78,7 +78,7 @@ type Service struct {
 	batchMapLock     sync.RWMutex
 	statusMap        map[string]chan Status
 	statusMapLock    sync.RWMutex
-	inboxLock        *lockbox
+	inboxLock        sync.Mutex
 }
 
 // New returns the messagepickup service.
@@ -101,7 +101,6 @@ func New(prov provider, tp transport.Provider) (*Service, error) {
 		msgHandler:       tp.InboundMessageHandler(),
 		batchMap:         make(map[string]chan Batch),
 		statusMap:        make(map[string]chan Status),
-		inboxLock:        newLockBox(),
 	}
 
 	return svc, nil
@@ -174,8 +173,8 @@ func (s *Service) handleStatus(msg service.DIDCommMsg) error {
 }
 
 func (s *Service) handleStatusRequest(msg service.DIDCommMsg, myDID, theirDID string) error {
-	s.inboxLock.Lock(theirDID)
-	defer s.inboxLock.Unlock(theirDID)
+	s.inboxLock.Lock()
+	defer s.inboxLock.Unlock()
 
 	// unmarshal the payload
 	request := &StatusRequest{}
@@ -210,8 +209,8 @@ func (s *Service) handleStatusRequest(msg service.DIDCommMsg, myDID, theirDID st
 }
 
 func (s *Service) handleBatchPickup(msg service.DIDCommMsg, myDID, theirDID string) error {
-	s.inboxLock.Lock(theirDID)
-	defer s.inboxLock.Unlock(theirDID)
+	s.inboxLock.Lock()
+	defer s.inboxLock.Unlock()
 
 	// unmarshal the payload
 	request := &BatchPickup{}
@@ -331,8 +330,8 @@ func (r *inbox) EncodeMessages(msg []*Message) error {
 
 // AddMessage add message to inbox.
 func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
-	s.inboxLock.Lock(theirDID)
-	defer s.inboxLock.Unlock(theirDID)
+	s.inboxLock.Lock()
+	defer s.inboxLock.Unlock()
 
 	outbox, err := s.createInbox(theirDID)
 	if err != nil {

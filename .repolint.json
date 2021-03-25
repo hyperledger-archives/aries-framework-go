@@ -88,8 +88,7 @@
         {
           "files": ["**/*.js", "!**/node_modules/**", "**/*.go", "!**/vendor/**", "!**/*.pb.go","!**/*.gen.go",
             "!**/wasm_exec.js",
-            "!pkg/crypto/primitive/bbs12381g2pub/internal/kilic/**/*.go",
-            "!pkg/didcomm/protocol/messagepickup/lockbox.go"
+            "!pkg/crypto/primitive/bbs12381g2pub/internal/kilic/**/*.go"
           ],
           "lineCount": 7,
           "patterns": ["Copyright", "License", "Apache"],
