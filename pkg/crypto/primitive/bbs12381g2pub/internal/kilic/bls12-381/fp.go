@@ -158,3 +158,118 @@ func inverse(inv, e *fe) {
 	}
 	inv.set(u)
 }
+
+func sqrt(c, a *fe) bool {
+	u, v := new(fe).set(a), new(fe)
+	// a ^ (p - 3) / 4
+	sqrtAddchain(c, a)
+	// a ^ (p + 1) / 4
+	mul(c, c, u)
+
+	square(v, c)
+	return u.equal(v)
+}
+
+func sqrtAddchain(c, a *fe) {
+	chain := func(c *fe, n int, a *fe) {
+		for i := 0; i < n; i++ {
+			square(c, c)
+		}
+		mul(c, c, a)
+	}
+
+	t := make([]fe, 16)
+	t[13].set(a)
+	square(&t[0], &t[13])
+	mul(&t[8], &t[0], &t[13])
+	square(&t[4], &t[0])
+	mul(&t[1], &t[8], &t[0])
+	mul(&t[6], &t[4], &t[8])
+	mul(&t[9], &t[1], &t[4])
+	mul(&t[12], &t[6], &t[4])
+	mul(&t[3], &t[9], &t[4])
+	mul(&t[7], &t[12], &t[4])
+	mul(&t[15], &t[3], &t[4])
+	mul(&t[10], &t[7], &t[4])
+	mul(&t[2], &t[15], &t[4])
+	mul(&t[11], &t[10], &t[4])
+	square(&t[0], &t[3])
+	mul(&t[14], &t[11], &t[4])
+	mul(&t[5], &t[0], &t[8])
+	mul(&t[4], &t[0], &t[1])
+
+	chain(&t[0], 12, &t[15])
+	chain(&t[0], 7, &t[7])
+	chain(&t[0], 4, &t[1])
+	chain(&t[0], 6, &t[6])
+	chain(&t[0], 7, &t[11])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 2, &t[8])
+	chain(&t[0], 6, &t[3])
+	chain(&t[0], 6, &t[3])
+	chain(&t[0], 6, &t[9])
+	chain(&t[0], 3, &t[8])
+	chain(&t[0], 7, &t[3])
+	chain(&t[0], 4, &t[3])
+	chain(&t[0], 6, &t[7])
+	chain(&t[0], 6, &t[14])
+	chain(&t[0], 3, &t[13])
+	chain(&t[0], 8, &t[3])
+	chain(&t[0], 7, &t[11])
+	chain(&t[0], 5, &t[12])
+	chain(&t[0], 6, &t[3])
+	chain(&t[0], 6, &t[5])
+	chain(&t[0], 4, &t[9])
+	chain(&t[0], 8, &t[5])
+	chain(&t[0], 4, &t[3])
+	chain(&t[0], 7, &t[11])
+	chain(&t[0], 9, &t[10])
+	chain(&t[0], 2, &t[8])
+	chain(&t[0], 5, &t[6])
+	chain(&t[0], 7, &t[1])
+	chain(&t[0], 7, &t[9])
+	chain(&t[0], 6, &t[11])
+	chain(&t[0], 5, &t[5])
+	chain(&t[0], 5, &t[10])
+	chain(&t[0], 5, &t[10])
+	chain(&t[0], 8, &t[3])
+	chain(&t[0], 7, &t[2])
+	chain(&t[0], 9, &t[7])
+	chain(&t[0], 5, &t[3])
+	chain(&t[0], 3, &t[8])
+	chain(&t[0], 8, &t[7])
+	chain(&t[0], 3, &t[8])
+	chain(&t[0], 7, &t[9])
+	chain(&t[0], 9, &t[7])
+	chain(&t[0], 6, &t[2])
+	chain(&t[0], 6, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 4, &t[3])
+	chain(&t[0], 3, &t[8])
+	chain(&t[0], 8, &t[2])
+	chain(&t[0], 7, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 4, &t[7])
+	chain(&t[0], 4, &t[6])
+	chain(&t[0], 7, &t[4])
+	chain(&t[0], 5, &t[5])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 5, &t[4])
+	chain(&t[0], 4, &t[3])
+	chain(&t[0], 6, &t[2])
+	chain(&t[0], 4, &t[1])
+	square(c, &t[0])
+}
+
+func isQuadraticNonResidue(a *fe) bool {
+	if a.isZero() {
+		return true
+	}
+	return !sqrt(new(fe), a)
+}
