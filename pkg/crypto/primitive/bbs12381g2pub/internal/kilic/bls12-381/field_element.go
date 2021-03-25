@@ -136,6 +136,12 @@ func (e *fe) signBE() bool {
 	return negZ.cmp(z) > -1
 }
 
+func (e *fe) sign() bool {
+	r := new(fe)
+	fromMont(r, e)
+	return r[0]&1 == 0
+}
+
 func (fe *fe) div2(e uint64) {
 	fe[0] = fe[0]>>1 | fe[1]<<63
 	fe[1] = fe[1]>>1 | fe[2]<<63

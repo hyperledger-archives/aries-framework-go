@@ -7,6 +7,5 @@ There are two reasons why we cannot use [original BLS12-381 library](https://git
 - [BBS+ signature schema](https://mattrglobal.github.io/bbs-signatures-spec/) requires `blake2b` hash function
   for `hash_to_curve_g1()` while `kilic/bls12-381` uses hardcoded `SHA-256`. A PR to allow selection of hash function
   is made but not yet approved (see [here](https://github.com/kilic/bls12-381/pull/25)).
-- Custom implementation of osswuMap() (this algorithm is re-written from Rust code
-  (https://github.com/algorand/pairing-plus/blob/master/src/bls12_381/osswu_map/chain.rs#L14).
-  It's still not clear at what side (kilic vs libursa) the error is present.
+- Patched swuMapG1 to allow for big-endian variant (https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1.1),
+  for interop reasons.
