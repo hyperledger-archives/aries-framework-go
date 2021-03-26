@@ -229,7 +229,7 @@ func (c *Client) Issue(credential json.RawMessage,
 //		raw credential).
 //		- proof options
 //
-func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToProve) (*verifiable.Presentation, error) {
+func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err
@@ -241,10 +241,9 @@ func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToPr
 // Verify takes Takes a Verifiable Credential or Verifiable Presentation as input,.
 //
 //	Args:
-//		- a Verifiable Credential or Verifiable Presentation
+//		- ID of credential stored in wallet.
 //
 // Returns: a boolean verified, and an error if verified is false.
-func (c *Client) Verify(raw json.RawMessage) (bool, error) {
-	// TODO to be added #2433
-	return false, fmt.Errorf("to be implemented")
+func (c *Client) Verify(credentialID string) (bool, error) {
+	return c.wallet.Verify(credentialID)
 }

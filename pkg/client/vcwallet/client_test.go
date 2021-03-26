@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+// nolint: lll
 const (
 	samplePassPhrase    = "fakepassphrase"
 	sampleRemoteKMSAuth = "sample-auth-token"
@@ -76,6 +77,29 @@ const (
         "UniversityDegreeCredential"
       ]
     }`
+
+	sampleUDCVCWithProof = `{
+    "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
+    "credentialSubject": {
+        "degree": {"type": "BachelorDegree", "university": "MIT"},
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe",
+        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+    },
+    "expirationDate": "2020-01-01T19:23:24Z",
+    "id": "http://example.edu/credentials/1872",
+    "issuanceDate": "2010-01-01T19:23:24Z",
+    "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
+    "proof": {
+        "created": "2021-03-26T11:25:14.170037-04:00",
+        "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..5iUqLMjUbPy2Sp5RvtoKW4kWlSfpX35VyoC6rGkxNW5r3a3M7I7qBK5hpJGi2H4cf2TZizQnJXCJs6EH6ijSDw",
+        "proofPurpose": "assertionMethod",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+    },
+    "referenceNumber": 83294847,
+    "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+}`
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -646,8 +670,8 @@ func TestClient_Prove(t *testing.T) {
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
-			wallet.WithStoredCredentials("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentials([]byte(sampleUDCVC)),
+			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read json keyset from reader")
@@ -664,8 +688,8 @@ func TestClient_Prove(t *testing.T) {
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
-			wallet.WithStoredCredentials("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentials([]byte(sampleUDCVC)),
+			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
 		)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrWalletLocked))
@@ -674,18 +698,61 @@ func TestClient_Prove(t *testing.T) {
 }
 
 func TestClient_Verify(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
 	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, vcWalletClient)
-	require.NoError(t, err)
+	t.Run("Test VC wallet verify credential - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
 
-	result, err := vcWalletClient.Verify(nil)
-	require.Empty(t, result)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+		defer vcWalletClient.Close()
+
+		// store credential in wallet
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVCWithProof)))
+
+		ok, err := vcWalletClient.Verify("http://example.edu/credentials/1872")
+		require.NoError(t, err)
+		require.True(t, ok)
+	})
+
+	t.Run("Test VC wallet verify credential - invalid signature", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// store tampered credential in wallet
+		tamperedVC := strings.ReplaceAll(sampleUDCVCWithProof, `"name": "Example University"`, `"name": "Fake University"`)
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(tamperedVC)))
+
+		ok, err := vcWalletClient.Verify("http://example.edu/credentials/1872")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+	})
 }
 
 func newMockProvider() *mockprovider.Provider {

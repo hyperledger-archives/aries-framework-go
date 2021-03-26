@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/piprate/json-gold/ld"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -66,117 +64,6 @@ type provider interface {
 
 type provable interface {
 	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
-}
-
-// kmsOpts contains options for creating verifiable credential wallet.
-type kmsOpts struct {
-	// local kms options
-	secretLockSvc secretlock.Service
-	passphrase    string
-
-	// remote(web) kms options
-	keyServerURL string
-}
-
-// ProfileKeyManagerOptions is option for verifiable credential wallet key manager.
-type ProfileKeyManagerOptions func(opts *kmsOpts)
-
-// WithSecretLockService option, when provided then wallet will use local kms for key operations.
-func WithSecretLockService(svc secretlock.Service) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
-		opts.secretLockSvc = svc
-	}
-}
-
-// WithPassphrase option to provide passphrase for local kms for key operations.
-func WithPassphrase(passphrase string) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
-		opts.passphrase = passphrase
-	}
-}
-
-// WithKeyServerURL option, when provided then wallet will use remote kms for key operations.
-// This option will be ignore if provided with 'WithSecretLockService' option.
-func WithKeyServerURL(url string) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
-		opts.keyServerURL = url
-	}
-}
-
-// unlockOpts contains options for unlocking VC wallet client.
-type unlockOpts struct {
-	// local kms options
-	passphrase    string
-	secretLockSvc secretlock.Service
-
-	// remote(web) kms options
-	authToken string
-
-	// expiry
-	tokenExpiry time.Duration
-}
-
-// UnlockOptions is option for unlocking verifiable credential wallet key manager.
-// Wallet unlocking instantiates KMS instance for wallet operations.
-// Type of key manager (local or remote) to be used will be decided based on options passed.
-// Note: unlock options should match key manager options set for given wallet profile.
-type UnlockOptions func(opts *unlockOpts)
-
-// WithUnlockByPassphrase option for supplying passphrase to open wallet.
-// This option takes precedence when provided along with other options.
-func WithUnlockByPassphrase(passphrase string) UnlockOptions {
-	return func(opts *unlockOpts) {
-		opts.passphrase = passphrase
-	}
-}
-
-// WithUnlockBySecretLockService option for supplying secret lock service to open wallet.
-// This option will be ignored when supplied with 'WithPassphrase' option.
-func WithUnlockBySecretLockService(svc secretlock.Service) UnlockOptions {
-	return func(opts *unlockOpts) {
-		opts.secretLockSvc = svc
-	}
-}
-
-// WithUnlockByAuthorizationToken option for supplying remote kms auth token to open wallet.
-// This option will be ignore when supplied with localkms options.
-func WithUnlockByAuthorizationToken(url string) UnlockOptions {
-	return func(opts *unlockOpts) {
-		opts.authToken = url
-	}
-}
-
-// WithUnlockExpiry time duration after which wallet key manager will be expired.
-// Wallet should be reopened by using 'client.Open()' once expired or a new instance needs to be created.
-func WithUnlockExpiry(tokenExpiry time.Duration) UnlockOptions {
-	return func(opts *unlockOpts) {
-		opts.tokenExpiry = tokenExpiry
-	}
-}
-
-// proveOpts contains options for proving credentials.
-type proveOpts struct {
-	// credentials already saved in wallet.
-	storedCredentials []string
-	// credential being supplied to wallet to prove.
-	rawCredentials []json.RawMessage
-}
-
-// CredentialToProve options for proving credential to prove from wallet.
-type CredentialToProve func(opts *proveOpts)
-
-// WithStoredCredentials option for providing stored credential IDs for wallet to prove.
-func WithStoredCredentials(ids ...string) CredentialToProve {
-	return func(opts *proveOpts) {
-		opts.storedCredentials = ids
-	}
-}
-
-// WithRawCredentials option for providing raw credential for wallet to prove.
-func WithRawCredentials(raw ...json.RawMessage) CredentialToProve {
-	return func(opts *proveOpts) {
-		opts.rawCredentials = raw
-	}
 }
 
 // Wallet enables access to verifiable credential wallet features.
@@ -418,8 +305,8 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 //		raw credential).
 //		- proof options
 //
-func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToProve) (*verifiable.Presentation, error) { //nolint: lll
-	resolved, err := c.resolveCredentials(credentials...)
+func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
+	resolved, err := c.resolveCredentials(false, credentials...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
 	}
@@ -452,12 +339,24 @@ func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials
 //		- a Verifiable Credential or Verifiable Presentation
 //
 // Returns: a boolean verified, and an error if verified is false.
-func (c *Wallet) Verify(raw json.RawMessage) (bool, error) {
-	// TODO to be added #2433
-	return false, fmt.Errorf("to be implemented")
+func (c *Wallet) Verify(id string) (bool, error) {
+	raw, err := c.contents.Get(Credential, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// TODO need generic resolver, need custom VDRI which goes through cached DID
+	_, err = verifiable.ParseCredential(raw, verifiable.WithPublicKeyFetcher(
+		verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
+	))
+	if err != nil {
+		return false, fmt.Errorf("credential verification failed: %w", err)
+	}
+
+	return true, nil
 }
 
-func (c *Wallet) resolveCredentials(credentials ...CredentialToProve) ([]*verifiable.Credential, error) {
+func (c *Wallet) resolveCredentials(verify bool, credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
 	var response []*verifiable.Credential
 
 	opts := &proveOpts{}
@@ -466,13 +365,25 @@ func (c *Wallet) resolveCredentials(credentials ...CredentialToProve) ([]*verifi
 		opt(opts)
 	}
 
+	var credentialOpts []verifiable.CredentialOpt
+	if verify {
+		// TODO resolve stored DIDs which can not be resolved by context?
+		credentialOpts = append(credentialOpts, verifiable.WithStrictValidation(), verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
+		))
+	} else {
+		credentialOpts = append(credentialOpts, verifiable.WithDisabledProofCheck())
+	}
+
 	for _, id := range opts.storedCredentials {
 		raw, err := c.contents.Get(Credential, id)
 		if err != nil {
 			return nil, err
 		}
 
-		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		// proof check is disabled while proving existing credentials,
+		// proof check has to be performed explicitly by using 'wallet.Verify()'.
+		credential, err := verifiable.ParseCredential(raw, credentialOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -481,12 +392,18 @@ func (c *Wallet) resolveCredentials(credentials ...CredentialToProve) ([]*verifi
 	}
 
 	for _, raw := range opts.rawCredentials {
-		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		// proof check is disabled while proving raw credentials,
+		// proof check has to be performed explicitly by using 'wallet.Verify()'.
+		credential, err := verifiable.ParseCredential(raw, credentialOpts...)
 		if err != nil {
 			return nil, err
 		}
 
 		response = append(response, credential)
+	}
+
+	if len(opts.credentials) > 0 {
+		response = append(response, opts.credentials...)
 	}
 
 	return response, nil

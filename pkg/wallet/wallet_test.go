@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -135,6 +136,9 @@ const (
 		} 
 	}`
 	sampleVerificationMethod = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	didKey                   = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	pkBase58                 = "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
+	kid                      = "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 )
 
 func TestCreate(t *testing.T) {
@@ -558,10 +562,6 @@ func TestWallet_Query(t *testing.T) {
 }
 
 func TestWallet_Issue(t *testing.T) {
-	didKey := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-	pkBase58 := "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
-	kid := "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -874,10 +874,6 @@ func TestWallet_Issue(t *testing.T) {
 }
 
 func TestWallet_Prove(t *testing.T) {
-	didKey := "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-	pkBase58 := "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
-	kid := "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-
 	didKeyBBS := "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
 	pkBBSBase58 := "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
 	keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
@@ -990,17 +986,20 @@ func TestWallet_Prove(t *testing.T) {
 		// sign with just controller (one stored & one raw bytes)
 		result, err := walletInstance.Prove(authToken,
 			&ProofOptions{Controller: didKey},
-			WithStoredCredentials(vcs["edvc"].ID), WithRawCredentials(bbsVCBytes),
+			WithStoredCredentialsToPresent(vcs["edvc"].ID),
+			WithRawCredentialsToPresent(bbsVCBytes),
+			WithCredentialsToPresent(vcs["edvc"]),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Len(t, result.Proofs, 1)
+		require.Len(t, result.Credentials(), 3)
 		require.Equal(t, result.Holder, didKey)
 
 		// sign with just controller with all raw credentials
 		result, err = walletInstance.Prove(authToken,
 			&ProofOptions{Controller: didKey},
-			WithRawCredentials(edVCBytes, bbsVCBytes),
+			WithRawCredentialsToPresent(edVCBytes, bbsVCBytes),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
@@ -1046,7 +1045,7 @@ func TestWallet_Prove(t *testing.T) {
 			Domain:              sampleDomain,
 			Created:             &created,
 			ProofRepresentation: &proofRepr,
-		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		}, WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Len(t, result.Proofs, 1)
@@ -1114,13 +1113,13 @@ func TestWallet_Prove(t *testing.T) {
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
-		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{}, WithRawCredentials([]byte("123")))
+		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{}, WithRawCredentialsToPresent([]byte("123")))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to resolve credentials from request")
 
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
-			WithStoredCredentials("non-existing-credential"))
+			WithStoredCredentialsToPresent("non-existing-credential"))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
@@ -1128,7 +1127,7 @@ func TestWallet_Prove(t *testing.T) {
 		// save invalid VC in store
 		require.NoError(t, walletInstance.Add(Credential, []byte(sampleInvalidDIDContent)))
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
-			WithStoredCredentials("did:example:sampleInvalidDIDContent"))
+			WithStoredCredentialsToPresent("did:example:sampleInvalidDIDContent"))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "build new credential")
@@ -1145,21 +1144,21 @@ func TestWallet_Prove(t *testing.T) {
 
 		// no controller
 		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
 
 		// DID not found
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:1234"},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read DID document from wallet store or from VDR")
 
 		// no assertion method
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: sampleInvalidDIDID},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find 'authentication' for given verification method")
@@ -1169,7 +1168,7 @@ func TestWallet_Prove(t *testing.T) {
 		require.NoError(t, err)
 
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:sampleInvalidDIDContent"},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse stored DID")
@@ -1185,7 +1184,7 @@ func TestWallet_Prove(t *testing.T) {
 
 		// wallet locked
 		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: didKey},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "wallet locked")
@@ -1201,7 +1200,7 @@ func TestWallet_Prove(t *testing.T) {
 		result, err = walletInstance.Prove(authToken, &ProofOptions{
 			Controller: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 		},
-			WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Contains(t, err.Error(), "cannot read data for keysetID")
 
@@ -1216,7 +1215,7 @@ func TestWallet_Prove(t *testing.T) {
 		result, err = walletInstance.Prove(authToken, &ProofOptions{
 			Controller: didKey,
 			ProofType:  "invalid",
-		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		}, WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Contains(t, err.Error(), " unsupported signature type 'invalid'")
 
@@ -1224,7 +1223,7 @@ func TestWallet_Prove(t *testing.T) {
 		result, err = walletInstance.Prove(authToken, &ProofOptions{
 			Controller: didKey,
 			ProofType:  BbsBlsSignature2020,
-		}, WithStoredCredentials(vcs["edvc"].ID, vcs["bbsvc"].ID))
+		}, WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Contains(t, err.Error(), "failed to add linked data proof")
 	})
@@ -1243,18 +1242,109 @@ func Test_AddContext(t *testing.T) {
 }
 
 func TestWallet_Verify(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if didID == sampleInvalidDIDID {
+				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				require.NoError(t, e)
+
+				return &did.DocResolution{DIDDocument: d}, nil
+			} else if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	sampleCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = sampleCrypto
+
+	err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	walletInstance, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, walletInstance)
+	walletForIssue, err := New(sampleUserID, mockctx)
 	require.NoError(t, err)
 
-	result, err := walletInstance.Verify(nil)
-	require.Empty(t, result)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+	tkn, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+	require.NotEmpty(t, tkn)
+
+	// import keys manually
+	kmgr, err := keyManager().getKeyManger(tkn)
+	require.NoError(t, err)
+
+	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+	// nolint: errcheck, gosec
+	kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+	// issue a credential
+	sampleVC, err := walletForIssue.Issue(tkn, []byte(sampleUDCVC), &ProofOptions{
+		Controller: didKey,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, sampleVC)
+	require.Len(t, sampleVC.Proofs, 1)
+
+	require.True(t, walletForIssue.Close())
+
+	t.Run("Test VC wallet verifying a credential - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// save it in store
+		vcBytes, err := sampleVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NoError(t, walletInstance.Add(Credential, vcBytes))
+
+		// verify
+		ok, err := walletInstance.Verify(sampleVC.ID)
+		require.NoError(t, err)
+		require.True(t, ok)
+	})
+
+	t.Run("Test VC wallet verifying a credential - invalid signature", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// save tampered VC in store
+		// save it in store
+		tamperedVC := *sampleVC
+		tamperedVC.Issuer.ID += "."
+		vcBytes, err := tamperedVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NoError(t, walletInstance.Add(Credential, vcBytes))
+
+		ok, err := walletInstance.Verify("http://example.edu/credentials/1872")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+	})
+
+	t.Run("Test VC wallet verifying a credential - missing credential", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// verify non existent credential.
+		ok, err := walletInstance.Verify("invalid-ID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get credential")
+		require.False(t, ok)
+	})
 }
 
 func newMockProvider() *mockprovider.Provider {
@@ -1282,7 +1372,10 @@ func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, vcs ...*verifi
 
 	return func() {
 		for _, vc := range vcs {
-			t.Log(walletInstance.Remove(Credential, vc.ID))
+			err := walletInstance.Remove(Credential, vc.ID)
+			if err != nil {
+				t.Logf("failed to cleanup wallet instance store: %s", err)
+			}
 		}
 	}
 }
