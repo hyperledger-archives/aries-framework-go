@@ -88,7 +88,7 @@ func (mr *MockRegistryMockRecorder) Deactivate(arg0 interface{}, arg1 ...interfa
 }
 
 // Resolve mocks base method
-func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdr.ResolveOption) (*did.DocResolution, error) {
+func (m *MockRegistry) Resolve(arg0 string, arg1 ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

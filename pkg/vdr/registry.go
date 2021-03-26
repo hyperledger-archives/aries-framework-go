@@ -39,7 +39,7 @@ func New(opts ...Option) *Registry {
 }
 
 // Resolve did document.
-func (r *Registry) Resolve(did string, opts ...vdrapi.ResolveOption) (*diddoc.DocResolution, error) {
+func (r *Registry) Resolve(did string, opts ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
 	didMethod, err := GetDidMethod(did)
 	if err != nil {
 		return nil, err

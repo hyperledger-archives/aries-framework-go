@@ -764,7 +764,7 @@ func TestGeneratePresentation(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -1176,7 +1176,7 @@ func TestGeneratePresentationByID(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -1284,7 +1284,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -1437,7 +1437,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		cmd, cmdErr := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			VDRegistryValue: &mockvdr.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					if didID == invalidDID {
 						return nil, errors.New("invalid")
 					}
@@ -1898,7 +1898,7 @@ func TestCommand_SignCredential(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
@@ -2470,7 +2470,7 @@ func TestCommand_DeriveCredential(t *testing.T) {
 	r.NotEmpty(requestVC)
 
 	mockVDR := &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == didKey {
 				k := key.New()
 

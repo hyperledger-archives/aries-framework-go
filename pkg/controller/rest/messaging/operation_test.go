@@ -568,7 +568,7 @@ func TestOperation_Send(t *testing.T) {
 				name:        "invalid message body - scenario 1",
 				requestJSON: `{"message_body": "sample-input", "their_did": "theirDID-001"}`,
 				vdr: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 					},
 				},

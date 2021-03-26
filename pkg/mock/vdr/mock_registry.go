@@ -25,7 +25,7 @@ type MockVDRegistry struct {
 	DeactivateFunc func(did string, opts ...vdrapi.DIDMethodOption) error
 	ResolveErr     error
 	ResolveValue   *did.Doc
-	ResolveFunc    func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error)
+	ResolveFunc    func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // Create mock implementation of create DID.
@@ -48,7 +48,7 @@ func (m *MockVDRegistry) Create(method string, didDoc *did.Doc,
 }
 
 // Resolve did document.
-func (m *MockVDRegistry) Resolve(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+func (m *MockVDRegistry) Resolve(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	if m.ResolveFunc != nil {
 		return m.ResolveFunc(didID, opts...)
 	}

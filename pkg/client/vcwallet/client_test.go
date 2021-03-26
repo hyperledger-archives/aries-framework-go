@@ -555,7 +555,7 @@ func TestClient_Query(t *testing.T) {
 
 func TestClient_Issue(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if strings.HasPrefix(didID, "did:key:") {
 				k := key.New()
 
@@ -613,7 +613,7 @@ func TestClient_Issue(t *testing.T) {
 
 func TestClient_Prove(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if strings.HasPrefix(didID, "did:key:") {
 				k := key.New()
 

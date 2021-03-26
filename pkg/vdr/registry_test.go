@@ -64,7 +64,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test DID not found", func(t *testing.T) {
 		registry := New(WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return nil, vdrapi.ErrNotFound
 			},
 		}))
@@ -76,7 +76,7 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test error from resolve did", func(t *testing.T) {
 		registry := New(WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return nil, fmt.Errorf("read error")
 			},
 		}))
@@ -88,18 +88,18 @@ func TestRegistry_Resolve(t *testing.T) {
 
 	t.Run("test opts passed", func(t *testing.T) {
 		registry := New(WithVDR(&mockvdr.MockVDR{
-			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
-				resolveOpts := &vdrapi.ResolveOpts{}
+			AcceptValue: true, ReadFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				didOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 				// Apply options
 				for _, opt := range opts {
-					opt(resolveOpts)
+					opt(didOpts)
 				}
 
-				require.Equal(t, "1", resolveOpts.VersionID)
+				require.NotNil(t, didOpts.Values["k1"])
 				return nil, nil
 			},
 		}))
-		_, err := registry.Resolve("1:id:123", vdrapi.WithVersionID("1"))
+		_, err := registry.Resolve("1:id:123", vdrapi.WithOption("k1", "v1"))
 		require.NoError(t, err)
 	})
 
