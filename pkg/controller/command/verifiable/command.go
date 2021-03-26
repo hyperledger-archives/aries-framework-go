@@ -248,7 +248,7 @@ func New(p provider) (*Command, error) {
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
-		kResolver:       verifiable.NewDIDKeyResolver(p.VDRegistry()),
+		kResolver:       verifiable.NewVDRKeyResolver(p.VDRegistry()),
 		ctx:             p,
 		docLoader:       docLoader,
 	}, nil
@@ -923,6 +923,7 @@ func (o *Command) parseVerifiableCredentials(request *PresentationRequest,
 
 	for _, vcRaw := range request.VerifiableCredentials {
 		vc, e := verifiable.ParseCredential(vcRaw, o.getCredentialOpts(request.SkipVerify)...)
+
 		if e != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to parse credential from request, invalid credential: "+e.Error())
@@ -988,7 +989,7 @@ func (o *Command) getCredentialOpts(disableProofCheck bool) []verifiable.Credent
 	}
 
 	return []verifiable.CredentialOpt{verifiable.WithPublicKeyFetcher(
-		verifiable.NewDIDKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
+		verifiable.NewVDRKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
 	)}
 }
 

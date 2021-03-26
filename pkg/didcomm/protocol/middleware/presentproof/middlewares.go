@@ -211,7 +211,7 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 			}
 
 			presentation, err := payload.PresentationDefinition.CreateVP(credentials,
-				verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
 				verifiable.WithJSONLDDocumentLoader(presexch.CachingJSONLDLoader()))
 			if err != nil {
 				return fmt.Errorf("create VP: %w", err)
@@ -290,7 +290,7 @@ func parseCredentials(vdr vdrapi.Registry, attachments []decorator.Attachment) (
 
 		credential, err := verifiable.ParseCredential(src,
 			verifiable.WithPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
+				verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher(),
 			),
 		)
 		if err != nil {
@@ -351,7 +351,7 @@ func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.Attachment) 
 
 		presentation, err := verifiable.ParsePresentation(raw,
 			verifiable.WithPresPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher(),
+				verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher(),
 			),
 			verifiable.WithPresJSONLDDocumentLoader(presexch.CachingJSONLDLoader()),
 		)

@@ -2528,7 +2528,7 @@ func TestCommand_DeriveCredential(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiable.ParseCredential([]byte(response.VerifiableCredential), verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(mockVDR).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(mockVDR).PublicKeyFetcher(),
 		))
 
 		// check expected proof

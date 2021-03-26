@@ -411,7 +411,7 @@ func (c *Wallet) resolveCredentials(credentials ...CredentialToPresent) ([]*veri
 func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 	// TODO resolve stored DID documents in wallet
 	opts := verifiable.WithPublicKeyFetcher(
-		verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
+		verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
 	)
 
 	_, err := verifiable.ParseCredential(credential, opts)
@@ -424,7 +424,7 @@ func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 
 func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
 	// TODO resolve stored DID documents in wallet
-	publicKeyFetcher := verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher()
+	publicKeyFetcher := verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher()
 
 	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(publicKeyFetcher))
 	if err != nil {

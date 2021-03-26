@@ -1174,7 +1174,7 @@ func TestDeriveCredential(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiableapi.ParseCredential([]byte(response.VerifiableCredential),
-			verifiableapi.WithPublicKeyFetcher(verifiableapi.NewDIDKeyResolver(mockVDR).PublicKeyFetcher()))
+			verifiableapi.WithPublicKeyFetcher(verifiableapi.NewVDRKeyResolver(mockVDR).PublicKeyFetcher()))
 
 		// check expected proof
 		r.NoError(err)
