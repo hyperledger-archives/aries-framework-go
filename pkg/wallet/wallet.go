@@ -422,14 +422,26 @@ func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 	return true, nil
 }
 
-// TODO should we check proof of each credentials inside presentation? under discussion in universal wallet 2020.
 func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
 	// TODO resolve stored DID documents in wallet
 	publicKeyFetcher := verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher()
 
-	_, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(publicKeyFetcher))
+	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(publicKeyFetcher))
 	if err != nil {
 		return false, fmt.Errorf("presentation verification failed: %w", err)
+	}
+
+	// verify proof of each credential
+	for _, cred := range vp.Credentials() {
+		vc, err := json.Marshal(cred)
+		if err != nil {
+			return false, fmt.Errorf("failed to read credentials from presentation: %w", err)
+		}
+
+		_, err = c.verifyCredential(vc)
+		if err != nil {
+			return false, fmt.Errorf("presentation verification failed: %w", err)
+		}
 	}
 
 	return true, nil
