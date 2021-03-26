@@ -306,7 +306,7 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 //		- proof options
 //
 func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
-	resolved, err := c.resolveCredentials(false, credentials...)
+	resolved, err := c.resolveCredentials(credentials...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
 	}
@@ -336,27 +336,32 @@ func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials
 // Verify takes Takes a Verifiable Credential or Verifiable Presentation as input,.
 //
 //	Args:
-//		- a Verifiable Credential or Verifiable Presentation
+//		- verification option for sending different models (stored credential ID, raw credential, raw presentation).
 //
 // Returns: a boolean verified, and an error if verified is false.
-func (c *Wallet) Verify(id string) (bool, error) {
-	raw, err := c.contents.Get(Credential, id)
-	if err != nil {
-		return false, fmt.Errorf("failed to get credential: %w", err)
-	}
+func (c *Wallet) Verify(options VerificationOption) (bool, error) {
+	requestOpts := &verifyOpts{}
 
-	// TODO need generic resolver, need custom VDRI which goes through cached DID
-	_, err = verifiable.ParseCredential(raw, verifiable.WithPublicKeyFetcher(
-		verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
-	))
-	if err != nil {
-		return false, fmt.Errorf("credential verification failed: %w", err)
-	}
+	options(requestOpts)
 
-	return true, nil
+	switch {
+	case requestOpts.credentialID != "":
+		raw, err := c.contents.Get(Credential, requestOpts.credentialID)
+		if err != nil {
+			return false, fmt.Errorf("failed to get credential: %w", err)
+		}
+
+		return c.verifyCredential(raw)
+	case len(requestOpts.rawCredential) > 0:
+		return c.verifyCredential(requestOpts.rawCredential)
+	case len(requestOpts.rawPresentation) > 0:
+		return c.verifyPresentation(requestOpts.rawPresentation)
+	default:
+		return false, fmt.Errorf("invalid verify request")
+	}
 }
 
-func (c *Wallet) resolveCredentials(verify bool, credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
+func (c *Wallet) resolveCredentials(credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
 	var response []*verifiable.Credential
 
 	opts := &proveOpts{}
@@ -365,25 +370,17 @@ func (c *Wallet) resolveCredentials(verify bool, credentials ...CredentialToPres
 		opt(opts)
 	}
 
-	var credentialOpts []verifiable.CredentialOpt
-	if verify {
-		// TODO resolve stored DIDs which can not be resolved by context?
-		credentialOpts = append(credentialOpts, verifiable.WithStrictValidation(), verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
-		))
-	} else {
-		credentialOpts = append(credentialOpts, verifiable.WithDisabledProofCheck())
-	}
-
 	for _, id := range opts.storedCredentials {
 		raw, err := c.contents.Get(Credential, id)
 		if err != nil {
 			return nil, err
 		}
 
-		// proof check is disabled while proving existing credentials,
-		// proof check has to be performed explicitly by using 'wallet.Verify()'.
-		credential, err := verifiable.ParseCredential(raw, credentialOpts...)
+		// proof check is disabled while resolving credentials from store. A wallet UI may or may not choose to
+		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
+		// may to call 'wallet.Verify()' for each credential being presented.
+		// (More details can be found in issue #2677).
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
 		if err != nil {
 			return nil, err
 		}
@@ -392,9 +389,11 @@ func (c *Wallet) resolveCredentials(verify bool, credentials ...CredentialToPres
 	}
 
 	for _, raw := range opts.rawCredentials {
-		// proof check is disabled while proving raw credentials,
-		// proof check has to be performed explicitly by using 'wallet.Verify()'.
-		credential, err := verifiable.ParseCredential(raw, credentialOpts...)
+		// proof check is disabled while resolving credentials from raw bytes. A wallet UI may or may not choose to
+		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
+		// may to call 'wallet.Verify()' for each credential being presented.
+		// (More details can be found in issue #2677).
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
 		if err != nil {
 			return nil, err
 		}
@@ -407,6 +406,33 @@ func (c *Wallet) resolveCredentials(verify bool, credentials ...CredentialToPres
 	}
 
 	return response, nil
+}
+
+func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
+	// TODO resolve stored DID documents in wallet
+	opts := verifiable.WithPublicKeyFetcher(
+		verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
+	)
+
+	_, err := verifiable.ParseCredential(credential, opts)
+	if err != nil {
+		return false, fmt.Errorf("credential verification failed: %w", err)
+	}
+
+	return true, nil
+}
+
+// TODO should we check proof of each credentials inside presentation? under discussion in universal wallet 2020.
+func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
+	// TODO resolve stored DID documents in wallet
+	publicKeyFetcher := verifiable.NewDIDKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher()
+
+	_, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(publicKeyFetcher))
+	if err != nil {
+		return false, fmt.Errorf("presentation verification failed: %w", err)
+	}
+
+	return true, nil
 }
 
 func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOptions,

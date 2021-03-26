@@ -133,3 +133,37 @@ func WithCredentialsToPresent(credentials ...*verifiable.Credential) CredentialT
 		opts.credentials = credentials
 	}
 }
+
+// verifyOpts contains options for verifying credentials.
+type verifyOpts struct {
+	// ID of the credential to be verified from wallet.
+	credentialID string
+	// raw credentials to be verified from wallet.
+	rawCredential json.RawMessage
+	// raw presentation to be verified from wallet.
+	rawPresentation json.RawMessage
+}
+
+// VerificationOption options for verifying credential from wallet.
+type VerificationOption func(opts *verifyOpts)
+
+// WithStoredCredentialToVerify option for providing ID of the stored credential to be verified from wallet.
+func WithStoredCredentialToVerify(id string) VerificationOption {
+	return func(opts *verifyOpts) {
+		opts.credentialID = id
+	}
+}
+
+// WithRawCredentialToVerify option for providing raw credential to be verified from wallet.
+func WithRawCredentialToVerify(raw json.RawMessage) VerificationOption {
+	return func(opts *verifyOpts) {
+		opts.rawCredential = raw
+	}
+}
+
+// WithRawPresentationToVerify option for providing raw presentation to be verified from wallet.
+func WithRawPresentationToVerify(raw json.RawMessage) VerificationOption {
+	return func(opts *verifyOpts) {
+		opts.rawPresentation = raw
+	}
+}

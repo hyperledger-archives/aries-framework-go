@@ -1297,6 +1297,13 @@ func TestWallet_Verify(t *testing.T) {
 	require.NotEmpty(t, sampleVC)
 	require.Len(t, sampleVC.Proofs, 1)
 
+	// present a credential
+	sampleVP, err := walletForIssue.Prove(tkn, &ProofOptions{Controller: didKey},
+		WithCredentialsToPresent(sampleVC))
+	require.NoError(t, err)
+	require.NotEmpty(t, sampleVP)
+	require.Len(t, sampleVP.Proofs, 1)
+
 	require.True(t, walletForIssue.Close())
 
 	t.Run("Test VC wallet verifying a credential - success", func(t *testing.T) {
@@ -1309,8 +1316,30 @@ func TestWallet_Verify(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, walletInstance.Add(Credential, vcBytes))
 
-		// verify
-		ok, err := walletInstance.Verify(sampleVC.ID)
+		// verify stored credential
+		ok, err := walletInstance.Verify(WithStoredCredentialToVerify(sampleVC.ID))
+		require.NoError(t, err)
+		require.True(t, ok)
+
+		// verify raw credential
+		rawBytes, err := sampleVC.MarshalJSON()
+		require.NoError(t, err)
+		ok, err = walletInstance.Verify(WithRawCredentialToVerify(rawBytes))
+		require.NoError(t, err)
+		require.True(t, ok)
+
+		require.NoError(t, walletInstance.Remove(Credential, "http://example.edu/credentials/1872"))
+	})
+
+	t.Run("Test VC wallet verifying a presentation - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// verify a raw presentation
+		rawBytes, err := sampleVP.MarshalJSON()
+		require.NoError(t, err)
+		ok, err := walletInstance.Verify(WithRawPresentationToVerify(rawBytes))
 		require.NoError(t, err)
 		require.True(t, ok)
 	})
@@ -1328,21 +1357,55 @@ func TestWallet_Verify(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, walletInstance.Add(Credential, vcBytes))
 
-		ok, err := walletInstance.Verify("http://example.edu/credentials/1872")
+		ok, err := walletInstance.Verify(WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+
+		// verify raw credential
+		rawBytes, err := tamperedVC.MarshalJSON()
+		require.NoError(t, err)
+		ok, err = walletInstance.Verify(WithRawCredentialToVerify(rawBytes))
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
 	})
 
-	t.Run("Test VC wallet verifying a credential - missing credential", func(t *testing.T) {
+	t.Run("Test VC wallet verifying a presentation - invalid signature", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// verify a raw presentation
+		tamperedVP := *sampleVP
+		tamperedVP.Holder += "."
+		rawBytes, err := tamperedVP.MarshalJSON()
+		require.NoError(t, err)
+		ok, err := walletInstance.Verify(WithRawPresentationToVerify(rawBytes))
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+	})
+
+	t.Run("Test VC wallet verifying a credential - invalid credential ID", func(t *testing.T) {
 		walletInstance, err := New(sampleUserID, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
 		// verify non existent credential.
-		ok, err := walletInstance.Verify("invalid-ID")
+		ok, err := walletInstance.Verify(WithStoredCredentialToVerify("invalid-ID"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get credential")
+		require.False(t, ok)
+	})
+
+	t.Run("Test VC wallet verifying a credential - invalid request", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// verify non existent credential.
+		ok, err := walletInstance.Verify(WithStoredCredentialToVerify(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid verify request")
 		require.False(t, ok)
 	})
 }

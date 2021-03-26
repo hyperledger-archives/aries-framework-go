@@ -100,6 +100,40 @@ const (
     "referenceNumber": 83294847,
     "type": ["VerifiableCredential", "UniversityDegreeCredential"]
 }`
+	sampleVP = `{
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    "holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+    "proof": {
+        "created": "2021-03-26T14:08:21.15597-04:00",
+        "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..GUbI3psCXXhCjDJ2yBTwteuKSUHJuEK840yJzxWuPPxYyAuza1uwK1v75Az2jO63ILHEsLmxwcEhBlKcTw7ODA",
+        "proofPurpose": "authentication",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+    },
+    "type": "VerifiablePresentation",
+    "verifiableCredential": [{
+        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
+        "credentialSubject": {
+            "degree": {"type": "BachelorDegree", "university": "MIT"},
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+        },
+        "expirationDate": "2020-01-01T19:23:24Z",
+        "id": "http://example.edu/credentials/1872",
+        "issuanceDate": "2010-01-01T19:23:24Z",
+        "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
+        "proof": {
+            "created": "2021-03-26T14:08:20.898673-04:00",
+            "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PeIllfXnUh7zD4mH24NCnfFFeKf0Fys8XWt8nVE2Z-fgSvE6-3Rbc-LgSIpyKPF20CtFzEdownwOiMavy2_tAQ",
+            "proofPurpose": "assertionMethod",
+            "type": "Ed25519Signature2018",
+            "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+        },
+        "referenceNumber": 83294847,
+        "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+    }]
+}`
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -732,7 +766,13 @@ func TestClient_Verify(t *testing.T) {
 		// store credential in wallet
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVCWithProof)))
 
-		ok, err := vcWalletClient.Verify("http://example.edu/credentials/1872")
+		// verify stored VC
+		ok, err := vcWalletClient.Verify(wallet.WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
+		require.NoError(t, err)
+		require.True(t, ok)
+
+		// verify raw VC
+		ok, err = vcWalletClient.Verify(wallet.WithRawCredentialToVerify([]byte(sampleUDCVCWithProof)))
 		require.NoError(t, err)
 		require.True(t, ok)
 	})
@@ -748,7 +788,41 @@ func TestClient_Verify(t *testing.T) {
 		tamperedVC := strings.ReplaceAll(sampleUDCVCWithProof, `"name": "Example University"`, `"name": "Fake University"`)
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(tamperedVC)))
 
-		ok, err := vcWalletClient.Verify("http://example.edu/credentials/1872")
+		ok, err := vcWalletClient.Verify(wallet.WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+
+		ok, err = vcWalletClient.Verify(wallet.WithRawCredentialToVerify([]byte(tamperedVC)))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature")
+		require.False(t, ok)
+	})
+
+	t.Run("Test VC wallet verify presentation - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// verify raw VC
+		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(sampleVP)))
+		require.NoError(t, err)
+		require.True(t, ok)
+	})
+
+	t.Run("Test VC wallet verify presentation - invalid signature", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		tamperedVP := strings.ReplaceAll(sampleVP, `"holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"`,
+			`"holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464"`)
+
+		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(tamperedVP)))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
