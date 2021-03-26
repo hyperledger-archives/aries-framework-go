@@ -241,9 +241,9 @@ func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToPr
 // Verify takes Takes a Verifiable Credential or Verifiable Presentation as input,.
 //
 //	Args:
-//		- ID of credential stored in wallet.
+//		- verification option for sending different models (stored credential ID, raw credential, raw presentation).
 //
 // Returns: a boolean verified, and an error if verified is false.
-func (c *Client) Verify(credentialID string) (bool, error) {
-	return c.wallet.Verify(credentialID)
+func (c *Client) Verify(option wallet.VerificationOption) (bool, error) {
+	return c.wallet.Verify(option)
 }
