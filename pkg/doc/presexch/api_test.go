@@ -82,7 +82,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			),
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)

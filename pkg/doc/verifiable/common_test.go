@@ -226,8 +226,9 @@ func Test_proofsToRaw(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestNewDIDKeyResolver(t *testing.T) {
-	resolver := NewDIDKeyResolver(vdr.New())
+func TestNewVDRKeyResolver(t *testing.T) {
+	resolver := NewVDRKeyResolver(vdr.New())
+
 	require.NotNil(t, resolver)
 }
 
@@ -243,7 +244,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 		ResolveValue: didDoc,
 	}
 
-	resolver := NewDIDKeyResolver(v)
+	resolver := NewVDRKeyResolver(v)
 	r.NotNil(resolver)
 
 	pubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, publicKey.ID)

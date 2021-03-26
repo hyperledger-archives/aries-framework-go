@@ -72,19 +72,19 @@ func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
 	}
 }
 
-// DIDKeyResolver resolves DID in order to find public keys for VC verification using vdr.Registry.
+// VDRKeyResolver resolves DID in order to find public keys for VC verification using vdr.Registry.
 // A source of DID could be issuer of VC or holder of VP. It can be also obtained from
 // JWS "issuer" claim or "verificationMethod" of Linked Data Proof.
-type DIDKeyResolver struct {
+type VDRKeyResolver struct {
 	vdr vdrapi.Registry
 }
 
-// NewDIDKeyResolver creates DIDKeyResolver.
-func NewDIDKeyResolver(vdr vdrapi.Registry) *DIDKeyResolver {
-	return &DIDKeyResolver{vdr: vdr}
+// NewVDRKeyResolver creates VDRKeyResolver.
+func NewVDRKeyResolver(vdr vdrapi.Registry) *VDRKeyResolver {
+	return &VDRKeyResolver{vdr: vdr}
 }
 
-func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
+func (r *VDRKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
 	docResolution, err := r.vdr.Resolve(issuerDID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
@@ -106,7 +106,7 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 }
 
 // PublicKeyFetcher returns Public Key Fetcher via DID resolution mechanism.
-func (r *DIDKeyResolver) PublicKeyFetcher() PublicKeyFetcher {
+func (r *VDRKeyResolver) PublicKeyFetcher() PublicKeyFetcher {
 	return r.resolvePublicKey
 }
 

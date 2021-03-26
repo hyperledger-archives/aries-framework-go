@@ -258,7 +258,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 		ResolveValue: didDoc,
 	}
 
-	resolver := NewDIDKeyResolver(v)
+	resolver := NewVDRKeyResolver(v)
 	require.NotNil(t, resolver)
 
 	return resolver.resolvePublicKey

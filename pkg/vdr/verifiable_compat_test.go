@@ -100,7 +100,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		// bob parses alice's VP
 		actualVP, err := verifiable.ParsePresentation(
 			aliceVPBits,
-			verifiable.WithPresPublicKeyFetcher(verifiable.NewDIDKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
+			verifiable.WithPresPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
 		require.NoError(t, err)
 
 		require.Equal(t, expectedVP.Context, actualVP.Context)
@@ -113,7 +113,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		// bob parses the VCs enclosed in alice's VP
 		actualVC, err := verifiable.ParseCredential(
 			actualVCBits[0],
-			verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
 		require.NoError(t, err)
 
 		require.Equal(t, expectedVC.Context, actualVC.Context)
