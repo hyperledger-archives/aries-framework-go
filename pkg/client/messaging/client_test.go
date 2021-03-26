@@ -419,7 +419,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name:   "invalid message body - scenario 1",
 				option: SendByTheirDID("theirDID-001"),
 				vdr: &mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (doc *did.DocResolution, e error) {
+					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
 						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
 					},
 				},

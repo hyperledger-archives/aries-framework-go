@@ -97,7 +97,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		doc, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		doc, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Nil(t, doc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error parsing did doc")
@@ -110,7 +110,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		docResolution, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
@@ -124,7 +124,7 @@ func TestResolveDID(t *testing.T) {
 		defer s.Close()
 		did := fmt.Sprintf("did:web:%s:user:example", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 		v := New()
-		docResolution, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument([]byte(validDoc))
 		require.Nil(t, err)
@@ -139,7 +139,7 @@ func TestResolveDID(t *testing.T) {
 		did := fmt.Sprintf("did:web:%s:alice", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 
 		v := New()
-		_, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		_, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Error(t, err)
 	})
 }
@@ -163,7 +163,7 @@ func TestResolveDomain(t *testing.T) {
 		did := fmt.Sprintf("did:web:%s", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 
 		v := New()
-		docResolution, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument(aliceDoc)
 		require.Nil(t, err)
@@ -190,7 +190,7 @@ func TestResolveWebFixtures(t *testing.T) {
 		did := fmt.Sprintf("did:web:%s:alice", urlapi.QueryEscape(strings.TrimPrefix(s.URL, "https://")))
 
 		v := New()
-		docResolution, err := v.Read(did, vdrapi.WithHTTPClient(s.Client()))
+		docResolution, err := v.Read(did, vdrapi.WithOption(HTTPClientOpt, s.Client()))
 		require.Nil(t, err)
 		expectedDoc, err := didapi.ParseDocument(aliceDoc)
 		require.Nil(t, err)

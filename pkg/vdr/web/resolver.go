@@ -17,17 +17,30 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
+const (
+	// HTTPClientOpt http client opt.
+	HTTPClientOpt = "httpClient"
+)
+
 var logger = log.New("aries-framework/pkg/vdr/web")
 
 // Read resolves a did:web did.
-func (v *VDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
-	// apply resolve opts
-	docOpts := &vdrapi.ResolveOpts{
-		HTTPClient: &http.Client{},
+func (v *VDR) Read(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	httpClient := &http.Client{}
+
+	didOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
+	// Apply options
+	for _, opt := range opts {
+		opt(didOpts)
 	}
 
-	for _, opt := range opts {
-		opt(docOpts)
+	k, ok := didOpts.Values[HTTPClientOpt]
+	if ok {
+		httpClient, ok = k.(*http.Client)
+
+		if !ok {
+			return nil, fmt.Errorf("failed to cast http client opt to http client struct")
+		}
 	}
 
 	address, _, err := parseDIDWeb(didID)
@@ -35,7 +48,7 @@ func (v *VDR) Read(didID string, opts ...vdrapi.ResolveOption) (*did.DocResoluti
 		return nil, fmt.Errorf("error resolving did:web did --> could not parse did:web did --> %w", err)
 	}
 
-	resp, err := docOpts.HTTPClient.Get(address)
+	resp, err := httpClient.Get(address)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving did:web did --> http request unsuccessful --> %w", err)
 	}

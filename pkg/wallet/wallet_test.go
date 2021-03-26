@@ -563,7 +563,7 @@ func TestWallet_Issue(t *testing.T) {
 	kid := "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 
 	customVDR := &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
 				d, e := did.ParseDocument([]byte(sampleInvalidDID))
 				require.NoError(t, e)
@@ -883,7 +883,7 @@ func TestWallet_Prove(t *testing.T) {
 	keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
 
 	customVDR := &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.ResolveOption) (*did.DocResolution, error) {
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
 				d, e := did.ParseDocument([]byte(sampleInvalidDID))
 				require.NoError(t, e)
