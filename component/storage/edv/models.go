@@ -77,9 +77,6 @@ type hasQuery struct {
 	Has                 string `json:"has"`
 }
 
-// batch represents a batch of operations to be performed in a vault.
-type batch []vaultOperation
-
 const (
 	// upsertDocumentVaultOperation represents an upsert operation to be performed in a batch.
 	upsertDocumentVaultOperation = "upsert"
@@ -92,5 +89,5 @@ const (
 type vaultOperation struct {
 	Operation         string          `json:"operation"`          // Valid values: upsert,delete
 	DocumentID        string          `json:"id,omitempty"`       // Only used if Operation=delete
-	EncryptedDocument json.RawMessage `json:"document,omitempty"` // Only used if Operation=createOrUpdate
+	EncryptedDocument json.RawMessage `json:"document,omitempty"` // Only used if Operation=upsert
 }

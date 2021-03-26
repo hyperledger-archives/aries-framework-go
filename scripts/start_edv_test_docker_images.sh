@@ -47,4 +47,4 @@ PWD=$(pwd)
 configPath="$PWD"/scripts/couchdb-config/10-single-node.ini
 docker run -p 5984:5984 -d --network AriesTestNetwork --name AriesCouchDBStorageTest -v "$configPath":/opt/couchdb/etc/local.d/config.ini -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:3.1.0 >/dev/null
 
-docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc/edv:0.1.6 start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type couchdb --database-url admin:password@AriesCouchDBStorageTest:5984 --with-extensions ReturnFullDocumentsOnQuery,Batch  >/dev/null
+docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc-cicd/edv:0.1.7-snapshot-e86b12a start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type couchdb --database-url admin:password@AriesCouchDBStorageTest:5984 --with-extensions ReturnFullDocumentsOnQuery,Batch  >/dev/null
