@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,24 +19,56 @@ import (
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+// EncryptedFormatterOption allows for configuration of an EncryptedFormatter.
+type EncryptedFormatterOption func(opts *EncryptedFormatter)
+
+// WithDeterministicDocumentIDs indicates whether the document IDs produced by this formatter can be
+// deterministically derived (using an HMAC function) from the unformatted keys. Having deterministic document IDs
+// allows the EDV REST storage provider (and the more general formatted storage provider wrapper in the
+// storageutil module) to operate faster. Per the Confidential Storage specification, document IDs are supposed
+// to be randomly generated. Other than the randomness aspect, the document IDs produced by this formatter with
+// this optimization enabled are still in the correct format: Base58-encoded 128-bit values. This means that they
+// should still be valid in any EDV server, since it's impossible for any EDV server to determine whether our IDs
+// are random anyway.
+func WithDeterministicDocumentIDs() EncryptedFormatterOption {
+	return func(encryptedFormatter *EncryptedFormatter) {
+		encryptedFormatter.useDeterministicDocumentIDs = true
+	}
+}
+
 // EncryptedFormatter formats data for use with an Encrypted Data Vault.
 type EncryptedFormatter struct {
-	jweEncrypter jose.Encrypter
-	jweDecrypter jose.Decrypter
-	macCrypto    *MACCrypto
+	jweEncrypter                jose.Encrypter
+	jweDecrypter                jose.Decrypter
+	macCrypto                   *MACCrypto
+	useDeterministicDocumentIDs bool
 }
 
 // NewEncryptedFormatter returns a new instance of an EncryptedFormatter.
-func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decrypter,
-	macCrypto *MACCrypto) *EncryptedFormatter {
-	return &EncryptedFormatter{
+func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decrypter, macCrypto *MACCrypto,
+	options ...EncryptedFormatterOption) *EncryptedFormatter {
+	encryptedFormatter := &EncryptedFormatter{
 		jweEncrypter: jweEncrypter,
 		jweDecrypter: jweDecrypter,
 		macCrypto:    macCrypto,
 	}
+
+	for _, option := range options {
+		option(encryptedFormatter)
+	}
+
+	return encryptedFormatter
 }
 
-// Format turns key into an EDV-compatible document ID, turns tag names and values into the format needed for
+// Format returns formatted versions of key, value and tags in the following ways:
+// For the formatted key (string): If this EncryptedFormatter was initialized with the WithDeterministicDocumentIDs
+// option, then the formatted key (document ID) will be generated in a deterministic way that allows it to be
+// derived from the unformatted key. Otherwise, the document ID is generated in a random manner.
+// For the formatted value ([]byte): This will be a marshalled EDV encrypted document based on the
+// unformatted key, value and tags.
+// For the formatted tags ([]spi.Tag): The tag names and values are converted to the same format that EDV encrypted
+// indexes use.
+// and tags turns key into an EDV-compatible document ID, turns tag names and values into the format needed for
 // EDV encrypted indexes, and turns key + value + tags into an encrypted document, which is then returned as the
 // formatted value from this function.
 func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag, error) {
@@ -43,9 +76,9 @@ func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (
 }
 
 // Deformat takes formattedValue (which is expected to be a marshalled encrypted document produced by the Format
-// function above, and returns the unformatted key, value and tags which are all contained in formattedValue.
-// The formatted key and formatted tags must come from the encrypted document (formattedValue) since they are
-// hashed values, and therefore not reversible.
+// function above), and returns the unformatted key, value and tags which are all contained in formattedValue.
+// The unformatted key and tags must come from the encrypted document (formatted value) since they cannot be
+// cannot be derived from the formatted key and tags, respectively.
 func (e *EncryptedFormatter) Deformat(_ string, formattedValue []byte, _ ...spi.Tag) (string, []byte,
 	[]spi.Tag, error) {
 	if formattedValue == nil {
@@ -62,16 +95,27 @@ func (e *EncryptedFormatter) Deformat(_ string, formattedValue []byte, _ ...spi.
 		structuredDocument.Content.UnformattedTags, nil
 }
 
+// UsesDeterministicKeyFormatting indicates whether this encrypted formatter will produce deterministic or random
+// document IDs. See the WithDeterministicDocumentIDs option near the top of this file for more information.
+func (e *EncryptedFormatter) UsesDeterministicKeyFormatting() bool {
+	return e.useDeterministicDocumentIDs
+}
+
 func (e *EncryptedFormatter) format(keyAndTagPrefix, key string, value []byte, tags ...spi.Tag) (string, []byte,
 	[]spi.Tag, error) {
-	var formattedKey string
+	var documentID string
 
-	if key != "" {
-		var err error
+	var err error
 
-		formattedKey, err = e.formatKey(keyAndTagPrefix + "-" + key)
+	if e.useDeterministicDocumentIDs {
+		documentID, err = e.generateDeterministicDocumentID(keyAndTagPrefix, key)
 		if err != nil {
 			return "", nil, nil, fmt.Errorf("failed to format key into an encrypted document ID: %w", err)
+		}
+	} else {
+		documentID, err = generateRandomDocumentID()
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("failed to generate EDV-compatible ID: %w", err)
 		}
 	}
 
@@ -80,12 +124,18 @@ func (e *EncryptedFormatter) format(keyAndTagPrefix, key string, value []byte, t
 		return "", nil, nil, fmt.Errorf("failed to format tags: %w", err)
 	}
 
-	formattedValue, err := e.formatValue(key, formattedKey, value, tags, formattedTags)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("failed to format value: %w", err)
+	var formattedValue []byte
+
+	if documentID != "" {
+		// Since the formatted tag are hashes and can't be reversed, the only way we can retrieve
+		// the unformatted tags later is to embed them in the stored value.
+		formattedValue, err = e.formatValue(key, documentID, value, tags, formattedTags)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("failed to format value: %w", err)
+		}
 	}
 
-	return formattedKey, formattedValue, formattedTags, nil
+	return documentID, formattedValue, formattedTags, nil
 }
 
 func (e *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
@@ -118,11 +168,13 @@ func (e *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
 	return structuredDoc, nil
 }
 
-// TODO (#2376) Revisit how we're generating EDV document IDs, since it's technically not 100% in line with the spec.
-//  (Spec requires randomly generated IDs)
 // Generates an encrypted document ID based off of key.
-func (e *EncryptedFormatter) formatKey(key string) (string, error) {
-	keyHash, err := e.macCrypto.ComputeMAC([]byte(key))
+func (e *EncryptedFormatter) generateDeterministicDocumentID(prefix, key string) (string, error) {
+	if key == "" {
+		return "", nil
+	}
+
+	keyHash, err := e.macCrypto.ComputeMAC([]byte(prefix + key))
 	if err != nil {
 		return "", fmt.Errorf(`failed to compute MAC based on key "%s": %w`, key, err)
 	}
@@ -130,40 +182,58 @@ func (e *EncryptedFormatter) formatKey(key string) (string, error) {
 	return base58.Encode(keyHash[0:16]), nil
 }
 
-func (e *EncryptedFormatter) formatTags(tagPrefix string, tags []spi.Tag) ([]spi.Tag, error) {
+func generateRandomDocumentID() (string, error) {
+	randomBytes := make([]byte, 16)
+
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+
+	return base58.Encode(randomBytes), nil
+}
+
+func (e *EncryptedFormatter) formatTags(tagNamePrefix string, tags []spi.Tag) ([]spi.Tag, error) {
 	formattedTags := make([]spi.Tag, len(tags))
 
 	for i, tag := range tags {
-		tagNameMAC, err := e.macCrypto.ComputeMAC([]byte(tagPrefix + "-" + tag.Name))
+		formattedTag, err := e.formatTag(tagNamePrefix, tag)
 		if err != nil {
-			return nil, fmt.Errorf(`failed to compute MAC for tag name "%s": %w`, tag.Name, err)
+			return nil, fmt.Errorf("failed to format tag: %w", err)
 		}
 
-		formattedTagName := base64.URLEncoding.EncodeToString(tagNameMAC)
-
-		var formattedTagValue string
-
-		if tag.Value != "" {
-			tagValueMAC, err := e.macCrypto.ComputeMAC([]byte(tag.Value))
-			if err != nil {
-				return nil, fmt.Errorf(`failed to compute MAC for tag value "%s": %w`, tag.Value, err)
-			}
-
-			formattedTagValue = base64.URLEncoding.EncodeToString(tagValueMAC)
-		}
-
-		// Since the formatted tag are hashes and can't be reversed, the only way we can retrieve
-		// the unformatted tags later is to embed them in the stored value.
-		formattedTags[i] = spi.Tag{
-			Name:  formattedTagName,
-			Value: formattedTagValue,
-		}
+		formattedTags[i] = formattedTag
 	}
 
 	return formattedTags, nil
 }
 
-func (e *EncryptedFormatter) formatValue(key, formattedKey string, value []byte,
+func (e *EncryptedFormatter) formatTag(tagNamePrefix string, tag spi.Tag) (spi.Tag, error) {
+	tagNameMAC, err := e.macCrypto.ComputeMAC([]byte(tagNamePrefix + tag.Name))
+	if err != nil {
+		return spi.Tag{}, fmt.Errorf(`failed to compute MAC for tag name "%s": %w`, tag.Name, err)
+	}
+
+	formattedTagName := base64.URLEncoding.EncodeToString(tagNameMAC)
+
+	var formattedTagValue string
+
+	if tag.Value != "" {
+		tagValueMAC, err := e.macCrypto.ComputeMAC([]byte(tag.Value))
+		if err != nil {
+			return spi.Tag{}, fmt.Errorf(`failed to compute MAC for tag value "%s": %w`, tag.Value, err)
+		}
+
+		formattedTagValue = base64.URLEncoding.EncodeToString(tagValueMAC)
+	}
+
+	return spi.Tag{
+		Name:  formattedTagName,
+		Value: formattedTagValue,
+	}, nil
+}
+
+func (e *EncryptedFormatter) formatValue(key, documentID string, value []byte,
 	tags, formattedTags []spi.Tag) ([]byte, error) {
 	var formattedValue []byte
 
@@ -190,7 +260,7 @@ func (e *EncryptedFormatter) formatValue(key, formattedKey string, value []byte,
 		indexedAttributeCollections := e.convertToIndexedAttributeCollection(formattedTags)
 
 		encryptedDoc := encryptedDocument{
-			ID:                          formattedKey,
+			ID:                          documentID,
 			IndexedAttributeCollections: indexedAttributeCollections,
 			JWE:                         []byte(serializedJWE),
 		}

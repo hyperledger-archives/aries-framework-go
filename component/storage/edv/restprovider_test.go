@@ -53,28 +53,60 @@ func (m *failingDecrypter) Decrypt(*jose.JSONWebEncryption) ([]byte, error) {
 }
 
 func TestCommon(t *testing.T) {
-	t.Run("Without batch endpoint extension", func(t *testing.T) {
-		t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
-			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-			storagetest.TestAll(t, edvRESTProvider)
+	t.Run("With random document IDs", func(t *testing.T) {
+		t.Run("Without batch endpoint extension", func(t *testing.T) {
+			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
+				storagetest.TestAll(t, edvRESTProvider)
+			})
+			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
+					edv.WithFullDocumentsReturnedFromQueries())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
 		})
-		t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
-			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
-				edv.WithFullDocumentsReturnedFromQueries())
-			storagetest.TestAll(t, edvRESTProvider)
+		t.Run("With batch endpoint extension", func(t *testing.T) {
+			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
+					edv.WithBatchEndpointExtension())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
+			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
+					edv.WithBatchEndpointExtension(),
+					edv.WithFullDocumentsReturnedFromQueries())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
 		})
 	})
-	t.Run("With batch endpoint extension", func(t *testing.T) {
-		t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
-			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
-				edv.WithBatchEndpointExtension())
-			storagetest.TestAll(t, edvRESTProvider)
+	t.Run("With deterministic document IDs", func(t *testing.T) {
+		t.Run("Without batch endpoint extension", func(t *testing.T) {
+			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t,
+					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
+				storagetest.TestAll(t, edvRESTProvider)
+			})
+			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t,
+					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
+					edv.WithFullDocumentsReturnedFromQueries())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
 		})
-		t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
-			edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
-				edv.WithBatchEndpointExtension(),
-				edv.WithFullDocumentsReturnedFromQueries())
-			storagetest.TestAll(t, edvRESTProvider)
+		t.Run("With batch endpoint extension", func(t *testing.T) {
+			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t,
+					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
+					edv.WithBatchEndpointExtension())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
+			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
+				edvRESTProvider := createEDVRESTProvider(t,
+					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
+					edv.WithBatchEndpointExtension(),
+					edv.WithFullDocumentsReturnedFromQueries())
+				storagetest.TestAll(t, edvRESTProvider)
+			})
 		})
 	})
 }
@@ -86,30 +118,68 @@ func TestRESTStore_Put(t *testing.T) {
 		require.NoError(t, err)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
-			edv.NewMACCrypto(nil, crypto))
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Put("Key", []byte("Value"))
-		require.EqualError(t, err, `failed to generate the encrypted document ID and encrypted document `+
-			`bytes: failed to format key into an encrypted document ID: `+
-			`failed to compute MAC based on key "teststore-Key": bad key handle format`)
+		require.EqualError(t, err, "failed to store data using a deterministic document ID: "+
+			"failed to store document using deterministic ID and batch endpoint: "+
+			"failed to generate the encrypted document ID and encrypted document bytes: "+
+			`failed to format key into an encrypted document ID: failed to compute MAC based on key "Key": `+
+			"bad key handle format")
 	})
 	t.Run("Fail to put data in EDV server (batch extension enabled)", func(t *testing.T) {
 		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
-			createValidEncryptedFormatter(t), edv.WithBatchEndpointExtension())
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()), edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Put("Key", []byte("Value"))
-		require.EqualError(t, err, `failed to put data in EDV server via the batch endpoint `+
+		require.EqualError(t, err, `failed to store data using a deterministic document ID: `+
+			`failed to store document using deterministic ID and batch endpoint: `+
+			`failed to put data in EDV server via the batch endpoint `+
 			`(is it enabled in the EDV server?): failed to send POST request: failed to send request: `+
 			`Post "InvalidURL/InvalidVaultID/batch": unsupported protocol scheme ""`)
 	})
-	t.Run("Fail to generate encrypted document ID during Get call", func(t *testing.T) {
+	t.Run("Fail to reach read document endpoint (using standard endpoints)", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Put("Key", []byte("Value"))
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed to store data using a deterministic document ID: "+
+			"failed to store document using random document ID and standard endpoints: "+
+			"failed to create or update document based on document ID: "+
+			`failed to determine if an EDV document for key "Key" in store "teststore" already exists: `+
+			"failed to send GET request: failed to send request: "+
+			`Get`)
+	})
+	t.Run("Fail to generate encrypted document ID "+
+		"(using deterministic IDs and standard endpoints)", func(t *testing.T) {
+		crypto, err := tinkcrypto.New()
+		require.NoError(t, err)
+
+		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
+		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter)
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Put("Key", []byte("Value"))
+		require.EqualError(t, err, "failed to store data using a deterministic document ID: "+
+			"failed to store document using random document ID and standard endpoints: "+
+			`failed to generate the encrypted document ID: failed to compute MAC based on key "Key": `+
+			"bad key handle format")
+	})
+	t.Run("Fail to generate formatted key tag (using random IDs and standard endpoints)", func(t *testing.T) {
 		crypto, err := tinkcrypto.New()
 		require.NoError(t, err)
 
@@ -121,22 +191,25 @@ func TestRESTStore_Put(t *testing.T) {
 		require.NoError(t, err)
 
 		err = store.Put("Key", []byte("Value"))
-		require.EqualError(t, err, `failed to determine if an EDV document for key "Key" in store `+
-			`"teststore" already exists: failed to generate the encrypted document ID: failed to format key into `+
-			`an encrypted document ID: failed to compute MAC based on key "teststore-Key": bad key handle format`)
+		require.EqualError(t, err, "failed to store data using a random document ID: "+
+			`failed to determine if an EDV document for key "Key" in store "teststore" already exists: `+
+			`failed to get document ID via key tag query: `+
+			`failed to format key tag: failed to compute MAC for tag name "": bad key handle format`)
 	})
-	t.Run("Fail to save data to EDV server", func(t *testing.T) {
+	t.Run("Fail to create encrypted document for the create document endpoint", func(t *testing.T) {
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
-			createValidMACCrypto(t))
+			createValidMACCrypto(t), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter)
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Put("Key", []byte("Value"))
-		require.EqualError(t, err, `failed to store data in EDV server: failed to generate the `+
-			`encrypted document: failed to format value: failed to encrypt structured document bytes: `+
-			`failingEncrypter always fails`)
+		require.EqualError(t, err, "failed to store data using a deterministic document ID: "+
+			"failed to store document using random document ID and standard endpoints: "+
+			"failed to create or update document based on document ID: failed to format tags then create document: "+
+			"failed to create document: failed to generate the encrypted document: "+
+			"failed to encrypt structured document bytes: failingEncrypter always fails")
 	})
 }
 
@@ -145,7 +218,7 @@ func TestRESTStore_Get(t *testing.T) {
 		encrypter, _ := createEncrypterAndDecrypter(t)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(encrypter, &failingDecrypter{},
-			createValidMACCrypto(t))
+			createValidMACCrypto(t), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
@@ -167,15 +240,17 @@ func TestRESTStore_GetTags(t *testing.T) {
 		require.NoError(t, err)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
-			edv.NewMACCrypto(nil, crypto))
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter)
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		tags, err := store.GetTags("Key")
-		require.EqualError(t, err, `failed to generate the encrypted document ID: failed to format key `+
-			`into an encrypted document ID: failed to compute MAC based on key "teststore-Key": bad key handle format`)
+		require.EqualError(t, err, "failed to get encrypted document stored under a "+
+			"deterministic document ID: failed to generate the encrypted document ID: "+
+			"failed to format key into an encrypted document ID: "+
+			`failed to compute MAC based on key "Key": bad key handle format`)
 		require.Nil(t, tags)
 	})
 	t.Run("Fail to decrypt encrypted document", func(t *testing.T) {
@@ -201,7 +276,7 @@ func TestRESTStore_GetTags(t *testing.T) {
 func TestRESTStore_GetBulk(t *testing.T) {
 	t.Run("Unexpected failure while getting value", func(t *testing.T) {
 		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
-			createValidEncryptedFormatter(t))
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
@@ -209,7 +284,9 @@ func TestRESTStore_GetBulk(t *testing.T) {
 		values, err := store.GetBulk("Key")
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), `unexpected failure while getting value for key "Key": `+
-			`failed to retrieve document from EDV server: failed to send GET request: failed to send request: `)
+			"failed to get encrypted document stored under a deterministic document ID: "+
+			"failed to retrieve document from EDV server: failed to send GET request: "+
+			"failed to send request: ")
 		require.Nil(t, values)
 	})
 }
@@ -220,14 +297,14 @@ func TestRESTStore_Query(t *testing.T) {
 		require.NoError(t, err)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
-			edv.NewMACCrypto(nil, crypto))
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		iterator, err := store.Query("TagName:TagValue")
-		require.EqualError(t, err, `failed to format tag for querying: failed to format tags: `+
+		require.EqualError(t, err, `failed to format tag for querying: `+
 			`failed to compute MAC for tag name "TagName": bad key handle format`)
 		require.Nil(t, iterator)
 	})
@@ -251,34 +328,68 @@ func TestRESTStore_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
-			edv.NewMACCrypto(nil, crypto))
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Delete("Key")
-		require.EqualError(t, err, `failed to generate the encrypted document ID: failed to `+
-			`format key into an encrypted document ID: failed to compute MAC based on key "teststore-Key": `+
-			`bad key handle format`)
+		require.EqualError(t, err, "failed to delete document using deterministic ID: "+
+			"failed to generate the encrypted document ID: "+
+			`failed to compute MAC based on key "Key": bad key handle format`)
 	})
-	t.Run("Failure while deleting document in EDV server", func(t *testing.T) {
+	t.Run("Fail to reach delete endpoint (using deterministic IDs)", func(t *testing.T) {
 		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
-			createValidEncryptedFormatter(t))
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()), edv.WithBatchEndpointExtension())
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Delete("Key")
 		require.NotNil(t, err)
-		require.Contains(t, err.Error(), "unexpected failure while deleting document in EDV server: "+
+		require.Contains(t, err.Error(), "failed to delete document using deterministic ID: "+
+			"unexpected failure while deleting document in EDV server: "+
 			"failed to send request: Delete")
+	})
+	t.Run("Fail to determine previously generate random document ID", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t), edv.WithBatchEndpointExtension())
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Delete("Key")
+		require.EqualError(t, err, "failed to delete document using random ID: "+
+			"failed to determine previously generated random document ID: "+
+			"failed to get document ID via key tag query: failure while querying EDV server: "+
+			"failed to send POST request: failed to send request: "+
+			`Post "InvalidURL/InvalidVaultID/query": unsupported protocol scheme ""`)
 	})
 }
 
 func TestRESTStore_Batch(t *testing.T) {
 	t.Run("Fail to generate the encrypted document ID and "+
 		"encrypted document bytes (batch extension enabled)", func(t *testing.T) {
+		crypto, err := tinkcrypto.New()
+		require.NoError(t, err)
+
+		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
+		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key"}})
+		require.EqualError(t, err, "failed to batch using batch extension: "+
+			"failed to generate vault operations using deterministic IDs: "+
+			"failed to generate the encrypted document ID and encrypted document bytes: "+
+			"failed to format key into an encrypted document ID: "+
+			`failed to compute MAC based on key "Key": bad key handle format`)
+	})
+	t.Run("Fail to create delete vault operation "+
+		"(using random IDs and batch extension enabled)", func(t *testing.T) {
 		crypto, err := tinkcrypto.New()
 		require.NoError(t, err)
 
@@ -290,31 +401,140 @@ func TestRESTStore_Batch(t *testing.T) {
 		require.NoError(t, err)
 
 		err = store.Batch([]spi.Operation{{Key: "Key"}})
-		require.EqualError(t, err, `failed to batch using batch extension: failed to generate the `+
-			`encrypted document ID and encrypted document bytes: failed to format key into an encrypted `+
-			`document ID: failed to compute MAC based on key "teststore-Key": bad key handle format`)
+		require.EqualError(t, err, "failed to batch using batch extension: "+
+			"failed to create vault operations using random document IDs: "+
+			"failed to create vault delete operation: unexpected failure while determining document ID to use: "+
+			"unexpected failure while attempting to determine document ID via vault query: "+
+			"failed to get document ID via key tag query: "+
+			`failed to format key tag: failed to compute MAC for tag name "": bad key handle format`)
 	})
-	t.Run("Fail to put (batch extension disabled)", func(t *testing.T) {
+	t.Run("Fail to create upsert vault operation "+
+		"(using random IDs and batch extension enabled)", func(t *testing.T) {
 		crypto, err := tinkcrypto.New()
 		require.NoError(t, err)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
 			edv.NewMACCrypto(nil, crypto))
+		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter, edv.WithBatchEndpointExtension())
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key", Value: []byte("Value")}})
+		require.EqualError(t, err, "failed to batch using batch extension: "+
+			"failed to create vault operations using random document IDs: "+
+			"failed to create vault upsert operation: unexpected failure while determining document ID to use: "+
+			"unexpected failure while attempting to determine document ID via vault query: "+
+			"failed to get document ID via key tag query: "+
+			`failed to format key tag: failed to compute MAC for tag name "": bad key handle format`)
+	})
+	t.Run("Fail to generate document ID (batch extension disabled)", func(t *testing.T) {
+		crypto, err := tinkcrypto.New()
+		require.NoError(t, err)
+
+		failingEncryptedFormatter := edv.NewEncryptedFormatter(&failingEncrypter{}, &failingDecrypter{},
+			edv.NewMACCrypto(nil, crypto), edv.WithDeterministicDocumentIDs())
 		edvRESTProvider := createEDVRESTProvider(t, failingEncryptedFormatter)
 
 		store, err := edvRESTProvider.OpenStore("TestStore")
 		require.NoError(t, err)
 
 		err = store.Batch([]spi.Operation{{Key: "Key", Value: []byte("Value")}})
-		require.EqualError(t, err, `failed to batch using standard endpoints: failed to put: `+
+		require.EqualError(t, err, "failed to batch using standard endpoints: "+
+			"failed to execute operation using standard endpoints: "+
+			"failed to execute put operation using standard endpoints: "+
+			"failed to store data using a deterministic document ID: "+
+			"failed to store document using random document ID and standard endpoints: "+
+			"failed to generate the encrypted document ID: "+
+			`failed to compute MAC based on key "Key": bad key handle format`)
+	})
+	t.Run("Fail to reach batch endpoint", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()), edv.WithBatchEndpointExtension())
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key", Value: []byte("Value")}})
+		require.EqualError(t, err, "failed to batch using batch extension: "+
+			"failure while executing batch operation in EDV server: "+
+			"failed to send POST request: failed to send request: "+
+			`Post "InvalidURL/InvalidVaultID/batch": unsupported protocol scheme ""`)
+	})
+	t.Run("Fail to reach delete endpoint "+
+		"(using deterministic IDs and batch extension is disabled)", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key"}})
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed to batch using standard endpoints: "+
+			"failed to execute operation using standard endpoints: "+
+			"failed to execute delete operation using standard endpoints: "+
+			"failed to delete document using deterministic ID: "+
+			"unexpected failure while deleting document in EDV server: "+
+			"failed to send request: Delete")
+	})
+	t.Run("Fail to reach delete endpoint "+
+		"(using deterministic IDs and batch extension is disabled)", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key"}})
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed to batch using standard endpoints: "+
+			"failed to execute operation using standard endpoints: "+
+			"failed to execute delete operation using standard endpoints: "+
+			"failed to delete document using deterministic ID: "+
+			"unexpected failure while deleting document in EDV server: "+
+			"failed to send request: Delete")
+	})
+	t.Run("Fail to reach query vault endpoint while creating delete document vault operation "+
+		"(using random IDs and batch extension is disabled)", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key"}})
+		require.EqualError(t, err, "failed to batch using standard endpoints: "+
+			"failed to execute operation using standard endpoints: "+
+			"failed to execute delete operation using standard endpoints: "+
+			"failed to delete document using random ID: "+
+			"failed to determine previously generated random document ID: "+
+			"failed to get document ID via key tag query: failure while querying EDV server: "+
+			`failed to send POST request: failed to send request: Post "InvalidURL/InvalidVaultID/query": `+
+			`unsupported protocol scheme ""`)
+	})
+	t.Run("Fail to reach query vault endpoint while creating upsert document vault operation "+
+		"(using random IDs and batch extension is disabled)", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
+			createValidEncryptedFormatter(t))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = store.Batch([]spi.Operation{{Key: "Key", Value: []byte("Value")}})
+		require.EqualError(t, err, "failed to batch using standard endpoints: "+
+			"failed to execute operation using standard endpoints: "+
+			"failed to execute put operation using standard endpoints: "+
+			"failed to store data using a random document ID: "+
 			`failed to determine if an EDV document for key "Key" in store "teststore" already exists: `+
-			`failed to generate the encrypted document ID: failed to format key into an encrypted document ID: `+
-			`failed to compute MAC based on key "teststore-Key": bad key handle format`)
+			"failed to get document ID via key tag query: failure while querying EDV server: "+
+			`failed to send POST request: failed to send request: Post "InvalidURL/InvalidVaultID/query": `+
+			`unsupported protocol scheme ""`)
 	})
 }
 
 func createEDVRESTProvider(t *testing.T, encryptedFormatter *edv.EncryptedFormatter,
-	options ...edv.Option) *edv.RESTProvider {
+	options ...edv.RESTProviderOption) *edv.RESTProvider {
 	options = append(options,
 		edv.WithHeaders(func(req *http.Request) (*http.Header, error) {
 			req.Header.Set("h1", "v1")

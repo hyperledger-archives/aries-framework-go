@@ -192,34 +192,27 @@ func (c *restClient) queryVaultForFullDocuments(vaultID, name, value string) ([]
 	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
-func (c *restClient) Batch(vaultID string, batch batch) ([]string, error) {
-	jsonToSend, err := json.Marshal(batch)
+func (c *restClient) batch(vaultID string, vaultOperations []vaultOperation) error {
+	jsonToSend, err := json.Marshal(vaultOperations)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal batch: %w", err)
+		return fmt.Errorf("failed to marshal vault operations: %w", err)
 	}
 
 	endpoint := fmt.Sprintf("%s/%s/batch", c.edvServerURL, url.PathEscape(vaultID))
 
 	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
 	if err != nil {
-		return nil, fmt.Errorf(failSendPOSTRequest, err)
+		return fmt.Errorf(failSendPOSTRequest, err)
 	}
 
 	if statusCode == http.StatusOK {
-		var responses []string
-
-		err = json.Unmarshal(respBytes, &responses)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal batch responses: %w", err)
-		}
-
-		return responses, nil
+		return nil
 	}
 
-	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
+	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
-func (c *restClient) DeleteDocument(vaultID, docID string) error {
+func (c *restClient) deleteDocument(vaultID, docID string) error {
 	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
 
 	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodDelete, endpoint, nil, c.headersFunc)

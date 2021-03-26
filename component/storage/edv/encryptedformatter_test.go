@@ -27,7 +27,7 @@ import (
 )
 
 func TestEncryptedFormatterInFormatProvider(t *testing.T) {
-	t.Run("With EDV Encrypted Formatter", func(t *testing.T) {
+	t.Run("With random document IDs", func(t *testing.T) {
 		t.Run("Without cache", func(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t))
 			require.NotNil(t, provider)
@@ -37,6 +37,24 @@ func TestEncryptedFormatterInFormatProvider(t *testing.T) {
 		t.Run("With cache", func(t *testing.T) {
 			provider := cachedstore.NewProvider(
 				formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t)), mem.NewProvider())
+			require.NotNil(t, provider)
+
+			storagetest.TestAll(t, provider)
+		})
+	})
+	t.Run("With deterministic document IDs", func(t *testing.T) {
+		t.Run("Without cache", func(t *testing.T) {
+			provider := formattedstore.NewProvider(mem.NewProvider(),
+				createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
+			require.NotNil(t, provider)
+
+			storagetest.TestAll(t, provider)
+		})
+		t.Run("With cache", func(t *testing.T) {
+			provider := cachedstore.NewProvider(
+				formattedstore.NewProvider(mem.NewProvider(),
+					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs())),
+				mem.NewProvider())
 			require.NotNil(t, provider)
 
 			storagetest.TestAll(t, provider)
@@ -68,10 +86,11 @@ func TestEncryptedFormatter_Deformat(t *testing.T) {
 	})
 }
 
-func createValidEncryptedFormatter(t *testing.T) *edv.EncryptedFormatter {
+func createValidEncryptedFormatter(t *testing.T, options ...edv.EncryptedFormatterOption) *edv.EncryptedFormatter {
 	encrypter, decrypter := createEncrypterAndDecrypter(t)
 
-	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, createValidMACCrypto(t))
+	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, createValidMACCrypto(t),
+		options...)
 	require.NotNil(t, formatter)
 
 	return formatter
@@ -102,8 +121,8 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 	err = json.Unmarshal(buf.Bytes(), ecPubKey)
 	require.NoError(t, err)
 
-	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "EDVEncryptedDocument",
-		"application/json", "", nil, []*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
+	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "application/JSON",
+		"", "", nil, []*cryptoapi.PublicKey{ecPubKey}, cryptoSvc)
 	require.NoError(t, err)
 
 	decrypter := jose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
