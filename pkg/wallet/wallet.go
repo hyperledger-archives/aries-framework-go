@@ -306,7 +306,7 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 //		- proof options
 //
 func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
-	resolved, err := c.resolveCredentials(credentials...)
+	resolved, err := c.resolveCredentialsToPresent(credentials...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
 	}
@@ -361,7 +361,32 @@ func (c *Wallet) Verify(options VerificationOption) (bool, error) {
 	}
 }
 
-func (c *Wallet) resolveCredentials(credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
+// Derive derives a credential and returns response credential.
+//
+//	Args:
+//		- credential to derive (ID of the stored credential, raw credential or credential instance).
+//		- derive options.
+//
+func (c *Wallet) Derive(credential CredentialToDerive,
+	options *DeriveOptions) (*verifiable.Credential, error) {
+	vc, err := c.resolveCredentialToDerive(credential)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve request : %w", err)
+	}
+
+	pkFetcher := verifiable.WithPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
+	)
+
+	derived, err := vc.GenerateBBSSelectiveDisclosure(options.Frame, []byte(options.Nonce), pkFetcher)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive credential : %w", err)
+	}
+
+	return derived, nil
+}
+
+func (c *Wallet) resolveCredentialsToPresent(credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
 	var response []*verifiable.Credential
 
 	opts := &proveOpts{}
@@ -406,6 +431,39 @@ func (c *Wallet) resolveCredentials(credentials ...CredentialToPresent) ([]*veri
 	}
 
 	return response, nil
+}
+
+func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*verifiable.Credential, error) {
+	opts := &deriveOpts{}
+
+	credential(opts)
+
+	if opts.credential != nil {
+		return opts.credential, nil
+	}
+
+	if len(opts.rawCredential) > 0 {
+		// proof check is disabled while resolving credentials from store. A wallet UI may or may not choose to
+		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
+		// may to call 'wallet.Verify()' for each credential being presented.
+		// (More details can be found in issue #2677).
+		return verifiable.ParseCredential(opts.rawCredential, verifiable.WithDisabledProofCheck())
+	}
+
+	if opts.credentialID != "" {
+		raw, err := c.contents.Get(Credential, opts.credentialID)
+		if err != nil {
+			return nil, err
+		}
+
+		// proof check is disabled while resolving credentials from store. A wallet UI may or may not choose to
+		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
+		// may to call 'wallet.Verify()' for each credential being presented.
+		// (More details can be found in issue #2677).
+		return verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+	}
+
+	return nil, errors.New("invalid request to derive credential")
 }
 
 func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {

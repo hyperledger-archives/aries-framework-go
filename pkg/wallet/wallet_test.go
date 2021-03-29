@@ -9,6 +9,7 @@ package wallet
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
@@ -135,10 +137,34 @@ const (
     		"updated": "2021-03-23T19:25:18.513655-04:00"
 		} 
 	}`
+
+	sampleFrame = `
+		{
+			"@context": [
+    			"https://www.w3.org/2018/credentials/v1",
+        		"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/security/bbs/v1"
+			],
+  			"type": ["VerifiableCredential", "UniversityDegreeCredential"],
+  			"@explicit": true,
+  			"identifier": {},
+  			"issuer": {},
+  			"issuanceDate": {},
+  			"credentialSubject": {
+    			"@explicit": true,
+    			"degree": {},
+    			"name": {}
+  			}
+		}
+	`
+
 	sampleVerificationMethod = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	didKey                   = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	pkBase58                 = "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
 	kid                      = "z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	didKeyBBS                = "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
+	pkBBSBase58              = "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
+	keyIDBBS                 = "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
 )
 
 func TestCreate(t *testing.T) {
@@ -695,12 +721,7 @@ func TestWallet_Issue(t *testing.T) {
 		require.Equal(t, result.Proofs[0]["verificationMethod"], vm)
 	})
 
-	// nolint:lll
 	t.Run("Test VC wallet issue using BBS - success", func(t *testing.T) {
-		didKeyBBS := "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
-		pkBBSBase58 := "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
-		keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
-
 		walletInstance, err := New(sampleUserID, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
@@ -874,10 +895,6 @@ func TestWallet_Issue(t *testing.T) {
 }
 
 func TestWallet_Prove(t *testing.T) {
-	didKeyBBS := "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
-	pkBBSBase58 := "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
-	keyIDBBS := "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ" // nolint:lll
-
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -1430,6 +1447,188 @@ func TestWallet_Verify(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid verify request")
 		require.False(t, ok)
+	})
+}
+
+func TestWallet_Derive(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if didID == sampleInvalidDIDID {
+				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				require.NoError(t, e)
+
+				return &did.DocResolution{DIDDocument: d}, nil
+			} else if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	mockctx := newMockProvider()
+	mockctx.VDRegistryValue = customVDR
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	mockctx.CryptoValue = customCrypto
+
+	// create profile
+	err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	// prepare VCs for tests
+	vcs := make(map[string]*verifiable.Credential, 2)
+	walletForIssue, err := New(sampleUserID, mockctx)
+	require.NotEmpty(t, walletForIssue)
+	require.NoError(t, err)
+
+	authToken, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+	require.NotEmpty(t, authToken)
+
+	// import ED25519 & BLS12381G2Type keys manually
+	kmgr, err := keyManager().getKeyManger(authToken)
+	require.NoError(t, err)
+
+	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+	// nolint: errcheck, gosec
+	kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+	privKeyBBS, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(pkBBSBase58))
+	require.NoError(t, err)
+	// nolint: errcheck, gosec
+	kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
+
+	// issue a credential with Ed25519Signature2018
+	result, err := walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		Controller: didKey,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+	require.Len(t, result.Proofs, 1)
+	vcs["edvc"] = result
+
+	// issue a credential with BbsBlsSignature2020
+	proofRepr := verifiable.SignatureProofValue
+	result, err = walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		Controller:          didKeyBBS,
+		ProofType:           BbsBlsSignature2020,
+		ProofRepresentation: &proofRepr,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+	require.Len(t, result.Proofs, 1)
+	vcs["bbsvc"] = result
+
+	require.True(t, walletForIssue.Close())
+
+	// prepare frame
+	var frameDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+
+	t.Run("Test derive a credential from wallet - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// save BBS VC in store
+		vcBytes, err := vcs["bbsvc"].MarshalJSON()
+		require.NoError(t, err)
+		require.NoError(t, walletInstance.Add(Credential, vcBytes))
+
+		sampleNonce := uuid.New().String()
+
+		verifyBBSProof := func(proofs []verifiable.Proof) {
+			require.Len(t, proofs, 1)
+			require.NotEmpty(t, proofs[0])
+			require.Equal(t, proofs[0]["type"], "BbsBlsSignatureProof2020")
+			require.NotEmpty(t, proofs[0]["nonce"])
+			require.EqualValues(t, proofs[0]["nonce"], base64.StdEncoding.EncodeToString([]byte(sampleNonce)))
+			require.NotEmpty(t, proofs[0]["proofValue"])
+		}
+
+		// derive stored credential
+		vc, err := walletInstance.Derive(FromStoredCredential(vcs["bbsvc"].ID), &DeriveOptions{
+			Nonce: sampleNonce,
+			Frame: frameDoc,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
+		verifyBBSProof(vc.Proofs)
+
+		// derive raw credential
+		vc, err = walletInstance.Derive(FromRawCredential(vcBytes), &DeriveOptions{
+			Nonce: sampleNonce,
+			Frame: frameDoc,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
+		verifyBBSProof(vc.Proofs)
+
+		// derive from credential instance
+		vc, err = walletInstance.Derive(FromCredential(vcs["bbsvc"]), &DeriveOptions{
+			Nonce: sampleNonce,
+			Frame: frameDoc,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
+		verifyBBSProof(vc.Proofs)
+	})
+
+	t.Run("Test derive credential failures", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// invalid request
+		vc, err := walletInstance.Derive(FromStoredCredential(""), &DeriveOptions{})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid request to derive credential")
+
+		// credential not found in store
+		vc, err = walletInstance.Derive(FromStoredCredential("invalid-id"), &DeriveOptions{})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+
+		// invalid credential in store
+		require.NoError(t, walletInstance.Add(Credential, []byte(sampleInvalidDIDContent)))
+
+		vc, err = walletInstance.Derive(FromStoredCredential("did:example:sampleInvalidDIDContent"), &DeriveOptions{})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential type of unknown structure")
+
+		// invalid raw credential
+		vc, err = walletInstance.Derive(FromRawCredential([]byte(sampleInvalidDIDContent)), &DeriveOptions{})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential type of unknown structure")
+
+		// invalid raw credential
+		vc, err = walletInstance.Derive(FromCredential(vcs["bbsvc"]), &DeriveOptions{})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to derive credential")
+
+		// try deriving wrong proof type - no BbsBlsSignature2020 proof present
+		vc, err = walletInstance.Derive(FromCredential(vcs["edvc"]), &DeriveOptions{
+			Frame: frameDoc,
+		})
+		require.Empty(t, vc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no BbsBlsSignature2020 proof present")
 	})
 }
 

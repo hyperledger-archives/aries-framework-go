@@ -53,3 +53,12 @@ type ProofOptions struct {
 	// Optional, by default proof will be represented as 'verifiable.SignatureProofValue'.
 	ProofRepresentation *verifiable.SignatureRepresentation `json:"proofRepresentation,omitempty"`
 }
+
+// DeriveOptions model containing options for deriving a credential.
+//
+type DeriveOptions struct {
+	// Frame is JSON-LD frame used for selective disclosure.
+	Frame map[string]interface{} `json:"frame,omitempty"`
+	// Nonce to prove uniqueness or freshness of the proof.
+	Nonce string `json:"nonce,omitempty"`
+}

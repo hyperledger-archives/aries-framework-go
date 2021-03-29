@@ -247,3 +247,13 @@ func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToPr
 func (c *Client) Verify(option wallet.VerificationOption) (bool, error) {
 	return c.wallet.Verify(option)
 }
+
+// Derive derives a credential and returns response credential.
+//
+//	Args:
+//		- credential to derive (ID of the stored credential, raw credential or credential instance).
+//		- derive options.
+//
+func (c *Client) Derive(credential wallet.CredentialToDerive, options *wallet.DeriveOptions) (*verifiable.Credential, error) { //nolint: lll
+	return c.wallet.Derive(credential, options)
+}
