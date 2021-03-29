@@ -167,3 +167,37 @@ func WithRawPresentationToVerify(raw json.RawMessage) VerificationOption {
 		opts.rawPresentation = raw
 	}
 }
+
+// verifyOpts contains options for deriving credentials.
+type deriveOpts struct {
+	// for deriving credential from stored credential.
+	credentialID string
+	// for deriving credential from raw credential.
+	rawCredential json.RawMessage
+	// for deriving credential from credential instance.
+	credential *verifiable.Credential
+}
+
+// CredentialToDerive is credential option for deriving a credential from wallet.
+type CredentialToDerive func(opts *deriveOpts)
+
+// FromStoredCredential for deriving credential from stored credential.
+func FromStoredCredential(id string) CredentialToDerive {
+	return func(opts *deriveOpts) {
+		opts.credentialID = id
+	}
+}
+
+// FromRawCredential for deriving credential from raw credential bytes.
+func FromRawCredential(raw json.RawMessage) CredentialToDerive {
+	return func(opts *deriveOpts) {
+		opts.rawCredential = raw
+	}
+}
+
+// FromCredential option for deriving credential from a credential instance.
+func FromCredential(cred *verifiable.Credential) CredentialToDerive {
+	return func(opts *deriveOpts) {
+		opts.credential = cred
+	}
+}
