@@ -26,13 +26,15 @@ import (
 )
 
 const (
-	secp256k1Alg  = "ES256K"
-	secp256k1Crv  = "secp256k1"
-	secp256k1Kty  = "EC"
-	secp256k1Size = 32
-	bitsPerByte   = 8
-	x25519Crv     = "X25519"
-	x25519Kty     = "OKP"
+	secp256k1Alg   = "ES256K"
+	secp256k1Crv   = "secp256k1"
+	secp256k1Kty   = "EC"
+	secp256k1Size  = 32
+	bitsPerByte    = 8
+	x25519Crv      = "X25519"
+	okpKty         = "OKP"
+	bls12381G2Crv  = "BLS12381G2"
+	bls12381G2Size = 96
 )
 
 // JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.
@@ -66,16 +68,42 @@ func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 	return key, nil
 }
 
-// JWEFromX25519Key is similar to JWKFromPublicKey but is specific to X25519 keys when using a public key as raw []byte.
+// JWKFromX25519Key is similar to JWKFromPublicKey but is specific to X25519 keys when using a public key as raw []byte.
 // This builder function presets the curve and key type in the JWK.
 // Using JWKFromPublicKey for X25519 raw keys will not have these fields set and will not provide the right JWK output.
-func JWEFromX25519Key(pubKey []byte) (*JWK, error) {
+func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{
 			Key: pubKey,
 		},
-		Crv: "X25519",
-		Kty: "OKP",
+		Crv: x25519Crv,
+		Kty: okpKty,
+	}
+
+	// marshal/unmarshal to get all JWK's fields other than Key filled.
+	keyBytes, err := key.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	err = key.UnmarshalJSON(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	return key, nil
+}
+
+// JWKFromBBSKey is similar to JWKFromPublicKey but is specific to BBS+ keys when using a public key as raw []byte.
+// This builder function presets the curve and key type in the JWK.
+// Using JWKFromPublicKey for BBS+ raw keys will not have these fields set and will not provide the right JWK output.
+func JWKFromBBSKey(pubKey []byte) (*JWK, error) {
+	key := &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: pubKey,
+		},
+		Crv: bls12381G2Crv,
+		Kty: okpKty,
 	}
 
 	// marshal/unmarshal to get all JWK's fields other than Key filled.
@@ -93,7 +121,25 @@ func JWEFromX25519Key(pubKey []byte) (*JWK, error) {
 }
 
 // PublicKeyBytes converts a public key to bytes.
-func (j *JWK) PublicKeyBytes() ([]byte, error) {
+func (j *JWK) PublicKeyBytes() ([]byte, error) { //nolint:gocyclo
+	if j.isBLS12381G1() {
+		bbsKey, ok := j.Key.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("invalid public key in kid '%s'", j.KeyID)
+		}
+
+		return bbsKey, nil
+	}
+
+	if j.isX25519() {
+		x25519Key, ok := j.Key.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("invalid public key in kid '%s'", j.KeyID)
+		}
+
+		return x25519Key, nil
+	}
+
 	if j.isSecp256k1() {
 		var ecPubKey *ecdsa.PublicKey
 
@@ -109,15 +155,6 @@ func (j *JWK) PublicKeyBytes() ([]byte, error) {
 		}
 
 		return pubKey.SerializeCompressed(), nil
-	}
-
-	if j.isX25519() {
-		x25519Key, ok := j.Key.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("invalid public key in kid '%s'", j.KeyID)
-		}
-
-		return x25519Key, nil
 	}
 
 	switch pubKey := j.Public().Key.(type) {
@@ -146,6 +183,13 @@ func (j *JWK) UnmarshalJSON(jwkBytes []byte) error {
 		jwk, err := unmarshalSecp256k1(&key)
 		if err != nil {
 			return fmt.Errorf("unable to read JWK: %w", err)
+		}
+
+		*j = *jwk
+	} else if isBLS12381G2(key.Kty, key.Crv) {
+		jwk, err := unmarshalBLS12381G2(&key)
+		if err != nil {
+			return fmt.Errorf("unable to read BBS+ JWE: %w", err)
 		}
 
 		*j = *jwk
@@ -183,6 +227,10 @@ func (j *JWK) MarshalJSON() ([]byte, error) {
 		return marshalX25519(j)
 	}
 
+	if j.isBLS12381G1() {
+		return marshalBLS12381G1(j)
+	}
+
 	return (&j.JSONWebKey).MarshalJSON()
 }
 
@@ -190,6 +238,15 @@ func (j *JWK) isX25519() bool {
 	switch j.Key.(type) {
 	case []byte:
 		return isX25519(j.Kty, j.Crv)
+	default:
+		return false
+	}
+}
+
+func (j *JWK) isBLS12381G1() bool {
+	switch j.Key.(type) {
+	case []byte:
+		return isBLS12381G2(j.Kty, j.Crv)
 	default:
 		return false
 	}
@@ -211,7 +268,11 @@ func isSecp256k1Key(pubKey interface{}) bool {
 }
 
 func isX25519(kty, crv string) bool {
-	return strings.EqualFold(kty, x25519Kty) && strings.EqualFold(crv, x25519Crv)
+	return strings.EqualFold(kty, okpKty) && strings.EqualFold(crv, x25519Crv)
+}
+
+func isBLS12381G2(kty, crv string) bool {
+	return strings.EqualFold(kty, okpKty) && strings.EqualFold(crv, bls12381G2Crv)
 }
 
 func isSecp256k1(alg, kty, crv string) bool {
@@ -306,9 +367,52 @@ func marshalX25519(jwk *JWK) ([]byte, error) {
 	}
 
 	raw = jsonWebKey{
-		Kty: x25519Kty,
+		Kty: okpKty,
 		Crv: x25519Crv,
 		X:   newFixedSizeBuffer(key, cryptoutil.Curve25519KeySize),
+	}
+
+	raw.Kid = jwk.KeyID
+	raw.Alg = jwk.Algorithm
+	raw.Use = jwk.Use
+
+	return json.Marshal(raw)
+}
+
+func unmarshalBLS12381G2(jwk *jsonWebKey) (*JWK, error) {
+	if jwk.X == nil {
+		return nil, ErrInvalidKey
+	}
+
+	if len(jwk.X.data) != bls12381G2Size {
+		return nil, ErrInvalidKey
+	}
+
+	return &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: jwk.X.data, KeyID: jwk.Kid, Algorithm: jwk.Alg, Use: jwk.Use,
+		},
+		Crv: jwk.Crv,
+		Kty: jwk.Kty,
+	}, nil
+}
+
+func marshalBLS12381G1(jwk *JWK) ([]byte, error) {
+	var raw jsonWebKey
+
+	key, ok := jwk.Key.([]byte)
+	if !ok {
+		return nil, errors.New("marshalBLS12381G1: invalid key")
+	}
+
+	if len(key) != bls12381G2Size {
+		return nil, errors.New("marshalBLS12381G1: invalid key")
+	}
+
+	raw = jsonWebKey{
+		Kty: okpKty,
+		Crv: bls12381G2Crv,
+		X:   newFixedSizeBuffer(key, bls12381G2Size),
 	}
 
 	raw.Kid = jwk.KeyID
