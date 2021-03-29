@@ -180,7 +180,11 @@ func TestCreateDID(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		createDIDReq := CreateDIDRequest{Method: "peer", DID: json.RawMessage(doc), Opts: map[string]string{"k1": "v1"}}
+		createDIDReq := CreateDIDRequest{
+			Method: "peer",
+			DID:    json.RawMessage(doc),
+			Opts:   map[string]interface{}{"k1": "v1"},
+		}
 		reqBytes, err := json.Marshal(createDIDReq)
 		require.NoError(t, err)
 
@@ -205,7 +209,7 @@ func TestCreateDID(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		createDIDReq := CreateDIDRequest{Method: "peer", DID: []byte("{}"), Opts: map[string]string{"k1": "v1"}}
+		createDIDReq := CreateDIDRequest{Method: "peer", DID: []byte("{}"), Opts: map[string]interface{}{"k1": "v1"}}
 		reqBytes, err := json.Marshal(createDIDReq)
 		require.NoError(t, err)
 

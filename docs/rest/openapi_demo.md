@@ -90,22 +90,26 @@ Steps http over did comm message handling is same as [above](#steps-for-custom-m
 To create DID use `HTTP POST /vdr/did/create` endpoint. 
 For example, to create a "peer" DID in alice agent, go to `HTTP POST /vdr/did/create` of alice agent and use below parameters.
 ```
-    {
-   "method":"peer",
-   "did":{
-      "verificationMethod":[
-         {
-            "controller":"did:example:123",
-            "id":"e2cbb249-8c25-4e6e-8b92-b1ceee211c8c",
-            "publicKeyBase58":"7qf5xCRSGP3NW6PAUonYLmq1LCz6Ux5ynek9nbzGgCnP",
-            "type":"Ed25519VerificationKey2018"
-         }
-      ]
-    },
-   "opts":{
-      "k1":"v1"
-    }
-   }
+{
+  "method": "peer",
+  "did": {
+    "id": "did:example:1zQmanz2svbjxcYd4J3CtP6Jg6kw4nQpnZQioscz4oKhtLHk",
+    "@context": [
+      "https://w3id.org/did/v1"
+    ],
+    "verificationMethod": [
+      {
+        "controller": "did:example:123",
+        "id": "e2cbb249-8c25-4e6e-8b92-b1ceee211c8c",
+        "publicKeyBase58": "7qf5xCRSGP3NW6PAUonYLmq1LCz6Ux5ynek9nbzGgCnP",
+        "type": "Ed25519VerificationKey2018"
+      }
+    ]
+  },
+  "opts": {
+    "store": true
+  }
+}
 ```
 
 ## How to create a did-connection through the out-of-band protocol?
