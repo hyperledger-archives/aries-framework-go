@@ -17,6 +17,8 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 func TestHeaders_GetJWK(t *testing.T) {
@@ -85,6 +87,17 @@ func TestDecodePublicKey(t *testing.T) {
 							"crv": "X25519",
 							"kid": "sample@sample.id",
 							"x": "sEHL6KXs8bUz9Ss2qSWWjhhRMHVjrog0lzFENM132R8"
+						}`,
+			},
+			{
+				name: "get public key bytes BBS+ JWK",
+				//nolint:lll
+				jwkJSON: `{
+							"kty": "OKP",
+							"use": "enc",
+							"crv": "BLS12381G2",
+							"kid": "sample@sample.id",
+							"x": "tKWJu0SOY7onl4tEyOOH11XBriQN2JgzV-UmjgBMSsNkcAx3_l97SVYViSDBouTVBkBfrLh33C5icDD-4UEDxNO3Wn1ijMHvn2N63DU4pkezA3kGN81jGbwbrsMPpiOF"
 						}`,
 			},
 			{
@@ -158,9 +171,26 @@ func TestDecodePublicKey(t *testing.T) {
 				require.NoError(t, err)
 				require.NotEmpty(t, jwkBytes)
 
-				jwkKey, err := JWKFromPublicKey(jwk.Key)
-				require.NoError(t, err)
-				require.NotNil(t, jwkKey)
+				switch tc.name {
+				case "get public key bytes X25519 JWK":
+					jwkKey, err := JWKFromX25519Key(jwk.Key.([]byte))
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, x25519Crv, jwkKey.Crv)
+					require.Equal(t, cryptoutil.Curve25519KeySize, len(jwkKey.Key.([]byte)))
+					require.Equal(t, okpKty, jwkKey.Kty)
+				case "get public key bytes BBS+ JWK":
+					jwkKey, err := JWKFromBBSKey(jwk.Key.([]byte))
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, bls12381G2Crv, jwkKey.Crv)
+					require.Equal(t, bls12381G2Size, len(jwkKey.Key.([]byte)))
+					require.Equal(t, okpKty, jwkKey.Kty)
+				default:
+					jwkKey, err := JWKFromPublicKey(jwk.Key)
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+				}
 			})
 		}
 	})
@@ -351,11 +381,11 @@ func TestJWKFromPublicKeyFailure(t *testing.T) {
 }
 
 func TestJWKFromX25519KeyFailure(t *testing.T) {
-	key, err := JWEFromX25519Key([]byte(strings.Repeat("a", 33))) // try to create a key larger than X25519
+	key, err := JWKFromX25519Key([]byte(strings.Repeat("a", 33))) // try to create a key larger than X25519
 	require.EqualError(t, err, "create JWK: marshalX25519: invalid key")
 	require.Nil(t, key)
 
-	key, err = JWEFromX25519Key(nil) // try to create a nil key
+	key, err = JWKFromX25519Key(nil) // try to create a nil key
 	require.EqualError(t, err, "create JWK: marshalX25519: invalid key")
 	require.Nil(t, key)
 
