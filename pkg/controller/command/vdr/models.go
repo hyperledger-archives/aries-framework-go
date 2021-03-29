@@ -49,7 +49,7 @@ type NameArg struct {
 
 // CreateDIDRequest is model for create did request.
 type CreateDIDRequest struct {
-	Method string            `json:"method,omitempty"`
-	DID    json.RawMessage   `json:"did,omitempty"`
-	Opts   map[string]string `json:"opts,omitempty"`
+	Method string                 `json:"method,omitempty"`
+	DID    json.RawMessage        `json:"did,omitempty"`
+	Opts   map[string]interface{} `json:"opts,omitempty"`
 }
