@@ -186,6 +186,8 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //n
 					}
 				}
 
+				// TODO pass the envelope's MediaType into the didexchange service:
+				//  https://github.com/hyperledger/aries-framework-go/issues/2702.
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 
 				return err

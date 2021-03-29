@@ -684,6 +684,7 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		RecipientKeys:   svc.RecipientKeys,
 		TheirLabel:      oobInvitation.TheirLabel,
 		Namespace:       findNamespace(msg.Type()),
+		MediaTypes:      oobInvitation.MediaTypes,
 	}
 
 	publicDID, ok := oobInvitation.Target.(string)
