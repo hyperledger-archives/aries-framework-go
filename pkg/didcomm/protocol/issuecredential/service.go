@@ -218,7 +218,7 @@ func (s *Service) Use(items ...Middleware) {
 }
 
 // HandleInbound handles inbound message (issuecredential protocol).
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	aEvent := s.ActionEvent()
 
 	// throw error if there is no action event registered for inbound messages
@@ -233,8 +233,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 	// sets inbound payload
 	md.inbound = true
-	md.MyDID = myDID
-	md.TheirDID = theirDID
+	md.MyDID = ctx.MyDID()
+	md.TheirDID = ctx.TheirDID()
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {

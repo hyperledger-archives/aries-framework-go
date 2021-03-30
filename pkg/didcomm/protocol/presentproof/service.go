@@ -223,8 +223,8 @@ func (s *Service) Use(items ...Middleware) {
 }
 
 // HandleInbound handles inbound message (presentproof protocol).
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, ctx.MyDID(), ctx.TheirDID())
 
 	msgMap := msg.Clone()
 
@@ -242,8 +242,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		return "", fmt.Errorf("doHandle: %w", err)
 	}
 
-	md.MyDID = myDID
-	md.TheirDID = theirDID
+	md.MyDID = ctx.MyDID()
+	md.TheirDID = ctx.TheirDID()
 
 	// trigger action event based on message type for inbound messages
 	if canReply && canTriggerActionEvents(msgMap) {

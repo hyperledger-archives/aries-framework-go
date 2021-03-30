@@ -75,7 +75,7 @@ func (m *msgService) Accept(msgType string, purpose []string) bool {
 	return purposeMatched && typeMatched
 }
 
-func (m *msgService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *msgService) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	go m.pushMessage(msg)
 	return "", nil
 }

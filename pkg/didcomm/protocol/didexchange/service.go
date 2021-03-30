@@ -178,7 +178,7 @@ func retrievingRouterConnections(msg service.DIDCommMsg) []string {
 }
 
 // HandleInbound handles inbound didexchange messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	logger.Debugf("receive inbound message : %s", msg)
 
 	// fetch the thread id
@@ -194,10 +194,12 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 	}
 
 	// connection record
-	connRecord, err := s.connectionRecord(msg)
+	connRecord, err := s.connectionRecord(msg, ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch connection record : %w", err)
 	}
+
+	logger.Debugf("connection record: %+v", connRecord)
 
 	internalMsg := &message{
 		Options:       &options{routerConnections: retrievingRouterConnections(msg)},
@@ -484,7 +486,7 @@ func (s *Service) RespondTo(i *OOBInvitation, routerConnections []string) (strin
 	msg := service.NewDIDCommMsgMap(i)
 	msg.Metadata()[routerConnsMetadataKey] = routerConnections
 
-	return s.HandleInbound(msg, "", "")
+	return s.HandleInbound(msg, service.EmptyDIDCommContext())
 }
 
 // SaveInvitation saves this invitation created by you.
@@ -639,14 +641,14 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 	return s.connectionRecorder.SaveConnectionRecord(record)
 }
 
-func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
+func (s *Service) connectionRecord(msg service.DIDCommMsg, ctx service.EventProperties) (*connection.Record, error) {
 	switch msg.Type() {
 	case oobMsgType:
 		return s.oobInvitationMsgRecord(msg)
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
 	case RequestMsgType:
-		return s.requestMsgRecord(msg)
+		return s.requestMsgRecord(msg, ctx)
 	case ResponseMsgType:
 		return s.responseMsgRecord(msg)
 	case AckMsgType:
@@ -774,7 +776,7 @@ func getRequestConnection(r *Request) (*Connection, error) {
 	}, nil
 }
 
-func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
+func (s *Service) requestMsgRecord(msg service.DIDCommMsg, ctx service.EventProperties) (*connection.Record, error) {
 	request := Request{}
 
 	err := msg.Decode(&request)
@@ -787,6 +789,13 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		return nil, fmt.Errorf("missing parent thread ID on didexchange request with @id=%s", request.ID)
 	}
 
+	var mediaType string
+
+	mt, ok := ctx.All()[service.DIDCommContextEnvelopeMediaTypeKey].(string)
+	if ok {
+		mediaType = mt
+	}
+
 	connRecord := &connection.Record{
 		TheirLabel:   request.Label,
 		ConnectionID: generateRandomID(),
@@ -794,6 +803,7 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		State:        stateNameNull,
 		InvitationID: invitationID,
 		Namespace:    theirNSPrefix,
+		MediaTypes:   []string{mediaType},
 	}
 
 	// Interop: read their DID from the connection attribute if present

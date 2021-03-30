@@ -315,14 +315,14 @@ func TestOverDIDComm_HandleInbound(t *testing.T) {
 			require.NoError(t, err)
 
 			if tc.expected.failure != "" {
-				_, err = svc.HandleInbound(didCommMsg, "", "")
+				_, err = svc.HandleInbound(didCommMsg, service.EmptyDIDCommContext())
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expected.failure)
 				return
 			}
 
 			go func() {
-				_, err = svc.HandleInbound(didCommMsg, "", "")
+				_, err = svc.HandleInbound(didCommMsg, service.EmptyDIDCommContext())
 				require.NoError(t, err)
 			}()
 
@@ -360,7 +360,7 @@ func TestOverDIDComm_HandleInbound_InvalidMsg(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	_, err = svc.HandleInbound(&mockMsg{err: fmt.Errorf("sample-error")}, "", "")
+	_, err = svc.HandleInbound(&mockMsg{err: fmt.Errorf("sample-error")}, service.EmptyDIDCommContext())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to decode DID comm message")
 }

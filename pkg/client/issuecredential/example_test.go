@@ -82,11 +82,11 @@ func mockContext(agent string, tr map[string]chan payload) Provider {
 
 				fmt.Println(agent, "received", didMap.Type(), "from", msg.theirDID)
 
-				if err = msgSvc.HandleInbound(didMap, msg.myDID, msg.theirDID); err != nil {
+				if err = msgSvc.HandleInbound(didMap, service.NewDIDCommContext(msg.myDID, msg.theirDID, nil)); err != nil {
 					fmt.Println(err)
 				}
 
-				_, err = svc.HandleInbound(didMap, msg.myDID, msg.theirDID)
+				_, err = svc.HandleInbound(didMap, service.NewDIDCommContext(msg.myDID, msg.theirDID, nil))
 				if err != nil {
 					fmt.Println(err)
 				}

@@ -135,7 +135,7 @@ func (m *OverDIDComm) Accept(msgType string, purpose []string) bool {
 }
 
 // HandleInbound for HTTP over DIDComm message service.
-func (m *OverDIDComm) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *OverDIDComm) HandleInbound(msg service.DIDCommMsg, _ service.DIDCommContext) (string, error) {
 	svcMsg := httpOverDIDCommMsg{}
 
 	err := msg.Decode(&svcMsg)

@@ -92,7 +92,7 @@ func TestServiceHandleInbound(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(&service.DIDCommMsgMap{"@id": msgID}, "", "")
+		id, err := svc.HandleInbound(&service.DIDCommMsgMap{"@id": msgID}, service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -226,7 +226,7 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateRequestMsgPayload(t, msgID), "", "")
+		id, err := svc.HandleInbound(generateRequestMsgPayload(t, msgID), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -341,7 +341,7 @@ func TestEvents(t *testing.T) {
 		msgID := randomID()
 		msg := generateRequestMsgPayload(t, msgID)
 
-		id, err := svc.HandleInbound(msg, "", "")
+		id, err := svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 
@@ -376,7 +376,7 @@ func TestEvents(t *testing.T) {
 		err = svc.RegisterActionEvent(events)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 
 		select {
@@ -416,7 +416,7 @@ func TestEvents(t *testing.T) {
 		err = svc.RegisterActionEvent(events)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 
 		select {
@@ -445,7 +445,7 @@ func TestEvents(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), service.EmptyDIDCommContext())
 		require.Error(t, err)
 	})
 
@@ -486,7 +486,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("with Options as a struct type", func(t *testing.T) {
-			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), MYDID, THEIRDID)
+			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), service.NewDIDCommContext(MYDID, THEIRDID, nil))
 			require.NoError(t, err)
 
 			select {
@@ -507,7 +507,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("with Options as a pointer type", func(t *testing.T) {
-			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), MYDID, THEIRDID)
+			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), service.NewDIDCommContext(MYDID, THEIRDID, nil))
 			require.NoError(t, err)
 
 			select {
@@ -544,7 +544,7 @@ func TestServiceGrantMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateGrantMsgPayload(t, msgID), "", "")
+		id, err := svc.HandleInbound(generateGrantMsgPayload(t, msgID), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -587,7 +587,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		id, err := svc.HandleInbound(generateKeyUpdateListMsgPayload(t, msgID, []Update{{
 			RecipientKey: "ABC",
 			Action:       "add",
-		}}), "", "")
+		}}), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -680,7 +680,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			RecipientKey: "ABC",
 			Action:       "add",
 			Result:       success,
-		}}), "", "")
+		}}), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -724,7 +724,7 @@ func TestServiceForwardMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateForwardMsgPayload(t, msgID, to, nil), "", "")
+		id, err := svc.HandleInbound(generateForwardMsgPayload(t, msgID, to, nil), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})

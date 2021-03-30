@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package service
 
+// DIDCommContextEnvelopeMediaTypeKey is DIDCommContext property key holding the DIDComm envelope's media type.
+const DIDCommContextEnvelopeMediaTypeKey = "DIDCommContextEnvelopeMediaType"
+
 // DIDCommMsg describes message interface.
 type DIDCommMsg interface {
 	ID() string
@@ -16,6 +19,45 @@ type DIDCommMsg interface {
 	Clone() DIDCommMsgMap
 	Metadata() map[string]interface{}
 	Decode(v interface{}) error
+}
+
+// DIDCommContext holds information on the context in which a DIDCommMsg is being processed.
+type DIDCommContext interface {
+	MyDID() string
+	TheirDID() string
+	EventProperties
+}
+
+// NewDIDCommContext returns a new DIDCommContext with the given DIDs and properties.
+func NewDIDCommContext(myDID, theirDID string, props map[string]interface{}) DIDCommContext {
+	return &context{
+		myDID:    myDID,
+		theirDID: theirDID,
+		props:    props,
+	}
+}
+
+// EmptyDIDCommContext returns a DIDCommContext with no DIDs nor properties.
+func EmptyDIDCommContext() DIDCommContext {
+	return &context{props: make(map[string]interface{})}
+}
+
+type context struct {
+	myDID    string
+	theirDID string
+	props    map[string]interface{}
+}
+
+func (c *context) MyDID() string {
+	return c.myDID
+}
+
+func (c *context) TheirDID() string {
+	return c.theirDID
+}
+
+func (c *context) All() map[string]interface{} {
+	return c.props
 }
 
 // The messenger package is responsible for the handling of communication between agents.
@@ -55,7 +97,7 @@ type Messenger interface {
 type MessengerHandler interface {
 	Messenger
 	// HandleInbound handles all inbound messages
-	HandleInbound(msg DIDCommMsgMap, myDID, theirDID string) error
+	HandleInbound(msg DIDCommMsgMap, ctx DIDCommContext) error
 }
 
 // NestedReplyOpts options for performing `ReplyToNested` operation.

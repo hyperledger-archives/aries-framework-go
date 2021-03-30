@@ -84,7 +84,7 @@ func TestNewProvider(t *testing.T) {
 
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
-		messengerHandler.EXPECT().HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		messengerHandler.EXPECT().HandleInbound(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
 		connectionStore.EXPECT().GetDID(gomock.Any()).Return("", nil).AnyTimes()
@@ -160,7 +160,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("inbound message handler for didexchange protocol doesn't call GetDID", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 
@@ -190,7 +190,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("inbound message handler: DID not found is ok", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 
@@ -221,7 +221,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("inbound message handler: failed to get my did", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 
@@ -260,7 +260,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("inbound message handler: failed to get their did", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 
@@ -299,7 +299,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("generic message handler: failed to get did", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 
@@ -337,7 +337,7 @@ func TestNewProvider(t *testing.T) {
 
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(errTest).
 			Times(1)
 
@@ -420,7 +420,7 @@ func TestNewProvider(t *testing.T) {
 
 		messenger := serviceMocks.NewMockMessengerHandler(ctrl)
 		messenger.EXPECT().
-			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			HandleInbound(gomock.Any(), gomock.Any()).
 			Return(nil).
 			AnyTimes()
 

@@ -261,11 +261,11 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, myDID, theirDID string
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	logger.Debugf("service.HandleInbound() input: msg=%+v myDID=%s theirDID=%s", msg, ctx.MyDID(), ctx.TheirDID())
 
 	if triggersActionEvent(msg.Type()) {
-		return msg.ID(), s.sendActionEvent(msg, myDID, theirDID)
+		return msg.ID(), s.sendActionEvent(msg, ctx.MyDID(), ctx.TheirDID())
 	}
 
 	// perform action on inbound message asynchronously
@@ -276,7 +276,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		case GrantMsgType:
 			err = s.saveGrant(msg)
 		case KeylistUpdateMsgType:
-			err = s.handleKeylistUpdate(msg, myDID, theirDID)
+			err = s.handleKeylistUpdate(msg, ctx.MyDID(), ctx.TheirDID())
 		case KeylistUpdateResponseMsgType:
 			err = s.handleKeylistUpdateResponse(msg)
 		case service.ForwardMsgType:
@@ -287,7 +287,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 		// mediator forward messages don't have connection established with the sender; hence skip the lookup
 		if msg.Type() != service.ForwardMsgType {
-			connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+			connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(ctx.MyDID(), ctx.TheirDID())
 			if connErr != nil {
 				logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
 			}

@@ -54,8 +54,8 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 		thid := uuid.New().String()
 
 		svc := mocks.NewMockProtocolService(ctrl)
-		svc.EXPECT().HandleInbound(gomock.Any(), Alice, Bob).
-			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
+		svc.EXPECT().HandleInbound(gomock.Any(), service.NewDIDCommContext(Alice, Bob, nil)).
+			DoAndReturn(func(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 				require.Equal(t, msg.Type(), presentproof.RequestPresentationMsgType)
 
 				return thid, nil
@@ -91,8 +91,8 @@ func TestClient_SendProposePresentation(t *testing.T) {
 		thid := uuid.New().String()
 
 		svc := mocks.NewMockProtocolService(ctrl)
-		svc.EXPECT().HandleInbound(gomock.Any(), Alice, Bob).
-			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
+		svc.EXPECT().HandleInbound(gomock.Any(), service.NewDIDCommContext(Alice, Bob, nil)).
+			DoAndReturn(func(msg service.DIDCommMsg, _ service.DIDCommContext) (string, error) {
 				require.Equal(t, msg.Type(), presentproof.ProposePresentationMsgType)
 
 				return thid, nil

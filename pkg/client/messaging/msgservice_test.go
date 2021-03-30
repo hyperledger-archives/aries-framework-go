@@ -188,7 +188,8 @@ func TestMsgService_HandleInbound(t *testing.T) {
 		require.NotNil(t, msgsvc)
 
 		go func() {
-			s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": sampleName}, myDID, theirDID)
+			s, err := msgsvc.HandleInbound(
+				service.DIDCommMsgMap{"payload": sampleName}, service.NewDIDCommContext(myDID, theirDID, nil))
 			require.NoError(t, err)
 			require.Empty(t, s)
 		}()
@@ -213,7 +214,8 @@ func TestMsgService_HandleInbound(t *testing.T) {
 
 	t.Run("message service handle inbound failure", func(t *testing.T) {
 		msgsvc := newMessageService("", "", nil, &mockNotifier{})
-		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
+		s, err := msgsvc.HandleInbound(
+			service.DIDCommMsgMap{"payload": []byte(sampleName)}, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errTopicNotFound)
 		require.Empty(t, s)
@@ -221,12 +223,13 @@ func TestMsgService_HandleInbound(t *testing.T) {
 
 	t.Run("message service handle inbound topic handle failure", func(t *testing.T) {
 		const sampleErr = "sample topic error"
-		topicHandle := func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error) {
+		topicHandle := func(service.DIDCommMsg, service.DIDCommContext) ([]byte, error) {
 			return nil, fmt.Errorf(sampleErr)
 		}
 
 		msgsvc := newCustomMessageService(sampleName, "test", nil, &mockNotifier{}, topicHandle)
-		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
+		s, err := msgsvc.HandleInbound(
+			service.DIDCommMsgMap{"payload": []byte(sampleName)}, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErr)
 		require.Empty(t, s)

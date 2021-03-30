@@ -76,7 +76,7 @@ func TestHandleInbound(t *testing.T) {
 		statusCh := make(chan Status)
 		svc.setStatusCh(msg.ID(), statusCh)
 
-		_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 		require.NoError(t, err)
 
 		tyme, err := time.Parse(time.RFC3339, "2019-05-01T12:00:00Z")
@@ -113,7 +113,7 @@ func TestHandleInbound(t *testing.T) {
 		statusCh := make(chan Status)
 		svc.setStatusCh(msg.ID(), statusCh)
 
-		_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 		require.NoError(t, err)
 	})
 
@@ -183,7 +183,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		go func() {
-			_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+			_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 			require.NoError(t, err)
 		}()
 
@@ -277,7 +277,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		go func() {
-			_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+			_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 			require.NoError(t, err)
 		}()
 
@@ -384,7 +384,7 @@ func TestHandleInbound(t *testing.T) {
 		batchCh := make(chan Batch)
 		svc.setBatchCh(msg.ID(), batchCh)
 
-		_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 		require.NoError(t, err)
 
 		select {
@@ -420,7 +420,7 @@ func TestHandleInbound(t *testing.T) {
 		msg, err := service.ParseDIDCommMsgMap([]byte(jsonStr))
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(msg, MYDID, THEIRDID)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(MYDID, THEIRDID, nil))
 		require.NoError(t, err)
 	})
 

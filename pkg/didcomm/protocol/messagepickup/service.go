@@ -107,7 +107,7 @@ func New(prov provider, tp transport.Provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound message pick up messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	// perform action asynchronously
 	go func() {
 		var err error
@@ -116,9 +116,9 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		case StatusMsgType:
 			err = s.handleStatus(msg)
 		case StatusRequestMsgType:
-			err = s.handleStatusRequest(msg, myDID, theirDID)
+			err = s.handleStatusRequest(msg, ctx.MyDID(), ctx.TheirDID())
 		case BatchPickupMsgType:
-			err = s.handleBatchPickup(msg, myDID, theirDID)
+			err = s.handleBatchPickup(msg, ctx.MyDID(), ctx.TheirDID())
 		case BatchMsgType:
 			err = s.handleBatch(msg)
 		case NoopMsgType:

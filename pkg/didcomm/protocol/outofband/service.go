@@ -178,7 +178,7 @@ func (s *Service) Accept(msgType string) bool {
 }
 
 // HandleInbound handles inbound messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { //nolint:funlen
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) { //nolint:funlen
 	logger.Debugf("receive inbound message : %s", msg)
 
 	if !s.Accept(msg.Type()) {
@@ -202,8 +202,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		Action: Action{
 			PIID:         piid,
 			Msg:          msg.Clone(),
-			MyDID:        myDID,
-			TheirDID:     theirDID,
+			MyDID:        ctx.MyDID(),
+			TheirDID:     ctx.TheirDID(),
 			ProtocolName: Name,
 		},
 	})
@@ -233,8 +233,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 				s.callbackChannel <- &callback{
 					msg:      msg,
-					myDID:    myDID,
-					theirDID: theirDID,
+					myDID:    ctx.MyDID(),
+					theirDID: ctx.TheirDID(),
 					options:  opts,
 				}
 			},
@@ -402,6 +402,7 @@ func (s *Service) SaveInvitation(i *Invitation) error {
 		ThreadID:   i.ID,
 		TheirLabel: i.Label,
 		Target:     target,
+		MediaTypes: i.Accept,
 	})
 	if err != nil {
 		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)

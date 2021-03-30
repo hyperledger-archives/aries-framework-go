@@ -189,7 +189,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(nil, "", "")
+		_, err = svc.HandleInbound(nil, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "no clients")
 	})
 
@@ -203,7 +203,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		require.NoError(t, msg.SetID(uuid.New().String()))
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
 	})
 
@@ -220,7 +220,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 		require.NoError(t, msg.SetID(uuid.New().String()))
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "save transitional payload: "+errMsg)
 	})
 
@@ -230,7 +230,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, svc.RegisterActionEvent(make(chan<- service.DIDCommAction)))
 
-		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(struct{}{}), "", "")
+		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(struct{}{}), service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: ")
 	})
 
@@ -271,7 +271,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -329,7 +329,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -380,7 +380,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		actions, err := svc.Actions()
@@ -431,7 +431,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		actions, err := svc.Actions()
@@ -487,7 +487,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -543,7 +543,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -599,7 +599,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -658,7 +658,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -716,7 +716,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -772,7 +772,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -819,7 +819,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -866,7 +866,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -947,7 +947,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -1004,7 +1004,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -1048,7 +1048,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		select {
@@ -1071,7 +1071,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(model.ProblemReport{
 			Type: ProblemReportMsgType,
-		}), "", "")
+		}), service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: invalid state transition")
 	})
 }

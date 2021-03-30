@@ -81,7 +81,8 @@ func TestMessenger_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		require.NoError(t, msgr.HandleInbound(service.DIDCommMsgMap{jsonID: ID}, myDID, theirDID))
+		require.NoError(t,
+			msgr.HandleInbound(service.DIDCommMsgMap{jsonID: ID}, service.NewDIDCommContext(myDID, theirDID, nil)))
 	})
 
 	t.Run("absent ID", func(t *testing.T) {
@@ -96,7 +97,7 @@ func TestMessenger_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		err = msgr.HandleInbound(service.DIDCommMsgMap{}, myDID, theirDID)
+		err = msgr.HandleInbound(service.DIDCommMsgMap{}, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Contains(t, fmt.Sprintf("%v", err), "message-id is absent")
 	})
 }

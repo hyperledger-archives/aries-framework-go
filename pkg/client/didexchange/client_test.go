@@ -1190,7 +1190,7 @@ func TestServiceEvents(t *testing.T) {
 
 	msg, err := service.ParseDIDCommMsgMap(request)
 	require.NoError(t, err)
-	_, err = didExSvc.HandleInbound(msg, "", "")
+	_, err = didExSvc.HandleInbound(msg, service.EmptyDIDCommContext())
 	require.NoError(t, err)
 
 	select {
@@ -1302,7 +1302,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	msg, err := service.ParseDIDCommMsgMap(request)
 	require.NoError(t, err)
-	_, err = didExSvc.HandleInbound(msg, "", "")
+	_, err = didExSvc.HandleInbound(msg, service.EmptyDIDCommContext())
 	require.NoError(t, err)
 
 	select {
@@ -1406,7 +1406,7 @@ func TestAcceptInvitation(t *testing.T) {
 
 		msg, svcErr := service.ParseDIDCommMsgMap(invitation)
 		require.NoError(t, svcErr)
-		_, err = didExSvc.HandleInbound(msg, "", "")
+		_, err = didExSvc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.NoError(t, err)
 
 		select {

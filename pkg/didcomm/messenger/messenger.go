@@ -65,7 +65,7 @@ func NewMessenger(ctx Provider) (*Messenger, error) {
 }
 
 // HandleInbound handles all inbound messages.
-func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, ctx service.DIDCommContext) error {
 	// an incoming message cannot be without id
 	if msg.ID() == "" {
 		return errors.New("message-id is absent and can't be processed")
@@ -82,8 +82,8 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID str
 	// saves message payload
 	return m.saveRecord(msg.ID(), record{
 		ParentThreadID: msg.ParentThreadID(),
-		MyDID:          myDID,
-		TheirDID:       theirDID,
+		MyDID:          ctx.MyDID(),
+		TheirDID:       ctx.TheirDID(),
 		ThreadID:       thID,
 	})
 }

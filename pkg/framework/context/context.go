@@ -152,12 +152,13 @@ func (p *Provider) RouterEndpoint() string {
 	return p.routerEndpoint
 }
 
-func (p *Provider) tryToHandle(svc service.InboundHandler, msg service.DIDCommMsgMap, myDID, theirDID string) error {
-	if err := p.messenger.HandleInbound(msg, myDID, theirDID); err != nil {
+func (p *Provider) tryToHandle(
+	svc service.InboundHandler, msg service.DIDCommMsgMap, ctx service.DIDCommContext) error {
+	if err := p.messenger.HandleInbound(msg, ctx); err != nil {
 		return fmt.Errorf("messenger HandleInbound: %w", err)
 	}
 
-	_, err := svc.HandleInbound(msg, myDID, theirDID)
+	_, err := svc.HandleInbound(msg, ctx)
 
 	return err
 }
@@ -178,7 +179,6 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //n
 				switch svc.Name() {
 				// perf: DID exchange doesn't require myDID and theirDID
 				case didexchange.DIDExchange:
-					break
 				default:
 					myDID, theirDID, err = p.getDIDs(envelope)
 					if err != nil {
@@ -186,9 +186,11 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //n
 					}
 				}
 
-				// TODO pass the envelope's MediaType into the didexchange service:
-				//  https://github.com/hyperledger/aries-framework-go/issues/2702.
-				_, err = svc.HandleInbound(msg, myDID, theirDID)
+				_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID,
+					map[string]interface{}{
+						service.DIDCommContextEnvelopeMediaTypeKey: envelope.MediaType,
+					},
+				))
 
 				return err
 			}
@@ -212,7 +214,12 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //n
 					return fmt.Errorf("inbound message handler: %w", err)
 				}
 
-				return p.tryToHandle(svc, msg, myDID, theirDID)
+				return p.tryToHandle(svc, msg, service.NewDIDCommContext(
+					myDID, theirDID,
+					map[string]interface{}{
+						service.DIDCommContextEnvelopeMediaTypeKey: envelope.MediaType,
+					},
+				))
 			}
 		}
 

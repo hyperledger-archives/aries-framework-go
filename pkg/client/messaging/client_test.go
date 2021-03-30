@@ -297,7 +297,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 					for {
 						services := registrar.Services()
 						if len(services) > 0 {
-							_, e := services[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+							_, e := services[0].HandleInbound(replyMsg, service.NewDIDCommContext("sampleDID", "sampleTheirDID", nil))
 							require.NoError(t, e)
 
 							break
@@ -578,7 +578,7 @@ func TestCommand_Reply(t *testing.T) {
 				services := registrar.Services()
 
 				if len(services) > 0 {
-					_, e := services[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+					_, e := services[0].HandleInbound(replyMsg, service.NewDIDCommContext("sampleDID", "sampleTheirDID", nil))
 					require.NoError(t, e)
 				}
 			}
@@ -607,7 +607,8 @@ func TestCommand_Reply(t *testing.T) {
 		go func() {
 			for {
 				if len(registrar.Services()) > 0 {
-					_, e := registrar.Services()[0].HandleInbound(replyMsg, "sampleDID", "sampleTheirDID")
+					_, e := registrar.Services()[0].HandleInbound(
+						replyMsg, service.NewDIDCommContext("sampleDID", "sampleTheirDID", nil))
 					require.NoError(t, e)
 				}
 			}
