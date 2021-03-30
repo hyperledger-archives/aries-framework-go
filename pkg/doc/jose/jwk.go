@@ -54,6 +54,10 @@ func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 		},
 	}
 
+	if rawKey, ok := pubKey.([]byte); ok && len(rawKey) == bls12381G2Size {
+		return jwkFromBBSKey(rawKey)
+	}
+
 	// marshal/unmarshal to get all JWK's fields other than Key filled.
 	keyBytes, err := key.MarshalJSON()
 	if err != nil {
@@ -94,10 +98,10 @@ func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
 	return key, nil
 }
 
-// JWKFromBBSKey is similar to JWKFromPublicKey but is specific to BBS+ keys when using a public key as raw []byte.
+// jwkFromBBSKey is similar to JWKFromPublicKey but is specific to BBS+ keys when using a public key as raw []byte.
 // This builder function presets the curve and key type in the JWK.
 // Using JWKFromPublicKey for BBS+ raw keys will not have these fields set and will not provide the right JWK output.
-func JWKFromBBSKey(pubKey []byte) (*JWK, error) {
+func jwkFromBBSKey(pubKey []byte) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{
 			Key: pubKey,
