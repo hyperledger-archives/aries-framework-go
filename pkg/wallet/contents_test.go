@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -22,6 +23,15 @@ const (
 	sampleContentValid = `{
   			"@context": ["https://w3id.org/wallet/v1"],
   		  	"id": "did:example:123456789abcdefghi",
+    		"type": "Person",
+    		"name": "John Smith",
+    		"image": "https://via.placeholder.com/150",
+    		"description" : "Professional software developer for Acme Corp.",
+    		"tags": ["professional", "person"],
+    		"correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+  		}`
+	sampleContentNoID = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
     		"type": "Person",
     		"name": "John Smith",
     		"image": "https://via.placeholder.com/150",
@@ -38,6 +48,71 @@ const (
     		"tags": ["professional", "person"],
     		"correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
   		}`
+	didResolutionResult = `{
+            "@context": [
+                "https://w3id.org/wallet/v1",
+                "https://w3id.org/did-resolution/v1"
+            ],
+            "id": "did:example:123",
+            "type": ["DIDResolutionResponse"],
+            "name": "Farming Sensor DID Document",
+            "image": "https://via.placeholder.com/150",
+            "description": "An IoT device in the middle of a corn field.",
+            "tags": ["professional"],
+            "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+            "created": "2017-06-18T21:19:10Z",
+            "expires": "2026-06-18T21:19:10Z",
+            "didDocument": {
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    {
+                        "@base": "did:key:z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg"
+                    }
+                ],
+                "id": "did:key:z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg",
+                "verificationMethod": [
+                    {
+                        "id": "#z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:key:z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg",
+                        "publicKeyJwk": {
+                            "crv": "Ed25519",
+                            "x": "vGur-MEOrN6GDLf4TBGHDYAERxkmWOjTbztvG3xP0I8",
+                            "kty": "OKP"
+                        }
+                    },
+                    {
+                        "id": "#z6LScrLMVd9jvbphPeQkGffSeB99EWSYqAnMg8rGiHCgz5ha",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:key:z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "EXXinkMxdA4zGmwpOOpbCXt6Ts6CwyXyEKI3jfHkS3k"
+                        }
+                    }
+                ],
+                "authentication": [
+                    "#z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg"
+                ],
+                "assertionMethod": [
+                    "#z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg"
+                ],
+                "capabilityInvocation": [
+                    "#z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg"
+                ],
+                "capabilityDelegation": [
+                    "#z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg"
+                ],
+                "keyAgreement": [
+                    "#z6LScrLMVd9jvbphPeQkGffSeB99EWSYqAnMg8rGiHCgz5ha"
+                ]
+            },
+            "didDocumentMetadata": {
+                "content-type": "application/did+json"
+            },
+            "didResolutionMetadata": {}
+        }`
 )
 
 func TestContentTypes(t *testing.T) {
@@ -50,8 +125,8 @@ func TestContentTypes(t *testing.T) {
 		}{
 			{
 				name:     "validation success",
-				inputs:   []string{"collection", "credential", "didResolutionResponse", "metadata", "connection"},
-				expected: []ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection},
+				inputs:   []string{"collection", "credential", "didResolutionResponse", "metadata", "connection", "key"},
+				expected: []ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection, Key},
 			},
 			{
 				name:   "validation error",
@@ -90,7 +165,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 		require.EqualValues(t, sp.config.TagNames,
-			[]string{"collection", "credential", "connection", "didResolutionResponse", "connection"})
+			[]string{"collection", "credential", "connection", "didResolutionResponse", "connection", "key"})
 	})
 
 	t.Run("create new content store - failure", func(t *testing.T) {
@@ -126,6 +201,59 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("save content to store without ID - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(Collection, []byte(sampleContentNoID))
+		require.NoError(t, err)
+	})
+
+	t.Run("save to doc resolution to store - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(DIDResolutionResponse, []byte(didResolutionResult))
+		require.NoError(t, err)
+
+		// get by DID ID
+		response, err := contentStore.Get(DIDResolutionResponse,
+			"did:key:z6Mks8mvCnVx4HQcoq7ZwvpTbMnoRGudHSiEpXhMf6VW8XMg")
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, string(response), didResolutionResult)
+	})
+
+	t.Run("save to doc resolution to store - failure", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(DIDResolutionResponse, []byte(sampleContentInvalid))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid DID resolution response model")
+	})
+
+	t.Run("save to doc key to store - error", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(Key, []byte("{}"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "to be implemented")
+	})
+
 	t.Run("save to store - failures", func(t *testing.T) {
 		sp := getMockStorageProvider()
 
@@ -143,11 +271,6 @@ func TestContentStores(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read content to be saved")
 
-		// missing content ID
-		err = contentStore.Save(Credential, []byte(sampleContentInvalid))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid wallet content, missing 'id' field")
-
 		// store errors
 		sp.Store.ErrPut = errors.New(sampleContenttErr)
 
@@ -158,6 +281,39 @@ func TestContentStores(t *testing.T) {
 		err = contentStore.Save(Credential, []byte(sampleContentValid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
+
+		sp.Store.ErrGet = errors.New(sampleContenttErr)
+		err = contentStore.Save(Credential, []byte(sampleContentValid))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleContenttErr)
+	})
+
+	t.Run("save to invalid content type - validation", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save("Test", []byte("{}"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid content type")
+	})
+
+	t.Run("save duplicate items - validation", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		require.NoError(t, err)
+
+		// save again
+		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "content with same type and id already exists in this wallet")
 	})
 
 	t.Run("get from store - success", func(t *testing.T) {
@@ -184,10 +340,6 @@ func TestContentStores(t *testing.T) {
 		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
-
-		// save
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
-		require.NoError(t, err)
 
 		// remove
 		content, err := contentStore.Get(Collection, "did:example:123456789abcdefghi")
@@ -239,6 +391,61 @@ func TestContentStores(t *testing.T) {
 		err = contentStore.Remove(Collection, "did:example:123456789abcdefghi")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
+	})
+}
+
+func TestContentDIDResolver(t *testing.T) {
+	t.Run("create new content store - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		// save custom DID
+		err = contentStore.Save(DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		require.NoError(t, err)
+
+		contentVDR := newContentBasedVDR(&vdr.MockVDRegistry{}, contentStore)
+		require.NotEmpty(t, contentVDR)
+
+		didDoc, err := contentVDR.Resolve("did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5")
+		require.NoError(t, err)
+		require.NotEmpty(t, didDoc)
+		require.Equal(t, "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5", didDoc.DIDDocument.ID)
+		require.NotEmpty(t, didDoc.DIDDocument.Authentication)
+
+		didDoc, err = contentVDR.Resolve("did:key:invalid")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "DID not found")
+		require.Empty(t, didDoc)
+	})
+
+	t.Run("create new content store - errors", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		contentVDR := newContentBasedVDR(&vdr.MockVDRegistry{}, contentStore)
+		require.NotEmpty(t, contentVDR)
+
+		// DID not found
+		didDoc, err := contentVDR.Resolve("did:key:invalid")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "DID not found")
+		require.Empty(t, didDoc)
+
+		// parse error
+		err = contentStore.store.Put(getContentKeyPrefix(DIDResolutionResponse,
+			"did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"), []byte(sampleInvalidDIDContent))
+		require.NoError(t, err)
+
+		didDoc, err = contentVDR.Resolve("did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse stored DID")
+		require.Empty(t, didDoc)
 	})
 }
 

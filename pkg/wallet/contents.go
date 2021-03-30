@@ -12,6 +12,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -38,17 +42,21 @@ const (
 	// Connection content type for handling wallet connection data models.
 	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 	Connection ContentType = "connection"
+
+	// Key content type for handling key data models.
+	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
+	Key ContentType = "key"
 )
 
 // IsValid checks if underlying content type is supported.
 func (ct ContentType) IsValid() error {
 	switch ct {
-	case Collection, Credential, DIDResolutionResponse, Metadata, Connection:
+	case Collection, Credential, DIDResolutionResponse, Metadata, Connection, Key:
 		return nil
 	}
 
 	return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
-		[]ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection})
+		[]ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection, Key})
 }
 
 // Name of the content type.
@@ -73,7 +81,7 @@ func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
 	}
 
 	err = p.SetStoreConfig(pr.ID, storage.StoreConfiguration{TagNames: []string{
-		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(),
+		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set store config for user '%s' : %w", pr.User, err)
@@ -82,22 +90,47 @@ func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
 	return &contentStore{store: store}, nil
 }
 
-// Save for storing given wallet content to store by content ID & content type.
+// Save for storing given wallet content to store by content ID (content document id) & content type.
+// if content document id is missing from content, then system generated id will be used as key for storage.
+// returns error if content with same ID already exists in store.
+// For replacing already existing content, use 'Remove() + Add()'.
 func (cs *contentStore) Save(ct ContentType, content []byte) error {
-	if err := ct.IsValid(); err != nil {
+	switch ct {
+	case Collection, Metadata, Connection, Credential:
+		key, err := getContentID(content)
+		if err != nil {
+			return err
+		}
+
+		return cs.safeSave(getContentKeyPrefix(ct, key), content, storage.Tag{Name: ct.Name()})
+	case DIDResolutionResponse:
+		// verify did resolution result before storing and also use DID ID as content key
+		docRes, err := did.ParseDocumentResolution(content)
+		if err != nil {
+			return fmt.Errorf("invalid DID resolution response model: %w", err)
+		}
+
+		return cs.safeSave(getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
+	case Key:
+		// never save keys in store, just import them into kms
+		// TODO save them in user profile kms (#2433)
+		return errors.New("to be implemented")
+	default:
+		return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
+			[]ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection, Key})
+	}
+}
+
+// safeSave saves given content to store by given key but returns error if content with given key already exists.
+func (cs *contentStore) safeSave(key string, content []byte, tags ...storage.Tag) error {
+	_, err := cs.store.Get(key)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return cs.store.Put(key, content, tags...)
+	} else if err != nil {
 		return err
 	}
 
-	var cid contentID
-	if err := json.Unmarshal(content, &cid); err != nil {
-		return fmt.Errorf("failed to read content to be saved : %w", err)
-	}
-
-	if strings.TrimSpace(cid.ID) == "" {
-		return errors.New("invalid wallet content, missing 'id' field")
-	}
-
-	return cs.store.Put(getContentKeyPrefix(ct, cid.ID), content, storage.Tag{Name: ct.Name()})
+	return errors.New("content with same type and id already exists in this wallet")
 }
 
 // Remove to remove wallet content from wallet contents store.
@@ -110,7 +143,47 @@ func (cs *contentStore) Get(ct ContentType, key string) ([]byte, error) {
 	return cs.store.Get(getContentKeyPrefix(ct, key))
 }
 
+func getContentID(content []byte) (string, error) {
+	var cid contentID
+	if err := json.Unmarshal(content, &cid); err != nil {
+		return "", fmt.Errorf("failed to read content to be saved : %w", err)
+	}
+
+	key := cid.ID
+	if strings.TrimSpace(key) == "" {
+		return uuid.New().String(), nil
+	}
+
+	return key, nil
+}
+
 // getContentKeyPrefix returns key prefix by wallet content type and storage key.
 func getContentKeyPrefix(ct ContentType, key string) string {
 	return fmt.Sprintf("%s_%s", ct, key)
+}
+
+// newContentBasedVDR returns new wallet content store based VDR.
+func newContentBasedVDR(v vdr.Registry, c *contentStore) *walletVDR {
+	return &walletVDR{Registry: v, contents: c}
+}
+
+// walletVDR is wallet content based on VDR which tries to resolve DIDs from wallet content store,
+// if not found then it falls back to vdr registry.
+type walletVDR struct {
+	vdr.Registry
+	contents *contentStore
+}
+
+func (v *walletVDR) Resolve(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
+	docBytes, err := v.contents.Get(DIDResolutionResponse, didID)
+	if err == nil {
+		resolvedDOC, err := did.ParseDocumentResolution(docBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse stored DID: %w", err)
+		}
+
+		return resolvedDOC, nil
+	}
+
+	return v.Registry.Resolve(didID, opts...)
 }
