@@ -105,9 +105,15 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 		recipients = append(recipients, verKeyBytes)
 	}
 
+	// TODO since o.packager's primary packer is LegacyPacker, CTY Envelope field is ignored. When DIDComm V2 is
+	//  is used, make sure it's set here or passed in by the caller and remove below hard coded cty variable. The
+	//  JWE packers will add it to the Protected Headers of the envelope if it's set.
+	cty := transport.MediaTypeV1PlaintextPayload
+
 	// TODO find a way to dynamically select a packer based on FromKey, recipients and their types.
 	//      https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
-	bytes, err := bp.primaryPacker.Pack(messageEnvelope.CTY, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
+	//      Use transport.Envelope.MediaType for this.
+	bytes, err := bp.primaryPacker.Pack(cty, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
 	if err != nil {
 		return nil, fmt.Errorf("packMessage: failed to pack: %w", err)
 	}

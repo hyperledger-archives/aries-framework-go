@@ -143,9 +143,9 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 
 // Unpack will decode the envelope using a standard format.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
-	jwe, cty, err := deserializeEnvelope(envelope)
+	jwe, mediaType, err := getJWEAndMediaType(envelope)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("anoncrypt.Unpack: failed to get JWE and media type: %w", err)
 	}
 
 	for i := range jwe.Recipients {
@@ -190,24 +190,39 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
-			CTY:     cty,
-			Message: pt,
-			ToKey:   ecdhesPubKeyByes,
+			MediaType: mediaType,
+			Message:   pt,
+			ToKey:     ecdhesPubKeyByes,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("anoncrypt Unpack: no matching recipient in envelope")
 }
 
-func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, error) {
-	jwe, err := jose.Deserialize(string(envelope))
+func getJWEAndMediaType(envelope []byte) (*jose.JSONWebEncryption, string, error) {
+	jwe, typ, cty, err := deserializeEnvelope(envelope)
 	if err != nil {
-		return nil, "", fmt.Errorf("anoncrypt Unpack: failed to deserialize JWE message: %w", err)
+		return nil, "", fmt.Errorf("failed to deserialize JWE envelope: %w", err)
 	}
 
+	mediaType, err := transport.EnvelopeMediaTypeFor(typ, cty)
+	if err != nil {
+		return nil, "", fmt.Errorf("unsupported envelope media type: %w", err)
+	}
+
+	return jwe, mediaType, nil
+}
+
+func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, string, error) {
+	jwe, err := jose.Deserialize(string(envelope))
+	if err != nil {
+		return nil, "", "", fmt.Errorf("anoncrypt Unpack: failed to deserialize JWE message: %w", err)
+	}
+
+	typ, _ := jwe.ProtectedHeaders.Type()
 	cty, _ := jwe.ProtectedHeaders.ContentType()
 
-	return jwe, cty, nil
+	return jwe, typ, cty, nil
 }
 
 func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
@@ -246,5 +261,5 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 
 // EncodingType for didcomm.
 func (p *Packer) EncodingType() string {
-	return packer.EnvelopeEncodingTypeV2
+	return transport.MediaTypeV2EncryptedEnvelope
 }

@@ -73,6 +73,7 @@ type message struct {
 	Service            []interface{}
 	HandshakeProtocols []string
 	Attachments        []*decorator.Attachment
+	Accept             []string
 }
 
 func (m *message) RouterConnection() string {
@@ -144,6 +145,7 @@ func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption)
 		Label:     msg.Label,
 		Goal:      msg.Goal,
 		GoalCode:  msg.GoalCode,
+		Accept:    msg.Accept,
 		Service:   services,
 		Protocols: msg.HandshakeProtocols,
 		Requests:  msg.Attachments,
@@ -269,6 +271,13 @@ func WithHandshakeProtocols(proto ...string) MessageOption {
 func WithAttachments(a ...*decorator.Attachment) MessageOption {
 	return func(m *message) {
 		m.Attachments = a
+	}
+}
+
+// WithAccept will set the given media types in the Invitation's `accept` property.
+func WithAccept(a ...string) MessageOption {
+	return func(m *message) {
+		m.Accept = a
 	}
 }
 

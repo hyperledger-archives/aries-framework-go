@@ -30,6 +30,8 @@ type OOBInvitation struct {
 	// - a string with a valid DID
 	// - a valid `did.Service`
 	Target interface{}
+	// MediaTypes are the message formats supported by the sender of this invitation.
+	MediaTypes []string
 }
 
 // Invitation model

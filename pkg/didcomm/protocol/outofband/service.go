@@ -626,6 +626,7 @@ func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitatio
 		TheirLabel: oobInv.Label,
 		Target:     target,
 		MyLabel:    c.options.MyLabel(),
+		MediaTypes: oobInv.Accept,
 	}
 
 	return didInv, oobInv, nil

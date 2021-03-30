@@ -58,6 +58,7 @@ type Record struct {
 	InvitationDID   string
 	Implicit        bool
 	Namespace       string
+	MediaTypes      []string
 }
 
 // NewLookup returns new connection lookup instance.

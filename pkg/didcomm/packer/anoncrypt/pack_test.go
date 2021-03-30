@@ -30,7 +30,6 @@ import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -46,78 +45,95 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 	k := createKMS(t)
 
 	tests := []struct {
-		name    string
-		keyType kms.KeyType
-		encAlg  afgjose.EncAlg
-		cty     string
+		name      string
+		keyType   kms.KeyType
+		encAlg    afgjose.EncAlg
+		cty       string
+		mediaType string
 	}{
 		{
-			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM",
-			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP256ECDHKW and AES256-GCM",
+			keyType:   kms.NISTP256ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP384ECDHKW and AES256-GCM",
-			keyType: kms.NISTP384ECDHKWType,
-			encAlg:  afgjose.A256GCM,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP384ECDHKW and AES256-GCM",
+			keyType:   kms.NISTP384ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP521ECDHKW and AES256-GCM",
-			keyType: kms.NISTP521ECDHKWType,
-			encAlg:  afgjose.A256GCM,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP521ECDHKW and AES256-GCM",
+			keyType:   kms.NISTP521ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using X25519ECDHKWType and AES256-GCM",
-			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using X25519ECDHKWType and AES256-GCM",
+			keyType:   kms.X25519ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
-			keyType: kms.NISTP256ECDHKW,
-			encAlg:  afgjose.XC20P,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305",
+			keyType:   kms.NISTP256ECDHKW,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP384ECDHKW and XChacha20Poly1305",
-			keyType: kms.NISTP384ECDHKW,
-			encAlg:  afgjose.XC20P,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP384ECDHKW and XChacha20Poly1305",
+			keyType:   kms.NISTP384ECDHKW,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP521ECDHKW and XChacha20Poly1305",
-			keyType: kms.NISTP521ECDHKW,
-			encAlg:  afgjose.XC20P,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using NISTP521ECDHKW and XChacha20Poly1305",
+			keyType:   kms.NISTP521ECDHKW,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305",
-			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.XC20P,
-			cty:     packer.ContentEncodingTypeV2,
+			name:      "anoncrypt using X25519ECDHKW and XChacha20Poly1305",
+			keyType:   kms.X25519ECDHKWType,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP256ECDHKW and AES256-GCM without cty",
-			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			name:      "anoncrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			keyType:   kms.NISTP256ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
-			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.XC20P,
+			name:      "anoncrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
+			keyType:   kms.X25519ECDHKWType,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
-			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.XC20P,
+			name:      "anoncrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
+			keyType:   kms.NISTP256ECDHKWType,
+			encAlg:    afgjose.XC20P,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 		{
-			name:    "anoncrypt using X25519ECDHKW and AES256-GCM without cty",
-			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			name:      "anoncrypt using X25519ECDHKW and AES256-GCM without cty",
+			keyType:   kms.X25519ECDHKWType,
+			encAlg:    afgjose.A256GCM,
+			cty:       transport.MediaTypeV1PlaintextPayload,
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
 		},
 	}
 
@@ -151,7 +167,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			recKey, err := exportPubKeyBytes(keyHandles[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{MediaType: tc.mediaType, Message: origMsg, ToKey: recKey}, msg)
 
 			jweJSON, err := afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
@@ -174,7 +190,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			msg, err = anonPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{CTY: tc.cty, Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{MediaType: tc.mediaType, Message: origMsg, ToKey: recKey}, msg)
 
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
@@ -185,7 +201,7 @@ func verifyJWETypes(t *testing.T, cty string, jweHeader afgjose.Headers) {
 	encodingType, ok := jweHeader.Type()
 	require.True(t, ok)
 
-	require.Equal(t, packer.EnvelopeEncodingTypeV2, encodingType)
+	require.Equal(t, transport.MediaTypeV2EncryptedEnvelope, encodingType)
 
 	contentType, ok := jweHeader.ContentType()
 	require.True(t, contentType == "" || contentType != "" && ok)
@@ -213,7 +229,7 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	copy(recipientsKeys[2], recipientsKey3[0])
 	copy(recipientsKeys[3], recipientsKey4[0])
 
-	cty := packer.ContentEncodingTypeV2
+	cty := transport.MediaTypeV1PlaintextPayload
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -236,7 +252,11 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles1[0])
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{
+		MediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+		Message:   origMsg,
+		ToKey:     recKey,
+	}, msg)
 
 	// try with only 1 recipient
 	ct, err = anonPacker.Pack(cty, origMsg, nil, [][]byte{recipientsKeys[0]})
@@ -245,11 +265,15 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	msg, err = anonPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	require.EqualValues(t, &transport.Envelope{CTY: cty, Message: origMsg, ToKey: recKey}, msg)
+	require.EqualValues(t, &transport.Envelope{
+		MediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+		Message:   origMsg,
+		ToKey:     recKey,
+	}, msg)
 }
 
 func TestAnoncryptPackerFail(t *testing.T) {
-	cty := packer.ContentEncodingTypeV2
+	cty := transport.MediaTypeV1PlaintextPayload
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -294,7 +318,8 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = validAnonPacker.Unpack([]byte("invalid jwe envelope"))
-		require.EqualError(t, err, "anoncrypt Unpack: failed to deserialize JWE message: invalid compact "+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "anoncrypt Unpack: failed to deserialize JWE message: invalid compact "+
 			"JWE: it must have five parts")
 	})
 
