@@ -180,7 +180,7 @@ func TestDecodePublicKey(t *testing.T) {
 					require.Equal(t, cryptoutil.Curve25519KeySize, len(jwkKey.Key.([]byte)))
 					require.Equal(t, okpKty, jwkKey.Kty)
 				case "get public key bytes BBS+ JWK":
-					jwkKey, err := JWKFromBBSKey(jwk.Key.([]byte))
+					jwkKey, err := JWKFromPublicKey(jwk.Key.([]byte))
 					require.NoError(t, err)
 					require.NotNil(t, jwkKey)
 					require.Equal(t, bls12381G2Crv, jwkKey.Crv)
