@@ -769,6 +769,7 @@ func TestClient_Prove(t *testing.T) {
 
 		defer vcWalletClient.Close()
 
+		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
@@ -836,6 +837,7 @@ func TestClient_Verify(t *testing.T) {
 
 		// store tampered credential in wallet
 		tamperedVC := strings.ReplaceAll(sampleUDCVCWithProof, `"name": "Example University"`, `"name": "Fake University"`)
+		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(tamperedVC)))
 
 		ok, err := vcWalletClient.Verify(wallet.WithStoredCredentialToVerify("http://example.edu/credentials/1872"))

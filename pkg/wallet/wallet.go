@@ -77,8 +77,14 @@ type Wallet struct {
 	// wallet content store
 	contents *contentStore
 
+	// crypto for wallet
+	walletCrypto crypto.Crypto
+
 	// storage provider
-	ctx provider
+	storeProvider storage.Provider
+
+	// wallet VDR
+	walletVDR *walletVDR
 }
 
 // New returns new verifiable credential wallet for given user.
@@ -101,7 +107,14 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to get wallet content store: %w", err)
 	}
 
-	return &Wallet{userID: userID, profile: profile, ctx: ctx, contents: contents}, nil
+	return &Wallet{
+		userID:        userID,
+		profile:       profile,
+		storeProvider: ctx.StorageProvider(),
+		walletCrypto:  ctx.Crypto(),
+		contents:      contents,
+		walletVDR:     newContentBasedVDR(ctx.VDRegistry(), contents),
+	}, nil
 }
 
 // CreateProfile creates a new verifiable credential wallet profile for given user.
@@ -172,7 +185,7 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 		opt(opts)
 	}
 
-	return keyManager().createKeyManager(c.profile, c.ctx.StorageProvider(), opts)
+	return keyManager().createKeyManager(c.profile, c.storeProvider, opts)
 }
 
 // Close expires token issued to this VC wallet.
@@ -374,11 +387,10 @@ func (c *Wallet) Derive(credential CredentialToDerive,
 		return nil, fmt.Errorf("failed to resolve request : %w", err)
 	}
 
-	pkFetcher := verifiable.WithPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
-	)
-
-	derived, err := vc.GenerateBBSSelectiveDisclosure(options.Frame, []byte(options.Nonce), pkFetcher)
+	derived, err := vc.GenerateBBSSelectiveDisclosure(options.Frame, []byte(options.Nonce),
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
+		))
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive credential : %w", err)
 	}
@@ -467,12 +479,9 @@ func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*veri
 }
 
 func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
-	// TODO resolve stored DID documents in wallet
-	opts := verifiable.WithPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher(),
-	)
-
-	_, err := verifiable.ParseCredential(credential, opts)
+	_, err := verifiable.ParseCredential(credential, verifiable.WithPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
+	))
 	if err != nil {
 		return false, fmt.Errorf("credential verification failed: %w", err)
 	}
@@ -481,10 +490,9 @@ func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 }
 
 func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
-	// TODO resolve stored DID documents in wallet
-	publicKeyFetcher := verifiable.NewVDRKeyResolver(c.ctx.VDRegistry()).PublicKeyFetcher()
-
-	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(publicKeyFetcher))
+	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
+	))
 	if err != nil {
 		return false, fmt.Errorf("presentation verification failed: %w", err)
 	}
@@ -507,7 +515,7 @@ func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) 
 
 func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOptions,
 	relationship did.VerificationRelationship) error {
-	s, err := newKMSSigner(authToken, c.ctx.Crypto(), opts)
+	s, err := newKMSSigner(authToken, c.walletCrypto, opts)
 	if err != nil {
 		return err
 	}
@@ -561,12 +569,12 @@ func (c *Wallet) validateProofOption(opts *ProofOptions, method did.Verification
 		return errors.New("invalid proof option, 'controller' is required")
 	}
 
-	didDoc, err := c.getDIDDocument(opts.Controller)
+	resolvedDoc, err := c.walletVDR.Resolve(opts.Controller)
 	if err != nil {
 		return err
 	}
 
-	err = c.validateVerificationMethod(didDoc, opts, method)
+	err = c.validateVerificationMethod(resolvedDoc.DIDDocument, opts, method)
 	if err != nil {
 		return err
 	}
@@ -580,27 +588,6 @@ func (c *Wallet) validateProofOption(opts *ProofOptions, method did.Verification
 	}
 
 	return nil
-}
-
-// TODO stored DIDResolution response & DID Doc metadata should be read first before trying to resolve using VDR.
-func (c *Wallet) getDIDDocument(didID string) (*did.Doc, error) {
-	doc, err := c.ctx.VDRegistry().Resolve(didID)
-	//  if DID not found in VDR, look through in wallet content storage.
-	if err != nil {
-		docBytes, err := c.contents.Get(DIDResolutionResponse, didID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read DID document from wallet store or from VDR: %w", err)
-		}
-
-		doc, err = did.ParseDocumentResolution(docBytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse stored DID: %w", err)
-		}
-
-		return doc.DIDDocument, nil
-	}
-
-	return doc.DIDDocument, nil
 }
 
 func (c *Wallet) validateVerificationMethod(didDoc *did.Doc, opts *ProofOptions,

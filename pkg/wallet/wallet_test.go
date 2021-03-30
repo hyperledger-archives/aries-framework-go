@@ -105,7 +105,7 @@ const (
     		"https://w3id.org/wallet/v1",
 	    	"https://w3id.org/did-resolution/v1"
   		],
-  		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+  		"id": "did:example:123",
   		"type": ["DIDResolutionResponse"],
   		"name": "Farming Sensor DID Document",
   		"image": "https://via.placeholder.com/150",
@@ -820,7 +820,7 @@ func TestWallet_Issue(t *testing.T) {
 		})
 		require.Empty(t, result)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to read DID document from wallet store or from VDR")
+		require.Contains(t, err.Error(), "failed to prepare proof: did not found")
 
 		// no assertion method
 		result, err = walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
@@ -829,17 +829,6 @@ func TestWallet_Issue(t *testing.T) {
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find 'assertionMethod' for given verification method")
-
-		// invalid DID in store
-		err = walletInstance.Add(DIDResolutionResponse, []byte(sampleInvalidDIDContent))
-		require.NoError(t, err)
-
-		result, err = walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
-			Controller: "did:example:sampleInvalidDIDContent",
-		})
-		require.Empty(t, result)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse stored DID")
 	})
 
 	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
@@ -1171,7 +1160,7 @@ func TestWallet_Prove(t *testing.T) {
 			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to read DID document from wallet store or from VDR")
+		require.Contains(t, err.Error(), "failed to prepare proof: did not found")
 
 		// no assertion method
 		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: sampleInvalidDIDID},
@@ -1179,16 +1168,6 @@ func TestWallet_Prove(t *testing.T) {
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find 'authentication' for given verification method")
-
-		// invalid DID in store
-		err = walletInstance.Add(DIDResolutionResponse, []byte(sampleInvalidDIDContent))
-		require.NoError(t, err)
-
-		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:sampleInvalidDIDContent"},
-			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
-		require.Empty(t, result)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse stored DID")
 	})
 
 	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
@@ -1651,7 +1630,7 @@ func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, vcs ...*verifi
 	for _, vc := range vcs {
 		vcBytes, err := vc.MarshalJSON()
 		require.NoError(t, err)
-
+		require.NoError(t, walletInstance.Remove(Credential, vc.ID))
 		require.NoError(t, walletInstance.Add(Credential, vcBytes))
 	}
 
