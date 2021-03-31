@@ -6,7 +6,7 @@ Aries Framework Go via Javascript.
 
 To build you will need:
 
-* Go 1.15.x
+* Go 1.16.x
 * npm 6.13.x
 * Node.JS 12.14.x
 * bash
