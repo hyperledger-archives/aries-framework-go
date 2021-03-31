@@ -578,7 +578,7 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 
 	pubKeyEd25519 := ed25519.PublicKey(verKey)
 
-	jwk, err := jose.JWKFromPublicKey(pubKeyEd25519)
+	jwk, err := jose.JWKFromKey(pubKeyEd25519)
 	if err != nil {
 		return err
 	}
@@ -590,7 +590,7 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 		return err
 	}
 
-	recoveryJWK, err := jose.JWKFromPublicKey(publicKeyRecovery)
+	recoveryJWK, err := jose.JWKFromKey(publicKeyRecovery)
 	if err != nil {
 		return err
 	}
@@ -600,7 +600,7 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 		return err
 	}
 
-	updateJWK, err := jose.JWKFromPublicKey(publicKeyUpdate)
+	updateJWK, err := jose.JWKFromKey(publicKeyUpdate)
 	if err != nil {
 		return err
 	}

@@ -430,7 +430,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey())
+	jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
 	if err != nil {
 		panic(err)
 	}

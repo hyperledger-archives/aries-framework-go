@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	storage "github.com/hyperledger/aries-framework-go/spi/storage"
-	reflect "reflect"
 )
 
-// MockProvider is a mock of Provider interface
+// MockProvider is a mock of Provider interface.
 type MockProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderMockRecorder
 }
 
-// MockProviderMockRecorder is the mock recorder for MockProvider
+// MockProviderMockRecorder is the mock recorder for MockProvider.
 type MockProviderMockRecorder struct {
 	mock *MockProvider
 }
 
-// NewMockProvider creates a new mock instance
+// NewMockProvider creates a new mock instance.
 func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 	mock := &MockProvider{ctrl: ctrl}
 	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockProvider) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -41,13 +42,13 @@ func (m *MockProvider) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockProviderMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockProvider)(nil).Close))
 }
 
-// GetOpenStores mocks base method
+// GetOpenStores mocks base method.
 func (m *MockProvider) GetOpenStores() []storage.Store {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOpenStores")
@@ -55,13 +56,13 @@ func (m *MockProvider) GetOpenStores() []storage.Store {
 	return ret0
 }
 
-// GetOpenStores indicates an expected call of GetOpenStores
+// GetOpenStores indicates an expected call of GetOpenStores.
 func (mr *MockProviderMockRecorder) GetOpenStores() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOpenStores", reflect.TypeOf((*MockProvider)(nil).GetOpenStores))
 }
 
-// GetStoreConfig mocks base method
+// GetStoreConfig mocks base method.
 func (m *MockProvider) GetStoreConfig(arg0 string) (storage.StoreConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStoreConfig", arg0)
@@ -70,13 +71,13 @@ func (m *MockProvider) GetStoreConfig(arg0 string) (storage.StoreConfiguration, 
 	return ret0, ret1
 }
 
-// GetStoreConfig indicates an expected call of GetStoreConfig
+// GetStoreConfig indicates an expected call of GetStoreConfig.
 func (mr *MockProviderMockRecorder) GetStoreConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoreConfig", reflect.TypeOf((*MockProvider)(nil).GetStoreConfig), arg0)
 }
 
-// OpenStore mocks base method
+// OpenStore mocks base method.
 func (m *MockProvider) OpenStore(arg0 string) (storage.Store, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenStore", arg0)
@@ -85,13 +86,13 @@ func (m *MockProvider) OpenStore(arg0 string) (storage.Store, error) {
 	return ret0, ret1
 }
 
-// OpenStore indicates an expected call of OpenStore
+// OpenStore indicates an expected call of OpenStore.
 func (mr *MockProviderMockRecorder) OpenStore(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenStore", reflect.TypeOf((*MockProvider)(nil).OpenStore), arg0)
 }
 
-// SetStoreConfig mocks base method
+// SetStoreConfig mocks base method.
 func (m *MockProvider) SetStoreConfig(arg0 string, arg1 storage.StoreConfiguration) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetStoreConfig", arg0, arg1)
@@ -99,36 +100,36 @@ func (m *MockProvider) SetStoreConfig(arg0 string, arg1 storage.StoreConfigurati
 	return ret0
 }
 
-// SetStoreConfig indicates an expected call of SetStoreConfig
+// SetStoreConfig indicates an expected call of SetStoreConfig.
 func (mr *MockProviderMockRecorder) SetStoreConfig(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStoreConfig", reflect.TypeOf((*MockProvider)(nil).SetStoreConfig), arg0, arg1)
 }
 
-// MockStore is a mock of Store interface
+// MockStore is a mock of Store interface.
 type MockStore struct {
 	ctrl     *gomock.Controller
 	recorder *MockStoreMockRecorder
 }
 
-// MockStoreMockRecorder is the mock recorder for MockStore
+// MockStoreMockRecorder is the mock recorder for MockStore.
 type MockStoreMockRecorder struct {
 	mock *MockStore
 }
 
-// NewMockStore creates a new mock instance
+// NewMockStore creates a new mock instance.
 func NewMockStore(ctrl *gomock.Controller) *MockStore {
 	mock := &MockStore{ctrl: ctrl}
 	mock.recorder = &MockStoreMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
-// Batch mocks base method
+// Batch mocks base method.
 func (m *MockStore) Batch(arg0 []storage.Operation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Batch", arg0)
@@ -136,13 +137,13 @@ func (m *MockStore) Batch(arg0 []storage.Operation) error {
 	return ret0
 }
 
-// Batch indicates an expected call of Batch
+// Batch indicates an expected call of Batch.
 func (mr *MockStoreMockRecorder) Batch(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Batch", reflect.TypeOf((*MockStore)(nil).Batch), arg0)
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockStore) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -150,13 +151,13 @@ func (m *MockStore) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockStoreMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStore)(nil).Close))
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockStore) Delete(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0)
@@ -164,13 +165,13 @@ func (m *MockStore) Delete(arg0 string) error {
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockStoreMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), arg0)
 }
 
-// Flush mocks base method
+// Flush mocks base method.
 func (m *MockStore) Flush() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flush")
@@ -178,13 +179,13 @@ func (m *MockStore) Flush() error {
 	return ret0
 }
 
-// Flush indicates an expected call of Flush
+// Flush indicates an expected call of Flush.
 func (mr *MockStoreMockRecorder) Flush() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockStore)(nil).Flush))
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockStore) Get(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -193,13 +194,13 @@ func (m *MockStore) Get(arg0 string) ([]byte, error) {
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockStoreMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStore)(nil).Get), arg0)
 }
 
-// GetBulk mocks base method
+// GetBulk mocks base method.
 func (m *MockStore) GetBulk(arg0 ...string) ([][]byte, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
@@ -212,13 +213,13 @@ func (m *MockStore) GetBulk(arg0 ...string) ([][]byte, error) {
 	return ret0, ret1
 }
 
-// GetBulk indicates an expected call of GetBulk
+// GetBulk indicates an expected call of GetBulk.
 func (mr *MockStoreMockRecorder) GetBulk(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBulk", reflect.TypeOf((*MockStore)(nil).GetBulk), arg0...)
 }
 
-// GetTags mocks base method
+// GetTags mocks base method.
 func (m *MockStore) GetTags(arg0 string) ([]storage.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTags", arg0)
@@ -227,13 +228,13 @@ func (m *MockStore) GetTags(arg0 string) ([]storage.Tag, error) {
 	return ret0, ret1
 }
 
-// GetTags indicates an expected call of GetTags
+// GetTags indicates an expected call of GetTags.
 func (mr *MockStoreMockRecorder) GetTags(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTags", reflect.TypeOf((*MockStore)(nil).GetTags), arg0)
 }
 
-// Put mocks base method
+// Put mocks base method.
 func (m *MockStore) Put(arg0 string, arg1 []byte, arg2 ...storage.Tag) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
@@ -245,14 +246,14 @@ func (m *MockStore) Put(arg0 string, arg1 []byte, arg2 ...storage.Tag) error {
 	return ret0
 }
 
-// Put indicates an expected call of Put
+// Put indicates an expected call of Put.
 func (mr *MockStoreMockRecorder) Put(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), varargs...)
 }
 
-// Query mocks base method
+// Query mocks base method.
 func (m *MockStore) Query(arg0 string, arg1 ...storage.QueryOption) (storage.Iterator, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -265,7 +266,7 @@ func (m *MockStore) Query(arg0 string, arg1 ...storage.QueryOption) (storage.Ite
 	return ret0, ret1
 }
 
-// Query indicates an expected call of Query
+// Query indicates an expected call of Query.
 func (mr *MockStoreMockRecorder) Query(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)

@@ -40,7 +40,7 @@ func TestCreateKID(t *testing.T) {
 
 	// now try building go-jose thumbprint and compare its base64URL with kid above
 	// they should not match since go-jose's thumbprint is built from a wrong Ed25519 JWK.
-	jwk, err := jose.JWKFromPublicKey(pubKey)
+	jwk, err := jose.JWKFromKey(pubKey)
 	require.NoError(t, err)
 
 	goJoseTP, err := jwk.Thumbprint(crypto.SHA256)

@@ -63,7 +63,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 				return err
 			}
 
-			pubKeyJWK, err = jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyBytes))
+			pubKeyJWK, err = jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 			if err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
-		updateJWK, err := jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyUpdateBytes))
+		updateJWK, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyUpdateBytes))
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
-		recoveryJWK, err := jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyRecoveryBytes))
+		recoveryJWK, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyRecoveryBytes))
 		if err != nil {
 			return err
 		}

@@ -310,7 +310,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	copy(publicKey[0:32], decoded)
 	rv := ed25519.PublicKey(publicKey)
 
-	jwk, err := jose.JWKFromPublicKey(rv)
+	jwk, err := jose.JWKFromKey(rv)
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential([]byte(vcJSON),
@@ -655,7 +655,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromPublicKey(signer.PublicKey())
+	jwk, err := jose.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
@@ -699,7 +699,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromPublicKey(signer.PublicKey())
+	jwk, err := jose.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	// JWK encoded public key
@@ -1070,7 +1070,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
-	jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey())
+	jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(vcBytes,

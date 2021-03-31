@@ -22,6 +22,7 @@ import (
 	"github.com/square/go-jose/v3"
 	"golang.org/x/crypto/ed25519"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -35,6 +36,7 @@ const (
 	okpKty         = "OKP"
 	bls12381G2Crv  = "BLS12381G2"
 	bls12381G2Size = 96
+	blsComprPrivSz = 32
 )
 
 // JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.
@@ -45,17 +47,14 @@ type JWK struct {
 	Crv string
 }
 
-// JWKFromPublicKey creates a JWK from public key struct.
-// It's e.g. *ecdsa.PublicKey or ed25519.VerificationMethod.
-func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
+// JWKFromKey creates a JWK from an opaque key struct.
+// It's e.g. *ecdsa.PublicKey, *ecdsa.PrivateKey, ed25519.VerificationMethod, *bbs12381g2pub.PrivateKey or
+// *bbs12381g2pub.PublicKey.
+func JWKFromKey(opaqueKey interface{}) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{
-			Key: pubKey,
+			Key: opaqueKey,
 		},
-	}
-
-	if rawKey, ok := pubKey.([]byte); ok && len(rawKey) == bls12381G2Size {
-		return jwkFromBBSKey(rawKey)
 	}
 
 	// marshal/unmarshal to get all JWK's fields other than Key filled.
@@ -72,9 +71,9 @@ func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
 	return key, nil
 }
 
-// JWKFromX25519Key is similar to JWKFromPublicKey but is specific to X25519 keys when using a public key as raw []byte.
+// JWKFromX25519Key is similar to JWKFromKey but is specific to X25519 keys when using a public key as raw []byte.
 // This builder function presets the curve and key type in the JWK.
-// Using JWKFromPublicKey for X25519 raw keys will not have these fields set and will not provide the right JWK output.
+// Using JWKFromKey for X25519 raw keys will not have these fields set and will not provide the right JWK output.
 func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
 	key := &JWK{
 		JSONWebKey: jose.JSONWebKey{
@@ -98,41 +97,17 @@ func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
 	return key, nil
 }
 
-// jwkFromBBSKey is similar to JWKFromPublicKey but is specific to BBS+ keys when using a public key as raw []byte.
-// This builder function presets the curve and key type in the JWK.
-// Using JWKFromPublicKey for BBS+ raw keys will not have these fields set and will not provide the right JWK output.
-func jwkFromBBSKey(pubKey []byte) (*JWK, error) {
-	key := &JWK{
-		JSONWebKey: jose.JSONWebKey{
-			Key: pubKey,
-		},
-		Crv: bls12381G2Crv,
-		Kty: okpKty,
-	}
-
-	// marshal/unmarshal to get all JWK's fields other than Key filled.
-	keyBytes, err := key.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	err = key.UnmarshalJSON(keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	return key, nil
-}
-
 // PublicKeyBytes converts a public key to bytes.
+// Note: the Public() member function is in go-jose, this means keys not supported by go-jose are not supported using
+// j.Public(). Instead use this function to get the public raw bytes.
 func (j *JWK) PublicKeyBytes() ([]byte, error) { //nolint:gocyclo
-	if j.isBLS12381G1() {
-		bbsKey, ok := j.Key.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("invalid public key in kid '%s'", j.KeyID)
+	if j.isBLS12381G2() {
+		switch bbsKey := j.Key.(type) {
+		case *bbs12381g2pub.PrivateKey:
+			return bbsKey.PublicKey().Marshal()
+		case *bbs12381g2pub.PublicKey:
+			return bbsKey.Marshal()
 		}
-
-		return bbsKey, nil
 	}
 
 	if j.isX25519() {
@@ -231,8 +206,8 @@ func (j *JWK) MarshalJSON() ([]byte, error) {
 		return marshalX25519(j)
 	}
 
-	if j.isBLS12381G1() {
-		return marshalBLS12381G1(j)
+	if j.isBLS12381G2() {
+		return marshalBLS12381G2(j)
 	}
 
 	return (&j.JSONWebKey).MarshalJSON()
@@ -247,10 +222,10 @@ func (j *JWK) isX25519() bool {
 	}
 }
 
-func (j *JWK) isBLS12381G1() bool {
+func (j *JWK) isBLS12381G2() bool {
 	switch j.Key.(type) {
-	case []byte:
-		return isBLS12381G2(j.Kty, j.Crv)
+	case *bbs12381g2pub.PublicKey, *bbs12381g2pub.PrivateKey:
+		return true
 	default:
 		return false
 	}
@@ -392,31 +367,82 @@ func unmarshalBLS12381G2(jwk *jsonWebKey) (*JWK, error) {
 		return nil, ErrInvalidKey
 	}
 
+	if jwk.D != nil && blsComprPrivSz != len(jwk.D.data) {
+		return nil, ErrInvalidKey
+	}
+
+	var (
+		key interface{}
+		err error
+	)
+
+	if jwk.D != nil {
+		key, err = bbs12381g2pub.UnmarshalPrivateKey(jwk.D.data)
+		if err != nil {
+			return nil, fmt.Errorf("jwk invalid private key unmarshal: %w", err)
+		}
+	} else {
+		key, err = bbs12381g2pub.UnmarshalPublicKey(jwk.X.data)
+		if err != nil {
+			return nil, fmt.Errorf("jwk invalid public key unmarshal: %w", err)
+		}
+	}
+
 	return &JWK{
 		JSONWebKey: jose.JSONWebKey{
-			Key: jwk.X.data, KeyID: jwk.Kid, Algorithm: jwk.Alg, Use: jwk.Use,
+			Key: key, KeyID: jwk.Kid, Algorithm: jwk.Alg, Use: jwk.Use,
 		},
 		Crv: jwk.Crv,
 		Kty: jwk.Kty,
 	}, nil
 }
 
-func marshalBLS12381G1(jwk *JWK) ([]byte, error) {
+func marshalBLS12381G2(jwk *JWK) ([]byte, error) {
 	var raw jsonWebKey
 
-	key, ok := jwk.Key.([]byte)
-	if !ok {
-		return nil, errors.New("marshalBLS12381G1: invalid key")
-	}
+	switch key := jwk.Key.(type) {
+	case *bbs12381g2pub.PublicKey:
+		mKey, err := key.Marshal()
+		if err != nil {
+			return nil, err
+		}
 
-	if len(key) != bls12381G2Size {
-		return nil, errors.New("marshalBLS12381G1: invalid key")
-	}
+		if len(mKey) != bls12381G2Size {
+			return nil, errors.New("marshal BBS public key: invalid key")
+		}
 
-	raw = jsonWebKey{
-		Kty: okpKty,
-		Crv: bls12381G2Crv,
-		X:   newFixedSizeBuffer(key, bls12381G2Size),
+		raw = jsonWebKey{
+			Kty: okpKty,
+			Crv: bls12381G2Crv,
+			X:   newFixedSizeBuffer(mKey, bls12381G2Size),
+		}
+	case *bbs12381g2pub.PrivateKey:
+		mPubKey, err := key.PublicKey().Marshal()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(mPubKey) != bls12381G2Size {
+			return nil, errors.New("marshal BBS public key: invalid key")
+		}
+
+		mPrivKey, err := key.Marshal()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(mPrivKey) != blsComprPrivSz {
+			return nil, errors.New("marshal BBS private key: invalid key")
+		}
+
+		raw = jsonWebKey{
+			Kty: okpKty,
+			Crv: bls12381G2Crv,
+			X:   newFixedSizeBuffer(mPubKey, bls12381G2Size),
+			D:   newFixedSizeBuffer(mPrivKey, blsComprPrivSz),
+		}
+	default:
+		return nil, errors.New("marshalBLS12381G2: invalid key")
 	}
 
 	raw.Kid = jwk.KeyID

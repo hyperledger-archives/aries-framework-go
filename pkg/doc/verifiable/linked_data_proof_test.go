@@ -123,7 +123,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
-		jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey())
+		jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
 		require.NoError(t, err)
 
 		vcDecoded, err = parseTestCredential(vcWithSecp256k1ProofBytes,
