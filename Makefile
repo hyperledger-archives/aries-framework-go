@@ -20,10 +20,10 @@ DOCKER_CMD ?= docker
 GO_CMD     ?= go
 ALPINE_VER ?= 3.12
 GO_TAGS    ?=
-GO_VER ?= 1.15
+GO_VER ?= 1.16
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 GOBIN_PATH=$(abspath .)/build/bin
-MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
+MOCKGEN=$(GOBIN_PATH)/mockgen
 GOMOCKS=pkg/internal/gomocks
 
 .PHONY: all
@@ -179,8 +179,8 @@ endef
 
 depend:
 	@mkdir -p ./build/bin
-	cd $(shell mktemp -d); go mod init tmp; GOBIN=$(GOBIN_PATH) go get github.com/myitcv/gobin
-	cd $(shell mktemp -d); go mod init tmp; GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
+	GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@v1.5.0
+	GOBIN=$(GOBIN_PATH) go install github.com/agnivade/wasmbrowsertest@v0.3.5
 
 .PHONY: mocks
 mocks: depend clean-mocks

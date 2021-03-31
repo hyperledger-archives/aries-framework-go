@@ -4,4 +4,4 @@
 
 module github.com/hyperledger/aries-framework-go/spi
 
-go 1.15
+go 1.16

@@ -5,7 +5,7 @@ Mobile bindings for the [Aries Framework Go](https://github.com/hyperledger/arie
 
 ## 1. Requirements
 
-- [Golang](https://golang.org/doc/install) >= 1.15
+- [Golang](https://golang.org/doc/install) >= 1.16
 - [Android SDK](https://developer.android.com/studio/install) (via Android Studio)
 - [Android NDK](https://developer.android.com/ndk/downloads)
 - [Xcode](https://developer.apple.com/xcode/) (macOS only)
