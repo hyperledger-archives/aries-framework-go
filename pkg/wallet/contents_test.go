@@ -113,6 +113,26 @@ const (
             },
             "didResolutionMetadata": {}
         }`
+	sampleKeyContentBase58Valid = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "did:example:123456789abcdefghi#key-1",
+  		  	"controller": "did:example:123456789abcdefghi",
+			"type": "Ed25519VerificationKey2018",
+			"privateKeyBase58":"zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y"
+  		}`
+	sampleKeyContentJwkValid = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "did:example:123456789abcdefghi#z6MkiEh8RQL83nkPo8ehDeX7",
+  		  	"controller": "did:example:123456789abcdefghi",
+			"type": "Ed25519VerificationKey2018",
+			"privateKeyJwk": {
+				"kty": "OKP",
+				"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
+				"crv": "Ed25519",
+				"x": "ODaPFurJgFcoVCUYEmgOJpWOtPlOYbHSugasscKWqDM",
+				"kid":"z6MkiEh8RQL83nkPo8ehDeX7"
+			}
+  		}`
 )
 
 func TestContentTypes(t *testing.T) {
@@ -197,7 +217,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
 	})
 
@@ -208,7 +228,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(Collection, []byte(sampleContentNoID))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentNoID))
 		require.NoError(t, err)
 	})
 
@@ -219,7 +239,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(DIDResolutionResponse, []byte(didResolutionResult))
+		err = contentStore.Save(sampleFakeTkn, DIDResolutionResponse, []byte(didResolutionResult))
 		require.NoError(t, err)
 
 		// get by DID ID
@@ -230,6 +250,62 @@ func TestContentStores(t *testing.T) {
 		require.Equal(t, string(response), didResolutionResult)
 	})
 
+	t.Run("save key to store - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+		sampleUser := uuid.New().String()
+
+		contentStore, err := newContentStore(sp, &profile{ID: sampleUser})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		// wallet locked
+		err = contentStore.Save(sampleFakeTkn, Key, []byte(sampleKeyContentBase58Valid))
+		require.True(t, errors.Is(err, ErrWalletLocked))
+
+		err = contentStore.Save(sampleFakeTkn, Key, []byte(sampleKeyContentJwkValid))
+		require.True(t, errors.Is(err, ErrWalletLocked))
+
+		// unlock keymanager
+		masterLock, err := getDefaultSecretLock(samplePassPhrase)
+		require.NoError(t, err)
+
+		masterLockCipherText, err := createMasterLock(masterLock)
+		require.NoError(t, err)
+		require.NotEmpty(t, masterLockCipherText)
+
+		profileInfo := &profile{
+			User:             sampleUser,
+			MasterLockCipher: masterLockCipherText,
+		}
+
+		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+			&unlockOpts{passphrase: samplePassPhrase})
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
+
+		// import base58 private key
+		err = contentStore.Save(tkn, Key, []byte(sampleKeyContentBase58Valid))
+		require.NoError(t, err)
+
+		// import jwk private key
+		err = contentStore.Save(tkn, Key, []byte(sampleKeyContentJwkValid))
+		require.NoError(t, err)
+	})
+
+	t.Run("save key to store - failure", func(t *testing.T) {
+		sp := getMockStorageProvider()
+		sampleUser := uuid.New().String()
+
+		contentStore, err := newContentStore(sp, &profile{ID: sampleUser})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		// wallet locked
+		err = contentStore.Save(sampleFakeTkn, Key, []byte(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read key contents")
+	})
+
 	t.Run("save to doc resolution to store - failure", func(t *testing.T) {
 		sp := getMockStorageProvider()
 
@@ -237,21 +313,9 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(DIDResolutionResponse, []byte(sampleContentInvalid))
+		err = contentStore.Save(sampleFakeTkn, DIDResolutionResponse, []byte(sampleContentInvalid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid DID resolution response model")
-	})
-
-	t.Run("save to doc key to store - error", func(t *testing.T) {
-		sp := getMockStorageProvider()
-
-		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
-		require.NoError(t, err)
-		require.NotEmpty(t, contentStore)
-
-		err = contentStore.Save(Key, []byte("{}"))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "to be implemented")
 	})
 
 	t.Run("save to store - failures", func(t *testing.T) {
@@ -262,12 +326,12 @@ func TestContentStores(t *testing.T) {
 		require.NotEmpty(t, contentStore)
 
 		// invalid content type
-		err = contentStore.Save(ContentType("invalid"), []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, ContentType("invalid"), []byte(sampleContentValid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid content type 'invalid'")
 
 		// invalid content
-		err = contentStore.Save(Credential, []byte("--"))
+		err = contentStore.Save(sampleFakeTkn, Credential, []byte("--"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read content to be saved")
 
@@ -278,12 +342,12 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(Credential, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Credential, []byte(sampleContentValid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
 
 		sp.Store.ErrGet = errors.New(sampleContenttErr)
-		err = contentStore.Save(Credential, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Credential, []byte(sampleContentValid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
 	})
@@ -295,7 +359,7 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save("Test", []byte("{}"))
+		err = contentStore.Save(sampleFakeTkn, "Test", []byte("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid content type")
 	})
@@ -307,11 +371,11 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, contentStore)
 
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
 
 		// save again
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "content with same type and id already exists in this wallet")
 	})
@@ -324,7 +388,7 @@ func TestContentStores(t *testing.T) {
 		require.NotEmpty(t, contentStore)
 
 		// save
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
 
 		// get
@@ -356,7 +420,7 @@ func TestContentStores(t *testing.T) {
 		require.NotEmpty(t, contentStore)
 
 		// save
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
 
 		// get
@@ -384,7 +448,7 @@ func TestContentStores(t *testing.T) {
 		require.NotEmpty(t, contentStore)
 
 		// save
-		err = contentStore.Save(Collection, []byte(sampleContentValid))
+		err = contentStore.Save(sampleFakeTkn, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
 
 		// remove
@@ -403,7 +467,7 @@ func TestContentDIDResolver(t *testing.T) {
 		require.NotEmpty(t, contentStore)
 
 		// save custom DID
-		err = contentStore.Save(DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		err = contentStore.Save(sampleFakeTkn, DIDResolutionResponse, []byte(sampleDocResolutionResponse))
 		require.NoError(t, err)
 
 		contentVDR := newContentBasedVDR(&vdr.MockVDRegistry{}, contentStore)
