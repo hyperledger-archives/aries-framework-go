@@ -20,7 +20,7 @@ type MockMessagePickupSvc struct {
 	StatusRequestFunc  func(connectionID string) (*messagepickup.Status, error)
 	BatchPickupErr     error
 	BatchPickupFunc    func(connectionID string, size int) (int, error)
-	HandleInboundFunc  func(msg service.DIDCommMsg, myDID, theirDID string) (string, error)
+	HandleInboundFunc  func(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error)
 	HandleOutboundFunc func(_ service.DIDCommMsg, _, _ string) (string, error)
 	AddMessageFunc     func(message *model.Envelope, theirDID string) error
 	AddMessageErr      error
@@ -65,9 +65,9 @@ func (m *MockMessagePickupSvc) BatchPickup(connectionID string, size int) (int, 
 }
 
 // HandleInbound msg.
-func (m *MockMessagePickupSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MockMessagePickupSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleInboundFunc != nil {
-		return m.HandleInboundFunc(msg, myDID, theirDID)
+		return m.HandleInboundFunc(msg, ctx)
 	}
 
 	return "", nil

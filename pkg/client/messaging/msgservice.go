@@ -20,7 +20,7 @@ const (
 )
 
 // handleFunc converts incoming message to topic bytes to be sent.
-type handleFunc func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error)
+type handleFunc func(msg service.DIDCommMsg, ctx service.DIDCommContext) ([]byte, error)
 
 // newMessageService returns new message service instance.
 func newMessageService(name, msgType string, purposes []string, notifier command.Notifier) *msgService {
@@ -80,12 +80,12 @@ func (m *msgService) Accept(msgType string, purpose []string) bool {
 	return purposeMatched && typeMatched
 }
 
-func (m *msgService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *msgService) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.name == "" || m.topicHandle == nil {
 		return "", fmt.Errorf(errTopicNotFound)
 	}
 
-	bytes, err := m.topicHandle(msg, myDID, theirDID)
+	bytes, err := m.topicHandle(msg, ctx)
 	if err != nil {
 		return "", fmt.Errorf(errMsgSvcHandleFailed, err)
 	}
@@ -95,15 +95,15 @@ func (m *msgService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID strin
 
 // genericHandleFunc handle function for converting incoming messages to generic topic.
 func genericHandleFunc() handleFunc {
-	return func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error) {
+	return func(msg service.DIDCommMsg, ctx service.DIDCommContext) ([]byte, error) {
 		topic := struct {
 			Message  interface{} `json:"message"`
 			MyDID    string      `json:"mydid"`
 			TheirDID string      `json:"theirdid"`
 		}{
 			msg,
-			myDID,
-			theirDID,
+			ctx.MyDID(),
+			ctx.TheirDID(),
 		}
 
 		return json.Marshal(topic)

@@ -110,8 +110,8 @@ func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[stri
 					continue
 				}
 
-				require.NoError(t, msgSvc.HandleInbound(didMap, msg.myDID, msg.theirDID))
-				_, err = svc.HandleInbound(didMap, msg.myDID, msg.theirDID)
+				require.NoError(t, msgSvc.HandleInbound(didMap, service.NewDIDCommContext(msg.myDID, msg.theirDID, nil)))
+				_, err = svc.HandleInbound(didMap, service.NewDIDCommContext(msg.myDID, msg.theirDID, nil))
 				require.NoError(t, err)
 			case <-time.After(time.Second):
 				return
@@ -1592,7 +1592,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(service.DIDCommMsgMap{}, "", "")
+		_, err = svc.HandleInbound(service.DIDCommMsgMap{}, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
 
@@ -1626,7 +1626,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "doHandle: currentStateName: test err")
 	})
 
@@ -1659,7 +1659,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "populate metadata: get record: test err")
 	})
 
@@ -1691,7 +1691,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "doHandle: invalid state transition: noop -> deciding")
 	})
 
@@ -1723,7 +1723,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "doHandle: nextState: unrecognized msgType: unknown")
 	})
 }

@@ -151,7 +151,6 @@ func TestCommand_SendRequestPresentation(t *testing.T) {
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleInbound(
 			gomock.Any(), gomock.Any(),
-			gomock.Any(),
 		).Return("", errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -175,7 +174,7 @@ func TestCommand_SendRequestPresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any(), gomock.Any())
+		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -262,7 +261,6 @@ func TestCommand_SendProposePresentation(t *testing.T) {
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleInbound(
 			gomock.Any(), gomock.Any(),
-			gomock.Any(),
 		).Return("", errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -286,7 +284,7 @@ func TestCommand_SendProposePresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any(), gomock.Any())
+		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)

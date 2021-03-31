@@ -80,13 +80,13 @@ func TestMessageService_HandleInbound(t *testing.T) {
 			myDID    string
 			theirDID string
 		})
-		handleFn := func(message Message, myDID, theirDID string) error {
+		handleFn := func(message Message, ctx service.DIDCommContext) error {
 			testCh <- struct {
 				message  Message
 				myDID    string
 				theirDID string
 			}{
-				message: message, myDID: myDID, theirDID: theirDID,
+				message: message, myDID: ctx.MyDID(), theirDID: ctx.TheirDID(),
 			}
 			return nil
 		}
@@ -99,7 +99,7 @@ func TestMessageService_HandleInbound(t *testing.T) {
 			msg, err := service.ParseDIDCommMsgMap([]byte(jsonStr))
 			require.NoError(t, err)
 
-			_, err = svc.HandleInbound(msg, myDID, theirDID)
+			_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 			require.NoError(t, err)
 		}()
 
@@ -122,14 +122,14 @@ func TestMessageService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		_, err = svc.HandleInbound(&mockMsg{err: fmt.Errorf(sampleErr)}, myDID, theirDID)
+		_, err = svc.HandleInbound(&mockMsg{err: fmt.Errorf(sampleErr)}, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to decode incoming DID comm message")
 	})
 }
 
 func getMockMessageHandle() MessageHandle {
-	return func(message Message, myDID, theirDID string) error {
+	return func(Message, service.DIDCommContext) error {
 		return nil
 	}
 }

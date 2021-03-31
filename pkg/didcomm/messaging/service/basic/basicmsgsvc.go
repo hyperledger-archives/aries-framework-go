@@ -51,7 +51,7 @@ var logger = log.New("aries-framework/basicmsg")
 // Returns
 //
 // error : handle can return error back to service to notify message dispatcher about failures.
-type MessageHandle func(message Message, myDID, theirDID string) error
+type MessageHandle func(message Message, ctx service.DIDCommContext) error
 
 // NewMessageService creates basic message service which serves
 // incoming basic messages [RFC-0095]
@@ -96,7 +96,7 @@ func (m *MessageService) Accept(msgType string, purpose []string) bool {
 }
 
 // HandleInbound for basic message service.
-func (m *MessageService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MessageService) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	basicMsg := Message{}
 
 	err := msg.Decode(&basicMsg)
@@ -108,5 +108,5 @@ func (m *MessageService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID s
 		logutil.CreateKeyValueString("msgType", msg.Type()),
 		logutil.CreateKeyValueString("msgID", msg.ID()))
 
-	return "", m.handle(basicMsg, myDID, theirDID)
+	return "", m.handle(basicMsg, ctx)
 }

@@ -94,7 +94,7 @@ func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirD
 
 	msg.Type = presentproof.RequestPresentationMsgType
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
 
 type addProof func(presentation *verifiable.Presentation) error
@@ -123,7 +123,7 @@ func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirD
 
 	msg.Type = presentproof.ProposePresentationMsgType
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.

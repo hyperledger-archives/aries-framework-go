@@ -9,7 +9,7 @@ package service
 // InboundHandler is handler for inbound messages.
 type InboundHandler interface {
 	// HandleInbound handles inbound messages.
-	HandleInbound(msg DIDCommMsg, myDID, theirDID string) (string, error)
+	HandleInbound(msg DIDCommMsg, ctx DIDCommContext) (string, error)
 }
 
 // OutboundHandler is handler for outbound messages.

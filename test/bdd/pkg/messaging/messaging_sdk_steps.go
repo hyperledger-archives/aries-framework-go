@@ -131,7 +131,7 @@ func (d *SDKSteps) sendGenericMessageReply(fromAgentID, toAgentID, msg, msgType,
 }
 
 func (d *SDKSteps) registerBasicMsgService(agentID, name string) error {
-	messageHandle := func(message basic.Message, myDID, theirDID string) error {
+	messageHandle := func(message basic.Message, _ service.DIDCommContext) error {
 		d.basicMessages[agentID] = message
 		return nil
 	}

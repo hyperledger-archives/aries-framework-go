@@ -115,7 +115,7 @@ func TestAccept(t *testing.T) {
 func TestHandleInbound(t *testing.T) {
 	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
 		s := newAutoService(t, testProvider())
-		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), myDID, theirDID)
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 	})
 	t.Run("rejects unsupported message types", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		req := newInvitation()
 		req.Type = "invalid"
-		_, err = s.HandleInbound(service.NewDIDCommMsgMap(req), myDID, theirDID)
+		_, err = s.HandleInbound(service.NewDIDCommMsgMap(req), service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Error(t, err)
 	})
 	t.Run("fires off an action event", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestHandleInbound(t *testing.T) {
 		events := make(chan service.DIDCommAction)
 		err = s.RegisterActionEvent(events)
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, myDID, theirDID)
+		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 		select {
 		case e := <-events:
@@ -153,7 +153,7 @@ func TestHandleInbound(t *testing.T) {
 		events := make(chan service.DIDCommAction)
 		err = s.RegisterActionEvent(events)
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, myDID, theirDID)
+		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.EqualError(t, err, "threadID: threadID not found")
 	})
 	t.Run("Save transitional payload (error)", func(t *testing.T) {
@@ -167,7 +167,7 @@ func TestHandleInbound(t *testing.T) {
 		events := make(chan service.DIDCommAction)
 		err := s.RegisterActionEvent(events)
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, myDID, theirDID)
+		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.EqualError(t, err, "save transitional payload: db error")
 	})
 	t.Run("sends pre-state msg event", func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		err = s.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, myDID, theirDID)
+		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 		select {
 		case result := <-stateMsgs:
@@ -198,7 +198,7 @@ func TestHandleInbound(t *testing.T) {
 	t.Run("fails if no listeners have been registered for action events", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
-		_, err = s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), myDID, theirDID)
+		_, err = s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.NewDIDCommContext(myDID, theirDID, nil))
 		require.Error(t, err)
 	})
 }
@@ -213,7 +213,7 @@ func TestService_ActionContinue(t *testing.T) {
 
 		require.NoError(t, s.RegisterActionEvent(actions))
 		s.callbackChannel = make(chan *callback, 2)
-		_, err = s.HandleInbound(msg, myDID, theirDID)
+		_, err = s.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 
 		var remainingActions []Action
@@ -261,7 +261,7 @@ func TestService_ActionStop(t *testing.T) {
 
 		require.NoError(t, s.RegisterActionEvent(actions))
 		s.callbackChannel = make(chan *callback, 2)
-		_, err = s.HandleInbound(msg, myDID, theirDID)
+		_, err = s.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 
 		var remainingActions []Action
@@ -301,7 +301,7 @@ func TestServiceStop(t *testing.T) {
 
 		require.NoError(t, s.RegisterActionEvent(actions))
 		s.callbackChannel = make(chan *callback, 2)
-		_, err = s.HandleInbound(msg, myDID, theirDID)
+		_, err = s.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 
 		select {
@@ -327,7 +327,7 @@ func TestServiceContinue(t *testing.T) {
 
 		require.NoError(t, s.RegisterActionEvent(actions))
 		s.callbackChannel = make(chan *callback, 2)
-		_, err = s.HandleInbound(msg, myDID, theirDID)
+		_, err = s.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 
 		select {

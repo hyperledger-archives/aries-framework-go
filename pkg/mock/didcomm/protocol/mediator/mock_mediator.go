@@ -33,7 +33,7 @@ type MockMediatorSvc struct {
 }
 
 // HandleInbound msg.
-func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}

@@ -283,7 +283,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(randomInboundMessage(""), "", "")
+		_, err = svc.HandleInbound(randomInboundMessage(""), service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "no clients")
 	})
 
@@ -301,7 +301,7 @@ func TestService_HandleInbound(t *testing.T) {
 		}{ID: "ID", Thread: decorator.Thread{PID: "PID"}})
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err),
 			"doHandle: current internal data and PIID: current internal data: "+errMsg)
 	})
@@ -315,7 +315,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		require.NoError(t, svc.RegisterActionEvent(make(chan<- service.DIDCommAction)))
 
-		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), "", "")
+		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "save transitional payload: "+errMsg)
 	})
 
@@ -330,7 +330,7 @@ func TestService_HandleInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
-		_, err = svc.HandleInbound(msg, "", "")
+		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: ")
 	})
 
@@ -346,7 +346,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(model.ProblemReport{
 			Type: ProblemReportMsgType,
-		}), "", "")
+		}), service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: invalid state transition")
 	})
 
@@ -383,7 +383,8 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(
+			randomInboundMessage(RequestPresentationMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -447,7 +448,7 @@ func TestService_HandleInbound(t *testing.T) {
 		msg := randomInboundMessage(RequestPresentationMsgType)
 		msg["will_confirm"] = true
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -497,7 +498,7 @@ func TestService_HandleInbound(t *testing.T) {
 		msg := randomInboundMessage(RequestPresentationMsgType)
 		msg["will_confirm"] = true
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		actions, err := svc.Actions()
@@ -544,7 +545,8 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(
+			randomInboundMessage(RequestPresentationMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		actions, err := svc.Actions()
@@ -601,7 +603,8 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(
+			randomInboundMessage(RequestPresentationMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -661,7 +664,9 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(ProposePresentationMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(
+			randomInboundMessage(ProposePresentationMsgType),
+			service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -707,7 +712,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -753,7 +758,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(randomInboundMessage(ProblemReportMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -815,7 +820,9 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(ProposePresentationMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(
+			randomInboundMessage(ProposePresentationMsgType),
+			service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -889,7 +896,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, msg.SetID(uuid.New().String()))
 		msg["~thread"] = decorator.Thread{ID: uuid.New().String()}
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		action := <-ch
@@ -933,7 +940,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(AckMsgType), Alice, Bob)
+		_, err = svc.HandleInbound(randomInboundMessage(AckMsgType), service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		select {
@@ -972,7 +979,7 @@ func TestService_HandleInbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		select {
@@ -995,7 +1002,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).Return(errors.New(errMsg))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 
@@ -1027,7 +1034,7 @@ func TestService_HandleInbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
 
 		select {
@@ -1050,7 +1057,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).Return(errors.New(errMsg))
 
-		_, err = svc.HandleInbound(msg, Alice, Bob)
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)
 	})
 }
