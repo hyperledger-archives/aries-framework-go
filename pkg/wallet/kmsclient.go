@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -17,10 +18,13 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -40,6 +44,21 @@ const (
 	// number of sections in verification method.
 	vmSectionCount = 2
 )
+
+// supported key types for import key base58 (all constants defined in lower case).
+const (
+	Ed25519VerificationKey2018 = "ed25519verificationkey2018"
+	Bls12381G1Key2020          = "bls12381g1key2020"
+)
+
+// supported JWK curves for jwk private key import.
+// nolint: gochecknoglobals
+var jwkCurves = map[string]kms.KeyType{
+	"Ed25519":    kms.ED25519Type,
+	"P-256":      kms.ECDSAP256TypeIEEEP1363,
+	"P-384":      kms.ECDSAP384TypeIEEEP1363,
+	"BLS12381G2": kms.BLS12381G2Type,
+}
 
 // errors.
 // nolint: gochecknoglobals
@@ -273,4 +292,89 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	}
 
 	return v, nil
+}
+
+// importKeyJWK imports private key jwk found in key contents,
+// supported curve types - Ed25519, P-256, BLS12381G2.
+func importKeyJWK(auth string, key *keyContent) error {
+	keyManager, err := keyManager().getKeyManger(auth)
+	if err != nil {
+		if errors.Is(err, gcache.KeyNotFoundError) {
+			return ErrWalletLocked
+		}
+
+		return fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	var jwk jose.JWK
+	if e := jwk.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
+		return fmt.Errorf("failed to unmarshal jwk : %w", e)
+	}
+
+	kType, ok := jwkCurves[jwk.Crv]
+	if !ok {
+		return fmt.Errorf("unsupported Key type %s", jwk.Crv)
+	}
+
+	_, _, err = keyManager.ImportPrivateKey(jwk.Key, kType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwk)))
+	if err != nil {
+		return fmt.Errorf("failed to import jwk key : %w", err)
+	}
+
+	return nil
+}
+
+// importKeyBase58 imports private key base58 found in key contents,
+// supported types - Ed25519Signature2018, Bls12381G1Key2020.
+func importKeyBase58(auth string, key *keyContent) error {
+	keyManager, err := keyManager().getKeyManger(auth)
+	if err != nil {
+		if errors.Is(err, gcache.KeyNotFoundError) {
+			return ErrWalletLocked
+		}
+
+		return fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	switch strings.ToLower(key.KeyType) {
+	case Ed25519VerificationKey2018:
+		edPriv := ed25519.PrivateKey(base58.Decode(key.PrivateKeyBase58))
+
+		_, _, err := keyManager.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(getKID(key.ID)))
+		if err != nil {
+			return fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
+		}
+	case Bls12381G1Key2020:
+		blsKey, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(key.PrivateKeyBase58))
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal %s private key : %w", kms.BLS12381G2Type, err)
+		}
+
+		_, _, err = keyManager.ImportPrivateKey(blsKey, kms.BLS12381G2, kms.WithKeyID(getKID(key.ID)))
+		if err != nil {
+			return fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
+		}
+	default:
+		return errors.New("only Ed25519VerificationKey2018 &  Bls12381G1Key2020 are supported in base58 format")
+	}
+
+	return nil
+}
+
+func getKID(id string) string {
+	cSplit := strings.Split(id, "#")
+
+	if len(cSplit) > 1 {
+		return cSplit[1]
+	}
+
+	return ""
+}
+
+func getKIDFromJWK(id string, jwk *jose.JWK) string {
+	if jwk.KeyID != "" {
+		return jwk.KeyID
+	}
+
+	return getKID(id)
 }

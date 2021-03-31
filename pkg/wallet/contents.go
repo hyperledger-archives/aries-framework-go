@@ -64,6 +64,15 @@ func (ct ContentType) Name() string {
 	return string(ct)
 }
 
+// keyContent is wallet content for key type
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
+type keyContent struct {
+	ID               string          `json:"id"`
+	KeyType          string          `json:"type"`
+	PrivateKeyJwk    json.RawMessage `json:"privateKeyJwk"`
+	PrivateKeyBase58 string          `json:"privateKeyBase58"`
+}
+
 type contentID struct {
 	ID string `json:"id"`
 }
@@ -94,7 +103,7 @@ func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
 // if content document id is missing from content, then system generated id will be used as key for storage.
 // returns error if content with same ID already exists in store.
 // For replacing already existing content, use 'Remove() + Add()'.
-func (cs *contentStore) Save(ct ContentType, content []byte) error {
+func (cs *contentStore) Save(auth string, ct ContentType, content []byte) error {
 	switch ct {
 	case Collection, Metadata, Connection, Credential:
 		key, err := getContentID(content)
@@ -113,8 +122,14 @@ func (cs *contentStore) Save(ct ContentType, content []byte) error {
 		return cs.safeSave(getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
 	case Key:
 		// never save keys in store, just import them into kms
-		// TODO save them in user profile kms (#2433)
-		return errors.New("to be implemented")
+		var key keyContent
+
+		err := json.Unmarshal(content, &key)
+		if err != nil {
+			return fmt.Errorf("failed to read key contents: %w", err)
+		}
+
+		return saveKey(auth, &key)
 	default:
 		return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
 			[]ContentType{Collection, Credential, DIDResolutionResponse, Metadata, Connection, Key})
@@ -131,6 +146,24 @@ func (cs *contentStore) safeSave(key string, content []byte, tags ...storage.Tag
 	}
 
 	return errors.New("content with same type and id already exists in this wallet")
+}
+
+func saveKey(auth string, key *keyContent) error {
+	if len(key.PrivateKeyJwk) > 0 {
+		err := importKeyJWK(auth, key)
+		if err != nil {
+			return fmt.Errorf("failed to import private key jwk: %w", err)
+		}
+	}
+
+	if key.PrivateKeyBase58 != "" {
+		err := importKeyBase58(auth, key)
+		if err != nil {
+			return fmt.Errorf("failed to import private key base58: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Remove to remove wallet content from wallet contents store.

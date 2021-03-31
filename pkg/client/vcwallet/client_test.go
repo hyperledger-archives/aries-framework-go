@@ -42,6 +42,7 @@ const (
 	toBeImplementedErr  = "to be implemented"
 	sampleClientErr     = "sample client err"
 	sampleDIDKey        = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	sampleDIDKey2       = "did:key:z6MkwFKUCsf8wvn6eSSu1WFAKatN1yexiDM7bf7pZLSFjdz6"
 	sampleContentValid  = `{
   			"@context": ["https://w3id.org/wallet/v1"],
   		  	"id": "did:example:123456789abcdefghi",
@@ -184,6 +185,64 @@ const (
     	"@context": ["https://w3id.org/did/v1"],
     	"id": "did:example:sampleInvalidDIDContent"
 		}`
+
+	sampleKeyContentBase58 = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+  		  	"controller": "did:example:123456789abcdefghi",
+			"type": "Ed25519VerificationKey2018",
+			"privateKeyBase58":"2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
+  		}`
+
+	sampleDIDResolutionResponse = `{
+    "@context": [
+        "https://w3id.org/wallet/v1",
+        "https://w3id.org/did-resolution/v1"
+    ],
+    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+    "type": ["DIDResolutionResponse"],
+    "name": "Farming Sensor DID Document",
+    "image": "https://via.placeholder.com/150",
+    "description": "An IoT device in the middle of a corn field.",
+    "tags": ["professional"],
+    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+    "created": "2017-06-18T21:19:10Z",
+    "expires": "2026-06-18T21:19:10Z",
+    "didDocument": {
+        "@context": [
+            "https://w3id.org/did/v0.11"
+        ],
+        "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+        "publicKey": [
+            {
+                "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                "type": "Ed25519VerificationKey2018",
+                "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                "publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh"
+            }
+        ],
+        "authentication": [
+            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+        ],
+        "assertionMethod": [
+            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+        ],
+        "capabilityDelegation": [
+            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+        ],
+        "capabilityInvocation": [
+            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+        ],
+        "keyAgreement": [
+            {
+                "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
+                "type": "X25519KeyAgreementKey2019",
+                "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                "publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN"
+            }
+        ]
+    }
+}`
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -595,7 +654,7 @@ func TestClient_Add(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
+	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
@@ -608,7 +667,7 @@ func TestClient_Get(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
+	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
@@ -626,7 +685,7 @@ func TestClient_Remove(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
+	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
@@ -686,6 +745,26 @@ func TestClient_Issue(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
+	t.Run("Test VC wallet client issue using controller - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// save a DID & corresponding key
+		require.NoError(t, vcWalletClient.Add(wallet.Key, []byte(sampleKeyContentBase58)))
+		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, []byte(sampleDIDResolutionResponse)))
+
+		result, err := vcWalletClient.Issue([]byte(sampleUDCVC), &wallet.ProofOptions{
+			Controller: sampleDIDKey,
+		})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.NotEmpty(t, result.Proofs)
+	})
+
 	t.Run("Test VC wallet client issue using controller - failure", func(t *testing.T) {
 		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 		require.NotEmpty(t, vcWalletClient)
@@ -695,7 +774,7 @@ func TestClient_Issue(t *testing.T) {
 
 		// sign with just controller
 		result, err := vcWalletClient.Issue([]byte(sampleUDCVC), &wallet.ProofOptions{
-			Controller: sampleDIDKey,
+			Controller: sampleDIDKey2,
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read json keyset from reader")
@@ -744,6 +823,27 @@ func TestClient_Prove(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
+	t.Run("Test VC wallet client prove using controller - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// save a credential, DID & key
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+		require.NoError(t, vcWalletClient.Add(wallet.Key, []byte(sampleKeyContentBase58)))
+		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, []byte(sampleDIDResolutionResponse)))
+
+		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
+			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.NotEmpty(t, result.Proofs)
+	})
+
 	t.Run("Test VC wallet client prove using controller - failure", func(t *testing.T) {
 		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 		require.NotEmpty(t, vcWalletClient)
@@ -751,9 +851,10 @@ func TestClient_Prove(t *testing.T) {
 
 		defer vcWalletClient.Close()
 
+		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
 
-		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
+		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey2},
 			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
 			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
 		)
@@ -763,7 +864,7 @@ func TestClient_Prove(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet client prove using controller - wallet locked", func(t *testing.T) {
-		vcWalletClient, err := New(sampleUserID, mockctx)
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 		require.NotEmpty(t, vcWalletClient)
 		require.NoError(t, err)
 
@@ -771,6 +872,8 @@ func TestClient_Prove(t *testing.T) {
 
 		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+
+		vcWalletClient.Close()
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
 			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
@@ -917,7 +1020,7 @@ func TestWallet_Derive(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
 
 	t.Run("Test derive a credential from wallet - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 		require.NotEmpty(t, walletInstance)
 
@@ -970,7 +1073,7 @@ func TestWallet_Derive(t *testing.T) {
 	})
 
 	t.Run("Test derive credential failures", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 

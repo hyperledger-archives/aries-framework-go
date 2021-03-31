@@ -166,7 +166,12 @@ func (c *Client) Import(auth string, contents json.RawMessage) error {
 //
 // TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
 func (c *Client) Add(contentType wallet.ContentType, content json.RawMessage) error {
-	return c.wallet.Add(contentType, content)
+	auth, err := c.auth()
+	if err != nil {
+		return err
+	}
+
+	return c.wallet.Add(auth, contentType, content)
 }
 
 // Remove removes wallet content by content ID.

@@ -240,8 +240,8 @@ func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 // TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
-func (c *Wallet) Add(contentType ContentType, content json.RawMessage) error {
-	return c.contents.Save(contentType, content)
+func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage) error {
+	return c.contents.Save(authToken, contentType, content)
 }
 
 // Remove removes wallet content by content ID.
