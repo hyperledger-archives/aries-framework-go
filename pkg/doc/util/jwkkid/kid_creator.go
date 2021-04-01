@@ -91,7 +91,7 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 		// TODO remove `case kms.ED25519Type` in CreateKID() and uncomment below case when go-jose fixes Ed25519
 		//      JWK thumbprint. Also remove `createED25519KID(keyBytes []byte)` function further below.
 	// case kms.ED25519Type:
-	//	jwk, err = jose.JWKFromPublicKey(ed25519.PublicKey(keyBytes))
+	//	jwk, err = jose.JWKFromKey(ed25519.PublicKey(keyBytes))
 	//	if err != nil {
 	//		return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
 	//	}
@@ -105,7 +105,7 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 			Y:     y,
 		}
 
-		jwk, err = jose.JWKFromPublicKey(pubKey)
+		jwk, err = jose.JWKFromKey(pubKey)
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa key in IEEE1363 format: %w", err)
 		}
@@ -127,7 +127,7 @@ func generateJWKFromDERECDSA(keyBytes []byte) (*jose.JWK, error) {
 		return nil, fmt.Errorf("generateJWKFromDERECDSA: failed to parse ecdsa key in DER format: %w", err)
 	}
 
-	return jose.JWKFromPublicKey(pubKey)
+	return jose.JWKFromKey(pubKey)
 }
 
 func generateJWKFromECDH(keyBytes []byte) (*jose.JWK, error) {
@@ -147,7 +147,7 @@ func generateJWKFromECDH(keyBytes []byte) (*jose.JWK, error) {
 		Y:     new(big.Int).SetBytes(compositeKey.Y),
 	}
 
-	return jose.JWKFromPublicKey(pubKey)
+	return jose.JWKFromKey(pubKey)
 }
 
 func getCurveByKMSKeyType(kt kms.KeyType) elliptic.Curve {

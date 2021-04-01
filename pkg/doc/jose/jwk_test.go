@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"strings"
 	"testing"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -180,14 +182,18 @@ func TestDecodePublicKey(t *testing.T) {
 					require.Equal(t, cryptoutil.Curve25519KeySize, len(jwkKey.Key.([]byte)))
 					require.Equal(t, okpKty, jwkKey.Kty)
 				case "get public key bytes BBS+ JWK":
-					jwkKey, err := JWKFromPublicKey(jwk.Key.([]byte))
+					jwkKey, err := JWKFromKey(jwk.Key)
 					require.NoError(t, err)
 					require.NotNil(t, jwkKey)
 					require.Equal(t, bls12381G2Crv, jwkKey.Crv)
-					require.Equal(t, bls12381G2Size, len(jwkKey.Key.([]byte)))
+					bbsPubKey, ok := jwkKey.Key.(*bbs12381g2pub.PublicKey)
+					require.True(t, ok)
+					bbsPubKeyBytes, err := bbsPubKey.Marshal()
+					require.NoError(t, err)
+					require.Equal(t, bls12381G2Size, len(bbsPubKeyBytes))
 					require.Equal(t, okpKty, jwkKey.Kty)
 				default:
-					jwkKey, err := JWKFromPublicKey(jwk.Key)
+					jwkKey, err := JWKFromKey(jwk.Key)
 					require.NoError(t, err)
 					require.NotNil(t, jwkKey)
 				}
@@ -374,7 +380,7 @@ func TestCurveSize(t *testing.T) {
 }
 
 func TestJWKFromPublicKeyFailure(t *testing.T) {
-	key, err := JWKFromPublicKey(nil)
+	key, err := JWKFromKey(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create JWK")
 	require.Nil(t, key)
@@ -412,4 +418,117 @@ func TestJWK_PublicKeyBytesValidation(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported public key type in kid 'pubkey#123'")
 	require.Empty(t, pkBytes)
+}
+
+func TestJWK_BBSKeyValidation(t *testing.T) {
+	_, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+	require.NoError(t, err)
+
+	jwk := &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: privateKey,
+		},
+		Kty: okpKty,
+		Crv: bls12381G2Crv,
+	}
+
+	t.Run("test MarshalJSON/UnmarshalJSON", func(t *testing.T) {
+		var mJWK []byte
+
+		mJWK, err = jwk.MarshalJSON()
+		require.NoError(t, err)
+
+		t.Logf("marshaled JWK: %s", mJWK)
+
+		jwk2 := &JWK{}
+		err = jwk2.UnmarshalJSON(mJWK)
+		require.NoError(t, err)
+		require.EqualValues(t, jwk, jwk2)
+	})
+
+	t.Run("test JWKFromKey() from BBS private key", func(t *testing.T) {
+		var jwk3 *JWK
+
+		jwk3, err = JWKFromKey(privateKey)
+		require.NoError(t, err)
+		require.EqualValues(t, jwk, jwk3)
+	})
+
+	t.Run("test BBS private key jwk.PublicKeyBytes()", func(t *testing.T) {
+		var pubKeyBytes []byte
+
+		pubKeyBytes, err = jwk.PublicKeyBytes()
+		require.NoError(t, err)
+		require.NotEmpty(t, pubKeyBytes)
+	})
+
+	t.Run("test UnmarshalJSON of valid BBS private key JWK - with both x and d headers", func(t *testing.T) {
+		//nolint:lll
+		goodJWK := `{
+	"kty":"OKP",
+	"crv":"BLS12381G2",
+	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu",
+	"d":"MhYilAbhICa8T6m0U2gLAgLvPEsF05XN1yYHZgkfAK4"
+}`
+
+		jwk4 := &JWK{}
+
+		err = jwk4.UnmarshalJSON([]byte(goodJWK))
+		require.NoError(t, err)
+	})
+
+	t.Run("test UnmarshalJSON of invalid BBS private key JWK - no x header", func(t *testing.T) {
+		goodJWK := `{
+	"kty":"OKP",
+	"crv":"BLS12381G2",
+	"d":"MhYilAbhICa8T6m0U2gLAgLvPEsF05XN1yYHZgkfAK4"
+}`
+
+		jwk4 := &JWK{}
+
+		err = jwk4.UnmarshalJSON([]byte(goodJWK))
+		require.EqualError(t, err, "unable to read BBS+ JWE: invalid JWK")
+	})
+
+	t.Run("test UnmarshalJSON of valid BBS public key JWK", func(t *testing.T) {
+		//nolint:lll
+		goodJWK := `{
+	"kty":"OKP",
+	"crv":"BLS12381G2",
+	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu"
+}`
+
+		jwk4 := &JWK{}
+
+		err = jwk4.UnmarshalJSON([]byte(goodJWK))
+		require.NoError(t, err)
+	})
+
+	t.Run("test UnmarshalJSON of invalid BBS public key JWK - x wrong size", func(t *testing.T) {
+		goodJWK := `{
+	"kty":"OKP",
+	"crv":"BLS12381G2",
+	"x":"oUd1"
+}`
+
+		jwk4 := &JWK{}
+
+		err = jwk4.UnmarshalJSON([]byte(goodJWK))
+		require.EqualError(t, err, "unable to read BBS+ JWE: invalid JWK")
+	})
+
+	t.Run("test UnmarshalJSON of invalid BBS private key JWK - d wrong size", func(t *testing.T) {
+		//nolint:lll
+		goodJWK := `{
+	"kty":"OKP",
+	"crv":"BLS12381G2",
+	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu",
+	"d":"MhYi"
+}`
+
+		jwk4 := &JWK{}
+
+		err = jwk4.UnmarshalJSON([]byte(goodJWK))
+		require.EqualError(t, err, "unable to read BBS+ JWE: invalid JWK")
+	})
 }

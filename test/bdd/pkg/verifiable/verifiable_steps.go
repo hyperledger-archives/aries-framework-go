@@ -324,7 +324,7 @@ func (s *SDKSteps) createSecp256k1KeyPair(agent string) error {
 
 	ecdsaPrivKey := btcecPrivKey.ToECDSA()
 
-	jwk, err := jose.JWKFromPublicKey(&ecdsaPrivKey.PublicKey)
+	jwk, err := jose.JWKFromKey(&ecdsaPrivKey.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -352,7 +352,7 @@ func createJWK(pubKeyBytes []byte, keyType kms.KeyType) (*jose.JWK, error) {
 		return nil, errors.New("unsupported key type: " + string(keyType))
 	}
 
-	return jose.JWKFromPublicKey(pubKey)
+	return jose.JWKFromKey(pubKey)
 }
 
 func mapCryptoKeyType(proofType string) kms.KeyType {

@@ -22,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	jwk, err := jose.JWKFromPublicKey(ed25519.PublicKey(key))
+	jwk, err := jose.JWKFromKey(ed25519.PublicKey(key))
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +32,7 @@ func main() {
 		panic(err)
 	}
 
-	recoveryJWK, err := jose.JWKFromPublicKey(publicKeyRecovery)
+	recoveryJWK, err := jose.JWKFromKey(publicKeyRecovery)
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 
-	updateJWK, err := jose.JWKFromPublicKey(publicKeyUpdate)
+	updateJWK, err := jose.JWKFromKey(publicKeyUpdate)
 	if err != nil {
 		panic(err)
 	}
