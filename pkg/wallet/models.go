@@ -19,7 +19,7 @@ import (
 //
 type QueryParams struct {
 	// Type of the query.
-	// Allowed values 'QueryByFrame', 'PresentationExchange'
+	// Allowed values  'QueryByExample', 'QueryByFrame', 'PresentationExchange'
 	Type string
 
 	// Wallet content query.

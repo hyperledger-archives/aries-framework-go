@@ -24,7 +24,7 @@ type ContentType string
 
 const (
 	// Collection content type which can be used to group wallet contents together.
-	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+	// https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 	Collection ContentType = "collection"
 
 	// Credential content type for handling credential data models.
@@ -174,6 +174,37 @@ func (cs *contentStore) Remove(ct ContentType, key string) error {
 // Get to get wallet content from wallet contents store.
 func (cs *contentStore) Get(ct ContentType, key string) ([]byte, error) {
 	return cs.store.Get(getContentKeyPrefix(ct, key))
+}
+
+// GetAll returns all wallet contents of give type.
+// returns empty result when no data found.
+func (cs *contentStore) GetAll(ct ContentType) ([]json.RawMessage, error) {
+	iter, err := cs.store.Query(ct.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	var result []json.RawMessage
+
+	for {
+		ok, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			break
+		}
+
+		val, err := iter.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, val)
+	}
+
+	return result, nil
 }
 
 func getContentID(content []byte) (string, error) {

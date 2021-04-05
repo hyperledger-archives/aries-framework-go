@@ -99,6 +99,9 @@ type MockStore struct {
 	ErrPut    error
 	ErrGet    error
 	ErrDelete error
+	ErrQuery  error
+	ErrNext   error
+	ErrValue  error
 }
 
 // Put stores the key and the record.
@@ -152,6 +155,10 @@ func (s *MockStore) GetBulk(keys ...string) ([][]byte, error) {
 // If TagValue is not provided, then all data associated with the TagName will be returned.
 // For now, expression can only be a single tag Name + Value pair.
 func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.Iterator, error) {
+	if s.ErrQuery != nil {
+		return nil, s.ErrQuery
+	}
+
 	if expression == "" {
 		return nil, errInvalidQueryExpressionFormat
 	}
@@ -166,7 +173,7 @@ func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.
 
 		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, "")
 
-		return &iterator{keys: keys, dbEntries: dbEntries}, nil
+		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue}, nil
 	case expressionTagNameAndValueLength:
 		expressionTagName := expressionSplit[0]
 		expressionTagValue := expressionSplit[1]
@@ -176,7 +183,7 @@ func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.
 
 		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, expressionTagValue)
 
-		return &iterator{keys: keys, dbEntries: dbEntries}, nil
+		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue}, nil
 	default:
 		return nil, errInvalidQueryExpressionFormat
 	}
@@ -236,9 +243,15 @@ type iterator struct {
 	currentDBEntry DBEntry
 	keys           []string
 	dbEntries      []DBEntry
+	errNext        error
+	errValue       error
 }
 
 func (m *iterator) Next() (bool, error) {
+	if m.errNext != nil {
+		return false, m.errNext
+	}
+
 	if len(m.dbEntries) == m.currentIndex || len(m.dbEntries) == 0 {
 		m.dbEntries = nil
 		return false, nil
@@ -260,6 +273,10 @@ func (m *iterator) Key() (string, error) {
 }
 
 func (m *iterator) Value() ([]byte, error) {
+	if m.errValue != nil {
+		return nil, m.errValue
+	}
+
 	if len(m.dbEntries) == 0 {
 		return nil, errIteratorExhausted
 	}
