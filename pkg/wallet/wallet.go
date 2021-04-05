@@ -203,8 +203,11 @@ func (c *Wallet) Close() bool {
 //	Returns exported locked wallet.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 func (c *Wallet) Export(auth string) (json.RawMessage, error) {
 	// TODO to be added #2433
@@ -219,11 +222,12 @@ func (c *Wallet) Export(auth string) (json.RawMessage, error) {
 //		- auth: token used while exporting the wallet.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 //
 func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 	// TODO to be added #2433
@@ -233,11 +237,12 @@ func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 // Add adds given data model to wallet contents store.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 //
 // TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
 func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage) error {
@@ -247,9 +252,9 @@ func (c *Wallet) Add(authToken string, contentType ContentType, content json.Raw
 // Remove removes wallet content by content ID.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
@@ -260,9 +265,9 @@ func (c *Wallet) Remove(contentType ContentType, contentID string) error {
 // Get fetches a wallet content by content ID.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Profile
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#CachedDIDDocument
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
@@ -270,15 +275,40 @@ func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage
 	return c.contents.Get(contentType, contentID)
 }
 
-// Query returns a collection of results based on current wallet contents.
+// GetAll fetches all wallet contents of given type.
+//
+// Supported data models:
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+//
+func (c *Wallet) GetAll(contentType ContentType) ([]json.RawMessage, error) {
+	return c.contents.GetAll(contentType)
+}
+
+// Query runs query against wallet credential contents and returns presentation containing credential results.
+//
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#query
 //
 // Supported Query Types:
 // 	- https://www.w3.org/TR/json-ld11-framing
 // 	- https://identity.foundation/presentation-exchange
+// 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
 //
-func (c *Wallet) Query(query *QueryParams) ([]json.RawMessage, error) {
-	// TODO to be added #2433
-	return nil, fmt.Errorf("to be implemented")
+func (c *Wallet) Query(params *QueryParams) (*verifiable.Presentation, error) {
+	query, err := GetQueryType(params.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	vcs, err := c.contents.GetAll(Credential)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query credentials: %w", err)
+	}
+
+	return query.GeneratePresentation(vcs, params.Query)
 }
 
 // Issue adds proof to a Verifiable Credential.

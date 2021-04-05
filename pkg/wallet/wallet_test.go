@@ -24,6 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -547,6 +549,43 @@ func TestWallet_Get(t *testing.T) {
 	require.Equal(t, sampleContentValid, string(content))
 }
 
+func TestWallet_GetAll(t *testing.T) {
+	const vcContent = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "id": "%s",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+      },
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+
+	mockctx := newMockProvider()
+	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	walletInstance, err := New(sampleUserID, mockctx)
+	require.NotEmpty(t, walletInstance)
+	require.NoError(t, err)
+
+	// save test data
+	const count = 5
+
+	for i := 0; i < count; i++ {
+		require.NoError(t, walletInstance.Add(sampleFakeTkn,
+			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+	}
+
+	vcs, err := walletInstance.GetAll(Credential)
+	require.NoError(t, err)
+	require.Len(t, vcs, count)
+}
+
 func TestWallet_Remove(t *testing.T) {
 	mockctx := newMockProvider()
 	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
@@ -581,10 +620,115 @@ func TestWallet_Query(t *testing.T) {
 	require.NotEmpty(t, walletInstance)
 	require.NoError(t, err)
 
-	results, err := walletInstance.Query(&QueryParams{})
-	require.Empty(t, results)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+	vc1, err := (&verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      "http://example.edu/credentials/9999",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Jesse",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		Subject: uuid.New().String(),
+	}).MarshalJSON()
+	require.NoError(t, err)
+
+	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vc1))
+
+	pd := &presexch.PresentationDefinition{
+		ID: uuid.New().String(),
+		InputDescriptors: []*presexch.InputDescriptor{{
+			ID: uuid.New().String(),
+			Schema: []*presexch.Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &presexch.Constraints{
+				Fields: []*presexch.Field{{
+					Path: []string{"$.first_name"},
+				}},
+			},
+		}},
+	}
+
+	pdJSON, err := json.Marshal(pd)
+	require.NoError(t, err)
+	require.NotEmpty(t, pdJSON)
+
+	t.Run("test query generate presentation", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			param       *QueryParams
+			resultCount int
+			error       string
+		}{
+			{
+				name:        "query by presentation exchange - success",
+				param:       &QueryParams{Type: "PresentationExchange", Query: pdJSON},
+				resultCount: 1,
+			},
+			{
+				name:  "invalid query type",
+				param: &QueryParams{Type: "invalid"},
+				error: "unsupported query type",
+			},
+			{
+				name:  "empty query type",
+				param: &QueryParams{},
+				error: "unsupported query type",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				presentation, err := walletInstance.Query(tc.param)
+
+				if tc.error != "" {
+					require.Empty(t, presentation)
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.error)
+
+					return
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, presentation)
+				require.Empty(t, presentation.Proofs)
+				require.Len(t, presentation.Credentials(), tc.resultCount)
+			})
+		}
+	})
+
+	t.Run("test get all error", func(t *testing.T) {
+		mockctxInvalid := newMockProvider()
+		sp := getMockStorageProvider()
+
+		sp.MockStoreProvider.Store.ErrQuery = errors.New(sampleContenttErr)
+		mockctxInvalid.StorageProviderValue = sp
+
+		err := CreateProfile(sampleUserID, mockctxInvalid, WithKeyServerURL(sampleKeyServerURL))
+		require.NoError(t, err)
+
+		walletInstanceInvalid, err := New(sampleUserID, mockctxInvalid)
+		require.NoError(t, err)
+		require.NotEmpty(t, walletInstanceInvalid)
+
+		result, err := walletInstanceInvalid.Query(&QueryParams{Type: "QueryByFrame"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to query credentials")
+		require.Contains(t, err.Error(), sampleContenttErr)
+		require.Empty(t, result)
+	})
 }
 
 func TestWallet_Issue(t *testing.T) {

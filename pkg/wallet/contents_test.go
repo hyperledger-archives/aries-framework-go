@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -455,6 +456,110 @@ func TestContentStores(t *testing.T) {
 		err = contentStore.Remove(Collection, "did:example:123456789abcdefghi")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
+	})
+}
+
+func TestContentStore_GetAll(t *testing.T) {
+	const vcContent = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "credentialSchema": [],
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe"
+      },
+      "id": "%s",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+        "name": "Example University"
+      },
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+
+	const testMetadata = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "%s",
+    		"type": "Person",
+    		"name": "John Smith",
+    		"image": "https://via.placeholder.com/150",
+    		"description" : "Professional software developer for Acme Corp."
+  		}`
+
+	t.Run("get all content from store for credential type - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		// save test data
+		const count = 5
+
+		for i := 0; i < count; i++ {
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Metadata, []byte(fmt.Sprintf(testMetadata, uuid.New().String()))))
+		}
+
+		allVcs, err := contentStore.GetAll(Credential)
+		require.NoError(t, err)
+		require.Len(t, allVcs, count)
+
+		allMetadata, err := contentStore.GetAll(Metadata)
+		require.NoError(t, err)
+		require.Len(t, allMetadata, count)
+
+		allDIDs, err := contentStore.GetAll(DIDResolutionResponse)
+		require.NoError(t, err)
+		require.Empty(t, allDIDs)
+	})
+
+	t.Run("get all content from store for credential type - errors", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		// iterator value error
+		sp.MockStoreProvider.Store.ErrValue = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		require.NoError(t, contentStore.Save(sampleFakeTkn, Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+
+		allVcs, err := contentStore.GetAll(Credential)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrValue))
+		require.Empty(t, allVcs)
+
+		// iterator next error
+		sp.MockStoreProvider.Store.ErrNext = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		require.NoError(t, contentStore.Save(sampleFakeTkn, Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+
+		allVcs, err = contentStore.GetAll(Credential)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrNext))
+		require.Empty(t, allVcs)
+
+		// iterator next error
+		sp.MockStoreProvider.Store.ErrQuery = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAll(Credential)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrQuery))
+		require.Empty(t, allVcs)
 	})
 }
 

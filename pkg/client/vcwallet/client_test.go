@@ -680,6 +680,42 @@ func TestClient_Get(t *testing.T) {
 	require.Equal(t, sampleContentValid, string(content))
 }
 
+func TestClient_GetAll(t *testing.T) {
+	const vcContent = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "id": "%s",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+      },
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+
+	mockctx := newMockProvider()
+	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+	require.NotEmpty(t, vcWalletClient)
+	require.NoError(t, err)
+
+	// save test data
+	const count = 5
+
+	for i := 0; i < count; i++ {
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+	}
+
+	vcs, err := vcWalletClient.GetAll(wallet.Credential)
+	require.NoError(t, err)
+	require.Len(t, vcs, count)
+}
+
 func TestClient_Remove(t *testing.T) {
 	mockctx := newMockProvider()
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
@@ -710,11 +746,18 @@ func TestClient_Query(t *testing.T) {
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	vcWalletClient, err := New(sampleUserID, mockctx)
+	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	results, err := vcWalletClient.Query(&wallet.QueryParams{})
+	results, err := vcWalletClient.Query(&wallet.QueryParams{Type: "QueryByExample"})
+	require.Empty(t, results)
+	require.Error(t, err)
+	require.EqualError(t, err, "no result found")
+
+	require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+
+	results, err = vcWalletClient.Query(&wallet.QueryParams{Type: "QueryByExample"})
 	require.Empty(t, results)
 	require.Error(t, err)
 	require.EqualError(t, err, toBeImplementedErr)
