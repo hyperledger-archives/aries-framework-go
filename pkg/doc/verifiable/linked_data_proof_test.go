@@ -56,7 +56,6 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 
 // This example is generated using https://transmute-industries.github.io/vc-greeting-card
 func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
-	//nolint:lll
 	vcJSON := `
 {
   "@context": [

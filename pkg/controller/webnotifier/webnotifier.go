@@ -69,7 +69,7 @@ func appendError(errToAppendTo, err error) error {
 		return err
 	}
 
-	return fmt.Errorf("%v;%v", errToAppendTo, err)
+	return fmt.Errorf("%v;%v", errToAppendTo, err) //nolint:errorlint
 }
 
 // PrepareTopicMessage prepares topic message.

@@ -8,6 +8,7 @@ package webnotifier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -303,13 +304,13 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 
 	select {
 	case <-ctx.Done():
-		if err := srv.Shutdown(ctx); err != nil && err != context.Canceled {
-			return fmt.Errorf("failed to shutdown sample webhook client server: %s", err)
+		if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("failed to shutdown sample webhook client server: %w", err)
 		}
 
 		return nil
 	case err := <-errorChannel:
-		return fmt.Errorf("webhook sample client failed: %s", err)
+		return fmt.Errorf("webhook sample client failed: %w", err)
 	}
 }
 

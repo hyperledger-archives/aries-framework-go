@@ -10,7 +10,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 
 // AcceptProposalArgs model
 //
-// This is used for accepting proposal
+// This is used for accepting proposal.
 //
 type AcceptProposalArgs struct {
 	// PIID Protocol instance ID
@@ -22,13 +22,13 @@ type AcceptProposalArgs struct {
 
 // AcceptProposalResponse model
 //
-// Represents a AcceptProposal response message
+// Represents a AcceptProposal response message.
 //
 type AcceptProposalResponse struct{}
 
 // AcceptOfferArgs model
 //
-// This is used for accepting an offer
+// This is used for accepting an offer.
 //
 type AcceptOfferArgs struct {
 	// PIID Protocol instance ID
@@ -37,13 +37,13 @@ type AcceptOfferArgs struct {
 
 // AcceptOfferResponse model
 //
-// Represents a AcceptOffer response message
+// Represents a AcceptOffer response message.
 //
 type AcceptOfferResponse struct{}
 
 // AcceptRequestArgs model
 //
-// This is used for accepting a request
+// This is used for accepting a request.
 //
 type AcceptRequestArgs struct {
 	// PIID Protocol instance ID
@@ -54,13 +54,13 @@ type AcceptRequestArgs struct {
 
 // AcceptRequestResponse model
 //
-// Represents a AcceptRequest response message
+// Represents a AcceptRequest response message.
 //
 type AcceptRequestResponse struct{}
 
 // AcceptCredentialArgs model
 //
-// This is used for accepting a credential
+// This is used for accepting a credential.
 //
 type AcceptCredentialArgs struct {
 	// PIID Protocol instance ID
@@ -71,7 +71,7 @@ type AcceptCredentialArgs struct {
 
 // AcceptCredentialResponse model
 //
-// Represents a AcceptCredential response message
+// Represents a AcceptCredential response message.
 //
 type AcceptCredentialResponse struct{}
 
@@ -89,13 +89,13 @@ type NegotiateProposalArgs struct {
 
 // NegotiateProposalResponse model
 //
-// Represents a NegotiateProposal response message
+// Represents a NegotiateProposal response message.
 //
 type NegotiateProposalResponse struct{}
 
 // DeclineProposalArgs model
 //
-// This is used when proposal needs to be rejected
+// This is used when proposal needs to be rejected.
 //
 type DeclineProposalArgs struct {
 	// PIID Protocol instance ID
@@ -106,13 +106,13 @@ type DeclineProposalArgs struct {
 
 // DeclineProposalResponse model
 //
-// Represents a DeclineProposal response message
+// Represents a DeclineProposal response message.
 //
 type DeclineProposalResponse struct{}
 
 // DeclineOfferArgs model
 //
-// This is used when offer needs to be rejected
+// This is used when offer needs to be rejected.
 //
 type DeclineOfferArgs struct {
 	// PIID Protocol instance ID
@@ -123,13 +123,13 @@ type DeclineOfferArgs struct {
 
 // DeclineOfferResponse model
 //
-// Represents a DeclineOffer response message
+// Represents a DeclineOffer response message.
 //
 type DeclineOfferResponse struct{}
 
 // DeclineRequestArgs model
 //
-// This is used when request needs to be rejected
+// This is used when request needs to be rejected.
 //
 type DeclineRequestArgs struct {
 	// PIID Protocol instance ID
@@ -140,13 +140,13 @@ type DeclineRequestArgs struct {
 
 // DeclineRequestResponse model
 //
-// Represents a DeclineRequest response message
+// Represents a DeclineRequest response message.
 //
 type DeclineRequestResponse struct{}
 
 // DeclineCredentialArgs model
 //
-// This is used when credential needs to be rejected
+// This is used when credential needs to be rejected.
 //
 type DeclineCredentialArgs struct {
 	// PIID Protocol instance ID
@@ -157,13 +157,13 @@ type DeclineCredentialArgs struct {
 
 // DeclineCredentialResponse model
 //
-// Represents a DeclineCredential response message
+// Represents a DeclineCredential response message.
 //
 type DeclineCredentialResponse struct{}
 
 // SendProposalArgs model
 //
-// This is used for sending a proposal to initiate the protocol
+// This is used for sending a proposal to initiate the protocol.
 //
 type SendProposalArgs struct {
 	// MyDID sender's did
@@ -176,7 +176,7 @@ type SendProposalArgs struct {
 
 // SendProposalResponse model
 //
-// Represents a SendProposal response message
+// Represents a SendProposal response message.
 //
 type SendProposalResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -185,7 +185,7 @@ type SendProposalResponse struct {
 
 // SendOfferArgs model
 //
-// This is used for sending an offer
+// This is used for sending an offer.
 //
 type SendOfferArgs struct {
 	// MyDID sender's did
@@ -199,7 +199,7 @@ type SendOfferArgs struct {
 
 // SendOfferResponse model
 //
-// Represents a SendOffer response message
+// Represents a SendOffer response message.
 //
 type SendOfferResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -208,7 +208,7 @@ type SendOfferResponse struct {
 
 // SendRequestArgs model
 //
-// This is used for sending a request
+// This is used for sending a request.
 //
 type SendRequestArgs struct {
 	// MyDID sender's did
@@ -222,7 +222,7 @@ type SendRequestArgs struct {
 
 // SendRequestResponse model
 //
-// Represents a SendRequest response message
+// Represents a SendRequest response message.
 //
 type SendRequestResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -231,7 +231,7 @@ type SendRequestResponse struct {
 
 // ActionsResponse model
 //
-// Represents Actions response message
+// Represents Actions response message.
 //
 type ActionsResponse struct {
 	Actions []issuecredential.Action `json:"actions"`
@@ -239,7 +239,7 @@ type ActionsResponse struct {
 
 // AcceptProblemReportArgs model
 //
-// This is used for accepting a problem report
+// This is used for accepting a problem report.
 //
 type AcceptProblemReportArgs struct {
 	// PIID Protocol instance ID
@@ -248,6 +248,6 @@ type AcceptProblemReportArgs struct {
 
 // AcceptProblemReportResponse model
 //
-// Represents a AcceptProblemReport response message
+// Represents a AcceptProblemReport response message.
 //
 type AcceptProblemReportResponse struct{}

@@ -91,8 +91,7 @@ func Parse(did string) (*DID, error) {
 
 	if !r.MatchString(did) {
 		return nil, fmt.Errorf(
-			"invalid did: %s. Make sure it conforms to the DID syntax: https://w3c.github.io/did-core/#did-syntax", //nolint:lll
-			did)
+			"invalid did: %s. Make sure it conforms to the DID syntax: https://w3c.github.io/did-core/#did-syntax", did)
 	}
 
 	parts := strings.SplitN(did, ":", 3)
@@ -206,7 +205,7 @@ type VerificationMethod struct {
 }
 
 // NewVerificationMethodFromBytes creates a new VerificationMethod based on raw public key bytes.
-func NewVerificationMethodFromBytes(id, kType, controller string, value []byte) *VerificationMethod {
+func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte) *VerificationMethod {
 	relativeURL := false
 	if strings.HasPrefix(id, "#") {
 		relativeURL = true
@@ -214,7 +213,7 @@ func NewVerificationMethodFromBytes(id, kType, controller string, value []byte) 
 
 	return &VerificationMethod{
 		ID:          id,
-		Type:        kType,
+		Type:        keyType,
 		Controller:  controller,
 		Value:       value,
 		relativeURL: relativeURL,
@@ -222,7 +221,7 @@ func NewVerificationMethodFromBytes(id, kType, controller string, value []byte) 
 }
 
 // NewVerificationMethodFromJWK creates a new VerificationMethod based on JSON Web Key.
-func NewVerificationMethodFromJWK(id, kType, controller string, jwk *jose.JWK) (*VerificationMethod, error) {
+func NewVerificationMethodFromJWK(id, keyType, controller string, jwk *jose.JWK) (*VerificationMethod, error) {
 	pkBytes, err := jwk.PublicKeyBytes()
 	if err != nil {
 		return nil, fmt.Errorf("convert JWK to public key bytes: %w", err)
@@ -235,7 +234,7 @@ func NewVerificationMethodFromJWK(id, kType, controller string, jwk *jose.JWK) (
 
 	return &VerificationMethod{
 		ID:          id,
-		Type:        kType,
+		Type:        keyType,
 		Controller:  controller,
 		Value:       pkBytes,
 		jsonWebKey:  jwk,
@@ -304,7 +303,7 @@ func NewEmbeddedVerification(vm *VerificationMethod, r VerificationRelationship)
 }
 
 // NewReferencedVerification creates a new verification method with referenced verification method.
-func NewReferencedVerification(vm *VerificationMethod, r VerificationRelationship) *Verification { //nolint:lll
+func NewReferencedVerification(vm *VerificationMethod, r VerificationRelationship) *Verification {
 	return &Verification{
 		VerificationMethod: *vm,
 		Relationship:       r,

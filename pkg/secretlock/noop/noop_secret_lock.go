@@ -16,8 +16,7 @@ import (
 // with a secretlock/local implementation is highly recommended to secure key storage in the KMS.
 
 // NoLock is a secret lock service that does no key wrapping (keys are not encrypted).
-type NoLock struct {
-}
+type NoLock struct{}
 
 // Encrypt a key in req using master key in the local secret lock service
 // Noop implementation returns the key as is with no encryption

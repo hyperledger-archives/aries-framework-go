@@ -125,8 +125,7 @@ func TestExecute(t *testing.T) {
 }
 
 // mockRWriter to recreate response writer error scenario.
-type mockRWriter struct {
-}
+type mockRWriter struct{}
 
 func (m *mockRWriter) Header() http.Header {
 	return make(map[string][]string)

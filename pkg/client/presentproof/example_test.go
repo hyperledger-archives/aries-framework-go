@@ -30,6 +30,7 @@ type payload struct {
 	theirDID string
 }
 
+//nolint:forbidigo
 func mockContext(agent string, tr map[string]chan payload) Provider {
 	ctrl := gomock.NewController(nil)
 
@@ -354,7 +355,7 @@ func waitForFn(c *Client) func() {
 		select {
 		case <-done:
 		case <-time.After(time.Second):
-			fmt.Println("timeout")
+			fmt.Println("timeout") //nolint:forbidigo
 		}
 	}
 }

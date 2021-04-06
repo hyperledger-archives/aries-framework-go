@@ -32,10 +32,7 @@ const (
 	DIDMethod = "peer"
 )
 
-// nolint:gochecknoglobals
-var (
-	didRegex = regexp.MustCompile(`did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{46})`)
-)
+var didRegex = regexp.MustCompile(`did:peer:(1)(z)([1-9a-km-zA-HJ-NP-Z]{46})`)
 
 // NewDoc returns the resolved variant of the genesis version of the peer DID document.
 func NewDoc(publicKey []did.VerificationMethod, opts ...did.DocOption) (*did.Doc, error) {

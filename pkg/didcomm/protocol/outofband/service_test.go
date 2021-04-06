@@ -1012,7 +1012,7 @@ func withState(t *testing.T, states ...*myState) func(*Service) {
 }
 
 func newAutoService(t *testing.T,
-	provider *protocol.MockProvider, opts ...func(*Service)) *Service { //nolint:interfacer
+	provider *protocol.MockProvider, opts ...func(*Service)) *Service {
 	s, err := New(provider)
 	require.NoError(t, err)
 

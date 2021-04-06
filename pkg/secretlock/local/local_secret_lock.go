@@ -8,6 +8,7 @@ package local
 import (
 	"crypto/cipher"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 
@@ -68,7 +69,7 @@ func NewService(masterKeyReader io.Reader, secLock secretlock.Service) (secretlo
 
 	n, err := masterKeyReader.Read(masterKeyData)
 	if err != nil {
-		if err != io.EOF && err != io.ErrUnexpectedEOF {
+		if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil, err
 		}
 	}

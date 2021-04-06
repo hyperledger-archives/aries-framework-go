@@ -78,7 +78,6 @@ func TestLocalKMS_EncryptDecrypt(t *testing.T) {
 
 	validURI := LocalKeyURIPrefix + "master/key"
 
-	// nolint:scopelint
 	for _, tt := range flagTests {
 		t.Run(tt.tcName, func(t *testing.T) {
 			mockSecLck := &secretlock.MockSecretLock{

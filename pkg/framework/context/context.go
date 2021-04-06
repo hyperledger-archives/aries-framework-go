@@ -164,7 +164,7 @@ func (p *Provider) tryToHandle(
 }
 
 // InboundMessageHandler return an inbound message handler.
-func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler { //nolint:gocyclo
+func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(envelope *transport.Envelope) error {
 		msg, err := service.ParseDIDCommMsgMap(envelope.Message)
 		if err != nil {

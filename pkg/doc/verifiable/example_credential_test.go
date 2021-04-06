@@ -38,7 +38,7 @@ var (
 	expired       = time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
 
 	bbsPrivKeyB64 = "PcVroyzTlmnYIIq8In8QOZhpK72AdTjj3EitB9tSNrg"
-	bbsPubKeyB64  = "l0Wtf3gy5f140G5vCoCJw2420hwk6Xw65/DX3ycv1W7/eMky8DyExw+o1s2bmq3sEIJatkiN8f5D4k0766x0UvfbupFX+vVkeqnlOvT6o2cag2osQdMFbBQqAybOM4Gm" //nolint:lll
+	bbsPubKeyB64  = "l0Wtf3gy5f140G5vCoCJw2420hwk6Xw65/DX3ycv1W7/eMky8DyExw+o1s2bmq3sEIJatkiN8f5D4k0766x0UvfbupFX+vVkeqnlOvT6o2cag2osQdMFbBQqAybOM4Gm"
 )
 
 const vcJSON = `
@@ -382,7 +382,7 @@ func ExampleCredential_AddLinkedDataProof() {
 	//}
 }
 
-//nolint:govet,gocyclo
+//nolint:govet
 func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	log.SetLevel("aries-framework/json-ld-processor", spi.ERROR)
 
@@ -463,7 +463,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	// Output:
 }
 
-//nolint:govet,gocyclo
+//nolint:gocyclo
 func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 	log.SetLevel("aries-framework/json-ld-processor", spi.ERROR)
 

@@ -54,7 +54,7 @@ type payload struct {
 	theirDID string
 }
 
-func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[string]chan payload) *introduce.Service {
+func agentSetup(t *testing.T, agent string, ctrl *gomock.Controller, tr map[string]chan payload) *introduce.Service {
 	t.Helper()
 
 	storageProvider := mem.NewProvider()
@@ -245,7 +245,7 @@ func TestService_SkipProposal(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -254,7 +254,7 @@ func TestService_SkipProposal(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -285,7 +285,7 @@ func TestService_Proposal(t *testing.T) {
 		Carol: make(chan payload),
 	}
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
@@ -300,7 +300,7 @@ func TestService_Proposal(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -313,7 +313,7 @@ func TestService_Proposal(t *testing.T) {
 		},
 	))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -347,7 +347,7 @@ func TestService_ProposalActionContinue(t *testing.T) {
 		Carol: make(chan payload),
 	}
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
@@ -362,7 +362,7 @@ func TestService_ProposalActionContinue(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
@@ -382,7 +382,7 @@ func TestService_ProposalActionContinue(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -419,7 +419,7 @@ func TestService_ProposalSecond(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -431,13 +431,13 @@ func TestService_ProposalSecond(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -481,7 +481,7 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -493,13 +493,13 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	carol := agentSetup(Carol, t, ctrl, transport)
+	carol := agentSetup(t, Carol, ctrl, transport)
 	handle(t, Carol, done, carol, checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
@@ -550,7 +550,7 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -562,7 +562,7 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -570,7 +570,7 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
 		action{Expected: introduce.ProblemReportMsgType}))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -604,7 +604,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -613,7 +613,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"abandoning", "abandoning",
 		"done", "done",
@@ -651,8 +651,8 @@ func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
-	bob := agentSetup(Bob, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -704,7 +704,7 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -715,7 +715,7 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"abandoning", "abandoning",
 		"done", "done",
@@ -730,7 +730,7 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -768,7 +768,7 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -779,7 +779,7 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -787,7 +787,7 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
 		action{Expected: introduce.ProblemReportMsgType}))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"abandoning", "abandoning",
 		"done", "done",
@@ -832,8 +832,8 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
-	carol := agentSetup(Carol, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
+	carol := agentSetup(t, Carol, ctrl, transport)
 
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
@@ -844,7 +844,7 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+	handle(t, Bob, done, agentSetup(t, Bob, ctrl, transport), checkStateMsg(t, Bob,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -901,7 +901,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"arranging", "arranging",
@@ -923,7 +923,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -939,7 +939,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		},
 	))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -974,7 +974,7 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	alice := agentSetup(Alice, t, ctrl, transport)
+	alice := agentSetup(t, Alice, ctrl, transport)
 	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
@@ -1003,7 +1003,7 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1025,7 +1025,7 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -1060,7 +1060,7 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"arranging", "arranging",
@@ -1082,7 +1082,7 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1091,7 +1091,7 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
@@ -1132,7 +1132,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"arranging", "arranging",
@@ -1153,7 +1153,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1171,7 +1171,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"abandoning", "abandoning",
@@ -1207,7 +1207,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"arranging", "arranging",
@@ -1228,7 +1228,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1239,7 +1239,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType},
 		action{Expected: introduce.ProblemReportMsgType}))
 
-	handle(t, Carol, done, agentSetup(Carol, t, ctrl, transport), checkStateMsg(t, Carol,
+	handle(t, Carol, done, agentSetup(t, Carol, ctrl, transport), checkStateMsg(t, Carol,
 		"deciding", "deciding",
 		"abandoning", "abandoning",
 		"done", "done",
@@ -1277,7 +1277,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
@@ -1291,7 +1291,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1324,7 +1324,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"delivering", "delivering",
@@ -1340,7 +1340,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1373,7 +1373,7 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"arranging", "arranging",
 		"arranging", "arranging",
 		"abandoning", "abandoning",
@@ -1389,7 +1389,7 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 		},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",
@@ -1430,14 +1430,14 @@ func TestService_ProposalWithRequestNoRecipients(t *testing.T) {
 	done := make(chan struct{}, len(transport)*2)
 	defer wait(t, done)
 
-	handle(t, Alice, done, agentSetup(Alice, t, ctrl, transport), checkStateMsg(t, Alice,
+	handle(t, Alice, done, agentSetup(t, Alice, ctrl, transport), checkStateMsg(t, Alice,
 		"abandoning", "abandoning",
 		"done", "done",
 	), checkDIDCommAction(t, Alice,
 		action{Expected: introduce.RequestMsgType},
 	))
 
-	bob := agentSetup(Bob, t, ctrl, transport)
+	bob := agentSetup(t, Bob, ctrl, transport)
 
 	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
 		"requesting", "requesting",

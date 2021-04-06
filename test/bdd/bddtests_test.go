@@ -38,6 +38,7 @@ const (
 	SideTreeURL = "${SIDETREE_URL}"
 )
 
+//nolint:gochecknoglobals
 var (
 	composition  []*dockerutil.Composition
 	composeFiles = []string{"./fixtures/agent-rest", "./fixtures/sidetree-mock"}
@@ -85,7 +86,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-//nolint:gocognit
+//nolint:gocognit,forbidigo
 func runBddTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		s.BeforeSuite(func() {

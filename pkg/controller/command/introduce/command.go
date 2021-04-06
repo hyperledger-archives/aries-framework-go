@@ -308,7 +308,6 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptRequestWithPublicOOBInvitation is used when introducer wants to provide a published out-of-band request.
-// nolint: dupl
 func (c *Command) AcceptRequestWithPublicOOBInvitation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptRequestWithPublicOOBInvitationArgs
 
@@ -346,7 +345,6 @@ func (c *Command) AcceptRequestWithPublicOOBInvitation(rw io.Writer, req io.Read
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
-// nolint: dupl
 func (c *Command) AcceptRequestWithRecipients(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptRequestWithRecipientsArgs
 
@@ -383,7 +381,6 @@ func (c *Command) AcceptRequestWithRecipients(rw io.Writer, req io.Reader) comma
 }
 
 // DeclineProposal is used to reject the proposal.
-// nolint: dupl
 func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineProposalArgs
 
@@ -410,7 +407,6 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // DeclineRequest is used to reject the request.
-// nolint: dupl
 func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineRequestArgs
 

@@ -154,7 +154,6 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 }
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
-// nolint: dupl
 func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args SendRequestPresentationArgs
 
@@ -194,7 +193,6 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 }
 
 // SendProposePresentation is used by the Prover to send a propose presentation.
-// nolint: dupl
 func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.Error {
 	var args SendProposePresentationArgs
 
@@ -234,7 +232,6 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 }
 
 // AcceptRequestPresentation is used by the Prover is to accept a presentation request.
-// nolint: dupl
 func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptRequestPresentationArgs
 
@@ -266,7 +263,6 @@ func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command
 }
 
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
-// nolint: dupl
 func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args NegotiateRequestPresentationArgs
 
@@ -298,7 +294,6 @@ func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) comm
 }
 
 // DeclineRequestPresentation is used when the Prover does not want to accept the request presentation.
-// nolint: dupl
 func (c *Command) DeclineRequestPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineRequestPresentationArgs
 
@@ -325,7 +320,6 @@ func (c *Command) DeclineRequestPresentation(rw io.Writer, req io.Reader) comman
 }
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.
-// nolint: dupl
 func (c *Command) AcceptProposePresentation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptProposePresentationArgs
 
@@ -357,7 +351,6 @@ func (c *Command) AcceptProposePresentation(rw io.Writer, req io.Reader) command
 }
 
 // DeclineProposePresentation is used when the Verifier does not want to accept the propose presentation.
-// nolint: dupl
 func (c *Command) DeclineProposePresentation(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineProposePresentationArgs
 
@@ -384,7 +377,6 @@ func (c *Command) DeclineProposePresentation(rw io.Writer, req io.Reader) comman
 }
 
 // AcceptPresentation is used by the Verifier to accept a presentation.
-// nolint: dupl
 func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptPresentationArgs
 
@@ -411,7 +403,6 @@ func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error 
 }
 
 // AcceptProblemReport is used for accepting problem report.
-// nolint: dupl
 func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptProblemReportArgs
 
@@ -438,7 +429,6 @@ func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error
 }
 
 // DeclinePresentation is used by the Verifier to decline a presentation.
-// nolint: dupl
 func (c *Command) DeclinePresentation(rw io.Writer, req io.Reader) command.Error {
 	var args DeclinePresentationArgs
 

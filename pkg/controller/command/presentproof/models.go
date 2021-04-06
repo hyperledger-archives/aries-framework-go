@@ -10,7 +10,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 
 // DeclinePresentationArgs model
 //
-// This is used when the presentation needs to be rejected
+// This is used when the presentation needs to be rejected.
 //
 type DeclinePresentationArgs struct {
 	// PIID Protocol instance ID
@@ -21,13 +21,13 @@ type DeclinePresentationArgs struct {
 
 // DeclinePresentationResponse model
 //
-// Represents a DeclinePresentation response message
+// Represents a DeclinePresentation response message.
 //
 type DeclinePresentationResponse struct{}
 
 // DeclineProposePresentationArgs model
 //
-// This is used when proposal needs to be rejected
+// This is used when proposal needs to be rejected.
 //
 type DeclineProposePresentationArgs struct {
 	// PIID Protocol instance ID
@@ -38,13 +38,13 @@ type DeclineProposePresentationArgs struct {
 
 // DeclineProposePresentationResponse model
 //
-// Represents a DeclineProposePresentation response message
+// Represents a DeclineProposePresentation response message.
 //
 type DeclineProposePresentationResponse struct{}
 
 // DeclineRequestPresentationArgs model
 //
-// This is used when the request needs to be rejected
+// This is used when the request needs to be rejected.
 //
 type DeclineRequestPresentationArgs struct {
 	// PIID Protocol instance ID
@@ -55,13 +55,13 @@ type DeclineRequestPresentationArgs struct {
 
 // DeclineRequestPresentationResponse model
 //
-// Represents a DeclineRequestPresentation response message
+// Represents a DeclineRequestPresentation response message.
 //
 type DeclineRequestPresentationResponse struct{}
 
 // ActionsResponse model
 //
-// Represents Actions response message
+// Represents Actions response message.
 //
 type ActionsResponse struct {
 	Actions []presentproof.Action `json:"actions"`
@@ -69,7 +69,7 @@ type ActionsResponse struct {
 
 // AcceptPresentationArgs model
 //
-// This is used for accepting a presentation
+// This is used for accepting a presentation.
 //
 type AcceptPresentationArgs struct {
 	// PIID Protocol instance ID
@@ -80,13 +80,13 @@ type AcceptPresentationArgs struct {
 
 // AcceptPresentationResponse model
 //
-// Represents a AcceptPresentation response message
+// Represents a AcceptPresentation response message.
 //
 type AcceptPresentationResponse struct{}
 
 // AcceptRequestPresentationArgs model
 //
-// This is used for accepting a request presentation
+// This is used for accepting a request presentation.
 //
 type AcceptRequestPresentationArgs struct {
 	// PIID Protocol instance ID
@@ -97,13 +97,13 @@ type AcceptRequestPresentationArgs struct {
 
 // AcceptRequestPresentationResponse model
 //
-// Represents a AcceptRequestPresentation response message
+// Represents a AcceptRequestPresentation response message.
 //
 type AcceptRequestPresentationResponse struct{}
 
 // AcceptProposePresentationArgs model
 //
-// This is used for accepting a propose presentation
+// This is used for accepting a propose presentation.
 //
 type AcceptProposePresentationArgs struct {
 	// PIID Protocol instance ID
@@ -114,7 +114,7 @@ type AcceptProposePresentationArgs struct {
 
 // AcceptProposePresentationResponse model
 //
-// Represents a AcceptProposePresentation response message
+// Represents a AcceptProposePresentation response message.
 //
 type AcceptProposePresentationResponse struct{}
 
@@ -132,13 +132,13 @@ type NegotiateRequestPresentationArgs struct {
 
 // NegotiateRequestPresentationResponse model
 //
-// Represents a NegotiateRequestPresentation response message
+// Represents a NegotiateRequestPresentation response message.
 //
 type NegotiateRequestPresentationResponse struct{}
 
 // SendProposePresentationArgs model
 //
-// This is used for sending a propose presentation
+// This is used for sending a propose presentation.
 //
 type SendProposePresentationArgs struct {
 	// MyDID sender's did
@@ -152,7 +152,7 @@ type SendProposePresentationArgs struct {
 
 // SendProposePresentationResponse model
 //
-// Represents a SendProposePresentation response message
+// Represents a SendProposePresentation response message.
 //
 type SendProposePresentationResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -161,7 +161,7 @@ type SendProposePresentationResponse struct {
 
 // SendRequestPresentationArgs model
 //
-// This is used for sending a request presentation
+// This is used for sending a request presentation.
 //
 type SendRequestPresentationArgs struct {
 	// MyDID sender's did
@@ -174,7 +174,7 @@ type SendRequestPresentationArgs struct {
 
 // SendRequestPresentationResponse model
 //
-// Represents a SendRequestPresentation response message
+// Represents a SendRequestPresentation response message.
 //
 type SendRequestPresentationResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -183,7 +183,7 @@ type SendRequestPresentationResponse struct {
 
 // AcceptProblemReportArgs model
 //
-// This is used for accepting a problem report
+// This is used for accepting a problem report.
 //
 type AcceptProblemReportArgs struct {
 	// PIID Protocol instance ID
@@ -192,6 +192,6 @@ type AcceptProblemReportArgs struct {
 
 // AcceptProblemReportResponse model
 //
-// Represents a AcceptProblemReport response message
+// Represents a AcceptProblemReport response message.
 //
 type AcceptProblemReportResponse struct{}

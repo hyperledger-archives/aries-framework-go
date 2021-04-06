@@ -1162,6 +1162,8 @@ func newMockProvider() *mockprovider.Provider {
 }
 
 func createSampleProfile(t *testing.T, mockctx *mockprovider.Provider) {
+	t.Helper()
+
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 

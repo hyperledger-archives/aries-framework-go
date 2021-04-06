@@ -40,7 +40,7 @@ type payload struct {
 	theirDID string
 }
 
-// nolint: gocyclo, gocognit
+// nolint: gocyclo, gocognit, forbidigo
 func mockContext(agent string, tr map[string]chan payload, done chan struct{}) Provider {
 	ctrl := gomock.NewController(nil)
 

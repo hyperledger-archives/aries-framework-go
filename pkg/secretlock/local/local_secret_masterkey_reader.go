@@ -7,6 +7,7 @@ package local
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,7 +33,7 @@ func MasterKeyFromPath(path string) (io.Reader, error) {
 
 	n, err := io.ReadFull(masterKeyFile, mkData)
 	if err != nil {
-		if err != io.ErrUnexpectedEOF {
+		if !errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil, err
 		}
 	}

@@ -217,7 +217,7 @@ type provider interface {
 type Command struct {
 	verifiableStore verifiablestore.Store
 	didStore        *didstore.Store
-	kResolver       keyResolver
+	resolver        keyResolver
 	ctx             provider
 	docLoader       ld.DocumentLoader
 }
@@ -248,7 +248,7 @@ func New(p provider) (*Command, error) {
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
-		kResolver:       verifiable.NewVDRKeyResolver(p.VDRegistry()),
+		resolver:        verifiable.NewVDRKeyResolver(p.VDRegistry()),
 		ctx:             p,
 		docLoader:       docLoader,
 	}, nil
@@ -723,8 +723,7 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 	return o.generatePresentationByID(rw, vc, doc, request.SignatureType)
 }
 
-// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store
-// nolint: dupl
+// RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store.
 func (o *Command) RemoveCredentialByName(rw io.Writer, req io.Reader) command.Error {
 	var request NameArg
 
@@ -754,8 +753,7 @@ func (o *Command) RemoveCredentialByName(rw io.Writer, req io.Reader) command.Er
 	return nil
 }
 
-// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store
-// nolint: dupl
+// RemovePresentationByName will remove a VP that matches the specified name from the verifiable store.
 func (o *Command) RemovePresentationByName(rw io.Writer, req io.Reader) command.Error {
 	var request NameArg
 

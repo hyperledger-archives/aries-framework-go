@@ -13,7 +13,7 @@ import (
 
 // CreateInvitationArgs model
 //
-// This is used for creating an invitation
+// This is used for creating an invitation.
 //
 type CreateInvitationArgs struct {
 	Label              string        `json:"label"`
@@ -28,7 +28,7 @@ type CreateInvitationArgs struct {
 
 // CreateInvitationResponse model
 //
-// Represents a CreateInvitation response message
+// Represents a CreateInvitation response message.
 //
 type CreateInvitationResponse struct {
 	Invitation *outofband.Invitation `json:"invitation"`
@@ -36,7 +36,7 @@ type CreateInvitationResponse struct {
 
 // AcceptInvitationArgs model
 //
-// This is used for accepting an invitation
+// This is used for accepting an invitation.
 //
 type AcceptInvitationArgs struct {
 	Invitation        *outofband.Invitation `json:"invitation"`
@@ -46,7 +46,7 @@ type AcceptInvitationArgs struct {
 
 // AcceptInvitationResponse model
 //
-// Represents a AcceptInvitation response message
+// Represents a AcceptInvitation response message.
 //
 type AcceptInvitationResponse struct {
 	ConnectionID string `json:"connection_id"`
@@ -54,7 +54,7 @@ type AcceptInvitationResponse struct {
 
 // ActionStopArgs model
 //
-// This is used when action needs to be rejected
+// This is used when action needs to be rejected.
 //
 type ActionStopArgs struct {
 	// PIID Protocol instance ID
@@ -65,13 +65,13 @@ type ActionStopArgs struct {
 
 // ActionStopResponse model
 //
-// Represents a ActionStop response message
+// Represents a ActionStop response message.
 //
 type ActionStopResponse struct{}
 
 // ActionsResponse model
 //
-// Represents Actions response message
+// Represents Actions response message.
 //
 type ActionsResponse struct {
 	Actions []outofband.Action `json:"actions"`
@@ -79,7 +79,7 @@ type ActionsResponse struct {
 
 // ActionContinueArgs model
 //
-// This is used when we need to proceed with the protocol
+// This is used when we need to proceed with the protocol.
 //
 type ActionContinueArgs struct {
 	// PIID Protocol instance ID
@@ -90,6 +90,6 @@ type ActionContinueArgs struct {
 
 // ActionContinueResponse model
 //
-// Represents a ActionContinue response message
+// Represents a ActionContinue response message.
 //
 type ActionContinueResponse struct{}

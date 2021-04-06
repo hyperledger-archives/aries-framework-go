@@ -68,7 +68,6 @@ func TestCreateServiceFromPathWithDifferentFileSizes(t *testing.T) {
 		},
 	}
 
-	// nolint:scopelint
 	for _, tc := range tcs {
 		t.Run(tc.tcName, func(t *testing.T) {
 			masterKeyFilePath := tc.fileName

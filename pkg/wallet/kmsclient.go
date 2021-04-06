@@ -61,7 +61,6 @@ var jwkCurves = map[string]kms.KeyType{
 }
 
 // errors.
-// nolint: gochecknoglobals
 var (
 	// ErrAlreadyUnlocked error when key manager is already created for a given user.
 	ErrAlreadyUnlocked = errors.New("profile already unlocked")
@@ -311,12 +310,12 @@ func importKeyJWK(auth string, key *keyContent) error {
 		return fmt.Errorf("failed to unmarshal jwk : %w", e)
 	}
 
-	kType, ok := jwkCurves[jwk.Crv]
+	keyType, ok := jwkCurves[jwk.Crv]
 	if !ok {
 		return fmt.Errorf("unsupported Key type %s", jwk.Crv)
 	}
 
-	_, _, err = keyManager.ImportPrivateKey(jwk.Key, kType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwk)))
+	_, _, err = keyManager.ImportPrivateKey(jwk.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwk)))
 	if err != nil {
 		return fmt.Errorf("failed to import jwk key : %w", err)
 	}

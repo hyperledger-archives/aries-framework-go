@@ -134,8 +134,7 @@ func (p *MockProvider) DIDConnectionStore() did.ConnectionStore {
 	return &mockConnectionStore{}
 }
 
-type mockConnectionStore struct {
-}
+type mockConnectionStore struct{}
 
 // GetDID returns DID associated with key.
 func (m *mockConnectionStore) GetDID(key string) (string, error) {

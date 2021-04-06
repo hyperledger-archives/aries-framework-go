@@ -111,8 +111,7 @@ func stateFromName(name string) (state, error) {
 	}
 }
 
-type noOp struct {
-}
+type noOp struct{}
 
 func (s *noOp) Name() string {
 	return stateNameNoop
@@ -128,8 +127,7 @@ func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*c
 }
 
 // null state.
-type null struct {
-}
+type null struct{}
 
 func (s *null) Name() string {
 	return stateNameNull
@@ -145,8 +143,7 @@ func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (
 }
 
 // invited state.
-type invited struct {
-}
+type invited struct{}
 
 func (s *invited) Name() string {
 	return StateIDInvited
@@ -166,8 +163,7 @@ func (s *invited) ExecuteInbound(msg *stateMachineMsg, _ string, _ *context) (*c
 }
 
 // requested state.
-type requested struct {
-}
+type requested struct{}
 
 func (s *requested) Name() string {
 	return StateIDRequested
@@ -209,8 +205,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 // responded state.
-type responded struct {
-}
+type responded struct{}
 
 func (s *responded) Name() string {
 	return StateIDResponded
@@ -245,8 +240,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 // completed state.
-type completed struct {
-}
+type completed struct{}
 
 func (s *completed) Name() string {
 	return StateIDCompleted
@@ -282,8 +276,7 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 // abandoned state.
-type abandoned struct {
-}
+type abandoned struct{}
 
 func (s *abandoned) Name() string {
 	return StateIDAbandoned

@@ -296,6 +296,8 @@ func TestAcceptInvitation(t *testing.T) {
 }
 
 func dummyAttachment(t *testing.T) *decorator.Attachment {
+	t.Helper()
+
 	return base64Attachment(t, &didcommMsg{
 		ID:   uuid.New().String(),
 		Type: uuid.New().String(),
@@ -303,6 +305,8 @@ func dummyAttachment(t *testing.T) *decorator.Attachment {
 }
 
 func base64Attachment(t *testing.T, data interface{}) *decorator.Attachment {
+	t.Helper()
+
 	bytes, err := json.Marshal(data)
 	require.NoError(t, err)
 
