@@ -37,7 +37,7 @@ func provider(ctrl *gomock.Controller) client.Provider {
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
-	service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
+	service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
 	service.EXPECT().ActionContinue(piid, &client.EventOptions{Label: label}).AnyTimes()
 	service.EXPECT().ActionStop(piid, errors.New(reason)).AnyTimes()
 	service.EXPECT().Actions().AnyTimes()

@@ -32,6 +32,10 @@ type (
 const (
 	// InvitationMsgType is the '@type' for the invitation message.
 	InvitationMsgType = outofband.InvitationMsgType
+	// HandshakeReuseMsgType is the '@type' for the handshake reuse message.
+	HandshakeReuseMsgType = outofband.HandshakeReuseMsgType
+	// HandshakeReuseAcceptedMsgType is the '@type' for the handshake reuse accepted message.
+	HandshakeReuseAcceptedMsgType = outofband.HandshakeReuseAcceptedMsgType
 )
 
 // EventOptions are is a container of options that you can pass to an event's
@@ -41,6 +45,8 @@ type EventOptions struct {
 	Label string
 	// Connections allows specifying router connections.
 	Connections []string
+	ReuseAny    bool
+	ReuseDID    string
 }
 
 // RouterConnections return router connections.
@@ -51,6 +57,16 @@ func (e *EventOptions) RouterConnections() []string {
 // MyLabel will be shared with the other agent during the subsequent did-exchange.
 func (e *EventOptions) MyLabel() string {
 	return e.Label
+}
+
+// ReuseAnyConnection signals whether to use any recognized DID in the services array for a reusable connection.
+func (e *EventOptions) ReuseAnyConnection() bool {
+	return e.ReuseAny
+}
+
+// ReuseConnection returns the DID to be used when reusing a connection.
+func (e *EventOptions) ReuseConnection() string {
+	return e.ReuseDID
 }
 
 // Event is a container of out-of-band protocol-specific properties for DIDCommActions and StateMsgs.
@@ -74,6 +90,8 @@ type message struct {
 	HandshakeProtocols []string
 	Attachments        []*decorator.Attachment
 	Accept             []string
+	ReuseAnyConnection bool
+	ReuseConnection    string
 }
 
 func (m *message) RouterConnection() string {
@@ -87,7 +105,7 @@ func (m *message) RouterConnection() string {
 // OobService defines the outofband service.
 type OobService interface {
 	service.Event
-	AcceptInvitation(*outofband.Invitation, string, []string) (string, error)
+	AcceptInvitation(*outofband.Invitation, outofband.Options) (string, error)
 	SaveInvitation(*outofband.Invitation) error
 	Actions() ([]outofband.Action, error)
 	ActionContinue(string, outofband.Options) error
@@ -207,6 +225,8 @@ func (c *Client) ActionContinue(piID, label string, opts ...MessageOption) error
 	return c.oobService.ActionContinue(piID, &EventOptions{
 		Label:       label,
 		Connections: msg.RouterConnections,
+		ReuseAny:    msg.ReuseAnyConnection,
+		ReuseDID:    msg.ReuseConnection,
 	})
 }
 
@@ -225,7 +245,15 @@ func (c *Client) AcceptInvitation(i *Invitation, myLabel string, opts ...Message
 
 	cast := outofband.Invitation(*i)
 
-	connID, err := c.oobService.AcceptInvitation(&cast, myLabel, msg.RouterConnections)
+	connID, err := c.oobService.AcceptInvitation(
+		&cast,
+		&EventOptions{
+			Label:       myLabel,
+			ReuseAny:    msg.ReuseAnyConnection,
+			ReuseDID:    msg.ReuseConnection,
+			Connections: msg.RouterConnections,
+		},
+	)
 	if err != nil {
 		return "", fmt.Errorf("out-of-band service failed to accept invitation : %w", err)
 	}
@@ -278,6 +306,26 @@ func WithAttachments(a ...*decorator.Attachment) MessageOption {
 func WithAccept(a ...string) MessageOption {
 	return func(m *message) {
 		m.Accept = a
+	}
+}
+
+// ReuseAnyConnection is used when accepting an invitation with either AcceptInvitation or ActionContinue.
+// The `services` array will be scanned until it finds a recognized DID entry and send a `handshake-reuse` message
+// to its did-communication service endpoint.
+// Cannot be used together with ReuseConnection.
+func ReuseAnyConnection() MessageOption {
+	return func(m *message) {
+		m.ReuseAnyConnection = true
+	}
+}
+
+// ReuseConnection is used when accepting an invitation with either AcceptInvitation or ActionContinue.
+// 'did' must be an entry in the Invitation's 'services' array. A `handshake-reuse` message is sent to its
+// did-communication service endpoint.
+// Cannot be used together with ReuseAnyConnection.
+func ReuseConnection(theirDID string) MessageOption {
+	return func(m *message) {
+		m.ReuseConnection = theirDID
 	}
 }
 

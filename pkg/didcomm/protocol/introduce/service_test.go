@@ -102,8 +102,8 @@ func agentSetup(t *testing.T, agent string, ctrl *gomock.Controller, tr map[stri
 
 				if didMap.Type() == outofband.InvitationMsgType {
 					require.NoError(t, svc.OOBMessageReceived(service.StateMsg{
-						Type:    service.PostState,
-						StateID: "invited",
+						Type:    service.PreState,
+						StateID: "initial",
 						Msg:     didMap,
 					}))
 

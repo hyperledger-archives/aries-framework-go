@@ -184,6 +184,8 @@ func New(prov provider) (*Service, error) {
 		messagePickupSvc: messagePickupSvc,
 	}
 
+	logger.Debugf("default endpoint: %s", s.endpoint)
+
 	go s.listenForCallbacks()
 
 	return s, nil
@@ -343,6 +345,9 @@ func (s *Service) Name() string {
 }
 
 func (s *Service) handleInboundRequest(c *callback) error {
+	logger.Debugf("handling callback: %+v", c)
+	logger.Debugf("options: %+v", c.options)
+
 	// unmarshal the payload
 	request := &Request{}
 
@@ -396,6 +401,8 @@ func outboundGrant(
 
 		grant.RoutingKeys = []string{keys}
 	}
+
+	logger.Debugf("outbound grant: %+v", grant)
 
 	return grant, nil
 }
@@ -544,9 +551,8 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 		return fmt.Errorf("send route request: %w", err)
 	}
 
-	var grant *Grant
 	// waits until the mediate-grant message is received or timeout was exceeded
-	grant, err = s.getGrant(req.ID, timeout)
+	grant, err := s.getGrant(req.ID, timeout)
 	if err != nil {
 		return fmt.Errorf("get grant: %w", err)
 	}
@@ -558,6 +564,8 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	if err != nil {
 		return fmt.Errorf("save route config : %w", err)
 	}
+
+	logger.Debugf("saved router config from inbound grant: %+v", grant)
 
 	// save the connectionID of the router
 	return s.saveRouterConnectionID(record.ConnectionID)

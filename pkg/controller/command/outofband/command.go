@@ -155,8 +155,16 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
-	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel,
-		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...))
+	options := []outofband.MessageOption{
+		outofband.WithRouterConnections(strings.Split(args.RouterConnections, ",")...),
+		outofband.ReuseConnection(args.ReuseConnection),
+	}
+
+	if args.ReuseAnyConnection {
+		options = append(options, outofband.ReuseAnyConnection())
+	}
+
+	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel, options...)
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)

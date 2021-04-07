@@ -191,7 +191,7 @@ func getContext(agent string) *mockprovider.Provider {
 		ServiceMap: map[string]interface{}{
 			outofband.Name: &stubOOBService{
 				Event: nil,
-				acceptInvFunc: func(i *outofband.Invitation, myLabel string, _ []string) (string, error) {
+				acceptInvFunc: func(i *outofband.Invitation, options outofband.Options) (string, error) {
 					agentActions[i.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{

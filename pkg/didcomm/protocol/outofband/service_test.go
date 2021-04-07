@@ -145,8 +145,8 @@ func TestHandleInbound(t *testing.T) {
 		}
 	})
 	t.Run("ThreadID not found", func(t *testing.T) {
-		expected := service.NewDIDCommMsgMap(&Invitation{
-			Type: InvitationMsgType,
+		expected := service.NewDIDCommMsgMap(&HandshakeReuseAccepted{
+			Type: HandshakeReuseAcceptedMsgType,
 		})
 		s, err := New(testProvider())
 		require.NoError(t, err)
@@ -154,12 +154,13 @@ func TestHandleInbound(t *testing.T) {
 		err = s.RegisterActionEvent(events)
 		require.NoError(t, err)
 		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
-		require.EqualError(t, err, "threadID: threadID not found")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "threadID not found")
 	})
-	t.Run("Save transitional payload (error)", func(t *testing.T) {
+	t.Run("Load context (error)", func(t *testing.T) {
 		expected := service.NewDIDCommMsgMap(newInvitation())
 		s := &Service{
-			store: &mockstore.MockStore{
+			transientStore: &mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrPut: fmt.Errorf("db error"),
 			},
@@ -168,11 +169,32 @@ func TestHandleInbound(t *testing.T) {
 		err := s.RegisterActionEvent(events)
 		require.NoError(t, err)
 		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
-		require.EqualError(t, err, "save transitional payload: db error")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to load current context")
 	})
 	t.Run("sends pre-state msg event", func(t *testing.T) {
-		expected := service.NewDIDCommMsgMap(newInvitation())
-		s, err := New(testProvider())
+		expected := service.NewDIDCommMsgMap(&HandshakeReuseAccepted{
+			ID:   uuid.New().String(),
+			Type: HandshakeReuseAcceptedMsgType,
+		})
+		provider := testProvider()
+		provider.ProtocolStateStoreProvider = &mockstore.MockStoreProvider{
+			Store: &mockstore.MockStore{
+				Store: map[string]mockstore.DBEntry{
+					fmt.Sprintf(contextKey, expected.ID()): {
+						Value: marshal(t, &context{
+							CurrentStateName: StateNameAwaitResponse,
+							Inbound:          true,
+							Invitation:       newInvitation(),
+							Action: Action{
+								Msg: expected,
+							},
+						}),
+					},
+				},
+			},
+		}
+		s, err := New(provider)
 		require.NoError(t, err)
 		stateMsgs := make(chan service.StateMsg)
 		err = s.RegisterMsgEvent(stateMsgs)
@@ -181,18 +203,27 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
-		select {
-		case result := <-stateMsgs:
-			require.Equal(t, service.PreState, result.Type)
-			require.Equal(t, Name, result.ProtocolName)
-			require.Equal(t, StateInvited, result.StateID)
-			require.Equal(t, expected, result.Msg)
-			props, ok := result.Properties.(*eventProps)
-			require.True(t, ok)
-			require.Empty(t, props.ConnectionID())
-			require.Nil(t, props.Error())
-		case <-time.After(1 * time.Second):
-			t.Error("timeout waiting for action event")
+
+		done := false
+
+		for !done {
+			select {
+			case result := <-stateMsgs:
+				if result.Type != service.PreState || result.StateID != StateNameAwaitResponse {
+					continue
+				}
+
+				done = true
+
+				require.Equal(t, Name, result.ProtocolName)
+				require.Equal(t, expected, result.Msg)
+				props, ok := result.Properties.(*eventProps)
+				require.True(t, ok)
+				require.Empty(t, props.ConnectionID())
+				require.Nil(t, props.Error())
+			case <-time.After(time.Second):
+				t.Error("timeout waiting for action event")
+			}
 		}
 	})
 	t.Run("fails if no listeners have been registered for action events", func(t *testing.T) {
@@ -205,14 +236,32 @@ func TestHandleInbound(t *testing.T) {
 
 func TestService_ActionContinue(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		msg := service.NewDIDCommMsgMap(newInvitation())
-		s, err := New(testProvider())
+		msg := service.NewDIDCommMsgMap(&HandshakeReuse{
+			ID:   uuid.New().String(),
+			Type: HandshakeReuseMsgType,
+		})
+		provider := testProvider()
+		connID := uuid.New().String()
+		provider.StoreProvider = &mockstore.MockStoreProvider{
+			Store: &mockstore.MockStore{
+				Store: map[string]mockstore.DBEntry{
+					fmt.Sprintf("didconn_%s_%s", myDID, theirDID): {
+						Value: []byte(connID),
+					},
+					fmt.Sprintf("conn_%s", connID): {
+						Value: marshal(t, &connection.Record{State: "completed"}),
+					},
+				},
+			},
+		}
+		s, err := New(provider)
 		require.NoError(t, err)
 
+		states := make(chan service.StateMsg, 50)
 		actions := make(chan service.DIDCommAction)
 
+		require.NoError(t, err, s.RegisterMsgEvent(states))
 		require.NoError(t, s.RegisterActionEvent(actions))
-		s.callbackChannel = make(chan *callback, 2)
 		_, err = s.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 
@@ -224,17 +273,21 @@ func TestService_ActionContinue(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(remainingActions))
 			require.NoError(t, s.ActionContinue(remainingActions[0].PIID, &userOptions{}))
-		case <-time.After(1 * time.Second):
+		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
 
-		select {
-		case c := <-s.callbackChannel:
-			require.Equal(t, msg, c.msg)
-			require.Equal(t, myDID, c.myDID)
-			require.Equal(t, theirDID, c.theirDID)
-		case <-time.After(1 * time.Second):
-			t.Error("timeout")
+		done := false
+
+		for !done {
+			select {
+			case s := <-states:
+				if s.Type == service.PostState && s.StateID == StateNameDone {
+					done = true
+				}
+			case <-time.After(5 * time.Second):
+				require.Fail(t, "timeout waiting for state done")
+			}
 		}
 
 		remainingActions, err = s.Actions()
@@ -243,11 +296,11 @@ func TestService_ActionContinue(t *testing.T) {
 	})
 	t.Run("Error", func(t *testing.T) {
 		require.EqualError(t, (&Service{
-			store: &mockstore.MockStore{
+			transientStore: &mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("db error"),
 			},
-		}).ActionContinue("piid", nil), "get transitional payload: store get: db error")
+		}).ActionContinue("piid", nil), "load context: transientStore get: db error")
 	})
 }
 
@@ -283,11 +336,11 @@ func TestService_ActionStop(t *testing.T) {
 
 	t.Run("Error", func(t *testing.T) {
 		require.EqualError(t, (&Service{
-			store: &mockstore.MockStore{
+			transientStore: &mockstore.MockStore{
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("db error"),
 			},
-		}).ActionStop("piid", nil), "get transitional payload: store get: db error")
+		}).ActionStop("piid", nil), "get context: transientStore get: db error")
 	})
 }
 
@@ -351,21 +404,24 @@ func TestServiceContinue(t *testing.T) {
 func TestHandleRequestCallback(t *testing.T) {
 	t.Run("invokes the didexchange service", func(t *testing.T) {
 		invoked := make(chan struct{}, 2)
+		c := newCallback()
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				RespondToFunc: func(_ *didexchange.OOBInvitation, _ []string) (string, error) {
+				RespondToFunc: func(*didexchange.OOBInvitation, []string) (string, error) {
 					invoked <- struct{}{}
 					return "", nil
 				},
 			},
 		}
+
 		s := newAutoService(t, provider)
-		_, err := s.handleInvitationCallback(newReqCallback())
+
+		_, err := s.handleInvitationCallback(c)
 		require.NoError(t, err)
 		select {
 		case <-invoked:
-		case <-time.After(1 * time.Second):
+		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
 	})
@@ -380,13 +436,16 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.handleInvitationCallback(newReqCallback())
+		_, err := s.handleInvitationCallback(newCallback())
 		require.NoError(t, err)
 	})
 	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
 		expected := errors.New("test")
 		s := newAutoService(t, testProvider())
-		_, err := s.handleInvitationCallback(&callback{msg: &testDIDCommMsg{errDecode: expected}})
+		_, err := s.handleInvitationCallback(&callback{
+			msg: &testDIDCommMsg{errDecode: expected},
+			ctx: &context{},
+		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -401,7 +460,7 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.handleInvitationCallback(newReqCallback())
+		_, err := s.handleInvitationCallback(newCallback())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -414,24 +473,24 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.handleInvitationCallback(newReqCallback())
+		_, err := s.handleInvitationCallback(newCallback())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
 }
 
 func TestHandleDIDEvent(t *testing.T) {
-	t.Run("invokes outbound msg handler", func(t *testing.T) {
+	t.Run("invokes inbound msg handler", func(t *testing.T) {
 		invoked := make(chan struct{}, 2)
 		connID := uuid.New().String()
 		pthid := uuid.New().String()
 
 		provider := testProvider()
-		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
-			handleFunc: func(service.DIDCommMsg, string, string) (string, error) {
+		provider.InboundDIDCommMsgHandlerFunc = func() service.InboundHandler {
+			return &inboundMsgHandler{handleFunc: func(service.DIDCommMsg, service.DIDCommContext) (string, error) {
 				invoked <- struct{}{}
 				return "", nil
-			},
+			}}
 		}
 
 		// setup connection state
@@ -446,7 +505,7 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		s := newAutoService(t, provider,
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: connID,
 				Invitation:   newInvitation(),
@@ -507,7 +566,7 @@ func TestHandleDIDEvent(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider,
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: uuid.New().String(),
 				Invitation:   newInvitation(),
@@ -530,10 +589,12 @@ func TestHandleDIDEvent(t *testing.T) {
 		connID := uuid.New().String()
 
 		provider := testProvider()
-		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
-			handleFunc: func(service.DIDCommMsg, string, string) (string, error) {
-				return "", expected
-			},
+		provider.InboundDIDCommMsgHandlerFunc = func() service.InboundHandler {
+			return &inboundMsgHandler{
+				handleFunc: func(service.DIDCommMsg, service.DIDCommContext) (string, error) {
+					return "", expected
+				},
+			}
 		}
 
 		// setup connection state
@@ -548,7 +609,7 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		s := newAutoService(t, provider,
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: connID,
 				Invitation:   newInvitation(),
@@ -594,7 +655,7 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		s := newAutoService(t, provider,
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: connID,
 				Invitation:   newInvitation(),
@@ -602,7 +663,7 @@ func TestHandleDIDEvent(t *testing.T) {
 			},
 			))
 
-		s.store = &mockstore.MockStore{
+		s.transientStore = &mockstore.MockStore{
 			Store:  protocolStateStoreProvider.Store.Store,
 			ErrPut: expected,
 		}
@@ -658,15 +719,15 @@ func TestHandleDIDEvent(t *testing.T) {
 		connID := uuid.New().String()
 
 		s := newAutoService(t, testProvider(),
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: connID,
 				Invitation:   newInvitation(),
 				Done:         false,
 			}),
 		)
-		s.chooseRequestFunc = func(*myState) (*decorator.Attachment, bool) {
-			return nil, false
+		s.chooseAttachmentFunc = func(*attachmentHandlingState) (*decorator.Attachment, error) {
+			return nil, nil
 		}
 		err := s.handleDIDEvent(service.StateMsg{
 			ProtocolName: didexchange.DIDExchange,
@@ -695,7 +756,7 @@ func TestHandleDIDEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		s := newAutoService(t, provider,
-			withState(t, &myState{
+			withState(t, &attachmentHandlingState{
 				ID:           pthid,
 				ConnectionID: connID,
 				Invitation:   newInvitation(),
@@ -725,7 +786,7 @@ func TestListener(t *testing.T) {
 			invoked <- struct{}{}
 			return "", nil
 		}
-		go listener(callbacks, nil, handleReqFunc, nil, &service.Message{})()
+		go listener(callbacks, nil, handleReqFunc, nil)()
 
 		callbacks <- &callback{
 			msg: service.NewDIDCommMsgMap(newInvitation()),
@@ -744,67 +805,12 @@ func TestListener(t *testing.T) {
 			invoked <- struct{}{}
 			return nil
 		}
-		go listener(nil, didEvents, nil, handleDidEventFunc, nil)()
+		go listener(nil, didEvents, nil, handleDidEventFunc)()
 		didEvents <- service.StateMsg{}
 
 		select {
 		case <-invoked:
 		case <-time.After(1 * time.Second):
-			t.Error("timeout")
-		}
-	})
-	t.Run("sends post-state event for oob invitation", func(t *testing.T) {
-		connID := uuid.New().String()
-		expected := service.NewDIDCommMsgMap(newInvitation())
-		handler := make(chan service.StateMsg)
-		handlers := &service.Message{}
-		err := handlers.RegisterMsgEvent(handler)
-		require.NoError(t, err)
-		callbacks := make(chan *callback)
-		handleReqFunc := func(*callback) (string, error) { return connID, nil }
-
-		go listener(callbacks, nil, handleReqFunc, nil, handlers)()
-		callbacks <- &callback{msg: expected}
-
-		select {
-		case result := <-handler:
-			require.Equal(t, service.PostState, result.Type)
-			require.Equal(t, "invited", result.StateID)
-			require.Equal(t, "out-of-band", result.ProtocolName)
-			require.Equal(t, expected, result.Msg)
-			props, ok := result.Properties.(*eventProps)
-			require.True(t, ok)
-			require.Equal(t, connID, props.ConnectionID())
-			require.Nil(t, props.Error())
-		case <-time.After(time.Second):
-			t.Error("timeout")
-		}
-	})
-	t.Run("sends post-state event with error for oob invitation", func(t *testing.T) {
-		expectedMsg := service.NewDIDCommMsgMap(newInvitation())
-		expectedErr := errors.New("test")
-		handler := make(chan service.StateMsg)
-		handlers := &service.Message{}
-		err := handlers.RegisterMsgEvent(handler)
-		require.NoError(t, err)
-		callbacks := make(chan *callback)
-		handleReqFunc := func(*callback) (string, error) { return "", expectedErr }
-
-		go listener(callbacks, nil, handleReqFunc, nil, handlers)()
-		callbacks <- &callback{msg: expectedMsg}
-
-		select {
-		case result := <-handler:
-			require.Equal(t, service.PostState, result.Type)
-			require.Equal(t, "invited", result.StateID)
-			require.Equal(t, "out-of-band", result.ProtocolName)
-			require.Equal(t, expectedMsg, result.Msg)
-			props, ok := result.Properties.(*eventProps)
-			require.True(t, ok)
-			require.Empty(t, props.ConnectionID())
-			require.Error(t, props.Error())
-			require.Equal(t, expectedErr, props.Error())
-		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
 	})
@@ -822,7 +828,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		result, err := s.AcceptInvitation(newInvitation(), "", nil)
+		result, err := s.AcceptInvitation(newInvitation(), &userOptions{})
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -837,7 +843,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.AcceptInvitation(newInvitation(), "", nil)
+		_, err := s.AcceptInvitation(newInvitation(), &userOptions{})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -993,16 +999,22 @@ func newInvitation() *Invitation {
 	}
 }
 
-func newReqCallback() *callback {
+func newCallback() *callback {
+	inv := newInvitation()
+
 	return &callback{
 		myDID:    fmt.Sprintf("did:example:%s", uuid.New().String()),
 		theirDID: fmt.Sprintf("did:example:%s", uuid.New().String()),
-		msg:      service.NewDIDCommMsgMap(newInvitation()),
-		options:  &userOptions{},
+		msg:      service.NewDIDCommMsgMap(inv),
+		ctx: &context{
+			CurrentStateName: StateNameInitial,
+			Inbound:          true,
+			Invitation:       inv,
+		},
 	}
 }
 
-func withState(t *testing.T, states ...*myState) func(*Service) {
+func withState(t *testing.T, states ...*attachmentHandlingState) func(*Service) {
 	return func(s *Service) {
 		for i := range states {
 			err := s.save(states[i])
@@ -1130,14 +1142,19 @@ func (s *stubStore) Delete(k string) error {
 	panic("implement me")
 }
 
-type outboundMsgHandlerStub struct {
-	handleFunc func(service.DIDCommMsg, string, string) (string, error)
+type inboundMsgHandler struct {
+	handleFunc func(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error)
 }
 
-func (o *outboundMsgHandlerStub) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	if o.handleFunc != nil {
-		return o.handleFunc(msg, myDID, theirDID)
-	}
+func (i *inboundMsgHandler) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	return i.handleFunc(msg, ctx)
+}
 
-	return "", nil
+func marshal(t *testing.T, v interface{}) []byte {
+	t.Helper()
+
+	raw, err := json.Marshal(v)
+	require.NoError(t, err)
+
+	return raw
 }
