@@ -86,7 +86,7 @@ func CreateDID(params *CreateDIDParams) (*diddoc.Doc, error) {
 
 	doc, err := diddoc.ParseDocument(result.DIDDocument)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse public DID document: %s", err)
+		return nil, fmt.Errorf("failed to parse public DID document: %w", err)
 	}
 
 	return doc, nil

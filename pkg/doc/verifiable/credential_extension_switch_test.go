@@ -116,8 +116,7 @@ type Cred2 struct {
 	CustomField string `json:"c2,omitempty"`
 }
 
-type Cred2Producer struct {
-}
+type Cred2Producer struct{}
 
 func (c2p *Cred2Producer) Accept(vc *Credential) bool {
 	return hasType(vc.Types, "CredType2")
@@ -144,8 +143,7 @@ func NewCred2Producer() CustomCredentialProducer {
 	return &Cred2Producer{}
 }
 
-type FailingCredentialProducer struct {
-}
+type FailingCredentialProducer struct{}
 
 func (fp *FailingCredentialProducer) Accept(*Credential) bool {
 	return true

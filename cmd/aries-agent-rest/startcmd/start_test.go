@@ -176,7 +176,6 @@ func runRequestTests(t *testing.T, tests []requestTestParams) {
 	}
 }
 
-//nolint:funlen
 func validateRequests(t *testing.T, testHostURL, authorizationHdr, testInboundHostURL string) {
 	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
 		r, err := http.NewRequest(method, url, body)

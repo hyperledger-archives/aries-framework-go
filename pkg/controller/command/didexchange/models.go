@@ -15,7 +15,7 @@ import (
 
 // CreateInvitationArgs model
 //
-// This is used for creating invitation
+// This is used for creating invitation.
 //
 type CreateInvitationArgs struct {
 
@@ -31,7 +31,7 @@ type CreateInvitationArgs struct {
 
 // CreateInvitationResponse model
 //
-// This is used for returning a create invitation response with a single connection invitation as body
+// This is used for returning a create invitation response with a single connection invitation as body.
 //
 type CreateInvitationResponse struct {
 	Invitation *didexchange.Invitation `json:"invitation"`
@@ -43,7 +43,7 @@ type CreateInvitationResponse struct {
 
 // ReceiveInvitationResponse model
 //
-// This is used for returning a receive invitation response with a single receive invitation response as body
+// This is used for returning a receive invitation response with a single receive invitation response as body.
 //
 type ReceiveInvitationResponse struct {
 	// State of the connection invitation
@@ -85,7 +85,7 @@ type ReceiveInvitationResponse struct {
 
 // AcceptInvitationArgs model
 //
-// This is used for operation to accept connection invitation
+// This is used for operation to accept connection invitation.
 //
 type AcceptInvitationArgs struct {
 	// Connection ID
@@ -100,7 +100,7 @@ type AcceptInvitationArgs struct {
 
 // AcceptInvitationResponse model
 //
-// This is used for returning a accept invitation response for single invitation
+// This is used for returning a accept invitation response for single invitation.
 //
 type AcceptInvitationResponse struct {
 
@@ -158,7 +158,7 @@ type AcceptInvitationResponse struct {
 
 // ImplicitInvitationArgs model
 //
-// This is used by invitee to create implicit invitation
+// This is used by invitee to create implicit invitation.
 //
 type ImplicitInvitationArgs struct {
 	// InviterDID
@@ -179,7 +179,7 @@ type ImplicitInvitationArgs struct {
 
 // ImplicitInvitationResponse model
 //
-// This is used for returning create implicit invitation response
+// This is used for returning create implicit invitation response.
 //
 type ImplicitInvitationResponse struct {
 	// the connection ID of the connection for implicit invitation
@@ -188,7 +188,7 @@ type ImplicitInvitationResponse struct {
 
 // GetConnectionRequest model
 //
-// This is used for getting specific connection record
+// This is used for getting specific connection record.
 //
 type GetConnectionRequest struct {
 	// The ID of the connection to get
@@ -197,7 +197,7 @@ type GetConnectionRequest struct {
 
 // QueryConnectionsArgs model
 //
-// This is used for querying connections
+// This is used for querying connections.
 //
 type QueryConnectionsArgs struct {
 	// Params for querying connections
@@ -206,7 +206,7 @@ type QueryConnectionsArgs struct {
 
 // QueryConnectionResponse model
 //
-// This is used for returning query connection result for single record search
+// This is used for returning query connection result for single record search.
 //
 type QueryConnectionResponse struct {
 	Result *didexchange.Connection `json:"result,omitempty"`
@@ -214,7 +214,7 @@ type QueryConnectionResponse struct {
 
 // QueryConnectionsResponse model
 //
-// This is used for returning query connections results
+// This is used for returning query connections results.
 //
 type QueryConnectionsResponse struct {
 	Results []*didexchange.Connection `json:"results,omitempty"`
@@ -222,7 +222,7 @@ type QueryConnectionsResponse struct {
 
 // AcceptExchangeRequestArgs model
 //
-// This is used for accepting connection request
+// This is used for accepting connection request.
 //
 type AcceptExchangeRequestArgs struct {
 	// Connection ID
@@ -238,7 +238,7 @@ type AcceptExchangeRequestArgs struct {
 
 // ExchangeResponse model
 //
-// response of accept exchange request
+// response of accept exchange request.
 //
 type ExchangeResponse struct {
 
@@ -296,7 +296,7 @@ type ExchangeResponse struct {
 
 // RemoveConnectionRequest model
 //
-// This is used for removing connection request
+// This is used for removing connection request.
 //
 type RemoveConnectionRequest struct {
 	// The ID of the connection record to remove
@@ -305,7 +305,7 @@ type RemoveConnectionRequest struct {
 
 // ConnectionIDArg model
 //
-// This is used for querying/removing connection by ID
+// This is used for querying/removing connection by ID.
 //
 type ConnectionIDArg struct {
 	// Connection ID
@@ -313,6 +313,8 @@ type ConnectionIDArg struct {
 }
 
 // CreateConnectionRequest model
+//
+// This is used for creating connection request.
 //
 type CreateConnectionRequest struct {
 	MyDID          string      `json:"myDID"`
@@ -325,8 +327,7 @@ type CreateConnectionRequest struct {
 	Implicit       bool        `json:"implicit,omitempty"`
 }
 
-// DIDDocument model
-//
+// DIDDocument model.
 type DIDDocument struct {
 	ID       string          `json:"id"`
 	Contents json.RawMessage `json:"contents"`

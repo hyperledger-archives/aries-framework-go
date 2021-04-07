@@ -34,8 +34,7 @@ const testServerURL = "http://localhost:8071/encrypted-data-vaults"
 
 var logger = log.New("EDV-Provider-Test")
 
-type failingEncrypter struct {
-}
+type failingEncrypter struct{}
 
 func (f *failingEncrypter) EncryptWithAuthData([]byte, []byte) (*jose.JSONWebEncryption, error) {
 	panic("implement me")
@@ -45,8 +44,7 @@ func (f *failingEncrypter) Encrypt([]byte) (*jose.JSONWebEncryption, error) {
 	return nil, errors.New("failingEncrypter always fails")
 }
 
-type failingDecrypter struct {
-}
+type failingDecrypter struct{}
 
 func (m *failingDecrypter) Decrypt(*jose.JSONWebEncryption) ([]byte, error) {
 	return nil, errors.New("failingDecrypter always fails")

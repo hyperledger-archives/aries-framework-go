@@ -37,7 +37,6 @@ const doc = `{
   ]
 }`
 
-//nolint:lll
 const didResolutionData = `{
   "@context": "https://w3id.org/did-resolution/v1",
   "didDocument": ` + doc + `

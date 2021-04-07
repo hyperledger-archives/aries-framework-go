@@ -148,7 +148,7 @@ func (i *Inbound) Start(prov transport.Provider) error {
 	i.server.Handler = handler
 
 	go func() {
-		if err := i.listenAndServe(); err != http.ErrServerClosed {
+		if err := i.listenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatalf("HTTP server start with address [%s] failed, cause:  %s", i.server.Addr, err)
 		}
 	}()

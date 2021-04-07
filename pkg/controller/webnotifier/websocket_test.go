@@ -69,6 +69,8 @@ func TestConnectionsWS(t *testing.T) {
 }
 
 func validateConnCount(t *testing.T, n *WSNotifier, expectedCount int) {
+	t.Helper()
+
 	const (
 		attemptWait = 50 * time.Millisecond
 		maxAttempts = 20
@@ -186,6 +188,8 @@ func TestNotifyWS(t *testing.T) {
 }
 
 func startWSListener(t *testing.T, n *WSNotifier, clientHost string) {
+	t.Helper()
+
 	const timeout = 2 * time.Second
 
 	handlers := n.GetRESTHandlers()

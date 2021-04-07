@@ -313,6 +313,8 @@ func stringToMap(t *testing.T, s string) map[string]interface{} {
 }
 
 func stringToMapBench(b *testing.B, s string) map[string]interface{} {
+	b.Helper()
+
 	var m map[string]interface{}
 
 	err := json.Unmarshal([]byte(s), &m)

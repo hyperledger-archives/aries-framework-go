@@ -1636,7 +1636,7 @@ type bbsSigner struct {
 	privateKey []byte
 }
 
-func newBBSSigner(key *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+func newBBSSigner(key *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 	src, err := key.Marshal()
 	if err != nil {
 		return nil, err

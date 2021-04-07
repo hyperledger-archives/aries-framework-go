@@ -165,7 +165,7 @@ type Iterator interface {
 
 // Close closes iterator and logs any error that occurs.
 // Is logger is nil, then the standard Go logger will be used.
-func Close(iterator Iterator, logger spi.Logger) { //nolint: interfacer // The log message is specific to an Iterator.
+func Close(iterator Iterator, logger spi.Logger) {
 	errClose := iterator.Close()
 	if errClose != nil {
 		if logger == nil {

@@ -394,7 +394,6 @@ func TestGetVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		fmt.Println(base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")))
 
 		handler := lookupHandler(t, cmd, GetCredentialPath, http.MethodGet)
 		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
@@ -1319,6 +1318,8 @@ func TestRemoveVPByName(t *testing.T) {
 }
 
 func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -1369,6 +1370,8 @@ func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path stri
 }
 
 func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, data []byte) {
+	t.Helper()
+
 	// Parser generic error response
 	errResponse := struct {
 		Code    int    `json:"code"`
@@ -1436,7 +1439,7 @@ type bbsSigner struct {
 	privKeyBytes []byte
 }
 
-func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 	privKeyBytes, err := privKey.Marshal()
 	if err != nil {
 		return nil, err

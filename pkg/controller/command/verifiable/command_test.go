@@ -175,7 +175,6 @@ const doc = `{
   ]
 }`
 
-//nolint:lll
 const invalidDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
@@ -2649,7 +2648,7 @@ type bbsSigner struct {
 	privKeyBytes []byte
 }
 
-func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 	privKeyBytes, err := privKey.Marshal()
 	if err != nil {
 		return nil, err

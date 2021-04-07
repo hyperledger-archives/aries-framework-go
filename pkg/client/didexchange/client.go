@@ -332,7 +332,7 @@ func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 			return nil, ErrConnectionNotFound
 		}
 
-		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
+		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%w", connectionID, err)
 	}
 
 	return &Connection{
@@ -348,7 +348,7 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 			return nil, ErrConnectionNotFound
 		}
 
-		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
+		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%w", connectionID, err)
 	}
 
 	return &Connection{

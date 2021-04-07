@@ -106,7 +106,7 @@ func (p *pokPayload) lenInBytes() int {
 }
 
 func lenInBytes(messagesCount int) int {
-	return 2 + (messagesCount / 8) + 1
+	return 2 + (messagesCount / 8) + 1 //nolint:gomnd
 }
 
 func newPoKPayload(messagesCount int, revealed []int) *pokPayload {

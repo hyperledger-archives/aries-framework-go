@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-//nolint:lll
 const validPresentation = `
 {
   "@context": [

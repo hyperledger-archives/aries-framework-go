@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package main
 
+//nolint:gci
 import (
 	"encoding/base64"
 	"encoding/json"

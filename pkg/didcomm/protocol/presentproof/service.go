@@ -419,7 +419,6 @@ func (s *Service) currentInternalData(piID string) (*internalData, error) {
 	return data, nil
 }
 
-// nolint: gocyclo
 // stateFromName returns the state by given name.
 func stateFromName(name string) state {
 	switch name {

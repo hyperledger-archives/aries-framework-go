@@ -59,7 +59,7 @@ func (i *Inbound) Start(prov transport.Provider) error {
 	i.pool = getConnPool(prov)
 
 	go func() {
-		if err := i.listenAndServe(); err != http.ErrServerClosed {
+		if err := i.listenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatalf("websocket server start with address [%s] failed, cause:  %s", i.server.Addr, err)
 		}
 	}()

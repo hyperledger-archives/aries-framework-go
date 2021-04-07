@@ -597,7 +597,7 @@ func (s *Service) currentState(nsThID string) (state, error) {
 			return &null{}, nil
 		}
 
-		return nil, fmt.Errorf("cannot fetch state from store: thID=%s err=%s", nsThID, err)
+		return nil, fmt.Errorf("cannot fetch state from store: thID=%s err=%w", nsThID, err)
 	}
 
 	return stateFromName(connRec.State)
@@ -781,7 +781,7 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg, ctx service.EventProp
 
 	err := msg.Decode(&request)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshalling failed: %s", err)
+		return nil, fmt.Errorf("unmarshalling failed: %w", err)
 	}
 
 	invitationID := msg.ParentThreadID()

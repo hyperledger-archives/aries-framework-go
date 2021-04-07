@@ -110,5 +110,4 @@ func AutoExecuteActionEvent(ch chan DIDCommAction) {
 }
 
 // Empty is used if there are no arguments to Continue.
-type Empty struct {
-}
+type Empty struct{}

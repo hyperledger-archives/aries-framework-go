@@ -123,12 +123,12 @@ func (h Headers) ContentType() (string, bool) {
 }
 
 func (h Headers) stringValue(key string) (string, bool) {
-	kRaw, ok := h[key]
+	raw, ok := h[key]
 	if !ok {
 		return "", false
 	}
 
-	kStr, ok := kRaw.(string)
+	str, ok := raw.(string)
 
-	return kStr, ok
+	return str, ok
 }

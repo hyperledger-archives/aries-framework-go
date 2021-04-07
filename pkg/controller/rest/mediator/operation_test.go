@@ -335,6 +335,8 @@ func newMockProvider(serviceMap map[string]interface{}) *mockprovider.Provider {
 }
 
 func lookupHandler(t *testing.T, op *Operation, path string) rest.Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -385,6 +387,8 @@ func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path stri
 }
 
 func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, data []byte) {
+	t.Helper()
+
 	// Parser generic error response
 	errResponse := struct {
 		Code    int    `json:"code"`

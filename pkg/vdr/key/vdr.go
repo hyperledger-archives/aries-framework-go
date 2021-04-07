@@ -21,8 +21,7 @@ const (
 )
 
 // VDR implements did:key method support.
-type VDR struct {
-}
+type VDR struct{}
 
 // New returns new instance of VDR that works with did:key method.
 func New() *VDR {

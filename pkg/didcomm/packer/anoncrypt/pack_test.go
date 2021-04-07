@@ -421,18 +421,18 @@ func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid string) {
 	extractKey, err := extractPrivKey(kh)
 	require.NoError(t, err)
 
-	switch kType := extractKey.(type) {
+	switch keyType := extractKey.(type) {
 	case *hybrid.ECPrivateKey:
-		t.Logf("** EC key: %s, kid: %s", getPrintedECPrivKey(t, kType), kid)
+		t.Logf("** EC key: %s, kid: %s", getPrintedECPrivKey(t, keyType), kid)
 	case []byte:
 		pubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mPubKey, pubKey)
 		require.NoError(t, err)
 
-		fullKey := append(kType, pubKey.X...)
+		fullKey := append(keyType, pubKey.X...)
 		t.Logf("** X25519 key: %s, kid: %s", getPrintedX25519PrivKey(t, fullKey), kid)
 	default:
-		t.Errorf("not supported key type: %s", kType)
+		t.Errorf("not supported key type: %s", keyType)
 	}
 }
 

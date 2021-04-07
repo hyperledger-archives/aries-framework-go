@@ -441,7 +441,6 @@ func stateFromName(name string) state {
 	}
 }
 
-// nolint: gocyclo
 func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 	switch msg.Type() {
 	case ProposeCredentialMsgType:

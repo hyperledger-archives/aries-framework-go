@@ -151,7 +151,6 @@ func (o *Command) GetHandlers() []command.Handler {
 }
 
 // Register registers the agent with the router.
-// nolint:dupl
 func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterRoute
 
@@ -229,7 +228,6 @@ func (o *Command) Connections(rw io.Writer, req io.Reader) command.Error {
 }
 
 // Reconnect sends noop message to given connection to re-establish a network connection.
-// nolint:dupl
 func (o *Command) Reconnect(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterRoute
 

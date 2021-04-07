@@ -103,6 +103,8 @@ func TestMasterLock(t *testing.T) {
 }
 
 func benchmark(b *testing.B, h func() hash.Hash, iter int) {
+	b.Helper()
+
 	var (
 		sink uint8
 		lck  secretlock.Service

@@ -271,7 +271,7 @@ func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
 	var kid string
 
 	if i == 0 && len(jwe.Recipients) == 1 { // compact serialization, recipient headers are in jwe.ProtectedHeaders
-		ok := false
+		var ok bool
 
 		kid, ok = jwe.ProtectedHeaders.KeyID()
 		if !ok {

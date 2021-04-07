@@ -166,7 +166,6 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 }
 
 // SendOffer is used by the Issuer to send an offer.
-// nolint: dupl
 func (c *Command) SendOffer(rw io.Writer, req io.Reader) command.Error {
 	var args SendOfferArgs
 
@@ -204,7 +203,6 @@ func (c *Command) SendOffer(rw io.Writer, req io.Reader) command.Error {
 }
 
 // SendProposal is used by the Holder to send a proposal.
-// nolint: dupl
 func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 	var args SendProposalArgs
 
@@ -242,7 +240,6 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // SendRequest is used by the Holder to send a request.
-// nolint: dupl
 func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 	var args SendRequestArgs
 
@@ -280,7 +277,6 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptProposal is used when the Issuer is willing to accept the proposal.
-// nolint: dupl
 func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptProposalArgs
 
@@ -312,7 +308,6 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
-// nolint: dupl
 func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 	var args NegotiateProposalArgs
 
@@ -344,7 +339,6 @@ func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // DeclineProposal is used when the Issuer does not want to accept the proposal.
-// nolint: dupl
 func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineProposalArgs
 
@@ -371,7 +365,6 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptOffer is used when the Holder is willing to accept the offer.
-// nolint: dupl
 func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptOfferArgs
 
@@ -398,7 +391,6 @@ func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptProblemReport is used for accepting problem report.
-// nolint: dupl
 func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptProblemReportArgs
 
@@ -425,7 +417,6 @@ func (c *Command) AcceptProblemReport(rw io.Writer, req io.Reader) command.Error
 }
 
 // DeclineOffer is used when the Holder does not want to accept the offer.
-// nolint: dupl
 func (c *Command) DeclineOffer(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineOfferArgs
 
@@ -452,7 +443,6 @@ func (c *Command) DeclineOffer(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptRequest is used when the Issuer is willing to accept the request.
-// nolint: dupl
 func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 	var request AcceptRequestArgs
 
@@ -484,7 +474,6 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 }
 
 // DeclineRequest is used when the Issuer does not want to accept the request.
-// nolint: dupl
 func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineRequestArgs
 
@@ -511,7 +500,6 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 }
 
 // AcceptCredential is used when the Holder is willing to accept the IssueCredential.
-// nolint: dupl
 func (c *Command) AcceptCredential(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptCredentialArgs
 
@@ -538,7 +526,6 @@ func (c *Command) AcceptCredential(rw io.Writer, req io.Reader) command.Error {
 }
 
 // DeclineCredential is used when the Holder does not want to accept the IssueCredential.
-// nolint: dupl
 func (c *Command) DeclineCredential(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineCredentialArgs
 

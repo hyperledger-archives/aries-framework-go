@@ -82,8 +82,7 @@ func UnsecuredJWTVerifier() jose.SignatureVerifier {
 	return signatureVerifierFunc(verifyUnsecuredJWT)
 }
 
-type unsecuredJWTSigner struct {
-}
+type unsecuredJWTSigner struct{}
 
 func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
 	return []byte(""), nil
@@ -298,7 +297,7 @@ func toMap(i interface{}) (map[string]interface{}, error) {
 	d.UseNumber()
 
 	if err := d.Decode(&m); err != nil {
-		return nil, fmt.Errorf("convert to map: %v", err)
+		return nil, fmt.Errorf("convert to map: %w", err)
 	}
 
 	return m, nil

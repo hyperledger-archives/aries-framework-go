@@ -40,7 +40,7 @@ type RS256Signer struct {
 // Sign signs a message.
 func (s *RS256Signer) Sign(msg []byte) ([]byte, error) {
 	hasher := crypto.SHA256.New()
-	_, _ = hasher.Write(msg) //nolint:errcheck
+	_, _ = hasher.Write(msg)
 	hashed := hasher.Sum(nil)
 
 	return rsa.SignPKCS1v15(rand.Reader, s.privateKey, crypto.SHA256, hashed)
@@ -74,7 +74,7 @@ type PS256Signer struct {
 func (s *PS256Signer) Sign(msg []byte) ([]byte, error) {
 	hasher := crypto.SHA256.New()
 
-	_, _ = hasher.Write(msg) //nolint:errcheck
+	_, _ = hasher.Write(msg)
 
 	hashed := hasher.Sum(nil)
 
