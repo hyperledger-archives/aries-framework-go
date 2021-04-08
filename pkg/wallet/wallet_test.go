@@ -54,7 +54,7 @@ const (
         "https://www.w3.org/2018/credentials/examples/v1",
 		"https://w3id.org/security/bbs/v1"
       ],
-      "credentialSchema": [],
+     "credentialSchema": [],
       "credentialSubject": {
         "degree": {
           "type": "BachelorDegree",
@@ -613,6 +613,23 @@ func TestWallet_Remove(t *testing.T) {
 
 func TestWallet_Query(t *testing.T) {
 	mockctx := newMockProvider()
+	mockctx.VDRegistryValue = &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
 	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -641,7 +658,14 @@ func TestWallet_Query(t *testing.T) {
 	}).MarshalJSON()
 	require.NoError(t, err)
 
+	sampleVC := fmt.Sprintf(sampleVCFmt, schemaURI)
+	vcForQuery := []byte(strings.ReplaceAll(sampleVC,
+		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
+	vcForDerive := []byte(sampleBBSVC)
+
 	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vc1))
+	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcForQuery))
+	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcForDerive))
 
 	pd := &presexch.PresentationDefinition{
 		ID: uuid.New().String(),
@@ -658,31 +682,69 @@ func TestWallet_Query(t *testing.T) {
 		}},
 	}
 
+	// presentation exchange
 	pdJSON, err := json.Marshal(pd)
 	require.NoError(t, err)
 	require.NotEmpty(t, pdJSON)
 
-	t.Run("test query generate presentation", func(t *testing.T) {
+	// query by example
+	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	// query by frame
+	queryByFrame := []byte(sampleQueryByFrame)
+
+	t.Run("test wallet queries", func(t *testing.T) {
 		tests := []struct {
 			name        string
-			param       *QueryParams
+			params      []*QueryParams
 			resultCount int
+			vcCount     map[int]int
 			error       string
 		}{
 			{
-				name:        "query by presentation exchange - success",
-				param:       &QueryParams{Type: "PresentationExchange", Query: pdJSON},
+				name: "query by presentation exchange - success",
+				params: []*QueryParams{
+					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
+				},
 				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
 			},
 			{
-				name:  "invalid query type",
-				param: &QueryParams{Type: "invalid"},
+				name: "query by example - success",
+				params: []*QueryParams{
+					{Type: "QueryByExample", Query: []json.RawMessage{queryByExample}},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
+			},
+			{
+				name: "query by frame - success",
+				params: []*QueryParams{
+					{Type: "QueryByFrame", Query: []json.RawMessage{queryByFrame}},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
+			},
+			{
+				name: "multiple queries - success",
+				params: []*QueryParams{
+					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
+					{Type: "QueryByExample", Query: []json.RawMessage{queryByExample}},
+					{Type: "QueryByFrame", Query: []json.RawMessage{queryByFrame}},
+				},
+				resultCount: 2,
+				vcCount:     map[int]int{0: 1, 1: 2},
+			},
+			{
+				name: "invalid query type",
+				params: []*QueryParams{
+					{Type: "invalid"},
+				},
 				error: "unsupported query type",
 			},
 			{
-				name:  "empty query type",
-				param: &QueryParams{},
-				error: "unsupported query type",
+				name:   "empty query type",
+				params: []*QueryParams{},
+				error:  "no result found",
 			},
 		}
 
@@ -691,10 +753,10 @@ func TestWallet_Query(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				presentation, err := walletInstance.Query(tc.param)
+				results, err := walletInstance.Query(tc.params...)
 
 				if tc.error != "" {
-					require.Empty(t, presentation)
+					require.Empty(t, results)
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.error)
 
@@ -702,9 +764,11 @@ func TestWallet_Query(t *testing.T) {
 				}
 
 				require.NoError(t, err)
-				require.NotEmpty(t, presentation)
-				require.Empty(t, presentation.Proofs)
-				require.Len(t, presentation.Credentials(), tc.resultCount)
+				require.Len(t, results, tc.resultCount)
+
+				for i, result := range results {
+					require.Len(t, result.Credentials(), tc.vcCount[i])
+				}
 			})
 		}
 	})

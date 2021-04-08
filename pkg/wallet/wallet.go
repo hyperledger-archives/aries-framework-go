@@ -276,6 +276,7 @@ func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage
 }
 
 // GetAll fetches all wallet contents of given type.
+// Returns map of key value from content store for given content type.
 //
 // Supported data models:
 // 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
@@ -284,11 +285,13 @@ func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Wallet) GetAll(contentType ContentType) ([]json.RawMessage, error) {
+func (c *Wallet) GetAll(contentType ContentType) (map[string]json.RawMessage, error) {
 	return c.contents.GetAll(contentType)
 }
 
 // Query runs query against wallet credential contents and returns presentation containing credential results.
+//
+// This function may return multiple presentations as query result based on combination of query types used.
 //
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#query
 //
@@ -297,18 +300,15 @@ func (c *Wallet) GetAll(contentType ContentType) ([]json.RawMessage, error) {
 // 	- https://identity.foundation/presentation-exchange
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
 //
-func (c *Wallet) Query(params *QueryParams) (*verifiable.Presentation, error) {
-	query, err := GetQueryType(params.Type)
-	if err != nil {
-		return nil, err
-	}
-
-	vcs, err := c.contents.GetAll(Credential)
+func (c *Wallet) Query(params ...*QueryParams) ([]*verifiable.Presentation, error) {
+	vcContents, err := c.contents.GetAll(Credential)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
 	}
 
-	return query.GeneratePresentation(vcs, params.Query)
+	query := NewQuery(verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(), params...)
+
+	return query.PerformQuery(vcContents)
 }
 
 // Issue adds proof to a Verifiable Credential.

@@ -214,7 +214,7 @@ func (c *Client) Get(contentType wallet.ContentType, contentID string) (json.Raw
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Client) GetAll(contentType wallet.ContentType) ([]json.RawMessage, error) {
+func (c *Client) GetAll(contentType wallet.ContentType) (map[string]json.RawMessage, error) {
 	return c.wallet.GetAll(contentType)
 }
 
@@ -227,8 +227,8 @@ func (c *Client) GetAll(contentType wallet.ContentType) ([]json.RawMessage, erro
 // 	- https://identity.foundation/presentation-exchange
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
 //
-func (c *Client) Query(params *wallet.QueryParams) (*verifiable.Presentation, error) {
-	return c.wallet.Query(params)
+func (c *Client) Query(params ...*wallet.QueryParams) ([]*verifiable.Presentation, error) {
+	return c.wallet.Query(params...)
 }
 
 // Issue adds proof to a Verifiable Credential.
