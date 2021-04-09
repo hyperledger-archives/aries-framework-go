@@ -17,4 +17,3 @@ func swuMapG1BE(u *fe) (*fe, *fe) {
 	}
 	return x, y
 }
-

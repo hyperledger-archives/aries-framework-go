@@ -87,8 +87,8 @@ func TestCreateInvitation(t *testing.T) {
 		}
 		inv, err := c.CreateInvitation(nil)
 		require.NoError(t, err)
-		require.Len(t, inv.Service, 1)
-		require.Equal(t, expected, inv.Service[0])
+		require.Len(t, inv.Services, 1)
+		require.Equal(t, expected, inv.Services[0])
 	})
 	t.Run("WithLabel", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -112,7 +112,7 @@ func TestCreateInvitation(t *testing.T) {
 
 		inv, err := c.CreateInvitation(nil, WithRouterConnections(expectedConn))
 		require.NoError(t, err)
-		require.Equal(t, expectedConn, inv.Service[0].(*did.Service).ServiceEndpoint)
+		require.Equal(t, expectedConn, inv.Services[0].(*did.Service).ServiceEndpoint)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -138,8 +138,8 @@ func TestCreateInvitation(t *testing.T) {
 		}
 		inv, err := c.CreateInvitation([]interface{}{expected})
 		require.NoError(t, err)
-		require.Len(t, inv.Service, 1)
-		require.Equal(t, expected, inv.Service[0])
+		require.Len(t, inv.Services, 1)
+		require.Equal(t, expected, inv.Services[0])
 	})
 	t.Run("WithServices dids", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -147,8 +147,8 @@ func TestCreateInvitation(t *testing.T) {
 		expected := "did:example:234"
 		inv, err := c.CreateInvitation([]interface{}{expected})
 		require.NoError(t, err)
-		require.Len(t, inv.Service, 1)
-		require.Equal(t, expected, inv.Service[0])
+		require.Len(t, inv.Services, 1)
+		require.Equal(t, expected, inv.Services[0])
 	})
 	t.Run("WithServices dids and diddoc service blocks", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -165,9 +165,20 @@ func TestCreateInvitation(t *testing.T) {
 		}
 		inv, err := c.CreateInvitation([]interface{}{svc, didRef})
 		require.NoError(t, err)
-		require.Len(t, inv.Service, 2)
-		require.Contains(t, inv.Service, didRef)
-		require.Contains(t, inv.Service, svc)
+		require.Len(t, inv.Services, 2)
+		require.Contains(t, inv.Services, didRef)
+		require.Contains(t, inv.Services, svc)
+	})
+	t.Run("WithAttachments", func(t *testing.T) {
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+		expected := dummyAttachment(t)
+		inv, err := c.CreateInvitation(
+			nil,
+			WithAttachments(expected),
+		)
+		require.NoError(t, err)
+		require.Contains(t, inv.Requests, expected)
 	})
 	t.Run("WithAttachments", func(t *testing.T) {
 		c, err := New(withTestProvider())

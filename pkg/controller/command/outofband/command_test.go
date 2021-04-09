@@ -157,7 +157,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 		require.Equal(t, expected.Label, res.Invitation.Label)
 		require.Equal(t, expected.Goal, res.Invitation.Goal)
 		require.Equal(t, expected.GoalCode, res.Invitation.GoalCode)
-		require.Equal(t, expected.Service, res.Invitation.Service)
+		require.Equal(t, expected.Service, res.Invitation.Services)
 		require.Equal(t, expected.Protocols, res.Invitation.Protocols)
 	})
 }

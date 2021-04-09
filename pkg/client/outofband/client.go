@@ -145,21 +145,21 @@ func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption)
 		Label:     msg.Label,
 		Goal:      msg.Goal,
 		GoalCode:  msg.GoalCode,
+		Services:  services,
 		Accept:    msg.Accept,
-		Service:   services,
 		Protocols: msg.HandshakeProtocols,
 		Requests:  msg.Attachments,
 	}
 
-	if len(inv.Service) == 0 {
+	if len(inv.Services) == 0 {
 		svc, err := c.didDocSvcFunc(msg.RouterConnection())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a new inlined did doc service block : %w", err)
 		}
 
-		inv.Service = []interface{}{svc}
+		inv.Services = []interface{}{svc}
 	} else {
-		err := validateServices(inv.Service...)
+		err := validateServices(inv.Services...)
 		if err != nil {
 			return nil, fmt.Errorf("invalid service: %w", err)
 		}
