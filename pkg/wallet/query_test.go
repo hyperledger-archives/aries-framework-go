@@ -218,8 +218,14 @@ func TestGetQueryType(t *testing.T) {
 				expectedName: "PresentationExchange",
 			},
 			{
+				name:         "test for DIDAuth",
+				typeStr:      []string{"didAuth", "didauth", "DIDAuth", "DIDauth"},
+				expected:     DIDAuth,
+				expectedName: "DIDAuth",
+			},
+			{
 				name:         "test for invalid types",
-				typeStr:      []string{"", "QueryByFram", "QueryByExamples", "invalid"},
+				typeStr:      []string{"", "QueryByFram", "QueryByExamples", "DIDAuthorization", "invalid"},
 				error:        "unsupported query type",
 				expectedName: "",
 			},
@@ -437,6 +443,16 @@ func TestQuery_PerformQuery(t *testing.T) {
 				resultCount: 0,
 				error:       "failed to parse QueryByFrame query",
 			},
+			// DIDAuth tests
+			{
+				name: "didAuth - success",
+				query: []*QueryParams{
+					{Type: "DIDAuth"},
+				},
+				credentials: []json.RawMessage{vc1, udcVC, vcForQuery, vcForDerive},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 0},
+			},
 
 			// Mixed Query Types
 			{
@@ -445,10 +461,11 @@ func TestQuery_PerformQuery(t *testing.T) {
 					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
 					{Type: "QueryByExample", Query: []json.RawMessage{queryByExample}},
 					{Type: "QueryByFrame", Query: []json.RawMessage{queryByFrame}},
+					{Type: "DIDAuth"},
 				},
 				credentials: []json.RawMessage{vc1, udcVC, vcForQuery, vcForDerive},
-				resultCount: 2,
-				vcCount:     map[int]int{0: 1, 1: 2},
+				resultCount: 3,
+				vcCount:     map[int]int{0: 1, 1: 0, 2: 2},
 			},
 			{
 				name: "query by PresentationExchange,QueryByExample,QueryByFrame - normalized result - success",

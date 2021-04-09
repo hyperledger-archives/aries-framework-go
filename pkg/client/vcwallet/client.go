@@ -254,7 +254,7 @@ func (c *Client) Issue(credential json.RawMessage,
 //		raw credential).
 //		- proof options
 //
-func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
+func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.ProveOptions) (*verifiable.Presentation, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err

@@ -17,7 +17,7 @@ import (
 // Refer https://w3c-ccg.github.io/vp-request-spec/#format for more details.
 type QueryParams struct {
 	// Type of the query.
-	// Allowed values  'QueryByExample', 'QueryByFrame', 'PresentationExchange'
+	// Allowed values  'QueryByExample', 'QueryByFrame', 'PresentationExchange', 'DIDAuth'
 	Type string `json:"type"`
 
 	// Query can contain one or more credential queries.

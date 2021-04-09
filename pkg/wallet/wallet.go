@@ -345,11 +345,11 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 //	Args:
 // 		- auth token for unlocking kms.
 //		- list of interfaces (string of credential IDs which can be resolvable to stored credentials in wallet or
-//		raw credential).
+//		raw credential or a presentation).
 //		- proof options
 //
-func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...CredentialToPresent) (*verifiable.Presentation, error) { //nolint: lll
-	resolved, err := c.resolveCredentialsToPresent(credentials...)
+func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...ProveOptions) (*verifiable.Presentation, error) { //nolint: lll
+	presentation, err := c.resolveOptionsToPresent(credentials...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
 	}
@@ -359,11 +359,6 @@ func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials
 	err = c.validateProofOption(proofOptions, purpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare proof: %w", err)
-	}
-
-	presentation, err := verifiable.NewPresentation(verifiable.WithCredentials(resolved...))
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare presentation: %w", err)
 	}
 
 	presentation.Holder = proofOptions.Controller
@@ -428,8 +423,8 @@ func (c *Wallet) Derive(credential CredentialToDerive,
 	return derived, nil
 }
 
-func (c *Wallet) resolveCredentialsToPresent(credentials ...CredentialToPresent) ([]*verifiable.Credential, error) {
-	var response []*verifiable.Credential
+func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiable.Presentation, error) {
+	var allCredentials []*verifiable.Credential
 
 	opts := &proveOpts{}
 
@@ -452,7 +447,7 @@ func (c *Wallet) resolveCredentialsToPresent(credentials ...CredentialToPresent)
 			return nil, err
 		}
 
-		response = append(response, credential)
+		allCredentials = append(allCredentials, credential)
 	}
 
 	for _, raw := range opts.rawCredentials {
@@ -465,14 +460,20 @@ func (c *Wallet) resolveCredentialsToPresent(credentials ...CredentialToPresent)
 			return nil, err
 		}
 
-		response = append(response, credential)
+		allCredentials = append(allCredentials, credential)
 	}
 
 	if len(opts.credentials) > 0 {
-		response = append(response, opts.credentials...)
+		allCredentials = append(allCredentials, opts.credentials...)
 	}
 
-	return response, nil
+	if opts.presentation != nil {
+		opts.presentation.AddCredentials(allCredentials...)
+
+		return opts.presentation, nil
+	}
+
+	return verifiable.NewPresentation(verifiable.WithCredentials(allCredentials...))
 }
 
 func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*verifiable.Credential, error) {
