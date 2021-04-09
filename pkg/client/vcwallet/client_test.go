@@ -12,14 +12,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -243,7 +248,107 @@ const (
         ]
     }
 }`
+	sampleVCFmt = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1",
+		"https://w3id.org/security/bbs/v1"
+      ],
+     "credentialSchema": [{"id": "%s", "type": "JsonSchemaValidator2018"}],
+      "credentialSubject": {
+        "degree": {
+          "type": "BachelorDegree",
+          "university": "MIT"
+        },
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe",
+        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+      },
+      "expirationDate": "2020-01-01T19:23:24Z",
+      "id": "http://example.edu/credentials/1872",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+        "name": "Example University"
+      },
+      "referenceNumber": 83294847,
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+	sampleQueryByExFmt = `{
+                        "reason": "Please present your identity document.",
+                        "example": {
+                            "@context": [
+								"https://www.w3.org/2018/credentials/v1",
+								"https://www.w3.org/2018/credentials/examples/v1",
+								"https://w3id.org/security/bbs/v1"
+                            ],
+                            "type": ["UniversityDegreeCredential"],
+							"trustedIssuer": [
+              					{
+                					"issuer": "urn:some:required:issuer"
+              					},
+								{
+                					"required": true,
+                					"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+              					}
+							],
+							"credentialSubject": {
+								"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"	
+							},
+							"credentialSchema": {
+								"id": "%s",
+								"type": "JsonSchemaValidator2018"
+							}
+                        }
+                	}`
+	sampleQueryByFrame = `{
+                    "reason": "Please provide your Passport details.",
+                    "frame": {
+                        "@context": [
+                            "https://www.w3.org/2018/credentials/v1",
+                            "https://w3id.org/citizenship/v1",
+                            "https://w3id.org/security/bbs/v1"
+                        ],
+                        "type": ["VerifiableCredential", "PermanentResidentCard"],
+                        "@explicit": true,
+                        "identifier": {},
+                        "issuer": {},
+                        "issuanceDate": {},
+                        "credentialSubject": {
+                            "@explicit": true,
+                            "name": {},
+                            "spouse": {}
+                        }
+                    },
+                    "trustedIssuer": [
+                        {
+                            "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+                            "required": true
+                        }
+                    ],
+                    "required": true
+                }`
 )
+
+// nolint: gochecknoglobals
+var (
+	// schemaURI is being set in init() function.
+	schemaURI string
+)
+
+// nolint: gochecknoinits
+func init() {
+	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		//nolint: gosec,errcheck
+		res.Write([]byte(verifiable.DefaultSchema))
+	}))
+
+	schemaURI = server.URL
+}
 
 func TestCreateProfile(t *testing.T) {
 	t.Run("test create new wallet client using local kms passphrase", func(t *testing.T) {
@@ -660,6 +765,14 @@ func TestClient_Add(t *testing.T) {
 
 	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
 	require.NoError(t, err)
+
+	// try locked wallet
+	vcWalletClient, err = New(sampleUserID, mockctx)
+	require.NotEmpty(t, vcWalletClient)
+	require.NoError(t, err)
+
+	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
+	require.Contains(t, err.Error(), "wallet locked")
 }
 
 func TestClient_Get(t *testing.T) {
@@ -742,25 +855,171 @@ func TestClient_Remove(t *testing.T) {
 }
 
 func TestClient_Query(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
 	mockctx := newMockProvider()
-	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	vc1, err := (&verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      "http://example.edu/credentials/9999",
+		Schemas: []verifiable.TypedID{{
+			ID:   schemaURI,
+			Type: "JsonSchemaValidator2018",
+		}},
+		CustomFields: map[string]interface{}{
+			"first_name": "Jesse",
+		},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		Subject: uuid.New().String(),
+	}).MarshalJSON()
+	require.NoError(t, err)
+
+	sampleVC := fmt.Sprintf(sampleVCFmt, schemaURI)
+	vcForQuery := []byte(strings.ReplaceAll(sampleVC,
+		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
+	vcForDerive := []byte(sampleBBSVC)
+
+	err = CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
 	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	results, err := vcWalletClient.Query(&wallet.QueryParams{Type: "QueryByExample"})
-	require.Empty(t, results)
-	require.Error(t, err)
-	require.EqualError(t, err, "no result found")
+	defer vcWalletClient.Close()
 
-	require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+	require.NoError(t, vcWalletClient.Add(wallet.Credential, vc1))
+	require.NoError(t, vcWalletClient.Add(wallet.Credential, vcForQuery))
+	require.NoError(t, vcWalletClient.Add(wallet.Credential, vcForDerive))
 
-	results, err = vcWalletClient.Query(&wallet.QueryParams{Type: "QueryByExample"})
-	require.Empty(t, results)
-	require.Error(t, err)
-	require.EqualError(t, err, toBeImplementedErr)
+	pd := &presexch.PresentationDefinition{
+		ID: uuid.New().String(),
+		InputDescriptors: []*presexch.InputDescriptor{{
+			ID: uuid.New().String(),
+			Schema: []*presexch.Schema{{
+				URI: schemaURI,
+			}},
+			Constraints: &presexch.Constraints{
+				Fields: []*presexch.Field{{
+					Path: []string{"$.first_name"},
+				}},
+			},
+		}},
+	}
+
+	// presentation exchange
+	pdJSON, err := json.Marshal(pd)
+	require.NoError(t, err)
+	require.NotEmpty(t, pdJSON)
+
+	// query by example
+	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	// query by frame
+	queryByFrame := []byte(sampleQueryByFrame)
+
+	t.Run("test wallet queries", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			params      []*wallet.QueryParams
+			resultCount int
+			vcCount     map[int]int
+			error       string
+		}{
+			{
+				name: "query by presentation exchange - success",
+				params: []*wallet.QueryParams{
+					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
+			},
+			{
+				name: "query by example - success",
+				params: []*wallet.QueryParams{
+					{Type: "QueryByExample", Query: []json.RawMessage{queryByExample}},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
+			},
+			{
+				name: "query by frame - success",
+				params: []*wallet.QueryParams{
+					{Type: "QueryByFrame", Query: []json.RawMessage{queryByFrame}},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 1},
+			},
+			{
+				name: "multiple queries - success",
+				params: []*wallet.QueryParams{
+					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
+					{Type: "QueryByExample", Query: []json.RawMessage{queryByExample}},
+					{Type: "QueryByFrame", Query: []json.RawMessage{queryByFrame}},
+				},
+				resultCount: 2,
+				vcCount:     map[int]int{0: 1, 1: 2},
+			},
+			{
+				name: "invalid query type",
+				params: []*wallet.QueryParams{
+					{Type: "invalid"},
+				},
+				error: "unsupported query type",
+			},
+			{
+				name:   "empty query type",
+				params: []*wallet.QueryParams{},
+				error:  "no result found",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				results, err := vcWalletClient.Query(tc.params...)
+
+				if tc.error != "" {
+					require.Empty(t, results)
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.error)
+
+					return
+				}
+
+				require.NoError(t, err)
+				require.Len(t, results, tc.resultCount)
+
+				for i, result := range results {
+					require.Len(t, result.Credentials(), tc.vcCount[i])
+				}
+			})
+		}
+	})
 }
 
 func TestClient_Issue(t *testing.T) {

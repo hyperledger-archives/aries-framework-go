@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -178,13 +178,13 @@ func (cs *contentStore) Get(ct ContentType, key string) ([]byte, error) {
 
 // GetAll returns all wallet contents of give type.
 // returns empty result when no data found.
-func (cs *contentStore) GetAll(ct ContentType) ([]json.RawMessage, error) {
+func (cs *contentStore) GetAll(ct ContentType) (map[string]json.RawMessage, error) {
 	iter, err := cs.store.Query(ct.Name())
 	if err != nil {
 		return nil, err
 	}
 
-	var result []json.RawMessage
+	result := make(map[string]json.RawMessage)
 
 	for {
 		ok, err := iter.Next()
@@ -196,12 +196,17 @@ func (cs *contentStore) GetAll(ct ContentType) ([]json.RawMessage, error) {
 			break
 		}
 
+		key, err := iter.Key()
+		if err != nil {
+			return nil, err
+		}
+
 		val, err := iter.Value()
 		if err != nil {
 			return nil, err
 		}
 
-		result = append(result, val)
+		result[key] = val
 	}
 
 	return result, nil
@@ -215,7 +220,9 @@ func getContentID(content []byte) (string, error) {
 
 	key := cid.ID
 	if strings.TrimSpace(key) == "" {
-		return uuid.New().String(), nil
+		// use document hash as key to avoid duplicates if id is missing
+		digest := sha256.Sum256(content)
+		return hex.EncodeToString(digest[0:]), nil
 	}
 
 	return key, nil
