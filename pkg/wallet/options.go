@@ -108,29 +108,40 @@ type proveOpts struct {
 	rawCredentials []json.RawMessage
 	// verifiable credentials to be supplied to wallet to prove.
 	credentials []*verifiable.Credential
+	// presentation to be supplied to wallet to prove.
+	presentation *verifiable.Presentation
 }
 
-// CredentialToPresent options for proving credential to present from wallet.
-type CredentialToPresent func(opts *proveOpts)
+// ProveOptions options for proving credential to present from wallet.
+type ProveOptions func(opts *proveOpts)
 
 // WithStoredCredentialsToPresent option for providing stored credential IDs for wallet to present.
-func WithStoredCredentialsToPresent(ids ...string) CredentialToPresent {
+func WithStoredCredentialsToPresent(ids ...string) ProveOptions {
 	return func(opts *proveOpts) {
 		opts.storedCredentials = ids
 	}
 }
 
 // WithRawCredentialsToPresent option for providing raw credential for wallet to present.
-func WithRawCredentialsToPresent(raw ...json.RawMessage) CredentialToPresent {
+func WithRawCredentialsToPresent(raw ...json.RawMessage) ProveOptions {
 	return func(opts *proveOpts) {
 		opts.rawCredentials = raw
 	}
 }
 
 // WithCredentialsToPresent option for providing verifiable credential instances for wallet to present.
-func WithCredentialsToPresent(credentials ...*verifiable.Credential) CredentialToPresent {
+func WithCredentialsToPresent(credentials ...*verifiable.Credential) ProveOptions {
 	return func(opts *proveOpts) {
 		opts.credentials = credentials
+	}
+}
+
+// WithPresentation option for providing presentation for wallet to present.
+// If passed along with other credentials options, response verifiable presentation will be normalized
+// to include all the credentials.
+func WithPresentation(presentation *verifiable.Presentation) ProveOptions {
+	return func(opts *proveOpts) {
+		opts.presentation = presentation
 	}
 }
 

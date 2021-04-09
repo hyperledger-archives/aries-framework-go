@@ -33,6 +33,8 @@ const (
 	QueryByFrame
 	// PresentationExchange https://identity.foundation/presentation-exchange/
 	PresentationExchange
+	// DIDAuth https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
+	DIDAuth
 )
 
 // Name returns name of the query.
@@ -49,6 +51,8 @@ func GetQueryType(name string) (QueryType, error) {
 		return QueryByFrame, nil
 	case "presentationexchange":
 		return PresentationExchange, nil
+	case "didauth":
+		return DIDAuth, nil
 	default:
 		return 0, fmt.Errorf("unsupported query type, supported types - (%s, %s, %s)",
 			QueryByExample.Name(), QueryByFrame.Name(), PresentationExchange.Name())
@@ -139,6 +143,8 @@ func (q *Query) getPresentation(qType QueryType, vcs []*verifiable.Credential, q
 	switch qType {
 	case PresentationExchange:
 		return queryByPresentationExchange(vcs, query...)
+	case DIDAuth:
+		return didAuth()
 	default:
 		return []*verifiable.Presentation{}, nil
 	}
@@ -406,6 +412,16 @@ func queryByPresentationExchange(vcs []*verifiable.Credential, defs ...json.RawM
 	}
 
 	return results, nil
+}
+
+// didAuth prepares presentation for DID authorization.
+func didAuth() ([]*verifiable.Presentation, error) {
+	presentation, err := verifiable.NewPresentation()
+	if err != nil {
+		return nil, err
+	}
+
+	return []*verifiable.Presentation{presentation}, nil
 }
 
 func contains(slice []string, item interface{}) bool {

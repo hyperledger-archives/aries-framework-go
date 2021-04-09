@@ -725,6 +725,14 @@ func TestWallet_Query(t *testing.T) {
 				vcCount:     map[int]int{0: 1},
 			},
 			{
+				name: "DIDAuth - success",
+				params: []*QueryParams{
+					{Type: "DIDAuth"},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 0},
+			},
+			{
 				name: "multiple queries - success",
 				params: []*QueryParams{
 					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},
@@ -1218,6 +1226,66 @@ func TestWallet_Prove(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Len(t, result.Proofs, 1)
+		require.Equal(t, result.Holder, didKey)
+	})
+
+	t.Run("Test prove using presentation - success", func(t *testing.T) {
+		walletInstance, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// save one VC in store
+		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"])
+		defer cleanup()
+
+		// import keys manually for signing presentation
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		bbsVCBytes, err := json.Marshal(vcs["bbsvc"])
+		require.NoError(t, err)
+
+		pres, err := verifiable.NewPresentation(verifiable.WithCredentials(vcs["edvc"]))
+		require.NoError(t, err)
+		require.NotEmpty(t, pres)
+
+		// sign with just controller
+		result, err := walletInstance.Prove(authToken,
+			&ProofOptions{Controller: didKey},
+			WithPresentation(pres),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+		require.Len(t, result.Credentials(), 1)
+		require.Equal(t, result.Holder, didKey)
+
+		// sign with just controller (sign with presentation & credentials)
+		pres, err = verifiable.NewPresentation(verifiable.WithCredentials(vcs["edvc"]))
+		require.NoError(t, err)
+		require.NotEmpty(t, pres)
+
+		result, err = walletInstance.Prove(authToken,
+			&ProofOptions{Controller: didKey},
+			WithPresentation(pres),
+			WithStoredCredentialsToPresent(vcs["edvc"].ID),
+			WithRawCredentialsToPresent(bbsVCBytes),
+		)
+
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+		require.Len(t, result.Credentials(), 3)
 		require.Equal(t, result.Holder, didKey)
 	})
 

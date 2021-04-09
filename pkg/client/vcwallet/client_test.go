@@ -973,6 +973,14 @@ func TestClient_Query(t *testing.T) {
 				vcCount:     map[int]int{0: 1},
 			},
 			{
+				name: "did authorization - success",
+				params: []*wallet.QueryParams{
+					{Type: "DIDAuth"},
+				},
+				resultCount: 1,
+				vcCount:     map[int]int{0: 0},
+			},
+			{
 				name: "multiple queries - success",
 				params: []*wallet.QueryParams{
 					{Type: "PresentationExchange", Query: []json.RawMessage{pdJSON}},

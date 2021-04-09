@@ -246,6 +246,13 @@ func (vp *Presentation) Credentials() []interface{} {
 	return vp.credentials
 }
 
+// AddCredentials adds credentials to presentation.
+func (vp *Presentation) AddCredentials(credentials ...*Credential) {
+	for _, credential := range credentials {
+		vp.credentials = append(vp.credentials, credential)
+	}
+}
+
 // MarshalledCredentials provides marshalled credentials enclosed into Presentation in raw byte array format.
 // They can be used to decode Credentials into struct.
 func (vp *Presentation) MarshalledCredentials() ([]MarshalledCredential, error) {

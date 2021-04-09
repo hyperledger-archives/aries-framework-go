@@ -410,6 +410,9 @@ func TestNewPresentation(t *testing.T) {
 	r.Len(vp.credentials, 1)
 	r.Equal(vc, vp.credentials[0])
 
+	vp.AddCredentials(&Credential{})
+	r.Len(vp.credentials, 2)
+
 	// Pass VC marshalled into unsecured JWT
 	jwtClaims, err := vc.JWTClaims(true)
 	r.NoError(err)
