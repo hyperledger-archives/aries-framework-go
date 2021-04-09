@@ -407,7 +407,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 		case18DerivationBytes, err := json.Marshal(docWithSelectiveDisclosure)
 
-		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes,"Bls12381G2Key2020")
+		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")
 		docLoader := createLDPBBS2020DocumentLoader()
 
 		_, err = verifiable.ParseCredential(case18DerivationBytes, verifiable.WithPublicKeyFetcher(pubKeyFetcher),
