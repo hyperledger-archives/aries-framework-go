@@ -711,7 +711,7 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-  var didDoc *did.Doc
+	var didDoc *did.Doc
 
 	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 	//  if did not found in VDR, look through in local storage
