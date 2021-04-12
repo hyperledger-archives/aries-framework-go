@@ -1219,16 +1219,20 @@ func TestGeneratePresentationByID(t *testing.T) {
 
 	t.Run("test generate presentation - failed to get did doc", func(t *testing.T) {
 		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
-		s["test"] = mockstore.DBEntry{Value: []byte(doc)}
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = mockstore.DBEntry{Value: []byte(doc)}
 
-		presIDArgs := PresentationRequestByID{ID: "http://example.edu/credentials/1989", DID: "notFoundDID"}
+		presIDArgs := PresentationRequestByID{
+			ID:            "http://example.edu/credentials/1989",
+			DID:           "did:error:123",
+			SignatureType: Ed25519Signature2018,
+		}
 		presReqBytes, e := json.Marshal(presIDArgs)
 		require.NoError(t, e)
 
-		var getRW bytes.Buffer
-		cmdErr := cmd.GeneratePresentationByID(&getRW, bytes.NewBuffer(presReqBytes))
-		require.Error(t, cmdErr)
-		require.Contains(t, cmdErr.Error(), "failed to get did doc from store")
+		var b bytes.Buffer
+		err := cmd.GeneratePresentationByID(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "generate vp by id - failed to get did doc from store or vdr")
 	})
 
 	t.Run("test generate presentation - invalid request", func(t *testing.T) {
