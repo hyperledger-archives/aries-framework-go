@@ -115,14 +115,14 @@ func TestService_Handle_Inviter(t *testing.T) {
 		CustomKMS: k,
 	}
 
-	pubKey := newED25519DIDKey(t, k)
+	verPubKey, encPubKey := newED25519AndX25519DIDKey(t, k)
 	connRec, err := connection.NewRecorder(prov)
 	require.NoError(t, err)
 	require.NotNil(t, connRec)
 
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(verPubKey, encPubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionRecorder: connRec,
 		kms:                k,
@@ -153,7 +153,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		Type:            InvitationMsgType,
 		ID:              randomString(),
 		Label:           "Bob",
-		RecipientKeys:   []string{pubKey},
+		RecipientKeys:   []string{verPubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
@@ -263,7 +263,7 @@ func newKMS(t *testing.T, store storage.Provider) kms.KeyManager {
 	return customKMS
 }
 
-func newED25519DIDKey(t *testing.T, k kms.KeyManager) string {
+func newED25519AndX25519DIDKey(t *testing.T, k kms.KeyManager) (string, string) {
 	t.Helper()
 
 	_, pubKey, err := k.CreateAndExportPubKeyBytes(kms.ED25519)
@@ -271,7 +271,12 @@ func newED25519DIDKey(t *testing.T, k kms.KeyManager) string {
 
 	didKey, _ := fingerprint.CreateDIDKey(pubKey)
 
-	return didKey
+	_, encPubKey, err := k.CreateAndExportPubKeyBytes(kms.X25519ECDHKW)
+	require.NoError(t, err)
+
+	encDIDKey, _ := fingerprint.CreateDIDKeyByCode(fingerprint.X25519PubKeyMultiCodec, encPubKey)
+
+	return didKey, encDIDKey
 }
 
 // did-exchange flow with role Invitee.
@@ -288,7 +293,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		CustomKMS: k,
 	}
 
-	pubKey := newED25519DIDKey(t, k)
+	verPubKey, encPubKey := newED25519AndX25519DIDKey(t, k)
 
 	connRec, err := connection.NewRecorder(prov)
 	require.NoError(t, err)
@@ -296,7 +301,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(verPubKey, encPubKey)},
 		crypto:             &tinkcrypto.Crypto{},
 		connectionRecorder: connRec,
 		kms:                k,
@@ -328,7 +333,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		Type:            InvitationMsgType,
 		ID:              randomString(),
 		Label:           "Bob",
-		RecipientKeys:   []string{pubKey},
+		RecipientKeys:   []string{verPubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
@@ -855,7 +860,7 @@ func TestEventsSuccess(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519DIDKey(t, k)
+	pubKey, _ := newED25519AndX25519DIDKey(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -898,7 +903,7 @@ func TestContinueWithPublicDID(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519DIDKey(t, k)
+	pubKey, _ := newED25519AndX25519DIDKey(t, k)
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
@@ -1176,11 +1181,11 @@ func TestInvitationRecord(t *testing.T) {
 
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
-	pubKey := newED25519DIDKey(t, k)
+	verPubKey, _ := newED25519AndX25519DIDKey(t, k)
 	invitationBytes, err := json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
 		ID:            "id",
-		RecipientKeys: []string{pubKey},
+		RecipientKeys: []string{verPubKey},
 	})
 	require.NoError(t, err)
 
@@ -1218,7 +1223,7 @@ func TestInvitationRecord(t *testing.T) {
 	invitationBytes, err = json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
 		ID:            "id",
-		RecipientKeys: []string{pubKey},
+		RecipientKeys: []string{verPubKey},
 	})
 	require.NoError(t, err)
 
@@ -1394,12 +1399,12 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	k := newKMS(t, sp)
-	pubKey := newED25519DIDKey(t, k)
+	verPubKey, _ := newED25519AndX25519DIDKey(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
 		Label:           "Bob",
-		RecipientKeys:   []string{pubKey},
+		RecipientKeys:   []string{verPubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
@@ -1462,12 +1467,12 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 	require.NoError(t, err)
 
 	k := newKMS(t, sp)
-	pubKey := newED25519DIDKey(t, k)
+	verPubKey, _ := newED25519AndX25519DIDKey(t, k)
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
 		ID:              randomString(),
 		Label:           "Bob",
-		RecipientKeys:   []string{pubKey},
+		RecipientKeys:   []string{verPubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
@@ -1555,11 +1560,11 @@ func TestAcceptInvitation(t *testing.T) {
 			}
 		}()
 		k := newKMS(t, sp)
-		pubKey := newED25519DIDKey(t, k)
+		verPubKey, _ := newED25519AndX25519DIDKey(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
-			RecipientKeys: []string{pubKey},
+			RecipientKeys: []string{verPubKey},
 		})
 		require.NoError(t, err)
 
@@ -1689,11 +1694,11 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 			}
 		}()
 		k := newKMS(t, sp)
-		pubKey := newED25519DIDKey(t, k)
+		verPubKey, _ := newED25519AndX25519DIDKey(t, k)
 		invitationBytes, err := json.Marshal(&Invitation{
 			Type:          InvitationMsgType,
 			ID:            generateRandomID(),
-			RecipientKeys: []string{pubKey},
+			RecipientKeys: []string{verPubKey},
 		})
 		require.NoError(t, err)
 
@@ -1944,8 +1949,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519DIDKey(t, k)
-		newDIDDoc := createDIDDocWithKey(pubKey)
+		verPubKey, encPubKey := newED25519AndX25519DIDKey(t, k)
+		newDIDDoc := createDIDDocWithKey(verPubKey, encPubKey)
 
 		connRec, err := connection.NewRecorder(prov)
 		require.NoError(t, err)
@@ -1982,8 +1987,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519DIDKey(t, k)
-		newDIDDoc := createDIDDocWithKey(pubKey)
+		verPubKey, encPubKey := newED25519AndX25519DIDKey(t, k)
+		newDIDDoc := createDIDDocWithKey(verPubKey, encPubKey)
 
 		connRec, err := connection.NewRecorder(prov)
 		require.NoError(t, err)
@@ -2023,8 +2028,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		}
 		sp := mockstorage.NewMockStoreProvider()
 		k := newKMS(t, sp)
-		pubKey := newED25519DIDKey(t, k)
-		newDIDDoc := createDIDDocWithKey(pubKey)
+		verPubKey, encPubKey := newED25519AndX25519DIDKey(t, k)
+		newDIDDoc := createDIDDocWithKey(verPubKey, encPubKey)
 
 		connRec, err := connection.NewRecorder(prov)
 		require.NoError(t, err)
