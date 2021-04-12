@@ -721,9 +721,9 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 
 			return command.NewValidationError(GeneratePresentationErrorCode,
 				fmt.Errorf("generate vp by id - failed to get did doc from store or vdr : %w", err))
-		} else {
-			didDoc = doc.DIDDocument
 		}
+
+		didDoc = doc.DIDDocument
 	}
 
 	return o.generatePresentationByID(rw, vc, didDoc, request.SignatureType)
