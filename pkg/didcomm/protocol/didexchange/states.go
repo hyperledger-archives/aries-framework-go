@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -52,6 +55,8 @@ const (
 	didMethod                  = "peer"
 	timestamplen               = 8
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+	bls12381G2Key2020          = "Bls12381G2Key2020"
+	jsonWebKey2020             = "JsonWebKey2020"
 )
 
 var errVerKeyNotFound = errors.New("verkey not found")
@@ -509,24 +514,15 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 		services = append(services, did.Service{})
 	}
 
-	id, pubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	newDID := &did.Doc{Service: services}
+
+	err := createNewKeyAndVerificationMethod(newDID, kms.ED25519, ctx.kms)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create and export public key: %w", err)
 	}
 
 	// by default use peer did
-	docResolution, err := ctx.vdRegistry.Create(
-		didMethod, &did.Doc{
-			Service: services,
-			VerificationMethod: []did.VerificationMethod{
-				{
-					ID:    "#" + id,
-					Type:  ed25519VerificationKey2018,
-					Value: pubKeyBytes,
-				},
-			},
-		},
-	)
+	docResolution, err := ctx.vdRegistry.Create(didMethod, newDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
@@ -557,6 +553,99 @@ func (ctx *context) getDIDDocAndConnection(pubDID string, routerConnections []st
 	}
 
 	return docResolution.DIDDocument, connection, nil
+}
+
+func createNewKeyAndVerificationMethod(didDoc *did.Doc, keyType kms.KeyType, keyManager kms.KeyManager) error {
+	vmType := getVerMethodType(keyType)
+
+	kid, pubKeyBytes, err := keyManager.CreateAndExportPubKeyBytes(keyType)
+	if err != nil {
+		return err
+	}
+
+	pubKeyBytes, err = convertPubKeyBytes(pubKeyBytes, keyType)
+	if err != nil {
+		return err
+	}
+
+	vm := did.VerificationMethod{
+		ID:    "#" + kid,
+		Type:  vmType,
+		Value: pubKeyBytes,
+	}
+
+	didDoc.VerificationMethod = append(didDoc.VerificationMethod, vm)
+
+	// TODO replace below authentication with a KeyAgreement method when/if DID attachment doesn't require to be signed
+	//  as per https://github.com/hyperledger/aries-rfcs/pull/626. If the PR is declined, then only remove this comment.
+	//  KeyAgreement is needed for envelope encryption regardless. It must be added in a future change.
+	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(&vm, did.Authentication))
+
+	return nil
+}
+
+/* func extractKeyTypeFromOpts(createDIDOpts *vdrapi.DIDMethodOpts) (kms.KeyType, error) {
+	var keyType kms.KeyType
+
+	k := createDIDOpts.Values[keyvdr.KeyType]
+	if k != nil {
+		var ok bool
+		keyType, ok = k.(kms.KeyType)
+
+		if !ok {
+			return "", errors.New("keyType is not kms.KeyType")
+		}
+
+		return keyType, nil
+	}
+
+	return "", errors.New("keyType option is needed for empty didDoc.VerificationMethod")
+} */
+
+// convertPubKeyBytes converts marshalled bytes into 'did:key' ready to use public key bytes. This is mainly useful for
+// ECDSA keys. The elliptic.Marshal() function returns 65 bytes (for P-256 curves) where the first byte is the
+// compression point, it must be truncated to build a proper public key for did:key construction. It must be set back
+// when building a public key from did:key (using default compression point value is 4 for non compressed marshalling,
+// see: https://github.com/golang/go/blob/master/src/crypto/elliptic/elliptic.go#L319).
+func convertPubKeyBytes(bytes []byte, keyType kms.KeyType) ([]byte, error) {
+	switch keyType {
+	case kms.ED25519Type, kms.BLS12381G2Type: // no conversion needed for non ECDSA keys.
+		return bytes, nil
+	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+		// truncate first byte to remove compression point.
+		return bytes[1:], nil
+	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+		pubKey, err := x509.ParsePKIXPublicKey(bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		ecKey, ok := pubKey.(*ecdsa.PublicKey)
+		if !ok {
+			return nil, errors.New("invalid EC key")
+		}
+
+		// truncate first byte to remove compression point.
+		return elliptic.Marshal(ecKey.Curve, ecKey.X, ecKey.Y)[1:], nil
+	default:
+		return nil, errors.New("invalid key type")
+	}
+}
+
+// nolint:gochecknoglobals
+var vmType = map[kms.KeyType]string{
+	kms.ED25519Type:            ed25519VerificationKey2018,
+	kms.BLS12381G2Type:         bls12381G2Key2020,
+	kms.ECDSAP256TypeDER:       jsonWebKey2020,
+	kms.ECDSAP256TypeIEEEP1363: jsonWebKey2020,
+	kms.ECDSAP384TypeDER:       jsonWebKey2020,
+	kms.ECDSAP384TypeIEEEP1363: jsonWebKey2020,
+	kms.ECDSAP521TypeDER:       jsonWebKey2020,
+	kms.ECDSAP521TypeIEEEP1363: jsonWebKey2020,
+}
+
+func getVerMethodType(kt kms.KeyType) string {
+	return vmType[kt]
 }
 
 func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, error) {

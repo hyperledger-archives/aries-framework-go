@@ -8,12 +8,17 @@ go 1.16
 
 require (
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go v0.1.5-0.20201017112511-5734c20820a9
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210320144851-40976de98ccf
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210320144851-40976de98ccf
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210310160016-d5eea2ecdd50
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210409151411-eeeb8508bd87
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210409151411-eeeb8508bd87
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210409151411-eeeb8508bd87
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210409151411-eeeb8508bd87
 	github.com/stretchr/testify v1.7.0
 	nhooyr.io/websocket v1.8.3
 )
 
-replace github.com/hyperledger/aries-framework-go => ../../
+replace (
+	github.com/hyperledger/aries-framework-go => ../../
+	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
+	github.com/hyperledger/aries-framework-go/spi => ../../spi
+	github.com/hyperledger/aries-framework-go/test/component => ../../test/component
+)
