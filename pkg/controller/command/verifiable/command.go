@@ -711,16 +711,24 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-	doc, err := o.didStore.GetDID(request.DID)
-	if err != nil {
-		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
-			"failed to get did doc from store: "+err.Error())
+  var didDoc *did.Doc
 
-		return command.NewValidationError(GeneratePresentationErrorCode,
-			fmt.Errorf("failed to get did doc from store : %w", err))
+	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
+	//  if did not found in VDR, look through in local storage
+	if err != nil {
+		didDoc, err = o.didStore.GetDID(request.DID)
+		if err != nil {
+			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
+				"failed to get did doc from store or vdr: "+err.Error())
+
+			return command.NewValidationError(GeneratePresentationErrorCode,
+				fmt.Errorf("generate vp by id - failed to get did doc from store or vdr : %w", err))
+		}
+	} else {
+		didDoc = doc.DIDDocument
 	}
 
-	return o.generatePresentationByID(rw, vc, doc, request.SignatureType)
+	return o.generatePresentationByID(rw, vc, didDoc, request.SignatureType)
 }
 
 // RemoveCredentialByName will remove a VC that matches the specified name from the verifiable store.
