@@ -711,21 +711,19 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-	var didDoc *did.Doc
-
-	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
-	//  if did not found in VDR, look through in local storage
+	//  if caches DID, local storage should be looked first
+	didDoc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		didDoc, err = o.didStore.GetDID(request.DID)
+		doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(GeneratePresentationErrorCode,
 				fmt.Errorf("generate vp by id - failed to get did doc from store or vdr : %w", err))
+		} else {
+			didDoc = doc.DIDDocument
 		}
-	} else {
-		didDoc = doc.DIDDocument
 	}
 
 	return o.generatePresentationByID(rw, vc, didDoc, request.SignatureType)
