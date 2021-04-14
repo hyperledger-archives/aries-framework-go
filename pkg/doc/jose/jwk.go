@@ -24,6 +24,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 	secp256k1Size  = 32
 	bitsPerByte    = 8
 	x25519Crv      = "X25519"
+	ed25519Crv     = "Ed25519"
 	okpKty         = "OKP"
 	bls12381G2Crv  = "BLS12381G2"
 	bls12381G2Size = 96
@@ -213,6 +215,46 @@ func (j *JWK) MarshalJSON() ([]byte, error) {
 	return (&j.JSONWebKey).MarshalJSON()
 }
 
+// KeyType returns the kms KeyType of the JWK, or an error if the JWK is of an unrecognized type.
+func (j *JWK) KeyType() (kms.KeyType, error) {
+	switch key := j.Key.(type) {
+	case ed25519.PublicKey, ed25519.PrivateKey:
+		return kms.ED25519Type, nil
+	case *bbs12381g2pub.PublicKey, *bbs12381g2pub.PrivateKey:
+		return kms.BLS12381G2Type, nil
+	case *ecdsa.PublicKey:
+		return ecdsaPubKeyType(key)
+	case *ecdsa.PrivateKey:
+		return ecdsaPubKeyType(&(key.PublicKey))
+	}
+
+	switch {
+	case isX25519(j.Kty, j.Crv):
+		return kms.X25519ECDHKWType, nil
+	case isEd25519(j.Kty, j.Crv):
+		return kms.ED25519Type, nil
+	case isSecp256k1(j.Algorithm, j.Kty, j.Crv):
+		return kms.ECDSASecp256k1TypeIEEEP1363, nil
+	default:
+		return "", fmt.Errorf("no keytype recognized for jwk")
+	}
+}
+
+func ecdsaPubKeyType(pub *ecdsa.PublicKey) (kms.KeyType, error) {
+	switch pub.Curve {
+	case btcec.S256():
+		return kms.ECDSASecp256k1TypeIEEEP1363, nil
+	case elliptic.P256():
+		return kms.ECDSAP256TypeIEEEP1363, nil
+	case elliptic.P384():
+		return kms.ECDSAP384TypeIEEEP1363, nil
+	case elliptic.P521():
+		return kms.ECDSAP521TypeIEEEP1363, nil
+	}
+
+	return "", fmt.Errorf("no keytype recognized for ecdsa jwk")
+}
+
 func (j *JWK) isX25519() bool {
 	switch j.Key.(type) {
 	case []byte:
@@ -248,6 +290,10 @@ func isSecp256k1Key(pubKey interface{}) bool {
 
 func isX25519(kty, crv string) bool {
 	return strings.EqualFold(kty, okpKty) && strings.EqualFold(crv, x25519Crv)
+}
+
+func isEd25519(kty, crv string) bool {
+	return strings.EqualFold(kty, okpKty) && strings.EqualFold(crv, ed25519Crv)
 }
 
 func isBLS12381G2(kty, crv string) bool {

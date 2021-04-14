@@ -93,6 +93,12 @@ type Response struct {
 	ID                  string               `json:"@id,omitempty"`
 	ConnectionSignature *ConnectionSignature `json:"connection~sig,omitempty"`
 	Thread              *decorator.Thread    `json:"~thread,omitempty"`
+	// DID the did of the responder.
+	// Mandatory in did-exchange, but optional for backwards-compatibility with rfc 0160 connection protocol.
+	DID string `json:"did,omitempty"`
+	// DocAttach an attachment containing the did doc of the responder.
+	// Optional, a responder may provide a publicly-resolvable DID, rather than including an attached did doc.
+	DocAttach *decorator.Attachment `json:"did_doc~attach,omitempty"`
 }
 
 // ConnectionSignature connection signature.
@@ -107,4 +113,12 @@ type ConnectionSignature struct {
 type Connection struct {
 	DID    string   `json:"did,omitempty"`
 	DIDDoc *did.Doc `json:"did_doc,omitempty"`
+}
+
+// Complete defines a2a DID exchange complete message.
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#3-exchange-complete
+type Complete struct {
+	Type   string            `json:"@type,omitempty"`
+	ID     string            `json:"@id,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
 }

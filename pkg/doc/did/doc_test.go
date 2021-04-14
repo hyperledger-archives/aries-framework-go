@@ -1757,6 +1757,20 @@ func TestDoc_VerificationMethods(t *testing.T) {
 	require.Len(t, methods[VerificationRelationshipGeneral], 4)
 }
 
+func TestDoc_SerializeInterop(t *testing.T) {
+	doc, err := ParseDocument([]byte(validDoc))
+	require.NoError(t, err)
+
+	docJSON, err := doc.JSONBytes()
+	require.NoError(t, err)
+
+	docInteropJSON, err := doc.SerializeInterop()
+	require.NoError(t, err)
+
+	// in default mode, SerializeInterop should return the regular did doc
+	require.Equal(t, docJSON, docInteropJSON)
+}
+
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	const (
 		didContext      = "https://www.w3.org/ns/did/v1"

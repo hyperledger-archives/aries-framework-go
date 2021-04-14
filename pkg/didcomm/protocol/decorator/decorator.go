@@ -11,7 +11,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
@@ -92,6 +98,8 @@ type AttachmentData struct {
 	// JSON is a directly embedded JSON data, when representing content inline instead of via links,
 	// and when the content is natively conveyable as JSON. Optional.
 	JSON interface{} `json:"json,omitempty"`
+	// JWS is a JSON web signature over the encoded data, in detached format.
+	JWS json.RawMessage `json:"jws,omitempty"`
 }
 
 // Fetch this attachment's contents.
@@ -118,7 +126,176 @@ func (d *AttachmentData) Fetch() ([]byte, error) {
 
 	// TODO add support to fetch links
 
-	// TODO add support for jws signatures
-
 	return nil, errors.New("no contents in this attachment")
+}
+
+type rawSig struct {
+	Header    rawSigHeader `json:"header,omitempty"`
+	Signature string       `json:"signature,omitempty"`
+	Protected string       `json:"protected,omitempty"`
+}
+
+type rawSigHeader struct {
+	KID string `json:"kid,omitempty"`
+}
+
+type rawProtected struct {
+	JWK json.RawMessage `json:"jwk,omitempty"`
+	Alg string          `json:"alg,omitempty"`
+}
+
+// Sign signs the base64 payload of the AttachmentData, and adds the signature to the attachment.
+func (d *AttachmentData) Sign(c crypto.Crypto, kh, pub interface{}, pubBytes []byte) error { // nolint:funlen,gocyclo
+	didKey, _ := fingerprint.CreateDIDKey(pubBytes)
+
+	jwk, err := jose.JWKFromKey(pub)
+	if err != nil {
+		return fmt.Errorf("creating jwk from pub key: %w", err)
+	}
+
+	jwk.KeyID = didKey
+
+	jwkBytes, err := jwk.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshaling jwk: %w", err)
+	}
+
+	protected := rawProtected{
+		JWK: jwkBytes,
+	}
+
+	kty, err := jwk.KeyType()
+	if err != nil {
+		return fmt.Errorf("getting keytype: %w", err)
+	}
+
+	switch kty {
+	case kms.ED25519Type:
+		protected.Alg = "EdDSA"
+	case kms.ECDSAP256TypeIEEEP1363:
+		protected.Alg = "ES256"
+	case kms.ECDSAP384TypeIEEEP1363:
+		protected.Alg = "ES384"
+	case kms.ECDSAP521TypeIEEEP1363:
+		protected.Alg = "ES512"
+	default:
+		return fmt.Errorf("unsupported KeyType for attachment signing")
+	}
+
+	protectedBytes, err := json.Marshal(protected)
+	if err != nil {
+		return fmt.Errorf("marshaling protected header: %w", err)
+	}
+
+	protectedB64 := base64.RawURLEncoding.EncodeToString(protectedBytes)
+
+	var b64data string
+
+	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
+	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
+	if doACAPyInterop {
+		b64data = b64ToRawURL(d.Base64)
+	} else {
+		b64data = d.Base64
+	}
+
+	signedData := fmt.Sprintf("%s.%s", protectedB64, b64data)
+
+	sig, err := c.Sign([]byte(signedData), kh)
+	if err != nil {
+		return fmt.Errorf("signing data: %w", err)
+	}
+
+	jws := rawSig{
+		Header: rawSigHeader{
+			KID: didKey,
+		},
+		Protected: protectedB64,
+		Signature: base64.RawURLEncoding.EncodeToString(sig),
+	}
+
+	serializedJWS, err := json.Marshal(jws)
+	if err != nil {
+		return fmt.Errorf("marshaling jws: %w", err)
+	}
+
+	d.JWS = serializedJWS
+
+	return nil
+}
+
+func b64ToRawURL(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.Trim(s, "="), "+", "-"), "/", "_")
+}
+
+// Verify verify the signature on the attachment data.
+func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) error { // nolint:funlen,gocyclo
+	if d.JWS == nil {
+		return fmt.Errorf("no signature to verify")
+	}
+
+	jws := rawSig{}
+
+	err := json.Unmarshal(d.JWS, &jws)
+	if err != nil {
+		return fmt.Errorf("parsing jws: %w", err)
+	}
+
+	sigKey, err := fingerprint.PubKeyFromDIDKey(jws.Header.KID)
+	if err != nil {
+		return fmt.Errorf("parsing did:key '%s': %w", jws.Header.KID, err)
+	}
+
+	protectedBytes, err := base64.RawURLEncoding.DecodeString(jws.Protected)
+	if err != nil {
+		return fmt.Errorf("decoding protected header: %w", err)
+	}
+
+	var protected rawProtected
+
+	err = json.Unmarshal(protectedBytes, &protected)
+	if err != nil {
+		return fmt.Errorf("parsing protected header: %w", err)
+	}
+
+	jwk := jose.JWK{}
+
+	err = jwk.UnmarshalJSON(protected.JWK)
+	if err != nil {
+		return fmt.Errorf("parsing jwk: %w", err)
+	}
+
+	keyType, err := jwk.KeyType()
+	if err != nil {
+		return fmt.Errorf("getting KeyType for jwk: %w", err)
+	}
+
+	kh, err := keyManager.PubKeyBytesToHandle(sigKey, keyType)
+	if err != nil {
+		return fmt.Errorf("creating key handle: %w", err)
+	}
+
+	sig, err := base64.RawURLEncoding.DecodeString(jws.Signature)
+	if err != nil {
+		return fmt.Errorf("decoding signature: %w", err)
+	}
+
+	var b64data string
+
+	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
+	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
+	if doACAPyInterop {
+		b64data = b64ToRawURL(d.Base64)
+	} else {
+		b64data = d.Base64
+	}
+
+	signedData := fmt.Sprintf("%s.%s", jws.Protected, b64data)
+
+	err = c.Verify(sig, []byte(signedData), kh)
+	if err != nil {
+		return fmt.Errorf("signature verification: %w", err)
+	}
+
+	return nil
 }

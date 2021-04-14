@@ -1159,7 +1159,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 		recipientKeys := make([]string, 0)
 
 		for _, v := range services[i].RecipientKeys {
-			if services[i].routingKeysRelativeURL[v] {
+			if services[i].recipientKeysRelativeURL[v] {
 				recipientKeys = append(recipientKeys, makeRelativeDIDURL(v, baseURI, didID))
 				continue
 			}

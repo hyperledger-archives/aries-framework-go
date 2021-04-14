@@ -536,6 +536,7 @@ func TestService_Accept(t *testing.T) {
 	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/request"))
 	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/response"))
 	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/ack"))
+	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/complete"))
 	require.Equal(t, false, s.Accept("unsupported msg type"))
 }
 
