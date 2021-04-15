@@ -8,8 +8,9 @@
 
 @all
 @controller
+@outofband
 @outofband_controller_sdk
-Feature: Out-Of-Band protocol
+Feature: Out-Of-Band protocol (REST API)
 
   Background:
     Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"

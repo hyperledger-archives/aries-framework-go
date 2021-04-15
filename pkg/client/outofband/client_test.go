@@ -277,7 +277,7 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation, string, []string) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, outofband.Options) (string, error) {
 					return expected, nil
 				},
 			},
@@ -293,7 +293,7 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation, string, []string) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, outofband.Options) (string, error) {
 					return "", expected
 				},
 			},
@@ -359,16 +359,16 @@ func withTestProvider() *mockprovider.Provider {
 
 type stubOOBService struct {
 	service.Event
-	acceptInvFunc      func(*outofband.Invitation, string, []string) (string, error)
+	acceptInvFunc      func(*outofband.Invitation, outofband.Options) (string, error)
 	saveInvFunc        func(*outofband.Invitation) error
 	actionsFunc        func() ([]outofband.Action, error)
 	actionContinueFunc func(string, outofband.Options) error
 	actionStopFunc     func(piid string, err error) error
 }
 
-func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation, myLabel string, conns []string) (string, error) {
+func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation, o outofband.Options) (string, error) {
 	if s.acceptInvFunc != nil {
-		return s.acceptInvFunc(i, myLabel, conns)
+		return s.acceptInvFunc(i, o)
 	}
 
 	return "", nil

@@ -40,6 +40,7 @@ type SDKSteps struct {
 	bddContext      *context.BDDContext
 	didExchangeSDKS *didexchangebdd.SDKSteps
 	outofbandSDKS   *outofbandbdd.SDKSteps
+	issueCredSDKS   *issuecredential.SDKSteps
 	invitationID    string
 	clients         map[string]*introduce.Client
 	actions         map[string]chan service.DIDCommAction
@@ -58,6 +59,15 @@ func NewIntroduceSDKSteps() *SDKSteps {
 // SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
+	a.didExchangeSDKS = didexchangebdd.NewDIDExchangeSDKSteps()
+	a.didExchangeSDKS.SetContext(ctx)
+	a.outofbandSDKS = outofbandbdd.NewOutOfBandSDKSteps()
+	a.outofbandSDKS.SetContext(ctx)
+	a.issueCredSDKS = issuecredential.NewIssueCredentialSDKSteps()
+	a.issueCredSDKS.SetContext(ctx)
+	a.clients = make(map[string]*introduce.Client)
+	a.actions = make(map[string]chan service.DIDCommAction)
+	a.events = make(map[string]chan service.StateMsg)
 }
 
 // RegisterSteps registers agent steps.
@@ -413,14 +423,14 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
 		}
 
-		req, err := a.newOOBInvitation(agentID, request)
+		inv, err := a.newOOBInvitation(agentID, request)
 		if err != nil {
 			return err
 		}
 
-		e.Continue(introduce.WithOOBInvitation(req))
+		e.Continue(introduce.WithOOBInvitation(inv))
 
-		go a.outofbandSDKS.ApproveOOBInvitation(agentID, &outofband.EventOptions{Label: agentID})
+		go a.outofbandSDKS.ApproveOOBInvitation(introduceeID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}

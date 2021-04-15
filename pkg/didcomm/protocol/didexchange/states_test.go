@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestNoopState(t *testing.T) {
@@ -897,8 +898,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
 		connectionSignature, err := ctx.prepareConnectionSignature(c, "test")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get invitation for signature: data not found")
+		require.ErrorIs(t, err, storage.ErrDataNotFound)
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
@@ -910,8 +910,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 		connectionSignature, err := ctx.prepareConnectionSignature(c, inv.ID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get invitation for signature: data not found")
+		require.ErrorIs(t, err, storage.ErrDataNotFound)
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature error", func(t *testing.T) {

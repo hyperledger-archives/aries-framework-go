@@ -28,18 +28,18 @@ import (
 
 // MockProvider is provider for DIDExchange Service.
 type MockProvider struct {
-	StoreProvider              storage.Provider
-	ProtocolStateStoreProvider storage.Provider
-	CustomVDR                  vdrapi.Registry
-	CustomOutbound             *mockdispatcher.MockOutbound
-	CustomMessenger            *mockservice.MockMessenger
-	CustomKMS                  kms.KeyManager
-	CustomLock                 secretlock.Service
-	CustomCrypto               *mockcrypto.Crypto
-	ServiceErr                 error
-	ServiceMap                 map[string]interface{}
-	InboundMsgHandler          transport.InboundMessageHandler
-	OutboundMsgHandler         service.OutboundHandler
+	StoreProvider                storage.Provider
+	ProtocolStateStoreProvider   storage.Provider
+	CustomVDR                    vdrapi.Registry
+	CustomOutbound               *mockdispatcher.MockOutbound
+	CustomMessenger              *mockservice.MockMessenger
+	CustomKMS                    kms.KeyManager
+	CustomLock                   secretlock.Service
+	CustomCrypto                 *mockcrypto.Crypto
+	ServiceErr                   error
+	ServiceMap                   map[string]interface{}
+	InboundMsgHandler            transport.InboundMessageHandler
+	InboundDIDCommMsgHandlerFunc func() service.InboundHandler
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -124,9 +124,9 @@ func (p *MockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 	return p.InboundMsgHandler
 }
 
-// OutboundMessageHandler handles an outbound message.
-func (p *MockProvider) OutboundMessageHandler() service.OutboundHandler {
-	return p.OutboundMsgHandler
+// InboundDIDCommMessageHandler returns a supplier of inbound message handlers.
+func (p *MockProvider) InboundDIDCommMessageHandler() func() service.InboundHandler {
+	return p.InboundDIDCommMsgHandlerFunc
 }
 
 // DIDConnectionStore returns DID connection store.

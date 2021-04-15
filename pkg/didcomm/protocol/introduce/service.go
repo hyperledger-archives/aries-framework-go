@@ -38,8 +38,7 @@ const (
 	AckMsgType = IntroduceSpec + "ack"
 	// ProblemReportMsgType defines the introduce problem-report message type.
 	ProblemReportMsgType = IntroduceSpec + "problem-report"
-	// stateOOBInvited the outofband protocol state name to determine specific event.
-	stateOOBInvited = "invited"
+	stateOOBInitial      = "initial"
 )
 
 const (
@@ -258,7 +257,8 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 // OOBMessageReceived is used to finish the state machine
 // the function should be called by the out-of-band service after receiving an oob message.
 func (s *Service) OOBMessageReceived(msg service.StateMsg) error {
-	if msg.StateID != stateOOBInvited || msg.Type != service.PostState || msg.Msg.ParentThreadID() == "" {
+	// TODO we should verify if this parent thread ID is an instance of the introduce protocol
+	if msg.StateID != stateOOBInitial || msg.Type != service.PreState || msg.Msg.ParentThreadID() == "" {
 		return nil
 	}
 

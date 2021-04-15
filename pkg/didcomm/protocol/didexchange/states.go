@@ -388,6 +388,8 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
+	logger.Debugf("handling request: %+v", request)
+
 	reqConn, err := getRequestConnection(request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("extracting connection data from request: %w", err)
@@ -397,6 +399,8 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve did doc from exchange request connection: %w", err)
 	}
+
+	logger.Debugf("requestDIDDoc: %+v", requestDidDoc)
 
 	// get did document that will be used in exchange response
 	// (my did doc)
@@ -850,7 +854,7 @@ func (ctx *context) getVerKey(invitationID string) (string, error) {
 	} else {
 		err = ctx.connectionRecorder.GetInvitation(invitationID, &invitation)
 		if err != nil {
-			return "", fmt.Errorf("get invitation for signature: %w", err)
+			return "", fmt.Errorf("get invitation for signature [invitationID=%s]: %w", invitationID, err)
 		}
 	}
 
