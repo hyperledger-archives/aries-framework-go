@@ -179,6 +179,18 @@ type generatePresentationReq struct { // nolint: unused,deadcode
 	Params verifiable.PresentationRequest
 }
 
+// generatePresentationByIDReq model
+//
+// This is used to generate the verifiable presentation by id.
+//
+// swagger:parameters generatePresentationByIDReq
+type generatePresentationByIDReq struct { // nolint: unused,deadcode
+	// Params for generating the verifiable presentation by id (pass the vc document as a raw JSON)
+	//
+	// in: body
+	Params verifiable.PresentationRequestByID
+}
+
 // presentationRes model
 //
 // This is used for returning the verifiable presentation
