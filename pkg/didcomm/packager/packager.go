@@ -112,7 +112,7 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 
 	// TODO find a way to dynamically select a packer based on FromKey, recipients and their types.
 	//      https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
-	//      Use transport.Envelope.MediaType for this.
+	//      Use transport.Envelope.MediaTypeProfile for this.
 	bytes, err := bp.primaryPacker.Pack(cty, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
 	if err != nil {
 		return nil, fmt.Errorf("packMessage: failed to pack: %w", err)

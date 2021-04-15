@@ -186,11 +186,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 					}
 				}
 
-				_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID,
-					map[string]interface{}{
-						service.DIDCommContextEnvelopeMediaTypeKey: envelope.MediaType,
-					},
-				))
+				_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
 
 				return err
 			}
@@ -214,12 +210,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 					return fmt.Errorf("inbound message handler: %w", err)
 				}
 
-				return p.tryToHandle(svc, msg, service.NewDIDCommContext(
-					myDID, theirDID,
-					map[string]interface{}{
-						service.DIDCommContextEnvelopeMediaTypeKey: envelope.MediaType,
-					},
-				))
+				return p.tryToHandle(svc, msg, service.NewDIDCommContext(myDID, theirDID, nil))
 			}
 		}
 

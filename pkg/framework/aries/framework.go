@@ -426,12 +426,17 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithPackager(frameworkOpts.packager),
 		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
 		context.WithVDRegistry(frameworkOpts.vdrRegistry),
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	frameworkOpts.outboundDispatcher = dispatcher.NewOutbound(ctx)
+	frameworkOpts.outboundDispatcher, err = dispatcher.NewOutbound(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to init outbound dispatcher: %w", err)
+	}
 
 	return nil
 }

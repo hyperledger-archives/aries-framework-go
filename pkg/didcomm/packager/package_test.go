@@ -156,10 +156,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// PackMessage should pass with both value from and to keys
 		packMsg, err := packager.PackMessage(&transport.Envelope{
-			MediaType: transport.MediaTypeV1EncryptedEnvelope,
-			Message:   []byte("msg1"),
-			FromKey:   []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
-			ToKeys:    []string{didKey},
+			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
+			Message:          []byte("msg1"),
+			FromKey:          []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
+			ToKeys:           []string{didKey},
 		})
 		require.NoError(t, err)
 
@@ -223,10 +223,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// now try to pack with non empty envelope - should pass
 		packMsg, err = packager.PackMessage(&transport.Envelope{
-			MediaType: transport.MediaTypeV1EncryptedEnvelope,
-			Message:   []byte("msg1"),
-			FromKey:   []byte(fromKID),
-			ToKeys:    []string{didKey},
+			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
+			Message:          []byte("msg1"),
+			FromKey:          []byte(fromKID),
+			ToKeys:           []string{didKey},
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, packMsg)
@@ -246,10 +246,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err = New(mockedProviders)
 		require.NoError(t, err)
 		packMsg, err = packager.PackMessage(&transport.Envelope{
-			MediaType: transport.MediaTypeV1EncryptedEnvelope,
-			Message:   []byte("msg1"),
-			FromKey:   []byte(fromKID),
-			ToKeys:    []string{didKey},
+			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
+			Message:          []byte("msg1"),
+			FromKey:          []byte(fromKID),
+			ToKeys:           []string{didKey},
 		})
 		require.Error(t, err)
 		require.Empty(t, packMsg)
@@ -297,10 +297,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
-			MediaType: transport.MediaTypeV1EncryptedEnvelope,
-			Message:   []byte("msg1"),
-			FromKey:   []byte(fromKID),
-			ToKeys:    []string{didKey},
+			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
+			Message:          []byte("msg1"),
+			FromKey:          []byte(fromKID),
+			ToKeys:           []string{didKey},
 		})
 		require.NoError(t, err)
 
@@ -331,10 +331,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKey)
 
 		packMsg, err = packager2.PackMessage(&transport.Envelope{
-			MediaType: transport.MediaTypeV1EncryptedEnvelope,
-			Message:   []byte("msg2"),
-			FromKey:   fromKey,
-			ToKeys:    []string{legacyDIDKey},
+			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
+			Message:          []byte("msg2"),
+			FromKey:          fromKey,
+			ToKeys:           []string{legacyDIDKey},
 		})
 		require.NoError(t, err)
 

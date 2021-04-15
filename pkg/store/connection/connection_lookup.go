@@ -44,21 +44,21 @@ type provider interface {
 
 // Record contain info about did exchange connection.
 type Record struct {
-	ConnectionID    string
-	State           string
-	ThreadID        string
-	ParentThreadID  string
-	TheirLabel      string
-	TheirDID        string
-	MyDID           string
-	ServiceEndPoint string
-	RecipientKeys   []string
-	RoutingKeys     []string
-	InvitationID    string
-	InvitationDID   string
-	Implicit        bool
-	Namespace       string
-	MediaTypes      []string
+	ConnectionID      string
+	State             string
+	ThreadID          string
+	ParentThreadID    string
+	TheirLabel        string
+	TheirDID          string
+	MyDID             string
+	ServiceEndPoint   string
+	RecipientKeys     []string
+	RoutingKeys       []string
+	InvitationID      string
+	InvitationDID     string
+	Implicit          bool
+	Namespace         string
+	MediaTypeProfiles []string
 }
 
 // NewLookup returns new connection lookup instance.
