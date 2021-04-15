@@ -51,9 +51,11 @@ type outofbandCreateInvitationResponse struct { // nolint: unused,deadcode
 type outofbandAcceptInvitationRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
-		Invitation        struct{ *protocol.Invitation } `json:"invitation"`
-		MyLabel           string                         `json:"my_label"`
-		RouterConnections string                         `json:"router_connections"`
+		Invitation         struct{ *protocol.Invitation } `json:"invitation"`
+		MyLabel            string                         `json:"my_label"`
+		RouterConnections  string                         `json:"router_connections"`
+		ReuseConnection    string                         `json:"reuse_connection"`
+		ReuseAnyConnection bool                           `json:"reuse_any_connection"`
 	}
 }
 

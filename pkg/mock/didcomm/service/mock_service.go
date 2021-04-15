@@ -11,6 +11,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 // MockMessenger mock implementation of messenger.
 type MockMessenger struct {
 	ErrReplyTo           error
+	ReplyToMsgFunc       func(service.DIDCommMsgMap, service.DIDCommMsgMap, string, string) error
 	ErrReplyToNested     error
 	ErrSend              error
 	ErrSendToDestination error
@@ -26,7 +27,11 @@ func (m *MockMessenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 }
 
 // ReplyToMsg mock messenger reply to msg.
-func (m *MockMessenger) ReplyToMsg(_, _ service.DIDCommMsgMap, _, _ string) error {
+func (m *MockMessenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string) error {
+	if m.ReplyToMsgFunc != nil {
+		return m.ReplyToMsgFunc(in, out, myDID, theirDID)
+	}
+
 	return nil
 }
 

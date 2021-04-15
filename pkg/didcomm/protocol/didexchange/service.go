@@ -352,6 +352,8 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 
 		// trigger action event based on message type for inbound messages
 		if msg.Msg.Type() != oobMsgType && canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
+			logger.Debugf("action event triggered for msg type: %s", msg.Msg.Type())
+
 			msg.NextStateName = next.Name()
 			if err = s.sendActionEvent(msg, aEvent); err != nil {
 				return fmt.Errorf("handle inbound: %w", err)
@@ -434,6 +436,8 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 			},
 			Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, internalMsg.ConnRecord.InvitationID),
 		}
+
+		logger.Debugf("dispatched action for msg: %+v", internalMsg.Msg)
 	}
 
 	return nil
@@ -444,6 +448,8 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
 		handler <- *msg
+
+		logger.Debugf("sent msg event to handler: %+v", msg)
 	}
 }
 
@@ -497,6 +503,8 @@ func (s *Service) SaveInvitation(i *OOBInvitation) error {
 	if err != nil {
 		return fmt.Errorf("failed to save oob invitation : %w", err)
 	}
+
+	logger.Debugf("saved invitation: %+v", i)
 
 	return nil
 }

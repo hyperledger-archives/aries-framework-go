@@ -20,3 +20,15 @@ type Invitation struct {
 	Protocols []string                `json:"handshake_protocols,omitempty"`
 	Requests  []*decorator.Attachment `json:"request~attach,omitempty"`
 }
+
+// HandshakeReuse is this protocol's 'handshake-reuse' message.
+type HandshakeReuse struct {
+	ID   string `json:"@id"`
+	Type string `json:"@type"`
+}
+
+// HandshakeReuseAccepted is this protocol's 'handshake-reuse-accepted' message.
+type HandshakeReuseAccepted struct {
+	ID   string `json:"@id"`
+	Type string `json:"@type"`
+}
