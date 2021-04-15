@@ -246,8 +246,7 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 	rest.Execute(o.command.GeneratePresentation, rw, req.Body)
 }
 
-// GeneratePresentationByID swagger:route POST /verifiable/presentation/generatebyid
-// verifiable PresentationRequestByID model
+// GeneratePresentationByID swagger:route POST /verifiable/presentation/generatebyid verifiable generatePresentationByIDReq
 //
 // Generates the verifiable presentation from a stored verifiable credential.
 //
