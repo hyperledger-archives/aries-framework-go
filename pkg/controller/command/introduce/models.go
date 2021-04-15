@@ -13,7 +13,7 @@ import (
 
 // ActionsResponse model
 //
-// Represents Actions response message
+// Represents Actions response message.
 //
 type ActionsResponse struct {
 	Actions []introduce.Action `json:"actions"`
@@ -21,7 +21,7 @@ type ActionsResponse struct {
 
 // SendProposalArgs model
 //
-// This is used for sending a proposal
+// This is used for sending a proposal.
 //
 type SendProposalArgs struct {
 	// Recipients specifies to whom proposal will be sent
@@ -30,7 +30,7 @@ type SendProposalArgs struct {
 
 // SendProposalResponse model
 //
-// Represents a SendProposal response message
+// Represents a SendProposal response message.
 //
 type SendProposalResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -39,7 +39,7 @@ type SendProposalResponse struct {
 
 // SendProposalWithOOBInvitationArgs model
 //
-// This is used for sending a proposal with OOBRequest
+// This is used for sending a proposal with OOBRequest.
 //
 type SendProposalWithOOBInvitationArgs struct {
 	// Invitation is the out-of-band protocol's 'invitation' message.
@@ -50,7 +50,7 @@ type SendProposalWithOOBInvitationArgs struct {
 
 // SendProposalWithOOBRequestResponse model
 //
-// Represents a SendProposalWithOOBInvitation response message
+// Represents a SendProposalWithOOBInvitation response message.
 //
 type SendProposalWithOOBRequestResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -59,7 +59,7 @@ type SendProposalWithOOBRequestResponse struct {
 
 // SendRequestArgs model
 //
-// This is used for sending a request
+// This is used for sending a request.
 //
 type SendRequestArgs struct {
 	// PleaseIntroduceTo keeps information about the introduction
@@ -72,7 +72,7 @@ type SendRequestArgs struct {
 
 // SendRequestResponse model
 //
-// Represents a SendRequest response message
+// Represents a SendRequest response message.
 //
 type SendRequestResponse struct {
 	// PIID Protocol instance ID. It can be used as a correlation ID
@@ -81,7 +81,7 @@ type SendRequestResponse struct {
 
 // AcceptProposalWithOOBInvitationArgs model
 //
-// This is used for accepting a proposal with public OOBRequest
+// This is used for accepting a proposal with public OOBRequest.
 //
 type AcceptProposalWithOOBInvitationArgs struct {
 	// PIID Protocol instance ID
@@ -92,13 +92,13 @@ type AcceptProposalWithOOBInvitationArgs struct {
 
 // AcceptProposalWithOOBInvitationResponse model
 //
-// Represents a AcceptProposalWithOOBInvitation response message
+// Represents a AcceptProposalWithOOBInvitation response message.
 //
 type AcceptProposalWithOOBInvitationResponse struct{}
 
 // AcceptRequestWithPublicOOBInvitationArgs model
 //
-// This is used for accepting a request with public OOBRequest
+// This is used for accepting a request with public OOBRequest.
 //
 type AcceptRequestWithPublicOOBInvitationArgs struct {
 	// PIID Protocol instance ID
@@ -111,13 +111,13 @@ type AcceptRequestWithPublicOOBInvitationArgs struct {
 
 // AcceptRequestWithPublicOOBInvitationResponse model
 //
-// Represents a AcceptRequestWithPublicOOBInvitation response message
+// Represents a AcceptRequestWithPublicOOBInvitation response message.
 //
 type AcceptRequestWithPublicOOBInvitationResponse struct{}
 
 // AcceptRequestWithRecipientsArgs model
 //
-// This is used for accepting a request with recipients
+// This is used for accepting a request with recipients.
 //
 type AcceptRequestWithRecipientsArgs struct {
 	// PIID Protocol instance ID
@@ -130,13 +130,13 @@ type AcceptRequestWithRecipientsArgs struct {
 
 // AcceptRequestWithRecipientsResponse model
 //
-// Represents a AcceptRequestWithRecipients response message
+// Represents a AcceptRequestWithRecipients response message.
 //
 type AcceptRequestWithRecipientsResponse struct{}
 
 // DeclineProposalArgs model
 //
-// This is used when proposal needs to be rejected
+// This is used when proposal needs to be rejected.
 //
 type DeclineProposalArgs struct {
 	// PIID Protocol instance ID
@@ -147,13 +147,13 @@ type DeclineProposalArgs struct {
 
 // DeclineProposalResponse model
 //
-// Represents a DeclineProposal response message
+// Represents a DeclineProposal response message.
 //
 type DeclineProposalResponse struct{}
 
 // DeclineRequestArgs model
 //
-// This is used when request needs to be rejected
+// This is used when request needs to be rejected.
 //
 type DeclineRequestArgs struct {
 	// PIID Protocol instance ID
@@ -164,7 +164,7 @@ type DeclineRequestArgs struct {
 
 // DeclineRequestResponse model
 //
-// Represents a DeclineRequest response message
+// Represents a DeclineRequest response message.
 //
 type DeclineRequestResponse struct{}
 
@@ -179,13 +179,13 @@ type AcceptProposalArgs struct {
 
 // AcceptProposalResponse model
 //
-// Represents a AcceptProposal response message
+// Represents a AcceptProposal response message.
 //
 type AcceptProposalResponse struct{}
 
 // AcceptProblemReportArgs model
 //
-// This is used for accepting a problem report
+// This is used for accepting a problem report.
 //
 type AcceptProblemReportArgs struct {
 	// PIID Protocol instance ID
@@ -194,6 +194,6 @@ type AcceptProblemReportArgs struct {
 
 // AcceptProblemReportResponse model
 //
-// Represents a AcceptProblemReport response message
+// Represents a AcceptProblemReport response message.
 //
 type AcceptProblemReportResponse struct{}

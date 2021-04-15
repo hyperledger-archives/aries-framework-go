@@ -594,11 +594,7 @@ func (a *SDKSteps) createExternalClients(participants string) error {
 		return err
 	}
 
-	if err := a.didExchangeSDKS.RegisterPostMsgEvent(participants, "completed"); err != nil {
-		return err
-	}
-
-	return nil
+	return a.didExchangeSDKS.RegisterPostMsgEvent(participants, "completed")
 }
 
 func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {

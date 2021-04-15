@@ -50,7 +50,7 @@ func createLDPBBS2020DocumentLoader() ld.DocumentLoader {
 func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
 	contextPath := filepath.Clean(filepath.Join(jsonldContextPrefix, contextFile))
 
-	contextContent, err := ioutil.ReadFile(contextPath) //nolint:gosec
+	contextContent, err := ioutil.ReadFile(contextPath)
 	if err != nil {
 		panic(err)
 	}

@@ -12,8 +12,7 @@ import (
 
 // NoOpFormatter is a simple "formatter" intended for testing purposes that just passes whatever is passed
 // into its methods back out again without modification.
-type NoOpFormatter struct {
-}
+type NoOpFormatter struct{}
 
 // Format takes key, value, and tags and just directly passes them back out without modification.
 func (n *NoOpFormatter) Format(key string, value []byte,

@@ -172,7 +172,6 @@ func processPOSTEncRequest(w http.ResponseWriter, r *http.Request, encKH *keyset
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func encryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Handle) error {
 	encReq := &encryptReq{}
 
@@ -229,7 +228,6 @@ func encryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Hand
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func decryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Handle) error {
 	decReq := &decryptReq{}
 
@@ -396,7 +394,6 @@ func processPOSTSigRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func signPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
 	sigReq := &signReq{}
 
@@ -585,7 +582,6 @@ func processPOSTMACRequest(w http.ResponseWriter, r *http.Request, macKH *keyset
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func computeMACPOSTHandle(w http.ResponseWriter, reqBody []byte, macKH *keyset.Handle) error {
 	macReq := &computeMACReq{}
 
@@ -907,7 +903,6 @@ func processPOSTWrapRequest(w http.ResponseWriter, r *http.Request, senderKH, re
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func wrapKeyPostHandle(w http.ResponseWriter, reqBody []byte, senderKH *keyset.Handle, cr crypto.Crypto) error {
 	wrapReq := &wrapKeyReq{}
 
@@ -983,7 +978,6 @@ func buildRecipientWK(cek, apu, apv []byte, senderKH *keyset.Handle, wrapReq *wr
 	return wk, nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func unwrapKeyPostHandle(w http.ResponseWriter, reqBody []byte, senderKH, recKH *keyset.Handle,
 	cr crypto.Crypto) error {
 	unwrapReq := &unwrapKeyReq{}
@@ -1212,7 +1206,6 @@ func processBBSPOSTRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset
 	return nil
 }
 
-// nolint: interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
 func bbsSignPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
 	sigReq := &signMultiReq{}
 
@@ -1305,7 +1298,7 @@ func bbsVerifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 	return nil
 }
 
-// nolint:gocyclo,interfacer // unnecessary for tests to set w io.Writer, this is a helper for tests only
+// nolint:gocyclo
 func bbsDeriveProofPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
 	deriveProofReq := &deriveProofReq{}
 

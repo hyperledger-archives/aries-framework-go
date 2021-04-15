@@ -130,19 +130,19 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyID))
 	}
 
-	var kType kms.KeyType
+	var keyType kms.KeyType
 
 	switch jwk.Crv {
 	case "Ed25519":
-		kType = kms.ED25519Type
+		keyType = kms.ED25519Type
 	case "P-256":
-		kType = kms.ECDSAP256TypeIEEEP1363
+		keyType = kms.ECDSAP256TypeIEEEP1363
 	default:
 		return command.NewValidationError(InvalidRequestErrorCode,
 			fmt.Errorf("import key type not supported %s", jwk.Crv))
 	}
 
-	_, _, err = o.importKey(jwk.Key, kType, kms.WithKeyID(jwk.KeyID))
+	_, _, err = o.importKey(jwk.Key, keyType, kms.WithKeyID(jwk.KeyID))
 	if err != nil {
 		logutil.LogError(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewExecuteError(ImportKeyError, err)

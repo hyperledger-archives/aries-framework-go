@@ -369,7 +369,7 @@ func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
 
 func (s *Service) createInbox(theirDID string) (*inbox, error) {
 	msgs, err := s.getInbox(theirDID)
-	if err != nil && err == storage.ErrDataNotFound {
+	if err != nil && errors.Is(err, storage.ErrDataNotFound) {
 		msgs = &inbox{DID: theirDID}
 
 		msgBytes, e := json.Marshal(msgs)

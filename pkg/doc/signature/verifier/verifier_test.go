@@ -143,7 +143,6 @@ func (r *testKeyResolver) Resolve(string) (*PublicKey, error) {
 	return r.publicKey, r.err
 }
 
-//nolint:lll
 const validDoc = `
 {
   "@context": [

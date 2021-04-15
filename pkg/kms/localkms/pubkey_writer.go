@@ -141,7 +141,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 
 	n, err := w.Write(marshaledRawPubKey)
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr
 	}
 
 	return n > 0, nil

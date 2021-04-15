@@ -82,6 +82,8 @@ linters-settings:
     allow-cuddle-declarations: false
   godot:
     check-all: false
+  gomoddirectives:
+    replace-local: true
 
 linters:
   enable-all: true
@@ -93,6 +95,16 @@ linters:
     - goerr113 # TODO enable
     - nlreturn # TODO enable
     - noctx # TODO enable
+    - interfacer # deprecated by the author https://github.com/mvdan/interfacer#interfacer
+    - scopelint # deprecated by the author https://github.com/kyoh86/scopelint#obsoleted
+    - exhaustivestruct
+    - paralleltest
+    - tparallel
+    - cyclop # TODO consider replacing gocyclo with cyclop
+    - ifshort # TODO enable
+    - makezero # TODO enable
+    - wrapcheck # TODO enable
+    - thelper # TODO enable
 
 issues:
   exclude-use-default: false
@@ -115,15 +127,10 @@ issues:
 
   exclude:
     # Allow package logger variables (for now)
-    - \`logger\` is a global variable
-    # Allow global variable in bdd test mock webhook
-    - \`connectionTopics\` is a global variable
-    # Allow global variable in bdd test setup
-    - \`composeFiles\` is a global variable
-    - \`composition\` is a global variable
-    -  Line contains TODO/BUG/FIXME
+    - logger is a global variable
     # Add comments for package
-    -  at least one file in a package should have a package comment
+    - at least one file in a package should have a package comment
+    - Line contains TODO/BUG/FIXME
     # Allow magic number 1
     - Magic number[:] 1[^\d]
     # Temporarily allow old protobuf reference

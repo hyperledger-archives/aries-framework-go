@@ -3,6 +3,8 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package dockerutil contains utils for working with docker.
+//nolint:errorlint
 package dockerutil
 
 import (
@@ -22,8 +24,7 @@ func NewDockerCmdlineHelper() DockerHelper {
 	return &dockerCmdlineHelper{}
 }
 
-type dockerCmdlineHelper struct {
-}
+type dockerCmdlineHelper struct{}
 
 func splitDockerCommandResults(cmdOutput string) (linesToReturn []string) {
 	lines := strings.Split(cmdOutput, "\n")
@@ -93,7 +94,7 @@ func (d *dockerCmdlineHelper) RemoveContainersWithNamePrefix(namePrefix string) 
 	}
 
 	for _, id := range containers {
-		fmt.Printf("container: %s", id)
+		fmt.Printf("container: %s", id) //nolint:forbidigo
 
 		_, err = d.issueDockerCommand([]string{"rm", "-f", id})
 		if err != nil {

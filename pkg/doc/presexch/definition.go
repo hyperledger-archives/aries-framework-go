@@ -334,7 +334,8 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 	return vp, nil
 }
 
-var errNoCredentials = errors.New("credentials do not satisfy requirements")
+// ErrNoCredentials when any credentials do not satisfy requirements.
+var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
 // nolint: gocyclo,funlen,gocognit
 func applyRequirement(req *requirement, creds []*verifiable.Credential,
@@ -359,7 +360,7 @@ func applyRequirement(req *requirement, creds []*verifiable.Credential,
 			return result, nil
 		}
 
-		return nil, errNoCredentials
+		return nil, ErrNoCredentials
 	}
 
 	var nestedResult []map[string][]*verifiable.Credential
@@ -369,7 +370,7 @@ func applyRequirement(req *requirement, creds []*verifiable.Credential,
 
 	for _, r := range req.Nested {
 		res, err := applyRequirement(r, creds, opts...)
-		if errors.Is(err, errNoCredentials) {
+		if errors.Is(err, ErrNoCredentials) {
 			continue
 		}
 

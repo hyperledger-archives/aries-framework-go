@@ -98,10 +98,10 @@ type RemoteKMS struct {
 func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string,
 	opts ...Opt) (string, string, error) {
 	createKeyStoreStart := time.Now()
-	kOpts := NewOpt()
+	kmsOpts := NewOpt()
 
 	for _, opt := range opts {
-		opt(kOpts)
+		opt(kmsOpts)
 	}
 
 	destination := strings.ReplaceAll(KeystoreEndpoint, "{serverEndpoint}", keyserverURL)
@@ -113,7 +113,7 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 		httpReqJSON.VaultID = vaultID
 	}
 
-	mReq, err := kOpts.marshal(httpReqJSON)
+	mReq, err := kmsOpts.marshal(httpReqJSON)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
 	}
@@ -125,8 +125,8 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 
 	httpReq.Header.Set("Content-Type", ContentType)
 
-	if kOpts.HeadersFunc != nil {
-		httpHeaders, e := kOpts.HeadersFunc(httpReq)
+	if kmsOpts.HeadersFunc != nil {
+		httpHeaders, e := kmsOpts.HeadersFunc(httpReq)
 		if e != nil {
 			return "", "", fmt.Errorf("add optional request headers error: %w", e)
 		}
@@ -158,10 +158,10 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 
 // New creates a new remoteKMS instance using http client connecting to keystoreURL.
 func New(keystoreURL string, client HTTPClient, opts ...Opt) *RemoteKMS {
-	kOpts := NewOpt()
+	kmsOpts := NewOpt()
 
 	for _, opt := range opts {
-		opt(kOpts)
+		opt(kmsOpts)
 	}
 
 	return &RemoteKMS{
@@ -169,7 +169,7 @@ func New(keystoreURL string, client HTTPClient, opts ...Opt) *RemoteKMS {
 		keystoreURL:   keystoreURL,
 		marshalFunc:   json.Marshal,
 		unmarshalFunc: json.Unmarshal,
-		opts:          kOpts,
+		opts:          kmsOpts,
 	}
 }
 
@@ -451,7 +451,6 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 }
 
 // closeResponseBody closes the response body.
-//nolint: interfacer // don't want to add test stretcher logger here
 func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 	err := respBody.Close()
 	if err != nil {

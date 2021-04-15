@@ -22,6 +22,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
+/* const (
+	legacyMediaType			 = "JWM/1.0"
+	didCommV1MediaType       = "application/didcomm-enc-env"
+	didCommV2MediaType       = "application/didcomm-encrypted+json"
+) */
+
 // provider interface for outbound ctx.
 type provider interface {
 	Packager() transport.Packager

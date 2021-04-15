@@ -31,7 +31,7 @@ func frFromOKM(message []byte) *bls12381.Fr {
 	h, _ := blake2b.New384(nil) //nolint:errcheck
 
 	// blake2b.digest() does not return an error.
-	_, _ = h.Write(message) //nolint:errcheck
+	_, _ = h.Write(message)
 	okm := h.Sum(nil)
 	emptyEightBytes := make([]byte, eightBytes)
 

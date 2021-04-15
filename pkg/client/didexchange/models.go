@@ -13,7 +13,7 @@ import (
 
 // QueryConnectionsParams model
 //
-// Parameters for querying connections
+// Parameters for querying connections.
 //
 type QueryConnectionsParams struct {
 
@@ -47,7 +47,7 @@ type QueryConnectionsParams struct {
 
 // Connection model
 //
-// This is used to represent query connection result
+// This is used to represent query connection result.
 //
 type Connection struct {
 	*connection.Record

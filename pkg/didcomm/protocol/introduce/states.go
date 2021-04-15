@@ -60,8 +60,7 @@ type state interface {
 func zeroAction() error { return nil }
 
 // noOp state.
-type noOp struct {
-}
+type noOp struct{}
 
 func (s *noOp) Name() string {
 	return stateNameNoop
@@ -80,8 +79,7 @@ func (s *noOp) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAc
 }
 
 // start state.
-type start struct {
-}
+type start struct{}
 
 func (s *start) Name() string {
 	return stateNameStart
@@ -107,8 +105,7 @@ func (s *start) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateA
 }
 
 // done state.
-type done struct {
-}
+type done struct{}
 
 func (s *done) Name() string {
 	return stateNameDone
@@ -128,8 +125,7 @@ func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAc
 }
 
 // arranging state.
-type arranging struct {
-}
+type arranging struct{}
 
 func (s *arranging) Name() string {
 	return stateNameArranging
@@ -275,8 +271,7 @@ func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (
 }
 
 // delivering state.
-type delivering struct {
-}
+type delivering struct{}
 
 func (s *delivering) Name() string {
 	return stateNameDelivering
@@ -339,8 +334,7 @@ func (s *delivering) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, s
 }
 
 // confirming state.
-type confirming struct {
-}
+type confirming struct{}
 
 func (s *confirming) Name() string {
 	return stateNameConfirming
@@ -463,8 +457,7 @@ func (s *abandoning) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, s
 }
 
 // deciding state.
-type deciding struct {
-}
+type deciding struct{}
 
 func (s *deciding) Name() string {
 	return stateNameDeciding
@@ -510,8 +503,7 @@ func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, sta
 }
 
 // waiting state.
-type waiting struct {
-}
+type waiting struct{}
 
 func (s *waiting) Name() string {
 	return stateNameWaiting
@@ -530,8 +522,7 @@ func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stat
 }
 
 // requesting state.
-type requesting struct {
-}
+type requesting struct{}
 
 func (s *requesting) Name() string {
 	return stateNameRequesting

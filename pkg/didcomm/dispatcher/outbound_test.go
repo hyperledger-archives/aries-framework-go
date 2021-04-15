@@ -364,8 +364,7 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 }
 
 // mockPackager mock packager.
-type mockPackager struct {
-}
+type mockPackager struct{}
 
 func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
 	return e.Message, nil

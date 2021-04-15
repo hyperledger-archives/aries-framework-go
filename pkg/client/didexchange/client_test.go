@@ -1433,6 +1433,8 @@ func generateKeyPair() (string, []byte) {
 }
 
 func newPeerDID(t *testing.T) *did.Doc {
+	t.Helper()
+
 	a, err := aries.New(
 		aries.WithStoreProvider(mem.NewProvider()),
 		aries.WithProtocolStateStoreProvider(mem.NewProvider()),

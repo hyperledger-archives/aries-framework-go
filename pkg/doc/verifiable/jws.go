@@ -42,8 +42,7 @@ func (s jwtSigner) Headers() jose.Headers {
 
 // noVerifier is used when no JWT signature verification is needed.
 // To be used with precaution.
-type noVerifier struct {
-}
+type noVerifier struct{}
 
 func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 	return nil

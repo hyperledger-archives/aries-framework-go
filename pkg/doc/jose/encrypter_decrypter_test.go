@@ -264,8 +264,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
-			serializedJWE := ""
-			jweStr := ""
+			var serializedJWE, jweStr string
 			serialization := "Full"
 
 			if tc.useCompact {
@@ -601,7 +600,7 @@ func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, m
 
 // createRecipients and return their public key and keyset.Handle.
 func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.KeyTemplate,
-	kType kms.KeyType) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
+	keyType kms.KeyType) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
 	t.Helper()
 
 	r := make([]*cryptoapi.PublicKey, 0)
@@ -609,7 +608,7 @@ func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.Ke
 	rKID := make([]string, 0)
 
 	for i := 0; i < nbOfEntities; i++ {
-		mrKey, kh, kid := createAndMarshalEntityKey(t, kt, kType)
+		mrKey, kh, kid := createAndMarshalEntityKey(t, kt, keyType)
 
 		ecPubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
@@ -628,7 +627,7 @@ func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.Ke
 // createAndMarshalEntityKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
 func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
-	kType kms.KeyType) ([]byte, *keyset.Handle, string) {
+	keyType kms.KeyType) ([]byte, *keyset.Handle, string) {
 	t.Helper()
 
 	kh, err := keyset.NewHandle(kt)
@@ -644,7 +643,7 @@ func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	require.NoError(t, err)
 
-	kid, err := jwkkid.CreateKID(buf.Bytes(), kType)
+	kid, err := jwkkid.CreateKID(buf.Bytes(), keyType)
 	require.NoError(t, err)
 
 	printKey(t, buf.Bytes(), kid)
@@ -948,8 +947,7 @@ func TestECDH1PU(t *testing.T) {
 			t.Logf("ECDH-1PU KW in EncryptWithAuthData took %v", time.Since(testEncTime))
 			require.NoError(t, err)
 
-			serializedJWE := ""
-			jweStr := ""
+			var serializedJWE, jweStr string
 			serialization := "Full"
 
 			if tc.useCompact {

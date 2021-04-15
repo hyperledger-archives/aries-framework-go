@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
 
+//nolint:forbidigo
 func main() {
 	key, err := base64.RawURLEncoding.DecodeString(os.Args[3])
 	if err != nil {

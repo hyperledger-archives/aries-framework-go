@@ -91,7 +91,7 @@ func (l *DefLog) logf(level log.Level, format string, args ...interface{}) {
 
 	err := l.logger.Output(callDepth, customPrefix+fmt.Sprintf(format, args...))
 	if err != nil {
-		fmt.Printf("error from logger.Output %v\n", err)
+		fmt.Printf("error from logger.Output %v\n", err) //nolint:forbidigo
 	}
 }
 

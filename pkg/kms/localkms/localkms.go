@@ -117,12 +117,12 @@ func (l *LocalKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 		return "", nil, fmt.Errorf("create: failed to create new keyset handle: %w", err)
 	}
 
-	kID, err := l.storeKeySet(kh, kt)
+	keyID, err := l.storeKeySet(kh, kt)
 	if err != nil {
 		return "", nil, fmt.Errorf("create: failed to store keyset: %w", err)
 	}
 
-	return kID, kh, nil
+	return keyID, kh, nil
 }
 
 // Get key handle for the given keyID
@@ -323,7 +323,7 @@ func setKIDForCompositeKey(marshalledKey []byte, kid string) ([]byte, error) {
 
 	err := json.Unmarshal(marshalledKey, pubKey)
 	if err != nil { // if unmarshalling to VerificationMethod fails, it's not a composite key, return original bytes
-		return marshalledKey, nil
+		return marshalledKey, nil //nolint:nilerr
 	}
 
 	pubKey.KID = kid

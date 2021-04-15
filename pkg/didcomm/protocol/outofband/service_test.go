@@ -866,7 +866,7 @@ func TestSaveInvitation(t *testing.T) {
 				require.NotEmpty(t, i.ID)
 				require.Equal(t, expected.ID, i.ThreadID)
 				require.Equal(t, expected.Label, i.TheirLabel)
-				require.Equal(t, expected.Service[0], i.Target)
+				require.Equal(t, expected.Services[0], i.Target)
 				return nil
 			},
 		}
@@ -891,7 +891,7 @@ func TestSaveInvitation(t *testing.T) {
 	})
 	t.Run("fails when invitation does not have services", func(t *testing.T) {
 		inv := newInvitation()
-		inv.Service = []interface{}{}
+		inv.Services = []interface{}{}
 		s := newAutoService(t, testProvider())
 		err := s.SaveInvitation(inv)
 		require.Error(t, err)
@@ -974,7 +974,7 @@ func newInvitation() *Invitation {
 		Label:     "test",
 		Goal:      "test",
 		GoalCode:  "test",
-		Service:   []interface{}{"did:example:1235"},
+		Services:  []interface{}{"did:example:1235"},
 		Protocols: []string{didexchange.PIURI},
 		Requests: []*decorator.Attachment{
 			{
@@ -1012,7 +1012,7 @@ func withState(t *testing.T, states ...*myState) func(*Service) {
 }
 
 func newAutoService(t *testing.T,
-	provider *protocol.MockProvider, opts ...func(*Service)) *Service { //nolint:interfacer
+	provider *protocol.MockProvider, opts ...func(*Service)) *Service {
 	s, err := New(provider)
 	require.NoError(t, err)
 

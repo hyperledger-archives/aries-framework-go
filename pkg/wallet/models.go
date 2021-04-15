@@ -13,17 +13,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
-// QueryParams model
-//
-// Parameters for querying vc wallet contents.
-//
+// QueryParams contains credential queries for querying credential from wallet.
+// Refer https://w3c-ccg.github.io/vp-request-spec/#format for more details.
 type QueryParams struct {
 	// Type of the query.
-	// Allowed values  'QueryByExample', 'QueryByFrame', 'PresentationExchange'
-	Type string
+	// Allowed values  'QueryByExample', 'QueryByFrame', 'PresentationExchange', 'DIDAuth'
+	Type string `json:"type"`
 
-	// Wallet content query.
-	Query json.RawMessage
+	// Query can contain one or more credential queries.
+	Query []json.RawMessage `json:"credentialQuery"`
 }
 
 // ProofOptions model
@@ -61,4 +59,36 @@ type DeriveOptions struct {
 	Frame map[string]interface{} `json:"frame,omitempty"`
 	// Nonce to prove uniqueness or freshness of the proof.
 	Nonce string `json:"nonce,omitempty"`
+}
+
+// QueryByExampleDefinition is model for QueryByExample query type.
+// https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+type QueryByExampleDefinition struct {
+	Example *ExampleDefinition `json:"example"`
+}
+
+// QueryByFrameDefinition is model for QueryByExample query type.
+// https://w3c-ccg.github.io/vp-request-spec/
+// TODO QueryByExampleDefinition model is not yet finalized - https://github.com/w3c-ccg/vp-request-spec/issues/8
+type QueryByFrameDefinition struct {
+	Frame         map[string]interface{}    `json:"frame"`
+	TrustedIssuer []TrustedIssuerDefinition `json:"trustedIssuer"`
+}
+
+// ExampleDefinition frame for QueryByExample.
+// Refer - https://w3c-ccg.github.io/vp-request-spec/#example-2-a-query-by-example-query
+// TODO currently `IssuerQuery` is ignored.
+type ExampleDefinition struct {
+	Context           []string                  `json:"@context"`
+	Type              interface{}               `json:"type"`
+	CredentialSubject map[string]string         `json:"credentialSubject"`
+	CredentialSchema  map[string]string         `json:"credentialSchema"`
+	TrustedIssuer     []TrustedIssuerDefinition `json:"trustedIssuer"`
+	IssuerQuery       map[string]interface{}    `json:"issuerQuery"`
+}
+
+// TrustedIssuerDefinition is model for trusted issuer component in QueryByFrame & QueryByExample.
+type TrustedIssuerDefinition struct {
+	Issuer   string `json:"issuer"`
+	Required bool   `json:"required"`
 }

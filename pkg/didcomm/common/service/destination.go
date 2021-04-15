@@ -59,9 +59,6 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
 	}
 
-	// TODO ensure recipient keys are did:key's
-	//  https://github.com/hyperledger/aries-framework-go/issues/1604
-
 	return &Destination{
 		RecipientKeys:   didCommService.RecipientKeys,
 		ServiceEndpoint: didCommService.ServiceEndpoint,

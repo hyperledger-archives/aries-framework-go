@@ -27,7 +27,7 @@ func NewECDHEncrypt(h *keyset.Handle) (api.CompositeEncrypt, error) {
 func NewECDHEncryptWithKeyManager(h *keyset.Handle, km registry.KeyManager) (api.CompositeEncrypt, error) {
 	ps, err := h.PrimitivesWithKeyManager(km)
 	if err != nil {
-		return nil, fmt.Errorf("ecdh_factory: cannot obtain primitive set: %s", err)
+		return nil, fmt.Errorf("ecdh_factory: cannot obtain primitive set: %w", err)
 	}
 
 	return newEncryptPrimitiveSet(ps)

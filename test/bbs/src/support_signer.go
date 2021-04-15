@@ -18,7 +18,7 @@ type bbsSigner struct {
 	privKeyBytes []byte
 }
 
-func newBBSSigner(privKey *bbs.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+func newBBSSigner(privKey *bbs.PrivateKey) (*bbsSigner, error) {
 	privKeyBytes, err := privKey.Marshal()
 	if err != nil {
 		return nil, err

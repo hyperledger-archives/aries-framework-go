@@ -26,7 +26,7 @@ const (
 	samplePresentationID   = "sampleVPID"
 )
 
-//nolint:gochecknoglobals,lll
+//nolint:gochecknoglobals
 var udCredential = `
 
 {
@@ -103,7 +103,7 @@ var udCredential = `
 }
 `
 
-//nolint:gochecknoglobals,lll
+//nolint:gochecknoglobals
 var udCredentialWithoutID = `
 
 {

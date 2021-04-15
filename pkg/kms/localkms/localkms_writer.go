@@ -46,7 +46,7 @@ type storeWriter struct {
 func (l *storeWriter) Write(p []byte) (int, error) {
 	var err error
 
-	ksID := ""
+	var ksID string
 
 	if l.requestedKeysetID != "" {
 		ksID, err = l.verifyRequestedID()
@@ -85,7 +85,8 @@ func (l *storeWriter) verifyRequestedID() (string, error) {
 
 func (l *storeWriter) newKeysetID() (string, error) {
 	keySetIDLength := base64.RawURLEncoding.DecodedLen(maxKeyIDLen)
-	ksID := ""
+
+	var ksID string
 
 	for {
 		// generate random ID

@@ -193,7 +193,10 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 
 func TestEasyAndEasyOpen(t *testing.T) {
 	recPubKey, recPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
 	senderPubKey, senderPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err = processPOSTEasyOpenRequest(w, r, recPrivKey, senderPrivKey)

@@ -821,7 +821,6 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 }
 
 // closeResponseBody closes the response body.
-//nolint: interfacer // don't want to add test stretcher logger here
 func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 	err := respBody.Close()
 	if err != nil {

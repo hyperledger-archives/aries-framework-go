@@ -47,7 +47,7 @@ type BatchPickupResponse struct {
 
 // CreateInvitationRequest model
 //
-// This is used for creating an invitation using mediator
+// This is used for creating an invitation using mediator.
 //
 type CreateInvitationRequest struct {
 	Label     string        `json:"label"`
@@ -59,7 +59,7 @@ type CreateInvitationRequest struct {
 
 // CreateInvitationResponse model
 //
-// Response for creating invitation through mediator
+// Response for creating invitation through mediator.
 //
 type CreateInvitationResponse struct {
 	// Invitation is out-of-band invitation from mediator.

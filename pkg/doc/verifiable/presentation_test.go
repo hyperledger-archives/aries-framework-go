@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-//nolint:lll
 const validPresentation = `
 {
   "@context": [
@@ -410,6 +409,9 @@ func TestNewPresentation(t *testing.T) {
 	r.NoError(err)
 	r.Len(vp.credentials, 1)
 	r.Equal(vc, vp.credentials[0])
+
+	vp.AddCredentials(&Credential{})
+	r.Len(vp.credentials, 2)
 
 	// Pass VC marshalled into unsecured JWT
 	jwtClaims, err := vc.JWTClaims(true)

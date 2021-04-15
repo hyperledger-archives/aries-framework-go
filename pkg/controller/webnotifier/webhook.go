@@ -58,12 +58,12 @@ func notifyWH(destination string, message []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, destination,
 		bytes.NewBuffer(message))
 	if err != nil {
-		return fmt.Errorf("failed to create new http post request for %s: %s", destination, err)
+		return fmt.Errorf("failed to create new http post request for %s: %w", destination, err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to post notification to %s: %s", destination, err)
+		return fmt.Errorf("failed to post notification to %s: %w", destination, err)
 	}
 
 	defer closeResponse(resp.Body)

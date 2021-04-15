@@ -112,6 +112,8 @@ func TestParseLevelError(t *testing.T) {
 }
 
 func verifyLevels(t *testing.T, module string, enabled, disabled []log.Level) {
+	t.Helper()
+
 	for _, level := range enabled {
 		levelStr := metadata.ParseString(level)
 		require.True(t, IsEnabledFor(module, level),

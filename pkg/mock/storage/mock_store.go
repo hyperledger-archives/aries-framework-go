@@ -102,6 +102,7 @@ type MockStore struct {
 	ErrQuery  error
 	ErrNext   error
 	ErrValue  error
+	ErrBatch  error
 }
 
 // Put stores the key and the record.
@@ -198,9 +199,23 @@ func (s *MockStore) Delete(k string) error {
 	return s.ErrDelete
 }
 
-// Batch is not implemented.
+// Batch stores a batch of operations.
 func (s *MockStore) Batch(operations []storage.Operation) error {
-	panic("implement me")
+	if s.ErrBatch != nil {
+		return s.ErrBatch
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, op := range operations {
+		s.Store[op.Key] = DBEntry{
+			Value: op.Value,
+			Tags:  op.Tags,
+		}
+	}
+
+	return nil
 }
 
 // Flush is not implemented.

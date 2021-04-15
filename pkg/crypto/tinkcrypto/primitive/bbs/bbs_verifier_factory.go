@@ -28,7 +28,7 @@ func NewVerifier(h *keyset.Handle) (bbsapi.Verifier, error) {
 func NewVerifierWithKeyManager(h *keyset.Handle, km registry.KeyManager) (bbsapi.Verifier, error) {
 	ps, err := h.PrimitivesWithKeyManager(km)
 	if err != nil {
-		return nil, fmt.Errorf("bbs_verifier_factory: cannot obtain primitive set: %s", err)
+		return nil, fmt.Errorf("bbs_verifier_factory: cannot obtain primitive set: %w", err)
 	}
 
 	return newWrappedVerifier(ps)
@@ -213,7 +213,7 @@ func (wv *wrappedVerifier) DeriveProof(messages [][]byte, signature, nonce []byt
 				ret = append(ret, entries[i].Prefix...)
 				ret = append(ret, proof...)
 
-				return ret, err
+				return ret, nil
 			}
 		}
 	}
@@ -237,7 +237,7 @@ func (wv *wrappedVerifier) DeriveProof(messages [][]byte, signature, nonce []byt
 				ret = append(ret, entries[i].Prefix...)
 				ret = append(ret, proof...)
 
-				return ret, err
+				return ret, nil
 			}
 		}
 	}

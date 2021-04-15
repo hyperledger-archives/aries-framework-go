@@ -18,11 +18,12 @@ const (
 	DIDMethod = "key"
 	// EncryptionKey encryption key.
 	EncryptionKey = "encryptionKey"
+	// KeyType option to create a new kms key for DIDDocs with empty VerificationMethod.
+	KeyType = "keyType"
 )
 
 // VDR implements did:key method support.
-type VDR struct {
-}
+type VDR struct{}
 
 // New returns new instance of VDR that works with did:key method.
 func New() *VDR {

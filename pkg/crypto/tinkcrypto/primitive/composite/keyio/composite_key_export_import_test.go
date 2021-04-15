@@ -242,8 +242,7 @@ func TestNegativeCases(t *testing.T) {
 	})
 }
 
-type failWriter struct {
-}
+type failWriter struct{}
 
 func (w *failWriter) Write(p []byte) (n int, err error) {
 	return 0, errors.New("failed to write")

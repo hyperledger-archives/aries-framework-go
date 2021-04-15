@@ -29,8 +29,12 @@ const (
 	Name = "out-of-band"
 	// PIURI is the Out-of-Band protocol's protocol instance URI.
 	PIURI = "https://didcomm.org/out-of-band/1.0"
+	// oldPIURI is the old OOB protocol's protocol instance URI.
+	oldPIURI = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/out-of-band/1.0"
 	// InvitationMsgType is the '@type' for the invitation message.
 	InvitationMsgType = PIURI + "/invitation"
+	// OldInvitationMsgType is the `@type` for the old invitation message.
+	OldInvitationMsgType = oldPIURI + "/invitation"
 
 	// StateInvited is this protocol's state after accepting an invitation.
 	StateInvited = "invited"
@@ -174,7 +178,7 @@ func (s *Service) Name() string {
 
 // Accept determines whether this service can handle the given type of message.
 func (s *Service) Accept(msgType string) bool {
-	return msgType == InvitationMsgType
+	return msgType == InvitationMsgType || msgType == OldInvitationMsgType
 }
 
 // HandleInbound handles inbound messages.
@@ -386,7 +390,7 @@ func (s *Service) AcceptInvitation(i *Invitation, myLabel string, routerConnecti
 
 // SaveInvitation created by the outofband client.
 func (s *Service) SaveInvitation(i *Invitation) error {
-	target, err := chooseTarget(i.Service)
+	target, err := chooseTarget(i.Services)
 	if err != nil {
 		return fmt.Errorf("failed to choose a target to connect against : %w", err)
 	}
@@ -422,7 +426,7 @@ func listener(
 			select {
 			case c := <-callbacks:
 				switch c.msg.Type() {
-				case InvitationMsgType:
+				case InvitationMsgType, OldInvitationMsgType:
 					connID, err := handleCallbackFunc(c)
 					if err != nil {
 						logutil.LogError(logger, Name, "handleCallback", err.Error(),
@@ -452,7 +456,7 @@ func listener(
 
 func (s *Service) handleCallback(c *callback) (string, error) {
 	switch c.msg.Type() {
-	case InvitationMsgType:
+	case InvitationMsgType, OldInvitationMsgType:
 		return s.handleInvitationCallback(c)
 	default:
 		return "", fmt.Errorf("unsupported message type: %s", c.msg.Type())
@@ -616,7 +620,7 @@ func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitatio
 		return nil, nil, fmt.Errorf("failed to decode out-of-band invitation mesesage : %w", err)
 	}
 
-	target, err := chooseTarget(oobInv.Service)
+	target, err := chooseTarget(oobInv.Services)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to choose a target to connect against : %w", err)
 	}

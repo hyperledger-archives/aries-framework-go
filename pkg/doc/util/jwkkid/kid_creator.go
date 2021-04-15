@@ -251,7 +251,7 @@ func createBLS12381G2KID(keyBytes []byte) (string, error) {
 
 func sha256Sum(jwk string) []byte {
 	h := crypto.SHA256.New()
-	_, _ = h.Write([]byte(jwk)) // nolint: errcheck // SHA256 digest returns empty error on Write()
+	_, _ = h.Write([]byte(jwk)) // SHA256 digest returns empty error on Write()
 
 	return h.Sum(nil)
 }

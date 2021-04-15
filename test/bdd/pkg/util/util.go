@@ -31,6 +31,7 @@ var DefaultClient = &http.Client{
 }
 
 // SendHTTP sends HTTP request.
+//nolint:errorlint
 func SendHTTP(method, destination string, message []byte, result interface{}) error {
 	// create request
 	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))

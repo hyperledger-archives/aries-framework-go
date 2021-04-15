@@ -189,7 +189,7 @@ func (s *Service) startInternalListener() {
 }
 
 func logInternalError(err error) {
-	if _, ok := err.(customError); !ok {
+	if !errors.As(err, &customError{}) {
 		logger.Errorf("go to abandoning: %v", err)
 	}
 }

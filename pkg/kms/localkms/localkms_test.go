@@ -464,7 +464,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			privKey, err := ecdsa.GenerateKey(tt.curve, rand.Reader)
 			require.NoError(t, err)
 
-			ksID := ""
+			var ksID string
 
 			// test ImportPrivateKey
 			if tt.setID {

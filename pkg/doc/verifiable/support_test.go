@@ -32,7 +32,6 @@ import (
 
 const jsonldContextPrefix = "testdata/context"
 
-//nolint:lll
 const validCredential = `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",

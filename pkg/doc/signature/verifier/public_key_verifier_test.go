@@ -457,7 +457,7 @@ _:c14n0 <https://w3id.org/security#verificationMethod> <did:key:zUC724vuGvHpnCGF
 	require.NoError(t, err)
 }
 
-//nolint:lll,goconst
+//nolint:lll
 func TestNewBBSG2SignatureProofVerifier(t *testing.T) {
 	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2
 	pubKeyBase58 := "nEP2DEdbRaQ2r5Azeatui9MG6cj7JUHa8GD7khub4egHJREEuvj4Y8YG8w51LnhPEXxVV1ka93HpSLkVzeQuuPE1mH9oCMrqoHXAKGBsuDT1yJvj9cKgxxLCXiRRirCycki"
@@ -498,7 +498,7 @@ _:c14n0 <https://w3id.org/security#verificationMethod> <did:key:zUC724vuGvHpnCGF
 	require.NoError(t, err)
 }
 
-//nolint:lll,goconst
+//nolint:lll
 func TestNewBBSG2SignatureProofVerifierCase19(t *testing.T) {
 	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2
 	pubKeyBase58 := "nEP2DEdbRaQ2r5Azeatui9MG6cj7JUHa8GD7khub4egHJREEuvj4Y8YG8w51LnhPEXxVV1ka93HpSLkVzeQuuPE1mH9oCMrqoHXAKGBsuDT1yJvj9cKgxxLCXiRRirCycki"

@@ -653,8 +653,7 @@ func startMockServer(t *testing.T, handler http.Handler) net.Listener {
 	return listener
 }
 
-type mockHTTPHandler struct {
-}
+type mockHTTPHandler struct{}
 
 func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if req.Body != nil {

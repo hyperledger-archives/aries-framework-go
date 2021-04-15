@@ -118,7 +118,6 @@ func credSubjects(vc *Credential) []Subject {
 }
 
 func TestCredentialExtensibility(t *testing.T) {
-	//nolint:lll
 	udCredential := `
 
 {

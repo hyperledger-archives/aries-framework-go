@@ -473,6 +473,8 @@ func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
 }
 
 func getHandler(t *testing.T, lookup string) rest.Handler {
+	t.Helper()
+
 	return getHandlerWithError(t, lookup, &fails{})
 }
 
@@ -481,6 +483,8 @@ type fails struct {
 }
 
 func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
+	t.Helper()
+
 	protocolStateStore := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
 	store := mockstore.MockStore{Store: make(map[string]mockstore.DBEntry)}
 	connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
@@ -530,6 +534,8 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) rest.Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -545,6 +551,8 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) rest.Handler {
 }
 
 func verifyRESTError(t *testing.T, code command.Code, data []byte) {
+	t.Helper()
+
 	// Parser generic error response
 	errResponse := struct {
 		Code    int    `json:"code"`

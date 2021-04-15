@@ -39,8 +39,7 @@ func Example() {
 }
 
 // mock inbound transport.
-type mockInTransport struct {
-}
+type mockInTransport struct{}
 
 func newMockInTransport() *mockInTransport {
 	return &mockInTransport{}
