@@ -27,6 +27,7 @@ var ErrSvcNotFound = errors.New("service not found")
 // Provider interface for protocol ctx.
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
+	InboundDIDCommMessageHandler() func() service.InboundHandler
 	Messenger() service.Messenger
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
@@ -39,7 +40,6 @@ type Provider interface {
 	VDRegistry() vdrapi.Registry
 	ProtocolStateStorageProvider() storage.Provider
 	InboundMessageHandler() transport.InboundMessageHandler
-	OutboundMessageHandler() service.OutboundHandler
 	VerifiableStore() verifiable.Store
 	DIDConnectionStore() did.ConnectionStore
 }

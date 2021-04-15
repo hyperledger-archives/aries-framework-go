@@ -369,7 +369,7 @@ func TestNewProvider(t *testing.T) {
 		require.EqualError(t, errors.Unwrap(err), errTest.Error())
 	})
 
-	t.Run("outbound message handler", func(t *testing.T) {
+	t.Run("InboundDIDCommMsgHandler", func(t *testing.T) {
 		expected := service.NewDIDCommMsgMap(&didexchange.Request{
 			Type: "test-type",
 		})
@@ -378,11 +378,9 @@ func TestNewProvider(t *testing.T) {
 		handled := false
 		accepted := false
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
-			HandleOutboundFunc: func(result service.DIDCommMsg, myDID, theirDID string) (string, error) {
+			HandleFunc: func(result service.DIDCommMsg) (string, error) {
 				handled = true
 				require.Equal(t, expected, result)
-				require.Equal(t, expectedMyDID, myDID)
-				require.Equal(t, expectedTheirDID, theirDID)
 				return "", nil
 			},
 			AcceptFunc: func(msgType string) bool {
@@ -392,24 +390,24 @@ func TestNewProvider(t *testing.T) {
 			},
 		}))
 		require.NoError(t, err)
-		handler := ctx.OutboundMessageHandler()
+		handler := ctx.InboundDIDCommMessageHandler()
 		require.NotNil(t, handler)
-		_, err = handler.HandleOutbound(expected, expectedMyDID, expectedTheirDID)
+		_, err = handler().HandleInbound(expected, service.NewDIDCommContext(expectedMyDID, expectedTheirDID, nil))
 		require.NoError(t, err)
 		require.True(t, accepted)
 		require.True(t, handled)
 	})
 
-	t.Run("outbound message handler fails if msg not handles", func(t *testing.T) {
+	t.Run("InboundDIDCommMsgHandler fails if msg not handled", func(t *testing.T) {
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			AcceptFunc: func(msgType string) bool {
 				return false
 			},
 		}))
 		require.NoError(t, err)
-		_, err = ctx.OutboundMessageHandler().HandleOutbound(service.NewDIDCommMsgMap(&didexchange.Request{
+		_, err = ctx.InboundDIDCommMessageHandler()().HandleInbound(service.NewDIDCommMsgMap(&didexchange.Request{
 			Type: "test",
-		}), "myDID", "theirDID")
+		}), service.EmptyDIDCommContext())
 		require.Error(t, err)
 	})
 

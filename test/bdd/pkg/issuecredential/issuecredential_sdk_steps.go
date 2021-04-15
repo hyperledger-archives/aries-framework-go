@@ -9,6 +9,7 @@ package issuecredential
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -80,7 +81,7 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" requests credential from "([^"]*)"$`, a.sendsRequest)
-	s.Step(`^"([^"]*)" accepts request and sends credential to the Holder$`, a.acceptRequest)
+	s.Step(`^"([^"]*)" accepts request and sends credential to the Holder$`, a.AcceptRequest)
 	s.Step(`^"([^"]*)" declines a request$`, a.declineRequest)
 	s.Step(`^"([^"]*)" declines a proposal$`, a.declineProposal)
 	s.Step(`^"([^"]*)" declines an offer$`, a.declineOffer)
@@ -89,11 +90,11 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" waits for state "([^"]*)"$`, a.waitFor)
 	s.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)"$`, a.sendsProposal)
 	s.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder$`, a.acceptProposal)
-	s.Step(`^"([^"]*)" sends an offer to the "([^"]*)"$`, a.sendsOffer)
-	s.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer$`, a.acceptOffer)
+	s.Step(`^"([^"]*)" sends an offer to the "([^"]*)"$`, a.SendsOffer)
+	s.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer$`, a.AcceptOffer)
 	s.Step(`^"([^"]*)" does not like the offer and sends a new proposal to the Issuer$`, a.negotiateProposal)
-	s.Step(`^"([^"]*)" accepts credential with name "([^"]*)"$`, a.acceptCredential)
-	s.Step(`^"([^"]*)" checks that credential is being stored under "([^"]*)" name$`, a.checkCredential)
+	s.Step(`^"([^"]*)" accepts credential with name "([^"]*)"$`, a.AcceptCredential)
+	s.Step(`^"([^"]*)" checks that credential is being stored under "([^"]*)" name$`, a.CheckCredential)
 }
 
 func (a *SDKSteps) waitFor(agent, name string) error {
@@ -109,7 +110,8 @@ func (a *SDKSteps) waitFor(agent, name string) error {
 	}
 }
 
-func (a *SDKSteps) checkCredential(agent, name string) error {
+// CheckCredential verifies the agent holds a credential with the given name.
+func (a *SDKSteps) CheckCredential(agent, name string) error {
 	if err := a.waitFor(agent, "done"); err != nil {
 		return err
 	}
@@ -129,7 +131,8 @@ func (a *SDKSteps) checkCredential(agent, name string) error {
 	return err
 }
 
-func (a *SDKSteps) sendsOffer(agent1, agent2 string) error {
+// SendsOffer sends an offer from agent1 to agent2.
+func (a *SDKSteps) SendsOffer(agent1, agent2 string) error {
 	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
@@ -228,7 +231,8 @@ func (a *SDKSteps) declineRequest(agent string) error {
 	return a.clients[agent].DeclineRequest(PIID, "decline")
 }
 
-func (a *SDKSteps) acceptRequest(agent string) error {
+// AcceptRequest makes agent accept a request-credential message.
+func (a *SDKSteps) AcceptRequest(agent string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
@@ -295,7 +299,8 @@ func (a *SDKSteps) receiveProblemReport(agent string) error {
 	return a.clients[agent].AcceptProblemReport(PIID)
 }
 
-func (a *SDKSteps) acceptOffer(agent string) error {
+// AcceptOffer makes agent accept an offer-credential message.
+func (a *SDKSteps) AcceptOffer(agent string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
@@ -304,7 +309,8 @@ func (a *SDKSteps) acceptOffer(agent string) error {
 	return a.clients[agent].AcceptOffer(PIID)
 }
 
-func (a *SDKSteps) acceptCredential(agent, name string) error {
+// AcceptCredential makes agent accept a credential and save it with the given name.
+func (a *SDKSteps) AcceptCredential(agent, name string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
@@ -313,7 +319,23 @@ func (a *SDKSteps) acceptCredential(agent, name string) error {
 	return a.clients[agent].AcceptCredential(PIID, name)
 }
 
-func (a *SDKSteps) createClient(agentID string) error {
+// CreateManyClients expects 'many' to be a comma-delimited string of agent names, and a
+// new client will be created for each.
+func (a *SDKSteps) CreateManyClients(many string) error {
+	agents := strings.Split(many, ",")
+
+	for i := range agents {
+		err := a.CreateClient(agents[i])
+		if err != nil {
+			return fmt.Errorf("failed to create client for '%s': %w", agents[i], err)
+		}
+	}
+
+	return nil
+}
+
+// CreateClient creates a client with the given id.
+func (a *SDKSteps) CreateClient(agentID string) error {
 	if a.clients[agentID] != nil {
 		return nil
 	}
@@ -337,11 +359,11 @@ func (a *SDKSteps) createClient(agentID string) error {
 }
 
 func (a *SDKSteps) getConnection(agent1, agent2 string) (*didexchange.Connection, error) {
-	if err := a.createClient(agent1); err != nil {
+	if err := a.CreateClient(agent1); err != nil {
 		return nil, err
 	}
 
-	if err := a.createClient(agent2); err != nil {
+	if err := a.CreateClient(agent2); err != nil {
 		return nil, err
 	}
 

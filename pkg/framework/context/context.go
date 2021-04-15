@@ -54,18 +54,18 @@ type Provider struct {
 	frameworkID                string
 }
 
-type outboundHandler struct {
-	services []dispatcher.ProtocolService
+type inboundHandler struct {
+	handlers []dispatcher.ProtocolService
 }
 
-func (o *outboundHandler) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	for _, s := range o.services {
-		if s.Accept(msg.Type()) {
-			return s.HandleOutbound(msg, myDID, theirDID)
+func (in *inboundHandler) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	for i := range in.handlers {
+		if in.handlers[i].Accept(msg.Type()) {
+			return in.handlers[i].HandleInbound(msg, ctx)
 		}
 	}
 
-	return "", fmt.Errorf("no handlers for msg type %s", msg.Type())
+	return "", fmt.Errorf("no inbound handlers for msg type: %s", msg.Type())
 }
 
 // New instantiates a new context provider.
@@ -243,12 +243,14 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 	return myDID, theirDID, nil
 }
 
-// OutboundMessageHandler returns a handler composed of all registered protocol services.
-func (p *Provider) OutboundMessageHandler() service.OutboundHandler {
-	tmp := make([]dispatcher.ProtocolService, len(p.services))
-	copy(tmp, p.services)
+// InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.
+func (p *Provider) InboundDIDCommMessageHandler() func() service.InboundHandler {
+	return func() service.InboundHandler {
+		tmp := make([]dispatcher.ProtocolService, len(p.services))
+		copy(tmp, p.services)
 
-	return &outboundHandler{services: tmp}
+		return &inboundHandler{handlers: tmp}
+	}
 }
 
 // StorageProvider return a storage provider.

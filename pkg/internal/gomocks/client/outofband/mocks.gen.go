@@ -103,18 +103,18 @@ func (m *MockOobService) EXPECT() *MockOobServiceMockRecorder {
 }
 
 // AcceptInvitation mocks base method.
-func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 string, arg2 []string) (string, error) {
+func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 outofband.Options) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AcceptInvitation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AcceptInvitation", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AcceptInvitation indicates an expected call of AcceptInvitation.
-func (mr *MockOobServiceMockRecorder) AcceptInvitation(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockOobServiceMockRecorder) AcceptInvitation(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInvitation", reflect.TypeOf((*MockOobService)(nil).AcceptInvitation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInvitation", reflect.TypeOf((*MockOobService)(nil).AcceptInvitation), arg0, arg1)
 }
 
 // ActionContinue mocks base method.

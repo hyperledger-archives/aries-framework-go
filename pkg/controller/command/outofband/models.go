@@ -39,9 +39,11 @@ type CreateInvitationResponse struct {
 // This is used for accepting an invitation.
 //
 type AcceptInvitationArgs struct {
-	Invitation        *outofband.Invitation `json:"invitation"`
-	MyLabel           string                `json:"my_label"`
-	RouterConnections string                `json:"router_connections"`
+	Invitation         *outofband.Invitation `json:"invitation"`
+	MyLabel            string                `json:"my_label"`
+	RouterConnections  string                `json:"router_connections"`
+	ReuseConnection    string                `json:"reuse_connection"`
+	ReuseAnyConnection bool                  `json:"reuse_any_connection"`
 }
 
 // AcceptInvitationResponse model
