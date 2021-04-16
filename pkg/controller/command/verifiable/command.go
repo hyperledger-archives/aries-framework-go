@@ -429,20 +429,18 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	var didDoc *did.Doc
-
-	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
-	//  if did not found in VDR, look through in local storage
+	//  if caches DID, local storage should be looked first
+	didDoc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		didDoc, err = o.didStore.GetDID(request.DID)
+		doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, SignCredentialCommandMethod,
 				"failed to get did doc from store or vdr: "+err.Error())
 
 			return command.NewValidationError(SignCredentialErrorCode,
-				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
+				fmt.Errorf("sign vc - failed to get did doc from store or vdr : %w", err))
 		}
-	} else {
+
 		didDoc = doc.DIDDocument
 	}
 
@@ -653,12 +651,10 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	var didDoc *did.Doc
-
-	doc, err := o.ctx.VDRegistry().Resolve(request.DID)
-	//  if did not found in VDR, look through in local storage
+	//  if caches DID, local storage should be looked first
+	didDoc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		didDoc, err = o.didStore.GetDID(request.DID)
+		doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 		if err != nil {
 			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
 				"failed to get did doc from store or vdr: "+err.Error())
@@ -666,7 +662,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 			return command.NewValidationError(GeneratePresentationErrorCode,
 				fmt.Errorf("generate vp - failed to get did doc from store or vdr : %w", err))
 		}
-	} else {
+
 		didDoc = doc.DIDDocument
 	}
 
@@ -716,10 +712,10 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 	if err != nil {
 		doc, err := o.ctx.VDRegistry().Resolve(request.DID)
 		if err != nil {
-			logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
+			logutil.LogError(logger, CommandName, GeneratePresentationByIDCommandMethod,
 				"failed to get did doc from store or vdr: "+err.Error())
 
-			return command.NewValidationError(GeneratePresentationErrorCode,
+			return command.NewValidationError(GeneratePresentationByIDErrorCode,
 				fmt.Errorf("generate vp by id - failed to get did doc from store or vdr : %w", err))
 		}
 
