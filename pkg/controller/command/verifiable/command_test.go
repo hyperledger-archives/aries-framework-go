@@ -2243,7 +2243,7 @@ func TestCommand_SignCredential(t *testing.T) {
 
 		err = cmd.SignCredential(&b, bytes.NewBuffer(presReqBytes))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "generate vp - failed to get did doc from store or vdr")
+		require.Contains(t, err.Error(), "sign vc - failed to get did doc from store or vdr")
 	})
 }
 
