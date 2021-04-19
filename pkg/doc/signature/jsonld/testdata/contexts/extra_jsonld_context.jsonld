@@ -1,0 +1,14 @@
+{
+    "@context": {
+      "@version": 1.1,
+
+      "id": "@id",
+      "type": "@type",
+
+      "ex": "https://example.org/examples#",
+
+      "CredentialStatusList2017": "ex:CredentialStatusList2017",
+      "DocumentVerification": "ex:DocumentVerification",
+      "SupportingActivity": "ex:SupportingActivity"
+    }
+}

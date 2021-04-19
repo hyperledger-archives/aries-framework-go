@@ -58,14 +58,14 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	defaultOpts := &embeddedProofCheckOpts{}
 
 	t.Run("Happy path - single proof", func(t *testing.T) {
-		vc, publicKeyFetcher := createVCWithLinkedDataProof()
+		vc, publicKeyFetcher := createVCWithLinkedDataProof(t)
 		vcBytes := vc.byteJSON(t)
 
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		proof, err := checkEmbeddedProof(vcBytes, &embeddedProofCheckOpts{
 			publicKeyFetcher:     publicKeyFetcher,
 			ldpSuites:            []verifier.SignatureSuite{vSuite},
-			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestJSONLDDocumentLoader()},
+			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
 
 		require.NoError(t, err)
@@ -73,14 +73,14 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	})
 
 	t.Run("Happy path - two proofs", func(t *testing.T) {
-		vc, publicKeyFetcher := createVCWithTwoLinkedDataProofs()
+		vc, publicKeyFetcher := createVCWithTwoLinkedDataProofs(t)
 		vcBytes := vc.byteJSON(t)
 
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		proof, err := checkEmbeddedProof(vcBytes, &embeddedProofCheckOpts{
 			publicKeyFetcher:     publicKeyFetcher,
 			ldpSuites:            []verifier.SignatureSuite{vSuite},
-			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestJSONLDDocumentLoader()},
+			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
 
 		require.NoError(t, err)

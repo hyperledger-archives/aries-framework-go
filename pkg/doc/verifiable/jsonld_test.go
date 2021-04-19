@@ -6,10 +6,26 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	_ "embed"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+)
+
+//nolint:gochecknoglobals
+var (
+	//go:embed testdata/context/context3.jsonld
+	context3 []byte
+	//go:embed testdata/context/context4.jsonld
+	context4 []byte
+	//go:embed testdata/context/context5.jsonld
+	context5 []byte
+	//go:embed testdata/context/context6.jsonld
+	context6 []byte
 )
 
 func Test_compactJSONLD(t *testing.T) {
@@ -80,10 +96,10 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		loader := CachingJSONLDLoader()
-		addJSONLDCachedContextFromFile(loader,
-			"http://127.0.0.1?context=3",
-			"context3.jsonld")
+		loader := createTestDocumentLoader(t, jld.ContextDocument{
+			URL:     "http://127.0.0.1?context=3",
+			Content: context3,
+		})
 
 		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
@@ -115,10 +131,10 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		loader := CachingJSONLDLoader()
-		addJSONLDCachedContextFromFile(loader,
-			"http://127.0.0.1?context=4",
-			"context4.jsonld")
+		loader := createTestDocumentLoader(t, jld.ContextDocument{
+			URL:     "http://127.0.0.1?context=4",
+			Content: context4,
+		})
 
 		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
@@ -150,10 +166,10 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 `
 	vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-	loader := CachingJSONLDLoader()
-	addJSONLDCachedContextFromFile(loader,
-		"http://127.0.0.1?context=5",
-		"context5.jsonld")
+	loader := createTestDocumentLoader(t, jld.ContextDocument{
+		URL:     "http://127.0.0.1?context=5",
+		Content: context5,
+	})
 
 	opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
@@ -164,10 +180,11 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 
 func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 	contextURL := "http://127.0.0.1?context=6"
-	loader := CachingJSONLDLoader()
-	addJSONLDCachedContextFromFile(loader,
-		"http://127.0.0.1?context=6",
-		"context6.jsonld")
+
+	loader := createTestDocumentLoader(t, jld.ContextDocument{
+		URL:     contextURL,
+		Content: context6,
+	})
 
 	t.Run("Extended basic VC model, credentialSubject is defined as object - undefined fields present",
 		func(t *testing.T) {
@@ -266,7 +283,7 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
 }
 `
 
-	err := compactJSONLD(vcJSONWithValidProof, defaultOpts(), true)
+	err := compactJSONLD(vcJSONWithValidProof, defaultOpts(t), true)
 	require.NoError(t, err)
 
 	// "newProp" field is present in the proof
@@ -295,14 +312,14 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
   }
 }`
 
-	err = compactJSONLD(vcJSONWithInvalidProof, defaultOpts(), true)
+	err = compactJSONLD(vcJSONWithInvalidProof, defaultOpts(t), true)
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
 func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 	t.Run("Invalid JSON input", func(t *testing.T) {
-		err := compactJSONLD("not a json", defaultOpts(), true)
+		err := compactJSONLD("not a json", defaultOpts(t), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "convert JSON-LD doc to map")
 	})
@@ -323,14 +340,19 @@ func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 }
 `
 
-		err := compactJSONLD(vcJSONTemplate, defaultOpts(), true)
+		err := compactJSONLD(vcJSONTemplate, defaultOpts(t), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "compact JSON-LD document")
 	})
 }
 
-func defaultOpts() *jsonldCredentialOpts {
-	return &jsonldCredentialOpts{jsonldDocumentLoader: CachingJSONLDLoader()}
+func defaultOpts(t *testing.T) *jsonldCredentialOpts {
+	t.Helper()
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
+	return &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 }
 
 // nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks.
@@ -411,14 +433,15 @@ func Benchmark_compactJSONLD(b *testing.B) {
 			b.ResetTimer()
 
 			for pb.Next() {
-				loader := CachingJSONLDLoader()
-				addJSONLDCachedContextFromFile(loader,
-					"http://127.0.0.1?context=3",
-					"context3.jsonld")
+				loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+					URL:     "http://127.0.0.1?context=3",
+					Content: context3,
+				})
+				require.NoError(b, err)
 
 				opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-				err := compactJSONLD(vc, opts, true)
+				err = compactJSONLD(vc, opts, true)
 				require.NoError(b, err)
 
 				sink = "basic_compact_test"
@@ -456,14 +479,15 @@ func Benchmark_compactJSONLD(b *testing.B) {
 			b.ResetTimer()
 
 			for pb.Next() {
-				loader := CachingJSONLDLoader()
-				addJSONLDCachedContextFromFile(loader,
-					"http://127.0.0.1?context=4",
-					"context4.jsonld")
+				loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+					URL:     "http://127.0.0.1?context=4",
+					Content: context4,
+				})
+				require.NoError(b, err)
 
 				opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-				err := compactJSONLD(vcJSON, opts, true)
+				err = compactJSONLD(vcJSON, opts, true)
 				require.NoError(b, err)
 
 				sink = "extended_compact_test"

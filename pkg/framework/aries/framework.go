@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -20,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -63,6 +65,7 @@ type Aries struct {
 	vdr                        []vdrapi.VDR
 	verifiableStore            verifiable.Store
 	didConnectionStore         did.ConnectionStore
+	jsonldDocumentLoader       ld.DocumentLoader
 	transportReturnRoute       string
 	id                         string
 }
@@ -282,6 +285,14 @@ func WithDIDConnectionStore(store did.ConnectionStore) Option {
 	}
 }
 
+// WithJSONLDDocumentLoader injects a JSON-LD document loader.
+func WithJSONLDDocumentLoader(loader ld.DocumentLoader) Option {
+	return func(opts *Aries) error {
+		opts.jsonldDocumentLoader = loader
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -304,6 +315,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithMessageServiceProvider(a.msgSvcProvider),
 		context.WithVerifiableStore(a.verifiableStore),
 		context.WithDIDConnectionStore(a.didConnectionStore),
+		context.WithJSONLDDocumentLoader(a.jsonldDocumentLoader),
 	)
 }
 
@@ -459,6 +471,21 @@ func createDIDConnectionStore(frameworkOpts *Aries) error {
 	return err
 }
 
+func createJSONLDDocumentLoader(frameworkOpts *Aries) error {
+	if frameworkOpts.jsonldDocumentLoader != nil {
+		return nil
+	}
+
+	l, err := jsonld.NewDocumentLoader(frameworkOpts.storeProvider)
+	if err != nil {
+		return fmt.Errorf("document loader creation failed: %w", err)
+	}
+
+	frameworkOpts.jsonldDocumentLoader = l
+
+	return nil
+}
+
 func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithCrypto(frameworkOpts.crypto),
@@ -505,6 +532,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithVerifiableStore(frameworkOpts.verifiableStore),
 		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
+		context.WithJSONLDDocumentLoader(frameworkOpts.jsonldDocumentLoader),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)

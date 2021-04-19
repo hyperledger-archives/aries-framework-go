@@ -17,7 +17,6 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
-	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
@@ -25,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -313,9 +311,14 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return err
 	}
 
+	loader, err := bddverifiable.CreateDocumentLoader()
+	if err != nil {
+		return err
+	}
+
 	vp, err := verifiable.ParsePresentation(
 		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
-		verifiable.WithPresJSONLDDocumentLoader(bddverifiable.CachingJSONLDLoader()),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
 		verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		return fmt.Errorf("failed to decode VP JSON: %w", err)
@@ -413,12 +416,17 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 		},
 	}
 
+	loader, err := bddverifiable.CreateDocumentLoader()
+	if err != nil {
+		return err
+	}
+
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "BbsBlsSignature2020",
 		SignatureRepresentation: verifiable.SignatureProofValue,
 		Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
 		VerificationMethod:      didKey,
-	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	}, jsonld.WithDocumentLoader(loader))
 
 	if err != nil {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
@@ -439,7 +447,7 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 				SignatureRepresentation: verifiable.SignatureProofValue,
 				Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
 				VerificationMethod:      didKey,
-			}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+			}, jsonld.WithDocumentLoader(loader))
 		}
 	}
 
@@ -611,114 +619,3 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 
 	return linesBytes
 }
-
-func createTestJSONLDDocumentLoader() *jld.CachingDocumentLoader {
-	loader := presexch.CachingJSONLDLoader()
-
-	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
-	if err != nil {
-		panic(err)
-	}
-
-	loader.AddDocument("https://w3id.org/security/bbs/v1", reader)
-
-	return loader
-}
-
-const contextBBSContent = `{
-  "@context": {
-    "@version": 1.1,
-    "id": "@id",
-    "type": "@type",
-    "ldssk": "https://w3id.org/security#",
-    "BbsBlsSignature2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignature2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "proofValue": "sec:proofValue",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "BbsBlsSignatureProof2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "proofValue": "sec:proofValue",
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
-  }
-}`

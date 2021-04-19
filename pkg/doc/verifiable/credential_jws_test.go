@@ -23,7 +23,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
-	vc, err := parseTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential(t, []byte(validCredential))
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
@@ -77,7 +77,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential([]byte(jwtTestCredential))
+		vc, err := parseTestCredential(t, []byte(jwtTestCredential))
 		require.NoError(t, err)
 		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
 	})

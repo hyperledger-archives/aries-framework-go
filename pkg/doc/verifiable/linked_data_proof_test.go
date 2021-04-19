@@ -100,7 +100,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		verifierSuite := ed25519signature2018.New(
 			suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
 			suite.WithCompactProof())
-		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuite),
 			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 				suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())),
 		}
 
-		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
 		require.NoError(t, err)
 
-		vcDecoded, err = parseTestCredential(vcWithSecp256k1ProofBytes,
+		vcDecoded, err = parseTestCredential(t, vcWithSecp256k1ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return &verifier.PublicKey{
@@ -139,7 +139,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	})
 
 	t.Run("no signature suite defined", func(t *testing.T) {
-		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
 			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
 		require.NotNil(t, vcDecoded)
@@ -148,7 +148,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 
 func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
 	vc, err := ParseCredential([]byte(vcJSON),
-		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 	require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Creden
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:example:123456#key1",
-	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 1)
@@ -175,7 +175,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Creden
 
 func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
 	vc, err := ParseCredential([]byte(vcJSON),
-		WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 	require.NoError(t, err)
 
@@ -187,7 +187,7 @@ func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer Signer) *Cred
 		Suite:                   ed25519SignerSuite,
 		SignatureRepresentation: SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
-	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 1)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -50,6 +51,7 @@ type Provider struct {
 	vdr                        vdrapi.Registry
 	verifiableStore            verifiable.Store
 	didConnectionStore         did.ConnectionStore
+	jsonldDocumentLoader       ld.DocumentLoader
 	transportReturnRoute       string
 	frameworkID                string
 }
@@ -279,6 +281,11 @@ func (p *Provider) DIDConnectionStore() did.ConnectionStore {
 	return p.didConnectionStore
 }
 
+// JSONLDDocumentLoader returns a JSON-LD document loader.
+func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
+	return p.jsonldDocumentLoader
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -436,6 +443,14 @@ func WithVerifiableStore(store verifiable.Store) ProviderOption {
 func WithDIDConnectionStore(store did.ConnectionStore) ProviderOption {
 	return func(opts *Provider) error {
 		opts.didConnectionStore = store
+		return nil
+	}
+}
+
+// WithJSONLDDocumentLoader injects a JSON-LD document loader into the context.
+func WithJSONLDDocumentLoader(loader ld.DocumentLoader) ProviderOption {
+	return func(opts *Provider) error {
+		opts.jsonldDocumentLoader = loader
 		return nil
 	}
 }

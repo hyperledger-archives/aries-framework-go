@@ -20,14 +20,18 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/cachedstore"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -59,14 +63,28 @@ func NewSDKSteps() *SDKSteps {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
+	storeProv := a.getStoreProvider(agentID)
+
+	loader, err := createJSONLDDocumentLoader(storeProv)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
 // CreateAgentWithRemoteKMS with the given parameters with a remote kms.
 func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme, ksURL, controller string) error {
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
+	storeProv := a.getStoreProvider(agentID)
+
+	loader, err := createJSONLDDocumentLoader(storeProv)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader))
 
 	cp, err := loadCertPool()
 	if err != nil {
@@ -120,8 +138,15 @@ func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, s
 	msgRegistrar := msghandler.NewRegistrar()
 	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
 
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
-		aries.WithMessageServiceProvider(msgRegistrar))
+	storeProv := a.getStoreProvider(agentID)
+
+	loader, err := createJSONLDDocumentLoader(storeProv)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv),
+		aries.WithMessageServiceProvider(msgRegistrar), aries.WithJSONLDDocumentLoader(loader))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
@@ -142,8 +167,15 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 		return fmt.Errorf("failed from httpbinding new ")
 	}
 
-	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
-		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDR(httpVDR))
+	storeProv := a.getStoreProvider(agentID)
+
+	loader, err := createJSONLDDocumentLoader(storeProv)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv),
+		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDR(httpVDR), aries.WithJSONLDDocumentLoader(loader))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
@@ -167,7 +199,13 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 
 		storeProv := a.getStoreProvider(agentID)
 
-		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv))
+		loader, err := createJSONLDDocumentLoader(storeProv)
+		if err != nil {
+			return fmt.Errorf("create document loader: %w", err)
+		}
+
+		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv),
+			aries.WithJSONLDDocumentLoader(loader))
 
 		if err := a.create(agentID, inboundHost, inboundPort, "http", opts...); err != nil {
 			return err
@@ -191,9 +229,15 @@ func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 		return errors.New("only 'all' transport route return option is supported")
 	}
 
+	loader, err := createJSONLDDocumentLoader(storeProv)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
 	opts = append(opts,
 		aries.WithStoreProvider(storeProv),
 		aries.WithTransportReturnRoute(routeOpt),
+		aries.WithJSONLDDocumentLoader(loader),
 	)
 
 	sch := strings.Split(scheme, ",")
@@ -295,6 +339,15 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	a.bddContext.Messengers[agentID] = agent.Messenger()
 
 	return nil
+}
+
+func createJSONLDDocumentLoader(storageProvider storage.Provider) (ld.DocumentLoader, error) {
+	loader, err := jsonld.NewDocumentLoader(cachedstore.NewProvider(storageProvider, mem.NewProvider()))
+	if err != nil {
+		return nil, err
+	}
+
+	return loader, nil
 }
 
 // SetContext is called before every scenario is run with a fresh new context.

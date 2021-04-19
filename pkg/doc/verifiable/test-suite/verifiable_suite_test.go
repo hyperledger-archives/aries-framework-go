@@ -2,7 +2,7 @@
 
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: Apache-2.0 // +build testsuite
 
 This is not actually a test but rather a stand-alone generator application
 that is used by VC Test Suite (https://github.com/w3c/vc-test-suite).
@@ -24,14 +24,18 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/square/go-jose/v3"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 var logger = log.New("aries-framework/doc/verifiable/test-suite")
+var loader ld.DocumentLoader //nolint:gochecknoglobals
 
 func main() {
 	inputFile := os.Args[len(os.Args)-1]
@@ -39,6 +43,13 @@ func main() {
 	vcBytes, readErr := ioutil.ReadFile(inputFile) // nolint:gosec
 	if readErr != nil {
 		abort("cannot open input file %s: %v", inputFile, readErr)
+	}
+
+	var err error
+
+	loader, err = jsonld.NewDocumentLoader(mem.NewProvider())
+	if err != nil {
+		abort("create document loader: %v", err)
 	}
 
 	jwt := flag.String("jwt", "", "base64encoded JSON object containing es256kPrivateKeyJwk and rs256PrivateKeyJwk.")
@@ -79,7 +90,8 @@ func main() {
 }
 
 func encodeVCToJWS(vcBytes []byte, privateKey *rsa.PrivateKey) {
-	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck())
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -102,7 +114,8 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSARS256)))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSARS256)),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
@@ -121,7 +134,8 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 }
 
 func encodeVCToJWTUnsecured(vcBytes []byte) {
-	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck())
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -144,7 +158,8 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 	credential, err := verifiable.ParseCredential(vcBytes,
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSARS256)),
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
-		verifiable.WithNoProofCheck())
+		verifiable.WithNoProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -201,7 +216,11 @@ func parseRsaKeys(packedKeys string) (private *rsa.PrivateKey, public *rsa.Publi
 }
 
 func encodeVCToJSON(vcBytes []byte, testFileName string) {
-	vcOpts := []verifiable.CredentialOpt{verifiable.WithNoCustomSchemaCheck(), verifiable.WithNoProofCheck()}
+	vcOpts := []verifiable.CredentialOpt{
+		verifiable.WithNoCustomSchemaCheck(),
+		verifiable.WithNoProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader),
+	}
 
 	// This are special test cases which should be made more precise in VC Test Suite.
 	// See https://github.com/w3c/vc-test-suite/issues/96 for more information.
@@ -226,7 +245,8 @@ func encodeVPToJSON(vcBytes []byte) {
 	// https://www.w3.org/TR/vc-data-model/#presentations-0 states "If present" under verifiableCredential
 	// but the test suite requires the element to be present. Hence, WithPresRequireVC is used in test suite runs.
 	vp, err := verifiable.ParsePresentation(vcBytes,
-		verifiable.WithPresDisabledProofCheck())
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}

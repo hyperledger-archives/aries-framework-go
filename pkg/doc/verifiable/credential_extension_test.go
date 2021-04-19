@@ -70,8 +70,9 @@ type UniversityDegreeCredential struct {
 	Subject *UniversityDegreeSubject `json:"credentialSubject,omitempty"`
 }
 
-func NewUniversityDegreeCredential(vcData []byte, opts ...CredentialOpt) (*UniversityDegreeCredential, error) {
-	cred, err := parseTestCredential(vcData, opts...)
+func NewUniversityDegreeCredential(t *testing.T, vcData []byte,
+	opts ...CredentialOpt) (*UniversityDegreeCredential, error) {
+	cred, err := parseTestCredential(t, vcData, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
@@ -194,11 +195,11 @@ func TestCredentialExtensibility(t *testing.T) {
 }
 `
 
-	cred, err := parseTestCredential([]byte(udCredential))
+	cred, err := parseTestCredential(t, []byte(udCredential))
 	require.NoError(t, err)
 	require.NotNil(t, cred)
 
-	udc, err := NewUniversityDegreeCredential([]byte(udCredential))
+	udc, err := NewUniversityDegreeCredential(t, []byte(udCredential))
 	require.NoError(t, err)
 
 	// base Credential part is the same

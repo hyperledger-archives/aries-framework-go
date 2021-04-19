@@ -7,6 +7,7 @@ package proof
 
 import (
 	"crypto/sha512"
+	_ "embed"
 	"encoding/json"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
 func TestCreateVerifyHashAlgorithm(t *testing.T) {
@@ -28,13 +30,13 @@ func TestCreateVerifyHashAlgorithm(t *testing.T) {
 	err := json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
-	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldDidCache)
+	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldtest.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// test error due to missing proof option
 	delete(proofOptions, jsonldCreated)
-	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldtest.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, normalizedDoc)
 	require.Contains(t, err.Error(), "created is missing")
@@ -61,13 +63,17 @@ func TestPrepareCanonicalProofOptions(t *testing.T) {
 		"nonce":    "nonce",
 	}
 
-	canonicalProofOptions, err := prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions, jsonldDidCache)
+	canonicalProofOptions, err := prepareCanonicalProofOptions(
+		&mockSignatureSuite{}, proofOptions, jsonldtest.WithDocumentLoader(t))
+
 	require.NoError(t, err)
 	require.NotEmpty(t, canonicalProofOptions)
 
 	// test missing created
 	delete(proofOptions, jsonldCreated)
-	canonicalProofOptions, err = prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions, jsonldDidCache)
+	canonicalProofOptions, err = prepareCanonicalProofOptions(
+		&mockSignatureSuite{}, proofOptions, jsonldtest.WithDocumentLoader(t))
+
 	require.NotNil(t, err)
 	require.Nil(t, canonicalProofOptions)
 	require.Contains(t, err.Error(), "created is missing")
@@ -88,24 +94,26 @@ func TestCreateVerifyData(t *testing.T) {
 	require.NoError(t, err)
 
 	p.SignatureRepresentation = SignatureProofValue
-	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureProofValue
-	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{compactProof: true}, doc, p, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyData(
+		&mockSignatureSuite{compactProof: true}, doc, p, jsonldtest.WithDocumentLoader(t))
+
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureJWS
 	p.JWS = "jws header.."
-	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// unsupported signature representation
 	p.SignatureRepresentation = SignatureRepresentation(-1)
-	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldDidCache)
+	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported signature representation")
@@ -132,26 +140,8 @@ func (s *mockSignatureSuite) CompactProof() bool {
 	return s.compactProof
 }
 
-//nolint:lll
-const validDoc = `{
-  "@context": ["https://w3id.org/did/v1"],
-  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "verificationMethod": [
-    {
-      "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "controller": "did:example:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "did:example:123456789abcdefghw#key2",
-      "type": "RsaVerificationKey2018",
-      "controller": "did:example:123456789abcdefghw",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "created": "2002-10-10T17:00:00Z"
-}`
+//go:embed testdata/valid_doc.jsonld
+var validDoc string //nolint:gochecknoglobals
 
 // from https://json-ld.org/test-suite/reports/#test_a5ebfe589bd62d1029790695808f8ff9
 const test1 = `{

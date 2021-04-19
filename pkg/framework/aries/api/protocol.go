@@ -9,6 +9,8 @@ package api
 import (
 	"errors"
 
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -42,6 +44,7 @@ type Provider interface {
 	InboundMessageHandler() transport.InboundMessageHandler
 	VerifiableStore() verifiable.Store
 	DIDConnectionStore() did.ConnectionStore
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // ProtocolSvcCreator method to create new protocol service.

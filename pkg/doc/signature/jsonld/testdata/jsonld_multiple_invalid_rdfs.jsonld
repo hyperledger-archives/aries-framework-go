@@ -1,0 +1,34 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialSchema": [],
+  "credentialStatus": {
+    "id": "http://issuer.vc.rest.example.com:8070/status/1",
+    "type": "CredentialStatusList2017"
+  },
+ "credentialStatus": {
+    "id": "http://issuer.vc.rest.example.com:8070/status/1",
+    "type": "CredentialStatusList2017"
+  },
+  "credentialSubject": {
+    "degree": {
+      "degree": "MIT",
+      "type": "BachelorDegree"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "id": "https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "issuer": {
+    "id": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+    "type": "alice_f94db66c-be63-4f03-af10-4205d1f625e1"
+  },
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}

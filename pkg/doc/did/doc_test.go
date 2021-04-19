@@ -9,6 +9,7 @@ package did
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -23,14 +24,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
-
-const wrongDataMsg = "wrongData"
 
 const pemPK = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO
@@ -42,232 +41,6 @@ OrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ
 FQIDAQAB
 -----END PUBLIC KEY-----`
 
-const validDocResolution = `
-{
-   "@context":"https://w3id.org/did-resolution/v1",
-   "didDocument": ` + validDoc + `,
-   "didDocumentMetadata":{
-      "canonicalId":"did:ex:123333",
-      "method":{
-         "published":true,
-         "recoveryCommitment":"EiB1u5HnTYKVHrmemOpZtrGlc6BoaWWHwNAd-k7CrLKHOg",
-         "updateCommitment":"EiAiTB0QR_Skh3i-fzDSeFgjVoMEDsXYoVIsA56-GUsKjg"
-      }
-   }
-}
-`
-
-//nolint:lll
-const validDoc = `{
-  "@context": ["https://w3id.org/did/v1"],
-  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "verificationMethod": [
-    {
-      "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "controller": "did:example:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "did:example:123456789abcdefghw#key2",
-      "type": "RsaVerificationKey2018",
-      "controller": "did:example:123456789abcdefghw",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "authentication": [
-    "did:example:123456789abcdefghi#keys-1",
-    {
-      "id": "did:example:123456789abcdefghs#key3",
-      "type": "RsaVerificationKey2018",
-      "controller": "did:example:123456789abcdefghs",
-      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
-    }
-  ],
-  "service": [
-    {
-      "id": "did:example:123456789abcdefghi#inbox",
-      "type": "SocialWebInboxService",
-      "serviceEndpoint": "https://social.example.com/83hfh37dj",
-      "spamCost": {
-        "amount": "0.50",
-        "currency": "USD"
-      }
-    },
-    {
-      "id": "did:example:123456789abcdefghi#did-communication",
-      "type": "did-communication",
-      "serviceEndpoint": "https://agent.example.com/",
-      "priority" : 0,
-      "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
-      "routingKeys" : ["did:example:123456789abcdefghi#key2"]
-    }
-  ],
-  "created": "2002-10-10T17:00:00Z"
-}`
-
-//nolint:lll
-const invalidDoc = `{
-  "@context": ["https://w3id.org/did/v1"],
-  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
-    {
-      "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "owner": "did:example:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "did:example:123456789abcdefghw#key2",
-      "type": "RsaVerificationKey2018",
-      "owner": "did:example:123456789abcdefghw",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "authentication": [
-    {
-      "type": "Secp256k1VerificationKey2018",
-      "publicKey": "did:example:123456789abcdefghi#keys-1"
-    },
-    {
-      "id": "did:example:123456789abcdefghs#key3",
-      "type": "RsaVerificationKey2018",
-      "owner": "did:example:123456789abcdefghs",
-      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
-    }
-  ],
-  "service": [
-    {
-      "id": "did:example:123456789abcdefghi#inbox",
-      "type": "SocialWebInboxService",
-      "serviceEndpoint": "https://social.example.com/83hfh37dj",
-      "spamCost": {
-        "amount": "0.50",
-        "currency": "USD"
-      }
-    },
-    {
-      "id": "did:example:123456789abcdefghi#did-communication",
-      "type": "did-communication",
-      "serviceEndpoint": "https://agent.example.com/",
-      "priority" : 0,
-      "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
-      "routingKeys" : ["did:example:123456789abcdefghi#key2"]
-    }
-  ],
-  "created": "2002-10-10T17:00:00Z"
-}`
-
-//nolint:lll
-const validDocV011 = `{
-  "@context": ["https://w3id.org/did/v0.11"],
-  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
-  "publicKey": [
-    {
-      "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "owner": "did:example:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "did:example:123456789abcdefghw#key2",
-      "type": "RsaVerificationKey2018",
-      "owner": "did:example:123456789abcdefghw",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "authentication": [
-    {
-      "type": "Secp256k1VerificationKey2018",
-      "publicKey": "did:example:123456789abcdefghi#keys-1"
-    },
-    {
-      "id": "did:example:123456789abcdefghs#key3",
-      "type": "RsaVerificationKey2018",
-      "owner": "did:example:123456789abcdefghs",
-      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
-    }
-  ],
-  "service": [
-    {
-      "id": "did:example:123456789abcdefghi#inbox",
-      "type": "SocialWebInboxService",
-      "serviceEndpoint": "https://social.example.com/83hfh37dj",
-      "spamCost": {
-        "amount": "0.50",
-        "currency": "USD"
-      }
-    },
-    {
-      "id": "did:example:123456789abcdefghi#did-communication",
-      "type": "did-communication",
-      "serviceEndpoint": "https://agent.example.com/",
-      "priority" : 0,
-      "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
-      "routingKeys" : ["did:example:123456789abcdefghi#key2"]
-    }
-  ],
-  "created": "2002-10-10T17:00:00Z"
-}`
-
-//nolint:lll
-const validDocWithBase = `{
-  "@context": ["https://w3id.org/did/v1",
-   { "@base": "did:example:123456789abcdefghi"}],
-  "id": "did:example:123456789abcdefghi",
-  "verificationMethod": [
-    {
-      "id": "#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "controller": "",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "#key2",
-      "type": "RsaVerificationKey2018",
-      "controller": "",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "authentication": [
-    "#keys-1",
-    {
-      "id": "#key3",
-      "type": "RsaVerificationKey2018",
-      "controller": "",
-      "publicKeyHex": "02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71"
-    }
-  ],
-  "service": [
-    {
-      "id": "#inbox",
-      "type": "SocialWebInboxService",
-      "serviceEndpoint": "https://social.example.com/83hfh37dj",
-      "spamCost": {
-        "amount": "0.50",
-        "currency": "USD"
-      }
-    },
-    {
-      "id": "#did-communication",
-      "type": "did-communication",
-      "serviceEndpoint": "https://agent.example.com/",
-      "priority" : 0,
-      "recipientKeys" : ["#key2"],
-      "routingKeys" : ["#key2"]
-    }
-  ],
-  "proof": [{
-		"created": "2002-10-10T17:00:00Z",
-		"creator": "#key-5",
-		"domain": "",
-		"nonce": "",
-		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
-		"type": "Ed25519Signature2018"
-	}],
-  "created": "2002-10-10T17:00:00Z"
-}`
-
 const (
 	did           = "did:method:abc"
 	creator       = did + "#key-1"
@@ -275,7 +48,24 @@ const (
 	signatureType = "Ed25519Signature2018"
 )
 
-const missingPubKeyID = "did:example:123456789abcdefghs#key4"
+const (
+	missingPubKeyID = "did:example:123456789abcdefghs#key4"
+	wrongDataMsg    = "wrongData"
+)
+
+//nolint:gochecknoglobals
+var (
+	//go:embed testdata/valid_doc.jsonld
+	validDoc string
+	//go:embed testdata/valid_doc_resolution.jsonld
+	validDocResolution string
+	//go:embed testdata/invalid_doc.jsonld
+	invalidDoc string
+	//go:embed testdata/valid_doc_v0.11.jsonld
+	validDocV011 string
+	//go:embed testdata/valid_doc_with_base.jsonld
+	validDocWithBase string
+)
 
 func TestParseOfNull(t *testing.T) {
 	doc, err := ParseDocument([]byte("null"))
@@ -1296,7 +1086,7 @@ func TestVerifyProof(t *testing.T) {
 			panic(err)
 		}
 
-		signedDoc := createSignedDidDocument(privKey, pubKey)
+		signedDoc := createSignedDidDocument(t, privKey, pubKey)
 
 		s := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
@@ -1304,17 +1094,17 @@ func TestVerifyProof(t *testing.T) {
 		doc, err := ParseDocument(signedDoc)
 		require.Nil(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof([]verifier.SignatureSuite{s})
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
 		require.NoError(t, err)
 
 		// error - no suites are passed, verifier is not created
-		err = doc.VerifyProof([]verifier.SignatureSuite{})
+		err = doc.VerifyProof([]verifier.SignatureSuite{}, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create verifier")
 
 		// error - doc with invalid proof value
 		doc.Proof[0].ProofValue = []byte("invalid")
-		err = doc.VerifyProof([]verifier.SignatureSuite{s})
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "ed25519: invalid signature")
 
@@ -1322,7 +1112,7 @@ func TestVerifyProof(t *testing.T) {
 		doc, err = ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof([]verifier.SignatureSuite{s})
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
 		require.Equal(t, ErrProofNotFound, err)
 		require.Contains(t, err.Error(), "proof not found")
 	}
@@ -1773,7 +1563,7 @@ func TestDoc_SerializeInterop(t *testing.T) {
 
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	const (
-		didContext      = "https://www.w3.org/ns/did/v1"
+		didContext      = "https://w3id.org/did/v1"
 		securityContext = "https://w3id.org/security/v1"
 	)
 
@@ -1796,13 +1586,11 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	return didDoc
 }
 
-func createSignedDidDocument(privKey, pubKey []byte) []byte {
+func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
 	didDoc := createDidDocumentWithSigningKey(pubKey)
 
 	jsonDoc, err := didDoc.JSONBytes()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	context := &signer.Context{
 		Creator:       creator,
@@ -1812,10 +1600,8 @@ func createSignedDidDocument(privKey, pubKey []byte) []byte {
 	s := signer.New(ed25519signature2018.New(
 		suite.WithSigner(getSigner(privKey))))
 
-	signedDoc, err := s.Sign(context, jsonDoc, jsonld.WithDocumentLoader(CachingJSONLDLoader()))
-	if err != nil {
-		panic(err)
-	}
+	signedDoc, err := s.Sign(context, jsonDoc, jsonldtest.WithDocumentLoader(t))
+	require.NoError(t, err)
 
 	return signedDoc
 }

@@ -30,10 +30,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -294,8 +297,12 @@ func TestNew(t *testing.T) {
 
 func TestValidateVC(t *testing.T) {
 	t.Run("test validate vc - success", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -338,8 +345,12 @@ func TestValidateVC(t *testing.T) {
 
 func TestSaveVC(t *testing.T) {
 	t.Run("test save vc - success", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -389,8 +400,12 @@ func TestGetVC(t *testing.T) {
 		s := make(map[string]mockstore.DBEntry)
 		s["http://example.edu/credentials/1989"] = mockstore.DBEntry{Value: []byte(vc)}
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			StorageProviderValue:      &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -430,8 +445,12 @@ func TestGetVC(t *testing.T) {
 
 func TestGetCredentialByName(t *testing.T) {
 	t.Run("test get vc by name - success", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -483,8 +502,12 @@ func TestGetCredentialByName(t *testing.T) {
 
 func TestGetCredentials(t *testing.T) {
 	t.Run("test get credentials", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -519,6 +542,10 @@ func TestGetCredentials(t *testing.T) {
 
 func TestGeneratePresentation(t *testing.T) {
 	s := make(map[string]mockstore.DBEntry)
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -533,8 +560,9 @@ func TestGeneratePresentation(t *testing.T) {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
-		KMSValue:    &kmsmock.KeyManager{},
-		CryptoValue: &cryptomock.Crypto{},
+		KMSValue:                  &kmsmock.KeyManager{},
+		CryptoValue:               &cryptomock.Crypto{},
+		JSONLDDocumentLoaderValue: loader,
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -636,7 +664,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response.VerifiablePresentation)
 
 		vp, err := verifiableapi.ParsePresentation(response.VerifiablePresentation,
-			verifiableapi.WithPresDisabledProofCheck())
+			verifiableapi.WithPresDisabledProofCheck(),
+			verifiableapi.WithPresJSONLDDocumentLoader(createTestDocumentLoader(t)))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -680,7 +709,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response.VerifiablePresentation)
 
 		vp, err := verifiableapi.ParsePresentation(response.VerifiablePresentation,
-			verifiableapi.WithPresDisabledProofCheck())
+			verifiableapi.WithPresDisabledProofCheck(),
+			verifiableapi.WithPresJSONLDDocumentLoader(createTestDocumentLoader(t)))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -713,6 +743,10 @@ func TestGeneratePresentation(t *testing.T) {
 
 func TestGeneratePresentationByID(t *testing.T) {
 	s := make(map[string]mockstore.DBEntry)
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -727,8 +761,9 @@ func TestGeneratePresentationByID(t *testing.T) {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
-		KMSValue:    &kmsmock.KeyManager{},
-		CryptoValue: &cryptomock.Crypto{},
+		KMSValue:                  &kmsmock.KeyManager{},
+		CryptoValue:               &cryptomock.Crypto{},
+		JSONLDDocumentLoaderValue: loader,
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -792,8 +827,12 @@ func TestGeneratePresentationByID(t *testing.T) {
 
 func TestSaveVP(t *testing.T) {
 	t.Run("test save vp - success", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -847,8 +886,12 @@ func TestGetVP(t *testing.T) {
 		s := make(map[string]mockstore.DBEntry)
 		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			StorageProviderValue:      &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -908,8 +951,12 @@ func TestGetVP(t *testing.T) {
 
 func TestGetPresentations(t *testing.T) {
 	t.Run("test get presentations", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -954,6 +1001,10 @@ func TestGetPresentations(t *testing.T) {
 
 func TestSignCredential(t *testing.T) {
 	s := make(map[string]mockstore.DBEntry)
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRegistryValue: &mockvdr.MockVDRegistry{
@@ -968,8 +1019,9 @@ func TestSignCredential(t *testing.T) {
 				return &did.DocResolution{DIDDocument: didDoc}, nil
 			},
 		},
-		KMSValue:    &kmsmock.KeyManager{},
-		CryptoValue: &cryptomock.Crypto{},
+		KMSValue:                  &kmsmock.KeyManager{},
+		CryptoValue:               &cryptomock.Crypto{},
+		JSONLDDocumentLoaderValue: loader,
 	})
 
 	require.NotNil(t, cmd)
@@ -1029,7 +1081,8 @@ func TestSignCredential(t *testing.T) {
 		require.NotEmpty(t, response.VerifiableCredential)
 
 		vp, err := verifiableapi.ParseCredential(response.VerifiableCredential,
-			verifiableapi.WithDisabledProofCheck())
+			verifiableapi.WithDisabledProofCheck(),
+			verifiableapi.WithJSONLDDocumentLoader(loader))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1070,7 +1123,8 @@ func TestSignCredential(t *testing.T) {
 		require.NotEmpty(t, response.VerifiableCredential)
 
 		vc, err := verifiableapi.ParseCredential(response.VerifiableCredential,
-			verifiableapi.WithDisabledProofCheck())
+			verifiableapi.WithDisabledProofCheck(),
+			verifiableapi.WithJSONLDDocumentLoader(loader))
 
 		require.NoError(t, err)
 		require.NotNil(t, vc)
@@ -1102,7 +1156,10 @@ func TestSignCredential(t *testing.T) {
 func TestDeriveCredential(t *testing.T) {
 	r := require.New(t)
 
-	vc, err := verifiableapi.ParseCredential([]byte(vcForDerive))
+	loader, err := jsonldtest.DocumentLoader()
+	r.NoError(err)
+
+	vc, err := verifiableapi.ParseCredential([]byte(vcForDerive), verifiableapi.WithJSONLDDocumentLoader(loader))
 	r.NoError(err)
 
 	r.Len(vc.Proofs, 0)
@@ -1144,10 +1201,11 @@ func TestDeriveCredential(t *testing.T) {
 
 	t.Run("derive credential success", func(t *testing.T) {
 		cmd, cmdErr := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			VDRegistryValue:      mockVDR,
-			KMSValue:             &kmsmock.KeyManager{},
-			CryptoValue:          &cryptomock.Crypto{},
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			VDRegistryValue:           mockVDR,
+			KMSValue:                  &kmsmock.KeyManager{},
+			CryptoValue:               &cryptomock.Crypto{},
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, cmdErr)
@@ -1173,7 +1231,8 @@ func TestDeriveCredential(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiableapi.ParseCredential([]byte(response.VerifiableCredential),
-			verifiableapi.WithPublicKeyFetcher(verifiableapi.NewVDRKeyResolver(mockVDR).PublicKeyFetcher()))
+			verifiableapi.WithPublicKeyFetcher(verifiableapi.NewVDRKeyResolver(mockVDR).PublicKeyFetcher()),
+			verifiableapi.WithJSONLDDocumentLoader(loader))
 
 		// check expected proof
 		r.NoError(err)
@@ -1187,10 +1246,11 @@ func TestDeriveCredential(t *testing.T) {
 
 	t.Run("derive credential failure", func(t *testing.T) {
 		cmd, cmdErr := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			VDRegistryValue:      mockVDR,
-			KMSValue:             &kmsmock.KeyManager{},
-			CryptoValue:          &cryptomock.Crypto{},
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			VDRegistryValue:           mockVDR,
+			KMSValue:                  &kmsmock.KeyManager{},
+			CryptoValue:               &cryptomock.Crypto{},
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NotNil(t, cmd)
 		require.NoError(t, cmdErr)
@@ -1217,8 +1277,12 @@ func TestDeriveCredential(t *testing.T) {
 
 func TestRemoveVCByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:      mockstore.NewMockStoreProvider(),
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -1264,8 +1328,12 @@ func TestRemoveVPByName(t *testing.T) {
 		s := make(map[string]mockstore.DBEntry)
 		s[sampleVPID] = mockstore.DBEntry{Value: []byte(vc)}
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			StorageProviderValue:      &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			JSONLDDocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -1418,7 +1486,10 @@ func signVCWithBBS(r *require.Assertions, vc *verifiableapi.Credential) string {
 		VerificationMethod:      keyID,
 	}
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	loader, err := jsonldtest.DocumentLoader()
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(loader))
 	r.NoError(err)
 
 	vcSignedBytes, err := json.Marshal(vc)
@@ -1428,6 +1499,7 @@ func signVCWithBBS(r *require.Assertions, vc *verifiableapi.Credential) string {
 	vcVerified, err := verifiableapi.ParseCredential(vcSignedBytes,
 		verifiableapi.WithEmbeddedSignatureSuites(sigSuite),
 		verifiableapi.WithPublicKeyFetcher(verifiableapi.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+		verifiableapi.WithJSONLDDocumentLoader(loader),
 	)
 	r.NoError(err)
 	r.NotNil(vcVerified)
@@ -1465,4 +1537,13 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 	}
 
 	return linesBytes
+}
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
+	return loader
 }

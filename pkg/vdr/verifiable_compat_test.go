@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
@@ -59,6 +60,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 				Domain:                  uuid.New().String(),
 				Purpose:                 "authentication",
 			},
+			jsonldtest.WithDocumentLoader(t),
 		)
 		require.NoError(t, err)
 
@@ -75,7 +77,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  uuid.New().String(),
 			Purpose:                 "authentication",
-		})
+		}, jsonldtest.WithDocumentLoader(t))
 		require.NoError(t, err)
 
 		// alice wires her VP and DID to Bob
@@ -97,10 +99,14 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrapi.WithOption("store", true))
 		require.NoError(t, err)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		// bob parses alice's VP
 		actualVP, err := verifiable.ParsePresentation(
 			aliceVPBits,
-			verifiable.WithPresPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
+			verifiable.WithPresPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()),
+			verifiable.WithPresJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
 		require.Equal(t, expectedVP.Context, actualVP.Context)
@@ -113,7 +119,8 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		// bob parses the VCs enclosed in alice's VP
 		actualVC, err := verifiable.ParseCredential(
 			actualVCBits[0],
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()))
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(bob.VDRegistry()).PublicKeyFetcher()),
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
 		require.Equal(t, expectedVC.Context, actualVC.Context)

@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -352,7 +353,7 @@ func init() {
 
 func TestCreateProfile(t *testing.T) {
 	t.Run("test create new wallet client using local kms passphrase", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 
@@ -362,7 +363,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet client using local kms secret lock service", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithSecretLockService(&secretlock.MockSecretLock{}))
 		require.NoError(t, err)
 
@@ -372,7 +373,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet client using remote kms key server URL", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
 
@@ -382,7 +383,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet failure", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid create profile options")
@@ -393,7 +394,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet failure - create store error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
@@ -408,7 +409,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet failure - save profile error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{
 				ErrPut: fmt.Errorf(sampleClientErr),
@@ -425,7 +426,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("test create new wallet failure - create content store error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		mockctx.StorageProviderValue = &mockStorageProvider{
 			MockStoreProvider: mockstorage.NewMockStoreProvider(),
 			failure:           fmt.Errorf(sampleClientErr),
@@ -443,7 +444,7 @@ func TestCreateProfile(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	t.Run("test update wallet client using local kms passphrase", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		createSampleProfile(t, mockctx)
 
 		err := UpdateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
@@ -455,7 +456,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet client using local kms secret lock service", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		createSampleProfile(t, mockctx)
 
 		err := UpdateProfile(sampleUserID, mockctx, wallet.WithSecretLockService(&secretlock.MockSecretLock{}))
@@ -467,7 +468,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet client using remote kms key server URL", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		createSampleProfile(t, mockctx)
 
 		err := UpdateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
@@ -479,7 +480,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet failure", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		createSampleProfile(t, mockctx)
 
 		err := UpdateProfile(sampleUserID, mockctx)
@@ -492,7 +493,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet failure - profile doesn't exists", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := UpdateProfile(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "profile does not exist")
@@ -503,7 +504,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet failure - create store error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
@@ -518,7 +519,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("test update wallet failure - save profile error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		createSampleProfile(t, mockctx)
 
 		mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider).Store.ErrPut = fmt.Errorf(sampleClientErr)
@@ -535,7 +536,7 @@ func TestUpdate(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	t.Run("test get client", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		// create a wallet
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
@@ -546,7 +547,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test get client unlocked", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		// create a wallet
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
@@ -561,7 +562,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test get client unlock failure - wrong passphrase", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		// create a wallet
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
@@ -573,7 +574,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test get client by invalid userID", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 
@@ -584,7 +585,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test update wallet failure - save profile error", func(t *testing.T) {
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleClientErr),
 		}
@@ -599,7 +600,7 @@ func TestNew(t *testing.T) {
 func TestClient_OpenClose(t *testing.T) {
 	t.Run("test open & close wallet using local kms passphrase", func(t *testing.T) {
 		sampleUser := uuid.New().String()
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 
 		err := CreateProfile(sampleUser, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
@@ -641,7 +642,7 @@ func TestClient_OpenClose(t *testing.T) {
 
 	t.Run("test open & close wallet using secret lock service", func(t *testing.T) {
 		sampleUser := uuid.New().String()
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 
 		masterLock, err := pbkdf2.NewMasterLock(samplePassPhrase, sha256.New, 0, nil)
 		require.NoError(t, err)
@@ -689,7 +690,7 @@ func TestClient_OpenClose(t *testing.T) {
 
 	t.Run("test open & close wallet using remote kms URL", func(t *testing.T) {
 		sampleUser := uuid.New().String()
-		mockctx := newMockProvider()
+		mockctx := newMockProvider(t)
 
 		err := CreateProfile(sampleUser, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
@@ -726,7 +727,7 @@ func TestClient_OpenClose(t *testing.T) {
 }
 
 func TestClient_Export(t *testing.T) {
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -741,7 +742,7 @@ func TestClient_Export(t *testing.T) {
 }
 
 func TestClient_Import(t *testing.T) {
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -755,7 +756,7 @@ func TestClient_Import(t *testing.T) {
 }
 
 func TestClient_Add(t *testing.T) {
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -776,7 +777,7 @@ func TestClient_Add(t *testing.T) {
 }
 
 func TestClient_Get(t *testing.T) {
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -822,7 +823,7 @@ func TestClient_GetAll(t *testing.T) {
 
 	const collectionID = "did:example:acme123456789abcdefghi"
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
@@ -858,7 +859,7 @@ func TestClient_GetAll(t *testing.T) {
 }
 
 func TestClient_Remove(t *testing.T) {
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
@@ -900,7 +901,7 @@ func TestClient_Query(t *testing.T) {
 		},
 	}
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
@@ -1076,7 +1077,7 @@ func TestClient_Issue(t *testing.T) {
 		},
 	}
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
@@ -1154,7 +1155,7 @@ func TestClient_Prove(t *testing.T) {
 		},
 	}
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
@@ -1241,7 +1242,7 @@ func TestClient_Verify(t *testing.T) {
 		},
 	}
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
@@ -1340,7 +1341,7 @@ func TestWallet_Derive(t *testing.T) {
 		},
 	}
 
-	mockctx := newMockProvider()
+	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
 
 	customCrypto, err := tinkcrypto.New()
@@ -1399,7 +1400,12 @@ func TestWallet_Derive(t *testing.T) {
 		pkFetcher := verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(customVDR).PublicKeyFetcher(),
 		)
-		credential, err := verifiable.ParseCredential([]byte(sampleBBSVC), pkFetcher)
+
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
+		credential, err := verifiable.ParseCredential([]byte(sampleBBSVC), pkFetcher,
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 		vc, err = walletInstance.Derive(wallet.FromCredential(credential), &wallet.DeriveOptions{
 			Nonce: sampleNonce,
@@ -1452,8 +1458,16 @@ func TestWallet_Derive(t *testing.T) {
 	})
 }
 
-func newMockProvider() *mockprovider.Provider {
-	return &mockprovider.Provider{StorageProviderValue: mockstorage.NewMockStoreProvider()}
+func newMockProvider(t *testing.T) *mockprovider.Provider {
+	t.Helper()
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
+	return &mockprovider.Provider{
+		StorageProviderValue:      mockstorage.NewMockStoreProvider(),
+		JSONLDDocumentLoaderValue: loader,
+	}
 }
 
 func createSampleProfile(t *testing.T, mockctx *mockprovider.Provider) {

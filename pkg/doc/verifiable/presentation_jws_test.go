@@ -19,7 +19,7 @@ import (
 )
 
 func TestJWTPresClaims_MarshalJWS(t *testing.T) {
-	vp, err := newTestPresentation([]byte(validPresentation))
+	vp, err := newTestPresentation(t, []byte(validPresentation))
 	require.NoError(t, err)
 
 	signer, err := newCryptoSigner(kms.RSARS256Type)
@@ -46,7 +46,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 	testFetcher := holderPublicKeyFetcher(holderSigner.PublicKeyBytes())
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		vp, err := newTestPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation))
 		require.NoError(t, err)
 
 		jws := createCredJWS(t, vp, holderSigner)
@@ -87,7 +87,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
-		vp, err := newTestPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation))
 		require.NoError(t, err)
 
 		jws := createCredJWS(t, vp, holderSigner)

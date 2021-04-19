@@ -30,6 +30,7 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/presentproof"
 	mocksvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	mocksstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -74,6 +75,7 @@ func TestSavePresentation(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
+	provider.EXPECT().JSONLDDocumentLoader().Return(nil).AnyTimes()
 
 	next := presentproof.HandlerFunc(func(metadata presentproof.Metadata) error {
 		return nil
@@ -159,6 +161,9 @@ func TestSavePresentation(t *testing.T) {
 		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New(errMsg))
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
 			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
@@ -166,6 +171,7 @@ func TestSavePresentation(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.EqualError(t, SavePresentation(provider)(next).Handle(metadata), "save presentation: "+errMsg)
 	})
@@ -185,9 +191,13 @@ func TestSavePresentation(t *testing.T) {
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").
 			Return(&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(mocksstore.NewMockStore(ctrl))
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.EqualError(t, SavePresentation(provider)(next).Handle(metadata), "myDID or theirDID is absent")
 	})
@@ -219,9 +229,13 @@ func TestSavePresentation(t *testing.T) {
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
 			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.NoError(t, SavePresentation(provider)(next).Handle(metadata))
 		require.Equal(t, len(props["names"].([]string)), 1)
@@ -251,6 +265,9 @@ func TestSavePresentation(t *testing.T) {
 		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		registry := mocksvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
 			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
@@ -258,6 +275,7 @@ func TestSavePresentation(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.NoError(t, SavePresentation(provider)(next).Handle(metadata))
 		require.Equal(t, props["names"], []string{vcName})
@@ -275,10 +293,14 @@ func TestPresentationDefinition(t *testing.T) {
 		mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{}))
 	require.NoError(t, err)
 
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().KMS().Return(km).AnyTimes()
 	provider.EXPECT().Crypto().Return(cr).AnyTimes()
+	provider.EXPECT().JSONLDDocumentLoader().Return(loader).AnyTimes()
 
 	require.NotNil(t, defaultPdOptions().addProof)
 	require.NoError(t, defaultPdOptions().addProof(nil))

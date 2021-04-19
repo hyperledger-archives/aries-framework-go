@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
@@ -33,12 +34,14 @@ type Metadata issuecredential.Metadata
 type Provider interface {
 	VerifiableStore() storeverifiable.Store
 	VDRegistry() vdrapi.Registry
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // SaveCredentials the helper function for the issue credential protocol which saves credentials.
 func SaveCredentials(p Provider) issuecredential.Middleware {
 	vdr := p.VDRegistry()
 	store := p.VerifiableStore()
+	documentLoader := p.JSONLDDocumentLoader()
 
 	return func(next issuecredential.Handler) issuecredential.Handler {
 		return issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
@@ -53,7 +56,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 				return fmt.Errorf("decode: %w", err)
 			}
 
-			credentials, err := toVerifiableCredentials(vdr, credential.CredentialsAttach)
+			credentials, err := toVerifiableCredentials(vdr, credential.CredentialsAttach, documentLoader)
 			if err != nil {
 				return fmt.Errorf("to verifiable credentials: %w", err)
 			}
@@ -105,7 +108,8 @@ func getName(idx int, id string, metadata issuecredential.Metadata) string {
 	return uuid.New().String()
 }
 
-func toVerifiableCredentials(v vdrapi.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
+func toVerifiableCredentials(v vdrapi.Registry, attachments []decorator.Attachment,
+	documentLoader ld.DocumentLoader) ([]*verifiable.Credential, error) {
 	var credentials []*verifiable.Credential
 
 	for i := range attachments {
@@ -114,9 +118,9 @@ func toVerifiableCredentials(v vdrapi.Registry, attachments []decorator.Attachme
 			return nil, fmt.Errorf("fetch: %w", err)
 		}
 
-		vc, err := verifiable.ParseCredential(rawVC, verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(v).PublicKeyFetcher(),
-		))
+		vc, err := verifiable.ParseCredential(rawVC,
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(v).PublicKeyFetcher()),
+			verifiable.WithJSONLDDocumentLoader(documentLoader))
 		if err != nil {
 			return nil, fmt.Errorf("new credential: %w", err)
 		}

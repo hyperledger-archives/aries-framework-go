@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
@@ -320,6 +321,9 @@ func TestQuery_PerformQuery(t *testing.T) {
 	}
 	pubKeyFetcher := verifiable.NewVDRKeyResolver(customVDR).PublicKeyFetcher()
 
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	t.Run("test wallet queries", func(t *testing.T) {
 		tests := []struct {
 			name        string
@@ -521,7 +525,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 					credentials[strconv.Itoa(i)] = v
 				}
 
-				results, err := NewQuery(pubKeyFetcher, tc.query...).PerformQuery(credentials)
+				results, err := NewQuery(pubKeyFetcher, loader, tc.query...).PerformQuery(credentials)
 
 				if tc.error != "" {
 					require.Empty(t, results)
@@ -544,11 +548,16 @@ func TestQuery_PerformQuery(t *testing.T) {
 }
 
 func TestQueryByExample(t *testing.T) {
-	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, schemaURI)),
-		verifiable.WithDisabledProofCheck())
+	loader, err := jsonldtest.DocumentLoader()
 	require.NoError(t, err)
 
-	vc2, err := verifiable.ParseCredential([]byte(samplePRCVC), verifiable.WithDisabledProofCheck())
+	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, schemaURI)),
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	vc2, err := verifiable.ParseCredential([]byte(samplePRCVC), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	// sample queries
@@ -977,18 +986,25 @@ func TestQueryByExample(t *testing.T) {
 }
 
 func TestQueryByFrame(t *testing.T) {
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
 	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, schemaURI)),
-		verifiable.WithDisabledProofCheck())
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
-	vc2, err := verifiable.ParseCredential([]byte(samplePRCVC), verifiable.WithDisabledProofCheck())
+	vc2, err := verifiable.ParseCredential([]byte(samplePRCVC), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
-	vc3, err := verifiable.ParseCredential([]byte(sampleBBSVC), verifiable.WithDisabledProofCheck())
+	vc3, err := verifiable.ParseCredential([]byte(sampleBBSVC), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	tampered := strings.ReplaceAll(sampleBBSVC, `rw7FeV6K1wimnYogF9qd-N0zmq5QlaIoszg64HciTca`, ``)
-	vc4, err := verifiable.ParseCredential([]byte(tampered), verifiable.WithDisabledProofCheck())
+	vc4, err := verifiable.ParseCredential([]byte(tampered), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	queryByFrameExampleNoIssuer := `{
@@ -1104,7 +1120,7 @@ func TestQueryByFrame(t *testing.T) {
 					return
 				}
 
-				results, err := queryByFrame(tc.credentials, pubKeyFetcher, tc.example...)
+				results, err := queryByFrame(tc.credentials, pubKeyFetcher, loader, tc.example...)
 
 				if tc.error != "" {
 					require.Empty(t, results)

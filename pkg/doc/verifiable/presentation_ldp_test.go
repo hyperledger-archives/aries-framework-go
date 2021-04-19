@@ -33,16 +33,16 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, err := newTestPresentation([]byte(validPresentation))
+	vc, err := newTestPresentation(t, []byte(validPresentation))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, err := newTestPresentation(vcBytes,
+	vcWithLdp, err := newTestPresentation(t, vcBytes,
 		WithPresEmbeddedSignatureSuites(ss),
 		WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	r.NoError(err)
@@ -51,7 +51,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r.Equal(vc, vcWithLdp)
 
 	// signature suite is not passed, cannot make a proof check
-	vcWithLdp, err = newTestPresentation(vcBytes)
+	vcWithLdp, err = newTestPresentation(t, vcBytes)
 	r.Error(err)
 	require.Nil(t, vcWithLdp)
 }
@@ -69,13 +69,13 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
-		vp, err := newTestPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation))
 		r.NoError(err)
 
-		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
-		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
+		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
 		vpJSON, err := vp.MarshalJSON()

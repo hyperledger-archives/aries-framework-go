@@ -1,0 +1,21 @@
+{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
+  "id": "did:example:123456789abcdefghi",
+  "verificationMethod": [
+    {
+      "id": "did:example:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:example:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    }
+  ],
+  "created": "2002-10-10T17:00:00Z",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "verificationMethod": "did:example:123456#key1",
+    "created": "2011-09-23T20:21:34Z",
+    "proofValue": "ABC"
+  }
+}

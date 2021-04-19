@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -30,6 +32,7 @@ type Provider struct {
 	OutboundDispatcherValue           dispatcher.Outbound
 	VDRegistryValue                   vdrapi.Registry
 	CryptoValue                       crypto.Crypto
+	JSONLDDocumentLoaderValue         ld.DocumentLoader
 }
 
 // Service return service.
@@ -98,4 +101,9 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 // VDRegistry return vdr registry.
 func (p *Provider) VDRegistry() vdrapi.Registry {
 	return p.VDRegistryValue
+}
+
+// JSONLDDocumentLoader returns JSON-LD document loader.
+func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
+	return p.JSONLDDocumentLoaderValue
 }

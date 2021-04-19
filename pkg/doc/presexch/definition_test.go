@@ -21,7 +21,6 @@ import (
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
-	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
@@ -32,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
 const errMsgSchema = "credentials do not satisfy requirements"
@@ -348,7 +348,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"info":       "Info",
 				},
 			},
-		})
+		}, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -408,7 +408,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"info":       "Info",
 				},
 			},
-		})
+		}, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -504,10 +504,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			SignatureRepresentation: verifiable.SignatureProofValue,
 			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
 			VerificationMethod:      "did:example:123456#key1",
-		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc},
-			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
 			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
 		)
 		require.NoError(t, err)
@@ -625,10 +625,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			SignatureRepresentation: verifiable.SignatureProofValue,
 			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
 			VerificationMethod:      "did:example:123456#key1",
-		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader())))
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc},
-			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader()),
+			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
 			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
 		)
 		require.NoError(t, err)
@@ -923,7 +923,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1604,7 +1604,7 @@ func checkVP(t *testing.T, vp *verifiable.Presentation) {
 
 	_, err = verifiable.ParsePresentation(src,
 		verifiable.WithPresDisabledProofCheck(),
-		verifiable.WithPresJSONLDDocumentLoader(createTestJSONLDDocumentLoader()))
+		verifiable.WithPresJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
 	require.NoError(t, err)
 }
 
@@ -1662,113 +1662,11 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 	return linesBytes
 }
 
-func createTestJSONLDDocumentLoader() *jld.CachingDocumentLoader {
-	loader := CachingJSONLDLoader()
+func createTestJSONLDDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
 
-	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
-	if err != nil {
-		panic(err)
-	}
-
-	loader.AddDocument("https://w3id.org/security/bbs/v1", reader)
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
 
 	return loader
 }
-
-const contextBBSContent = `{
-  "@context": {
-    "@version": 1.1,
-    "id": "@id",
-    "type": "@type",
-    "ldssk": "https://w3id.org/security#",
-    "BbsBlsSignature2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignature2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "proofValue": "sec:proofValue",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "BbsBlsSignatureProof2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "proofValue": "sec:proofValue",
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
-  }
-}`

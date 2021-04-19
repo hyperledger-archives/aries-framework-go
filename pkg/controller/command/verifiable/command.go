@@ -20,8 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -44,7 +42,7 @@ const (
 	// InvalidRequestErrorCode is typically a code for invalid requests.
 	InvalidRequestErrorCode = command.Code(iota + command.VC)
 
-	// ValidateCredential for validate vc error.
+	// ValidateCredentialErrorCode for validate vc error.
 	ValidateCredentialErrorCode
 
 	// SaveCredentialErrorCode for save vc error.
@@ -53,7 +51,7 @@ const (
 	// GetCredentialErrorCode for get vc error.
 	GetCredentialErrorCode
 
-	// GetCredentialErrorCode for get vc by name error.
+	// GetCredentialByNameErrorCode for get vc by name error.
 	GetCredentialByNameErrorCode
 
 	// GeneratePresentationErrorCode for get generate vp error.
@@ -141,8 +139,6 @@ const (
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
 
-const bbsContext = "https://w3id.org/security/bbs/v1"
-
 type provable interface {
 	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
 }
@@ -211,6 +207,7 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 	Crypto() ariescrypto.Crypto
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // Command contains command operations provided by verifiable credential controller.
@@ -219,7 +216,7 @@ type Command struct {
 	didStore        *didstore.Store
 	resolver        keyResolver
 	ctx             provider
-	docLoader       ld.DocumentLoader
+	documentLoader  ld.DocumentLoader
 }
 
 // New returns new verifiable credential controller command instance.
@@ -234,23 +231,12 @@ func New(p provider) (*Command, error) {
 		return nil, fmt.Errorf("new did store : %w", err)
 	}
 
-	presExchDoc, err := ld.DocumentFromReader(strings.NewReader(presexch.PresentationSubmissionJSONLDContext))
-	if err != nil {
-		return nil, fmt.Errorf("failed to preload presentation-exchange jsonld context: %w", err)
-	}
-
-	docLoader := verifiable.CachingJSONLDLoader()
-	docLoader.AddDocument(
-		presexch.PresentationSubmissionJSONLDContextIRI,
-		presExchDoc,
-	)
-
 	return &Command{
 		verifiableStore: verifiableStore,
 		didStore:        didStore,
 		resolver:        verifiable.NewVDRKeyResolver(p.VDRegistry()),
 		ctx:             p,
-		docLoader:       docLoader,
+		documentLoader:  p.JSONLDDocumentLoader(),
 	}, nil
 }
 
@@ -288,7 +274,8 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	// we are only validating the VerifiableCredential here, hence ignoring other return values
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 VC Validate Command - Add keys for proof
 	//  verification as options to the function.
-	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential))
+	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ValidateCredentialCommandMethod, "validate vc : "+err.Error())
 
@@ -318,7 +305,9 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
-	vc, err := verifiable.ParseCredential([]byte(request.VerifiableCredential), verifiable.WithDisabledProofCheck())
+	vc, err := verifiable.ParseCredential([]byte(request.VerifiableCredential),
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogError(logger, CommandName, SaveCredentialCommandMethod, "parse vc : "+err.Error())
 
@@ -355,8 +344,9 @@ func (o *Command) SavePresentation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SavePresentationErrorCode, fmt.Errorf(errEmptyPresentationName))
 	}
 
-	vp, err := verifiable.ParsePresentation([]byte(request.VerifiablePresentation),
-		verifiable.WithPresDisabledProofCheck())
+	vp, err := verifiable.ParsePresentation(request.VerifiablePresentation,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogError(logger, CommandName, SavePresentationCommandMethod, "parse vp : "+err.Error())
 
@@ -444,7 +434,9 @@ func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
 		didDoc = doc.DIDDocument
 	}
 
-	vc, err := verifiable.ParseCredential(request.Credential, verifiable.WithDisabledProofCheck())
+	vc, err := verifiable.ParseCredential(request.Credential,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogError(logger, CommandName, SignCredentialCommandMethod, "parse credential : "+err.Error())
 
@@ -904,12 +896,7 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 		Purpose:                 opts.proofPurpose,
 	}
 
-	bbsLoader, err := bbsJSONLDDocumentLoader()
-	if err != nil {
-		return err
-	}
-
-	err = p.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(bbsLoader))
+	err = p.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(o.documentLoader))
 	if err != nil {
 		return fmt.Errorf("failed to add linked data proof: %w", err)
 	}
@@ -948,7 +935,7 @@ func (o *Command) parsePresentation(request *PresentationRequest,
 	presentation, err := verifiable.ParsePresentation(
 		request.Presentation,
 		verifiable.WithPresDisabledProofCheck(),
-		verifiable.WithPresJSONLDDocumentLoader(o.docLoader),
+		verifiable.WithPresJSONLDDocumentLoader(o.documentLoader),
 	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, GeneratePresentationCommandMethod,
@@ -985,12 +972,18 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 
 func (o *Command) getCredentialOpts(disableProofCheck bool) []verifiable.CredentialOpt {
 	if disableProofCheck {
-		return []verifiable.CredentialOpt{verifiable.WithDisabledProofCheck()}
+		return []verifiable.CredentialOpt{
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(o.documentLoader),
+		}
 	}
 
-	return []verifiable.CredentialOpt{verifiable.WithPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
-	)}
+	return []verifiable.CredentialOpt{
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
+	}
 }
 
 func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
@@ -1105,115 +1098,3 @@ func getProofPurpose(method did.VerificationRelationship) (string, error) {
 
 	return "assertionMethod", nil
 }
-
-// TODO: context should not be loaded here, the loader should be defined once for the whole system.
-func bbsJSONLDDocumentLoader() (*jld.CachingDocumentLoader, error) {
-	loader := presexch.CachingJSONLDLoader()
-
-	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
-	if err != nil {
-		return nil, err
-	}
-
-	loader.AddDocument(bbsContext, reader)
-
-	return loader, nil
-}
-
-const contextBBSContent = `{
-  "@context": {
-    "@version": 1.1,
-    "id": "@id",
-    "type": "@type",
-    "ldssk": "https://w3id.org/security#",
-    "BbsBlsSignature2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignature2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "proofValue": "sec:proofValue",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "BbsBlsSignatureProof2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "sec": "https://w3id.org/security#",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "challenge": "sec:challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "xsd:dateTime"
-        },
-        "domain": "sec:domain",
-        "nonce": "sec:nonce",
-        "proofPurpose": {
-          "@id": "sec:proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "sec:assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "sec:authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "proofValue": "sec:proofValue",
-        "verificationMethod": {
-          "@id": "sec:verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "Bls12381G2Key2020": "ldssk:Bls12381G2Key2020"
-  }
-}`

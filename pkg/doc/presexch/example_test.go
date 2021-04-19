@@ -9,15 +9,13 @@ package presexch_test
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/piprate/json-gold/ld"
 
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
 const dummy = "DUMMY"
@@ -48,6 +46,11 @@ func ExamplePresentationDefinition_CreateVP() {
 		}},
 	}
 
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
@@ -70,7 +73,7 @@ func ExamplePresentationDefinition_CreateVP() {
 				"age":        21,
 			},
 		},
-	})
+	}, verifiable.WithJSONLDDocumentLoader(loader))
 
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 	vp.Credentials()[0].(*verifiable.Credential).Schemas[0].ID = dummy
@@ -165,6 +168,11 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		}},
 	}
 
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
@@ -208,7 +216,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				"age":        21,
 			},
 		},
-	})
+	}, verifiable.WithJSONLDDocumentLoader(loader))
 
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
@@ -345,6 +353,11 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		}},
 	}
 
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
@@ -388,7 +401,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				"age":        21,
 			},
 		},
-	})
+	}, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -598,6 +611,11 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		}},
 	}
 
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
@@ -643,7 +661,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				"age":        21,
 			},
 		},
-	})
+	}, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -851,6 +869,11 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		}},
 	}
 
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
@@ -896,7 +919,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				"age":        21,
 			},
 		},
-	})
+	}, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -1043,10 +1066,19 @@ func ExamplePresentationDefinition_Match() {
 	}
 
 	// load json-ld context
-	loader := cachedJSONLDContextLoader(map[string]string{
-		"https://example.context.jsonld/account": exampleJSONLDContext,
-		"https://example.context.jsonld/address": exampleJSONLDContext,
-	})
+	loader, err := jsonldtest.DocumentLoader(
+		jld.ContextDocument{
+			URL:     "https://example.context.jsonld/account",
+			Content: []byte(exampleJSONLDContext),
+		},
+		jld.ContextDocument{
+			URL:     "https://example.context.jsonld/address",
+			Content: []byte(exampleJSONLDContext),
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// verifier parses the vp
 	// note: parsing this VP without verifying the proof just for example purposes.
@@ -1111,21 +1143,6 @@ func toExampleMap(v interface{}) map[string]interface{} {
 	}
 
 	return m
-}
-
-func cachedJSONLDContextLoader(ctxURLToVocab map[string]string) *jld.CachingDocumentLoader {
-	loader := CachingJSONLDLoader()
-
-	for contextURL, vocab := range ctxURLToVocab {
-		reader, err := ld.DocumentFromReader(strings.NewReader(vocab))
-		if err != nil {
-			panic(err)
-		}
-
-		loader.AddDocument(contextURL, reader)
-	}
-
-	return loader
 }
 
 const exampleJSONLDContext = `{

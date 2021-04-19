@@ -30,11 +30,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -141,8 +143,11 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test error create vdr", func(t *testing.T) {
+		sp := storage.NewMockStoreProvider()
+		sp.FailNamespace = peer.StoreNamespace
+
 		_, err := New(
-			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: peer.StoreNamespace}),
+			WithStoreProvider(sp),
 			WithInboundTransport(&mockInboundTransport{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create new vdr peer failed")
@@ -608,6 +613,23 @@ func TestFramework(t *testing.T) {
 		aries, err := New(WithDIDConnectionStore(mockStore))
 		require.NoError(t, err)
 		require.Equal(t, mockStore, aries.didConnectionStore)
+	})
+
+	t.Run("test JSON-LD document loader option", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
+		aries, err := New(WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.Equal(t, loader, aries.jsonldDocumentLoader)
+	})
+
+	t.Run("test JSON-LD document loader creation error", func(t *testing.T) {
+		_, err := New(
+			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: jld.DefaultContextDBName}),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "document loader creation failed")
 	})
 }
 
