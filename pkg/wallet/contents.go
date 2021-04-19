@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -64,6 +65,11 @@ func (ct ContentType) Name() string {
 	return string(ct)
 }
 
+const (
+	// collectionMappingKeyPrefix is db name space for saving collection ID to wallet content mappings.
+	collectionMappingKeyPrefix = "collectionmapping"
+)
+
 // keyContent is wallet content for key type
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 type keyContent struct {
@@ -103,10 +109,21 @@ func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
 // if content document id is missing from content, then system generated id will be used as key for storage.
 // returns error if content with same ID already exists in store.
 // For replacing already existing content, use 'Remove() + Add()'.
-func (cs *contentStore) Save(auth string, ct ContentType, content []byte) error {
+func (cs *contentStore) Save(auth string, ct ContentType, content []byte, options ...AddContentOptions) error {
+	opts := &addContentOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
 	switch ct {
 	case Collection, Metadata, Connection, Credential:
 		key, err := getContentID(content)
+		if err != nil {
+			return err
+		}
+
+		err = cs.mapCollection(key, opts.collectionID, ct)
 		if err != nil {
 			return err
 		}
@@ -117,6 +134,11 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte) error 
 		docRes, err := did.ParseDocumentResolution(content)
 		if err != nil {
 			return fmt.Errorf("invalid DID resolution response model: %w", err)
+		}
+
+		err = cs.mapCollection(docRes.DIDDocument.ID, opts.collectionID, ct)
+		if err != nil {
+			return err
 		}
 
 		return cs.safeSave(getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
@@ -146,6 +168,22 @@ func (cs *contentStore) safeSave(key string, content []byte, tags ...storage.Tag
 	}
 
 	return errors.New("content with same type and id already exists in this wallet")
+}
+
+// mapCollection maps given collection to given content.
+func (cs *contentStore) mapCollection(key, collectionID string, ct ContentType) error {
+	if collectionID == "" {
+		return nil
+	}
+
+	_, err := cs.store.Get(getContentKeyPrefix(Collection, collectionID))
+	if err != nil {
+		return fmt.Errorf("failed to find existing collection with ID '%s' : %w", collectionID, err)
+	}
+
+	// collection IDs can contain ':' characters which can not be supported by tags.
+	return cs.store.Put(getCollectionMappingKeyPrefix(key), []byte(ct.Name()),
+		storage.Tag{Name: base64.StdEncoding.EncodeToString([]byte(collectionID))})
 }
 
 func saveKey(auth string, key *keyContent) error {
@@ -206,7 +244,55 @@ func (cs *contentStore) GetAll(ct ContentType) (map[string]json.RawMessage, erro
 			return nil, err
 		}
 
-		result[key] = val
+		result[removeKeyPrefix(ct.Name(), key)] = val
+	}
+
+	return result, nil
+}
+
+// FilterByCollection returns all wallet contents of give type and collection.
+// returns empty result when no data found.
+func (cs *contentStore) GetAllByCollection(ct ContentType, collectionID string) (map[string]json.RawMessage, error) {
+	iter, err := cs.store.Query(base64.StdEncoding.EncodeToString([]byte(collectionID)))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]json.RawMessage)
+
+	for {
+		ok, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			break
+		}
+
+		key, err := iter.Key()
+		if err != nil {
+			return nil, err
+		}
+
+		val, err := iter.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		// filter by content type
+		if string(val) != ct.Name() {
+			continue
+		}
+
+		contentKey := removeKeyPrefix(collectionMappingKeyPrefix, key)
+
+		contentVal, err := cs.store.Get(getContentKeyPrefix(ct, contentKey))
+		if err != nil {
+			return nil, err
+		}
+
+		result[contentKey] = contentVal
 	}
 
 	return result, nil
@@ -231,6 +317,16 @@ func getContentID(content []byte) (string, error) {
 // getContentKeyPrefix returns key prefix by wallet content type and storage key.
 func getContentKeyPrefix(ct ContentType, key string) string {
 	return fmt.Sprintf("%s_%s", ct, key)
+}
+
+// getCollectionMappingKeyPrefix returns key prefix by wallet collection ID and storage key.
+func getCollectionMappingKeyPrefix(key string) string {
+	return fmt.Sprintf("%s_%s", collectionMappingKeyPrefix, key)
+}
+
+// removeContentKeyPrefix removes content key prefix.
+func removeKeyPrefix(prefix, key string) string {
+	return strings.Replace(key, fmt.Sprintf("%s_", prefix), "", 1)
 }
 
 // newContentBasedVDR returns new wallet content store based VDR.

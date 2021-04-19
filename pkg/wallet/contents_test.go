@@ -537,6 +537,17 @@ func TestContentStore_GetAll(t *testing.T) {
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrValue))
 		require.Empty(t, allVcs)
 
+		// iterator value error
+		sp.MockStoreProvider.Store.ErrKey = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAll(Credential)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrKey))
+		require.Empty(t, allVcs)
+
 		// iterator next error
 		sp.MockStoreProvider.Store.ErrNext = errors.New(sampleContenttErr + uuid.New().String())
 
@@ -615,6 +626,207 @@ func TestContentDIDResolver(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse stored DID")
 		require.Empty(t, didDoc)
+	})
+}
+
+func TestContentStore_Collections(t *testing.T) {
+	const vcContent = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "credentialSchema": [],
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe"
+      },
+      "id": "%s",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "issuer": {
+        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+        "name": "Example University"
+      },
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ]
+    }`
+
+	const testMetadata = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "%s",
+    		"type": "Person",
+    		"name": "John Smith",
+    		"image": "https://via.placeholder.com/150",
+    		"description" : "Professional software developer for Acme Corp."
+  		}`
+
+	const connection = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "%s",
+                    "name": "My Health Record Certifier",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "The identifier that issues health record credentials.",
+                    "tags": ["professional"],
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+                    "type": "Connection"
+                }`
+
+	const orgCollection = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "did:example:acme123456789abcdefghi",
+                    "type": "Organization",
+                    "name": "Acme Corp.",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "A software company.",
+                    "tags": ["professional", "organization"],
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+                }`
+
+	const collectionID = "did:example:acme123456789abcdefghi"
+
+	t.Run("contents by collection - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		// save a collection
+		require.NoError(t, contentStore.Save(sampleFakeTkn, Collection, []byte(orgCollection)))
+
+		const addedWithoutCollection = 4
+		const addedToCollection = 3
+
+		// save test data
+		for i := 0; i < addedToCollection; i++ {
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())), AddByCollection(collectionID)))
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Metadata, []byte(fmt.Sprintf(testMetadata, uuid.New().String())), AddByCollection(collectionID)))
+		}
+
+		require.NoError(t, contentStore.Save(sampleFakeTkn,
+			DIDResolutionResponse, []byte(didResolutionResult), AddByCollection(collectionID)))
+
+		for i := 0; i < addedWithoutCollection; i++ {
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Metadata, []byte(fmt.Sprintf(testMetadata, uuid.New().String()))))
+			require.NoError(t, contentStore.Save(sampleFakeTkn,
+				Connection, []byte(fmt.Sprintf(connection, uuid.New().String()))))
+		}
+
+		allVcs, err := contentStore.GetAll(Credential)
+		require.NoError(t, err)
+		require.Len(t, allVcs, addedWithoutCollection+addedToCollection)
+
+		allVcs, err = contentStore.GetAllByCollection(Credential, collectionID)
+		require.NoError(t, err)
+		require.Len(t, allVcs, addedToCollection)
+
+		allMetadata, err := contentStore.GetAll(Metadata)
+		require.NoError(t, err)
+		require.Len(t, allMetadata, addedWithoutCollection+addedToCollection)
+
+		allMetadata, err = contentStore.GetAllByCollection(Metadata, collectionID)
+		require.NoError(t, err)
+		require.Len(t, allMetadata, addedToCollection)
+
+		allDIDs, err := contentStore.GetAll(DIDResolutionResponse)
+		require.NoError(t, err)
+		require.Len(t, allDIDs, 1)
+
+		allDIDs, err = contentStore.GetAllByCollection(DIDResolutionResponse, collectionID)
+		require.NoError(t, err)
+		require.Len(t, allDIDs, 1)
+
+		allConns, err := contentStore.GetAll(Connection)
+		require.NoError(t, err)
+		require.Len(t, allConns, addedWithoutCollection)
+
+		allConns, err = contentStore.GetAllByCollection(Connection, collectionID)
+		require.NoError(t, err)
+		require.Empty(t, allConns)
+	})
+
+	t.Run("contents by collection - failure", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore, err := newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		err = contentStore.Save(sampleFakeTkn,
+			DIDResolutionResponse, []byte(didResolutionResult), AddByCollection(collectionID+"invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to find existing collection")
+
+		err = contentStore.Save(sampleFakeTkn,
+			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())), AddByCollection(collectionID+"invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to find existing collection")
+
+		// save a collection
+		require.NoError(t, contentStore.Save(sampleFakeTkn, Collection, []byte(orgCollection)))
+		require.NoError(t, contentStore.Save(sampleFakeTkn, Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())),
+			AddByCollection(collectionID)))
+
+		// get content error
+		sp.MockStoreProvider.Store.ErrGet = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err := contentStore.GetAllByCollection(Credential, collectionID)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrGet))
+		require.Empty(t, allVcs)
+
+		// iterator value error
+		sp.MockStoreProvider.Store.ErrValue = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAllByCollection(Credential, collectionID)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrValue))
+		require.Empty(t, allVcs)
+
+		// iterator value error
+		sp.MockStoreProvider.Store.ErrKey = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAllByCollection(Credential, collectionID)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrKey))
+		require.Empty(t, allVcs)
+
+		// iterator next error
+		sp.MockStoreProvider.Store.ErrNext = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAllByCollection(Credential, collectionID)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrNext))
+		require.Empty(t, allVcs)
+
+		// iterator next error
+		sp.MockStoreProvider.Store.ErrQuery = errors.New(sampleContenttErr + uuid.New().String())
+
+		contentStore, err = newContentStore(sp, &profile{ID: uuid.New().String()})
+		require.NoError(t, err)
+		require.NotEmpty(t, contentStore)
+
+		allVcs, err = contentStore.GetAllByCollection(Credential, collectionID)
+		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrQuery))
+		require.Empty(t, allVcs)
 	})
 }
 

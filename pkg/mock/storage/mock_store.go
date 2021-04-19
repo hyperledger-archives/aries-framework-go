@@ -102,6 +102,7 @@ type MockStore struct {
 	ErrQuery  error
 	ErrNext   error
 	ErrValue  error
+	ErrKey    error
 	ErrBatch  error
 }
 
@@ -174,7 +175,7 @@ func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.
 
 		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, "")
 
-		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue}, nil
+		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue, errKey: s.ErrKey}, nil
 	case expressionTagNameAndValueLength:
 		expressionTagName := expressionSplit[0]
 		expressionTagValue := expressionSplit[1]
@@ -184,7 +185,7 @@ func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.
 
 		keys, dbEntries := s.getMatchingKeysAndDBEntries(expressionTagName, expressionTagValue)
 
-		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue}, nil
+		return &iterator{keys: keys, dbEntries: dbEntries, errNext: s.ErrNext, errValue: s.ErrValue, errKey: s.ErrKey}, nil
 	default:
 		return nil, errInvalidQueryExpressionFormat
 	}
@@ -260,6 +261,7 @@ type iterator struct {
 	dbEntries      []DBEntry
 	errNext        error
 	errValue       error
+	errKey         error
 }
 
 func (m *iterator) Next() (bool, error) {
@@ -280,6 +282,10 @@ func (m *iterator) Next() (bool, error) {
 }
 
 func (m *iterator) Key() (string, error) {
+	if m.errKey != nil {
+		return "", m.errKey
+	}
+
 	if len(m.dbEntries) == 0 {
 		return "", errIteratorExhausted
 	}

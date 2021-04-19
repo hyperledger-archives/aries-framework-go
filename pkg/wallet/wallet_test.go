@@ -565,6 +565,19 @@ func TestWallet_GetAll(t *testing.T) {
       ]
     }`
 
+	const orgCollection = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "did:example:acme123456789abcdefghi",
+                    "type": "Organization",
+                    "name": "Acme Corp.",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "A software company.",
+                    "tags": ["professional", "organization"],
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+                }`
+
+	const collectionID = "did:example:acme123456789abcdefghi"
+
 	mockctx := newMockProvider()
 	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
@@ -573,15 +586,30 @@ func TestWallet_GetAll(t *testing.T) {
 	require.NotEmpty(t, walletInstance)
 	require.NoError(t, err)
 
-	// save test data
 	const count = 5
 
+	// save test data without collection
 	for i := 0; i < count; i++ {
 		require.NoError(t, walletInstance.Add(sampleFakeTkn,
 			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
 	}
 
+	// save a collection
+	require.NoError(t, walletInstance.Add(sampleFakeTkn, Collection, []byte(orgCollection)))
+
+	// save contents by collection
+	for i := 0; i < count; i++ {
+		require.NoError(t, walletInstance.Add(sampleFakeTkn,
+			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())), AddByCollection(collectionID)))
+	}
+
+	// get all by content
 	vcs, err := walletInstance.GetAll(Credential)
+	require.NoError(t, err)
+	require.Len(t, vcs, count*2)
+
+	// get all by content & collection
+	vcs, err = walletInstance.GetAll(Credential, FilterByCollection(collectionID))
 	require.NoError(t, err)
 	require.Len(t, vcs, count)
 }
