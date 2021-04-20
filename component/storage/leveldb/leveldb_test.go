@@ -41,34 +41,7 @@ func TestCommon(t *testing.T) {
 
 	provider := leveldb.NewProvider(path)
 
-	commontest.TestProviderOpenStoreSetGetConfig(t, provider)
-	commontest.TestPutGet(t, provider)
-	commontest.TestStoreGetTags(t, provider)
-	commontest.TestStoreQuery(t, provider)
-	commontest.TestStoreDelete(t, provider)
-	commontest.TestStoreClose(t, provider)
-	commontest.TestProviderClose(t, provider)
-}
-
-func TestNotImplementedMethods(t *testing.T) {
-	t.Run("Not implemented methods", func(t *testing.T) {
-		path := setupLevelDB(t)
-
-		provider := leveldb.NewProvider(path)
-
-		require.Panics(t, func() {
-			provider.GetOpenStores()
-		})
-
-		store, err := provider.OpenStore("storename")
-		require.NoError(t, err)
-
-		_, err = store.GetBulk()
-		require.EqualError(t, err, "not implemented")
-
-		err = store.Batch(nil)
-		require.EqualError(t, err, "not implemented")
-	})
+	commontest.TestAll(t, provider)
 }
 
 func TestProvider_GetStoreConfig(t *testing.T) {
