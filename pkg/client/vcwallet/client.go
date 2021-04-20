@@ -170,13 +170,13 @@ func (c *Client) Import(auth string, contents json.RawMessage) error {
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 //
 // TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
-func (c *Client) Add(contentType wallet.ContentType, content json.RawMessage) error {
+func (c *Client) Add(contentType wallet.ContentType, content json.RawMessage, options ...wallet.AddContentOptions) error { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return err
 	}
 
-	return c.wallet.Add(auth, contentType, content)
+	return c.wallet.Add(auth, contentType, content, options...)
 }
 
 // Remove removes wallet content by content ID.
@@ -214,8 +214,8 @@ func (c *Client) Get(contentType wallet.ContentType, contentID string) (json.Raw
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Client) GetAll(contentType wallet.ContentType) (map[string]json.RawMessage, error) {
-	return c.wallet.GetAll(contentType)
+func (c *Client) GetAll(contentType wallet.ContentType, options ...wallet.GetAllContentsOptions) (map[string]json.RawMessage, error) { //nolint: lll
+	return c.wallet.GetAll(contentType, options...)
 }
 
 // Query runs query against wallet credential contents and returns presentation containing credential results.

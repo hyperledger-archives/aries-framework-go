@@ -245,8 +245,8 @@ func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 //
 // TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
-func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage) error {
-	return c.contents.Save(authToken, contentType, content)
+func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage, options ...AddContentOptions) error { //nolint: lll
+	return c.contents.Save(authToken, contentType, content, options...)
 }
 
 // Remove removes wallet content by content ID.
@@ -285,7 +285,17 @@ func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Wallet) GetAll(contentType ContentType) (map[string]json.RawMessage, error) {
+func (c *Wallet) GetAll(contentType ContentType, options ...GetAllContentsOptions) (map[string]json.RawMessage, error) {
+	opts := &getAllContentsOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
+	if opts.collectionID != "" {
+		return c.contents.GetAllByCollection(contentType, opts.collectionID)
+	}
+
 	return c.contents.GetAll(contentType)
 }
 

@@ -212,3 +212,35 @@ func FromCredential(cred *verifiable.Credential) CredentialToDerive {
 		opts.credential = cred
 	}
 }
+
+// AddContentOptions is option for adding contents to wallet.
+type AddContentOptions func(opts *addContentOpts)
+
+// addContentOpts contains options for adding contents to wallet.
+type addContentOpts struct {
+	// ID of the collection to which the content belongs.
+	collectionID string
+}
+
+// AddByCollection option for grouping wallet contents by collection ID.
+func AddByCollection(collectionID string) AddContentOptions {
+	return func(opts *addContentOpts) {
+		opts.collectionID = collectionID
+	}
+}
+
+// GetAllContentsOptions is option for getting all contents from wallet.
+type GetAllContentsOptions func(opts *getAllContentsOpts)
+
+// getAllContentsOpts contains options for getting all contents from wallet.
+type getAllContentsOpts struct {
+	// ID of the collection to filter get all results by collection.
+	collectionID string
+}
+
+// FilterByCollection option for getting all contents by collection from wallet.
+func FilterByCollection(collectionID string) GetAllContentsOptions {
+	return func(opts *getAllContentsOpts) {
+		opts.collectionID = collectionID
+	}
+}
