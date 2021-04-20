@@ -25,55 +25,86 @@ import (
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+func TestNewOutbound(t *testing.T) {
+	t.Run("error if cannot init connection lookup", func(t *testing.T) {
+		expected := errors.New("test")
+		_, err := NewOutbound(&mockProvider{
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			storageProvider: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: expected,
+			},
+		})
+		require.ErrorIs(t, err, expected)
+	})
+}
 
 func TestOutboundDispatcher_Send(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
-		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		require.NoError(t, err)
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for destination")
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
-		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		require.NoError(t, err)
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
 	})
 
 	t.Run("test outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")},
 			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
-		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		require.NoError(t, err)
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
 
 	t.Run("test send with forward message - success", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
 			ServiceEndpoint: "url",
@@ -83,15 +114,18 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test send with forward message - create key failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			kms: &mockkms.KeyManager{
 				CrAndExportPubKeyErr: errors.New("create and export key error"),
 			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
-		err := o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
 			ServiceEndpoint: "url",
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
@@ -101,12 +135,15 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test send with forward message - packer error", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackErr: errors.New("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
-		_, err := o.createForwardMessage(createPackedMsgForForward(t), &service.Destination{
+		_, err = o.createForwardMessage(createPackedMsgForForward(t), &service.Destination{
 			ServiceEndpoint: "url",
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
@@ -116,12 +153,15 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test send with forward message - envelop unmarshal error", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
-		_, err := o.createForwardMessage([]byte("invalid json"), &service.Destination{
+		_, err = o.createForwardMessage([]byte("invalid json"), &service.Destination{
 			ServiceEndpoint: "url",
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
@@ -135,7 +175,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	mockDoc := mockdiddoc.GetMockDIDDoc(t)
 
 	t.Run("success", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			vdr: &mockvdr.MockVDRegistry{
 				ResolveValue: mockDoc,
@@ -143,13 +183,20 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
 			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
+
+		o.connections = &mockConnectionLookup{
+			getConnectionRecordVal: &connection.Record{},
+		}
 
 		require.NoError(t, o.SendToDID("data", "", ""))
 	})
 
 	t.Run("resolve err", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
 			vdr: &mockvdr.MockVDRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
@@ -157,11 +204,68 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
 			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
-		err := o.SendToDID("data", "", "")
+		o.connections = &mockConnectionLookup{
+			getConnectionRecordVal: &connection.Record{},
+		}
+
+		err = o.SendToDID("data", "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
+	})
+
+	t.Run("error if cannot fetch connection id", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveErr: fmt.Errorf("resolve error"),
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+
+		expected := errors.New("test")
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsErr: expected,
+		}
+
+		err = o.SendToDID("data", "", "")
+		require.ErrorIs(t, err, expected)
+		require.Contains(t, err.Error(), "failed to fetch connection ID")
+	})
+
+	t.Run("error if cannot fetch connection record", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveErr: fmt.Errorf("resolve error"),
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+
+		expected := errors.New("test")
+
+		o.connections = &mockConnectionLookup{
+			getConnectionRecordErr: expected,
+		}
+
+		err = o.SendToDID("data", "", "")
+		require.ErrorIs(t, err, expected)
+		require.Contains(t, err.Error(), "failed to fetch connection record")
 	})
 }
 
@@ -183,7 +287,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, expectedRequest)
 
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockOutboundTransport{
@@ -191,7 +295,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 				},
 			},
 			transportReturnRoute: transportReturnRoute,
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			storageProvider:      mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
@@ -213,7 +320,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, expectedRequest)
 
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockOutboundTransport{
@@ -221,7 +328,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 				},
 			},
 			transportReturnRoute: transportReturnRoute,
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
@@ -235,7 +345,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, expectedRequest)
 
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockPackager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockOutboundTransport{
@@ -243,17 +353,23 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 				},
 			},
 			transportReturnRoute: "",
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("transport route option - forward message", func(t *testing.T) {
 		transportReturnRoute := "thread"
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:        &mockPackager{},
 			transportReturnRoute: transportReturnRoute,
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 
 		testData := []byte("testData")
 
@@ -265,31 +381,40 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 func TestOutboundDispatcher_Forward(t *testing.T) {
 	t.Run("test forward - success", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
+		require.NoError(t, err)
 		require.NoError(t, o.Forward("data", &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test forward - no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
 		})
-		err := o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
+		require.NoError(t, err)
+		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Forward: no transport found for serviceEndpoint: url")
 	})
 
 	t.Run("test forward - outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&mockProvider{
+		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")},
 			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
 		})
-		err := o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
+		require.NoError(t, err)
+		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -311,6 +436,8 @@ type mockProvider struct {
 	transportReturnRoute    string
 	vdr                     vdrapi.Registry
 	kms                     kms.KeyManager
+	storageProvider         storage.Provider
+	protoStorageProvider    storage.Provider
 }
 
 func (p *mockProvider) Packager() transport.Packager {
@@ -335,6 +462,14 @@ func (p *mockProvider) KMS() kms.KeyManager {
 	}
 
 	return &mockkms.KeyManager{}
+}
+
+func (p *mockProvider) StorageProvider() storage.Provider {
+	return p.storageProvider
+}
+
+func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
+	return p.protoStorageProvider
 }
 
 // mockOutboundTransport mock outbound transport.
@@ -372,4 +507,19 @@ func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
 
 func (m *mockPackager) UnpackMessage(encMessage []byte) (*transport.Envelope, error) {
 	return nil, nil
+}
+
+type mockConnectionLookup struct {
+	getConnectionByDIDsVal string
+	getConnectionByDIDsErr error
+	getConnectionRecordVal *connection.Record
+	getConnectionRecordErr error
+}
+
+func (m *mockConnectionLookup) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
+	return m.getConnectionByDIDsVal, m.getConnectionByDIDsErr
+}
+
+func (m *mockConnectionLookup) GetConnectionRecord(s string) (*connection.Record, error) {
+	return m.getConnectionRecordVal, m.getConnectionRecordErr
 }

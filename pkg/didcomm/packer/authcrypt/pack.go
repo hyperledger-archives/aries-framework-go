@@ -179,9 +179,10 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 
 // Unpack will decode the envelope using a standard format.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
-	jwe, mediaType, err := getJWEAndMediaType(envelope)
+	// TODO validate `typ` and `cty` values
+	jwe, _, _, err := deserializeEnvelope(envelope)
 	if err != nil {
-		return nil, fmt.Errorf("authcrypt.Unpack: failed to get JWE envelope and mediaType: %w", err)
+		return nil, fmt.Errorf("failed to deserialize envelope: %w", err)
 	}
 
 	for i := range jwe.Recipients {
@@ -232,27 +233,12 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		}
 
 		return &transport.Envelope{
-			MediaType: mediaType,
-			Message:   pt,
-			ToKey:     ecdh1puPubKeyByes,
+			Message: pt,
+			ToKey:   ecdh1puPubKeyByes,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("authcrypt Unpack: no matching recipient in envelope")
-}
-
-func getJWEAndMediaType(envelope []byte) (*jose.JSONWebEncryption, string, error) {
-	jwe, typ, cty, err := deserializeEnvelope(envelope)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to deserialize envelope: %w", err)
-	}
-
-	mediaType, err := transport.EnvelopeMediaTypeFor(typ, cty)
-	if err != nil {
-		return nil, "", fmt.Errorf("unsupported envelope format: %w", err)
-	}
-
-	return jwe, mediaType, nil
 }
 
 func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, string, error) {

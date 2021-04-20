@@ -46,6 +46,23 @@ const (
 	contextKey = "context_%s"
 )
 
+const (
+	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
+	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
+	MediaTypeProfileDIDCommAIP1 = "didcomm/aip1"
+	// MediaTypeProfileDIDCommAIP2RFC19 is the signing mechanism, plaintext conventions, and routing
+	// algorithms embodied in Aries AIP 2.0, circa 2021 -- with the old-style encryption envelope from
+	// Aries RFC 0019. Defined in RFC 0044.
+	MediaTypeProfileDIDCommAIP2RFC19 = "didcomm/aip2;env=rfc19"
+	// MediaTypeProfileAIP2RFC587 is the signing mechanism, plaintext conventions, and routing algorithms
+	// embodied in Aries AIP 2.0, circa 2021 -- with the new-style encryption envelope from Aries RFC 0587.
+	// Defined in RFC 0044.
+	MediaTypeProfileAIP2RFC587 = "didcomm/aip2;env=rfc587"
+	// MediaTypeProfileDIDCommV2 is the encryption envelope, signing mechanism, plaintext conventions,
+	// and routing algorithms embodied in the DIDComm messaging spec. Defined in RFC 0044.
+	MediaTypeProfileDIDCommV2 = "didcomm/v2"
+)
+
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 
 var errIgnoredDidEvent = errors.New("ignored")
@@ -579,11 +596,11 @@ func (s *Service) SaveInvitation(i *Invitation) error {
 	logger.Debugf("saved invitation: %+v", i)
 
 	err = s.didSvc.SaveInvitation(&didexchange.OOBInvitation{
-		ID:         uuid.New().String(),
-		ThreadID:   i.ID,
-		TheirLabel: i.Label,
-		Target:     target,
-		MediaTypes: i.Accept,
+		ID:                uuid.New().String(),
+		ThreadID:          i.ID,
+		TheirLabel:        i.Label,
+		Target:            target,
+		MediaTypeProfiles: i.Accept,
 	})
 	if err != nil {
 		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)
@@ -645,7 +662,15 @@ func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 	logger.Debugf("input: %+v", c)
 	logger.Debugf("context: %+v", c.ctx)
 
-	var err error
+	err := validateInvitationAcceptance(c.msg, &userOptions{
+		myLabel:           c.ctx.MyLabel,
+		routerConnections: c.ctx.RouterConnections,
+		reuseAnyConn:      c.ctx.ReuseAnyConnection,
+		reuseConn:         c.ctx.ReuseConnection,
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to handle invitation: %w", err)
+	}
 
 	c.ctx.DIDExchangeInv, c.ctx.Invitation, err = decodeDIDInvitationAndOOBInvitation(c)
 	if err != nil {
@@ -792,7 +817,7 @@ func (s *Service) extractDIDCommMsg(state *attachmentHandlingState) (service.DID
 	return msg, nil
 }
 
-func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error {
+func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error { // nolint:gocyclo
 	if msg.Type() != InvitationMsgType {
 		return nil
 	}
@@ -829,6 +854,19 @@ func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error {
 		}
 	}
 
+	profiles := map[string]int{
+		MediaTypeProfileDIDCommAIP2RFC19: 0,
+		MediaTypeProfileDIDCommV2:        0,
+		MediaTypeProfileAIP2RFC587:       0,
+		MediaTypeProfileDIDCommAIP1:      0,
+	}
+
+	for i := range inv.Accept {
+		if _, valid := profiles[inv.Accept[i]]; !valid {
+			return fmt.Errorf("invalid media type profile: %s", inv.Accept[i])
+		}
+	}
+
 	return nil
 }
 
@@ -846,12 +884,12 @@ func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitatio
 	}
 
 	didInv := &didexchange.OOBInvitation{
-		ID:         uuid.New().String(),
-		ThreadID:   oobInv.ID,
-		TheirLabel: oobInv.Label,
-		Target:     target,
-		MyLabel:    c.ctx.MyLabel,
-		MediaTypes: oobInv.Accept,
+		ID:                uuid.New().String(),
+		ThreadID:          oobInv.ID,
+		TheirLabel:        oobInv.Label,
+		Target:            target,
+		MyLabel:           c.ctx.MyLabel,
+		MediaTypeProfiles: oobInv.Accept,
 	}
 
 	return didInv, oobInv, nil

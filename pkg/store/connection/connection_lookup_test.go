@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -357,7 +356,7 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 	theirDID := "did:theirdid:789"
 
 	t.Run("get connection record by did - success", func(t *testing.T) {
-		recorder, err := NewRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&mockProvider{})
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
@@ -378,7 +377,7 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 	})
 
 	t.Run("get connection record by did - no mapping found", func(t *testing.T) {
-		recorder, err := NewRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&mockProvider{})
 		require.NoError(t, err)
 
 		connectionID, err := recorder.GetConnectionIDByDIDs(myDID, theirDID)

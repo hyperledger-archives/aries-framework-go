@@ -22,7 +22,7 @@ type Destination struct {
 	ServiceEndpoint      string
 	RoutingKeys          []string
 	TransportReturnRoute string
-	MediaTypes           []string
+	MediaTypeProfiles    []string
 }
 
 const (
@@ -60,10 +60,10 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 	}
 
 	return &Destination{
-		RecipientKeys:   didCommService.RecipientKeys,
-		ServiceEndpoint: didCommService.ServiceEndpoint,
-		RoutingKeys:     didCommService.RoutingKeys,
-		MediaTypes:      didCommService.Accept,
+		RecipientKeys:     didCommService.RecipientKeys,
+		ServiceEndpoint:   didCommService.ServiceEndpoint,
+		RoutingKeys:       didCommService.RoutingKeys,
+		MediaTypeProfiles: didCommService.Accept,
 	}, nil
 }
 

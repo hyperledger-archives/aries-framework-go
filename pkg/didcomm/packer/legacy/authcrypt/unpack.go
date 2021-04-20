@@ -62,10 +62,9 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	data, err := p.decodeCipherText(cek, &envelopeData)
 
 	return &transport.Envelope{
-		MediaType: transport.MediaTypeV1EncryptedEnvelope,
-		Message:   data,
-		FromKey:   senderKey,
-		ToKey:     recKey,
+		Message: data,
+		FromKey: senderKey,
+		ToKey:   recKey,
 	}, err
 }
 

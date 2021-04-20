@@ -6,9 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package service
 
-// DIDCommContextEnvelopeMediaTypeKey is DIDCommContext property key holding the DIDComm envelope's media type.
-const DIDCommContextEnvelopeMediaTypeKey = "DIDCommContextEnvelopeMediaType"
-
 // DIDCommMsg describes message interface.
 type DIDCommMsg interface {
 	ID() string

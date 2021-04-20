@@ -1154,7 +1154,7 @@ func TestConnectionRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		randomString(), randomString()), service.EmptyDIDCommContext())
+		randomString(), randomString()))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -1166,7 +1166,7 @@ func TestConnectionRecord(t *testing.T) {
 	msg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
-	_, err = svc.connectionRecord(msg, service.EmptyDIDCommContext())
+	_, err = svc.connectionRecord(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid message type")
 }
@@ -1324,7 +1324,7 @@ func TestRequestRecord(t *testing.T) {
 
 		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), uuid.New().String())
 		require.NotEmpty(t, didcommMsg.ParentThreadID())
-		conn, err := svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
+		conn, err := svc.requestMsgRecord(didcommMsg)
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
@@ -1343,7 +1343,7 @@ func TestRequestRecord(t *testing.T) {
 		delete(didcommMsg, "connection")
 		didcommMsg["did"] = "did:test:abc"
 
-		conn, err := svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
+		conn, err := svc.requestMsgRecord(didcommMsg)
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
@@ -1363,7 +1363,7 @@ func TestRequestRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-			randomString(), uuid.New().String()), service.EmptyDIDCommContext())
+			randomString(), uuid.New().String()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -1379,7 +1379,7 @@ func TestRequestRecord(t *testing.T) {
 		parentThreadID := ""
 		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), parentThreadID)
 		require.Empty(t, didcommMsg.ParentThreadID())
-		_, err = svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
+		_, err = svc.requestMsgRecord(didcommMsg)
 		require.Error(t, err)
 	})
 }

@@ -47,95 +47,82 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 	k := createKMS(t)
 
 	tests := []struct {
-		name      string
-		keyType   kms.KeyType
-		encAlg    afgjose.EncAlg
-		cty       string
-		mediaType string
+		name    string
+		keyType kms.KeyType
+		encAlg  afgjose.EncAlg
+		cty     string
 	}{
 		{
-			name:      "authcrypt using NISTP256ECDHKW and AES256-GCM",
-			keyType:   kms.NISTP256ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP384ECDHKW and AES256-GCM",
-			keyType:   kms.NISTP384ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP384ECDHKW and AES256-GCM",
+			keyType: kms.NISTP384ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP521ECDHKW and AES256-GCM",
-			keyType:   kms.NISTP521ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP521ECDHKW and AES256-GCM",
+			keyType: kms.NISTP521ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using X25519ECDHKWType and AES256-GCM",
-			keyType:   kms.X25519ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using X25519ECDHKWType and AES256-GCM",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP256ECDHKW and XChacha20Poly1305",
-			keyType:   kms.NISTP256ECDHKW,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP256ECDHKW and XChacha20Poly1305",
+			keyType: kms.NISTP256ECDHKW,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP384ECDHKW and XChacha20Poly1305",
-			keyType:   kms.NISTP384ECDHKW,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP384ECDHKW and XChacha20Poly1305",
+			keyType: kms.NISTP384ECDHKW,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP521ECDHKW and XChacha20Poly1305",
-			keyType:   kms.NISTP521ECDHKW,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP521ECDHKW and XChacha20Poly1305",
+			keyType: kms.NISTP521ECDHKW,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using X25519ECDHKWType and XChacha20Poly1305",
-			keyType:   kms.X25519ECDHKWType,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using X25519ECDHKWType and XChacha20Poly1305",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP256ECDHKW and AES256-GCM without cty",
-			keyType:   kms.NISTP256ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
-			keyType:   kms.X25519ECDHKWType,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using X25519ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
-			keyType:   kms.NISTP256ECDHKWType,
-			encAlg:    afgjose.XC20P,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using NISTP256ECDHKW and XChacha20Poly1305 without cty",
+			keyType: kms.NISTP256ECDHKWType,
+			encAlg:  afgjose.XC20P,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:      "authcrypt using X25519ECDHKW and AES256-GCM without cty",
-			keyType:   kms.X25519ECDHKWType,
-			encAlg:    afgjose.A256GCM,
-			cty:       transport.MediaTypeV1PlaintextPayload,
-			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			name:    "authcrypt using X25519ECDHKW and AES256-GCM without cty",
+			keyType: kms.X25519ECDHKWType,
+			encAlg:  afgjose.A256GCM,
+			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 	}
 
@@ -181,7 +168,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			recKey, err := exportPubKeyBytes(keyHandles[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{MediaType: tc.mediaType, Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 			jweJSON, err := afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
@@ -204,7 +191,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			msg, err = authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{MediaType: tc.mediaType, Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
 
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
@@ -273,9 +260,8 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, &transport.Envelope{
-		MediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
-		Message:   origMsg,
-		ToKey:     recKey,
+		Message: origMsg,
+		ToKey:   recKey,
 	}, msg)
 
 	// try with only 1 recipient
@@ -286,9 +272,8 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, &transport.Envelope{
-		MediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
-		Message:   origMsg,
-		ToKey:     recKey,
+		Message: origMsg,
+		ToKey:   recKey,
 	}, msg)
 
 	jweJSON, err := afgjose.Deserialize(string(ct))

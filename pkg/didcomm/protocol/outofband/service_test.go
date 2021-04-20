@@ -847,6 +847,15 @@ func TestAcceptInvitation(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
+	t.Run("error if invitation has invalid accept values", func(t *testing.T) {
+		provider := testProvider()
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.Accept = []string{"INVALID"}
+		_, err := s.AcceptInvitation(inv, &userOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid media type profile")
+	})
 }
 
 func TestSaveInvitation(t *testing.T) {
@@ -1059,6 +1068,7 @@ func newAck(pthid ...string) *model.Ack {
 }
 
 type testDIDCommMsg struct {
+	msgType   string
 	errDecode error
 }
 
@@ -1071,7 +1081,7 @@ func (t *testDIDCommMsg) SetID(id string) error {
 }
 
 func (t *testDIDCommMsg) Type() string {
-	panic("implement me")
+	return t.msgType
 }
 
 func (t *testDIDCommMsg) ThreadID() (string, error) {

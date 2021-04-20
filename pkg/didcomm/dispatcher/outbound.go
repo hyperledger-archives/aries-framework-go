@@ -19,14 +19,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
-
-/* const (
-	legacyMediaType			 = "JWM/1.0"
-	didCommV1MediaType       = "application/didcomm-enc-env"
-	didCommV2MediaType       = "application/didcomm-encrypted+json"
-) */
 
 // provider interface for outbound ctx.
 type provider interface {
@@ -35,6 +31,13 @@ type provider interface {
 	TransportReturnRoute() string
 	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
+	ProtocolStateStorageProvider() storage.Provider
+	StorageProvider() storage.Provider
+}
+
+type connectionLookup interface {
+	GetConnectionIDByDIDs(myDID, theirDID string) (string, error)
+	GetConnectionRecord(string) (*connection.Record, error)
 }
 
 // OutboundDispatcher dispatch msgs to destination.
@@ -44,25 +47,49 @@ type OutboundDispatcher struct {
 	transportReturnRoute string
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
+	connections          connectionLookup
 }
 
 // NewOutbound return new dispatcher outbound instance.
-func NewOutbound(prov provider) *OutboundDispatcher {
-	return &OutboundDispatcher{
+func NewOutbound(prov provider) (*OutboundDispatcher, error) {
+	o := &OutboundDispatcher{
 		outboundTransports:   prov.OutboundTransports(),
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRegistry(),
 		kms:                  prov.KMS(),
 	}
+
+	var err error
+
+	o.connections, err = connection.NewLookup(prov)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init connections lookup: %w", err)
+	}
+
+	return o, nil
 }
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
+	connID, err := o.connections.GetConnectionIDByDIDs(myDID, theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch connection ID for myDID=%s theirDID=%s: %w", myDID, theirDID, err)
+	}
+
+	record, err := o.connections.GetConnectionRecord(connID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch connection record for connID=%s: %w", connID, err)
+	}
+
 	dest, err := service.GetDestination(theirDID, o.vdRegistry)
 	if err != nil {
 		return fmt.Errorf(
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
+	}
+
+	if len(record.MediaTypeProfiles) > 0 {
+		dest.MediaTypeProfiles = record.MediaTypeProfiles
 	}
 
 	src, err := service.GetDestination(myDID, o.vdRegistry)
@@ -111,10 +138,10 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-			MediaType: mediaType(des),
-			Message:   req,
-			FromKey:   sender,
-			ToKeys:    des.RecipientKeys,
+			MediaTypeProfile: mediaTypeProfile(des),
+			Message:          req,
+			FromKey:          sender,
+			ToKeys:           des.RecipientKeys,
 		})
 		if err != nil {
 			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
@@ -200,10 +227,10 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	//  algorithm(auth/anon crypt) for Forward(router) message
 
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-		MediaType: mediaType(des),
-		Message:   req,
-		FromKey:   senderVerKey,
-		ToKeys:    des.RoutingKeys,
+		MediaTypeProfile: mediaTypeProfile(des),
+		Message:          req,
+		FromKey:          senderVerKey,
+		ToKeys:           des.RoutingKeys,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
@@ -239,11 +266,11 @@ func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.D
 	return req, nil
 }
 
-// TODO - inject MediaType selection strategy.
-func mediaType(des *service.Destination) string {
+// TODO - inject MediaTypeProfile selection strategy.
+func mediaTypeProfile(des *service.Destination) string {
 	mt := ""
-	if len(des.MediaTypes) > 0 {
-		mt = des.MediaTypes[0]
+	if len(des.MediaTypeProfiles) > 0 {
+		mt = des.MediaTypeProfiles[0]
 	}
 
 	return mt

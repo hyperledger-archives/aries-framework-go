@@ -330,9 +330,10 @@ func (ctx *context) handleInboundOOBInvitation(
 	}
 
 	dest := &service.Destination{
-		RecipientKeys:   svc.RecipientKeys,
-		ServiceEndpoint: svc.ServiceEndpoint,
-		RoutingKeys:     svc.RoutingKeys,
+		RecipientKeys:     svc.RecipientKeys,
+		ServiceEndpoint:   svc.ServiceEndpoint,
+		RoutingKeys:       svc.RoutingKeys,
+		MediaTypeProfiles: svc.Accept,
 	}
 
 	recipientKey, err := recipientKey(myDID)
@@ -432,6 +433,10 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	destination, err := service.CreateDestination(requestDidDoc)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(destination.MediaTypeProfiles) > 0 {
+		connRec.MediaTypeProfiles = destination.MediaTypeProfiles
 	}
 
 	senderVerKey, err := recipientKey(responseDidDoc)
@@ -948,6 +953,12 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		block = &s
 	default:
 		return nil, fmt.Errorf("unsupported target type: %+v", svc)
+	}
+
+	if len(i.MediaTypeProfiles) > 0 {
+		// RFC0587: In case the accept property is set in both the DID service block and the out-of-band message,
+		// the out-of-band property takes precedence.
+		block.Accept = i.MediaTypeProfiles
 	}
 
 	logger.Debugf("extracted service block=%+v", block)

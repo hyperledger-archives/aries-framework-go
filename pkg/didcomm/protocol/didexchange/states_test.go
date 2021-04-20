@@ -1414,6 +1414,7 @@ func createDIDDocWithKey(verPubKey, encPubKey string) *diddoc.Doc {
 			ServiceEndpoint: "http://localhost:58416",
 			Priority:        0,
 			RecipientKeys:   []string{verPubKey},
+			Accept:          []string{"didcomm/v2"},
 		},
 	}
 	createdTime := time.Now()
@@ -1610,11 +1611,12 @@ func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
 
 func newOOBInvite(target interface{}) *OOBInvitation {
 	return &OOBInvitation{
-		ID:         uuid.New().String(),
-		Type:       oobMsgType,
-		ThreadID:   uuid.New().String(),
-		TheirLabel: "test",
-		Target:     target,
+		ID:                uuid.New().String(),
+		Type:              oobMsgType,
+		ThreadID:          uuid.New().String(),
+		TheirLabel:        "test",
+		Target:            target,
+		MediaTypeProfiles: []string{"didcomm/v2"},
 	}
 }
 

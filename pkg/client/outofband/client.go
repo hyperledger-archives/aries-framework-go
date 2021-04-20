@@ -38,6 +38,23 @@ const (
 	HandshakeReuseAcceptedMsgType = outofband.HandshakeReuseAcceptedMsgType
 )
 
+const (
+	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
+	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
+	MediaTypeProfileDIDCommAIP1 = outofband.MediaTypeProfileDIDCommAIP1
+	// MediaTypeProfileDIDCommAIP2RFC19 is the signing mechanism, plaintext conventions, and routing
+	// algorithms embodied in Aries AIP 2.0, circa 2021 -- with the old-style encryption envelope from
+	// Aries RFC 0019. Defined in RFC 0044.
+	MediaTypeProfileDIDCommAIP2RFC19 = outofband.MediaTypeProfileDIDCommAIP2RFC19
+	// MediaTypeProfileAIP2RFC587 is the signing mechanism, plaintext conventions, and routing algorithms
+	// embodied in Aries AIP 2.0, circa 2021 -- with the new-style encryption envelope from Aries RFC 0587.
+	// Defined in RFC 0044.
+	MediaTypeProfileAIP2RFC587 = outofband.MediaTypeProfileAIP2RFC587
+	// MediaTypeProfileDIDCommV2 is the encryption envelope, signing mechanism, plaintext conventions,
+	// and routing algorithms embodied in the DIDComm messaging spec. Defined in RFC 0044.
+	MediaTypeProfileDIDCommV2 = outofband.MediaTypeProfileDIDCommV2
+)
+
 // EventOptions are is a container of options that you can pass to an event's
 // Continue function to customize the reaction to incoming out-of-band messages.
 type EventOptions struct {
@@ -302,7 +319,8 @@ func WithAttachments(a ...*decorator.Attachment) MessageOption {
 	}
 }
 
-// WithAccept will set the given media types in the Invitation's `accept` property.
+// WithAccept will set the given media type profiles in the Invitation's `accept` property.
+// Only valid values from RFC 0044 are supported.
 func WithAccept(a ...string) MessageOption {
 	return func(m *message) {
 		m.Accept = a
