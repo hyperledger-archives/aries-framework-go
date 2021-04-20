@@ -56,7 +56,7 @@ import (
 
 //nolint:lll
 const doc = `{
-  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "@context": ["https://www.w3.org/ns/did/v1","https://www.w3.org/ns/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "verificationMethod": [
     {
@@ -629,6 +629,13 @@ func TestFramework(t *testing.T) {
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "document loader creation failed")
+	})
+
+	t.Run("test KeyType and KeyAgreement option", func(t *testing.T) {
+		aries, err := New(WithKeyType(kms.BLS12381G2Type), WithKeyAgreementType(kms.NISTP384ECDHKWType))
+		require.NoError(t, err)
+		require.Equal(t, kms.BLS12381G2Type, aries.keyType)
+		require.Equal(t, kms.NISTP384ECDHKWType, aries.keyAgreementType)
 	})
 }
 

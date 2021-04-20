@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/tink/go/keyset"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -41,6 +39,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
@@ -517,11 +516,15 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 	t.Run("test accept invitation complete flow", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
+		km := newKMS(t, store)
 		didExSvc, err := didexsvc.New(&protocol.MockProvider{
 			ProtocolStateStoreProvider: store,
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
+			CustomKMS:             km,
+			KeyTypeValue:          kms.ED25519Type,
+			KeyAgreementTypeValue: kms.X25519ECDHKWType,
 		})
 
 		require.NoError(t, err)
@@ -537,6 +540,9 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
+			KMSValue:              km,
+			KeyTypeValue:          kms.ED25519Type,
+			KeyAgreementTypeValue: kms.X25519ECDHKWType,
 		},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
@@ -568,14 +574,16 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		pubKey, _ := generateKeyPair()
+		_, pubKey, e := km.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		require.NoError(t, e)
+
 		// send connection invitation message
 		invitation, err := json.Marshal(
 			&didexsvc.Invitation{
 				Type:          didexsvc.InvitationMsgType,
 				ID:            "abc",
 				Label:         "test",
-				RecipientKeys: []string{pubKey},
+				RecipientKeys: []string{string(pubKey)},
 			},
 		)
 		require.NoError(t, err)
@@ -742,12 +750,16 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 	t.Run("test accept exchange request complete flow", func(t *testing.T) {
 		protocolStateStore := mockstore.NewMockStoreProvider()
 		store := mockstore.NewMockStoreProvider()
+		km := newKMS(t, store)
 		didExSvc, err := didexsvc.New(
 			&protocol.MockProvider{
 				ProtocolStateStoreProvider: protocolStateStore, StoreProvider: store,
 				ServiceMap: map[string]interface{}{
 					mediator.Coordination: &mockroute.MockMediatorSvc{},
 				},
+				CustomKMS:             km,
+				KeyTypeValue:          kms.ED25519Type,
+				KeyAgreementTypeValue: kms.X25519ECDHKWType,
 			},
 		)
 
@@ -755,13 +767,6 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 		done := make(chan struct{})
 		connID := make(chan string)
-
-		ed25519KH, err := mockkms.CreateMockED25519KeyHandle()
-		require.NoError(t, err)
-
-		pubKeyBytes := exportPubKeyBytes(t, ed25519KH)
-		kid, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
-		require.NoError(t, err)
 
 		// create the client
 		cmd, err := New(&mockprovider.Provider{
@@ -771,13 +776,9 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				didexsvc.DIDExchange:  didExSvc,
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
-			KMSValue: &mockkms.KeyManager{
-				CreateKeyValue:         ed25519KH,
-				CreateKeyID:            kid,
-				CrAndExportPubKeyValue: pubKeyBytes,
-				CrAndExportPubKeyID:    kid,
-				GetKeyValue:            ed25519KH,
-			},
+			KMSValue:              km,
+			KeyTypeValue:          kms.ED25519Type,
+			KeyAgreementTypeValue: kms.X25519ECDHKWType,
 		},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
@@ -858,21 +859,6 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 			require.Fail(t, "tests are not validated")
 		}
 	})
-}
-
-func exportPubKeyBytes(t *testing.T, kh *keyset.Handle) []byte {
-	t.Helper()
-
-	pubKH, err := kh.Public()
-	require.NoError(t, err)
-
-	buf := new(bytes.Buffer)
-	pubKeyWriter := localkms.NewWriter(buf)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
-	require.NoError(t, err)
-
-	return buf.Bytes()
 }
 
 func TestCommand_SaveConnection(t *testing.T) {
@@ -989,15 +975,6 @@ func mockProvider() *mockprovider.Provider {
 	}
 }
 
-func generateKeyPair() (string, []byte) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	return base58.Encode(pubKey[:]), privKey
-}
-
 func newPeerDID(t *testing.T) *did.Doc {
 	t.Helper()
 
@@ -1037,4 +1014,18 @@ func toBytes(t *testing.T, v interface{}) []byte {
 	require.NoError(t, err)
 
 	return bits
+}
+
+func newKMS(t *testing.T, store spi.Provider) kms.KeyManager {
+	t.Helper()
+
+	kmsProv := &protocol.MockProvider{
+		StoreProvider: store,
+		CustomLock:    &noop.NoLock{},
+	}
+
+	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)
+	require.NoError(t, err)
+
+	return customKMS
 }

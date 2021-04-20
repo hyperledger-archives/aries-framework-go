@@ -40,6 +40,8 @@ type MockProvider struct {
 	ServiceMap                   map[string]interface{}
 	InboundMsgHandler            transport.InboundMessageHandler
 	InboundDIDCommMsgHandlerFunc func() service.InboundHandler
+	KeyTypeValue                 kms.KeyType
+	KeyAgreementTypeValue        kms.KeyType
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -132,6 +134,16 @@ func (p *MockProvider) InboundDIDCommMessageHandler() func() service.InboundHand
 // DIDConnectionStore returns DID connection store.
 func (p *MockProvider) DIDConnectionStore() did.ConnectionStore {
 	return &mockConnectionStore{}
+}
+
+// KeyType returns a mocked keyType value for authentication (signing).
+func (p *MockProvider) KeyType() kms.KeyType {
+	return p.KeyTypeValue
+}
+
+// KeyAgreementType returns a mocked keyType value for KeyAgreement.
+func (p *MockProvider) KeyAgreementType() kms.KeyType {
+	return p.KeyAgreementTypeValue
 }
 
 type mockConnectionStore struct{}

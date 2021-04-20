@@ -82,6 +82,8 @@ type provider interface {
 	KMS() kms.KeyManager
 	VDRegistry() vdrapi.Registry
 	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -110,6 +112,8 @@ type context struct {
 	vdRegistry         vdrapi.Registry
 	routeSvc           mediator.ProtocolService
 	doACAPyInterop     bool
+	keyType            kms.KeyType
+	keyAgreementType   kms.KeyType
 }
 
 // opts are used to provide client properties to DID Exchange service.
@@ -143,6 +147,16 @@ func New(prov provider) (*Service, error) {
 
 	const callbackChannelSize = 10
 
+	keyType := prov.KeyType()
+	if keyType == "" {
+		keyType = kms.ED25519Type
+	}
+
+	keyAgreementType := prov.KeyAgreementType()
+	if keyAgreementType == "" {
+		keyAgreementType = kms.X25519ECDHKWType
+	}
+
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -153,6 +167,8 @@ func New(prov provider) (*Service, error) {
 			connectionStore:    prov.DIDConnectionStore(),
 			routeSvc:           routeSvc,
 			doACAPyInterop:     doACAPyInterop,
+			keyType:            keyType,
+			keyAgreementType:   keyAgreementType,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel:    make(chan *message, callbackChannelSize),

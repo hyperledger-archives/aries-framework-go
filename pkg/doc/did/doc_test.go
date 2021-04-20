@@ -80,7 +80,7 @@ func TestValidWithDocBase(t *testing.T) {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		require.Contains(t, doc.Context[0], "https://w3id.org/did/v")
+		require.Contains(t, doc.Context[0], "https://www.w3.org/ns/did/v")
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:123456789abcdefghi")
@@ -200,7 +200,7 @@ func TestValid(t *testing.T) {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		require.Contains(t, doc.Context[0], "https://w3id.org/did/v")
+		require.Contains(t, doc.Context[0], "https://www.w3.org/ns/did/v")
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:21tDAKCERh95uGgKbJNHYp")
@@ -321,7 +321,7 @@ func TestValidWithProof(t *testing.T) {
 func TestInvalidEncodingInProof(t *testing.T) {
 	proofKey := []string{jsonldProofValue, jsonldSignatureValue}
 	for _, v := range proofKey {
-		c := Context
+		c := ContextV1
 		if v == jsonldSignatureValue {
 			c = contextV011
 		}
@@ -363,7 +363,7 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
+		expected := fmt.Sprintf("key %s does not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 
@@ -379,13 +379,13 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
+		expected := fmt.Sprintf("key %s does not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
 
 func TestPopulateAssertionMethods(t *testing.T) {
-	t.Run("test key not exist", func(t *testing.T) {
+	t.Run("test key does not exist", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
 
@@ -396,7 +396,7 @@ func TestPopulateAssertionMethods(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
+		expected := fmt.Sprintf("key %s does not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -413,7 +413,7 @@ func TestPopulateCapabilityDelegations(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
+		expected := fmt.Sprintf("key %s does not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -430,7 +430,7 @@ func TestPopulateCapabilityInvocations(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
+		expected := fmt.Sprintf("key %s does not exist in did doc verification method", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -445,10 +445,8 @@ func TestPopulateKeyAgreements(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = ParseDocument(bytes)
-		require.Error(t, err)
-
-		expected := fmt.Sprintf("key %s not exist in did doc verification method", missingPubKeyID)
-		require.Contains(t, err.Error(), expected)
+		require.EqualError(t, err, fmt.Sprintf("populate key agreements failed: key %s does not exist in did doc"+
+			" verification method", missingPubKeyID))
 	})
 }
 

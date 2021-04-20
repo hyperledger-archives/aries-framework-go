@@ -17,7 +17,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
-const ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+const (
+	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+	jsonWebKey2020             = "JsonWebKey2020"
+	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
+)
 
 // Create create new DID Document.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2466
@@ -57,23 +61,14 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 }
 
 //nolint: funlen,gocyclo
-func build(didDoc *did.Doc,
-	docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
-	if len(didDoc.VerificationMethod) == 0 {
-		return nil, fmt.Errorf("verification method is empty")
+func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
+	if len(didDoc.VerificationMethod) == 0 && len(didDoc.KeyAgreement) == 0 {
+		return nil, fmt.Errorf("verification method and key agreement are empty, at least one should be set")
 	}
 
-	var publicKey did.VerificationMethod
-
-	switch didDoc.VerificationMethod[0].Type {
-	case ed25519VerificationKey2018:
-		// TODO keyID of VerificationMethod should have the DID doc id as controller, since the DID document is created after
-		//      the publicKey, its id is unknown until NewDoc() is called below. The controller and key ID of publicKey
-		//		needs to be sorted out.
-		publicKey = *did.NewVerificationMethodFromBytes(didDoc.VerificationMethod[0].ID, ed25519VerificationKey2018, "#id",
-			didDoc.VerificationMethod[0].Value)
-	default:
-		return nil, fmt.Errorf("not supported public key type: %s", didDoc.VerificationMethod[0].Type)
+	mainVM, keyAgreementVM, err := buildDIDVMs(didDoc)
+	if err != nil {
+		return nil, err
 	}
 
 	// Service model to be included only if service type is provided through opts
@@ -115,26 +110,84 @@ func build(didDoc *did.Doc,
 	t := time.Now()
 
 	assertion := []did.Verification{{
-		VerificationMethod: publicKey,
+		VerificationMethod: *mainVM,
 		Relationship:       did.AssertionMethod,
 	}}
 
 	authentication := []did.Verification{{
-		VerificationMethod: publicKey,
+		VerificationMethod: *mainVM,
 		Relationship:       did.Authentication,
 	}}
 
-	didDoc, err := NewDoc(
-		[]did.VerificationMethod{publicKey},
+	var keyAgreement []did.Verification
+
+	verificationMethods := []did.VerificationMethod{*mainVM}
+
+	if keyAgreementVM != nil {
+		verificationMethods = append(verificationMethods, *keyAgreementVM)
+
+		keyAgreement = []did.Verification{{
+			VerificationMethod: *keyAgreementVM,
+			Relationship:       did.KeyAgreement,
+		}}
+	}
+
+	didDoc, err = NewDoc(
+		verificationMethods,
 		did.WithService(service),
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
 		did.WithAuthentication(authentication),
 		did.WithAssertion(assertion),
+		did.WithKeyAgreement(keyAgreement),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &did.DocResolution{DIDDocument: didDoc}, nil
+}
+
+func buildDIDVMs(didDoc *did.Doc) (*did.VerificationMethod, *did.VerificationMethod, error) {
+	var mainVM, keyAgreementVM *did.VerificationMethod
+
+	if len(didDoc.VerificationMethod) != 0 {
+		switch didDoc.VerificationMethod[0].Type {
+		case ed25519VerificationKey2018:
+			mainVM = did.NewVerificationMethodFromBytes(didDoc.VerificationMethod[0].ID, ed25519VerificationKey2018,
+				"#id", didDoc.VerificationMethod[0].Value)
+		case jsonWebKey2020:
+			publicKey1, err := did.NewVerificationMethodFromJWK(didDoc.VerificationMethod[0].ID, jsonWebKey2020, "#id",
+				didDoc.VerificationMethod[0].JSONWebKey())
+			if err != nil {
+				return nil, nil, err
+			}
+
+			mainVM = publicKey1
+		default:
+			return nil, nil, fmt.Errorf("not supported VerificationMethod public key type: %s",
+				didDoc.VerificationMethod[0].Type)
+		}
+	}
+
+	if len(didDoc.KeyAgreement) != 0 {
+		switch didDoc.KeyAgreement[0].VerificationMethod.Type {
+		case x25519KeyAgreementKey2019:
+			keyAgreementVM = did.NewVerificationMethodFromBytes(didDoc.KeyAgreement[0].VerificationMethod.ID,
+				x25519KeyAgreementKey2019, "", didDoc.KeyAgreement[0].VerificationMethod.Value)
+
+		case jsonWebKey2020:
+			ka, err := did.NewVerificationMethodFromJWK(didDoc.VerificationMethod[0].ID, jsonWebKey2020, "",
+				didDoc.VerificationMethod[0].JSONWebKey())
+			if err != nil {
+				return nil, nil, err
+			}
+
+			keyAgreementVM = ka
+		default:
+			return nil, nil, fmt.Errorf("not supported KeyAgreement public key type: %s", didDoc.VerificationMethod[0].Type)
+		}
+	}
+
+	return mainVM, keyAgreementVM, nil
 }

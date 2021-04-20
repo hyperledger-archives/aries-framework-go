@@ -246,7 +246,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 	}
 	createdTime := time.Now()
 	didDoc := &did.Doc{
-		Context:            []string{did.Context},
+		Context:            []string{did.ContextV1},
 		ID:                 id,
 		VerificationMethod: []did.VerificationMethod{*pubKey},
 		Service:            services,

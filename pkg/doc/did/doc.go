@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	// Context of the DID document.
-	Context             = "https://w3id.org/did/v1"
+	// ContextV1 of the DID document is the current V1 context name.
+	ContextV1 = "https://www.w3.org/ns/did/v1"
+	// ContextV1Old of the DID document representing the old/legacy V1 context name.
+	ContextV1Old        = "https://w3id.org/did/v1"
 	contextV011         = "https://w3id.org/did/v0.11"
 	contextV12019       = "https://www.w3.org/2019/did/v1"
 	jsonldType          = "type"
@@ -417,7 +419,7 @@ func requiresLegacyHandling(raw *rawDoc) bool {
 	context, _ := parseContext(raw.Context)
 
 	for _, ctx := range context {
-		if ctx == Context { // docs that state they use v1 format but still have a top-level publicKey array
+		if ctx == ContextV1Old { // docs that state they use v1 format but still have a top-level publicKey array
 			return true
 		}
 	}
@@ -668,7 +670,7 @@ func getVerificationsByKeyID(didID, baseURI string, vm []VerificationMethod, rel
 		}
 
 		if !keyExist {
-			return nil, fmt.Errorf("key %s not exist in did doc verification method", keyID)
+			return nil, fmt.Errorf("key %s does not exist in did doc verification method", keyID)
 		}
 	}
 
@@ -947,7 +949,7 @@ func (docResolution *DocResolution) JSONBytes() ([]byte, error) {
 
 // JSONBytes converts document to json bytes.
 func (doc *Doc) JSONBytes() ([]byte, error) {
-	context := Context
+	context := ContextV1
 
 	if len(doc.Context) > 0 {
 		context = doc.Context[0]
@@ -1299,10 +1301,17 @@ func WithAuthentication(auth []Verification) DocOption {
 	}
 }
 
-// WithAssertion sets the verification methods for assertion: https://w3c.github.io/did-core/#assertionmethod.
+// WithAssertion sets the verification methods for assertion: https://w3c.github.io/did-core/#assertion.
 func WithAssertion(assertion []Verification) DocOption {
 	return func(opts *Doc) {
 		opts.AssertionMethod = assertion
+	}
+}
+
+// WithKeyAgreement sets the verification methods for KeyAgreement: https://w3c.github.io/did-core/#key-agreement.
+func WithKeyAgreement(keyAgreement []Verification) DocOption {
+	return func(opts *Doc) {
+		opts.KeyAgreement = keyAgreement
 	}
 }
 
@@ -1330,7 +1339,7 @@ func WithUpdatedTime(t time.Time) DocOption {
 // BuildDoc creates the DID Doc from options.
 func BuildDoc(opts ...DocOption) *Doc {
 	doc := &Doc{}
-	doc.Context = []string{Context}
+	doc.Context = []string{ContextV1}
 
 	for _, opt := range opts {
 		opt(doc)

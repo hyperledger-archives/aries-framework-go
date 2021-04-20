@@ -24,6 +24,7 @@ import (
 	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -600,5 +601,23 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithAriesFrameworkID(frameworkID))
 		require.NoError(t, err)
 		require.Equal(t, frameworkID, prov.AriesFrameworkID())
+	})
+
+	t.Run("test new with KeyType", func(t *testing.T) {
+		prov, err := New(WithKeyType(kms.ECDSAP256TypeIEEEP1363))
+		require.NoError(t, err)
+		require.EqualValues(t, kms.ECDSAP256TypeIEEEP1363, prov.KeyType())
+
+		_, err = New(WithKeyType(kms.XChaCha20Poly1305Type))
+		require.EqualError(t, err, "option failed: invalid authentication key type: XChaCha20Poly1305")
+	})
+
+	t.Run("test new with KeyType for KeyAgreement", func(t *testing.T) {
+		prov, err := New(WithKeyAgreementType(kms.NISTP256ECDHKWType))
+		require.NoError(t, err)
+		require.Equal(t, kms.NISTP256ECDHKWType, prov.KeyAgreementType())
+
+		_, err = New(WithKeyAgreementType(kms.XChaCha20Poly1305Type))
+		require.EqualError(t, err, "option failed: invalid KeyAgreement key type: XChaCha20Poly1305")
 	})
 }

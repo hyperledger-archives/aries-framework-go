@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -146,13 +147,21 @@ func agent(t *testing.T) *context.Provider {
 func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did.Doc {
 	t.Helper()
 
+	authVM := getSigningKey(t, a)
+
 	docResolution, err := a.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{
 			Service: []did.Service{
 				{ServiceEndpoint: "http://example.com/didcomm"},
 			},
 			VerificationMethod: []did.VerificationMethod{
-				getSigningKey(t, a),
+				authVM,
+			},
+			KeyAgreement: []did.Verification{
+				{
+					VerificationMethod: newKeyAgreementVM(t, a, authVM.Controller),
+					Relationship:       did.KeyAgreement,
+				},
 			},
 		},
 	)
@@ -165,11 +174,42 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	return docResolution.DIDDocument
 }
 
-func getSigningKey(t *testing.T, a *context.Provider) did.VerificationMethod {
-	keyID, pubBytes, err := a.KMS().CreateAndExportPubKeyBytes(kms.ED25519)
+func newKeyAgreementVM(t *testing.T, p *context.Provider, controller string) did.VerificationMethod {
+	t.Helper()
+
+	_, encPubKey, err := p.KMS().CreateAndExportPubKeyBytes(p.KeyAgreementType())
 	require.NoError(t, err)
 
-	return did.VerificationMethod{ID: "#" + keyID, Value: pubBytes, Type: "Ed25519VerificationKey2018"}
+	encDIDKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(encPubKey, p.KeyAgreementType())
+	require.NoError(t, err)
+
+	const didPKID = "%s#keys-%d"
+
+	encPubKeyID := fmt.Sprintf(didPKID, controller, 2)
+
+	return did.VerificationMethod{
+		ID:         encPubKeyID,
+		Type:       "X25519KeyAgreementKey2019",
+		Controller: controller,
+		Value:      []byte(encDIDKey),
+	}
+}
+
+func getSigningKey(t *testing.T, a *context.Provider) did.VerificationMethod {
+	const (
+		didFormat = "did:%s:%s"
+		method    = "test"
+	)
+
+	keyID, pubBytes, err := a.KMS().CreateAndExportPubKeyBytes(a.KeyType())
+	require.NoError(t, err)
+
+	didKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(pubBytes, a.KeyType())
+	require.NoError(t, err)
+
+	id := fmt.Sprintf(didFormat, method, didKey[:16])
+
+	return did.VerificationMethod{ID: "#" + keyID, Controller: id, Value: pubBytes, Type: "Ed25519VerificationKey2018"}
 }
 
 func formatDoc(t *testing.T, d *did.Doc) string {

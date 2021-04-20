@@ -237,7 +237,7 @@ func createDIDDocWithKey(pub string) *did.Doc {
 	}
 	createdTime := time.Now()
 	didDoc := &did.Doc{
-		Context:            []string{did.Context},
+		Context:            []string{did.ContextV1},
 		ID:                 id,
 		VerificationMethod: []did.VerificationMethod{pubKey},
 		Service:            services,

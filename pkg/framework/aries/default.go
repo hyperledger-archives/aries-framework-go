@@ -81,12 +81,6 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		}
 	}
 
-	if frameworkOpts.kmsCreator == nil {
-		frameworkOpts.kmsCreator = func(provider kms.Provider) (kms.KeyManager, error) {
-			return localkms.New(defaultMasterKeyURI, provider)
-		}
-	}
-
 	return setAdditionalDefaultOpts(frameworkOpts)
 }
 
@@ -158,10 +152,10 @@ func newOutOfBandSvc() api.ProtocolSvcCreator {
 	}
 }
 
-func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
+func setDefaultKMSCryptOpts(frameworkOpts *Aries) error {
 	if frameworkOpts.kmsCreator == nil {
 		frameworkOpts.kmsCreator = func(provider kms.Provider) (kms.KeyManager, error) {
-			return localkms.New("local-lock://", provider)
+			return localkms.New(defaultMasterKeyURI, provider)
 		}
 	}
 
@@ -173,6 +167,23 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		}
 
 		frameworkOpts.crypto = cr
+	}
+
+	return nil
+}
+
+func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
+	err := setDefaultKMSCryptOpts(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	if frameworkOpts.keyType == "" {
+		frameworkOpts.keyType = kms.ED25519Type
+	}
+
+	if frameworkOpts.keyAgreementType == "" {
+		frameworkOpts.keyAgreementType = kms.X25519ECDHKWType
 	}
 
 	if frameworkOpts.packerCreator == nil {
