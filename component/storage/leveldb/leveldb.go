@@ -18,9 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-// TODO (#2605) Implement all methods in this file. Currently the only methods implemented are the ones directly
-//  needed by aries-framework-go. It's possible that someone extending aries may find the other methods useful.
-
 const (
 	pathPattern = "%s-%s"
 
@@ -34,7 +31,7 @@ const (
 		"it must be in the following format: TagName:TagValue"
 )
 
-// Provider leveldb implementation of storage.Provider interface.
+// Provider is a LevelDB implementation of the spi.Provider interface.
 type Provider struct {
 	dbPath string
 	dbs    map[string]*store
@@ -125,9 +122,21 @@ func (p *Provider) GetStoreConfig(name string) (storage.StoreConfiguration, erro
 	return storeConfig, nil
 }
 
-// GetOpenStores is not implemented.
+// GetOpenStores returns all Stores currently open in the Provider.
 func (p *Provider) GetOpenStores() []storage.Store {
-	panic("implement me")
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	openStores := make([]storage.Store, len(p.dbs))
+
+	var counter int
+
+	for _, db := range p.dbs {
+		openStores[counter] = db
+		counter++
+	}
+
+	return openStores
 }
 
 // Close closes all stores created under this store provider.
@@ -266,8 +275,30 @@ func (s *store) GetTags(key string) ([]storage.Tag, error) {
 	return retrievedDBEntry.Tags, nil
 }
 
+// TODO (#2605) proper bulk retrieval implementation. This is just a naive implementation that ensures this method
+//  can at least return the expected results without failing. It doesn't take advantage of LevelDB features that may
+//  allow for faster bulk retrieval.
 func (s *store) GetBulk(keys ...string) ([][]byte, error) {
-	return nil, errors.New("not implemented")
+	if len(keys) == 0 {
+		return nil, errors.New("keys slice must contain at least one key")
+	}
+
+	values := make([][]byte, len(keys))
+
+	for i, key := range keys {
+		var err error
+		values[i], err = s.Get(key)
+
+		if err != nil {
+			if errors.Is(err, storage.ErrDataNotFound) {
+				continue
+			}
+
+			return nil, fmt.Errorf("unexpected failure while retrieving the value stored under %s: %w", key, err)
+		}
+	}
+
+	return values, nil
 }
 
 func (s *store) Query(expression string, options ...storage.QueryOption) (storage.Iterator, error) {
@@ -323,8 +354,25 @@ func (s *store) Delete(key string) error {
 	return nil
 }
 
+// TODO (#2605) proper bulk retrieval implementation. This is just a naive implementation that ensures this method
+//  can at least perform the operations as expected without failing. It doesn't take advantage of LevelDB features that
+//  may allow for faster batch operations.
 func (s *store) Batch(operations []storage.Operation) error {
-	return errors.New("not implemented")
+	for _, operation := range operations {
+		if operation.Value == nil {
+			err := s.Delete(operation.Key)
+			if err != nil {
+				return fmt.Errorf("failed to delete value: %w", err)
+			}
+		} else {
+			err := s.Put(operation.Key, operation.Value, operation.Tags...)
+			if err != nil {
+				return fmt.Errorf("failed to put value: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // This store doesn't queue values, so there's never anything to flush.
