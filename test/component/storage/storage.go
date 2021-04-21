@@ -41,6 +41,7 @@ func TestAll(t *testing.T, provider spi.Provider) {
 		})
 		t.Run("Query", func(t *testing.T) {
 			TestStoreQuery(t, provider)
+			TestStoreQueryWithSortingAndInitialPageOptions(t, provider)
 		})
 		t.Run("Batch", func(t *testing.T) {
 			TestStoreBatch(t, provider)
@@ -767,7 +768,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression)
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -786,7 +787,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -804,7 +805,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -823,7 +824,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 	})
 	t.Run("Tag name only query - 0 values found", func(t *testing.T) {
@@ -853,7 +854,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(" ")
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, nil, nil, nil)
+			verifyExpectedIterator(t, iterator, nil, nil, nil, false)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -872,7 +873,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, nil, nil, nil)
+			verifyExpectedIterator(t, iterator, nil, nil, nil, false)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -890,7 +891,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, nil, nil, nil)
+			verifyExpectedIterator(t, iterator, nil, nil, nil, false)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -909,7 +910,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, nil, nil, nil)
+			verifyExpectedIterator(t, iterator, nil, nil, nil, false)
 		})
 	})
 	t.Run("Tag name and value query - 2 values found", func(t *testing.T) {
@@ -944,7 +945,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression)
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -963,7 +964,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(2))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -981,7 +982,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(1))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1000,7 +1001,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query(queryExpression, spi.WithPageSize(100))
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 		})
 	})
 	t.Run("Tag name and value query - only 1 value found "+
@@ -1036,7 +1037,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 		iterator, err := store.Query("tagName3:tagValue1")
 		require.NoError(t, err)
 
-		verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags)
+		verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false)
 	})
 	t.Run("Tag name and value query - 0 values found since the store is empty", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1052,7 +1053,7 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 		iterator, err := store.Query("tagName3:tagValue1")
 		require.NoError(t, err)
 
-		verifyExpectedIterator(t, iterator, nil, nil, nil)
+		verifyExpectedIterator(t, iterator, nil, nil, nil, false)
 	})
 	t.Run("Invalid expression formats", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1073,6 +1074,1410 @@ func TestStoreQuery(t *testing.T, provider spi.Provider) { // nolint: funlen // 
 			iterator, err := store.Query("name:value:somethingElse")
 			require.Error(t, err)
 			require.Empty(t, iterator)
+		})
+	})
+}
+
+// TestStoreQueryWithSortingAndInitialPageOptions tests common Store Query functionality when the sorting and initial
+// page options are used.
+func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funlen // Test file
+	provider spi.Provider) {
+	t.Run("Sorting by a small numerical tag", func(t *testing.T) { //nolint: dupl // Test file
+		keysToPutAscendingOrder := []string{
+			"key1", "key2", "key3", "key4", "key5", "key6",
+			"key7", "key8", "key9", "key10",
+		}
+		valuesToPutAscendingOrder := [][]byte{
+			[]byte("value1"), []byte("value2"), []byte("value3"), []byte("value4"), []byte("value5"), []byte("value6"),
+			[]byte("value7"), []byte("value8"), []byte("value9"), []byte("value10"),
+		}
+
+		// The tag value associated with "numberTag" will determine the sort order.
+		tagsToPutAscendingOrder := [][]spi.Tag{
+			{
+				{Name: "tagName1", Value: "tagValue1"},
+				{Name: "tagName2", Value: "tagValue2"},
+				{Name: "numberTag", Value: "1"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue2"},
+				{Name: "tagName2"},
+				{Name: "numberTag", Value: "2"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue3"},
+				{Name: "numberTag", Value: "4"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue4"},
+				{Name: "numberTag", Value: "8"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue5"},
+				{Name: "numberTag", Value: "10"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue6"},
+				{Name: "numberTag", Value: "11"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue7"},
+				{Name: "numberTag", Value: "12"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue8"},
+				{Name: "numberTag", Value: "20"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue9"},
+				{Name: "numberTag", Value: "21"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue10"},
+				{Name: "numberTag", Value: "22"},
+			},
+		}
+
+		storeConfig := spi.StoreConfiguration{TagNames: []string{
+			"tagName1", "tagName2", "tagName3", "tagName4",
+			"numberTag",
+		}}
+
+		queryExpression := "tagName1"
+
+		t.Run("Data inserted in ascending order", func(t *testing.T) {
+			storeName := randomStoreName()
+
+			store, err := provider.OpenStore(storeName)
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = provider.SetStoreConfig(storeName, storeConfig)
+			require.NoError(t, err)
+
+			putData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
+
+			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the smallest number to the biggest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[4], keysToPutAscendingOrder[5],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[5],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[5],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page (but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+			t.Run("Descending order", func(t *testing.T) {
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the biggest number to the smallest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						querySortOption := spi.WithSortOrder(&spi.SortOptions{
+							Order:   spi.SortDescending,
+							TagName: "numberTag",
+						})
+
+						iterator, err := store.Query(queryExpression, querySortOption)
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}), spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+		})
+		t.Run("Data inserted in arbitrary order", func(t *testing.T) {
+			storeName := randomStoreName()
+
+			store, err := provider.OpenStore(storeName)
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = provider.SetStoreConfig(storeName, storeConfig)
+			require.NoError(t, err)
+
+			keysToPutArbitraryOrder := []string{
+				keysToPutAscendingOrder[5], keysToPutAscendingOrder[1], keysToPutAscendingOrder[9],
+				keysToPutAscendingOrder[0], keysToPutAscendingOrder[4], keysToPutAscendingOrder[7],
+				keysToPutAscendingOrder[2], keysToPutAscendingOrder[8], keysToPutAscendingOrder[6],
+				keysToPutAscendingOrder[3],
+			}
+			valuesToPutArbitraryOrder := [][]byte{
+				valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[1], valuesToPutAscendingOrder[9],
+				valuesToPutAscendingOrder[0], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[7],
+				valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[6],
+				valuesToPutAscendingOrder[3],
+			}
+			tagsToPutArbitraryOrder := [][]spi.Tag{
+				tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[1], tagsToPutAscendingOrder[9],
+				tagsToPutAscendingOrder[0], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[7],
+				tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[6],
+				tagsToPutAscendingOrder[3],
+			}
+
+			putData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
+
+			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the smallest number to the biggest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[4], keysToPutAscendingOrder[5],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[5],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[5],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+			t.Run("Descending order", func(t *testing.T) {
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated with
+				// "numberTag". The order should go from the biggest number to the smallest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						querySortOption := spi.WithSortOrder(&spi.SortOptions{
+							Order:   spi.SortDescending,
+							TagName: "numberTag",
+						})
+
+						iterator, err := store.Query(queryExpression, querySortOption)
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page"+
+						"(but there should only be four pages max, so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+		})
+	})
+	t.Run("Sorting by a large numerical tag (Unix timestamps)", func(t *testing.T) { //nolint: dupl // Test file
+		keysToPutAscendingOrder := []string{
+			"key1", "key2", "key3", "key4", "key5", "key6",
+			"key7", "key8", "key9", "key10",
+		}
+		valuesToPutAscendingOrder := [][]byte{
+			[]byte("value1"), []byte("value2"), []byte("value3"), []byte("value4"), []byte("value5"), []byte("value6"),
+			[]byte("value7"), []byte("value8"), []byte("value9"), []byte("value10"),
+		}
+
+		// The tag value associated with "numberTag" will determine the sort order.
+		tagsToPutAscendingOrder := [][]spi.Tag{
+			{
+				{Name: "tagName1", Value: "tagValue1"},
+				{Name: "tagName2", Value: "tagValue2"},
+				{Name: "numberTag", Value: "0"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue2"},
+				{Name: "tagName2"},
+				{Name: "numberTag", Value: "1234"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue3"},
+				{Name: "numberTag", Value: "140000"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue4"},
+				{Name: "numberTag", Value: "1000000000"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue5"},
+				{Name: "numberTag", Value: "1619022042"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue6"},
+				{Name: "numberTag", Value: "1619022043"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue7"},
+				{Name: "numberTag", Value: "1619022044"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue8"},
+				{Name: "numberTag", Value: "1619122040"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue9"},
+				{Name: "numberTag", Value: "1619122041"},
+			},
+			{
+				{Name: "tagName1", Value: "tagValue10"},
+				{Name: "numberTag", Value: "92147483647"},
+			},
+		}
+
+		storeConfig := spi.StoreConfiguration{TagNames: []string{
+			"tagName1", "tagName2", "tagName3", "tagName4", "numberTag",
+		}}
+
+		queryExpression := "tagName1"
+
+		t.Run("Data inserted in ascending order", func(t *testing.T) {
+			storeName := randomStoreName()
+
+			store, err := provider.OpenStore(storeName)
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = provider.SetStoreConfig(storeName, storeConfig)
+			require.NoError(t, err)
+
+			putData(t, store, keysToPutAscendingOrder, valuesToPutAscendingOrder, tagsToPutAscendingOrder)
+
+			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the smallest number to the biggest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[4], keysToPutAscendingOrder[5],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[5],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[5],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+			t.Run("Descending order", func(t *testing.T) {
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated with
+				// "numberTag". The order should go from the biggest number to the smallest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						querySortOption := spi.WithSortOrder(&spi.SortOptions{
+							Order:   spi.SortDescending,
+							TagName: "numberTag",
+						})
+
+						iterator, err := store.Query(queryExpression, querySortOption)
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+		})
+		t.Run("Data inserted in arbitrary order", func(t *testing.T) {
+			storeName := randomStoreName()
+
+			store, err := provider.OpenStore(storeName)
+			require.NoError(t, err)
+			require.NotNil(t, store)
+
+			err = provider.SetStoreConfig(storeName, storeConfig)
+			require.NoError(t, err)
+
+			keysToPutArbitraryOrder := []string{
+				keysToPutAscendingOrder[5], keysToPutAscendingOrder[1], keysToPutAscendingOrder[9],
+				keysToPutAscendingOrder[0], keysToPutAscendingOrder[4], keysToPutAscendingOrder[7],
+				keysToPutAscendingOrder[2], keysToPutAscendingOrder[8], keysToPutAscendingOrder[6],
+				keysToPutAscendingOrder[3],
+			}
+			valuesToPutArbitraryOrder := [][]byte{
+				valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[1], valuesToPutAscendingOrder[9],
+				valuesToPutAscendingOrder[0], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[7],
+				valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[6],
+				valuesToPutAscendingOrder[3],
+			}
+			tagsToPutArbitraryOrder := [][]spi.Tag{
+				tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[1], tagsToPutAscendingOrder[9],
+				tagsToPutAscendingOrder[0], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[7],
+				tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[6],
+				tagsToPutAscendingOrder[3],
+			}
+
+			putData(t, store, keysToPutArbitraryOrder, valuesToPutArbitraryOrder, tagsToPutArbitraryOrder)
+
+			t.Run("Ascending order", func(t *testing.T) { //nolint: dupl // Test file
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the smallest number to the biggest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := keysToPutAscendingOrder
+						expectedValues := valuesToPutAscendingOrder
+						expectedTags := tagsToPutAscendingOrder
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[4], keysToPutAscendingOrder[5],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[4], valuesToPutAscendingOrder[5],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[4], tagsToPutAscendingOrder[5],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[7], keysToPutAscendingOrder[8],
+							keysToPutAscendingOrder[9],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[7], valuesToPutAscendingOrder[8],
+							valuesToPutAscendingOrder[9],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[7], tagsToPutAscendingOrder[8],
+							tagsToPutAscendingOrder[9],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortAscending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
+			t.Run("Descending order", func(t *testing.T) {
+				// The results should be sorted numerically (and not lexicographically) on the tag values associated
+				// with "numberTag". The order should go from the biggest number to the smallest.
+				t.Run("Default page size setting", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						querySortOption := spi.WithSortOrder(&spi.SortOptions{
+							Order:   spi.SortDescending,
+							TagName: "numberTag",
+						})
+
+						iterator, err := store.Query(queryExpression, querySortOption)
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+				})
+				t.Run("Page size 3", func(t *testing.T) {
+					t.Run("Start at the default (first) page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(0))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[9], keysToPutAscendingOrder[8], keysToPutAscendingOrder[7],
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[9], valuesToPutAscendingOrder[8], valuesToPutAscendingOrder[7],
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[9], tagsToPutAscendingOrder[8], tagsToPutAscendingOrder[7],
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at second page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3), // nolint: gomnd // Test file
+							spi.WithInitialPageNum(1))
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[6], keysToPutAscendingOrder[5], keysToPutAscendingOrder[4],
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[6], valuesToPutAscendingOrder[5], valuesToPutAscendingOrder[4],
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[6], tagsToPutAscendingOrder[5], tagsToPutAscendingOrder[4],
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at third page", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(2)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						expectedKeys := []string{
+							keysToPutAscendingOrder[3], keysToPutAscendingOrder[2], keysToPutAscendingOrder[1],
+							keysToPutAscendingOrder[0],
+						}
+						expectedValues := [][]byte{
+							valuesToPutAscendingOrder[3], valuesToPutAscendingOrder[2], valuesToPutAscendingOrder[1],
+							valuesToPutAscendingOrder[0],
+						}
+						expectedTags := [][]spi.Tag{
+							tagsToPutAscendingOrder[3], tagsToPutAscendingOrder[2], tagsToPutAscendingOrder[1],
+							tagsToPutAscendingOrder[0],
+						}
+
+						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags,
+							true)
+					})
+					t.Run("Start at fifth page(but there should only be four pages max, "+
+						"so iterator should have no results)", func(t *testing.T) {
+						iterator, err := store.Query(queryExpression,
+							spi.WithSortOrder(&spi.SortOptions{
+								Order:   spi.SortDescending,
+								TagName: "numberTag",
+							}),
+							spi.WithPageSize(3),       // nolint: gomnd // Test file
+							spi.WithInitialPageNum(4)) // nolint: gomnd // Test file
+						require.NoError(t, err)
+
+						verifyExpectedIterator(t, iterator, nil, nil, nil,
+							true)
+					})
+				})
+			})
 		})
 	})
 }
@@ -1569,14 +2974,22 @@ func putData(t *testing.T, store spi.Store, keys []string, values [][]byte, tags
 	}
 }
 
-func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
-	actualResultsItr spi.Iterator,
-	expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag) {
+func verifyExpectedIterator(t *testing.T, actualResultsItr spi.Iterator, expectedKeys []string, expectedValues [][]byte,
+	expectedTags [][]spi.Tag, orderMatters bool) {
 	if len(expectedValues) != len(expectedKeys) || len(expectedTags) != len(expectedKeys) {
 		require.FailNow(t,
 			"Invalid test case. Expected keys, values and tags slices must be the same length.")
 	}
 
+	if orderMatters {
+		verifyIteratorInOrder(t, actualResultsItr, expectedKeys, expectedValues, expectedTags)
+	} else {
+		verifyIteratorAnyOrder(t, actualResultsItr, expectedKeys, expectedValues, expectedTags)
+	}
+}
+
+func verifyIteratorAnyOrder(t *testing.T, actualResultsItr spi.Iterator, //nolint: gocyclo,funlen // Test file
+	expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag) {
 	var dataChecklist struct {
 		keys     []string
 		values   [][]byte
@@ -1591,6 +3004,10 @@ func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
 
 	moreResultsToCheck, err := actualResultsItr.Next()
 	require.NoError(t, err)
+
+	if !moreResultsToCheck && len(expectedKeys) != 0 {
+		require.FailNow(t, "query unexpectedly returned no results")
+	}
 
 	for moreResultsToCheck {
 		dataReceivedCount := 0
@@ -1639,6 +3056,48 @@ func verifyExpectedIterator(t *testing.T, // nolint:gocyclo,funlen // Test file
 			require.FailNow(t, "received unexpected query results")
 		}
 	}
+}
+
+func verifyIteratorInOrder(t *testing.T, actualResultsItr spi.Iterator,
+	expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag) {
+	moreResultsToCheck, err := actualResultsItr.Next()
+	require.NoError(t, err)
+
+	if !moreResultsToCheck && len(expectedKeys) != 0 {
+		require.FailNow(t, "query unexpectedly returned no results")
+	}
+
+	var currentIndex int
+
+	for moreResultsToCheck {
+		var itrErr error
+		receivedKey, itrErr := actualResultsItr.Key()
+		require.NoError(t, itrErr)
+		require.Equal(t, expectedKeys[currentIndex], receivedKey)
+
+		receivedValue, itrErr := actualResultsItr.Value()
+		require.NoError(t, itrErr)
+		require.Equal(t, string(expectedValues[currentIndex]), string(receivedValue))
+
+		receivedTags, itrErr := actualResultsItr.Tags()
+		require.NoError(t, itrErr)
+		require.True(t, equalTags(receivedTags, expectedTags[currentIndex]),
+			"received unexpected query results")
+
+		moreResultsToCheck, err = actualResultsItr.Next()
+		require.NoError(t, err)
+
+		if moreResultsToCheck {
+			currentIndex++
+
+			if currentIndex+1 > len(expectedKeys) {
+				require.FailNow(t, "query returned too many results")
+			}
+		}
+	}
+
+	err = actualResultsItr.Close()
+	require.NoError(t, err)
 }
 
 func equalTags(tags1, tags2 []spi.Tag) bool { //nolint:gocyclo // Test file
