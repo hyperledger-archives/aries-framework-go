@@ -33,13 +33,40 @@ type StoreConfiguration struct {
 	TagNames []string `json:"tagNames,omitempty"`
 }
 
+// SortOrder specifies the sort order of query results.
+type SortOrder int
+
+const (
+	// SortAscending indicates that the query results must be sorted in ascending order.
+	SortAscending SortOrder = iota
+	// SortDescending indicates that the query results must be sorted in descending order.
+	SortDescending
+)
+
+// SortOptions sets the order that results from an Iterator will be returned in. Sorting is based on the tag values
+// associated with the TagName chosen below. The TagName you use below can be the same as the one you're querying on,
+// or it can be a different one. However, you must ensure that the TagName set below is in the
+// Store's StoreConfiguration before trying to use it for sorting, or unexpected behaviour may occur.
+// If tag value strings are decimal numbers, then the sorting will be based on their numerical value instead of
+// the string representations of those numbers (i.e. numerical sorting, not lexicographic).
+// TagName cannot be blank.
+type SortOptions struct {
+	Order   SortOrder
+	TagName string
+}
+
 // QueryOptions represents various options for Query calls in a store.
 type QueryOptions struct {
 	// PageSize sets the page size used by the Store.Query method.
 	PageSize int
+	// InitialPageNum sets the page for the iterator returned from Store.Query to start from.
+	// InitialPageNum=0 means start from the first page.
+	InitialPageNum int
+	// SortOptions defines the sort order.
+	SortOptions *SortOptions
 }
 
-// QueryOption represents an option for a Query call in a store.
+// QueryOption represents an option for a Store.Query call.
 type QueryOption func(opts *QueryOptions)
 
 // WithPageSize sets the maximum page size for data retrievals done within the Iterator returned by the Query call.
@@ -48,6 +75,24 @@ type QueryOption func(opts *QueryOptions)
 func WithPageSize(size int) QueryOption {
 	return func(opts *QueryOptions) {
 		opts.PageSize = size
+	}
+}
+
+// WithInitialPageNum sets the page number for an Iterator to start from. If this option isn't used,
+// then the Iterator will start from the first page.
+// Page number counting starts from 0 (i.e. initialPageNum=0 means that the iterator will start from the first page).
+func WithInitialPageNum(initialPageNum int) QueryOption {
+	return func(opts *QueryOptions) {
+		opts.InitialPageNum = initialPageNum
+	}
+}
+
+// WithSortOrder sets the sort order used by a Store.Query call. See SortOptions for more information.
+// If this option isn't used, then the result order from the Iterator will be determined (perhaps arbitrarily) by the
+// underlying database implementation.
+func WithSortOrder(sortOptions *SortOptions) QueryOption {
+	return func(opts *QueryOptions) {
+		opts.SortOptions = sortOptions
 	}
 }
 
@@ -109,7 +154,7 @@ type Store interface {
 	// If key is empty, then an error will be returned.
 	Get(key string) ([]byte, error)
 
-	// Get fetches all tags associated with the given key.
+	// GetTags fetches all tags associated with the given key.
 	// If key cannot be found, then an error wrapping ErrDataNotFound will be returned.
 	// If key is empty, then an error will be returned.
 	GetTags(key string) ([]Tag, error)
