@@ -44,7 +44,7 @@ func TestCommon(t *testing.T) {
 		provider := formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{})
 		require.NotNil(t, provider)
 
-		storagetest.TestAll(t, provider)
+		runCommonTests(t, provider)
 	})
 	t.Run("With base64 formatter", func(t *testing.T) {
 		t.Run("With non-deterministic key formatting", func(t *testing.T) {
@@ -52,14 +52,14 @@ func TestCommon(t *testing.T) {
 				exampleformatters.NewBase64Formatter(false))
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With deterministic key formatting", func(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(),
 				exampleformatters.NewBase64Formatter(true))
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 	})
 }
@@ -706,4 +706,18 @@ func TestFormattedIterator(t *testing.T) {
 		err := iterator.Close()
 		require.EqualError(t, err, "failed to close underlying iterator: close failure")
 	})
+}
+
+func runCommonTests(t *testing.T, provider spi.Provider) {
+	storagetest.TestProviderGetOpenStores(t, provider)
+	storagetest.TestProviderOpenStoreSetGetConfig(t, provider)
+	storagetest.TestPutGet(t, provider)
+	storagetest.TestStoreGetTags(t, provider)
+	storagetest.TestStoreGetBulk(t, provider)
+	storagetest.TestStoreDelete(t, provider)
+	storagetest.TestStoreQuery(t, provider)
+	storagetest.TestStoreBatch(t, provider)
+	storagetest.TestStoreFlush(t, provider)
+	storagetest.TestStoreClose(t, provider)
+	storagetest.TestProviderClose(t, provider)
 }

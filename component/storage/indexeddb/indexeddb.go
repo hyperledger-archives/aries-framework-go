@@ -314,7 +314,16 @@ func (s *store) GetBulk(keys ...string) ([][]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
+// This provider doesn't currently support any of the current query options.
+// spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
+// spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do
+// affect the results that the Iterator returns.
 func (s *store) Query(expression string, options ...storage.QueryOption) (storage.Iterator, error) {
+	err := checkForUnsupportedQueryOptions(options)
+	if err != nil {
+		return nil, err
+	}
+
 	if expression == "" {
 		return nil, fmt.Errorf(invalidQueryExpressionFormat, expression)
 	}
@@ -590,6 +599,31 @@ func getStoreNames() []string {
 		strings.ToLower(issuecredential.Name),
 		strings.ToLower(presentproof.Name),
 	}
+}
+
+func getQueryOptions(options []storage.QueryOption) storage.QueryOptions {
+	var queryOptions storage.QueryOptions
+
+	for _, option := range options {
+		option(&queryOptions)
+	}
+
+	return queryOptions
+}
+
+func checkForUnsupportedQueryOptions(options []storage.QueryOption) error {
+	querySettings := getQueryOptions(options)
+
+	if querySettings.InitialPageNum != 0 {
+		return errors.New("indexedDB provider does not currently support " +
+			"setting the initial page number of query results")
+	}
+
+	if querySettings.SortOptions != nil {
+		return errors.New("indexedDB provider does not currently support custom sort options for query results")
+	}
+
+	return nil
 }
 
 func getDatabaseKeysMatchingTagName(tagMap tagMapping, expressionTagName string) []string {

@@ -8,10 +8,9 @@ go 1.16
 
 require (
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210409151411-eeeb8508bd87
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210422133815-2ef2d99cb692
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb v0.0.0-00010101000000-000000000000
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210409151411-eeeb8508bd87
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210421165342-de8f911415e3
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
 	github.com/mitchellh/mapstructure v1.3.0
 	github.com/stretchr/testify v1.7.0
 )

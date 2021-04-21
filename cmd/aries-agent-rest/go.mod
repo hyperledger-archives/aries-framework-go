@@ -10,10 +10,10 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210409151411-eeeb8508bd87
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210421205521-3974f6708723
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210409151411-eeeb8508bd87
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210421205521-3974f6708723
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210422133815-2ef2d99cb692
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210422133815-2ef2d99cb692
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210422133815-2ef2d99cb692
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
