@@ -124,6 +124,12 @@ agent-rest:
 	@mkdir -p ./build/bin
 	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest main.go
 
+.PHONY: agent-rest-acapy-interop
+agent-rest-acapy-interop:
+	@echo "Building aries-agent-rest for aca-py interop"
+	@mkdir -p ./build/bin
+	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest -tags ACAPyInterop main.go
+
 .PHONY: agent-mobile
 agent-mobile:
 	@echo "Building aries-agent-mobile"

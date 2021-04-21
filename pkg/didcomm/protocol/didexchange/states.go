@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/base64"
@@ -52,11 +53,11 @@ const (
 	StateIDAbandoned           = "abandoned"
 	ackStatusOK                = "ok"
 	didCommServiceType         = "did-communication"
-	didMethod                  = "peer"
 	timestamplen               = 8
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 	bls12381G2Key2020          = "Bls12381G2Key2020"
 	jsonWebKey2020             = "JsonWebKey2020"
+	didMethod                  = "peer"
 )
 
 var errVerKeyNotFound = errors.New("verkey not found")
@@ -87,7 +88,7 @@ func stateFromMsgType(msgType string) (state, error) {
 		return &requested{}, nil
 	case ResponseMsgType:
 		return &responded{}, nil
-	case AckMsgType:
+	case AckMsgType, CompleteMsgType:
 		return &completed{}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized msgType: %s", msgType)
@@ -237,7 +238,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 		}
 
 		return connRecord, &noOp{}, action, nil
-	case ResponseMsgType:
+	case ResponseMsgType, CompleteMsgType:
 		return msg.connRecord, &completed{}, func() error { return nil }, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
@@ -275,6 +276,23 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	case AckMsgType:
 		action := func() error { return nil }
 		return msg.connRecord, &noOp{}, action, nil
+	case CompleteMsgType:
+		complete := &Complete{}
+
+		err := msg.Decode(complete)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of complete: %w", err)
+		}
+
+		action := func() error { return nil }
+
+		if msg.connRecord == nil {
+			return nil, &noOp{}, action, nil
+		}
+
+		connRec := *msg.connRecord
+
+		return &connRec, &noOp{}, action, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
@@ -391,43 +409,44 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
 	logger.Debugf("handling request: %+v", request)
 
-	reqConn, err := getRequestConnection(request)
+	requestConnection, err := getRequestConnection(request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("extracting connection data from request: %w", err)
 	}
 
-	requestDidDoc, err := ctx.resolveDidDocFromConnection(reqConn)
+	requestDidDoc, err := ctx.resolveDidDocFromConnection(requestConnection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve did doc from exchange request connection: %w", err)
 	}
 
-	logger.Debugf("requestDIDDoc: %+v", requestDidDoc)
-
 	// get did document that will be used in exchange response
 	// (my did doc)
-	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options), getRouterConnections(options))
+	responseDidDoc, responseConnection, err := ctx.getDIDDocAndConnection(
+		getPublicDID(options), getRouterConnections(options))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("get response did doc and connection: %w", err)
 	}
 
-	// prepare connection signature
-	encodedConnectionSignature, err := ctx.prepareConnectionSignature(connection, request.Thread.PID)
+	senderVerKey, err := recipientKey(responseDidDoc)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("handle inbound request: %w", err)
 	}
 
-	// prepare the response
-	response := &Response{
-		Type: ResponseMsgType,
-		ID:   uuid.New().String(),
-		Thread: &decorator.Thread{
-			ID: request.ID,
-		},
-		ConnectionSignature: encodedConnectionSignature,
+	if ctx.doACAPyInterop {
+		// Interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+		responseDidDoc, err = convertPeerToSov(responseDidDoc)
+		if err != nil {
+			return nil, nil, fmt.Errorf("converting my did doc to a 'sov' doc for response message: %w", err)
+		}
 	}
 
-	connRec.TheirDID = reqConn.DID
-	connRec.MyDID = connection.DID
+	response, err := ctx.prepareResponse(request, responseDidDoc, responseConnection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("preparing response: %w", err)
+	}
+
+	connRec.TheirDID = requestConnection.DID
+	connRec.MyDID = responseConnection.DID
 	connRec.TheirLabel = request.Label
 
 	destination, err := service.CreateDestination(requestDidDoc)
@@ -439,15 +458,104 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 		connRec.MediaTypeProfiles = destination.MediaTypeProfiles
 	}
 
-	senderVerKey, err := recipientKey(responseDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound request: %w", err)
-	}
-
 	// send exchange response
 	return func() error {
 		return ctx.outboundDispatcher.Send(response, senderVerKey, destination)
 	}, connRec, nil
+}
+
+func (ctx *context) prepareResponse(request *Request, responseDidDoc *did.Doc,
+	responseConnection *Connection) (*Response, error) {
+	// prepare the response
+	response := &Response{
+		Type: ResponseMsgType,
+		ID:   uuid.New().String(),
+		Thread: &decorator.Thread{
+			ID: request.ID,
+		},
+	}
+
+	if request.Thread != nil {
+		response.Thread.PID = request.Thread.PID
+	}
+
+	// TODO followup: bring this out from under doACAPYInterop
+	//  and remove legacy usage of connection/connectionSignature.
+	//  part of issue https://github.com/hyperledger/aries-framework-go/issues/2495
+	if ctx.doACAPyInterop {
+		return ctx.prepareResponseWithSignedAttachment(request, response, responseDidDoc)
+	}
+
+	// prepare connection signature
+	encodedConnectionSignature, err := ctx.prepareConnectionSignature(responseConnection, request.Thread.PID)
+	if err != nil {
+		return nil, fmt.Errorf("connection signature: %w", err)
+	}
+
+	response.ConnectionSignature = encodedConnectionSignature
+
+	return response, nil
+}
+
+func (ctx *context) prepareResponseWithSignedAttachment(request *Request, response *Response,
+	responseDidDoc *did.Doc) (*Response, error) {
+	if request.DocAttach != nil {
+		err := request.DocAttach.Data.Verify(ctx.crypto, ctx.kms)
+		if err != nil {
+			return nil, fmt.Errorf("verifying signature on doc~attach: %w", err)
+		}
+	}
+
+	var docBytes []byte
+
+	var err error
+
+	if ctx.doACAPyInterop {
+		docBytes, err = responseDidDoc.SerializeInterop()
+		if err != nil {
+			return nil, fmt.Errorf("marshaling did doc: %w", err)
+		}
+	}
+
+	docAttach := &decorator.Attachment{
+		MimeType: "application/json",
+		Data: decorator.AttachmentData{
+			Base64: base64.StdEncoding.EncodeToString(docBytes),
+		},
+	}
+
+	invitationKey, err := ctx.getVerKey(request.Thread.PID)
+	if err != nil {
+		return nil, fmt.Errorf("getting sender verkey: %w", err)
+	}
+
+	pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(invitationKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", invitationKey, err)
+	}
+
+	// TODO: use dynamic context KeyType
+	signingKID, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate KID from public key: %w", err)
+	}
+
+	kh, err := ctx.kms.Get(signingKID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key handle: %w", err)
+	}
+
+	err = docAttach.Data.Sign(ctx.crypto, kh, ed25519.PublicKey(pubKeyBytes), pubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("signing did_doc~attach: %w", err)
+	}
+
+	// Interop: aca-py expects naked DID method-specific identifier for sov DIDs
+	// https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	response.DID = strings.TrimPrefix(responseDidDoc.ID, "did:sov:")
+	response.DocAttach = docAttach
+
+	return response, nil
 }
 
 func getPublicDID(options *options) string {
@@ -674,8 +782,14 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 		return nil, fmt.Errorf("resolveDidDocFromConnection: failed to parse DID [%s]: %w", didDoc.ID, err)
 	}
 
+	// Interop: accommodate aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	method := id.Method
+	if method == "sov" {
+		method = "peer"
+	}
+
 	// store provided did document
-	_, err = ctx.vdRegistry.Create(id.Method, didDoc, vdrapi.WithOption("store", true))
+	_, err = ctx.vdRegistry.Create(method, didDoc, vdrapi.WithOption("store", true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}

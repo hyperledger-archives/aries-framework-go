@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -670,7 +671,53 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.NoError(t, e)
 		require.IsType(t, &noOp{}, followup)
 	})
-	t.Run("rejects messages other than responses and acks", func(t *testing.T) {
+	t.Run("no followup for inbound complete", func(t *testing.T) {
+		connRec := &connection.Record{
+			State:         (&responded{}).Name(),
+			ThreadID:      response.Thread.ID,
+			ConnectionID:  "123",
+			RecipientKeys: []string{pubKey},
+		}
+		err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
+		require.NoError(t, err)
+		err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType),
+			connRec.ConnectionID)
+		require.NoError(t, err)
+		complete := &Complete{
+			Type: CompleteMsgType,
+			ID:   randomString(),
+			Thread: &decorator.Thread{
+				ID: response.Thread.ID,
+			},
+		}
+		// without connection record
+		payloadBytes, e := json.Marshal(complete)
+		require.NoError(t, e)
+		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: bytesToDIDCommMsg(t, payloadBytes),
+		}, "", ctx)
+		require.NoError(t, e)
+		require.IsType(t, &noOp{}, followup)
+		// with connection record
+		connRec.TheirDID = "did:abc:test123"
+		_, followup, _, e = (&completed{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: bytesToDIDCommMsg(t, payloadBytes),
+			connRecord: connRec,
+		}, "", ctx)
+		require.NoError(t, e)
+		require.IsType(t, &noOp{}, followup)
+		// with connection record with sov interop fix
+		connRec.TheirDID = "test123"
+		ctx.doACAPyInterop = true
+		_, followup, _, e = (&completed{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: bytesToDIDCommMsg(t, payloadBytes),
+			connRecord: connRec,
+		}, "", ctx)
+		require.NoError(t, e)
+		require.IsType(t, &noOp{}, followup)
+		ctx.doACAPyInterop = false
+	})
+	t.Run("rejects messages other than responses, acks, and completes", func(t *testing.T) {
 		others := []service.DIDCommMsg{
 			service.NewDIDCommMsgMap(Invitation{Type: InvitationMsgType}),
 			service.NewDIDCommMsgMap(Request{Type: RequestMsgType}),
@@ -690,6 +737,14 @@ func TestCompletedState_Execute(t *testing.T) {
 		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of response")
+		require.Nil(t, followup)
+	})
+	t.Run("inbound completes unmarshalling error", func(t *testing.T) {
+		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: service.DIDCommMsgMap{"@id": map[int]int{}, "@type": CompleteMsgType},
+		}, "", &context{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JSON unmarshalling of complete")
 		require.Nil(t, followup)
 	})
 	t.Run("execute inbound handle inbound response  error", func(t *testing.T) {
@@ -1028,6 +1083,18 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.Nil(t, connRec)
 	})
 
+	t.Run("unsuccessful new response from request due to getDIDDocAndConnection error", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		ctx.connectionStore = &mockConnectionStore{saveDIDFromDocErr: fmt.Errorf("save did error")}
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get response did doc and connection")
+		require.Nil(t, connRec)
+	})
+
 	t.Run("unsuccessful new response from request due to sign error", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&prov)
 		require.NoError(t, err)
@@ -1061,6 +1128,122 @@ func TestNewResponseFromRequest(t *testing.T) {
 		_, _, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
+	})
+
+	t.Run("unsuccessful new response from request due to invalid did for creating destination", func(t *testing.T) {
+		mockDoc := newPeerDID(t)
+		mockDoc.Service = nil
+
+		ctx := getContext(t, &prov)
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		require.NotNil(t, request.Connection)
+		request.Connection.DIDDoc = mockDoc
+
+		_, _, err = ctx.handleInboundRequest(request, &options{}, &connection.Record{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing DID doc service")
+	})
+}
+
+func TestPrepareResponse(t *testing.T) {
+	prov := getProvider(t)
+
+	t.Run("successful new response from request", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.NoError(t, err)
+	})
+
+	t.Run("successful new response from request, in interop mode", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		ctx.doACAPyInterop = true
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.NoError(t, err)
+	})
+
+	t.Run("failed verification of request doc", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		ctx.doACAPyInterop = true
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		mockDocBytes, err := mockdiddoc.GetMockDIDDoc(t).JSONBytes()
+		require.NoError(t, err)
+
+		request.DocAttach = &decorator.Attachment{
+			Data: decorator.AttachmentData{
+				Base64: base64.RawURLEncoding.EncodeToString(mockDocBytes),
+			},
+		}
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.Error(t, err)
+	})
+
+	t.Run("wraps error from connection store", func(t *testing.T) {
+		expected := errors.New("test")
+		ctx := getContext(t, &prov)
+		ctx.doACAPyInterop = true
+
+		pr := testProvider()
+		pr.StoreProvider = &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store:  make(map[string]mockstorage.DBEntry),
+				ErrGet: expected,
+			},
+		}
+
+		ctx.connectionRecorder = connRecorder(t, pr)
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("failed fetch of doc signing key", func(t *testing.T) {
+		expected := errors.New("test")
+		ctx := getContext(t, &prov)
+		ctx.doACAPyInterop = true
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		ctx.kms = &mockkms.KeyManager{GetKeyErr: expected}
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("failed doc signing", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		ctx.doACAPyInterop = true
+
+		request, err := createRequest(t, ctx)
+		require.NoError(t, err)
+
+		// fails to do ed25519 sign with wrong type of key
+		mockKey, err := mockkms.CreateMockAESGCMKeyHandle()
+		require.NoError(t, err)
+
+		ctx.kms = &mockkms.KeyManager{GetKeyValue: mockKey}
+
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		require.Error(t, err)
 	})
 }
 

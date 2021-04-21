@@ -606,8 +606,9 @@ func TestCommand_Reply(t *testing.T) {
 
 		go func() {
 			for {
-				if len(registrar.Services()) > 0 {
-					_, e := registrar.Services()[0].HandleInbound(
+				svcs := registrar.Services()
+				if len(svcs) > 0 {
+					_, e := svcs[0].HandleInbound(
 						replyMsg, service.NewDIDCommContext("sampleDID", "sampleTheirDID", nil))
 					require.NoError(t, e)
 				}

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +45,8 @@ const (
 	ResponseMsgType = PIURI + "/response"
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = PIURI + "/ack"
+	// CompleteMsgType defines the did-exchange complete message type.
+	CompleteMsgType = PIURI + "/complete"
 	// oobMsgType is the internal message type for the oob invitation that the didexchange service receives.
 	oobMsgType             = "oob-invitation"
 	routerConnsMetadataKey = "routerConnections"
@@ -108,6 +109,7 @@ type context struct {
 	connectionStore    didstore.ConnectionStore
 	vdRegistry         vdrapi.Registry
 	routeSvc           mediator.ProtocolService
+	doACAPyInterop     bool
 }
 
 // opts are used to provide client properties to DID Exchange service.
@@ -150,6 +152,7 @@ func New(prov provider) (*Service, error) {
 			connectionRecorder: connRecorder,
 			connectionStore:    prov.DIDConnectionStore(),
 			routeSvc:           routeSvc,
+			doACAPyInterop:     doACAPyInterop,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel:    make(chan *message, callbackChannelSize),
@@ -250,7 +253,8 @@ func (s *Service) Accept(msgType string) bool {
 	return msgType == InvitationMsgType ||
 		msgType == RequestMsgType ||
 		msgType == ResponseMsgType ||
-		msgType == AckMsgType
+		msgType == AckMsgType ||
+		msgType == CompleteMsgType
 }
 
 // HandleOutbound handles outbound didexchange messages.
@@ -659,8 +663,8 @@ func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, 
 		return s.requestMsgRecord(msg)
 	case ResponseMsgType:
 		return s.responseMsgRecord(msg)
-	case AckMsgType:
-		return s.ackMsgRecord(msg)
+	case AckMsgType, CompleteMsgType:
+		return s.fetchConnectionRecord(theirNSPrefix, msg)
 	}
 
 	return nil, errors.New("invalid message type")
@@ -767,7 +771,7 @@ func getRequestConnection(r *Request) (*Connection, error) {
 		return nil, fmt.Errorf("missing did_doc~attach from request")
 	}
 
-	docData, err := base64.StdEncoding.DecodeString(pad(r.DocAttach.Data.Base64))
+	docData, err := r.DocAttach.Data.Fetch()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse base64 attachment data: %w", err)
 	}
@@ -822,10 +826,6 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 
 func (s *Service) responseMsgRecord(payload service.DIDCommMsg) (*connection.Record, error) {
 	return s.fetchConnectionRecord(myNSPrefix, payload)
-}
-
-func (s *Service) ackMsgRecord(payload service.DIDCommMsg) (*connection.Record, error) {
-	return s.fetchConnectionRecord(theirNSPrefix, payload)
 }
 
 func (s *Service) fetchConnectionRecord(nsPrefix string, payload service.DIDCommMsg) (*connection.Record, error) {
