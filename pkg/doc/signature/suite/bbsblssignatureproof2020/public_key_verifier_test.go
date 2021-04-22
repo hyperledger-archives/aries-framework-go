@@ -14,12 +14,12 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
-	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 //nolint:lll
 func TestNewG2PublicKeyVerifier(t *testing.T) {
-	verifier := bbsblssignatureproof2020.NewG2PublicKeyVerifier([]byte("nonce"))
+	publicKeyVerifier := bbsblssignatureproof2020.NewG2PublicKeyVerifier([]byte("nonce"))
 
 	pkBase64 := "sVEbbh9jDPGSBK/oT/EeXQwFvNuC+47rgq9cxXKrwo6G7k4JOY/vEcfgZw9Vf/TpArbIdIAJCFMDyTd7l2atS5zExAKX0B/9Z3E/mgIZeQJ81iZ/1HUnUCT2Om239KFx"
 	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
@@ -34,13 +34,13 @@ message1
 message2
 `
 
-	err = verifier.Verify(&sigverifier.PublicKey{
+	err = publicKeyVerifier.Verify(&verifier.PublicKey{
 		Type:  "Bls12381G2Key2020",
 		Value: pkBytes,
 	}, []byte(msg), sigBytes)
 	require.NoError(t, err)
 
-	err = verifier.Verify(&sigverifier.PublicKey{
+	err = publicKeyVerifier.Verify(&verifier.PublicKey{
 		Type:  "NotBls12381G2Key2020",
 		Value: pkBytes,
 	}, []byte(msg), sigBytes)
@@ -48,7 +48,7 @@ message2
 	require.EqualError(t, err, "a type of public key is not 'Bls12381G2Key2020'")
 
 	// Failed as we do not support JWK for Bls12381G2Key2020.
-	err = verifier.Verify(&sigverifier.PublicKey{
+	err = publicKeyVerifier.Verify(&verifier.PublicKey{
 		Type: "Bls12381G2Key2020",
 		JWK: &jose.JWK{
 			Kty: "EC",

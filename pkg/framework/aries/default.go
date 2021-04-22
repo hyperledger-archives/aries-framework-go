@@ -55,7 +55,12 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProvider()
 	}
 
-	err := assignVerifiableStoreIfNeeded(frameworkOpts, frameworkOpts.storeProvider)
+	err := createJSONLDDocumentLoader(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	err = assignVerifiableStoreIfNeeded(frameworkOpts, frameworkOpts.storeProvider)
 	if err != nil {
 		return err
 	}

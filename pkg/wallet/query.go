@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -62,12 +64,13 @@ func GetQueryType(name string) (QueryType, error) {
 // Query performs wallet credential queries, currently supporting all the QueryTypes defined in QueryType.
 type Query struct {
 	publicKeyFetcher verifiable.PublicKeyFetcher
+	documentLoader   ld.DocumentLoader
 	params           []*QueryParams
 }
 
 // NewQuery returns new wallet query instance.
-func NewQuery(pkFetcher verifiable.PublicKeyFetcher, queries ...*QueryParams) *Query {
-	return &Query{publicKeyFetcher: pkFetcher, params: queries}
+func NewQuery(pkFetcher verifiable.PublicKeyFetcher, loader ld.DocumentLoader, queries ...*QueryParams) *Query {
+	return &Query{publicKeyFetcher: pkFetcher, documentLoader: loader, params: queries}
 }
 
 // PerformQuery performs credential query on given credentials.
@@ -77,7 +80,7 @@ func (q *Query) PerformQuery(credentials map[string]json.RawMessage) ([]*verifia
 		return nil, ErrQueryNoResultFound
 	}
 
-	vcs, err := parseCredentialContents(credentials)
+	vcs, err := q.parseCredentialContents(credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +135,7 @@ func (q *Query) getCredentials(qType QueryType, vcs []*verifiable.Credential, qu
 	case QueryByExample:
 		return queryByExample(vcs, query...)
 	case QueryByFrame:
-		return queryByFrame(vcs, q.publicKeyFetcher, query...)
+		return queryByFrame(vcs, q.publicKeyFetcher, q.documentLoader, query...)
 	default:
 		return []*verifiable.Credential{}, nil
 	}
@@ -142,7 +145,7 @@ func (q *Query) getCredentials(qType QueryType, vcs []*verifiable.Credential, qu
 func (q *Query) getPresentation(qType QueryType, vcs []*verifiable.Credential, query ...json.RawMessage) ([]*verifiable.Presentation, error) { // nolint: lll
 	switch qType {
 	case PresentationExchange:
-		return queryByPresentationExchange(vcs, query...)
+		return q.queryByPresentationExchange(vcs, query...)
 	case DIDAuth:
 		return didAuth()
 	default:
@@ -269,11 +272,12 @@ func preparePresentation(credentials map[*verifiable.Credential]struct{}) (*veri
 // show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
 // may to call 'wallet.Verify()' for each credential being presented.
 // (More details can be found in issue #2677).
-func parseCredentialContents(raws map[string]json.RawMessage) ([]*verifiable.Credential, error) {
+func (q *Query) parseCredentialContents(raws map[string]json.RawMessage) ([]*verifiable.Credential, error) {
 	var result []*verifiable.Credential
 
 	for _, raw := range raws {
-		vc, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		vc, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(q.documentLoader))
 		if err != nil {
 			return nil, err
 		}
@@ -355,7 +359,8 @@ func queryByExample(vcs []*verifiable.Credential, defs ...json.RawMessage) ([]*v
 	return result, nil
 }
 
-func queryByFrame(vcs []*verifiable.Credential, publicKeyFetcher verifiable.PublicKeyFetcher, defs ...json.RawMessage) ([]*verifiable.Credential, error) { // nolint:lll
+func queryByFrame(vcs []*verifiable.Credential, publicKeyFetcher verifiable.PublicKeyFetcher, loader ld.DocumentLoader,
+	defs ...json.RawMessage) ([]*verifiable.Credential, error) {
 	definitions, err := parseQueryByFrame(defs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse QueryByFrame query: %w", err)
@@ -374,7 +379,8 @@ func queryByFrame(vcs []*verifiable.Credential, publicKeyFetcher verifiable.Publ
 
 			// match frame
 			bbsVC, err := vc.GenerateBBSSelectiveDisclosure(definition.Frame, nil,
-				verifiable.WithPublicKeyFetcher(publicKeyFetcher))
+				verifiable.WithPublicKeyFetcher(publicKeyFetcher),
+				verifiable.WithJSONLDDocumentLoader(loader))
 			if err != nil {
 				continue
 			}
@@ -387,7 +393,7 @@ func queryByFrame(vcs []*verifiable.Credential, publicKeyFetcher verifiable.Publ
 }
 
 // queryByPresentationExchange generates presentation submission result based on given query.
-func queryByPresentationExchange(vcs []*verifiable.Credential, defs ...json.RawMessage) ([]*verifiable.Presentation, error) { // nolint:lll
+func (q *Query) queryByPresentationExchange(vcs []*verifiable.Credential, defs ...json.RawMessage) ([]*verifiable.Presentation, error) { // nolint:lll
 	var results []*verifiable.Presentation
 
 	for _, def := range defs {
@@ -398,7 +404,8 @@ func queryByPresentationExchange(vcs []*verifiable.Credential, defs ...json.RawM
 			return nil, err
 		}
 
-		result, err := presDefinition.CreateVP(vcs, verifiable.WithDisabledProofCheck())
+		result, err := presDefinition.CreateVP(vcs, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(q.documentLoader))
 
 		if errors.Is(err, presexch.ErrNoCredentials) {
 			continue

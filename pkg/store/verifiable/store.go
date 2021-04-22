@@ -12,9 +12,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -69,11 +69,13 @@ type Store interface {
 
 // StoreImplementation stores vc.
 type StoreImplementation struct {
-	store storage.Store
+	store          storage.Store
+	documentLoader ld.DocumentLoader
 }
 
 type provider interface {
 	StorageProvider() storage.Provider
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // New returns a new vc store.
@@ -89,7 +91,10 @@ func New(ctx provider) (*StoreImplementation, error) {
 		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
-	return &StoreImplementation{store: store}, nil
+	return &StoreImplementation{
+		store:          store,
+		documentLoader: ctx.JSONLDDocumentLoader(),
+	}, nil
 }
 
 // SaveCredential saves a verifiable credential.
@@ -203,7 +208,8 @@ func (s *StoreImplementation) GetCredential(id string) (*verifiable.Credential, 
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
+	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("new credential failed: %w", err)
 	}
@@ -220,7 +226,7 @@ func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentati
 
 	vp, err := verifiable.ParsePresentation(vpBytes,
 		verifiable.WithPresDisabledProofCheck(),
-		verifiable.WithPresJSONLDDocumentLoader(presexch.CachingJSONLDLoader()),
+		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new presentation failed: %w", err)
@@ -268,7 +274,7 @@ func (s *StoreImplementation) GetCredentials() ([]*Record, error) {
 	return s.getAllRecords(credentialNameDataKey(""))
 }
 
-// GetPresentations retrieves the verifiable presenations records containing name and fields of interest.
+// GetPresentations retrieves the verifiable presentations records containing name and fields of interest.
 func (s *StoreImplementation) GetPresentations() ([]*Record, error) {
 	return s.getAllRecords(presentationNameDataKey(""))
 }

@@ -1,11 +1,13 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
 package verifier
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -17,6 +19,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
+
+//go:embed testdata/valid_doc.jsonld
+var validDoc string //nolint:gochecknoglobals
 
 func TestVerify(t *testing.T) {
 	// happy path
@@ -143,40 +148,13 @@ func (r *testKeyResolver) Resolve(string) (*PublicKey, error) {
 	return r.publicKey, r.err
 }
 
-const validDoc = `
-{
-  "@context": [
-    "https://w3id.org/did/v1"
-  ],
-  "id": "did:example:123456789abcdefghi",
-  "verificationMethod": [
-    {
-      "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "controller": "did:example:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    }
-  ],
-  "created": "2002-10-10T17:00:00Z",
-  "proof": {
-    "type": "Ed25519Signature2018",
-    "verificationMethod": "did:example:123456#key1",
-    "created": "2011-09-23T20:21:34Z",
-    "proofValue": "ABC"
-  }
-}
-`
-
 type testSignatureSuite struct {
 	canonicalDocument      []byte
 	canonicalDocumentError error
 
-	digest []byte
-
-	verifyError error
-
-	accept bool
-
+	digest       []byte
+	verifyError  error
+	accept       bool
 	compactProof bool
 }
 

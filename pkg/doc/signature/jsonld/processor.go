@@ -7,17 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package jsonld
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 )
 
 const (
@@ -33,12 +30,11 @@ var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
 
 // processorOpts holds options for canonicalization of JSON LD docs.
 type processorOpts struct {
-	removeInvalidRDF    bool
-	frameBlankNodes     bool
-	validateRDF         bool
-	documentLoader      ld.DocumentLoader
-	externalContexts    []string
-	documentLoaderCache map[string]interface{}
+	removeInvalidRDF bool
+	frameBlankNodes  bool
+	validateRDF      bool
+	documentLoader   ld.DocumentLoader
+	externalContexts []string
 }
 
 // ProcessorOpts are the options for JSON LD operations on docs (like canonicalization or compacting).
@@ -63,24 +59,6 @@ func WithFrameBlankNodes() ProcessorOpts {
 func WithDocumentLoader(loader ld.DocumentLoader) ProcessorOpts {
 	return func(opts *processorOpts) {
 		opts.documentLoader = loader
-	}
-}
-
-// WithDocumentLoaderCache option is for passing cached contexts to be used by JSON-LD context document loader.
-// Supported value types: map[string]interface{}, string, []byte, io.Reader.
-// Note: Most io.Reader implementations (eg: strings.NewReader()) contain a non thread-safe buffer. Make sure to use
-// one that is thread-safe.
-func WithDocumentLoaderCache(cache map[string]interface{}) ProcessorOpts {
-	return func(opts *processorOpts) {
-		if opts.documentLoaderCache == nil {
-			opts.documentLoaderCache = map[string]interface{}{}
-		}
-
-		for k, v := range cache {
-			if cacheValue := getDocumentCacheValue(v); cacheValue != nil {
-				opts.documentLoaderCache[k] = cacheValue
-			}
-		}
 	}
 }
 
@@ -123,17 +101,18 @@ func Default() *Processor {
 func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...ProcessorOpts) ([]byte, error) {
 	procOptions := prepareOpts(opts)
 
-	proc := ld.NewJsonLdProcessor()
 	ldOptions := ld.NewJsonLdOptions("")
 	ldOptions.ProcessingMode = ld.JsonLd_1_1
 	ldOptions.Algorithm = p.algorithm
 	ldOptions.Format = format
 	ldOptions.ProduceGeneralizedRdf = true
-	useDocumentLoader(ldOptions, procOptions.documentLoader, procOptions.documentLoaderCache)
+	ldOptions.DocumentLoader = procOptions.documentLoader
 
 	if len(procOptions.externalContexts) > 0 {
 		doc["@context"] = AppendExternalContexts(doc["@context"], procOptions.externalContexts...)
 	}
+
+	proc := ld.NewJsonLdProcessor()
 
 	view, err := proc.Normalize(doc, ldOptions)
 	if err != nil {
@@ -175,15 +154,13 @@ func AppendExternalContexts(context interface{}, extraContexts ...string) []inte
 // Compact compacts given json ld object.
 func (p *Processor) Compact(input, context map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
-
 	procOptions := prepareOpts(opts)
 
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Format = format
+	ldOptions.ProduceGeneralizedRdf = true
+	ldOptions.DocumentLoader = procOptions.documentLoader
 
 	if context == nil {
 		inputContext := input["@context"]
@@ -196,25 +173,25 @@ func (p *Processor) Compact(input, context map[string]interface{},
 		context = map[string]interface{}{"@context": inputContext}
 	}
 
-	return proc.Compact(input, context, options)
+	return ld.NewJsonLdProcessor().Compact(input, context, ldOptions)
 }
 
 // Frame makes a frame from the inputDoc using frameDoc.
 func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]interface{},
 	opts ...ProcessorOpts) (map[string]interface{}, error) {
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
-	options.OmitGraph = true
-
 	procOptions := prepareOpts(opts)
 
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Format = format
+	ldOptions.ProduceGeneralizedRdf = true
+	ldOptions.OmitGraph = true
+	ldOptions.DocumentLoader = procOptions.documentLoader
+
+	proc := ld.NewJsonLdProcessor()
 
 	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
-	inputDocCopy, randomIds, err := removeDuplicateIDs(inputDoc, proc, options)
+	inputDocCopy, randomIds, err := removeDuplicateIDs(inputDoc, proc, ldOptions)
 	if err != nil {
 		return nil, fmt.Errorf("removing duplicate ids failed: %w", err)
 	}
@@ -224,7 +201,7 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 		return nil, fmt.Errorf("transforming frame input failed: %w", err)
 	}
 
-	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, options)
+	framedInputDoc, err := proc.Frame(inputDocCopy, frameDoc, ldOptions)
 	if err != nil {
 		return nil, fmt.Errorf("framing failed: %w", err)
 	}
@@ -401,31 +378,64 @@ func (p *Processor) removeMatchingInvalidRDFs(view string, opts *processorOpts) 
 	return p.normalizeFilteredDataset(filteredView)
 }
 
-func fromRDF(docStatements []string, context interface{},
-	opts ...ProcessorOpts) (map[string]interface{}, error) {
-	doc := strings.Join(docStatements, "\n")
+// normalizeFilteredDataset recreates json-ld from RDF view and
+// returns normalized RDF dataset from recreated json-ld.
+func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Algorithm = p.algorithm
+	ldOptions.Format = format
 
 	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = format
-	options.ProduceGeneralizedRdf = true
 
+	filteredJSONLd, err := proc.FromRDF(view, ldOptions)
+	if err != nil {
+		return "", err
+	}
+
+	result, err := proc.Normalize(filteredJSONLd, ldOptions)
+	if err != nil {
+		return "", err
+	}
+
+	return result.(string), nil
+}
+
+func fromRDF(docStatements []string, context interface{},
+	opts ...ProcessorOpts) (map[string]interface{}, error) {
 	procOptions := prepareOpts(opts)
 
-	useDocumentLoader(options, procOptions.documentLoader, procOptions.documentLoaderCache)
+	ldOptions := ld.NewJsonLdOptions("")
+	ldOptions.ProcessingMode = ld.JsonLd_1_1
+	ldOptions.Format = format
+	ldOptions.ProduceGeneralizedRdf = true
+	ldOptions.DocumentLoader = procOptions.documentLoader
 
-	transformedDoc, err := proc.FromRDF(doc, options)
+	doc := strings.Join(docStatements, "\n")
+	proc := ld.NewJsonLdProcessor()
+
+	transformedDoc, err := proc.FromRDF(doc, ldOptions)
 	if err != nil {
 		return nil, fmt.Errorf("rdf processing failed: %w", err)
 	}
 
-	transformedDocMap, err := proc.Compact(transformedDoc, context, options)
+	transformedDocMap, err := proc.Compact(transformedDoc, context, ldOptions)
 	if err != nil {
 		return nil, fmt.Errorf("compacting failed: %w", err)
 	}
 
 	return transformedDocMap, nil
+}
+
+// prepareOpts prepare processorOpts from given CanonicalizationOpts arguments.
+func prepareOpts(opts []ProcessorOpts) *processorOpts {
+	procOpts := &processorOpts{}
+
+	for _, opt := range opts {
+		opt(procOpts)
+	}
+
+	return procOpts
 }
 
 func (p *Processor) transformBlankNodes(docMap map[string]interface{},
@@ -450,6 +460,20 @@ func (p *Processor) transformBlankNodes(docMap map[string]interface{},
 	return fromRDF(rows, docMap["@context"], opts...)
 }
 
+func splitMessageIntoLines(msg string) []string {
+	rows := strings.Split(msg, "\n")
+
+	msgs := make([]string, 0, len(rows))
+
+	for i := range rows {
+		if strings.TrimSpace(rows[i]) != "" {
+			msgs = append(msgs, rows[i])
+		}
+	}
+
+	return msgs
+}
+
 // TransformBlankNode replaces blank node identifiers in the RDF statements.
 // For example, transform from "_:c14n0" to "urn:bnid:_:c14n0".
 func TransformBlankNode(row string) string {
@@ -470,109 +494,4 @@ func TransformBlankNode(row string) string {
 	suffix := row[sepIndex:]
 
 	return fmt.Sprintf("%s<urn:bnid:%s>%s", prefix, blankNode, suffix)
-}
-
-func splitMessageIntoLines(msg string) []string {
-	rows := strings.Split(msg, "\n")
-
-	msgs := make([]string, 0, len(rows))
-
-	for i := range rows {
-		if strings.TrimSpace(rows[i]) != "" {
-			msgs = append(msgs, rows[i])
-		}
-	}
-
-	return msgs
-}
-
-// normalizeFilteredDataset recreates json-ld from RDF view and
-// returns normalized RDF dataset from recreated json-ld.
-func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Algorithm = p.algorithm
-	options.Format = format
-
-	filteredJSONLd, err := proc.FromRDF(view, options)
-	if err != nil {
-		return "", err
-	}
-
-	result, err := proc.Normalize(filteredJSONLd, options)
-	if err != nil {
-		return "", err
-	}
-
-	return result.(string), nil
-}
-
-func useDocumentLoader(ldOptions *ld.JsonLdOptions, loader ld.DocumentLoader, cache map[string]interface{}) {
-	if loader == nil && len(cache) == 0 {
-		return
-	}
-
-	ldOptions.DocumentLoader = getCachingDocumentLoader(loader, cache)
-}
-
-func getCachingDocumentLoader(loader ld.DocumentLoader, cache map[string]interface{}) *jsonld.CachingDocumentLoader {
-	cachingLoader := createCachingDocumentLoader(loader)
-
-	for k, v := range cache {
-		cachingLoader.AddDocument(k, v)
-	}
-
-	return cachingLoader
-}
-
-func createCachingDocumentLoader(loader ld.DocumentLoader) *jsonld.CachingDocumentLoader {
-	if loader == nil {
-		return jsonld.NewDefaultCachingDocumentLoader()
-	}
-
-	if cachingLoader, ok := loader.(*jsonld.CachingDocumentLoader); ok {
-		return cachingLoader
-	}
-
-	return jsonld.NewCachingDocLoader(loader)
-}
-
-// prepareOpts prepare processorOpts from given CanonicalizationOpts arguments.
-func prepareOpts(opts []ProcessorOpts) *processorOpts {
-	nOpts := &processorOpts{}
-	// apply opts
-	for _, opt := range opts {
-		opt(nOpts)
-	}
-
-	return nOpts
-}
-
-func getDocumentCacheValue(v interface{}) interface{} {
-	switch cv := v.(type) {
-	case map[string]interface{}:
-		return cv
-
-	case string:
-		var m map[string]interface{}
-
-		if err := json.Unmarshal([]byte(cv), &m); err == nil {
-			return m
-		}
-
-	case []byte:
-		var m map[string]interface{}
-
-		if err := json.Unmarshal(cv, &m); err == nil {
-			return m
-		}
-
-	case io.Reader:
-		if reader, err := ld.DocumentFromReader(cv); err == nil {
-			return reader
-		}
-	}
-
-	return nil
 }

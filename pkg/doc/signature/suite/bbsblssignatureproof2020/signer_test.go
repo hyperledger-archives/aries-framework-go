@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbsblssignatureproof2020_test
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,173 +16,28 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
-	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
-// Case 16 (https://github.com/w3c-ccg/vc-http-api/pull/128)
-//nolint:lll
-const case16VC = `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://w3id.org/security/bbs/v1",
-    "https://w3id.org/citizenship/v1"
-  ],
-  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
-  "type": [
-    "VerifiableCredential",
-    "PermanentResidentCard"
-  ],
-  "name": "Permanent Resident Card",
-  "description": "Government of Example Permanent Resident Card.",
-  "issuanceDate": "2019-12-03T12:19:52Z",
-  "expirationDate": "2029-12-03T12:19:52Z",
-  "credentialSubject": {
-    "id": "did:example:b34ca6cd37bbf23",
-    "type": [
-      "PermanentResident",
-      "Person"
-    ],
-    "givenName": "JOHN",
-    "familyName": "SMITH",
-    "gender": "Male",
-    "image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
-    "residentSince": "2015-01-01",
-    "lprCategory": "C09",
-    "lprNumber": "999-999-999",
-    "commuterClassification": "C1",
-    "birthCountry": "Bahamas",
-    "birthDate": "1958-07-17"
-  },
-  "issuer": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2",
-  "proof": {
-    "type": "BbsBlsSignature2020",
-    "created": "2021-02-23T19:31:12Z",
-    "proofPurpose": "assertionMethod",
-    "proofValue": "qPrB+1BLsVSeOo1ci8dMF+iR6aa5Q6iwV/VzXo2dw94ctgnQGxaUgwb8Hd68IiYTVabQXR+ZPuwJA//GOv1OwXRHkHqXg9xPsl8HcaXaoWERanxYClgHCfy4j76Vudr14U5AhT3v8k8f0oZD+zBIUQ==",
-    "verificationMethod": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2#zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2"
-  }
-}
-`
-
-// Case 18 (https://github.com/w3c-ccg/vc-http-api/pull/128)
-//nolint:lll
-const case18VC = `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1",
-    "https://w3id.org/security/bbs/v1"
-  ],
-  "id": "http://example.gov/credentials/3732",
-  "type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "issuanceDate": "2020-03-10T04:24:12.164Z",
-  "credentialSubject": {
-    "id": "did:key:z5TcESXuYUE9aZWYwSdrUEGK1HNQFHyTt4aVpaCTVZcDXQmUheFwfNZmRksaAbBneNm5KyE52SdJeRCN1g6PJmF31GsHWwFiqUDujvasK3wTiDr3vvkYwEJHt7H5RGEKYEp1ErtQtcEBgsgY2DA9JZkHj1J9HZ8MRDTguAhoFtR4aTBQhgnkP4SwVbxDYMEZoF2TMYn3s#zUC7LTa4hWtaE9YKyDsMVGiRNqPMN3s4rjBdB3MFi6PcVWReNfR72y3oGW2NhNcaKNVhMobh7aHp8oZB3qdJCs7RebM2xsodrSm8MmePbN25NTGcpjkJMwKbcWfYDX7eHCJjPGM",
-    "degree": {
-      "type": "BachelorDegree",
-      "name": "Bachelor of Science and Arts"
-    }
-  },
-  "issuer": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2",
-  "proof": {
-    "type": "BbsBlsSignature2020",
-    "created": "2021-02-23T19:36:07Z",
-    "proofPurpose": "assertionMethod",
-    "proofValue": "qSjCNJzoDV3hv3gBPoUNN9m5lj8saDBBxC0iDHuFTXXz4PbbUhecmn/L3rPoGuySNatqC4I8VE22xQy0RAowIxoZCC+B2mZQIAb+/JGlXeAlWgEQc71WipfvsfqSn+KmR/rN1FREOy3rtSltyQ92rA==",
-    "verificationMethod": "did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2#zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2"
-  }
-}
-`
-
-//nolint:lll
-const docWithManyProofsJSON = `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://w3id.org/citizenship/v1",
-    "https://w3id.org/security/bbs/v1"
-  ],
-  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
-  "type": [
-    "VerifiableCredential",
-    "PermanentResidentCard"
-  ],
-  "issuer": "did:example:489398593",
-  "identifier": "83627465",
-  "name": "Permanent Resident Card",
-  "description": "Government of Example Permanent Resident Card.",
-  "issuanceDate": "2019-12-03T12:19:52Z",
-  "expirationDate": "2029-12-03T12:19:52Z",
-  "credentialSubject": {
-    "id": "did:example:b34ca6cd37bbf23",
-    "type": [
-      "PermanentResident",
-      "Person"
-    ],
-    "givenName": "JOHN",
-    "familyName": "SMITH",
-    "gender": "Male",
-    "image": "data:image/png;base64,iVBORw0KGgokJggg==",
-    "residentSince": "2015-01-01",
-    "lprCategory": "C09",
-    "lprNumber": "999-999-999",
-    "commuterClassification": "C1",
-    "birthCountry": "Bahamas",
-    "birthDate": "1958-07-17"
-  },
-  "proof": [
-    {
-      "type": "BbsBlsSignature2020",
-      "created": "2020-12-06T19:23:10Z",
-      "proofPurpose": "assertionMethod",
-      "proofValue": "jj3Xd3+KxmbQo85PFDjQJ7dAZlhj8A8W1Um8Vk7Xoiv6+jWRx5d8s0rgPk5dAXy6HwaJ4fQOde/MBb7E4QaGMlfK6y5eEKDUYzoGG0DScWIvaGcSZug6DwvWVXi+214P5MtlKnNwO6gJdemEgj8T/A==",
-      "verificationMethod": "did:example:489398593#test"
-    },
-    {
-      "created": "2010-01-01T19:23:24Z",
-      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..lrkhpRH4tWl6KzQKHlcyAwSm8qUTXIMSKmD3QASF_uI5QW8NWLxLebXmnQpIM8H7umhLA6dINSYVowcaPdpwBw",
-      "proofPurpose": "assertionMethod",
-      "type": "Ed25519Signature2018",
-      "verificationMethod": "did:example:123456#key1"
-    },
-    {
-	  "created": "2021-01-11T16:04:13.154596+02:00",
-	  "proofPurpose": "assertionMethod",
-	  "proofValue": "hR-MODvfO20merTlcBbBQcwrv_Hpj5hXRJSmkAt_9RaC9mQ5QMkh0LGeyhzwUPjkYKLW7npcfXpxoH8Qb8YMFfp1Bu7h7oICwkBcBi-C1YUncKFmsBvDtjzOCkBs_QrtH_ZW_dsSzt7oloOHqgzfHQ",
-	  "type": "BbsBlsSignature2020",
-	  "verificationMethod": "did:example:123456#key2"
-    }
-  ]
-}
-`
+//nolint:gochecknoglobals
+var (
+	//go:embed testdata/case16_vc.jsonld
+	case16VC string // Case 16 (https://github.com/w3c-ccg/vc-http-api/pull/128)
+	//go:embed testdata/case16_reveal_doc.jsonld
+	case16RevealDoc string
+	//go:embed testdata/case18_vc.jsonld
+	case18VC string // Case 18 (https://github.com/w3c-ccg/vc-http-api/pull/128)
+	//go:embed testdata/case18_reveal_doc.jsonld
+	case18RevealDoc string
+	//go:embed testdata/doc_with_many_proofs.jsonld
+	docWithManyProofsJSON string //nolint:unused // re-enable test that uses this var (#2562)
+)
 
 //nolint
 func TestSuite_SelectiveDisclosure(t *testing.T) {
-
-	revealDocJSON := `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://w3id.org/citizenship/v1",
-    "https://w3id.org/security/bbs/v1"
-  ],
-  "type": ["VerifiableCredential", "PermanentResidentCard"],
-  "credentialSubject": {
-    "@explicit": true,
-    "type": ["PermanentResident", "Person"],
-    "givenName": {},
-    "familyName": {},
-    "gender": {}
-  }
-}
-`
 	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2
 	pkBase58 := "nEP2DEdbRaQ2r5Azeatui9MG6cj7JUHa8GD7khub4egHJREEuvj4Y8YG8w51LnhPEXxVV1ka93HpSLkVzeQuuPE1mH9oCMrqoHXAKGBsuDT1yJvj9cKgxxLCXiRRirCycki"
 	pubKeyBytes := base58.Decode(pkBase58)
@@ -190,15 +46,14 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 	require.NoError(t, err)
 
 	docMap := toMap(t, case16VC)
-	revealDocMap := toMap(t, revealDocJSON)
-	withDocLoader := jsonld.WithDocumentLoader(createLDPBBS2020DocumentLoader())
+	revealDocMap := toMap(t, case16RevealDoc)
 
 	s := bbsblssignatureproof2020.New()
 
 	const proofField = "proof"
 
 	pubKeyResolver := &testKeyResolver{
-		publicKey: &sigverifier.PublicKey{
+		publicKey: &verifier.PublicKey{
 			Type:  "Bls12381G2Key2020",
 			Value: pubKeyBytes,
 		},
@@ -206,7 +61,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 	t.Run("single BBS+ signature", func(t *testing.T) {
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -227,7 +82,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		pubKeyBytes2 := base58.Decode("tPTWWeUm8yT3aR9HtMvo2pLLvAdyV9Z4nJYZ2ZsyoLVpTupVb7NaRJ3tZePF6YsCN1nw7McqJ38tvpmQxKQxrTbyzjiewUDaj5jbD8gVfpfXJL2SfPBw4TGjYPA6zg6Jrxn")
 
 		compositeResolver := &testKeyResolver{
-			variants: map[string]*sigverifier.PublicKey{
+			variants: map[string]*verifier.PublicKey{
 				"did:example:489398593#test": {
 					Type:  "Bls12381G2Key2020",
 					Value: pubKeyBytes},
@@ -238,7 +93,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docWithSeveralProofsMap, revealDocMap, nonce,
-			compositeResolver, withDocLoader)
+			compositeResolver, jsonldtest.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -259,9 +114,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		docMap["bad"] = "example"
 		docMap["proof"] = "example"
 
-		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
-
+		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce, pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 	})
 
@@ -275,7 +128,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithoutProof, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "document does not have a proof")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -293,7 +146,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProof, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "get BLS proofs: read document proofs: proof is not map or array of maps")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -321,7 +174,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofValue, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: derive BBS+ proof: parse signature: invalid size of signature") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -349,7 +202,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofType, revealDocMap, nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "no BbsBlsSignature2020 proof present")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -361,31 +214,13 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			failingPublicKeyResolver, withDocLoader)
+			failingPublicKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: get public key and signature: resolve public key of BBS+ signature: public key not found") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
 	})
 
 	t.Run("Case 18 derives into Case 19", func(t *testing.T) {
-		const case18RevealDoc = `
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1",
-    "https://w3id.org/security/bbs/v1"
-  ],
-  "type": ["UniversityDegreeCredential", "VerifiableCredential"],
-  "@explicit": true,
-  "issuer": {},
-  "issuanceDate": {},
-  "credentialSubject": {
-    "@explicit": true,
-    "degree": {}
-  }
-}
-`
-
 		case18DocMap := toMap(t, case18VC)
 		case18RevealDocMap := toMap(t, case18RevealDoc)
 
@@ -393,7 +228,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		require.NoError(t, err)
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(case18DocMap, case18RevealDocMap, case19Nonce,
-			pubKeyResolver, withDocLoader)
+			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -408,10 +243,12 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		case18DerivationBytes, err := json.Marshal(docWithSelectiveDisclosure)
 
 		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")
-		docLoader := createLDPBBS2020DocumentLoader()
+
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
 
 		_, err = verifiable.ParseCredential(case18DerivationBytes, verifiable.WithPublicKeyFetcher(pubKeyFetcher),
-			verifiable.WithJSONLDDocumentLoader(docLoader))
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 	})
 }

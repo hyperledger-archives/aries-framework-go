@@ -57,33 +57,33 @@ func TestParseCredentialFromJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Decoding credential from JWS", func(t *testing.T) {
-		vcFromJWT, err := parseTestCredential(
+		vcFromJWT, err := parseTestCredential(t,
 			createEdDSAJWS(t, testCred, ed25519Signer, false),
 			WithPublicKeyFetcher(ed25519KeyFetcher))
 
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(testCred)
+		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
 		require.Equal(t, vc, vcFromJWT)
 	})
 
 	t.Run("Decoding credential from JWS with minimized fields of \"vc\" claim", func(t *testing.T) {
-		vcFromJWT, err := parseTestCredential(
+		vcFromJWT, err := parseTestCredential(t,
 			createEdDSAJWS(t, testCred, ed25519Signer, true),
 			WithPublicKeyFetcher(ed25519KeyFetcher))
 
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(testCred)
+		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
 		require.Equal(t, vc, vcFromJWT)
 	})
 
 	t.Run("Failed JWT signature verification of credential", func(t *testing.T) {
-		vc, err := parseTestCredential(
+		vc, err := parseTestCredential(t,
 			createRS256JWS(t, testCred, rs256Signer, true),
 			// passing holder's key, while expecting issuer one
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -102,7 +102,7 @@ func TestParseCredentialFromJWS(t *testing.T) {
 	})
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
-		vc, err := parseTestCredential(
+		vc, err := parseTestCredential(t,
 			createRS256JWS(t, testCred, rs256Signer, true),
 
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -114,7 +114,7 @@ func TestParseCredentialFromJWS(t *testing.T) {
 	})
 
 	t.Run("Not defined public key fetcher", func(t *testing.T) {
-		vc, err := parseTestCredential(createRS256JWS(t, testCred, rs256Signer, true))
+		vc, err := parseTestCredential(t, createRS256JWS(t, testCred, rs256Signer, true))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
@@ -128,13 +128,13 @@ func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 	signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
-	vc, err := parseTestCredential(vcBytes)
+	vc, err := parseTestCredential(t, vcBytes)
 	require.NoError(t, err)
 
 	vcJWSStr := createEdDSAJWS(t, vcBytes, signer, false)
 
 	// unmarshal credential from JWS
-	vcFromJWS, err := parseTestCredential(
+	vcFromJWS, err := parseTestCredential(t,
 		vcJWSStr,
 		WithPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	require.NoError(t, err)
@@ -147,22 +147,22 @@ func TestParseCredentialFromUnsecuredJWT(t *testing.T) {
 	testCred := []byte(jwtTestCredential)
 
 	t.Run("Unsecured JWT decoding with no fields minimization", func(t *testing.T) {
-		vcFromJWT, err := parseTestCredential(createUnsecuredJWT(t, testCred, false))
+		vcFromJWT, err := parseTestCredential(t, createUnsecuredJWT(t, testCred, false))
 
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(testCred)
+		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
 		require.Equal(t, vc, vcFromJWT)
 	})
 
 	t.Run("Unsecured JWT decoding with minimized fields", func(t *testing.T) {
-		vcFromJWT, err := parseTestCredential(createUnsecuredJWT(t, testCred, true))
+		vcFromJWT, err := parseTestCredential(t, createUnsecuredJWT(t, testCred, true))
 
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(testCred)
+		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
 		require.Equal(t, vc, vcFromJWT)
@@ -183,12 +183,12 @@ func TestJwtWithExtension(t *testing.T) {
 	vcJWS := createRS256JWS(t, []byte(jwtTestCredential), signer, true)
 
 	// Decode to base credential.
-	cred, err := parseTestCredential(vcJWS, keyFetcher)
+	cred, err := parseTestCredential(t, vcJWS, keyFetcher)
 	require.NoError(t, err)
 	require.NotNil(t, cred)
 
 	// Decode to the Credential extension.
-	udc, err := NewUniversityDegreeCredential(vcJWS, keyFetcher)
+	udc, err := NewUniversityDegreeCredential(t, vcJWS, keyFetcher)
 	require.NoError(t, err)
 	require.NotNil(t, udc)
 
@@ -265,7 +265,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 }
 
 func createRS256JWS(t *testing.T, cred []byte, signer Signer, minimize bool) []byte {
-	vc, err := parseTestCredential(cred)
+	vc, err := parseTestCredential(t, cred)
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(minimize)
@@ -277,7 +277,7 @@ func createRS256JWS(t *testing.T, cred []byte, signer Signer, minimize bool) []b
 }
 
 func createEdDSAJWS(t *testing.T, cred []byte, signer Signer, minimize bool) []byte {
-	vc, err := parseTestCredential(cred)
+	vc, err := parseTestCredential(t, cred)
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(minimize)
@@ -289,7 +289,7 @@ func createEdDSAJWS(t *testing.T, cred []byte, signer Signer, minimize bool) []b
 }
 
 func createUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {
-	vc, err := parseTestCredential(cred)
+	vc, err := parseTestCredential(t, cred)
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(minimize)

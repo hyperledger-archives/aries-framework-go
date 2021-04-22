@@ -13,6 +13,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -55,6 +56,7 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
 	Crypto() ariescrypto.Crypto
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // Operation contains basic common operations provided by controller REST API.

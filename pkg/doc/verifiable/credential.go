@@ -649,8 +649,7 @@ func WithBaseContextExtendedValidation(customContexts, customTypes []string) Cre
 	}
 }
 
-// WithJSONLDDocumentLoader defines custom JSON-LD document loader. If not defined, when decoding VC
-// a new document loader will be created using CachingJSONLDLoader() if JSON-LD validation is made.
+// WithJSONLDDocumentLoader defines a JSON-LD document loader.
 func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.jsonldDocumentLoader = documentLoader
@@ -1054,10 +1053,6 @@ func getCredentialOpts(opts []CredentialOpt) *credentialOpts {
 
 	if crOpts.schemaLoader == nil {
 		crOpts.schemaLoader = newDefaultSchemaLoader()
-	}
-
-	if crOpts.jsonldDocumentLoader == nil {
-		crOpts.jsonldDocumentLoader = CachingJSONLDLoader()
 	}
 
 	return crOpts

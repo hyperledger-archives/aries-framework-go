@@ -470,21 +470,3 @@ const DefinitionJSONSchema = `
       }
    }
 }`
-
-// PresentationSubmissionJSONLDContext based con this commit:
-// https://github.com/decentralized-identity/presentation-exchange/commit/980ee781976fa0a6a247807e879f7d7d0e7e8e0a.
-const PresentationSubmissionJSONLDContext = `{
-  "@context": {
-    "@version": 1.1,
-    "PresentationSubmission": {
-      "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
-      "@context": {
-        "@version": 1.1,
-        "presentation_submission": {
-          "@id": "https://identity.foundation/presentation-exchange/#presentation-submission",
-          "@type": "@json"
-        }
-      }
-    }
-  }
-}`

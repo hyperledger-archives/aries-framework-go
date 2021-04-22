@@ -6,12 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 )
 
 const (
@@ -79,6 +82,14 @@ const (
     "VerifiableCredential"
   ]
 }`
+)
+
+//nolint:gochecknoglobals
+var (
+	//go:embed testdata/context/context1.jsonld
+	context1 []byte
+	//go:embed testdata/context/context2.jsonld
+	context2 []byte
 )
 
 // Cred1 can produce itself.
@@ -169,7 +180,11 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	contextURL := "http://127.0.0.1"
 
 	// Producer1 applied.
-	i1, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred1, contextURL+"?context=1")), producers)
+	i1, err := createTestCustomCredential(t, []byte(fmt.Sprintf(validCred1, contextURL+"?context=1")), producers,
+		jld.ContextDocument{
+			URL:     "http://127.0.0.1?context=1",
+			Content: context1,
+		})
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -180,7 +195,11 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
 	// Producer2 applied.
-	i2, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred2, contextURL+"?context=2")), producers)
+	i2, err := createTestCustomCredential(t, []byte(fmt.Sprintf(validCred2, contextURL+"?context=2")), producers,
+		jld.ContextDocument{
+			URL:     "http://127.0.0.1?context=2",
+			Content: context2,
+		})
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)
@@ -191,24 +210,28 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 2", cred2.Subject.CustomSubjectField)
 
 	// No producers are applied, returned base credential.
-	i3, err := createTestCustomCredential([]byte(validCredential), producers)
+	i3, err := createTestCustomCredential(t, []byte(validCredential), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Credential{}, i3)
 
 	// Invalid credential.
-	i4, err := createTestCustomCredential([]byte(credMissingMandatoryFields), producers)
+	i4, err := createTestCustomCredential(t, []byte(credMissingMandatoryFields), producers)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "build base verifiable credential")
 	require.Nil(t, i4)
 
 	// Failing ext producer.
-	i5, err := createTestCustomCredential([]byte(validCredential),
+	i5, err := createTestCustomCredential(t, []byte(validCredential),
 		[]CustomCredentialProducer{&FailingCredentialProducer{}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to apply credential extension")
 	require.Nil(t, i5)
 }
 
-func createTestCustomCredential(vcData []byte, producers []CustomCredentialProducer) (interface{}, error) {
-	return CreateCustomCredential(vcData, producers, WithJSONLDDocumentLoader(testDocumentLoader))
+func createTestCustomCredential(t *testing.T, vcData []byte, producers []CustomCredentialProducer,
+	extraContexts ...jld.ContextDocument) (interface{}, error) {
+	t.Helper()
+
+	return CreateCustomCredential(vcData, producers,
+		WithJSONLDDocumentLoader(createTestDocumentLoader(t, extraContexts...)))
 }

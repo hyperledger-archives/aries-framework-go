@@ -421,10 +421,6 @@ func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
 		opt(vpOpts)
 	}
 
-	if vpOpts.jsonldDocumentLoader == nil {
-		vpOpts.jsonldDocumentLoader = CachingJSONLDLoader()
-	}
-
 	return vpOpts
 }
 

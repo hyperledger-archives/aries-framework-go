@@ -17,8 +17,11 @@ import (
 	"syscall/js"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	bbs "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
@@ -117,7 +120,10 @@ func signVC(privKeyB64, vcJSON, verificationMethod string) ([]byte, error) {
 		VerificationMethod:      verificationMethod,
 	}
 
-	jsonldDocLoader := createLDPBBS2020DocumentLoader()
+	jsonldDocLoader, err := createJSONLDDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
 		verifiable.WithDisabledProofCheck())
@@ -144,9 +150,12 @@ func verifyVC(pubKeyB64, vcJSON string) error {
 	sigSuite := bbsblssignature2020.New(
 		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
 
-	jsonldDocLoader := createLDPBBS2020DocumentLoader()
+	jsonldDocLoader, err := createJSONLDDocumentLoader()
+	if err != nil {
+		return err
+	}
 
-	_, err := verifiable.ParseCredential([]byte(vcJSON),
+	_, err = verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
 		verifiable.WithEmbeddedSignatureSuites(sigSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
@@ -184,7 +193,10 @@ func verifyProofVC(pubKeyB64, vcJSON string) error {
 		suite.WithCompactProof(),
 		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonceBytes)))
 
-	jsonldDocLoader := createLDPBBS2020DocumentLoader()
+	jsonldDocLoader, err := createJSONLDDocumentLoader()
+	if err != nil {
+		return err
+	}
 
 	_, err = verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
@@ -203,7 +215,10 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 		return nil, err
 	}
 
-	jsonldLoader := createLDPBBS2020DocumentLoader()
+	jsonldLoader, err := createJSONLDDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(jsonldLoader),
 		verifiable.WithDisabledProofCheck())
@@ -231,4 +246,13 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 	}
 
 	return vcSDBytes, nil
+}
+
+func createJSONLDDocumentLoader() (ld.DocumentLoader, error) {
+	loader, err := jld.NewDocumentLoader(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create document loader: %w", err)
+	}
+
+	return loader, nil
 }

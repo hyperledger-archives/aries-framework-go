@@ -1,0 +1,36 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialStatus": {
+    "id": "http://issuer.vc.rest.example.com:8070/status/1",
+    "type": "CredentialStatusList2017"
+  },
+  "credentialSubject": {
+    "degree": {
+      "degree": "MIT",
+      "type": "BachelorDegree"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "id": "https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "issuer": {
+    "id": "did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg",
+    "name": "myprofile_ud_unireg_p256_jws_1"
+  },
+  "proof": {
+    "created": "2020-04-25T17:29:31Z",
+    "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MEYCIQCdyY3CgjXLYdtPgxDiHDzHxlomakAzgvntBy_dJL-N8AIhAMmVyd3DIwVUBgAUhO9OFjtC-qp_-xYqNBnDQtoH1caw",
+    "proofPurpose": "assertionMethod",
+    "type": "JsonWebSignature2020",
+    "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L0hhREZiSkE1WUMyVmdZY3diTmNDd2FKNjFsNWtzd1ZTMnVfaEUwYVBMc3M9"
+  },
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}

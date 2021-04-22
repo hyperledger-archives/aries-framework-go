@@ -101,7 +101,8 @@ func ExamplePresentation_JWTClaims() {
 `
 
 	// The Holder wants to send the presentation to the Verifier in JWS.
-	vp, err := verifiable.ParsePresentation([]byte(vpStrFromWallet), verifiable.WithPresDisabledProofCheck())
+	vp, err := verifiable.ParsePresentation([]byte(vpStrFromWallet), verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VP JSON: %w", err))
 	}

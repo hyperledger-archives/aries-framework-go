@@ -9,15 +9,12 @@ package verifiable_test
 import (
 	"encoding/base64"
 	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
 	"strings"
-
-	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
 type UniversityDegree struct {
@@ -50,48 +47,13 @@ func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&cp)
 }
 
-func getJSONLDDocumentLoader() *jld.CachingDocumentLoader {
-	loader := verifiable.CachingJSONLDLoader()
-
-	addJSONLDCachedContextFromFile(loader,
-		"https://www.w3.org/2018/credentials/examples/v1", "vc_example.jsonld")
-
-	addJSONLDCachedContextFromFile(loader,
-		"https://trustbloc.github.io/context/vc/examples-v1.jsonld", "trustbloc_example.jsonld")
-
-	addJSONLDCachedContextFromFile(loader,
-		"https://trustbloc.github.io/context/vc/credentials-v1.jsonld", "trustbloc_jwk2020_example.jsonld")
-
-	addJSONLDCachedContextFromFile(loader, "https://www.w3.org/ns/odrl.jsonld", "odrl.jsonld")
-	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v1", "security_v1.jsonld")
-	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v2", "security_v2.jsonld")
-
-	addJSONLDCachedContextFromFile(loader,
-		"https://w3id.org/security/bbs/v1",
-		"bss2020.jsonld")
-	addJSONLDCachedContextFromFile(loader,
-		"https://w3id.org/citizenship/v1",
-		"citizenship.jsonld")
+func getJSONLDDocumentLoader() *jld.DocumentLoader {
+	loader, err := jsonldtest.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
 
 	return loader
-}
-
-func addJSONLDCachedContextFromFile(loader *jld.CachingDocumentLoader, contextURL, contextFile string) {
-	contextContent, err := ioutil.ReadFile(filepath.Clean(filepath.Join("testdata", "context", contextFile)))
-	if err != nil {
-		panic(err)
-	}
-
-	addJSONLDCachedContext(loader, contextURL, string(contextContent))
-}
-
-func addJSONLDCachedContext(loader *jld.CachingDocumentLoader, contextURL, contextContent string) {
-	reader, err := ld.DocumentFromReader(strings.NewReader(contextContent))
-	if err != nil {
-		panic(err)
-	}
-
-	loader.AddDocument(contextURL, reader)
 }
 
 type bbsSigner struct {

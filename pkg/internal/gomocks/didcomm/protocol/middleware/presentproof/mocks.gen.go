@@ -15,6 +15,7 @@ import (
 	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	verifiable0 "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	ld "github.com/piprate/json-gold/ld"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -52,6 +53,20 @@ func (m *MockProvider) Crypto() crypto.Crypto {
 func (mr *MockProviderMockRecorder) Crypto() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Crypto", reflect.TypeOf((*MockProvider)(nil).Crypto))
+}
+
+// JSONLDDocumentLoader mocks base method.
+func (m *MockProvider) JSONLDDocumentLoader() ld.DocumentLoader {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JSONLDDocumentLoader")
+	ret0, _ := ret[0].(ld.DocumentLoader)
+	return ret0
+}
+
+// JSONLDDocumentLoader indicates an expected call of JSONLDDocumentLoader.
+func (mr *MockProviderMockRecorder) JSONLDDocumentLoader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JSONLDDocumentLoader", reflect.TypeOf((*MockProvider)(nil).JSONLDDocumentLoader))
 }
 
 // KMS mocks base method.

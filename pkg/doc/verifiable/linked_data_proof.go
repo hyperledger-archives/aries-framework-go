@@ -106,11 +106,10 @@ type rawProof struct {
 // addLinkedDataProof adds a new proof to the JSON-LD document (VC or VP). It returns a slice
 // of the proofs which were already present appended with a newly created proof.
 func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte,
-	jsonldOpts ...jsonld.ProcessorOpts) ([]Proof, error) {
+	opts ...jsonld.ProcessorOpts) ([]Proof, error) {
 	documentSigner := signer.New(context.Suite)
 
-	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes,
-		append([]jsonld.ProcessorOpts{jsonld.WithDocumentLoader(CachingJSONLDLoader())}, jsonldOpts...)...)
+	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("add linked data proof: %w", err)
 	}

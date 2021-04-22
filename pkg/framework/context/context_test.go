@@ -23,6 +23,7 @@ import (
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -575,6 +576,15 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithVerifiableStore(verifiableStore))
 		require.NoError(t, err)
 		require.Equal(t, verifiableStore, prov.VerifiableStore())
+	})
+
+	t.Run("test new with JSON-LD document loader", func(t *testing.T) {
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
+		prov, err := New(WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.Equal(t, loader, prov.JSONLDDocumentLoader())
 	})
 
 	t.Run("test new with bad (fake) option", func(t *testing.T) {

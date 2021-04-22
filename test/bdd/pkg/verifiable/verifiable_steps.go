@@ -11,13 +11,14 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"errors"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/cucumber/godog"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
@@ -163,13 +164,18 @@ func (s *SDKSteps) getVCAsJWS(vc *verifiable.Credential,
 
 func (s *SDKSteps) getVCWithEcdsaSecp256k1Signature2019LDP(vc *verifiable.Credential,
 	secp256k1Signer verifiable.Signer, pubKeyID string) ([]byte, error) {
-	err := vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+	loader, err := CreateDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "EcdsaSecp256k1Signature2019",
 		Suite:                   ecdsasecp256k1signature2019.New(suite.WithSigner(secp256k1Signer)),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(CachingJSONLDLoader()))
+	}, jsonld.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +193,18 @@ func (s *SDKSteps) getVCWithJSONWebSignatureLDP(vc *verifiable.Credential, proof
 		vcSuite = jsonwebsignature2020.New(suite.WithSigner(cryptoSigner))
 	}
 
-	err := vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+	loader, err := CreateDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
 		Suite:                   vcSuite,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(CachingJSONLDLoader()))
+	}, jsonld.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -203,13 +214,18 @@ func (s *SDKSteps) getVCWithJSONWebSignatureLDP(vc *verifiable.Credential, proof
 
 func (s *SDKSteps) getVCWithEd25519LDP(vc *verifiable.Credential,
 	cryptoSigner verifiable.Signer, pubKeyID string) ([]byte, error) {
-	err := vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+	loader, err := CreateDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		Suite:                   ed25519signature2018.New(suite.WithSigner(cryptoSigner)),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(CachingJSONLDLoader()))
+	}, jsonld.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +244,18 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 
 	verifier := suite.NewCryptoVerifier(newLocalCryptoVerifier(s.bddContext.AgentCtx[holder].Crypto(), localKMS))
 
+	loader, err := CreateDocumentLoader()
+	if err != nil {
+		return err
+	}
+
 	parsedVC, err := verifiable.ParseCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
 		verifiable.WithEmbeddedSignatureSuites(
 			ed25519signature2018.New(suite.WithVerifier(verifier)),
 			jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier())),
 			ecdsasecp256k1signature2019.New(suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier()))),
-		verifiable.WithJSONLDDocumentLoader(CachingJSONLDLoader()))
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}
@@ -379,21 +400,15 @@ func mapDIDKeyType(proofType string) string {
 	}
 }
 
-// CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded VC and security JSON-LD contexts.
-func CachingJSONLDLoader() ld.DocumentLoader {
-	loader := jld.NewDefaultCachingDocumentLoader()
-
-	cacheContext := func(source, url string) {
-		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck
-		loader.AddDocument(url, reader)
+// CreateDocumentLoader creates a JSON-LD document loader with preloaded VC and security JSON-LD contexts.
+func CreateDocumentLoader() (ld.DocumentLoader, error) {
+	loader, err := jld.NewDocumentLoader(mem.NewProvider(),
+		jld.WithContexts(jsonLDContexts...),
+		jld.WithContextFS(embedFS),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new document loader: %w", err)
 	}
 
-	cacheContext(vcContext, "https://www.w3.org/2018/credentials/v1")
-	cacheContext(vcExampleContext, "https://www.w3.org/2018/credentials/examples/v1")
-	cacheContext(odrlContext, "https://www.w3.org/ns/odrl.jsonld")
-	cacheContext(trustblocContext, "https://trustbloc.github.io/context/vc/credentials-v1.jsonld")
-	cacheContext(securityV1Context, "https://w3id.org/security/v1")
-	cacheContext(securityV2Context, "https://w3id.org/security/v2")
-
-	return loader
+	return loader, nil
 }

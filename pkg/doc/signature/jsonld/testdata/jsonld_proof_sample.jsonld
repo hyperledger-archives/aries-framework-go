@@ -1,0 +1,7 @@
+{
+  "@context": "https://w3id.org/security/v2",
+  "created": "2020-04-08T04:00:22Z",
+  "proofPurpose": "assertionMethod",
+  "type": "Ed25519Signature2018",
+  "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+}

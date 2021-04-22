@@ -10,14 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -60,6 +57,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 type provable interface {
@@ -85,6 +83,9 @@ type Wallet struct {
 
 	// wallet VDR
 	walletVDR *walletVDR
+
+	// document loader for JSON-LD contexts
+	jsonldDocumentLoader ld.DocumentLoader
 }
 
 // New returns new verifiable credential wallet for given user.
@@ -108,12 +109,13 @@ func New(userID string, ctx provider) (*Wallet, error) {
 	}
 
 	return &Wallet{
-		userID:        userID,
-		profile:       profile,
-		storeProvider: ctx.StorageProvider(),
-		walletCrypto:  ctx.Crypto(),
-		contents:      contents,
-		walletVDR:     newContentBasedVDR(ctx.VDRegistry(), contents),
+		userID:               userID,
+		profile:              profile,
+		storeProvider:        ctx.StorageProvider(),
+		walletCrypto:         ctx.Crypto(),
+		contents:             contents,
+		walletVDR:            newContentBasedVDR(ctx.VDRegistry(), contents),
+		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
 	}, nil
 }
 
@@ -316,7 +318,7 @@ func (c *Wallet) Query(params ...*QueryParams) ([]*verifiable.Presentation, erro
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
 	}
 
-	query := NewQuery(verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(), params...)
+	query := NewQuery(verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(), c.jsonldDocumentLoader, params...)
 
 	return query.PerformQuery(vcContents)
 }
@@ -330,7 +332,8 @@ func (c *Wallet) Query(params ...*QueryParams) ([]*verifiable.Presentation, erro
 //
 func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 	options *ProofOptions) (*verifiable.Credential, error) {
-	vc, err := verifiable.ParseCredential(credential, verifiable.WithDisabledProofCheck())
+	vc, err := verifiable.ParseCredential(credential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse credential: %w", err)
 	}
@@ -425,7 +428,9 @@ func (c *Wallet) Derive(credential CredentialToDerive,
 	derived, err := vc.GenerateBBSSelectiveDisclosure(options.Frame, []byte(options.Nonce),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-		))
+		),
+		verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive credential : %w", err)
 	}
@@ -452,7 +457,8 @@ func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiab
 		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
 		// may to call 'wallet.Verify()' for each credential being presented.
 		// (More details can be found in issue #2677).
-		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 		if err != nil {
 			return nil, err
 		}
@@ -465,7 +471,8 @@ func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiab
 		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
 		// may to call 'wallet.Verify()' for each credential being presented.
 		// (More details can be found in issue #2677).
-		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		credential, err := verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 		if err != nil {
 			return nil, err
 		}
@@ -500,7 +507,8 @@ func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*veri
 		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
 		// may to call 'wallet.Verify()' for each credential being presented.
 		// (More details can be found in issue #2677).
-		return verifiable.ParseCredential(opts.rawCredential, verifiable.WithDisabledProofCheck())
+		return verifiable.ParseCredential(opts.rawCredential, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	}
 
 	if opts.credentialID != "" {
@@ -513,16 +521,19 @@ func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*veri
 		// show credentials as verified. If a wallet implementation chooses to show credentials as 'verified' it
 		// may to call 'wallet.Verify()' for each credential being presented.
 		// (More details can be found in issue #2677).
-		return verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck())
+		return verifiable.ParseCredential(raw, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	}
 
 	return nil, errors.New("invalid request to derive credential")
 }
 
 func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
-	_, err := verifiable.ParseCredential(credential, verifiable.WithPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-	))
+	_, err := verifiable.ParseCredential(credential,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return false, fmt.Errorf("credential verification failed: %w", err)
 	}
@@ -531,9 +542,11 @@ func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 }
 
 func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
-	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-	))
+	vp, err := verifiable.ParsePresentation(presentation,
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
+		),
+		verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return false, fmt.Errorf("presentation verification failed: %w", err)
 	}
@@ -563,22 +576,12 @@ func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOpt
 
 	var signatureSuite signer.SignatureSuite
 
-	var processorOpts []jsonld.ProcessorOpts
-
 	switch opts.ProofType {
 	case Ed25519Signature2018:
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
 	case BbsBlsSignature2020:
-		// TODO document loader to be part of common API, to be removed
-		bbsLoader, e := bbsJSONLDDocumentLoader()
-		if e != nil {
-			return e
-		}
-
-		processorOpts = append(processorOpts, jsonld.WithDocumentLoader(bbsLoader))
-
 		addContext(p, bbsContext)
 
 		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
@@ -597,7 +600,7 @@ func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOpt
 		Purpose:                 supportedRelationships[relationship],
 	}
 
-	err = p.AddLinkedDataProof(signingCtx, processorOpts...)
+	err = p.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return fmt.Errorf("failed to add linked data proof: %w", err)
 	}
@@ -661,110 +664,3 @@ func addContext(v interface{}, context string) {
 		vc.Context = append(vc.Context, context)
 	}
 }
-
-// TODO: context should not be loaded here, the loader should be defined once for the whole system.
-func bbsJSONLDDocumentLoader() (*jld.CachingDocumentLoader, error) {
-	loader := presexch.CachingJSONLDLoader()
-
-	reader, err := ld.DocumentFromReader(strings.NewReader(contextBBSContent))
-	if err != nil {
-		return nil, err
-	}
-
-	loader.AddDocument(bbsContext, reader)
-
-	return loader, nil
-}
-
-const contextBBSContent = `{
-  "@context": {
-    "@version": 1.1,
-    "id": "@id",
-    "type": "@type",
-    "BbsBlsSignature2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignature2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-        "challenge": "https://w3id.org/security#challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
-        },
-        "domain": "https://w3id.org/security#domain",
-        "proofValue": "https://w3id.org/security#proofValue",
-        "nonce": "https://w3id.org/security#nonce",
-        "proofPurpose": {
-          "@id": "https://w3id.org/security#proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "assertionMethod": {
-              "@id": "https://w3id.org/security#assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "https://w3id.org/security#authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "verificationMethod": {
-          "@id": "https://w3id.org/security#verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "BbsBlsSignatureProof2020": {
-      "@id": "https://w3id.org/security#BbsBlsSignatureProof2020",
-      "@context": {
-        "@version": 1.1,
-        "@protected": true,
-        "id": "@id",
-        "type": "@type",
-
-        "challenge": "https://w3id.org/security#challenge",
-        "created": {
-          "@id": "http://purl.org/dc/terms/created",
-          "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
-        },
-        "domain": "https://w3id.org/security#domain",
-        "nonce": "https://w3id.org/security#nonce",
-        "proofPurpose": {
-          "@id": "https://w3id.org/security#proofPurpose",
-          "@type": "@vocab",
-          "@context": {
-            "@version": 1.1,
-            "@protected": true,
-            "id": "@id",
-            "type": "@type",
-            "sec": "https://w3id.org/security#",
-            "assertionMethod": {
-              "@id": "https://w3id.org/security#assertionMethod",
-              "@type": "@id",
-              "@container": "@set"
-            },
-            "authentication": {
-              "@id": "https://w3id.org/security#authenticationMethod",
-              "@type": "@id",
-              "@container": "@set"
-            }
-          }
-        },
-        "proofValue": "https://w3id.org/security#proofValue",
-        "verificationMethod": {
-          "@id": "https://w3id.org/security#verificationMethod",
-          "@type": "@id"
-        }
-      }
-    },
-    "Bls12381G2Key2020": "https://w3id.org/security#Bls12381G2Key2020"
-  }
-}`

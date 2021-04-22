@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/piprate/json-gold/ld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -30,6 +32,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
+	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
 // walletAuth is auth function which returns wallet unlock token.

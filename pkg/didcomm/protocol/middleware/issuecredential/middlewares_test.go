@@ -25,6 +25,7 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/issuecredential"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 )
 
 func getCredential() *verifiable.Credential {
@@ -60,6 +61,7 @@ func TestSaveCredentials(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
+	provider.EXPECT().JSONLDDocumentLoader().Return(nil).AnyTimes()
 
 	next := issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
 		return nil
@@ -145,9 +147,13 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New(errMsg))
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "save credential: "+errMsg)
 	})
@@ -163,9 +169,13 @@ func TestSaveCredentials(t *testing.T) {
 			},
 		}))
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(mockstore.NewMockStore(ctrl))
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.EqualError(t, SaveCredentials(provider)(next).Handle(metadata), "myDID or theirDID is absent")
 	})
@@ -193,9 +203,13 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
 		require.Equal(t, props["names"], []string{vcName})
@@ -225,9 +239,13 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
 		require.Equal(t, len(props["names"].([]string)), 1)
@@ -294,6 +312,9 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		loader, err := jsonldtest.DocumentLoader()
+		require.NoError(t, err)
+
 		registry := mockvdr.NewMockRegistry(ctrl)
 		registry.EXPECT().Resolve("did:example:123456").Return(&did.DocResolution{DIDDocument: &did.Doc{
 			VerificationMethod: []did.VerificationMethod{{
@@ -308,6 +329,7 @@ func TestSaveCredentials(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
 
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
 		require.Equal(t, props["names"], []string{vcName})

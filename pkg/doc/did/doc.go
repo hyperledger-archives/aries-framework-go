@@ -17,11 +17,9 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -1044,9 +1042,7 @@ func (doc *Doc) VerifyProof(suites []verifier.SignatureSuite, jsonldOpts ...json
 		return fmt.Errorf("create verifier: %w", err)
 	}
 
-	defaultDocumentLoaderOpt := []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(CachingJSONLDLoader())}
-
-	return v.Verify(docBytes, append(defaultDocumentLoaderOpt, jsonldOpts...)...)
+	return v.Verify(docBytes, jsonldOpts...)
 }
 
 // VerificationMethods returns verification methods of DID Doc of certain relationship.
@@ -1341,22 +1337,4 @@ func BuildDoc(opts ...DocOption) *Doc {
 	}
 
 	return doc
-}
-
-// CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded base JSON-LD DID and security contexts.
-func CachingJSONLDLoader() ld.DocumentLoader {
-	loader := jld.NewDefaultCachingDocumentLoader()
-
-	cacheContext := func(source, url string) {
-		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck
-		loader.AddDocument(url, reader)
-	}
-
-	cacheContext(didV011Context, "https://w3id.org/did/v0.11")
-	cacheContext(didV1Context, "https://w3id.org/did/v1")
-	cacheContext(didV1Context, "https://www.w3.org/ns/did/v1")
-	cacheContext(securityV1Context, "https://w3id.org/security/v1")
-	cacheContext(securityV2Context, "https://w3id.org/security/v2")
-
-	return loader
 }

@@ -12,6 +12,7 @@ import (
 	issuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	ld "github.com/piprate/json-gold/ld"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -35,6 +36,20 @@ func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
+}
+
+// JSONLDDocumentLoader mocks base method.
+func (m *MockProvider) JSONLDDocumentLoader() ld.DocumentLoader {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JSONLDDocumentLoader")
+	ret0, _ := ret[0].(ld.DocumentLoader)
+	return ret0
+}
+
+// JSONLDDocumentLoader indicates an expected call of JSONLDDocumentLoader.
+func (mr *MockProviderMockRecorder) JSONLDDocumentLoader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JSONLDDocumentLoader", reflect.TypeOf((*MockProvider)(nil).JSONLDDocumentLoader))
 }
 
 // VDRegistry mocks base method.
