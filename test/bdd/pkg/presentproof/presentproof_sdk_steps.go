@@ -10,8 +10,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -44,21 +42,7 @@ const timeout = time.Second * 15
 // nolint: gochecknoglobals
 var (
 	strFilterType = "string"
-
-	// schemaURI is being set in init() function.
-	schemaURI string
 )
-
-// nolint: gochecknoinits
-func init() {
-	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		//nolint: gosec,errcheck
-		res.Write([]byte(verifiable.DefaultSchema))
-	}))
-
-	schemaURI = server.URL
-}
 
 const vpStrFromWallet = `
 {
@@ -265,7 +249,7 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 						ID: uuid.New().String(),
 						InputDescriptors: []*presexch.InputDescriptor{{
 							Schema: []*presexch.Schema{{
-								URI: schemaURI,
+								URI: "https://www.w3.org/2018/credentials/examples/v1",
 							}},
 							ID: uuid.New().String(),
 							Constraints: &presexch.Constraints{
@@ -384,10 +368,6 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
 		Subject: verifiable.Subject{
 			ID: "did:example:b34ca6cd37bbf23",
 			CustomFields: map[string]interface{}{

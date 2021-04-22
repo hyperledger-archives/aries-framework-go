@@ -9,8 +9,6 @@ package wallet
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -174,23 +172,6 @@ const (
                 }`
 )
 
-// nolint: gochecknoglobals
-var (
-	// schemaURI is being set in init() function.
-	schemaURI string
-)
-
-// nolint: gochecknoinits
-func init() {
-	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		//nolint: gosec,errcheck
-		res.Write([]byte(verifiable.DefaultSchema))
-	}))
-
-	schemaURI = server.URL
-}
-
 func TestGetQueryType(t *testing.T) {
 	t.Run("test get query type by string", func(t *testing.T) {
 		tests := []struct {
@@ -257,10 +238,6 @@ func TestQuery_PerformQuery(t *testing.T) {
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      "http://example.edu/credentials/9999",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
 		CustomFields: map[string]interface{}{
 			"first_name": "Jesse",
 		},
@@ -280,7 +257,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 		InputDescriptors: []*presexch.InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: []*presexch.Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &presexch.Constraints{
 				Fields: []*presexch.Field{{
@@ -291,7 +268,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 	}
 
 	// query by example
-	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, verifiable.ContextURI))
 	// query by frame
 	queryByFrame := []byte(sampleQueryByFrame)
 
@@ -300,7 +277,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 	require.NotEmpty(t, pdJSON)
 
 	udcVC := []byte(sampleUDCVC)
-	vcForQuery := []byte(fmt.Sprintf(sampleVCFmt, schemaURI))
+	vcForQuery := []byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI))
 	vcForDerive := []byte(sampleBBSVC)
 
 	customVDR := &mockvdr.MockVDRegistry{
@@ -551,7 +528,7 @@ func TestQueryByExample(t *testing.T) {
 	loader, err := jsonldtest.DocumentLoader()
 	require.NoError(t, err)
 
-	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, schemaURI)),
+	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)),
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
@@ -561,7 +538,7 @@ func TestQueryByExample(t *testing.T) {
 	require.NoError(t, err)
 
 	// sample queries
-	queryByExampleAll := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	queryByExampleAll := []byte(fmt.Sprintf(sampleQueryByExFmt, verifiable.ContextURI))
 
 	queryByExampleContext1 := `{
                         "reason": "Please present your identity document.",
@@ -763,7 +740,7 @@ func TestQueryByExample(t *testing.T) {
 								"type": "JsonSchemaValidator2018"
 							}
                         }
-                	}`, schemaURI)
+                	}`, verifiable.ContextURI)
 
 	queryByExampleContextTypeCredSchema2 := fmt.Sprintf(`{
                         "reason": "Please present your identity document.",
@@ -780,7 +757,7 @@ func TestQueryByExample(t *testing.T) {
 								"type": "JsonSchemaValidator2020"
 							}
                         }
-                	}`, schemaURI)
+                	}`, verifiable.ContextURI)
 
 	queryByExampleInvalid1 := `{
                         "reason": "Please present your identity document.",
@@ -820,10 +797,6 @@ func TestQueryByExample(t *testing.T) {
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      "http://example.edu/credentials/9999",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
 		CustomFields: map[string]interface{}{
 			"first_name": "Jesse",
 		},
@@ -989,7 +962,7 @@ func TestQueryByFrame(t *testing.T) {
 	loader, err := jsonldtest.DocumentLoader()
 	require.NoError(t, err)
 
-	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, schemaURI)),
+	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)),
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)

@@ -40,12 +40,6 @@ const credential = {
         "https://www.w3.org/2018/credentials/examples/v1",
         "https://w3id.org/security/bbs/v1",
     ],
-    credentialSchema: [
-        {
-            id: "http://static-file-server-js:6089/schema.json",
-            type: "JsonSchemaValidator2018",
-        },
-    ],
     credentialSubject: {
         degree: {
             degree: "MIT",
@@ -145,8 +139,7 @@ async function presentProofBBS(mode) {
                                                 "adcc44d9-1c0e-4e8f-9f21-6eda7dba9160",
                                             schema: [
                                                 {
-                                                    uri:
-                                                        "http://static-file-server-js:6089/schema.json",
+                                                    uri: "https://www.w3.org/2018/credentials/examples/v1"
                                                 },
                                             ],
                                             constraints: {

@@ -11,12 +11,6 @@
             "https://www.w3.org/2018/credentials/examples/v1",
             "https://w3id.org/security/bbs/v1"
           ],
-          "credentialSchema":[
-            {
-              "id":"http://static-file-server:7089/schema.json",
-              "type":"JsonSchemaValidator2018"
-            }
-          ],
           "credentialSubject":{
             "degree":{
               "degree":"MIT",

@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -333,23 +331,6 @@ const (
                     "required": true
                 }`
 )
-
-// nolint: gochecknoglobals
-var (
-	// schemaURI is being set in init() function.
-	schemaURI string
-)
-
-// nolint: gochecknoinits
-func init() {
-	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		//nolint: gosec,errcheck
-		res.Write([]byte(verifiable.DefaultSchema))
-	}))
-
-	schemaURI = server.URL
-}
 
 func TestCreateProfile(t *testing.T) {
 	t.Run("test create new wallet client using local kms passphrase", func(t *testing.T) {
@@ -926,10 +907,6 @@ func TestClient_Query(t *testing.T) {
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      "http://example.edu/credentials/9999",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
 		CustomFields: map[string]interface{}{
 			"first_name": "Jesse",
 		},
@@ -943,7 +920,7 @@ func TestClient_Query(t *testing.T) {
 	}).MarshalJSON()
 	require.NoError(t, err)
 
-	sampleVC := fmt.Sprintf(sampleVCFmt, schemaURI)
+	sampleVC := fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)
 	vcForQuery := []byte(strings.ReplaceAll(sampleVC,
 		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
 	vcForDerive := []byte(sampleBBSVC)
@@ -964,7 +941,7 @@ func TestClient_Query(t *testing.T) {
 		InputDescriptors: []*presexch.InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: []*presexch.Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &presexch.Constraints{
 				Fields: []*presexch.Field{{
@@ -980,7 +957,7 @@ func TestClient_Query(t *testing.T) {
 	require.NotEmpty(t, pdJSON)
 
 	// query by example
-	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, verifiable.ContextURI))
 	// query by frame
 	queryByFrame := []byte(sampleQueryByFrame)
 
