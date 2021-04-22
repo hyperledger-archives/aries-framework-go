@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
 func TestEncryptedFormatterInFormatProvider(t *testing.T) {
@@ -32,14 +31,14 @@ func TestEncryptedFormatterInFormatProvider(t *testing.T) {
 			provider := formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t))
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With cache", func(t *testing.T) {
 			provider := cachedstore.NewProvider(
 				formattedstore.NewProvider(mem.NewProvider(), createValidEncryptedFormatter(t)), mem.NewProvider())
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 	})
 	t.Run("With deterministic document IDs", func(t *testing.T) {
@@ -48,7 +47,7 @@ func TestEncryptedFormatterInFormatProvider(t *testing.T) {
 				createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With cache", func(t *testing.T) {
 			provider := cachedstore.NewProvider(
@@ -57,7 +56,7 @@ func TestEncryptedFormatterInFormatProvider(t *testing.T) {
 				mem.NewProvider())
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 	})
 }

@@ -334,8 +334,16 @@ func (r *restStore) GetBulk(keys ...string) ([][]byte, error) {
 	return values, nil
 }
 
-// EDV doesn't support paging, so it has no use for the paging query option (which is the only one currently).
-func (r *restStore) Query(expression string, _ ...spi.QueryOption) (spi.Iterator, error) {
+// EDV doesn't support any of the current query options.
+// spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
+// spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do
+// affect the results that the Iterator returns.
+func (r *restStore) Query(expression string, options ...spi.QueryOption) (spi.Iterator, error) {
+	err := checkForUnsupportedQueryOptions(options)
+	if err != nil {
+		return nil, err
+	}
+
 	expressionTagName, expressionTagValue, err := parseQueryExpression(expression)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse query expression: %w", err)
@@ -1131,6 +1139,30 @@ func filterOutKeyTag(tags []spi.Tag, keyToFilterOut string) []spi.Tag {
 	}
 
 	return filteredTags
+}
+
+func getQueryOptions(options []spi.QueryOption) spi.QueryOptions {
+	var queryOptions spi.QueryOptions
+
+	for _, option := range options {
+		option(&queryOptions)
+	}
+
+	return queryOptions
+}
+
+func checkForUnsupportedQueryOptions(options []spi.QueryOption) error {
+	querySettings := getQueryOptions(options)
+
+	if querySettings.InitialPageNum != 0 {
+		return errors.New("EDV does not support setting the initial page number of query results")
+	}
+
+	if querySettings.SortOptions != nil {
+		return errors.New("EDV does not support custom sort options for query results")
+	}
+
+	return nil
 }
 
 func parseQueryExpression(expression string) (string, string, error) {

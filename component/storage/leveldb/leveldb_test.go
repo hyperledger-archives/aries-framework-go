@@ -41,7 +41,7 @@ func TestCommon(t *testing.T) {
 
 	provider := leveldb.NewProvider(path)
 
-	commontest.TestAll(t, provider)
+	runCommonTests(t, provider)
 }
 
 func TestProvider_GetStoreConfig(t *testing.T) {
@@ -129,6 +129,24 @@ func TestStore_Query(t *testing.T) {
 			"invalid character 'N' looking for beginning of value")
 		require.Nil(t, itr)
 	})
+	t.Run("Not supported options", func(t *testing.T) {
+		path := setupLevelDB(t)
+
+		provider := leveldb.NewProvider(path)
+
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+
+		iterator, err := store.Query("TagName:TagValue", storage.WithInitialPageNum(1))
+		require.EqualError(t, err, "levelDB provider does not currently support "+
+			"setting the initial page number of query results")
+		require.Nil(t, iterator)
+
+		iterator, err = store.Query("TagName:TagValue", storage.WithSortOrder(&storage.SortOptions{}))
+		require.EqualError(t, err, "levelDB provider does not currently support custom sort options "+
+			"for query results")
+		require.Nil(t, iterator)
+	})
 }
 
 func TestStore_Flush(t *testing.T) {
@@ -166,6 +184,20 @@ func TestIterator(t *testing.T) {
 			"key cannot be blank")
 		require.Nil(t, tags)
 	})
+}
+
+func runCommonTests(t *testing.T, provider storage.Provider) {
+	commontest.TestProviderGetOpenStores(t, provider)
+	commontest.TestProviderOpenStoreSetGetConfig(t, provider)
+	commontest.TestPutGet(t, provider)
+	commontest.TestStoreGetTags(t, provider)
+	commontest.TestStoreGetBulk(t, provider)
+	commontest.TestStoreDelete(t, provider)
+	commontest.TestStoreQuery(t, provider)
+	commontest.TestStoreBatch(t, provider)
+	commontest.TestStoreFlush(t, provider)
+	commontest.TestStoreClose(t, provider)
+	commontest.TestProviderClose(t, provider)
 }
 
 func randomStoreName() string {

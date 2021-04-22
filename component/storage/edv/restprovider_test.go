@@ -55,25 +55,25 @@ func TestCommon(t *testing.T) {
 		t.Run("Without batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 		})
 	})
@@ -82,13 +82,13 @@ func TestCommon(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
@@ -96,14 +96,14 @@ func TestCommon(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider)
+				runCommonTests(t, edvRESTProvider)
 			})
 		})
 	})
@@ -316,6 +316,21 @@ func TestRESTStore_Query(t *testing.T) {
 		iterator, err := store.Query("TagName:TagValue")
 		require.EqualError(t, err, `failure while querying EDV server: failed to send POST request: `+
 			`failed to send request: Post "InvalidURL/InvalidVaultID/query": unsupported protocol scheme ""`)
+		require.Nil(t, iterator)
+	})
+	t.Run("Not supported options", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("ServerURL", "VaultID",
+			createValidEncryptedFormatter(t))
+
+		store, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		iterator, err := store.Query("TagName:TagValue", spi.WithInitialPageNum(1))
+		require.EqualError(t, err, "EDV does not support setting the initial page number of query results")
+		require.Nil(t, iterator)
+
+		iterator, err = store.Query("TagName:TagValue", spi.WithSortOrder(&spi.SortOptions{}))
+		require.EqualError(t, err, "EDV does not support custom sort options for query results")
 		require.Nil(t, iterator)
 	})
 }
@@ -616,4 +631,18 @@ func getVaultIDFromURL(vaultURL string) string {
 	vaultIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
 
 	return vaultIDToRetrieve
+}
+
+func runCommonTests(t *testing.T, provider spi.Provider) {
+	storagetest.TestProviderGetOpenStores(t, provider)
+	storagetest.TestProviderOpenStoreSetGetConfig(t, provider)
+	storagetest.TestPutGet(t, provider)
+	storagetest.TestStoreGetTags(t, provider)
+	storagetest.TestStoreGetBulk(t, provider)
+	storagetest.TestStoreDelete(t, provider)
+	storagetest.TestStoreQuery(t, provider)
+	storagetest.TestStoreBatch(t, provider)
+	storagetest.TestStoreFlush(t, provider)
+	storagetest.TestStoreClose(t, provider)
+	storagetest.TestProviderClose(t, provider)
 }

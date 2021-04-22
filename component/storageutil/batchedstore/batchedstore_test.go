@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/formattedstore/exampleformatters"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
@@ -61,7 +62,7 @@ func TestCommon(t *testing.T) {
 			provider := batchedstore.NewProvider(mem.NewProvider(), 0)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
@@ -69,7 +70,7 @@ func TestCommon(t *testing.T) {
 					exampleformatters.NewBase64Formatter(true)), 0)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 	})
 	t.Run("With batch size set to 1", func(t *testing.T) { // Should work the same as size 0 above
@@ -77,7 +78,7 @@ func TestCommon(t *testing.T) {
 			provider := batchedstore.NewProvider(mem.NewProvider(), 1)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			provider := batchedstore.NewProvider(
@@ -85,7 +86,7 @@ func TestCommon(t *testing.T) {
 					exampleformatters.NewBase64Formatter(true)), 1)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 	})
 	t.Run("With batch size set to 2", func(t *testing.T) {
@@ -93,7 +94,7 @@ func TestCommon(t *testing.T) {
 			provider := batchedstore.NewProvider(mem.NewProvider(), 2)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			t.Run("With no-op formatter", func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestCommon(t *testing.T) {
 					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 2)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
@@ -109,7 +110,7 @@ func TestCommon(t *testing.T) {
 						exampleformatters.NewBase64Formatter(true)), 2)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 		})
 	})
@@ -118,7 +119,7 @@ func TestCommon(t *testing.T) {
 			provider := batchedstore.NewProvider(mem.NewProvider(), 10)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			t.Run("With no-op formatter", func(t *testing.T) {
@@ -126,7 +127,7 @@ func TestCommon(t *testing.T) {
 					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 10)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
@@ -134,7 +135,7 @@ func TestCommon(t *testing.T) {
 						exampleformatters.NewBase64Formatter(true)), 10)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 		})
 	})
@@ -143,7 +144,7 @@ func TestCommon(t *testing.T) {
 			provider := batchedstore.NewProvider(mem.NewProvider(), 100)
 			require.NotNil(t, provider)
 
-			storagetest.TestAll(t, provider)
+			runCommonTests(t, provider)
 		})
 		t.Run("With formatted storage as underlying provider", func(t *testing.T) {
 			t.Run("With no-op formatter", func(t *testing.T) {
@@ -151,7 +152,7 @@ func TestCommon(t *testing.T) {
 					formattedstore.NewProvider(mem.NewProvider(), &exampleformatters.NoOpFormatter{}), 100)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 			t.Run("With base64 formatter", func(t *testing.T) {
 				provider := batchedstore.NewProvider(
@@ -159,8 +160,22 @@ func TestCommon(t *testing.T) {
 						exampleformatters.NewBase64Formatter(true)), 100)
 				require.NotNil(t, provider)
 
-				storagetest.TestAll(t, provider)
+				runCommonTests(t, provider)
 			})
 		})
 	})
+}
+
+func runCommonTests(t *testing.T, provider spi.Provider) {
+	storagetest.TestProviderGetOpenStores(t, provider)
+	storagetest.TestProviderOpenStoreSetGetConfig(t, provider)
+	storagetest.TestPutGet(t, provider)
+	storagetest.TestStoreGetTags(t, provider)
+	storagetest.TestStoreGetBulk(t, provider)
+	storagetest.TestStoreDelete(t, provider)
+	storagetest.TestStoreQuery(t, provider)
+	storagetest.TestStoreBatch(t, provider)
+	storagetest.TestStoreFlush(t, provider)
+	storagetest.TestStoreClose(t, provider)
+	storagetest.TestProviderClose(t, provider)
 }

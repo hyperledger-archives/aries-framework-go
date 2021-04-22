@@ -252,8 +252,16 @@ func (m *memStore) GetBulk(keys ...string) ([][]byte, error) {
 // Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
 // If TagValue is not provided, then all data associated with the TagName will be returned.
 // For now, expression can only be a single tag Name + Value pair.
-// memStore does not make use of spi.QueryOptions.
-func (m *memStore) Query(expression string, _ ...spi.QueryOption) (spi.Iterator, error) {
+// None of the current query options are supported
+// spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
+// spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do
+// affect the results that the Iterator returns.
+func (m *memStore) Query(expression string, options ...spi.QueryOption) (spi.Iterator, error) {
+	err := checkForUnsupportedQueryOptions(options)
+	if err != nil {
+		return nil, err
+	}
+
 	if expression == "" {
 		return nil, errInvalidQueryExpressionFormat
 	}
@@ -413,5 +421,30 @@ func (m *memIterator) Tags() ([]spi.Tag, error) {
 
 // Close is a no-op, since there's nothing to close for a memIterator.
 func (m *memIterator) Close() error {
+	return nil
+}
+
+func getQueryOptions(options []spi.QueryOption) spi.QueryOptions {
+	var queryOptions spi.QueryOptions
+
+	for _, option := range options {
+		option(&queryOptions)
+	}
+
+	return queryOptions
+}
+
+func checkForUnsupportedQueryOptions(options []spi.QueryOption) error {
+	querySettings := getQueryOptions(options)
+
+	if querySettings.InitialPageNum != 0 {
+		return errors.New("in-memory provider does not currently support " +
+			"setting the initial page number of query results")
+	}
+
+	if querySettings.SortOptions != nil {
+		return errors.New("in-memory provider does not currently support custom sort options for query results")
+	}
+
 	return nil
 }
