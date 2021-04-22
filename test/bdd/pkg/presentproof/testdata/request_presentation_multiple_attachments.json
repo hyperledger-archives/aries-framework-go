@@ -48,7 +48,7 @@
                 ],
                 "schema":[
                   {
-                    "uri":"http://static-file-server:7089/schema.json"
+                    "uri": "https://www.w3.org/2018/credentials/examples/v1"
                   }
                 ],
                 "constraints":{
@@ -70,7 +70,7 @@
                 ],
                 "schema":[
                   {
-                    "uri":"http://static-file-server:7089/schema.json"
+                    "uri":"https://www.w3.org/2018/credentials/examples/v1"
                   }
                 ],
                 "constraints":{
@@ -96,7 +96,7 @@
                 ],
                 "schema":[
                   {
-                    "uri":"http://static-file-server:7089/schema.json"
+                    "uri": "https://www.w3.org/2018/credentials/examples/v1"
                   }
                 ],
                 "constraints":{
@@ -122,7 +122,7 @@
                 ],
                 "schema":[
                   {
-                    "uri":"http://static-file-server:7089/schema.json"
+                    "uri": "https://www.w3.org/2018/credentials/examples/v1"
                   }
                 ],
                 "constraints":{

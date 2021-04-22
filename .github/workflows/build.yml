@@ -83,7 +83,6 @@ jobs:
       - name: Run BDD test
         timeout-minutes: 45
         run: |
-          echo '127.0.0.1 static-file-server-js' | sudo tee -a /etc/hosts
           make bdd-test
 
   repoLint:

@@ -88,16 +88,3 @@ services:
       - SIDETREE_MOCK_DID_NAMESPACE=did:sidetree:test
     ports:
       - 48326:48326
-
-  static-file-server-js:
-    container_name: static-file-server-js
-    image: halverneus/static-file-server:latest
-    environment:
-      - PORT=6089
-      - FOLDER=/web
-      - CORS=true
-      - VIRTUAL_PORT=6089
-    ports:
-      - 6089:6089
-    volumes:
-      - ./schema:/web

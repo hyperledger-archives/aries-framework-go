@@ -555,7 +555,6 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			if constraints.LimitDisclosure.isRequired() {
 				template, err = json.Marshal(map[string]interface{}{
 					"id":                credential.ID,
-					"credentialSchema":  credential.Schemas,
 					"type":              credential.Types,
 					"@context":          credential.Context,
 					"issuer":            credential.Issuer,
@@ -884,7 +883,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*ve
 		var applicable bool
 
 		for _, schema := range schemas {
-			applicable = credentialMatchSchema(credential, schema.URI)
+			applicable = stringsContain(credential.Context, schema.URI)
 			if schema.Required && !applicable {
 				break
 			}
@@ -896,14 +895,4 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*ve
 	}
 
 	return result
-}
-
-func credentialMatchSchema(cred *verifiable.Credential, schemaID string) bool {
-	for i := range cred.Schemas {
-		if cred.Schemas[i].ID == schemaID {
-			return true
-		}
-	}
-
-	return false
 }

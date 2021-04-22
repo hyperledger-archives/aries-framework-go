@@ -10,8 +10,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -52,21 +50,7 @@ const vpJWS = "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIiwidHlwIjoiSldUIn0.eyJpc3MiO
 var (
 	strFilterType = "string"
 	arrFilterType = "array"
-
-	// schemaURI is being set in init() function.
-	schemaURI string
 )
-
-// nolint: gochecknoinits
-func init() {
-	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		//nolint: gosec,errcheck
-		res.Write([]byte(verifiable.DefaultSchema))
-	}))
-
-	schemaURI = server.URL
-}
 
 func TestSavePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -386,11 +370,12 @@ func TestPresentationDefinition(t *testing.T) {
 				MimeType: mimeTypeApplicationLdJSON,
 				Data: decorator.AttachmentData{
 					JSON: &verifiable.Credential{
-						ID: uuid.New().String(),
-						Schemas: []verifiable.TypedID{{
-							ID:   schemaURI,
-							Type: verifiable.VCType,
-						}},
+						ID:      uuid.New().URN(),
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						Subject: verifiable.Subject{},
+						Issuer:  verifiable.Issuer{ID: uuid.New().URN()},
+						Issued:  util.NewTime(time.Now()),
 						CustomFields: map[string]interface{}{
 							"first_name": "Jesse",
 						},
@@ -412,7 +397,7 @@ func TestPresentationDefinition(t *testing.T) {
 							ID: uuid.New().String(),
 							InputDescriptors: []*presexch.InputDescriptor{{
 								Schema: []*presexch.Schema{{
-									URI: schemaURI,
+									URI: verifiable.ContextURI,
 								}},
 								ID: uuid.New().String(),
 								Constraints: &presexch.Constraints{
@@ -448,12 +433,8 @@ func TestPresentationDefinition(t *testing.T) {
 				Data: decorator.AttachmentData{
 					JSON: &verifiable.Credential{
 						ID:      "http://example.edu/credentials/1872",
-						Context: []string{"https://www.w3.org/2018/credentials/v1"},
+						Context: []string{verifiable.ContextURI},
 						Types:   []string{verifiable.VCType},
-						Schemas: []verifiable.TypedID{{
-							ID:   schemaURI,
-							Type: "JsonSchemaValidator2018",
-						}},
 						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 						Issued: &util.TimeWithTrailingZeroMsec{
 							Time: time.Now(),
@@ -490,7 +471,7 @@ func TestPresentationDefinition(t *testing.T) {
 							InputDescriptors: []*presexch.InputDescriptor{{
 								ID: uuid.New().String(),
 								Schema: []*presexch.Schema{{
-									URI: schemaURI,
+									URI: verifiable.ContextURI,
 								}},
 								Constraints: &presexch.Constraints{
 									Fields: []*presexch.Field{{
@@ -523,12 +504,8 @@ func TestPresentationDefinition(t *testing.T) {
 				Data: decorator.AttachmentData{
 					JSON: &verifiable.Credential{
 						ID:      "http://example.edu/credentials/1872",
-						Context: []string{"https://www.w3.org/2018/credentials/v1"},
+						Context: []string{verifiable.ContextURI},
 						Types:   []string{verifiable.VCType},
-						Schemas: []verifiable.TypedID{{
-							ID:   schemaURI,
-							Type: "JsonSchemaValidator2018",
-						}},
 						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 						Issued: &util.TimeWithTrailingZeroMsec{
 							Time: time.Now(),
@@ -565,7 +542,7 @@ func TestPresentationDefinition(t *testing.T) {
 							InputDescriptors: []*presexch.InputDescriptor{{
 								ID: uuid.New().String(),
 								Schema: []*presexch.Schema{{
-									URI: schemaURI,
+									URI: verifiable.ContextURI,
 								}},
 								Constraints: &presexch.Constraints{
 									Fields: []*presexch.Field{{

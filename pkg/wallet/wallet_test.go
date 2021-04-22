@@ -716,10 +716,6 @@ func TestWallet_Query(t *testing.T) {
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      "http://example.edu/credentials/9999",
-		Schemas: []verifiable.TypedID{{
-			ID:   schemaURI,
-			Type: "JsonSchemaValidator2018",
-		}},
 		CustomFields: map[string]interface{}{
 			"first_name": "Jesse",
 		},
@@ -733,7 +729,7 @@ func TestWallet_Query(t *testing.T) {
 	}).MarshalJSON()
 	require.NoError(t, err)
 
-	sampleVC := fmt.Sprintf(sampleVCFmt, schemaURI)
+	sampleVC := fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)
 	vcForQuery := []byte(strings.ReplaceAll(sampleVC,
 		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
 	vcForDerive := []byte(sampleBBSVC)
@@ -754,7 +750,7 @@ func TestWallet_Query(t *testing.T) {
 		InputDescriptors: []*presexch.InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: []*presexch.Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &presexch.Constraints{
 				Fields: []*presexch.Field{{
@@ -770,7 +766,7 @@ func TestWallet_Query(t *testing.T) {
 	require.NotEmpty(t, pdJSON)
 
 	// query by example
-	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, schemaURI))
+	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, verifiable.ContextURI))
 	// query by frame
 	queryByFrame := []byte(sampleQueryByFrame)
 

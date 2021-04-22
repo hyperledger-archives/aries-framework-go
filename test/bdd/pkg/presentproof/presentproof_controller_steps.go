@@ -323,14 +323,13 @@ func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 		util.FilterStateID("done"),
 		util.FilterPIID(s.nameToPIID[name]),
 	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
 
 	if !reflect.DeepEqual(msg.Message.Properties["names"], []interface{}{name}) {
 		return fmt.Errorf("properties: expected names [%s], got %v", name,
 			msg.Message.Properties["names"])
-	}
-
-	if err != nil {
-		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
 	var result verifiable.RecordResult

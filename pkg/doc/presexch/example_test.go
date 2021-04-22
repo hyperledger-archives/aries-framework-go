@@ -30,7 +30,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -54,8 +54,8 @@ func ExamplePresentationDefinition_CreateVP() {
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
@@ -63,10 +63,6 @@ func ExamplePresentationDefinition_CreateVP() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -74,13 +70,11 @@ func ExamplePresentationDefinition_CreateVP() {
 			},
 		},
 	}, verifiable.WithJSONLDDocumentLoader(loader))
-
-	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-	vp.Credentials()[0].(*verifiable.Credential).Schemas[0].ID = dummy
-
 	if err != nil {
 		panic(err)
 	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -115,12 +109,6 @@ func ExamplePresentationDefinition_CreateVP() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": true,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:76e12ec712ebc6f1c221ebfeb1f",
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -139,7 +127,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -154,7 +142,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -176,8 +164,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
@@ -185,10 +173,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -197,8 +181,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
@@ -206,10 +190,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -217,16 +197,11 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			},
 		},
 	}, verifiable.WithJSONLDDocumentLoader(loader))
-
-	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-
-	for _, credential := range vp.Credentials() {
-		credential.(*verifiable.Credential).Schemas[0].ID = dummy
-	}
-
 	if err != nil {
 		panic(err)
 	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -276,12 +251,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
@@ -295,12 +264,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
@@ -323,7 +286,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -338,7 +301,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -361,8 +324,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
@@ -370,10 +333,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -382,8 +341,8 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
@@ -391,10 +350,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -407,10 +362,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	}
 
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-
-	for _, credential := range vp.Credentials() {
-		credential.(*verifiable.Credential).Schemas[0].ID = dummy
-	}
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -460,12 +411,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
@@ -479,12 +424,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
@@ -497,12 +436,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//			"@context": [
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
@@ -513,12 +446,6 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//		{
 	//			"@context": [
 	//				"https://www.w3.org/2018/credentials/v1"
-	//			],
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
 	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"first_name": "Jesse",
@@ -563,7 +490,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -579,7 +506,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -596,7 +523,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -619,8 +546,8 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
@@ -628,10 +555,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -641,8 +564,8 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
@@ -650,10 +573,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -667,10 +586,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	}
 
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-
-	for _, credential := range vp.Credentials() {
-		credential.(*verifiable.Credential).Schemas[0].ID = dummy
-	}
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -720,12 +635,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
@@ -740,12 +649,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
@@ -759,12 +662,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//			"@context": [
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"id": "http://example.edu/credentials/888",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -775,12 +672,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//		{
 	//			"@context": [
 	//				"https://www.w3.org/2018/credentials/v1"
-	//			],
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
 	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"id": "http://example.edu/credentials/777",
@@ -823,7 +714,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -839,7 +730,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -855,7 +746,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: schemaURI,
+				URI: verifiable.ContextURI,
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -877,8 +768,8 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	vp, err := pd.CreateVP([]*verifiable.Credential{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{"https://www.w3.org/2018/credentials/v1"},
-			Types:   []string{"VerifiableCredential"},
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
@@ -886,10 +777,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -908,10 +795,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
-			Schemas: []verifiable.TypedID{{
-				ID:   schemaURI,
-				Type: "JsonSchemaValidator2018",
-			}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -925,10 +808,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	}
 
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-
-	for _, credential := range vp.Credentials() {
-		credential.(*verifiable.Credential).Schemas[0].ID = dummy
-	}
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -978,12 +857,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:777",
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
@@ -998,12 +871,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSchema": [
-	//				{
-	//					"id": "DUMMY",
-	//					"type": "JsonSchemaValidator2018"
-	//				}
-	//			],
 	//			"credentialSubject": "did:example:888",
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
