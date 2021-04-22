@@ -13,6 +13,7 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -51,6 +52,8 @@ var (
 	}
 )
 
+var logger = log.New("aries-framework/wallet")
+
 // provider contains dependencies for the verifiable credential wallet
 // and is typically created by using aries.Context().
 type provider interface {
@@ -82,7 +85,7 @@ type Wallet struct {
 	storeProvider storage.Provider
 
 	// wallet VDR
-	walletVDR *walletVDR
+	vdr vdr.Registry
 
 	// document loader for JSON-LD contexts
 	jsonldDocumentLoader ld.DocumentLoader
@@ -114,7 +117,7 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		storeProvider:        ctx.StorageProvider(),
 		walletCrypto:         ctx.Crypto(),
 		contents:             contents,
-		walletVDR:            newContentBasedVDR(ctx.VDRegistry(), contents),
+		vdr:                  ctx.VDRegistry(),
 		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
 	}, nil
 }
@@ -122,19 +125,21 @@ func New(userID string, ctx provider) (*Wallet, error) {
 // CreateProfile creates a new verifiable credential wallet profile for given user.
 // returns error if wallet profile is already created.
 // Use `UpdateProfile()` for replacing an already created verifiable credential wallet profile.
-func CreateProfile(userID string, ctx provider, options ...ProfileKeyManagerOptions) error {
+func CreateProfile(userID string, ctx provider, options ...ProfileOptions) error {
 	return createOrUpdate(userID, ctx, false, options...)
 }
 
 // UpdateProfile updates existing verifiable credential wallet profile.
 // Will create new profile if no profile exists for given user.
-// Caution: you might lose your existing keys if you change kms options.
-func UpdateProfile(userID string, ctx provider, options ...ProfileKeyManagerOptions) error {
+// Caution:  - you might lose your existing keys if you change kms options.
+// - you might lose your existing wallet contents if you change storage options
+// (ex: switching from EDV to/from context storage provider).
+func UpdateProfile(userID string, ctx provider, options ...ProfileOptions) error {
 	return createOrUpdate(userID, ctx, true, options...)
 }
 
-func createOrUpdate(userID string, ctx provider, update bool, options ...ProfileKeyManagerOptions) error {
-	opts := &kmsOpts{}
+func createOrUpdate(userID string, ctx provider, update bool, options ...ProfileOptions) error {
+	opts := &profileOpts{}
 
 	for _, opt := range options {
 		opt(opts)
@@ -158,9 +163,11 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 		if err != nil {
 			return fmt.Errorf("failed to update wallet user profile KMS options: %w", err)
 		}
+
+		profile.setEDVOptions(opts.edvServerURL, opts.vaultID)
 	} else {
 		// create new profile.
-		profile, err = createProfile(userID, opts.passphrase, opts.secretLockSvc, opts.keyServerURL)
+		profile, err = createProfile(userID, opts)
 		if err != nil {
 			return fmt.Errorf("failed to create new  wallet user profile: %w", err)
 		}
@@ -174,7 +181,8 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 	return nil
 }
 
-// Open unlocks wallet's key manager instance and returns a token for subsequent use of wallet features.
+// Open unlocks wallet's key manager instance & open wallet content store and
+// returns a token for subsequent use of wallet features.
 //
 //	Args:
 //		- unlock options for opening wallet.
@@ -187,12 +195,30 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 		opt(opts)
 	}
 
-	return keyManager().createKeyManager(c.profile, c.storeProvider, opts)
+	// unlock key manager
+	token, err := keyManager().createKeyManager(c.profile, c.storeProvider, opts)
+	if err != nil {
+		return "", err
+	}
+
+	// unlock content store
+	// TODO token to be passed to contents.Open() for EDV support
+	err = c.contents.Open()
+	if err != nil {
+		// close wallet if it fails to open store
+		c.Close()
+
+		return "", err
+	}
+
+	return token, nil
 }
 
-// Close expires token issued to this VC wallet.
+// Close expires token issued to this VC wallet, removes the key manager instance and closes wallet content store.
 // returns false if token is not found or already expired for this wallet user.
 func (c *Wallet) Close() bool {
+	c.contents.Close()
+
 	return keyManager().removeKeyManager(c.userID)
 }
 
@@ -246,7 +272,6 @@ func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 //
-// TODO: (#2433) support for correlation between wallet contents (ex: credentials to a profile/collection).
 func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage, options ...AddContentOptions) error { //nolint: lll
 	return c.contents.Save(authToken, contentType, content, options...)
 }
@@ -260,8 +285,8 @@ func (c *Wallet) Add(authToken string, contentType ContentType, content json.Raw
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Wallet) Remove(contentType ContentType, contentID string) error {
-	return c.contents.Remove(contentType, contentID)
+func (c *Wallet) Remove(authToken string, contentType ContentType, contentID string) error {
+	return c.contents.Remove(authToken, contentID, contentType)
 }
 
 // Get fetches a wallet content by content ID.
@@ -273,8 +298,8 @@ func (c *Wallet) Remove(contentType ContentType, contentID string) error {
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage, error) {
-	return c.contents.Get(contentType, contentID)
+func (c *Wallet) Get(authToken string, contentType ContentType, contentID string) (json.RawMessage, error) {
+	return c.contents.Get(authToken, contentID, contentType)
 }
 
 // GetAll fetches all wallet contents of given type.
@@ -287,7 +312,7 @@ func (c *Wallet) Get(contentType ContentType, contentID string) (json.RawMessage
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
-func (c *Wallet) GetAll(contentType ContentType, options ...GetAllContentsOptions) (map[string]json.RawMessage, error) {
+func (c *Wallet) GetAll(authToken string, contentType ContentType, options ...GetAllContentsOptions) (map[string]json.RawMessage, error) { //nolint: lll
 	opts := &getAllContentsOpts{}
 
 	for _, option := range options {
@@ -295,10 +320,10 @@ func (c *Wallet) GetAll(contentType ContentType, options ...GetAllContentsOption
 	}
 
 	if opts.collectionID != "" {
-		return c.contents.GetAllByCollection(contentType, opts.collectionID)
+		return c.contents.GetAllByCollection(authToken, opts.collectionID, contentType)
 	}
 
-	return c.contents.GetAll(contentType)
+	return c.contents.GetAll(authToken, contentType)
 }
 
 // Query runs query against wallet credential contents and returns presentation containing credential results.
@@ -312,13 +337,14 @@ func (c *Wallet) GetAll(contentType ContentType, options ...GetAllContentsOption
 // 	- https://identity.foundation/presentation-exchange
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
 //
-func (c *Wallet) Query(params ...*QueryParams) ([]*verifiable.Presentation, error) {
-	vcContents, err := c.contents.GetAll(Credential)
+func (c *Wallet) Query(authToken string, params ...*QueryParams) ([]*verifiable.Presentation, error) {
+	vcContents, err := c.contents.GetAll(authToken, Credential)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
 	}
 
-	query := NewQuery(verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(), c.jsonldDocumentLoader, params...)
+	query := NewQuery(verifiable.NewVDRKeyResolver(newContentBasedVDR(authToken, c.vdr, c.contents)).PublicKeyFetcher(),
+		c.jsonldDocumentLoader, params...)
 
 	return query.PerformQuery(vcContents)
 }
@@ -340,7 +366,7 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 
 	purpose := did.AssertionMethod
 
-	err = c.validateProofOption(options, purpose)
+	err = c.validateProofOption(authToken, options, purpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare proof: %w", err)
 	}
@@ -362,14 +388,14 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 //		- proof options
 //
 func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...ProveOptions) (*verifiable.Presentation, error) { //nolint: lll
-	presentation, err := c.resolveOptionsToPresent(credentials...)
+	presentation, err := c.resolveOptionsToPresent(authToken, credentials...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve credentials from request: %w", err)
 	}
 
 	purpose := did.Authentication
 
-	err = c.validateProofOption(proofOptions, purpose)
+	err = c.validateProofOption(authToken, proofOptions, purpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare proof: %w", err)
 	}
@@ -390,23 +416,23 @@ func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials
 //		- verification option for sending different models (stored credential ID, raw credential, raw presentation).
 //
 // Returns: a boolean verified, and an error if verified is false.
-func (c *Wallet) Verify(options VerificationOption) (bool, error) {
+func (c *Wallet) Verify(authToken string, options VerificationOption) (bool, error) {
 	requestOpts := &verifyOpts{}
 
 	options(requestOpts)
 
 	switch {
 	case requestOpts.credentialID != "":
-		raw, err := c.contents.Get(Credential, requestOpts.credentialID)
+		raw, err := c.contents.Get(authToken, requestOpts.credentialID, Credential)
 		if err != nil {
 			return false, fmt.Errorf("failed to get credential: %w", err)
 		}
 
-		return c.verifyCredential(raw)
+		return c.verifyCredential(authToken, raw)
 	case len(requestOpts.rawCredential) > 0:
-		return c.verifyCredential(requestOpts.rawCredential)
+		return c.verifyCredential(authToken, requestOpts.rawCredential)
 	case len(requestOpts.rawPresentation) > 0:
-		return c.verifyPresentation(requestOpts.rawPresentation)
+		return c.verifyPresentation(authToken, requestOpts.rawPresentation)
 	default:
 		return false, fmt.Errorf("invalid verify request")
 	}
@@ -418,19 +444,16 @@ func (c *Wallet) Verify(options VerificationOption) (bool, error) {
 //		- credential to derive (ID of the stored credential, raw credential or credential instance).
 //		- derive options.
 //
-func (c *Wallet) Derive(credential CredentialToDerive,
-	options *DeriveOptions) (*verifiable.Credential, error) {
-	vc, err := c.resolveCredentialToDerive(credential)
+func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options *DeriveOptions) (*verifiable.Credential, error) { //nolint: lll
+	vc, err := c.resolveCredentialToDerive(authToken, credential)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve request : %w", err)
 	}
 
 	derived, err := vc.GenerateBBSSelectiveDisclosure(options.Frame, []byte(options.Nonce),
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-		),
-		verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader),
-	)
+			verifiable.NewVDRKeyResolver(newContentBasedVDR(authToken, c.vdr, c.contents)).PublicKeyFetcher(),
+		), verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive credential : %w", err)
 	}
@@ -438,7 +461,7 @@ func (c *Wallet) Derive(credential CredentialToDerive,
 	return derived, nil
 }
 
-func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiable.Presentation, error) {
+func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOptions) (*verifiable.Presentation, error) {
 	var allCredentials []*verifiable.Credential
 
 	opts := &proveOpts{}
@@ -448,7 +471,7 @@ func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiab
 	}
 
 	for _, id := range opts.storedCredentials {
-		raw, err := c.contents.Get(Credential, id)
+		raw, err := c.contents.Get(auth, id, Credential)
 		if err != nil {
 			return nil, err
 		}
@@ -493,7 +516,7 @@ func (c *Wallet) resolveOptionsToPresent(credentials ...ProveOptions) (*verifiab
 	return verifiable.NewPresentation(verifiable.WithCredentials(allCredentials...))
 }
 
-func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*verifiable.Credential, error) {
+func (c *Wallet) resolveCredentialToDerive(auth string, credential CredentialToDerive) (*verifiable.Credential, error) {
 	opts := &deriveOpts{}
 
 	credential(opts)
@@ -512,7 +535,7 @@ func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*veri
 	}
 
 	if opts.credentialID != "" {
-		raw, err := c.contents.Get(Credential, opts.credentialID)
+		raw, err := c.contents.Get(auth, opts.credentialID, Credential)
 		if err != nil {
 			return nil, err
 		}
@@ -528,12 +551,10 @@ func (c *Wallet) resolveCredentialToDerive(credential CredentialToDerive) (*veri
 	return nil, errors.New("invalid request to derive credential")
 }
 
-func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
-	_, err := verifiable.ParseCredential(credential,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-		),
-		verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
+func (c *Wallet) verifyCredential(authToken string, credential json.RawMessage) (bool, error) {
+	_, err := verifiable.ParseCredential(credential, verifiable.WithPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(newContentBasedVDR(authToken, c.vdr, c.contents)).PublicKeyFetcher(),
+	), verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return false, fmt.Errorf("credential verification failed: %w", err)
 	}
@@ -541,12 +562,10 @@ func (c *Wallet) verifyCredential(credential json.RawMessage) (bool, error) {
 	return true, nil
 }
 
-func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) {
-	vp, err := verifiable.ParsePresentation(presentation,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.walletVDR).PublicKeyFetcher(),
-		),
-		verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
+func (c *Wallet) verifyPresentation(authToken string, presentation json.RawMessage) (bool, error) {
+	vp, err := verifiable.ParsePresentation(presentation, verifiable.WithPresPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(newContentBasedVDR(authToken, c.vdr, c.contents)).PublicKeyFetcher(),
+	), verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
 	if err != nil {
 		return false, fmt.Errorf("presentation verification failed: %w", err)
 	}
@@ -558,7 +577,7 @@ func (c *Wallet) verifyPresentation(presentation json.RawMessage) (bool, error) 
 			return false, fmt.Errorf("failed to read credentials from presentation: %w", err)
 		}
 
-		_, err = c.verifyCredential(vc)
+		_, err = c.verifyCredential(authToken, vc)
 		if err != nil {
 			return false, fmt.Errorf("presentation verification failed: %w", err)
 		}
@@ -608,12 +627,12 @@ func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOpt
 	return nil
 }
 
-func (c *Wallet) validateProofOption(opts *ProofOptions, method did.VerificationRelationship) error {
+func (c *Wallet) validateProofOption(authToken string, opts *ProofOptions, method did.VerificationRelationship) error {
 	if opts == nil || opts.Controller == "" {
 		return errors.New("invalid proof option, 'controller' is required")
 	}
 
-	resolvedDoc, err := c.walletVDR.Resolve(opts.Controller)
+	resolvedDoc, err := newContentBasedVDR(authToken, c.vdr, c.contents).Resolve(opts.Controller)
 	if err != nil {
 		return err
 	}

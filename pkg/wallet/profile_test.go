@@ -25,7 +25,8 @@ const (
 
 func TestCreateNewProfile(t *testing.T) {
 	t.Run("test create new profile with key server URL", func(t *testing.T) {
-		profile, err := createProfile(sampleProfileUser, "", nil, sampleKeyServerURL)
+		profile, err := createProfile(sampleProfileUser,
+			&profileOpts{passphrase: "", secretLockSvc: nil, keyServerURL: sampleKeyServerURL})
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
@@ -35,7 +36,8 @@ func TestCreateNewProfile(t *testing.T) {
 	})
 
 	t.Run("test create new profile with passphrase", func(t *testing.T) {
-		profile, err := createProfile(sampleProfileUser, samplePassPhrase, nil, "")
+		profile, err := createProfile(sampleProfileUser,
+			&profileOpts{passphrase: samplePassPhrase, secretLockSvc: nil, keyServerURL: sampleKeyServerURL})
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
@@ -45,9 +47,10 @@ func TestCreateNewProfile(t *testing.T) {
 	})
 
 	t.Run("test create new profile with secret lock service", func(t *testing.T) {
-		profile, err := createProfile(sampleProfileUser, "", &secretlock.MockSecretLock{
-			ValEncrypt: sampleMasterCipherText,
-		}, sampleKeyServerURL)
+		profile, err := createProfile(sampleProfileUser,
+			&profileOpts{passphrase: "", secretLockSvc: &secretlock.MockSecretLock{
+				ValEncrypt: sampleMasterCipherText,
+			}, keyServerURL: sampleKeyServerURL})
 
 		require.NoError(t, err)
 		require.NotEmpty(t, profile)
@@ -58,16 +61,18 @@ func TestCreateNewProfile(t *testing.T) {
 
 	t.Run("test create new profile failure", func(t *testing.T) {
 		// invalid profile option
-		profile, err := createProfile(sampleProfileUser, "", nil, "")
+		profile, err := createProfile(sampleProfileUser,
+			&profileOpts{passphrase: "", secretLockSvc: nil, keyServerURL: ""})
 
 		require.Empty(t, profile)
 		require.Error(t, err)
 		require.EqualError(t, err, "invalid create profile options")
 
 		// secret lock service error
-		profile, err = createProfile(sampleProfileUser, "", &secretlock.MockSecretLock{
-			ErrEncrypt: fmt.Errorf(sampleCustomProfileErr),
-		}, "")
+		profile, err = createProfile(sampleProfileUser,
+			&profileOpts{passphrase: "", secretLockSvc: &secretlock.MockSecretLock{
+				ErrEncrypt: fmt.Errorf(sampleCustomProfileErr),
+			}, keyServerURL: ""})
 
 		require.Empty(t, profile)
 		require.Error(t, err)

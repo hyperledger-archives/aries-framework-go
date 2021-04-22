@@ -67,6 +67,9 @@ var (
 
 	// WalletLocked when key manager operation is attempted without unlocking wallet.
 	ErrWalletLocked = errors.New("wallet locked")
+
+	// ErrInvalidAuthToken when auth token provided to wallet is unable to unlock key manager.
+	ErrInvalidAuthToken = errors.New("invalid auth token")
 )
 
 // walletKMSInstance is key manager store singleton - access only via keyManager()

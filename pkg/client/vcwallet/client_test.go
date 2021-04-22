@@ -792,6 +792,12 @@ func TestClient_Get(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, content)
 	require.Equal(t, sampleContentValid, string(content))
+
+	// try locked wallet
+	require.True(t, vcWalletClient.Close())
+	content, err = vcWalletClient.Get(wallet.Metadata, "did:example:123456789abcdefghi")
+	require.True(t, errors.Is(err, ErrWalletLocked))
+	require.Empty(t, content)
 }
 
 func TestClient_GetAll(t *testing.T) {
@@ -856,6 +862,12 @@ func TestClient_GetAll(t *testing.T) {
 	vcs, err = vcWalletClient.GetAll(wallet.Credential, wallet.FilterByCollection(collectionID))
 	require.NoError(t, err)
 	require.Len(t, vcs, count)
+
+	// try locked wallet
+	require.True(t, vcWalletClient.Close())
+	vcs, err = vcWalletClient.GetAll(wallet.Credential, wallet.FilterByCollection(collectionID))
+	require.True(t, errors.Is(err, ErrWalletLocked))
+	require.Empty(t, vcs)
 }
 
 func TestClient_Remove(t *testing.T) {
@@ -881,6 +893,11 @@ func TestClient_Remove(t *testing.T) {
 	require.Empty(t, content)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, storage.ErrDataNotFound))
+
+	// try locked wallet
+	require.True(t, vcWalletClient.Close())
+	err = vcWalletClient.Remove(wallet.Metadata, "did:example:123456789abcdefghi")
+	require.True(t, errors.Is(err, ErrWalletLocked))
 }
 
 func TestClient_Query(t *testing.T) {
@@ -937,8 +954,6 @@ func TestClient_Query(t *testing.T) {
 	vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
-
-	defer vcWalletClient.Close()
 
 	require.NoError(t, vcWalletClient.Add(wallet.Credential, vc1))
 	require.NoError(t, vcWalletClient.Add(wallet.Credential, vcForQuery))
@@ -1056,6 +1071,15 @@ func TestClient_Query(t *testing.T) {
 				}
 			})
 		}
+
+		// test wallet locked
+		require.True(t, vcWalletClient.Close())
+
+		results, err := vcWalletClient.Query(&wallet.QueryParams{
+			Type: "DIDAuth",
+		})
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, results)
 	})
 }
 
@@ -1321,6 +1345,16 @@ func TestClient_Verify(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
 	})
+
+	t.Run("Test VC wallet verify presentation - test wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(sampleVP)))
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.False(t, ok)
+	})
 }
 
 func TestWallet_Derive(t *testing.T) {
@@ -1455,6 +1489,18 @@ func TestWallet_Derive(t *testing.T) {
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no BbsBlsSignature2020 proof present")
+	})
+
+	t.Run("Test derive credential failures - test wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		result, err := vcWalletClient.Derive(wallet.FromRawCredential([]byte(sampleUDCVCWithProof)), &wallet.DeriveOptions{
+			Frame: frameDoc,
+		})
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
 	})
 }
 
