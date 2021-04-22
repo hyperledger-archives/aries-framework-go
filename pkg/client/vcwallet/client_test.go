@@ -417,9 +417,12 @@ func TestCreateProfile(t *testing.T) {
 		require.NoError(t, err)
 
 		vcWallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, vcWallet)
+
+		err = vcWallet.Open(wallet.WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
 		require.Error(t, err)
-		require.Empty(t, vcWallet)
-		require.Contains(t, err.Error(), "failed to get wallet content store:")
+		require.Contains(t, err.Error(), sampleClientErr)
 	})
 }
 

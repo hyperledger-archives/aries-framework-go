@@ -106,17 +106,12 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to get VC wallet profile: %w", err)
 	}
 
-	contents, err := newContentStore(ctx.StorageProvider(), profile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get wallet content store: %w", err)
-	}
-
 	return &Wallet{
 		userID:               userID,
 		profile:              profile,
 		storeProvider:        ctx.StorageProvider(),
 		walletCrypto:         ctx.Crypto(),
-		contents:             contents,
+		contents:             newContentStore(ctx.StorageProvider(), profile),
 		vdr:                  ctx.VDRegistry(),
 		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
 	}, nil
@@ -152,6 +147,7 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 
 	var profile *profile
 
+	// nolint: nestif
 	if update {
 		// find existing profile and update it.
 		profile, err = store.get(userID)
@@ -164,7 +160,10 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 			return fmt.Errorf("failed to update wallet user profile KMS options: %w", err)
 		}
 
-		profile.setEDVOptions(opts.edvServerURL, opts.vaultID)
+		err = profile.setEDVOptions(opts.edvConf)
+		if err != nil {
+			return fmt.Errorf("failed to update EDV configuration")
+		}
 	} else {
 		// create new profile.
 		profile, err = createProfile(userID, opts)
@@ -201,9 +200,8 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 		return "", err
 	}
 
-	// unlock content store
-	// TODO token to be passed to contents.Open() for EDV support
-	err = c.contents.Open()
+	// open content store using token
+	err = c.contents.Open(token)
 	if err != nil {
 		// close wallet if it fails to open store
 		c.Close()

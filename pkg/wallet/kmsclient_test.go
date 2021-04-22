@@ -10,12 +10,14 @@ import (
 	"crypto/sha256"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/pbkdf2"
 )
@@ -556,7 +558,7 @@ func TestImportKeyBase58(t *testing.T) {
 		sampleErr := errors.New(sampleKeyMgrErr)
 		wkmgr := keyManager()
 		err := wkmgr.saveKeyManger(uuid.New().String(), mockToken,
-			&kms.KeyManager{ImportPrivateKeyErr: sampleErr}, 0)
+			&mockkms.KeyManager{ImportPrivateKeyErr: sampleErr}, 0)
 		require.NoError(t, err)
 
 		err = importKeyBase58(mockToken, &keyContent{
@@ -574,5 +576,36 @@ func TestImportKeyBase58(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, sampleErr))
+	})
+}
+
+func TestKMSSigner(t *testing.T) {
+	token := uuid.New().String()
+
+	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, &mockkms.KeyManager{}, 500*time.Millisecond))
+
+	t.Run("test kms signer errors", func(t *testing.T) {
+		// invalid auth
+		signer, err := newKMSSigner("invalid", &mockcrypto.Crypto{}, &ProofOptions{})
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, signer)
+
+		// invalid verification method
+		signer, err = newKMSSigner(token, &mockcrypto.Crypto{}, &ProofOptions{
+			VerificationMethod: "invalid",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid verification method format")
+		require.Empty(t, signer)
+
+		// sign error
+		signer, err = newKMSSigner(token, &mockcrypto.Crypto{SignErr: errors.New(sampleKeyMgrErr)}, &ProofOptions{
+			VerificationMethod: "did:example#123",
+		})
+		require.NoError(t, err)
+
+		res, err := signer.Sign([]byte("1234"))
+		require.Error(t, err)
+		require.Empty(t, res)
 	})
 }

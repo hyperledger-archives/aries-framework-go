@@ -7,11 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
@@ -59,6 +64,30 @@ func TestCreateNewProfile(t *testing.T) {
 		require.Equal(t, profile.MasterLockCipher, sampleMasterCipherText)
 	})
 
+	t.Run("test create new profile with EDV conf", func(t *testing.T) {
+		profile, err := createProfile(sampleProfileUser,
+			&profileOpts{
+				passphrase: samplePassPhrase, secretLockSvc: nil, keyServerURL: sampleKeyServerURL,
+				edvConf: &edvConf{
+					ServerURL:       "sample-server-url",
+					VaultID:         "sample-vault-ID",
+					EncryptionKeyID: "sample-enc-kid",
+					MACKeyID:        "sample-mac-kid",
+				},
+			})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, profile)
+		require.NotEmpty(t, profile.ID)
+		require.Empty(t, profile.KeyServerURL, "")
+		require.NotEmpty(t, profile.MasterLockCipher)
+		require.NotEmpty(t, profile.EDVConf)
+		require.NotEmpty(t, profile.EDVConf.ServerURL)
+		require.NotEmpty(t, profile.EDVConf.VaultID)
+		require.NotEmpty(t, profile.EDVConf.EncryptionKeyID)
+		require.NotEmpty(t, profile.EDVConf.MACKeyID)
+	})
+
 	t.Run("test create new profile failure", func(t *testing.T) {
 		// invalid profile option
 		profile, err := createProfile(sampleProfileUser,
@@ -78,6 +107,66 @@ func TestCreateNewProfile(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create master lock from secret lock service provided")
 		require.Contains(t, err.Error(), sampleCustomProfileErr)
+
+		// invalid EDV settings
+		profile, err = createProfile(sampleProfileUser,
+			&profileOpts{
+				passphrase: samplePassPhrase, secretLockSvc: nil, keyServerURL: sampleKeyServerURL,
+				edvConf: &edvConf{
+					ServerURL: "sample-server-url",
+				},
+			})
+		require.Empty(t, profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid EDV settings in profile")
+	})
+
+	t.Run("test setup edv keys", func(t *testing.T) {
+		sampleProfile := &profile{
+			EDVConf: &edvConf{
+				ServerURL: "sample-server-url",
+				VaultID:   "sample-vault-id",
+			},
+		}
+
+		token := uuid.New().String()
+		kid := "sample-kid"
+		kms := &mockkms.KeyManager{CreateKeyID: kid}
+
+		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, kms, 500*time.Millisecond))
+
+		// setup edv keys
+		ok, err := sampleProfile.setupEDVKeys(token, kmsapi.NISTP256ECDHKWType, kmsapi.HMACSHA256Tag256Type)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, sampleProfile.EDVConf.EncryptionKeyID, kid)
+		require.Equal(t, sampleProfile.EDVConf.MACKeyID, kid)
+
+		// no update
+		ok, err = sampleProfile.setupEDVKeys(token, "", "")
+		require.NoError(t, err)
+		require.False(t, ok)
+
+		// test create key error
+		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
+			&mockkms.KeyManager{CreateKeyErr: errors.New(sampleKeyMgrErr)}, 500*time.Millisecond))
+
+		sampleProfile.EDVConf.MACKeyID = ""
+		ok, err = sampleProfile.setupEDVKeys(token, "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleKeyMgrErr)
+		require.False(t, ok)
+
+		sampleProfile.EDVConf.EncryptionKeyID = ""
+		ok, err = sampleProfile.setupEDVKeys(token, "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleKeyMgrErr)
+		require.False(t, ok)
+
+		// invalid auth
+		ok, err = sampleProfile.setupEDVKeys(token+"invalid", "", "")
+		require.Error(t, err)
+		require.False(t, ok)
 	})
 }
 

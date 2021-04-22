@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -39,11 +40,22 @@ type profile struct {
 	// KeyServerURL for remotekms.
 	KeyServerURL string
 
-	// EDVServerURL for encrypted data vault storage of wallet contents.
-	EDVServerURL string
+	// EDV configuration
+	EDVConf *edvConf
+}
+
+type edvConf struct {
+	// ServerURL for encrypted data vault storage of wallet contents.
+	ServerURL string
 
 	// VaultID for encrypted data vault storage of wallet contents.
 	VaultID string
+
+	// Key ID for encryption key for EDV.
+	EncryptionKeyID string
+
+	// Key ID for MAC key for EDV.
+	MACKeyID string
 }
 
 // createProfile creates new verifiable credential wallet profile for given user and saves it in store.
@@ -56,7 +68,10 @@ func createProfile(user string, opts *profileOpts) (*profile, error) {
 		return nil, err
 	}
 
-	profile.setEDVOptions(opts.edvServerURL, opts.vaultID)
+	err = profile.setEDVOptions(opts.edvConf)
+	if err != nil {
+		return nil, err
+	}
 
 	return profile, nil
 }
@@ -94,9 +109,64 @@ func (pr *profile) setKMSOptions(passphrase string, secretLockSvc secretlock.Ser
 	return nil
 }
 
-func (pr *profile) setEDVOptions(edvServerURL, vaultID string) {
-	pr.EDVServerURL = edvServerURL
-	pr.VaultID = vaultID
+func (pr *profile) setEDVOptions(opts *edvConf) error {
+	// non EDV users.
+	if opts == nil {
+		return nil
+	}
+
+	if opts.ServerURL == "" || opts.VaultID == "" || opts.EncryptionKeyID == "" || opts.MACKeyID == "" {
+		return errors.New("invalid EDV settings in profile")
+	}
+
+	pr.EDVConf = opts
+
+	return nil
+}
+
+// nolint:gocyclo
+func (pr *profile) setupEDVKeys(auth string, encryptionKeyType, macKeyType kms.KeyType) (bool, error) {
+	setupEncKey := pr.EDVConf != nil && pr.EDVConf.EncryptionKeyID == ""
+	setupMacKey := pr.EDVConf != nil && pr.EDVConf.MACKeyID == ""
+
+	if !(setupEncKey || setupMacKey) {
+		return false, nil
+	}
+
+	keyMgr, err := keyManager().getKeyManger(auth)
+	if err != nil {
+		return false, err
+	}
+
+	// if encryption key is not yet setup then create one and set.
+	if setupEncKey {
+		if encryptionKeyType == "" {
+			encryptionKeyType = kms.NISTP256ECDHKWType
+		}
+
+		kid, _, err := keyMgr.Create(encryptionKeyType)
+		if err != nil {
+			return false, err
+		}
+
+		pr.EDVConf.EncryptionKeyID = kid
+	}
+
+	// if MAC key is not yet setup then create one and set.
+	if setupMacKey {
+		if macKeyType == "" {
+			macKeyType = kms.HMACSHA256Tag256Type
+		}
+
+		kid, _, err := keyMgr.Create(macKeyType)
+		if err != nil {
+			return false, err
+		}
+
+		pr.EDVConf.MACKeyID = kid
+	}
+
+	return true, nil
 }
 
 func (pr *profile) resetKMSOptions() {
@@ -147,7 +217,7 @@ func (p *profileStore) get(user string) (*profile, error) {
 }
 
 // save saves profile into store,
-// if argument 'override=true' then replaces existing profile for given user else returns error.
+// if argument 'override=true' then replaces existing profile else returns error.
 func (p *profileStore) save(val *profile, override bool) error {
 	if !override {
 		profileBytes, _ := p.get(val.User) //nolint: errcheck

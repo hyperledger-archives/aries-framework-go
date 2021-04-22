@@ -24,8 +24,7 @@ type profileOpts struct {
 	keyServerURL string
 
 	// EDV options
-	edvServerURL string
-	vaultID      string
+	edvConf *edvConf
 }
 
 // ProfileOptions is option for verifiable credential wallet key manager.
@@ -50,6 +49,20 @@ func WithPassphrase(passphrase string) ProfileOptions {
 func WithKeyServerURL(url string) ProfileOptions {
 	return func(opts *profileOpts) {
 		opts.keyServerURL = url
+	}
+}
+
+// WithEDVStorage option, for wallet profile to use EDV as storage.
+// If provided then all wallet contents will use EDV for storage.
+// Note: key manager options supplied for profile creation and management will be reused for EDV operations.
+func WithEDVStorage(url, vaultID, encryptionKID, macKID string) ProfileOptions {
+	return func(opts *profileOpts) {
+		opts.edvConf = &edvConf{
+			ServerURL:       url,
+			VaultID:         vaultID,
+			EncryptionKeyID: encryptionKID,
+			MACKeyID:        macKID,
+		}
 	}
 }
 
