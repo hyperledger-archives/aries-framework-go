@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -83,26 +84,77 @@ type contentID struct {
 	ID string `json:"id"`
 }
 
+type storeOpenHandle func(string) (storage.Store, error)
+
+type storeCloseHandle func() error
+
+// default store handles for content store.
+//nolint:gochecknoglobals
+var (
+	storeLocked storeOpenHandle = func(string) (storage.Store, error) {
+		return nil, ErrWalletLocked
+	}
+
+	noOp = func() error { return nil }
+)
+
 // contentStore is store for wallet contents for given user profile.
 type contentStore struct {
-	store storage.Store
+	provider storage.Provider
+	storeID  string
+	open     storeOpenHandle
+	close    storeCloseHandle
+	lock     sync.RWMutex
 }
 
 // newContentStore returns new wallet content store instance.
 func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
-	store, err := p.OpenStore(pr.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create store for user '%s' : %w", pr.User, err)
-	}
-
-	err = p.SetStoreConfig(pr.ID, storage.StoreConfiguration{TagNames: []string{
+	err := p.SetStoreConfig(pr.ID, storage.StoreConfiguration{TagNames: []string{
 		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set store config for user '%s' : %w", pr.User, err)
 	}
 
-	return &contentStore{store: store}, nil
+	return &contentStore{open: storeLocked, close: noOp, provider: p, storeID: pr.ID}, nil
+}
+
+func (cs *contentStore) Open() error {
+	store, err := cs.provider.OpenStore(cs.storeID)
+	if err != nil {
+		return fmt.Errorf("failed to open store : %w", err)
+	}
+
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+
+	// give access to store only when auth is valid & not expired.
+	cs.open = func(auth string) (storage.Store, error) {
+		_, err := keyManager().getKeyManger(auth)
+		if err != nil {
+			return nil, ErrInvalidAuthToken
+		}
+
+		return store, nil
+	}
+
+	cs.close = func() error {
+		return store.Close()
+	}
+
+	return nil
+}
+
+func (cs *contentStore) Close() {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+
+	if err := cs.close(); err != nil {
+		logger.Debugf("failed to close wallet content store: %s", err)
+	}
+
+	cs.open = storeLocked
+	cs.close = noOp
 }
 
 // Save for storing given wallet content to store by content ID (content document id) & content type.
@@ -123,12 +175,12 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 			return err
 		}
 
-		err = cs.mapCollection(key, opts.collectionID, ct)
+		err = cs.mapCollection(auth, key, opts.collectionID, ct)
 		if err != nil {
 			return err
 		}
 
-		return cs.safeSave(getContentKeyPrefix(ct, key), content, storage.Tag{Name: ct.Name()})
+		return cs.safeSave(auth, getContentKeyPrefix(ct, key), content, storage.Tag{Name: ct.Name()})
 	case DIDResolutionResponse:
 		// verify did resolution result before storing and also use DID ID as content key
 		docRes, err := did.ParseDocumentResolution(content)
@@ -136,12 +188,12 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 			return fmt.Errorf("invalid DID resolution response model: %w", err)
 		}
 
-		err = cs.mapCollection(docRes.DIDDocument.ID, opts.collectionID, ct)
+		err = cs.mapCollection(auth, docRes.DIDDocument.ID, opts.collectionID, ct)
 		if err != nil {
 			return err
 		}
 
-		return cs.safeSave(getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
+		return cs.safeSave(auth, getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
 	case Key:
 		// never save keys in store, just import them into kms
 		var key keyContent
@@ -159,10 +211,18 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 }
 
 // safeSave saves given content to store by given key but returns error if content with given key already exists.
-func (cs *contentStore) safeSave(key string, content []byte, tags ...storage.Tag) error {
-	_, err := cs.store.Get(key)
+func (cs *contentStore) safeSave(auth, key string, content []byte, tags ...storage.Tag) error {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return err
+	}
+
+	_, err = store.Get(key)
 	if errors.Is(err, storage.ErrDataNotFound) {
-		return cs.store.Put(key, content, tags...)
+		return store.Put(key, content, tags...)
 	} else if err != nil {
 		return err
 	}
@@ -171,18 +231,26 @@ func (cs *contentStore) safeSave(key string, content []byte, tags ...storage.Tag
 }
 
 // mapCollection maps given collection to given content.
-func (cs *contentStore) mapCollection(key, collectionID string, ct ContentType) error {
+func (cs *contentStore) mapCollection(auth, key, collectionID string, ct ContentType) error {
 	if collectionID == "" {
 		return nil
 	}
 
-	_, err := cs.store.Get(getContentKeyPrefix(Collection, collectionID))
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return err
+	}
+
+	_, err = store.Get(getContentKeyPrefix(Collection, collectionID))
 	if err != nil {
 		return fmt.Errorf("failed to find existing collection with ID '%s' : %w", collectionID, err)
 	}
 
 	// collection IDs can contain ':' characters which can not be supported by tags.
-	return cs.store.Put(getCollectionMappingKeyPrefix(key), []byte(ct.Name()),
+	return store.Put(getCollectionMappingKeyPrefix(key), []byte(ct.Name()),
 		storage.Tag{Name: base64.StdEncoding.EncodeToString([]byte(collectionID))})
 }
 
@@ -205,19 +273,43 @@ func saveKey(auth string, key *keyContent) error {
 }
 
 // Remove to remove wallet content from wallet contents store.
-func (cs *contentStore) Remove(ct ContentType, key string) error {
-	return cs.store.Delete(getContentKeyPrefix(ct, key))
+func (cs *contentStore) Remove(auth, key string, ct ContentType) error {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return err
+	}
+
+	return store.Delete(getContentKeyPrefix(ct, key))
 }
 
 // Get to get wallet content from wallet contents store.
-func (cs *contentStore) Get(ct ContentType, key string) ([]byte, error) {
-	return cs.store.Get(getContentKeyPrefix(ct, key))
+func (cs *contentStore) Get(auth, key string, ct ContentType) ([]byte, error) {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return nil, err
+	}
+
+	return store.Get(getContentKeyPrefix(ct, key))
 }
 
 // GetAll returns all wallet contents of give type.
 // returns empty result when no data found.
-func (cs *contentStore) GetAll(ct ContentType) (map[string]json.RawMessage, error) {
-	iter, err := cs.store.Query(ct.Name())
+func (cs *contentStore) GetAll(auth string, ct ContentType) (map[string]json.RawMessage, error) {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return nil, err
+	}
+
+	iter, err := store.Query(ct.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -252,8 +344,17 @@ func (cs *contentStore) GetAll(ct ContentType) (map[string]json.RawMessage, erro
 
 // FilterByCollection returns all wallet contents of give type and collection.
 // returns empty result when no data found.
-func (cs *contentStore) GetAllByCollection(ct ContentType, collectionID string) (map[string]json.RawMessage, error) {
-	iter, err := cs.store.Query(base64.StdEncoding.EncodeToString([]byte(collectionID)))
+func (cs *contentStore) GetAllByCollection(auth,
+	collectionID string, ct ContentType) (map[string]json.RawMessage, error) {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	store, err := cs.open(auth)
+	if err != nil {
+		return nil, err
+	}
+
+	iter, err := store.Query(base64.StdEncoding.EncodeToString([]byte(collectionID)))
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +388,7 @@ func (cs *contentStore) GetAllByCollection(ct ContentType, collectionID string) 
 
 		contentKey := removeKeyPrefix(collectionMappingKeyPrefix, key)
 
-		contentVal, err := cs.store.Get(getContentKeyPrefix(ct, contentKey))
+		contentVal, err := store.Get(getContentKeyPrefix(ct, contentKey))
 		if err != nil {
 			return nil, err
 		}
@@ -330,26 +431,30 @@ func removeKeyPrefix(prefix, key string) string {
 }
 
 // newContentBasedVDR returns new wallet content store based VDR.
-func newContentBasedVDR(v vdr.Registry, c *contentStore) *walletVDR {
-	return &walletVDR{Registry: v, contents: c}
+func newContentBasedVDR(auth string, v vdr.Registry, c *contentStore) *walletVDR {
+	return &walletVDR{auth: auth, Registry: v, contents: c}
 }
 
 // walletVDR is wallet content based on VDR which tries to resolve DIDs from wallet content store,
-// if not found then it falls back to vdr registry.
+// if DID document not found then it falls back to vdr registry.
+// Note: For using this has to be unlocked by auth token.
 type walletVDR struct {
 	vdr.Registry
 	contents *contentStore
+	auth     string
 }
 
 func (v *walletVDR) Resolve(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
-	docBytes, err := v.contents.Get(DIDResolutionResponse, didID)
+	docBytes, err := v.contents.Get(v.auth, didID, DIDResolutionResponse)
 	if err == nil {
-		resolvedDOC, err := did.ParseDocumentResolution(docBytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse stored DID: %w", err)
+		resolvedDOC, e := did.ParseDocumentResolution(docBytes)
+		if e != nil {
+			return nil, fmt.Errorf("failed to parse stored DID: %w", e)
 		}
 
 		return resolvedDOC, nil
+	} else if errors.Is(err, ErrWalletLocked) {
+		return nil, err
 	}
 
 	return v.Registry.Resolve(didID, opts...)

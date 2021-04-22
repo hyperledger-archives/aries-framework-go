@@ -104,6 +104,7 @@ type MockStore struct {
 	ErrValue  error
 	ErrKey    error
 	ErrBatch  error
+	ErrClose  error
 }
 
 // Put stores the key and the record.
@@ -226,7 +227,7 @@ func (s *MockStore) Flush() error {
 
 // Close is not implemented.
 func (s *MockStore) Close() error {
-	panic("implement me")
+	return s.ErrClose
 }
 
 func (s *MockStore) getMatchingKeysAndDBEntries(tagName, tagValue string) ([]string, []DBEntry) {

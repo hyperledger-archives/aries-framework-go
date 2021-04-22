@@ -488,6 +488,31 @@ func TestWallet_OpenClose(t *testing.T) {
 		require.True(t, wallet.Close())
 		require.False(t, wallet.Close())
 	})
+
+	t.Run("test open wallet failure when store open fails", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		// corrupt content store
+		wallet.contents, err = newContentStore(&mockstorage.MockStoreProvider{
+			ErrOpenStoreHandle: fmt.Errorf(sampleWalletErr),
+		}, wallet.profile)
+		require.NoError(t, err)
+
+		// get token
+		token, err := wallet.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open store : sample wallet err")
+		require.Empty(t, token)
+
+		// close wallet
+		require.False(t, wallet.Close())
+	})
 }
 
 func TestWallet_Export(t *testing.T) {
@@ -528,23 +553,36 @@ func TestWallet_Add(t *testing.T) {
 	require.NotEmpty(t, walletInstance)
 	require.NoError(t, err)
 
-	err = walletInstance.Add(sampleFakeTkn, Metadata, []byte(sampleContentValid))
+	// wallet locked
+	require.True(t, errors.Is(walletInstance.Add(sampleFakeTkn, Metadata, []byte(sampleContentValid)), ErrWalletLocked))
+
+	// unlock wallet
+	tkn, err := walletInstance.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+	require.NoError(t, err)
+
+	// add data model to wallet
+	err = walletInstance.Add(tkn, Metadata, []byte(sampleContentValid))
 	require.NoError(t, err)
 }
 
 func TestWallet_Get(t *testing.T) {
 	mockctx := newMockProvider(t)
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	user := uuid.New().String()
+
+	err := CreateProfile(user, mockctx, WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	walletInstance, err := New(sampleUserID, mockctx)
+	walletInstance, err := New(user, mockctx)
 	require.NotEmpty(t, walletInstance)
 	require.NoError(t, err)
 
-	err = walletInstance.Add(sampleFakeTkn, Metadata, []byte(sampleContentValid))
+	tkn, err := walletInstance.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
 	require.NoError(t, err)
 
-	content, err := walletInstance.Get(Metadata, "did:example:123456789abcdefghi")
+	err = walletInstance.Add(tkn, Metadata, []byte(sampleContentValid))
+	require.NoError(t, err)
+
+	content, err := walletInstance.Get(tkn, Metadata, "did:example:123456789abcdefghi")
 	require.NoError(t, err)
 	require.NotEmpty(t, content)
 	require.Equal(t, sampleContentValid, string(content))
@@ -579,62 +617,72 @@ func TestWallet_GetAll(t *testing.T) {
 
 	const collectionID = "did:example:acme123456789abcdefghi"
 
+	user := uuid.New().String()
+
 	mockctx := newMockProvider(t)
-	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	walletInstance, err := New(sampleUserID, mockctx)
+	walletInstance, err := New(user, mockctx)
 	require.NotEmpty(t, walletInstance)
+	require.NoError(t, err)
+
+	tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
 	const count = 5
 
 	// save test data without collection
 	for i := 0; i < count; i++ {
-		require.NoError(t, walletInstance.Add(sampleFakeTkn,
+		require.NoError(t, walletInstance.Add(tkn,
 			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
 	}
 
 	// save a collection
-	require.NoError(t, walletInstance.Add(sampleFakeTkn, Collection, []byte(orgCollection)))
+	require.NoError(t, walletInstance.Add(tkn, Collection, []byte(orgCollection)))
 
 	// save contents by collection
 	for i := 0; i < count; i++ {
-		require.NoError(t, walletInstance.Add(sampleFakeTkn,
+		require.NoError(t, walletInstance.Add(tkn,
 			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())), AddByCollection(collectionID)))
 	}
 
 	// get all by content
-	vcs, err := walletInstance.GetAll(Credential)
+	vcs, err := walletInstance.GetAll(tkn, Credential)
 	require.NoError(t, err)
 	require.Len(t, vcs, count*2)
 
 	// get all by content & collection
-	vcs, err = walletInstance.GetAll(Credential, FilterByCollection(collectionID))
+	vcs, err = walletInstance.GetAll(tkn, Credential, FilterByCollection(collectionID))
 	require.NoError(t, err)
 	require.Len(t, vcs, count)
 }
 
 func TestWallet_Remove(t *testing.T) {
 	mockctx := newMockProvider(t)
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	user := uuid.New().String()
+
+	err := CreateProfile(user, mockctx, WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
-	walletInstance, err := New(sampleUserID, mockctx)
+	walletInstance, err := New(user, mockctx)
 	require.NotEmpty(t, walletInstance)
 	require.NoError(t, err)
 
-	err = walletInstance.Add(sampleFakeTkn, Metadata, []byte(sampleContentValid))
+	tkn, err := walletInstance.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
 	require.NoError(t, err)
 
-	content, err := walletInstance.Get(Metadata, "did:example:123456789abcdefghi")
+	err = walletInstance.Add(tkn, Metadata, []byte(sampleContentValid))
+	require.NoError(t, err)
+
+	content, err := walletInstance.Get(tkn, Metadata, "did:example:123456789abcdefghi")
 	require.NoError(t, err)
 	require.NotEmpty(t, content)
 
-	err = walletInstance.Remove(Metadata, "did:example:123456789abcdefghi")
+	err = walletInstance.Remove(tkn, Metadata, "did:example:123456789abcdefghi")
 	require.NoError(t, err)
 
-	content, err = walletInstance.Get(Metadata, "did:example:123456789abcdefghi")
+	content, err = walletInstance.Get(tkn, Metadata, "did:example:123456789abcdefghi")
 	require.Empty(t, content)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, storage.ErrDataNotFound))
@@ -642,6 +690,8 @@ func TestWallet_Remove(t *testing.T) {
 
 func TestWallet_Query(t *testing.T) {
 	mockctx := newMockProvider(t)
+	user := uuid.New().String()
+
 	mockctx.VDRegistryValue = &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if strings.HasPrefix(didID, "did:key:") {
@@ -659,11 +709,7 @@ func TestWallet_Query(t *testing.T) {
 		},
 	}
 
-	err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
-	require.NoError(t, err)
-
-	walletInstance, err := New(sampleUserID, mockctx)
-	require.NotEmpty(t, walletInstance)
+	err := CreateProfile(user, mockctx, WithKeyServerURL(sampleKeyServerURL))
 	require.NoError(t, err)
 
 	vc1, err := (&verifiable.Credential{
@@ -692,9 +738,16 @@ func TestWallet_Query(t *testing.T) {
 		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
 	vcForDerive := []byte(sampleBBSVC)
 
-	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vc1))
-	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcForQuery))
-	require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcForDerive))
+	walletInstance, err := New(user, mockctx)
+	require.NotEmpty(t, walletInstance)
+	require.NoError(t, err)
+
+	tkn, err := walletInstance.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+	require.NoError(t, err)
+
+	require.NoError(t, walletInstance.Add(tkn, Credential, vc1))
+	require.NoError(t, walletInstance.Add(tkn, Credential, vcForQuery))
+	require.NoError(t, walletInstance.Add(tkn, Credential, vcForDerive))
 
 	pd := &presexch.PresentationDefinition{
 		ID: uuid.New().String(),
@@ -790,7 +843,7 @@ func TestWallet_Query(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				results, err := walletInstance.Query(tc.params...)
+				results, err := walletInstance.Query(tkn, tc.params...)
 
 				if tc.error != "" {
 					require.Empty(t, results)
@@ -811,20 +864,29 @@ func TestWallet_Query(t *testing.T) {
 	})
 
 	t.Run("test get all error", func(t *testing.T) {
+		user := uuid.New().String()
 		mockctxInvalid := newMockProvider(t)
+
 		sp := getMockStorageProvider()
 
 		sp.MockStoreProvider.Store.ErrQuery = errors.New(sampleContenttErr)
 		mockctxInvalid.StorageProviderValue = sp
 
-		err := CreateProfile(sampleUserID, mockctxInvalid, WithKeyServerURL(sampleKeyServerURL))
+		err := CreateProfile(user, mockctxInvalid, WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
 
-		walletInstanceInvalid, err := New(sampleUserID, mockctxInvalid)
+		walletInstanceInvalid, err := New(user, mockctxInvalid)
 		require.NoError(t, err)
 		require.NotEmpty(t, walletInstanceInvalid)
 
-		result, err := walletInstanceInvalid.Query(&QueryParams{Type: "QueryByFrame"})
+		result, err := walletInstanceInvalid.Query(sampleFakeTkn, &QueryParams{Type: "QueryByFrame"})
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+
+		tk, err := walletInstanceInvalid.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+		require.NoError(t, err)
+
+		result, err = walletInstanceInvalid.Query(tk, &QueryParams{Type: "QueryByFrame"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to query credentials")
 		require.Contains(t, err.Error(), sampleContenttErr)
@@ -833,6 +895,7 @@ func TestWallet_Query(t *testing.T) {
 }
 
 func TestWallet_Issue(t *testing.T) {
+	user := uuid.New().String()
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -859,11 +922,11 @@ func TestWallet_Issue(t *testing.T) {
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
-	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
 	t.Run("Test VC wallet issue using controller - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -891,7 +954,7 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue using verification method - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -920,7 +983,7 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue using all options - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -967,7 +1030,7 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue using BBS - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1003,10 +1066,10 @@ func TestWallet_Issue(t *testing.T) {
 		mockctx1.VDRegistryValue = &mockvdr.MockVDRegistry{}
 		mockctx1.CryptoValue = &cryptomock.Crypto{}
 
-		err := CreateProfile(sampleUserID, mockctx1, WithPassphrase(samplePassPhrase))
+		err := CreateProfile(user, mockctx1, WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 
-		walletInstance, err := New(sampleUserID, mockctx1)
+		walletInstance, err := New(user, mockctx1)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1025,7 +1088,7 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// save DID Resolution response
-		err = walletInstance.Add(sampleFakeTkn, DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		err = walletInstance.Add(authToken, DIDResolutionResponse, []byte(sampleDocResolutionResponse))
 		require.NoError(t, err)
 
 		// sign with just controller
@@ -1038,7 +1101,7 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue failure - invalid VC", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1049,18 +1112,25 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue failure - proof option validation", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
 		// no controller
-		result, err := walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{})
+		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{})
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
 
 		// DID not found
-		result, err = walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
 			Controller: "did:example:1234",
 		})
 		require.Empty(t, result)
@@ -1068,7 +1138,7 @@ func TestWallet_Issue(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to prepare proof: did not found")
 
 		// no assertion method
-		result, err = walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
 			Controller: sampleInvalidDIDID,
 		})
 		require.Empty(t, result)
@@ -1077,7 +1147,7 @@ func TestWallet_Issue(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1129,6 +1199,7 @@ func TestWallet_Issue(t *testing.T) {
 }
 
 func TestWallet_Prove(t *testing.T) {
+	user := uuid.New().String()
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -1156,12 +1227,12 @@ func TestWallet_Prove(t *testing.T) {
 	mockctx.CryptoValue = &cryptomock.Crypto{}
 
 	// create profile
-	err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
 	// prepare VCs for tests
 	vcs := make(map[string]*verifiable.Credential, 2)
-	walletForIssue, err := New(sampleUserID, mockctx)
+	walletForIssue, err := New(user, mockctx)
 	require.NotEmpty(t, walletForIssue)
 	require.NoError(t, err)
 
@@ -1206,7 +1277,7 @@ func TestWallet_Prove(t *testing.T) {
 	walletForIssue.Close()
 
 	t.Run("Test prove using stored & raw credential - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1218,7 +1289,7 @@ func TestWallet_Prove(t *testing.T) {
 		defer walletInstance.Close()
 
 		// save one VC in store
-		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"])
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["edvc"])
 		defer cleanup()
 
 		// import keys manually for signing presentation
@@ -1259,7 +1330,7 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test prove using presentation - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1271,7 +1342,7 @@ func TestWallet_Prove(t *testing.T) {
 		defer walletInstance.Close()
 
 		// save one VC in store
-		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"])
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["edvc"])
 		defer cleanup()
 
 		// import keys manually for signing presentation
@@ -1319,7 +1390,7 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test prove using various proof options - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1331,7 +1402,7 @@ func TestWallet_Prove(t *testing.T) {
 		defer walletInstance.Close()
 
 		// save all VCs in store
-		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["edvc"], vcs["bbsvc"])
 		defer cleanup()
 
 		// import keys manually for signing presentation
@@ -1371,7 +1442,7 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test prove without credentials (DIDAuth) - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
@@ -1420,24 +1491,31 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test prove failure - invalid credentials", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
-		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{}, WithRawCredentialsToPresent([]byte("123")))
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		result, err := walletInstance.Prove(authToken, &ProofOptions{}, WithRawCredentialsToPresent([]byte("123")))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to resolve credentials from request")
 
-		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+		result, err = walletInstance.Prove(authToken, &ProofOptions{},
 			WithStoredCredentialsToPresent("non-existing-credential"))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
 		// save invalid VC in store
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, []byte(sampleInvalidDIDContent)))
-		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+		require.NoError(t, walletInstance.Add(authToken, Credential, []byte(sampleInvalidDIDContent)))
+		result, err = walletInstance.Prove(authToken, &ProofOptions{},
 			WithStoredCredentialsToPresent("did:example:sampleInvalidDIDContent"))
 		require.Empty(t, result)
 		require.Error(t, err)
@@ -1445,30 +1523,37 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test prove failures - proof option validation", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
 		// save all VCs in store
-		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["edvc"], vcs["bbsvc"])
 		defer cleanup()
 
 		// no controller
-		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{},
+		result, err := walletInstance.Prove(authToken, &ProofOptions{},
 			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
 
 		// DID not found
-		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: "did:example:1234"},
+		result, err = walletInstance.Prove(authToken, &ProofOptions{Controller: "did:example:1234"},
 			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to prepare proof: did not found")
 
 		// no assertion method
-		result, err = walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: sampleInvalidDIDID},
+		result, err = walletInstance.Prove(authToken, &ProofOptions{Controller: sampleInvalidDIDID},
 			WithStoredCredentialsToPresent(vcs["edvc"].ID, vcs["bbsvc"].ID))
 		require.Empty(t, result)
 		require.Error(t, err)
@@ -1476,12 +1561,9 @@ func TestWallet_Prove(t *testing.T) {
 	})
 
 	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
-
-		cleanup := addCredentialsToWallet(t, walletInstance, vcs["edvc"], vcs["bbsvc"])
-		defer cleanup()
 
 		// wallet locked
 		result, err := walletInstance.Prove(sampleFakeTkn, &ProofOptions{Controller: didKey},
@@ -1496,6 +1578,9 @@ func TestWallet_Prove(t *testing.T) {
 		require.NotEmpty(t, authToken)
 
 		defer walletInstance.Close()
+
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["edvc"], vcs["bbsvc"])
+		defer cleanup()
 
 		// key not found
 		result, err = walletInstance.Prove(authToken, &ProofOptions{
@@ -1546,6 +1631,7 @@ func Test_AddContext(t *testing.T) {
 }
 
 func TestWallet_Verify(t *testing.T) {
+	user := uuid.New().String()
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -1575,10 +1661,10 @@ func TestWallet_Verify(t *testing.T) {
 	mockctx.VDRegistryValue = customVDR
 	mockctx.CryptoValue = sampleCrypto
 
-	err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	err = CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	walletForIssue, err := New(sampleUserID, mockctx)
+	walletForIssue, err := New(user, mockctx)
 	require.NoError(t, err)
 
 	tkn, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
@@ -1620,47 +1706,63 @@ func TestWallet_Verify(t *testing.T) {
 	require.True(t, walletForIssue.Close())
 
 	t.Run("Test VC wallet verifying a credential - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
 		// save it in store
 		vcBytes, err := sampleVC.MarshalJSON()
 		require.NoError(t, err)
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcBytes))
+		require.NoError(t, walletInstance.Add(tkn, Credential, vcBytes))
 
 		// verify stored credential
-		ok, err := walletInstance.Verify(WithStoredCredentialToVerify(sampleVC.ID))
+		ok, err := walletInstance.Verify(tkn, WithStoredCredentialToVerify(sampleVC.ID))
 		require.NoError(t, err)
 		require.True(t, ok)
 
 		// verify raw credential
 		rawBytes, err := sampleVC.MarshalJSON()
 		require.NoError(t, err)
-		ok, err = walletInstance.Verify(WithRawCredentialToVerify(rawBytes))
+		ok, err = walletInstance.Verify(tkn, WithRawCredentialToVerify(rawBytes))
 		require.NoError(t, err)
 		require.True(t, ok)
 
-		require.NoError(t, walletInstance.Remove(Credential, "http://example.edu/credentials/1872"))
+		require.NoError(t, walletInstance.Remove(tkn, Credential, "http://example.edu/credentials/1872"))
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a presentation - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
 		// verify a raw presentation
 		rawBytes, err := sampleVP.MarshalJSON()
 		require.NoError(t, err)
-		ok, err := walletInstance.Verify(WithRawPresentationToVerify(rawBytes))
+		ok, err := walletInstance.Verify(tkn, WithRawPresentationToVerify(rawBytes))
 		require.NoError(t, err)
 		require.True(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a credential - invalid signature", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
 		// save tampered VC in store
 		// save it in store
@@ -1668,9 +1770,9 @@ func TestWallet_Verify(t *testing.T) {
 		tamperedVC.Issuer.ID += "."
 		vcBytes, err := tamperedVC.MarshalJSON()
 		require.NoError(t, err)
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcBytes))
+		require.NoError(t, walletInstance.Add(tkn, Credential, vcBytes))
 
-		ok, err := walletInstance.Verify(WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
+		ok, err := walletInstance.Verify(tkn, WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
@@ -1678,66 +1780,93 @@ func TestWallet_Verify(t *testing.T) {
 		// verify raw credential
 		rawBytes, err := tamperedVC.MarshalJSON()
 		require.NoError(t, err)
-		ok, err = walletInstance.Verify(WithRawCredentialToVerify(rawBytes))
+		ok, err = walletInstance.Verify(tkn, WithRawCredentialToVerify(rawBytes))
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a presentation - invalid signature", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
 		// verify a raw presentation
 		tamperedVP := *sampleVP
 		tamperedVP.Holder += "."
 		rawBytes, err := tamperedVP.MarshalJSON()
 		require.NoError(t, err)
-		ok, err := walletInstance.Verify(WithRawPresentationToVerify(rawBytes))
+		ok, err := walletInstance.Verify(tkn, WithRawPresentationToVerify(rawBytes))
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a presentation - invalid credential signature", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
 		// verify a raw presentation
 		rawBytes, err := sampleInvalidVP.MarshalJSON()
 		require.NoError(t, err)
-		ok, err := walletInstance.Verify(WithRawPresentationToVerify(rawBytes))
+		ok, err := walletInstance.Verify(tkn, WithRawPresentationToVerify(rawBytes))
 		require.Contains(t, err.Error(), "presentation verification failed: credential verification failed:")
 		require.Contains(t, err.Error(), "invalid signature")
 		require.False(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a credential - invalid credential ID", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
+
 		// verify non existent credential.
-		ok, err := walletInstance.Verify(WithStoredCredentialToVerify("invalid-ID"))
+		ok, err := walletInstance.Verify(tkn, WithStoredCredentialToVerify("invalid-ID"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get credential")
 		require.False(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test VC wallet verifying a credential - invalid request", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
+
 		// verify non existent credential.
-		ok, err := walletInstance.Verify(WithStoredCredentialToVerify(""))
+		ok, err := walletInstance.Verify(tkn, WithStoredCredentialToVerify(""))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid verify request")
 		require.False(t, ok)
+
+		require.True(t, walletInstance.Close())
 	})
 }
 
 func TestWallet_Derive(t *testing.T) {
+	user := uuid.New().String()
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
@@ -1769,12 +1898,12 @@ func TestWallet_Derive(t *testing.T) {
 	mockctx.CryptoValue = customCrypto
 
 	// create profile
-	err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+	err = CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
 	// prepare VCs for tests
 	vcs := make(map[string]*verifiable.Credential, 2)
-	walletForIssue, err := New(sampleUserID, mockctx)
+	walletForIssue, err := New(user, mockctx)
 	require.NotEmpty(t, walletForIssue)
 	require.NoError(t, err)
 
@@ -1824,14 +1953,17 @@ func TestWallet_Derive(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
 
 	t.Run("Test derive a credential from wallet - success", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
 		require.NoError(t, err)
 
 		// save BBS VC in store
 		vcBytes, err := vcs["bbsvc"].MarshalJSON()
 		require.NoError(t, err)
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcBytes))
+		require.NoError(t, walletInstance.Add(tkn, Credential, vcBytes))
 
 		sampleNonce := uuid.New().String()
 
@@ -1845,7 +1977,7 @@ func TestWallet_Derive(t *testing.T) {
 		}
 
 		// derive stored credential
-		vc, err := walletInstance.Derive(FromStoredCredential(vcs["bbsvc"].ID), &DeriveOptions{
+		vc, err := walletInstance.Derive(tkn, FromStoredCredential(vcs["bbsvc"].ID), &DeriveOptions{
 			Nonce: sampleNonce,
 			Frame: frameDoc,
 		})
@@ -1854,7 +1986,7 @@ func TestWallet_Derive(t *testing.T) {
 		verifyBBSProof(vc.Proofs)
 
 		// derive raw credential
-		vc, err = walletInstance.Derive(FromRawCredential(vcBytes), &DeriveOptions{
+		vc, err = walletInstance.Derive(tkn, FromRawCredential(vcBytes), &DeriveOptions{
 			Nonce: sampleNonce,
 			Frame: frameDoc,
 		})
@@ -1863,59 +1995,66 @@ func TestWallet_Derive(t *testing.T) {
 		verifyBBSProof(vc.Proofs)
 
 		// derive from credential instance
-		vc, err = walletInstance.Derive(FromCredential(vcs["bbsvc"]), &DeriveOptions{
+		vc, err = walletInstance.Derive(tkn, FromCredential(vcs["bbsvc"]), &DeriveOptions{
 			Nonce: sampleNonce,
 			Frame: frameDoc,
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 		verifyBBSProof(vc.Proofs)
+
+		require.True(t, walletInstance.Close())
 	})
 
 	t.Run("Test derive credential failures", func(t *testing.T) {
-		walletInstance, err := New(sampleUserID, mockctx)
+		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
 
+		tkn, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
 		// invalid request
-		vc, err := walletInstance.Derive(FromStoredCredential(""), &DeriveOptions{})
+		vc, err := walletInstance.Derive(tkn, FromStoredCredential(""), &DeriveOptions{})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid request to derive credential")
 
 		// credential not found in store
-		vc, err = walletInstance.Derive(FromStoredCredential("invalid-id"), &DeriveOptions{})
+		vc, err = walletInstance.Derive(tkn, FromStoredCredential("invalid-id"), &DeriveOptions{})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
 		// invalid credential in store
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, []byte(sampleInvalidDIDContent)))
+		require.NoError(t, walletInstance.Add(tkn, Credential, []byte(sampleInvalidDIDContent)))
 
-		vc, err = walletInstance.Derive(FromStoredCredential("did:example:sampleInvalidDIDContent"), &DeriveOptions{})
+		vc, err = walletInstance.Derive(tkn, FromStoredCredential("did:example:sampleInvalidDIDContent"), &DeriveOptions{})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential type of unknown structure")
 
 		// invalid raw credential
-		vc, err = walletInstance.Derive(FromRawCredential([]byte(sampleInvalidDIDContent)), &DeriveOptions{})
+		vc, err = walletInstance.Derive(tkn, FromRawCredential([]byte(sampleInvalidDIDContent)), &DeriveOptions{})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential type of unknown structure")
 
 		// invalid raw credential
-		vc, err = walletInstance.Derive(FromCredential(vcs["bbsvc"]), &DeriveOptions{})
+		vc, err = walletInstance.Derive(tkn, FromCredential(vcs["bbsvc"]), &DeriveOptions{})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to derive credential")
 
 		// try deriving wrong proof type - no BbsBlsSignature2020 proof present
-		vc, err = walletInstance.Derive(FromCredential(vcs["edvc"]), &DeriveOptions{
+		vc, err = walletInstance.Derive(tkn, FromCredential(vcs["edvc"]), &DeriveOptions{
 			Frame: frameDoc,
 		})
 		require.Empty(t, vc)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no BbsBlsSignature2020 proof present")
+
+		require.True(t, walletInstance.Close())
 	})
 }
 
@@ -1942,17 +2081,17 @@ func createSampleProfile(t *testing.T, mockctx *mockprovider.Provider) {
 }
 
 // adds credentials to wallet and returns handle for cleanup.
-func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, vcs ...*verifiable.Credential) func() {
+func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, auth string, vcs ...*verifiable.Credential) func() {
 	for _, vc := range vcs {
 		vcBytes, err := vc.MarshalJSON()
 		require.NoError(t, err)
-		require.NoError(t, walletInstance.Remove(Credential, vc.ID))
-		require.NoError(t, walletInstance.Add(sampleFakeTkn, Credential, vcBytes))
+		require.NoError(t, walletInstance.Remove(auth, Credential, vc.ID))
+		require.NoError(t, walletInstance.Add(auth, Credential, vcBytes))
 	}
 
 	return func() {
 		for _, vc := range vcs {
-			err := walletInstance.Remove(Credential, vc.ID)
+			err := walletInstance.Remove(auth, Credential, vc.ID)
 			if err != nil {
 				t.Logf("failed to cleanup wallet instance store: %s", err)
 			}

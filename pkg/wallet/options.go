@@ -14,37 +14,41 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )
 
-// kmsOpts contains options for creating verifiable credential wallet.
-type kmsOpts struct {
+// profileOpts contains options for creating verifiable credential wallet.
+type profileOpts struct {
 	// local kms options
 	secretLockSvc secretlock.Service
 	passphrase    string
 
 	// remote(web) kms options
 	keyServerURL string
+
+	// EDV options
+	edvServerURL string
+	vaultID      string
 }
 
-// ProfileKeyManagerOptions is option for verifiable credential wallet key manager.
-type ProfileKeyManagerOptions func(opts *kmsOpts)
+// ProfileOptions is option for verifiable credential wallet key manager.
+type ProfileOptions func(opts *profileOpts)
 
 // WithSecretLockService option, when provided then wallet will use local kms for key operations.
-func WithSecretLockService(svc secretlock.Service) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
+func WithSecretLockService(svc secretlock.Service) ProfileOptions {
+	return func(opts *profileOpts) {
 		opts.secretLockSvc = svc
 	}
 }
 
 // WithPassphrase option to provide passphrase for local kms for key operations.
-func WithPassphrase(passphrase string) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
+func WithPassphrase(passphrase string) ProfileOptions {
+	return func(opts *profileOpts) {
 		opts.passphrase = passphrase
 	}
 }
 
 // WithKeyServerURL option, when provided then wallet will use remote kms for key operations.
 // This option will be ignore if provided with 'WithSecretLockService' option.
-func WithKeyServerURL(url string) ProfileKeyManagerOptions {
-	return func(opts *kmsOpts) {
+func WithKeyServerURL(url string) ProfileOptions {
+	return func(opts *profileOpts) {
 		opts.keyServerURL = url
 	}
 }

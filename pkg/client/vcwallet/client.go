@@ -84,14 +84,14 @@ func New(userID string, ctx provider, options ...wallet.UnlockOptions) (*Client,
 // CreateProfile creates a new verifiable credential wallet profile for given user.
 // returns error if wallet profile is already created.
 // Use `UpdateProfile()` for replacing an already created verifiable credential wallet profile.
-func CreateProfile(userID string, ctx provider, options ...wallet.ProfileKeyManagerOptions) error {
+func CreateProfile(userID string, ctx provider, options ...wallet.ProfileOptions) error {
 	return wallet.CreateProfile(userID, ctx, options...)
 }
 
 // UpdateProfile updates existing verifiable credential wallet profile.
 // Will create new profile if no profile exists for given user.
 // Caution: you might lose your existing keys if you change kms options.
-func UpdateProfile(userID string, ctx provider, options ...wallet.ProfileKeyManagerOptions) error {
+func UpdateProfile(userID string, ctx provider, options ...wallet.ProfileOptions) error {
 	return wallet.UpdateProfile(userID, ctx, options...)
 }
 
@@ -192,7 +192,12 @@ func (c *Client) Add(contentType wallet.ContentType, content json.RawMessage, op
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 func (c *Client) Remove(contentType wallet.ContentType, contentID string) error {
-	return c.wallet.Remove(contentType, contentID)
+	auth, err := c.auth()
+	if err != nil {
+		return err
+	}
+
+	return c.wallet.Remove(auth, contentType, contentID)
 }
 
 // Get fetches a wallet content by content ID.
@@ -205,7 +210,12 @@ func (c *Client) Remove(contentType wallet.ContentType, contentID string) error 
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 func (c *Client) Get(contentType wallet.ContentType, contentID string) (json.RawMessage, error) {
-	return c.wallet.Get(contentType, contentID)
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.Get(auth, contentType, contentID)
 }
 
 // GetAll fetches all wallet contents of given type.
@@ -218,7 +228,12 @@ func (c *Client) Get(contentType wallet.ContentType, contentID string) (json.Raw
 //	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 //
 func (c *Client) GetAll(contentType wallet.ContentType, options ...wallet.GetAllContentsOptions) (map[string]json.RawMessage, error) { //nolint: lll
-	return c.wallet.GetAll(contentType, options...)
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.GetAll(auth, contentType, options...)
 }
 
 // Query runs query against wallet credential contents and returns presentation containing credential results.
@@ -231,7 +246,12 @@ func (c *Client) GetAll(contentType wallet.ContentType, options ...wallet.GetAll
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
 //
 func (c *Client) Query(params ...*wallet.QueryParams) ([]*verifiable.Presentation, error) {
-	return c.wallet.Query(params...)
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.Query(auth, params...)
 }
 
 // Issue adds proof to a Verifiable Credential.
@@ -273,7 +293,12 @@ func (c *Client) Prove(opts *wallet.ProofOptions, creds ...wallet.ProveOptions) 
 //
 // Returns: a boolean verified, and an error if verified is false.
 func (c *Client) Verify(option wallet.VerificationOption) (bool, error) {
-	return c.wallet.Verify(option)
+	auth, err := c.auth()
+	if err != nil {
+		return false, err
+	}
+
+	return c.wallet.Verify(auth, option)
 }
 
 // Derive derives a credential and returns response credential.
@@ -283,5 +308,10 @@ func (c *Client) Verify(option wallet.VerificationOption) (bool, error) {
 //		- derive options.
 //
 func (c *Client) Derive(credential wallet.CredentialToDerive, options *wallet.DeriveOptions) (*verifiable.Credential, error) { //nolint: lll
-	return c.wallet.Derive(credential, options)
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.Derive(auth, credential, options)
 }

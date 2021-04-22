@@ -38,17 +38,25 @@ type profile struct {
 
 	// KeyServerURL for remotekms.
 	KeyServerURL string
+
+	// EDVServerURL for encrypted data vault storage of wallet contents.
+	EDVServerURL string
+
+	// VaultID for encrypted data vault storage of wallet contents.
+	VaultID string
 }
 
 // createProfile creates new verifiable credential wallet profile for given user and saves it in store.
 // This profile is required for creating verifiable credential wallet client.
-func createProfile(user, passphrase string, secretLockSvc secretlock.Service, keyServerURL string) (*profile, error) {
+func createProfile(user string, opts *profileOpts) (*profile, error) {
 	profile := &profile{User: user, ID: uuid.New().String()}
 
-	err := profile.setKMSOptions(passphrase, secretLockSvc, keyServerURL)
+	err := profile.setKMSOptions(opts.passphrase, opts.secretLockSvc, opts.keyServerURL)
 	if err != nil {
 		return nil, err
 	}
+
+	profile.setEDVOptions(opts.edvServerURL, opts.vaultID)
 
 	return profile, nil
 }
@@ -84,6 +92,11 @@ func (pr *profile) setKMSOptions(passphrase string, secretLockSvc secretlock.Ser
 	}
 
 	return nil
+}
+
+func (pr *profile) setEDVOptions(edvServerURL, vaultID string) {
+	pr.EDVServerURL = edvServerURL
+	pr.VaultID = vaultID
 }
 
 func (pr *profile) resetKMSOptions() {
