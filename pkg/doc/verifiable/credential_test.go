@@ -63,7 +63,7 @@ func TestParseCredential(t *testing.T) {
 		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://trustbloc.github.io/context/vc/credentials-v1.jsonld",
+			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 		}, vc.Context)
 
@@ -925,7 +925,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		vc, err := parseTestCredential(t, customValidSchema, WithBaseContextExtendedValidation([]string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://trustbloc.github.io/context/vc/credentials-v1.jsonld",
+			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 		}, []string{
 			"VerifiableCredential",

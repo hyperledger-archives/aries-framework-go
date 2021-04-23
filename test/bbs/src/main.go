@@ -10,6 +10,7 @@ package main
 
 //nolint:gci
 import (
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -248,8 +249,20 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 	return vcSDBytes, nil
 }
 
+// nolint:gochecknoglobals // embedded custom context
+var (
+	//go:embed citizenship.jsonld
+	citizenship []byte
+)
+
 func createJSONLDDocumentLoader() (ld.DocumentLoader, error) {
-	loader, err := jld.NewDocumentLoader(mem.NewProvider())
+	loader, err := jld.NewDocumentLoader(mem.NewProvider(),
+		jld.WithExtraContexts(
+			jld.ContextDocument{
+				URL:         "https://w3id.org/citizenship/v1",
+				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+				Content:     citizenship,
+			}))
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}

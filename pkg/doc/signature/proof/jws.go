@@ -16,7 +16,7 @@ import (
 
 const (
 	securityContext        = "https://w3id.org/security/v2"
-	securityContextJWK2020 = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
+	securityContextJWK2020 = "https://w3id.org/security/jws/v1"
 )
 
 const (

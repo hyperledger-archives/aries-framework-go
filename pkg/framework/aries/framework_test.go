@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
@@ -626,7 +625,7 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test JSON-LD document loader creation error", func(t *testing.T) {
 		_, err := New(
-			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: jld.DefaultContextDBName}),
+			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: "jsonldContexts"}),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "document loader creation failed")

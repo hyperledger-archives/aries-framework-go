@@ -9,7 +9,6 @@ package jsonld_test
 import (
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"strings"
 	"testing"
 
@@ -29,39 +28,28 @@ func TestNewDocumentLoader(t *testing.T) {
 
 		require.NotNil(t, loader)
 		require.NoError(t, err)
-		require.Equal(t, len(jsonld.EmbedContexts), len(storageProvider.Store.Store))
+		require.Equal(t, 12, len(storageProvider.Store.Store))
 	})
 
 	t.Run("Fail to open context DB store", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
-		storageProvider.FailNamespace = "invalidDB"
+		storageProvider.FailNamespace = "jsonldContexts"
 
-		loader, err := jsonld.NewDocumentLoader(storageProvider, jsonld.WithContextDBName("invalidDB"))
-
-		require.Nil(t, loader)
-		require.Error(t, err)
-	})
-
-	t.Run("Fail to open context document file", func(t *testing.T) {
-		storageProvider := mockstorage.NewMockStoreProvider()
-
-		loader, err := jsonld.NewDocumentLoader(storageProvider,
-			jsonld.WithContextFS(&mockFS{ErrOpen: errors.New("open error")}))
+		loader, err := jsonld.NewDocumentLoader(storageProvider)
 
 		require.Nil(t, loader)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "open file")
 	})
 
 	t.Run("Fail to read context document file", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
 		loader, err := jsonld.NewDocumentLoader(storageProvider,
-			jsonld.WithContextFS(&mockFS{ErrRead: errors.New("read error")}))
+			jsonld.WithExtraContexts(jsonld.ContextDocument{URL: "url", Content: nil}))
 
 		require.Nil(t, loader)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "load from FS")
+		require.Contains(t, err.Error(), "document from reader")
 	})
 
 	t.Run("Fail to store batch of context documents", func(t *testing.T) {
@@ -214,35 +202,4 @@ func (m *mockDocumentLoader) LoadDocument(string) (*ld.RemoteDocument, error) {
 		DocumentURL: "https://example.com/context.jsonld",
 		Document:    content,
 	}, nil
-}
-
-type mockFS struct {
-	ErrOpen error
-	ErrRead error
-}
-
-func (m *mockFS) Open(string) (fs.File, error) {
-	if m.ErrOpen != nil {
-		return nil, m.ErrOpen
-	}
-
-	return &mockFile{
-		ErrRead: m.ErrRead,
-	}, nil
-}
-
-type mockFile struct {
-	ErrRead error
-}
-
-func (m *mockFile) Stat() (fs.FileInfo, error) {
-	panic("not implemented")
-}
-
-func (m *mockFile) Read([]byte) (int, error) {
-	return 0, m.ErrRead
-}
-
-func (m *mockFile) Close() error {
-	return nil
 }
