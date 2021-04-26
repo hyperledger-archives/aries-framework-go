@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -109,7 +110,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -121,7 +122,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"child"},
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -138,7 +139,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"teenager"},
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -155,7 +156,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"adult"},
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -282,7 +283,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -337,7 +338,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: &required,
@@ -394,7 +395,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				ID: uuid.New().String(),
 				Constraints: &Constraints{
@@ -500,7 +501,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				ID: uuid.New().String(),
 				Constraints: &Constraints{
@@ -716,7 +717,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -770,7 +771,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -881,7 +882,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					LimitDisclosure: &required,
@@ -899,6 +900,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
 				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				Issuer:  verifiable.Issuer{CustomFields: map[string]interface{}{"k": "v"}},
 				CustomFields: map[string]interface{}{
@@ -920,7 +922,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -974,7 +976,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -1023,7 +1025,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -1034,7 +1036,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1082,7 +1084,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1126,7 +1128,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 			}},
 		}
@@ -1158,7 +1160,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/2018/credentials/examples/v1",
+					URI: "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential",
 				}},
 			}},
 		}
@@ -1171,7 +1173,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			},
 			{
 				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
-				Types:   []string{verifiable.VCType},
+				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
 				ID:      uuid.New().String(),
 			},
 		})
@@ -1224,12 +1226,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://www.w3.org/2018/credentials/examples/v1",
+					URI: "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential",
 				}},
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+					URI: "https://trustbloc.github.io/context/vc/examples-v1.jsonld#DocumentVerification",
 				}},
 			}},
 		}
@@ -1237,12 +1239,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP([]*verifiable.Credential{
 			{
 				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
-				Types:   []string{verifiable.VCType},
+				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
 				ID:      uuid.New().String(),
 			},
 			{
 				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
-				Types:   []string{verifiable.VCType},
+				Types:   []string{verifiable.VCType, "DocumentVerification"},
 				ID:      uuid.New().String(),
 			},
 		})
@@ -1344,14 +1346,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+					URI: "https://trustbloc.github.io/context/vc/examples-v1.jsonld#DocumentVerification",
 				}},
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
 					URI: "https://www.w3.org/TR/vc-data-model/2.0/#types",
 				}, {
-					URI:      verifiable.ContextURI,
+					URI:      fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 					Required: true,
 				}},
 			}},
@@ -1364,7 +1366,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			},
 			{
 				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
-				Types:   []string{verifiable.VCType},
+				Types:   []string{verifiable.VCType, "DocumentVerification"},
 				ID:      uuid.New().String(),
 			},
 		})
@@ -1383,15 +1385,15 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: verifiable.ContextURI,
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 				}},
 			}, {
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI:      "https://www.w3.org/2018/credentials/examples/v1",
+					URI:      "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential",
 					Required: true,
 				}, {
-					URI:      "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+					URI:      "https://trustbloc.github.io/context/vc/examples-v1.jsonld#DocumentVerification",
 					Required: true,
 				}},
 			}},
@@ -1412,7 +1414,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"https://www.w3.org/2018/credentials/examples/v1",
 					"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 				},
-				Types: []string{verifiable.VCType},
+				Types: []string{verifiable.VCType, "UniversityDegreeCredential", "DocumentVerification"},
 				ID:    uuid.New().String(),
 			},
 		})

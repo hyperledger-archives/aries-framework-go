@@ -883,7 +883,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*ve
 		var applicable bool
 
 		for _, schema := range schemas {
-			applicable = stringsContain(credential.Context, schema.URI)
+			applicable = schemaURIMatch(credential.Context, credential.Types, schema.URI)
 			if schema.Required && !applicable {
 				break
 			}
