@@ -39,7 +39,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: uri,
+					URI: fmt.Sprintf("%s#%s", uri, verifiable.VCType),
 				}},
 			}},
 		}
@@ -67,7 +67,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: uri,
+					URI: fmt.Sprintf("%s#%s", uri, verifiable.VCType),
 				}},
 			}},
 		}
@@ -295,18 +295,20 @@ func TestPresentationDefinition_Match(t *testing.T) {
 }
 
 func TestE2E(t *testing.T) {
+	baseSchemaURI := randomURI()
+
 	// verifier sends their presentation definitions to the holder
 	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: []*Schema{{
-				URI: randomURI(),
+				URI: fmt.Sprintf("%s#%s", baseSchemaURI, verifiable.VCType),
 			}},
 		}},
 	}
 
 	// holder builds their presentation submission against the verifier's definitions
-	holderCredential := newVC([]string{verifierDefinitions.InputDescriptors[0].Schema[0].URI})
+	holderCredential := newVC([]string{baseSchemaURI})
 	vp := newVP(t,
 		&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 			ID:   verifierDefinitions.InputDescriptors[0].ID,
@@ -319,7 +321,7 @@ func TestE2E(t *testing.T) {
 	vpBytes := marshal(t, vp)
 
 	// load json-ld context
-	loader := createTestDocumentLoader(t, verifierDefinitions.InputDescriptors[0].Schema[0].URI)
+	loader := createTestDocumentLoader(t, baseSchemaURI)
 
 	// verifier parses the vp
 	receivedVP, err := verifiable.ParsePresentation(vpBytes,

@@ -139,7 +139,7 @@ async function presentProofBBS(mode) {
                                                 "adcc44d9-1c0e-4e8f-9f21-6eda7dba9160",
                                             schema: [
                                                 {
-                                                    uri: "https://www.w3.org/2018/credentials/examples/v1"
+                                                    uri: "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential"
                                                 },
                                             ],
                                             constraints: {

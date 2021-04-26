@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -30,7 +32,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -127,7 +129,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -142,7 +144,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -286,7 +288,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -301,7 +303,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -490,7 +492,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -506,7 +508,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -523,7 +525,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -714,7 +716,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -730,7 +732,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -746,7 +748,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: verifiable.ContextURI,
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -892,21 +894,21 @@ func ExamplePresentationDefinition_Match() {
 			{
 				ID: "banking",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/account",
+					URI: "https://example.context.jsonld/account#Customer",
 				}},
 			},
 			{
 				ID: "residence",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/address",
+					URI: "https://example.context.jsonld/address#Street",
 				}},
 			},
 		},
 	}
 
 	// holder fetches their credentials
-	accountCredential := newVC([]string{"https://example.context.jsonld/account"})
-	addressCredential := newVC([]string{"https://example.context.jsonld/address"})
+	accountCredential := fetchVC([]string{"https://example.context.jsonld/account"}, []string{"Customer"})
+	addressCredential := fetchVC([]string{"https://example.context.jsonld/address"}, []string{"Street"})
 
 	// holder builds their presentation submission against the verifier's definitions
 	vp, err := newPresentationSubmission(
@@ -1021,3 +1023,20 @@ const exampleJSONLDContext = `{
       "xsd":"http://www.w3.org/2001/XMLSchema#"
    }
 }`
+
+func fetchVC(ctx, types []string) *verifiable.Credential {
+	vc := &verifiable.Credential{
+		Context: append([]string{verifiable.ContextURI}, ctx...),
+		Types:   append([]string{verifiable.VCType}, types...),
+		ID:      "http://test.credential.com/123",
+		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
+		Issued: &util.TimeWithTrailingZeroMsec{
+			Time: time.Now(),
+		},
+		Subject: map[string]interface{}{
+			"id": uuid.New().String(),
+		},
+	}
+
+	return vc
+}

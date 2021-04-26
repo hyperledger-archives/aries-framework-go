@@ -249,7 +249,7 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 						ID: uuid.New().String(),
 						InputDescriptors: []*presexch.InputDescriptor{{
 							Schema: []*presexch.Schema{{
-								URI: "https://www.w3.org/2018/credentials/examples/v1",
+								URI: "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential",
 							}},
 							ID: uuid.New().String(),
 							Constraints: &presexch.Constraints{

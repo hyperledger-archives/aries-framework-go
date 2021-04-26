@@ -117,15 +117,16 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 		var found bool
 		// The schema of the candidate input must match one of the Input Descriptor schema object uri values exactly.
 		for _, schema := range inputDescriptor.Schema {
-			if stringsContain(vc.Context, schema.URI) {
-				found = true
+			found = schemaURIMatch(vc.Context, vc.Types, schema.URI)
+			if found {
+				break
 			}
 		}
 
 		if !found {
 			return nil, fmt.Errorf(
-				"input descriptor id [%s] requires schema uri %+v which is not in vc context [%+v]",
-				inputDescriptor.ID, inputDescriptor.Schema, vc.Types)
+				"input descriptor id [%s] requires schemas %+v which do not match vc with @context [%+v] and types [%+v] selected by path [%s]", // nolint:lll
+				inputDescriptor.ID, inputDescriptor.Schema, vc.Context, vc.Types, mapping.Path)
 		}
 
 		// TODO add support for constraints: https://github.com/hyperledger/aries-framework-go/issues/2108
@@ -247,6 +248,19 @@ func stringsContain(s []string, val string) bool {
 	for i := range s {
 		if s[i] == val {
 			return true
+		}
+	}
+
+	return false
+}
+
+// TODO - improve schema.uri matching: https://github.com/hyperledger/aries-framework-go/issues/2756
+func schemaURIMatch(vcCtx, vcTypes []string, schemaURI string) bool {
+	for i := range vcCtx {
+		for j := range vcTypes {
+			if schemaURI == fmt.Sprintf("%s#%s", vcCtx[i], vcTypes[j]) {
+				return true
+			}
 		}
 	}
 
