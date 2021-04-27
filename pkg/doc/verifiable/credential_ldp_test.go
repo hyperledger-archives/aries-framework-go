@@ -286,26 +286,25 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
   "id": "https://example.com/credentials/720df5b8-d6c9-47e6-a024-0abc1507e549",
   "issuanceDate": "2020-03-16T22:37:26.544Z",
   "issuer": {
-    "id": "did:trustbloc:testnet.trustbloc.local:EiDcoXqGFKvTYHrjNbgydFJXkRwZ3o4mGo5Hrz5oFWQpTw",
-    "name": "myprofile_ud_unireg_p256_jws"
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
   },
   "proof": {
-    "created": "2020-05-14T18:03:31.42589357Z",
-    "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..WIqlGjahSWZ6S9fTPIYtXLiKZME-H1iOp2ZVImBokb1Yjkdq2O95v1vVFWLnJA6Ch5cQhrpq3XBvfu4-WRI9BQ",
+    "created": "2021-04-23T20:01:46.987287+03:00",
+    "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MQIszCkfU3EfFEor_TQ5-BDhQYd9pH6fqY2cHHmaNt5bYkJL15IzA8OZPDOk8YvLLxhQv1ZS1V32JkKdHvePBw",
     "proofPurpose": "assertionMethod",
     "type": "JsonWebSignature2020",
-    "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiDcoXqGFKvTYHrjNbgydFJXkRwZ3o4mGo5Hrz5oFWQpTw#MKDuk3--4skF-pAln0mL"
+    "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
   },
   "type": [
     "VerifiableCredential",
     "UniversityDegreeCredential"
   ]
-}
-`
+}`
 	sigSuite := jsonwebsignature2020.New(
 		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	decoded, err := base64.StdEncoding.DecodeString("+aUmWfY3dieI7pIeRyG+tOjfGL84ay3QyaVmho0oJR8=")
+	decoded, err := base64.StdEncoding.DecodeString("cvXX3pUdyfEgL2k73NtHOxPX0T4NyABBAfthTYKtFkI=")
 	require.NoError(t, err)
 
 	publicKey := make([]byte, ed25519.PublicKeySize)
@@ -323,7 +322,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 				JWK:  jwk,
 			}, nil
 		}),
-		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/credentials-v1.jsonld"),
+		WithExternalJSONLDContext("https://w3id.org/security/jws/v1"),
 		WithStrictValidation())
 
 	require.NoError(t, err)

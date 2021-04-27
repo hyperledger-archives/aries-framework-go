@@ -6,10 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
+// nolint:golint
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	_ "embed"
 	"errors"
 	"fmt"
 	"time"
@@ -400,14 +402,30 @@ func mapDIDKeyType(proofType string) string {
 	}
 }
 
-// CreateDocumentLoader creates a JSON-LD document loader with preloaded VC and security JSON-LD contexts.
+// nolint:gochecknoglobals // embedded test contexts
+var (
+	//go:embed testdata/contexts/credentials-examples_v1.jsonld
+	credentialExamples []byte
+	//go:embed testdata/contexts/odrl.jsonld
+	odrl []byte
+)
+
+// CreateDocumentLoader creates a JSON-LD document loader with extra JSON-LD test contexts.
 func CreateDocumentLoader() (ld.DocumentLoader, error) {
 	loader, err := jld.NewDocumentLoader(mem.NewProvider(),
-		jld.WithContexts(jsonLDContexts...),
-		jld.WithContextFS(embedFS),
+		jld.WithExtraContexts(
+			jld.ContextDocument{
+				URL:     "https://www.w3.org/2018/credentials/examples/v1",
+				Content: credentialExamples,
+			},
+			jld.ContextDocument{
+				URL:     "https://www.w3.org/ns/odrl.jsonld",
+				Content: odrl,
+			},
+		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("new document loader: %w", err)
+		return nil, fmt.Errorf("create document loader: %w", err)
 	}
 
 	return loader, nil

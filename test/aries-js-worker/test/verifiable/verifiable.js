@@ -14,25 +14,27 @@ const vcName = "faber-college-credentials"
 const didName = "alice-did"
 const vcID = "http://faber.edu/credentials/1989"
 const vc = `
-{ 
-   "@context":[ 
-       "https://www.w3.org/2018/credentials/v1", 
-       "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-   ],
-   "id":"http://faber.edu/credentials/1989",
-   "type":"VerifiableCredential",
-   "credentialSubject":{ 
-      "id":"did:example:iuajk1f712ebc6f1c276e12ec21"
-   },
-   "issuer":{ 
-      "id":"did:example:09s12ec712ebc6f1c671ebfeb1f",
-      "name":"Faber University"
-   },
-   "issuanceDate":"2020-01-01T10:54:01Z",
-   "credentialStatus":{ 
-      "id":"https://example.gov/status/65",
-      "type":"CredentialStatusList2017"
-   }
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/vc-revocation-list-2020/v1"
+  ],
+  "id": "http://faber.edu/credentials/1989",
+  "type": "VerifiableCredential",
+  "credentialSubject": {
+    "id": "did:example:iuajk1f712ebc6f1c276e12ec21"
+  },
+  "issuer": {
+    "id": "did:example:09s12ec712ebc6f1c671ebfeb1f",
+    "name": "Faber University"
+  },
+  "issuanceDate": "2020-01-01T10:54:01Z",
+  "credentialStatus": {
+    "id": "https://dmv.example.gov/credentials/status/3#94567",
+    "type": "RevocationList2020Status",
+    "revocationListIndex": "94567",
+    "revocationListCredential": "https://example.com/credentials/status/3"
+  }
 }`
 
 const restMode = 'rest'

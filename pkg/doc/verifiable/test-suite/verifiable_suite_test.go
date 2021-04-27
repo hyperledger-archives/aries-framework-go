@@ -2,7 +2,7 @@
 
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-SPDX-License-Identifier: Apache-2.0 // +build testsuite
+SPDX-License-Identifier: Apache-2.0
 
 This is not actually a test but rather a stand-alone generator application
 that is used by VC Test Suite (https://github.com/w3c/vc-test-suite).

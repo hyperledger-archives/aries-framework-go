@@ -6,24 +6,36 @@ SPDX-License-Identifier: Apache-2.0
 
 package jsonldtest
 
+// nolint:golint
 import (
+	_ "embed"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+)
+
+// nolint:gochecknoglobals // embedded test contexts
+var (
+	//go:embed contexts/third_party/w3c-ccg.github.io/citizenship_v1.jsonld
+	citizenship []byte
+	//go:embed contexts/third_party/w3.org/odrl.jsonld
+	odrl []byte
+	//go:embed contexts/third_party/w3.org/credentials-examples_v1.jsonld
+	credentialExamples []byte
+	//go:embed contexts/third_party/trustbloc.github.io/trustbloc-examples_v1.jsonld
+	vcExamples []byte
 )
 
 // WithDocumentLoader returns an option with a custom JSON-LD document loader preloaded with embedded contexts.
 func WithDocumentLoader(t *testing.T) jld.ProcessorOpts {
 	t.Helper()
 
-	loader, err := jsonld.NewDocumentLoader(mockstorage.NewMockStoreProvider(),
-		jsonld.WithContextFS(jsonld.EmbedFS),
-		jsonld.WithContexts(jsonld.EmbedContexts...),
-	)
+	loader, err := createTestDocumentLoader()
 	require.NoError(t, err)
 
 	return jld.WithDocumentLoader(loader)
@@ -31,12 +43,35 @@ func WithDocumentLoader(t *testing.T) jld.ProcessorOpts {
 
 // DocumentLoader returns JSON-LD document loader preloaded with embedded contexts and provided extra contexts.
 func DocumentLoader(extraContexts ...jsonld.ContextDocument) (*jsonld.DocumentLoader, error) {
-	loader, err := jsonld.NewDocumentLoader(mockstorage.NewMockStoreProvider(),
-		jsonld.WithContextFS(jsonld.EmbedFS),
-		jsonld.WithContexts(append(jsonld.EmbedContexts, extraContexts...)...),
+	return createTestDocumentLoader(extraContexts...)
+}
+
+func createTestDocumentLoader(extraContexts ...jsonld.ContextDocument) (*jsonld.DocumentLoader, error) {
+	contexts := append([]jsonld.ContextDocument{
+		{
+			URL:         "https://w3id.org/citizenship/v1",
+			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+			Content:     citizenship,
+		},
+		{
+			URL:     "https://www.w3.org/ns/odrl.jsonld",
+			Content: odrl,
+		},
+		{
+			URL:     "https://www.w3.org/2018/credentials/examples/v1",
+			Content: credentialExamples,
+		},
+		{
+			URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+			Content: vcExamples,
+		},
+	}, extraContexts...)
+
+	loader, err := jsonld.NewDocumentLoader(mem.NewProvider(),
+		jsonld.WithExtraContexts(contexts...),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create document loader: %w", err)
 	}
 
 	return loader, nil
