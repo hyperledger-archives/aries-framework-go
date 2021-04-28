@@ -201,7 +201,7 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 	}
 
 	// open content store using token
-	err = c.contents.Open(token)
+	err = c.contents.Open(token, opts)
 	if err != nil {
 		// close wallet if it fails to open store
 		c.Close()

@@ -112,8 +112,8 @@ func newContentStore(p storage.Provider, pr *profile) *contentStore {
 	return &contentStore{open: storeLocked, close: noOp, provider: newWalletStorageProvider(pr, p)}
 }
 
-func (cs *contentStore) Open(auth string) error {
-	store, err := cs.provider.OpenStore(auth, storage.StoreConfiguration{TagNames: []string{
+func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
+	store, err := cs.provider.OpenStore(auth, opts, storage.StoreConfiguration{TagNames: []string{
 		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {

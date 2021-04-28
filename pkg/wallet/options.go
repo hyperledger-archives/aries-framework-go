@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )
 
@@ -73,10 +75,14 @@ type unlockOpts struct {
 	secretLockSvc secretlock.Service
 
 	// remote(web) kms options
-	authToken string
+	authToken  string
+	webkmsOpts []webkms.Opt
 
 	// expiry
 	tokenExpiry time.Duration
+
+	// edv opts
+	edvOpts []edv.RESTProviderOption
 }
 
 // UnlockOptions is option for unlocking verifiable credential wallet key manager.
@@ -114,6 +120,22 @@ func WithUnlockByAuthorizationToken(url string) UnlockOptions {
 func WithUnlockExpiry(tokenExpiry time.Duration) UnlockOptions {
 	return func(opts *unlockOpts) {
 		opts.tokenExpiry = tokenExpiry
+	}
+}
+
+// WithUnlockWebKMSOptions can be used to provide custom aries web kms options for unlocking wallet.
+// This option can be used to set web kms client http header function instead of using WithUnlockByAuthorizationToken.
+func WithUnlockWebKMSOptions(webkmsOpts ...webkms.Opt) UnlockOptions {
+	return func(opts *unlockOpts) {
+		opts.webkmsOpts = webkmsOpts
+	}
+}
+
+// WithUnlockEDVOptions can be used to provide custom aries edv options for unlocking wallet.
+// Provided options will be considered only if given wallet profile is using EDV configurations.
+func WithUnlockEDVOptions(edvOpts ...edv.RESTProviderOption) UnlockOptions {
+	return func(opts *unlockOpts) {
+		opts.edvOpts = edvOpts
 	}
 }
 

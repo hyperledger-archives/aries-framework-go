@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -30,6 +32,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -496,7 +499,7 @@ func TestWallet_OpenClose(t *testing.T) {
 		require.Contains(t, err.Error(), "message authentication failed")
 	})
 
-	t.Run("test open & close wallet using remote kms URL", func(t *testing.T) {
+	t.Run("test open & close wallet using remote kms URL & auth token option", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
@@ -512,6 +515,86 @@ func TestWallet_OpenClose(t *testing.T) {
 
 		// try again
 		token, err = wallet.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+		require.Empty(t, token)
+		require.Error(t, err)
+		require.Equal(t, err, ErrAlreadyUnlocked)
+
+		// close wallet
+		require.True(t, wallet.Close())
+		require.False(t, wallet.Close())
+	})
+
+	t.Run("test open & close wallet using remote kms URL & auth header option", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		// get token
+		token, err := wallet.Open(WithUnlockWebKMSOptions(
+			webkms.WithHeaders(func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", sampleRemoteKMSAuth))
+
+				return &req.Header, nil
+			}),
+		))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		// try again
+		token, err = wallet.Open(WithUnlockWebKMSOptions(
+			webkms.WithHeaders(func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", sampleRemoteKMSAuth))
+
+				return &req.Header, nil
+			}),
+		))
+		require.Empty(t, token)
+		require.Error(t, err)
+		require.Equal(t, err, ErrAlreadyUnlocked)
+
+		// close wallet
+		require.True(t, wallet.Close())
+		require.False(t, wallet.Close())
+	})
+
+	t.Run("test open & close wallet using EDV options", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		user := uuid.New().String()
+
+		// create profile
+		err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, sampleEDVEncryptionKID, sampleEDVMacKID))
+		require.NoError(t, err)
+
+		wallet, err := New(user, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		// create test key IDS for EDV use & update profile
+		tkn, err := keyManager().createKeyManager(wallet.profile, wallet.storeProvider,
+			&unlockOpts{passphrase: samplePassPhrase})
+		require.NoError(t, err)
+
+		wallet.profile.EDVConf.EncryptionKeyID = ""
+		wallet.profile.EDVConf.MACKeyID = ""
+		ok, err := wallet.profile.setupEDVKeys(tkn, "", "")
+		require.True(t, ok)
+		require.NoError(t, err)
+		require.True(t, wallet.Close())
+
+		// get token
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase), WithUnlockEDVOptions(
+			edv.WithFullDocumentsReturnedFromQueries(), edv.WithBatchEndpointExtension(),
+		))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		// try again
+		token, err = wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
 		require.Empty(t, token)
 		require.Error(t, err)
 		require.Equal(t, err, ErrAlreadyUnlocked)
