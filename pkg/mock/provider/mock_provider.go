@@ -33,6 +33,8 @@ type Provider struct {
 	VDRegistryValue                   vdrapi.Registry
 	CryptoValue                       crypto.Crypto
 	JSONLDDocumentLoaderValue         ld.DocumentLoader
+	KeyTypeValue                      kms.KeyType
+	KeyAgreementTypeValue             kms.KeyType
 }
 
 // Service return service.
@@ -106,4 +108,14 @@ func (p *Provider) VDRegistry() vdrapi.Registry {
 // JSONLDDocumentLoader returns JSON-LD document loader.
 func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
 	return p.JSONLDDocumentLoaderValue
+}
+
+// KeyType returns a mocked keyType value for authentication (signing).
+func (p *Provider) KeyType() kms.KeyType {
+	return p.KeyTypeValue
+}
+
+// KeyAgreementType returns a mocked keyType value for KeyAgreement.
+func (p *Provider) KeyAgreementType() kms.KeyType {
+	return p.KeyAgreementTypeValue
 }

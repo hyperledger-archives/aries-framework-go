@@ -101,8 +101,6 @@ func (r *Registry) Create(didMethod string, did *diddoc.Doc,
 	opts ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
 	docOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
 
-	// TODO add EncryptionKey as option in docOpts here to support Anoncrypt/Authcrypt packing
-
 	for _, opt := range opts {
 		opt(docOpts)
 	}

@@ -33,7 +33,7 @@ describe("VDR", function () {
         for (let i = 0; i < agents.length; i++) {
             let resp;
             try {
-                resp = await agents[i].vdr.createDID({"method": "peer","did":{"@context":["https://w3id.org/did/v1"],"id":"c1ffe6e5-16ad-4dd3-a6d3-df5bba841892","verificationMethod":[{"controller":"","id":"","publicKeyBase58":"2keDRdS4b9gjFKKoWhSwMpPWWqbx5HRywi9M7sGk2am8","type":"Ed25519VerificationKey2018"}]}})
+                resp = await agents[i].vdr.createDID({"method": "peer","did":{"@context":["https://www.w3.org/ns/did/v1"],"id":"c1ffe6e5-16ad-4dd3-a6d3-df5bba841892","verificationMethod":[{"controller":"","id":"","publicKeyBase58":"2keDRdS4b9gjFKKoWhSwMpPWWqbx5HRywi9M7sGk2am8","type":"Ed25519VerificationKey2018"}]}})
             }catch (e) {
                 assert.fail(e.message);
             }

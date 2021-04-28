@@ -146,6 +146,9 @@ func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*cryptoapi.Publ
 		if curve != commonpb.EllipticCurveType_CURVE25519.String() {
 			return nil, fmt.Errorf("invalid OKP curve: %s", curve)
 		}
+
+		// use JWK curve name when exporting the key.
+		curve = "X25519"
 	default:
 		return nil, fmt.Errorf("invalid keyType: %s", keyType)
 	}
@@ -318,7 +321,7 @@ func getCurveProto(c string) (commonpb.EllipticCurveType, error) {
 		return commonpb.EllipticCurveType_NIST_P384, nil
 	case "secp521r1", "NIST_P521", "P-521", "EllipticCurveType_NIST_P521":
 		return commonpb.EllipticCurveType_NIST_P521, nil
-	case commonpb.EllipticCurveType_CURVE25519.String():
+	case commonpb.EllipticCurveType_CURVE25519.String(), "X25519":
 		return commonpb.EllipticCurveType_CURVE25519, nil
 	default:
 		return commonpb.EllipticCurveType_UNKNOWN_CURVE, errors.New("unsupported curve")

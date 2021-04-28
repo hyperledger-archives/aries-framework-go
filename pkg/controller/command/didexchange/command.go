@@ -91,6 +91,8 @@ type provider interface {
 	ServiceEndpoint() string
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // New returns new DID Exchange controller command instance.

@@ -12,6 +12,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,6 +23,7 @@ import (
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -120,7 +123,7 @@ func TestDecodePublicKey(t *testing.T) {
 						}`,
 			},
 			{
-				name: "get public key bytes EC P-526 JWK",
+				name: "get public key bytes EC P-256 JWK",
 				jwkJSON: `{
 							"kty": "EC",
 							"use": "enc",
@@ -129,6 +132,30 @@ func TestDecodePublicKey(t *testing.T) {
 							"x": "JR7nhI47w7bxrNkp7Xt1nbmozNn-RB2Q-PWi7KHT8J0",
 							"y": "iXmKtH0caOgB1vV0CQwinwK999qdDvrssKhdbiAz9OI",
 							"alg": "ES256"
+						}`,
+			},
+			{
+				name: "get public key bytes EC P-384 JWK",
+				jwkJSON: `{
+							"kty": "EC",
+							"use": "enc",
+							"crv": "P-384",
+							"kid": "sample@sample.id",
+							"x": "GGFw14WnABx5S__MLwjy7WPgmPzCNbygbJikSqwx1nQ7APAiIyLeiAeZnAFQSr8C",
+							"y": "Bjev4lkaRbd4Ery0vnO8Ox4QgIDGbuflmFq0HhL-QHIe3KhqxrqZqbQYGlDNudEv",
+							"alg": "ES384"
+						}`,
+			},
+			{
+				name: "get public key bytes EC P-521 JWK",
+				jwkJSON: `{
+							"kty": "EC",
+							"use": "enc",
+							"crv": "P-521",
+							"kid": "sample@sample.id",
+							"x": "AZi-AxJkB09qw8dBnNrz53xM-wER0Y5IYXSEWSTtzI5Sdv_5XijQn9z-vGz1pMdww-C75GdpAzp2ghejZJSxbAd6",
+							"y": "AZzRvW8NBytGNbF3dyNOMHB0DHCOzGp8oYBv_ZCyJbQUUnq-TYX7j8-PlKe9Ce5acxZzrcUKVtJ4I8JgI5x9oXIW",
+							"alg": "ES521"
 						}`,
 			},
 			{
@@ -184,6 +211,12 @@ func TestDecodePublicKey(t *testing.T) {
 					require.Equal(t, x25519Crv, jwkKey.Crv)
 					require.Equal(t, cryptoutil.Curve25519KeySize, len(jwkKey.Key.([]byte)))
 					require.Equal(t, okpKty, jwkKey.Kty)
+
+					newJWK, err := PubKeyBytesToJWK(jwk.Key.([]byte), kms.X25519ECDHKWType)
+					require.NoError(t, err)
+					require.Equal(t, x25519Crv, newJWK.Crv)
+					require.Equal(t, cryptoutil.Curve25519KeySize, len(newJWK.Key.([]byte)))
+					require.Equal(t, okpKty, newJWK.Kty)
 				case "get public key bytes BBS+ JWK":
 					jwkKey, err := JWKFromKey(jwk.Key)
 					require.NoError(t, err)
@@ -195,6 +228,103 @@ func TestDecodePublicKey(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, bls12381G2Size, len(bbsPubKeyBytes))
 					require.Equal(t, okpKty, jwkKey.Kty)
+
+					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.BLS12381G2Type)
+					require.NoError(t, err)
+					require.NotNil(t, newJWK)
+					require.Equal(t, bls12381G2Crv, newJWK.Crv)
+					bbsPubKey, ok = newJWK.Key.(*bbs12381g2pub.PublicKey)
+					require.True(t, ok)
+					bbsPubKeyBytes, err = bbsPubKey.Marshal()
+					require.NoError(t, err)
+					require.Equal(t, bls12381G2Size, len(bbsPubKeyBytes))
+					require.Equal(t, okpKty, newJWK.Kty)
+				case "get public key bytes Ed25519 JWK":
+					jwkKey, err := JWKFromKey(jwk.Key)
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, "Ed25519", jwkKey.Crv)
+					require.Equal(t, ed25519.PublicKeySize, len(jwkKey.Key.(ed25519.PublicKey)))
+					require.Equal(t, okpKty, jwkKey.Kty)
+
+					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.ED25519Type)
+					require.NoError(t, err)
+					require.NotNil(t, newJWK)
+					require.Equal(t, "Ed25519", newJWK.Crv)
+					require.Equal(t, ed25519.PublicKeySize, len(newJWK.Key.(ed25519.PublicKey)))
+					require.Equal(t, okpKty, newJWK.Kty)
+				case "get public key bytes EC P-256 JWK":
+					jwkKey, err := JWKFromKey(jwk.Key)
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, elliptic.P256().Params().Name, jwkKey.Crv)
+					require.Equal(t, "EC", jwkKey.Kty)
+					ecKey, ok := jwkKey.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "JR7nhI47w7bxrNkp7Xt1nbmozNn-RB2Q-PWi7KHT8J0",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "iXmKtH0caOgB1vV0CQwinwK999qdDvrssKhdbiAz9OI",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
+
+					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.ECDSAP256TypeIEEEP1363)
+					require.NoError(t, err)
+					require.NotNil(t, newJWK)
+					require.Equal(t, elliptic.P256().Params().Name, newJWK.Crv)
+					require.Equal(t, "EC", newJWK.Kty)
+					ecKey, ok = newJWK.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "JR7nhI47w7bxrNkp7Xt1nbmozNn-RB2Q-PWi7KHT8J0",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "iXmKtH0caOgB1vV0CQwinwK999qdDvrssKhdbiAz9OI",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
+				case "get public key bytes EC P-384 JWK":
+					jwkKey, err := JWKFromKey(jwk.Key)
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, elliptic.P384().Params().Name, jwkKey.Crv)
+					require.Equal(t, "EC", jwkKey.Kty)
+					ecKey, ok := jwkKey.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "GGFw14WnABx5S__MLwjy7WPgmPzCNbygbJikSqwx1nQ7APAiIyLeiAeZnAFQSr8C",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "Bjev4lkaRbd4Ery0vnO8Ox4QgIDGbuflmFq0HhL-QHIe3KhqxrqZqbQYGlDNudEv",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
+
+					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.ECDSAP384TypeIEEEP1363)
+					require.NoError(t, err)
+					require.NotNil(t, newJWK)
+					require.Equal(t, elliptic.P384().Params().Name, newJWK.Crv)
+					require.Equal(t, "EC", newJWK.Kty)
+					ecKey, ok = newJWK.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "GGFw14WnABx5S__MLwjy7WPgmPzCNbygbJikSqwx1nQ7APAiIyLeiAeZnAFQSr8C",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "Bjev4lkaRbd4Ery0vnO8Ox4QgIDGbuflmFq0HhL-QHIe3KhqxrqZqbQYGlDNudEv",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
+				case "get public key bytes EC P-521 JWK":
+					jwkKey, err := JWKFromKey(jwk.Key)
+					require.NoError(t, err)
+					require.NotNil(t, jwkKey)
+					require.Equal(t, elliptic.P521().Params().Name, jwkKey.Crv)
+					require.Equal(t, "EC", jwkKey.Kty)
+					ecKey, ok := jwkKey.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "AZi-AxJkB09qw8dBnNrz53xM-wER0Y5IYXSEWSTtzI5Sdv_5XijQn9z-vGz1pMdww-C75GdpAzp2ghejZJSxbAd6",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "AZzRvW8NBytGNbF3dyNOMHB0DHCOzGp8oYBv_ZCyJbQUUnq-TYX7j8-PlKe9Ce5acxZzrcUKVtJ4I8JgI5x9oXIW",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
+
+					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.ECDSAP521TypeIEEEP1363)
+					require.NoError(t, err)
+					require.NotNil(t, newJWK)
+					require.Equal(t, elliptic.P521().Params().Name, newJWK.Crv)
+					require.Equal(t, "EC", newJWK.Kty)
+					ecKey, ok = newJWK.Key.(*ecdsa.PublicKey)
+					require.True(t, ok)
+					require.Equal(t, "AZi-AxJkB09qw8dBnNrz53xM-wER0Y5IYXSEWSTtzI5Sdv_5XijQn9z-vGz1pMdww-C75GdpAzp2ghejZJSxbAd6",
+						base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()))
+					require.Equal(t, "AZzRvW8NBytGNbF3dyNOMHB0DHCOzGp8oYBv_ZCyJbQUUnq-TYX7j8-PlKe9Ce5acxZzrcUKVtJ4I8JgI5x9oXIW",
+						base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()))
 				default:
 					jwkKey, err := JWKFromKey(jwk.Key)
 					require.NoError(t, err)
@@ -720,4 +850,153 @@ func TestJWK_KeyType(t *testing.T) {
 		require.Contains(t, err.Error(), "no keytype recognized for ecdsa jwk")
 		require.Equal(t, kms.KeyType(""), kt)
 	})
+}
+
+func TestPubKeyBytesToJWK(t *testing.T) {
+	tests := []struct {
+		name    string
+		keyType kms.KeyType
+	}{
+		{
+			name:    "P-256 IEEE1363 test",
+			keyType: kms.ECDSAP256TypeIEEEP1363,
+		},
+		{
+			name:    "P-384 IEEE1363 test",
+			keyType: kms.ECDSAP384TypeIEEEP1363,
+		},
+		{
+			name:    "P-521 IEEE1363 test",
+			keyType: kms.ECDSAP521TypeIEEEP1363,
+		},
+		{
+			name:    "P-256 DER test",
+			keyType: kms.ECDSAP256TypeDER,
+		},
+		{
+			name:    "P-384 DER test",
+			keyType: kms.ECDSAP384TypeDER,
+		},
+		{
+			name:    "P-521 DER test",
+			keyType: kms.ECDSAP521TypeDER,
+		},
+		{
+			name:    "Ed25519 test",
+			keyType: kms.ED25519Type,
+		},
+		{
+			name:    "BLS12381G2 test",
+			keyType: kms.BLS12381G2Type,
+		},
+		{
+			name:    "X25519 test",
+			keyType: kms.X25519ECDHKWType,
+		},
+		{
+			name:    "P-256 KW test",
+			keyType: kms.NISTP256ECDHKWType,
+		},
+		{
+			name:    "P-384 KW test",
+			keyType: kms.NISTP384ECDHKWType,
+		},
+		{
+			name:    "P-521 KW test",
+			keyType: kms.NISTP521ECDHKWType,
+		},
+		{
+			name:    "undefined type test",
+			keyType: "undefined",
+		},
+	}
+
+	t.Parallel()
+
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.name, func(t *testing.T) {
+			switch tc.keyType {
+			case kms.ED25519Type:
+				pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				jwk, err := PubKeyBytesToJWK(pubKey, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, okpKty, jwk.Kty)
+				require.Equal(t, "Ed25519", jwk.Crv)
+			case kms.BLS12381G2Type:
+				pubKey, _, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+				require.NoError(t, err)
+
+				keyBytes, err := pubKey.Marshal()
+				require.NoError(t, err)
+
+				jwk, err := PubKeyBytesToJWK(keyBytes, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, okpKty, jwk.Kty)
+				require.Equal(t, bls12381G2Crv, jwk.Crv)
+			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+				crv := getECDSACurve(tc.keyType)
+				privKey, err := ecdsa.GenerateKey(crv, rand.Reader)
+				require.NoError(t, err)
+
+				keyBytes := elliptic.Marshal(crv, privKey.X, privKey.Y)
+
+				jwk, err := PubKeyBytesToJWK(keyBytes, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, "EC", jwk.Kty)
+				require.Equal(t, crv.Params().Name, jwk.Crv)
+			case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+				crv := getECDSACurve(tc.keyType)
+				privKey, err := ecdsa.GenerateKey(crv, rand.Reader)
+				require.NoError(t, err)
+
+				keyBytes, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+				require.NoError(t, err)
+
+				jwk, err := PubKeyBytesToJWK(keyBytes, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, "EC", jwk.Kty)
+				require.Equal(t, crv.Params().Name, jwk.Crv)
+			case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+				crv := getECDSACurve(tc.keyType)
+				privKey, err := ecdsa.GenerateKey(crv, rand.Reader)
+				require.NoError(t, err)
+
+				pubKey := &cryptoapi.PublicKey{
+					X:     privKey.X.Bytes(),
+					Y:     privKey.Y.Bytes(),
+					Curve: crv.Params().Name,
+					Type:  "EC",
+				}
+
+				keyBytes, err := json.Marshal(pubKey)
+				require.NoError(t, err)
+
+				jwk, err := PubKeyBytesToJWK(keyBytes, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, "EC", jwk.Kty)
+				require.Equal(t, crv.Params().Name, jwk.Crv)
+			case kms.X25519ECDHKWType:
+				pubKeyBytes := make([]byte, 32)
+				_, err := rand.Read(pubKeyBytes)
+				require.NoError(t, err)
+
+				jwk, err := PubKeyBytesToJWK(pubKeyBytes, tc.keyType)
+				require.NoError(t, err)
+				require.NotEmpty(t, jwk)
+				require.Equal(t, okpKty, jwk.Kty)
+				require.Equal(t, x25519Crv, jwk.Crv)
+			default:
+				_, err := PubKeyBytesToJWK([]byte{}, tc.keyType)
+				require.EqualError(t, err, "convertPubKeyJWK: invalid key type: undefined")
+			}
+		})
+	}
 }

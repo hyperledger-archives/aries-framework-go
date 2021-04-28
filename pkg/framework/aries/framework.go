@@ -68,6 +68,8 @@ type Aries struct {
 	jsonldDocumentLoader       ld.DocumentLoader
 	transportReturnRoute       string
 	id                         string
+	keyType                    kms.KeyType
+	keyAgreementType           kms.KeyType
 }
 
 // Option configures the framework.
@@ -293,6 +295,22 @@ func WithJSONLDDocumentLoader(loader ld.DocumentLoader) Option {
 	}
 }
 
+// WithKeyType injects a default signing key type.
+func WithKeyType(keyType kms.KeyType) Option {
+	return func(opts *Aries) error {
+		opts.keyType = keyType
+		return nil
+	}
+}
+
+// WithKeyAgreementType injects a default encryption key type.
+func WithKeyAgreementType(keyAgreementType kms.KeyType) Option {
+	return func(opts *Aries) error {
+		opts.keyAgreementType = keyAgreementType
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -316,6 +334,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithVerifiableStore(a.verifiableStore),
 		context.WithDIDConnectionStore(a.didConnectionStore),
 		context.WithJSONLDDocumentLoader(a.jsonldDocumentLoader),
+		context.WithKeyType(a.keyType),
+		context.WithKeyAgreementType(a.keyAgreementType),
 	)
 }
 

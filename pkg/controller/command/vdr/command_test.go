@@ -25,7 +25,7 @@ const sampleDIDName = "sampleDIDName"
 
 //nolint:lll
 const doc = `{
-  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "@context": ["https://www.w3.org/ns/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "verificationMethod": [
     {

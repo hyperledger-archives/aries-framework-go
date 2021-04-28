@@ -45,6 +45,8 @@ type Provider interface {
 	VerifiableStore() verifiable.Store
 	DIDConnectionStore() did.ConnectionStore
 	JSONLDDocumentLoader() ld.DocumentLoader
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // ProtocolSvcCreator method to create new protocol service.

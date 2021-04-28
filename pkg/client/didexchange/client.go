@@ -82,16 +82,20 @@ type provider interface {
 	ServiceEndpoint() string
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Client enable access to didexchange api.
 type Client struct {
 	service.Event
-	didexchangeSvc  protocolService
-	routeSvc        mediator.ProtocolService
-	kms             kms.KeyManager
-	serviceEndpoint string
-	connectionStore *connection.Recorder
+	didexchangeSvc   protocolService
+	routeSvc         mediator.ProtocolService
+	kms              kms.KeyManager
+	serviceEndpoint  string
+	connectionStore  *connection.Recorder
+	keyType          kms.KeyType
+	keyAgreementType kms.KeyType
 }
 
 // protocolService defines DID Exchange service.
@@ -141,13 +145,25 @@ func New(ctx provider) (*Client, error) {
 		return nil, err
 	}
 
+	keyType := ctx.KeyType()
+	if keyType == "" {
+		keyType = kms.ED25519Type
+	}
+
+	keyAgreementType := ctx.KeyAgreementType()
+	if keyAgreementType == "" {
+		keyAgreementType = kms.X25519ECDHKWType
+	}
+
 	return &Client{
-		Event:           didexchangeSvc,
-		didexchangeSvc:  didexchangeSvc,
-		routeSvc:        routeSvc,
-		kms:             ctx.KMS(),
-		serviceEndpoint: ctx.ServiceEndpoint(),
-		connectionStore: connectionStore,
+		Event:            didexchangeSvc,
+		didexchangeSvc:   didexchangeSvc,
+		routeSvc:         routeSvc,
+		kms:              ctx.KMS(),
+		serviceEndpoint:  ctx.ServiceEndpoint(),
+		connectionStore:  connectionStore,
+		keyType:          keyType,
+		keyAgreementType: keyAgreementType,
 	}, nil
 }
 

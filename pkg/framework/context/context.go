@@ -54,6 +54,8 @@ type Provider struct {
 	jsonldDocumentLoader       ld.DocumentLoader
 	transportReturnRoute       string
 	frameworkID                string
+	keyType                    kms.KeyType
+	keyAgreementType           kms.KeyType
 }
 
 type inboundHandler struct {
@@ -286,6 +288,16 @@ func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
 	return p.jsonldDocumentLoader
 }
 
+// KeyType returns the default Key type (signing/authentication).
+func (p *Provider) KeyType() kms.KeyType {
+	return p.keyType
+}
+
+// KeyAgreementType returns the default Key type (encryption).
+func (p *Provider) KeyAgreementType() kms.KeyType {
+	return p.keyAgreementType
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -452,5 +464,32 @@ func WithJSONLDDocumentLoader(loader ld.DocumentLoader) ProviderOption {
 	return func(opts *Provider) error {
 		opts.jsonldDocumentLoader = loader
 		return nil
+	}
+}
+
+// WithKeyType injects a keyType for authentication (signing) into the context.
+func WithKeyType(keyType kms.KeyType) ProviderOption {
+	return func(opts *Provider) error {
+		switch keyType {
+		case kms.ED25519Type, kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363,
+			kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER, kms.BLS12381G2Type:
+			opts.keyType = keyType
+			return nil
+		default:
+			return fmt.Errorf("invalid authentication key type: %s", keyType)
+		}
+	}
+}
+
+// WithKeyAgreementType injects a keyType for KeyAgreement into the context.
+func WithKeyAgreementType(keyAgreementType kms.KeyType) ProviderOption {
+	return func(opts *Provider) error {
+		switch keyAgreementType {
+		case kms.X25519ECDHKWType, kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+			opts.keyAgreementType = keyAgreementType
+			return nil
+		default:
+			return fmt.Errorf("invalid KeyAgreement key type: %s", keyAgreementType)
+		}
 	}
 }

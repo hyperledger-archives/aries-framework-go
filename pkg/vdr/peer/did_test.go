@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func TestComputeDID(t *testing.T) {
@@ -72,22 +73,74 @@ func TestValidateDIDRegex(t *testing.T) {
 }
 
 func TestNewDoc(t *testing.T) {
-	publicKey := did.VerificationMethod{
-		ID:         "did:example:123456789abcdefghi#keys-1",
-		Type:       "Secp256k1VerificationKey2018",
-		Controller: "did:example:123456789abcdefghi",
-		Value:      []byte("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
-	}
+	t.Run("New() success", func(t *testing.T) {
+		publicKey := did.VerificationMethod{
+			ID:         "did:example:123456789abcdefghi#keys-1",
+			Type:       "Secp256k1VerificationKey2018",
+			Controller: "did:example:123456789abcdefghi",
+			Value:      []byte("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+		}
 
-	doc, err := NewDoc(
-		[]did.VerificationMethod{publicKey},
-		did.WithAuthentication([]did.Verification{{VerificationMethod: publicKey}}))
-	require.NoError(t, err)
-	require.NotNil(t, doc)
+		doc, err := NewDoc(
+			[]did.VerificationMethod{publicKey},
+			did.WithAuthentication([]did.Verification{{VerificationMethod: publicKey}}))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
 
-	// validate function validates the DID as well
-	err = validateDID(doc)
-	require.NoError(t, err)
+		// validate function validates the DID as well
+		err = validateDID(doc)
+		require.NoError(t, err)
+	})
+
+	t.Run("New() without keys failure", func(t *testing.T) {
+		_, err := NewDoc([]did.VerificationMethod{})
+		require.EqualError(t, err, "the did:peer genesis version must include public keys and authentication")
+	})
+
+	t.Run("New() without authentication key failure", func(t *testing.T) {
+		_, err := NewDoc([]did.VerificationMethod{})
+		require.EqualError(t, err, "the did:peer genesis version must include public keys and authentication")
+	})
+}
+
+func TestNewDocWithKeyAgreementVM(t *testing.T) {
+	sProvider := storage.NewMockStoreProvider()
+	km := newKMS(t, sProvider)
+
+	t.Run("New Doc using default Ed25519 and X25519 keys (raw key bytes/non JWK)", func(t *testing.T) {
+		ed25519VM, x25519VM := getSigningAndKeyAgreementKey(t, false, km)
+
+		ed25519VM.ID = "did:peer:xyz#keys-1"
+		x25519VM.VerificationMethod.ID = "did:peer:xyz#keys-1"
+		ed25519VM.Controller = "did:peer:xyz"
+		x25519VM.VerificationMethod.Controller = "did:peer:xyz"
+
+		doc, err := NewDoc(
+			[]did.VerificationMethod{ed25519VM},
+			did.WithAuthentication([]did.Verification{{VerificationMethod: ed25519VM}}),
+			did.WithKeyAgreement([]did.Verification{x25519VM}))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// validate function validates the DID as well
+		err = validateDID(doc)
+		require.NoError(t, err)
+	})
+
+	t.Run("New Doc using P-256 keys (JWK)", func(t *testing.T) {
+		p256Sign, p256Enc := getSigningAndKeyAgreementKey(t, true, km)
+
+		doc, err := NewDoc(
+			[]did.VerificationMethod{p256Sign},
+			did.WithAuthentication([]did.Verification{{VerificationMethod: p256Sign}}),
+			did.WithKeyAgreement([]did.Verification{p256Enc}))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// validate function validates the DID as well
+		err = validateDID(doc)
+		require.NoError(t, err)
+	})
 }
 
 func TestNewDocError(t *testing.T) {

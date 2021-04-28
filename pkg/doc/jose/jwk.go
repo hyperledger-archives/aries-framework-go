@@ -22,6 +22,7 @@ import (
 	"github.com/square/go-jose/v3"
 	"golang.org/x/crypto/ed25519"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -97,6 +98,71 @@ func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
 	}
 
 	return key, nil
+}
+
+// PubKeyBytesToJWK converts marshalled bytes of keyType into JWK.
+func PubKeyBytesToJWK(bytes []byte, keyType kms.KeyType) (*JWK, error) { // nolint:gocyclo
+	switch keyType {
+	case kms.ED25519Type:
+		return JWKFromKey(ed25519.PublicKey(bytes))
+	case kms.BLS12381G2Type:
+		bbsKey, err := bbs12381g2pub.UnmarshalPublicKey(bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		return JWKFromKey(bbsKey)
+	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+		crv := getECDSACurve(keyType)
+		x, y := elliptic.Unmarshal(crv, bytes)
+
+		return JWKFromKey(&ecdsa.PublicKey{Curve: crv, X: x, Y: y})
+	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+		pubKey, err := x509.ParsePKIXPublicKey(bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		ecKey, ok := pubKey.(*ecdsa.PublicKey)
+		if !ok {
+			return nil, errors.New("invalid EC key")
+		}
+
+		return JWKFromKey(ecKey)
+	case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+		crv := getECDSACurve(keyType)
+		pubKey := &cryptoapi.PublicKey{}
+
+		err := json.Unmarshal(bytes, pubKey)
+		if err != nil {
+			return nil, err
+		}
+
+		ecdsaKey := &ecdsa.PublicKey{
+			Curve: crv,
+			X:     new(big.Int).SetBytes(pubKey.X),
+			Y:     new(big.Int).SetBytes(pubKey.Y),
+		}
+
+		return JWKFromKey(ecdsaKey)
+	case kms.X25519ECDHKWType:
+		return JWKFromX25519Key(bytes)
+	default:
+		return nil, fmt.Errorf("convertPubKeyJWK: invalid key type: %s", keyType)
+	}
+}
+
+func getECDSACurve(keyType kms.KeyType) elliptic.Curve {
+	switch keyType {
+	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.NISTP256ECDHKWType:
+		return elliptic.P256()
+	case kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP384TypeDER, kms.NISTP384ECDHKWType:
+		return elliptic.P384()
+	case kms.ECDSAP521TypeIEEEP1363, kms.ECDSAP521TypeDER, kms.NISTP521ECDHKWType:
+		return elliptic.P521()
+	}
+
+	return nil
 }
 
 // PublicKeyBytes converts a public key to bytes.
