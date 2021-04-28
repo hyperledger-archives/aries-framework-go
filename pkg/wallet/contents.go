@@ -100,29 +100,24 @@ var (
 
 // contentStore is store for wallet contents for given user profile.
 type contentStore struct {
-	provider storage.Provider
-	storeID  string
+	provider *storageProvider
 	open     storeOpenHandle
 	close    storeCloseHandle
 	lock     sync.RWMutex
 }
 
 // newContentStore returns new wallet content store instance.
-func newContentStore(p storage.Provider, pr *profile) (*contentStore, error) {
-	err := p.SetStoreConfig(pr.ID, storage.StoreConfiguration{TagNames: []string{
+// will use underlying storage provider as content storage if profile doesn't have edv settings.
+func newContentStore(p storage.Provider, pr *profile) *contentStore {
+	return &contentStore{open: storeLocked, close: noOp, provider: newWalletStorageProvider(pr, p)}
+}
+
+func (cs *contentStore) Open(auth string) error {
+	store, err := cs.provider.OpenStore(auth, storage.StoreConfiguration{TagNames: []string{
 		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set store config for user '%s' : %w", pr.User, err)
-	}
-
-	return &contentStore{open: storeLocked, close: noOp, provider: p, storeID: pr.ID}, nil
-}
-
-func (cs *contentStore) Open() error {
-	store, err := cs.provider.OpenStore(cs.storeID)
-	if err != nil {
-		return fmt.Errorf("failed to open store : %w", err)
+		return err
 	}
 
 	cs.lock.Lock()

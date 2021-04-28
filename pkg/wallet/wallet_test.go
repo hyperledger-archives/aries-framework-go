@@ -168,6 +168,10 @@ const (
 	didKeyBBS                = "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
 	pkBBSBase58              = "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh"
 	keyIDBBS                 = "zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
+	sampleEDVServerURL       = "sample-edv-url"
+	sampleEDVVaultID         = "sample-edv-vault-id"
+	sampleEDVEncryptionKID   = "sample-edv-encryption-kid"
+	sampleEDVMacKID          = "sample-edv-mac-kid"
 )
 
 func TestCreate(t *testing.T) {
@@ -199,6 +203,22 @@ func TestCreate(t *testing.T) {
 		wallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, wallet)
+	})
+
+	t.Run("test create new wallet using remote kms key server URL & EDV", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, sampleEDVEncryptionKID, sampleEDVMacKID))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+		require.NotEmpty(t, wallet.profile.EDVConf)
+		require.Equal(t, wallet.profile.EDVConf.ServerURL, sampleEDVServerURL)
+		require.Equal(t, wallet.profile.EDVConf.VaultID, sampleEDVVaultID)
+		require.Equal(t, wallet.profile.EDVConf.EncryptionKeyID, sampleEDVEncryptionKID)
+		require.Equal(t, wallet.profile.EDVConf.MACKeyID, sampleEDVMacKID)
 	})
 
 	t.Run("test create new wallet failure", func(t *testing.T) {
@@ -243,22 +263,6 @@ func TestCreate(t *testing.T) {
 		require.Error(t, err)
 		require.Empty(t, wallet)
 	})
-
-	t.Run("test create new wallet failure - create content store error", func(t *testing.T) {
-		mockctx := newMockProvider(t)
-		mockctx.StorageProviderValue = &mockStorageProvider{
-			MockStoreProvider: mockstorage.NewMockStoreProvider(),
-			failure:           fmt.Errorf(sampleWalletErr),
-		}
-
-		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
-		require.NoError(t, err)
-
-		wallet, err := New(sampleUserID, mockctx)
-		require.Error(t, err)
-		require.Empty(t, wallet)
-		require.Contains(t, err.Error(), "failed to get wallet content store:")
-	})
 }
 
 func TestUpdate(t *testing.T) {
@@ -299,6 +303,24 @@ func TestUpdate(t *testing.T) {
 		require.NotEmpty(t, wallet)
 		require.Empty(t, wallet.profile.MasterLockCipher)
 		require.NotEmpty(t, wallet.profile.KeyServerURL)
+	})
+
+	t.Run("test update wallet profile edv settings", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		createSampleProfile(t, mockctx)
+
+		err := UpdateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, sampleEDVEncryptionKID, sampleEDVMacKID))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+		require.NotEmpty(t, wallet.profile.EDVConf)
+		require.Equal(t, wallet.profile.EDVConf.ServerURL, sampleEDVServerURL)
+		require.Equal(t, wallet.profile.EDVConf.VaultID, sampleEDVVaultID)
+		require.Equal(t, wallet.profile.EDVConf.EncryptionKeyID, sampleEDVEncryptionKID)
+		require.Equal(t, wallet.profile.EDVConf.MACKeyID, sampleEDVMacKID)
 	})
 
 	t.Run("test update wallet failure", func(t *testing.T) {
@@ -356,6 +378,16 @@ func TestUpdate(t *testing.T) {
 		require.NotEmpty(t, wallet)
 		require.Empty(t, wallet.profile.KeyServerURL)
 		require.NotEmpty(t, wallet.profile.MasterLockCipher)
+	})
+
+	t.Run("test update wallet failure - save edv settings error", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		createSampleProfile(t, mockctx)
+
+		err := UpdateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL),
+			WithEDVStorage(sampleEDVServerURL, "", sampleEDVEncryptionKID, sampleEDVMacKID))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to update EDV configuration")
 	})
 }
 
@@ -499,10 +531,9 @@ func TestWallet_OpenClose(t *testing.T) {
 		require.NotEmpty(t, wallet)
 
 		// corrupt content store
-		wallet.contents, err = newContentStore(&mockstorage.MockStoreProvider{
+		wallet.contents = newContentStore(&mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleWalletErr),
 		}, wallet.profile)
-		require.NoError(t, err)
 
 		// get token
 		token, err := wallet.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
@@ -943,6 +974,35 @@ func TestWallet_Issue(t *testing.T) {
 		// sign with just controller
 		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
 			Controller: didKey,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 1)
+	})
+
+	t.Run("Test VC wallet issue JSONWebSignature2020 using controller - success", func(t *testing.T) {
+		walletInstance, err := New(user, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// import keys manually
+		kmgr, err := keyManager().getKeyManger(authToken)
+		require.NoError(t, err)
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// sign with just controller
+		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+			Controller: didKey,
+			ProofType:  JSONWebSignature2020,
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, result)

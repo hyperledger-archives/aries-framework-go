@@ -54,7 +54,7 @@ check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesEDVStorageTest"
 }
 
 # Running aries-framework-go unit test
-PKGS=$(go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | grep -v /mocks | grep -v /aries-js-worker)
+PKGS=$(go list github.com/hyperledger/aries-framework-go/pkg/... 2> /dev/null | grep -v /mocks | grep -v /aries-js-worker)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 

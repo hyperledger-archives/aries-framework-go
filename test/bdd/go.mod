@@ -16,7 +16,6 @@ require (
 	github.com/cucumber/godog v0.8.1
 	github.com/docker/docker v20.10.0+incompatible // indirect
 	github.com/fsouza/go-dockerclient v1.6.6
-	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
@@ -30,7 +29,6 @@ require (
 	github.com/trustbloc/sidetree-core-go v0.6.0
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
-	golang.org/x/sys v0.0.0-20201214095126-aec9a390925b // indirect
 	nhooyr.io/websocket v1.8.3
 )
 
