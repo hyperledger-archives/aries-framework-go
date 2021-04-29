@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -42,17 +43,21 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 		sampleProfile := &profile{ID: uuid.New().String(), User: uuid.New().String()}
 		wsp := newWalletStorageProvider(sampleProfile, sp)
 
-		store, err := wsp.OpenStore(token, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err := wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.NoError(t, err)
 		require.NotEmpty(t, store)
 		require.Len(t, sp.config.TagNames, 1)
 	})
 
 	t.Run("successfully open EDV store", func(t *testing.T) {
-		sampleProfile := &profile{ID: uuid.New().String(), User: uuid.New().String(), EDVConf: &edvConf{
-			ServerURL: "sample-server",
-			VaultID:   "sample-vault-ID",
-		}}
+		sampleProfile := &profile{
+			ID: uuid.New().String(), User: uuid.New().String(),
+			EDVConf: &edvConf{
+				ServerURL: "sample-server",
+				VaultID:   "sample-vault-ID",
+			},
+		}
 
 		ok, err := sampleProfile.setupEDVKeys(token, "", "")
 		require.NoError(t, err)
@@ -60,16 +65,36 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 
 		wsp := newWalletStorageProvider(sampleProfile, nil)
 
-		store, err := wsp.OpenStore(token, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err := wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		require.NoError(t, err)
+		require.NotEmpty(t, store)
+
+		// with edv opts
+		store, err = wsp.OpenStore(token, &unlockOpts{
+			edvOpts: []edv.RESTProviderOption{
+				edv.WithFullDocumentsReturnedFromQueries(),
+				edv.WithBatchEndpointExtension(),
+			},
+		}, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		require.NoError(t, err)
+		require.NotEmpty(t, store)
+
+		// no edv opts
+		store, err = wsp.OpenStore(token, nil,
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.NoError(t, err)
 		require.NotEmpty(t, store)
 	})
 
 	t.Run("failed to open EDV store", func(t *testing.T) {
-		sampleProfile := &profile{ID: uuid.New().String(), User: uuid.New().String(), EDVConf: &edvConf{
-			ServerURL: "sample-server",
-			VaultID:   "sample-vault-ID",
-		}}
+		sampleProfile := &profile{
+			ID: uuid.New().String(), User: uuid.New().String(),
+			EDVConf: &edvConf{
+				ServerURL: "sample-server",
+				VaultID:   "sample-vault-ID",
+			},
+		}
 
 		ok, err := sampleProfile.setupEDVKeys(token, "", "")
 		require.NoError(t, err)
@@ -78,21 +103,24 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 		wsp := newWalletStorageProvider(sampleProfile, nil)
 
 		// invalid auth
-		store, err := wsp.OpenStore(token+".", storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err := wsp.OpenStore(token+".", &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, store)
 
 		// incorrect mac key ID
 		wsp.profile.EDVConf.MACKeyID += "x"
-		store, err = wsp.OpenStore(token, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err = wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create mac crypto")
 		require.Empty(t, store)
 
 		// incorrect encryption key ID
 		wsp.profile.EDVConf.EncryptionKeyID += "x"
-		store, err = wsp.OpenStore(token, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err = wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create JWE encrypter")
 		require.Empty(t, store)
@@ -113,7 +141,8 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 		sp.failure = errors.New(sampleWalletErr)
 		sp.Store.ErrClose = errors.New(sampleWalletErr)
 
-		store, err := wsp.OpenStore(token, storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		store, err := wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.Error(t, err)
 		require.Empty(t, store)
 	})

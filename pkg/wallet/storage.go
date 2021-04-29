@@ -15,6 +15,7 @@ import (
 	"github.com/bluele/gcache"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -38,12 +39,12 @@ func newWalletStorageProvider(profile *profile, provider storage.Provider) *stor
 
 // OpenStore opens and returns store and sets store config to provider.
 // if wallet profile has EDV settings then auth provided will be used to initialize edv storage provider.
-func (s *storageProvider) OpenStore(auth string, config storage.StoreConfiguration) (storage.Store, error) {
+func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storage.StoreConfiguration) (storage.Store, error) {
 	var provider storage.Provider
 	var err error
 
 	if s.profile.EDVConf != nil {
-		provider, err = createEDVStorageProvider(auth, s.profile.EDVConf)
+		provider, err = createEDVStorageProvider(auth, s.profile.EDVConf, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +70,7 @@ func (s *storageProvider) OpenStore(auth string, config storage.StoreConfigurati
 	return store, nil
 }
 
-func createEDVStorageProvider(auth string, conf *edvConf) (storage.Provider, error) {
+func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (storage.Provider, error) {
 	// get key manager
 	keyMgr, err := keyManager().getKeyManger(auth)
 	if err != nil {
@@ -101,11 +102,15 @@ func createEDVStorageProvider(auth string, conf *edvConf) (storage.Provider, err
 		return nil, fmt.Errorf("failed to create mac crypto: %w", err)
 	}
 
+	var edvOpts []edv.RESTProviderOption
+	if opts != nil {
+		edvOpts = append(edvOpts, opts.edvOpts...)
+	}
+
 	// create EDV provider
-	// TODO add zcap header support & configuring edv options [Issue#2433]
 	return edv.NewRESTProvider(conf.ServerURL, conf.VaultID,
 		edv.NewEncryptedFormatter(jweEncrypter, jweDecrypter, macCrypto, edv.WithDeterministicDocumentIDs()),
-		edv.WithFullDocumentsReturnedFromQueries(), edv.WithBatchEndpointExtension()), nil
+		edvOpts...), nil
 }
 
 // getJWSEncrypter creates and returns jwe encrypter based on key manager & crypto provided

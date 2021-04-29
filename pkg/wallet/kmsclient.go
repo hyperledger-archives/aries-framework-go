@@ -121,7 +121,7 @@ func (k *walletKeyManager) createKeyManager(profileInfo *profile,
 		}
 	} else {
 		// remote kms
-		keyManager = createRemoteKeyManager(opts.authToken, profileInfo.KeyServerURL)
+		keyManager = createRemoteKeyManager(opts, profileInfo.KeyServerURL)
 	}
 
 	// generate token
@@ -231,13 +231,19 @@ func getDefaultSecretLock(passphrase string) (secretlock.Service, error) {
 	return hkdf.NewMasterLock(passphrase, sha256.New, nil)
 }
 
-// createLocalKeyManager creates and returns remote KMS instance.
-func createRemoteKeyManager(auth, keyServerURL string) *webkms.RemoteKMS {
-	return webkms.New(keyServerURL, http.DefaultClient, webkms.WithHeaders(func(req *http.Request) (*http.Header, error) {
-		req.Header.Set("authorization", fmt.Sprintf("Bearer %s", auth))
+// createRemoteKeyManager creates and returns remote KMS instance.
+func createRemoteKeyManager(opts *unlockOpts, keyServerURL string) *webkms.RemoteKMS {
+	kmsOpts := opts.webkmsOpts
 
-		return &req.Header, nil
-	}))
+	if opts.authToken != "" {
+		kmsOpts = append(kmsOpts, webkms.WithHeaders(func(req *http.Request) (*http.Header, error) {
+			req.Header.Set("authorization", fmt.Sprintf("Bearer %s", opts.authToken))
+
+			return &req.Header, nil
+		}))
+	}
+
+	return webkms.New(keyServerURL, http.DefaultClient, kmsOpts...)
 }
 
 type kmsSigner struct {
