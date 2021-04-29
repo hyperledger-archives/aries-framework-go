@@ -489,10 +489,12 @@ func (t *Crypto) deriveESWithOKPKey(apu, apv []byte, recPubKey *cryptoapi.Public
 		base64.RawURLEncoding.Encode(apu, ephemeralPubKey)
 	}
 
-	kek, err := cryptoutil.Derive25519KEK([]byte(wrappingAlg), apu, apv, ephemeralPrivChacha, recPubKeyChacha)
+	z, err := cryptoutil.DeriveECDHX25519(ephemeralPrivChacha, recPubKeyChacha)
 	if err != nil {
 		return "", nil, nil, nil, fmt.Errorf("deriveESWithOKPKey: failed to derive 25519 kek: %w", err)
 	}
+
+	kek := kdf(wrappingAlg, z, apu, apv, chacha20poly1305.KeySize)
 
 	epk := &cryptoapi.PublicKey{
 		X:     ephemeralPubKey,
@@ -516,12 +518,12 @@ func (t *Crypto) deriveESWithOKPKeyForUnwrap(alg string, apu, apv []byte, epk *c
 	epkChacha := new([chacha20poly1305.KeySize]byte)
 	copy(epkChacha[:], epk.X)
 
-	kek, err := cryptoutil.Derive25519KEK([]byte(alg), apu, apv, recPrivKeyChacha, epkChacha)
+	z, err := cryptoutil.DeriveECDHX25519(recPrivKeyChacha, epkChacha)
 	if err != nil {
-		return nil, fmt.Errorf("deriveESWithOKPKeyForUnwrap: failed to derive kek: %w", err)
+		return nil, fmt.Errorf("deriveESWithOKPKeyForUnwrap: %w", err)
 	}
 
-	return kek, nil
+	return kdf(alg, z, apu, apv, chacha20poly1305.KeySize), nil
 }
 
 // convertRecKeyAndGenEPKEC converts recPubKey into *ecdsa.PublicKey and generates an ephemeral EC private key
