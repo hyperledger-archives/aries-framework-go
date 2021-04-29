@@ -59,9 +59,15 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 			},
 		}
 
-		ok, err := sampleProfile.setupEDVKeys(token, "", "")
+		kmgr, err := keyManager().getKeyManger(token)
 		require.NoError(t, err)
-		require.True(t, ok)
+		require.NotEmpty(t, kmgr)
+
+		err = sampleProfile.setupEDVEncryptionKey(kmgr)
+		require.NoError(t, err)
+
+		err = sampleProfile.setupEDVMacKey(kmgr)
+		require.NoError(t, err)
 
 		wsp := newWalletStorageProvider(sampleProfile, nil)
 
@@ -96,14 +102,28 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 			},
 		}
 
-		ok, err := sampleProfile.setupEDVKeys(token, "", "")
-		require.NoError(t, err)
-		require.True(t, ok)
-
+		// invalid settings
 		wsp := newWalletStorageProvider(sampleProfile, nil)
+		store, err := wsp.OpenStore(token, &unlockOpts{},
+			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid EDV configuration found in wallet profile")
+		require.Empty(t, store)
+
+		kmgr, err := keyManager().getKeyManger(token)
+		require.NoError(t, err)
+		require.NotEmpty(t, kmgr)
+
+		err = sampleProfile.setupEDVEncryptionKey(kmgr)
+		require.NoError(t, err)
+
+		err = sampleProfile.setupEDVMacKey(kmgr)
+		require.NoError(t, err)
+
+		wsp = newWalletStorageProvider(sampleProfile, nil)
 
 		// invalid auth
-		store, err := wsp.OpenStore(token+".", &unlockOpts{},
+		store, err = wsp.OpenStore(token+".", &unlockOpts{},
 			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrWalletLocked))

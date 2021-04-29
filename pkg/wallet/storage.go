@@ -71,6 +71,10 @@ func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storag
 }
 
 func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (storage.Provider, error) {
+	if conf.EncryptionKeyID == "" || conf.MACKeyID == "" {
+		return nil, errors.New("invalid EDV configuration found in wallet profile, key IDs for encryption and MAC operations are missing") //nolint: lll
+	}
+
 	// get key manager
 	keyMgr, err := keyManager().getKeyManger(auth)
 	if err != nil {
