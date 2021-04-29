@@ -231,9 +231,15 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
-		ok, err := profileInfo.setupEDVKeys(tkn, "", "")
+		kmgr, err := keyManager().getKeyManger(tkn)
 		require.NoError(t, err)
-		require.True(t, ok)
+		require.NotEmpty(t, kmgr)
+
+		err = profileInfo.setupEDVEncryptionKey(kmgr)
+		require.NoError(t, err)
+
+		err = profileInfo.setupEDVMacKey(kmgr)
+		require.NoError(t, err)
 
 		// create new store
 		contentStore := newContentStore(sp, profileInfo)

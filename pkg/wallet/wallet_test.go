@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -394,6 +395,123 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
+func TestCreateDataVaultKeyPairs(t *testing.T) {
+	t.Run("successfully create EDV key pair", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+
+		// create a wallet profile
+		err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, "", ""))
+		require.NoError(t, err)
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
+		wallet, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+		require.NotEmpty(t, wallet.profile.EDVConf.EncryptionKeyID)
+		require.NotEmpty(t, wallet.profile.EDVConf.MACKeyID)
+
+		// call again to replace existing settings
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
+		wallet2, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet2)
+		require.NotEmpty(t, wallet2.profile.EDVConf.EncryptionKeyID)
+		require.NotEmpty(t, wallet2.profile.EDVConf.MACKeyID)
+
+		require.NotEqual(t, wallet.profile.EDVConf.EncryptionKeyID, wallet2.profile.EDVConf.EncryptionKeyID)
+		require.NotEqual(t, wallet.profile.EDVConf.MACKeyID, wallet2.profile.EDVConf.MACKeyID)
+	})
+
+	t.Run("successfully create key pair failures", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+
+		// test create a wallet profile without EDV settings
+		err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid operation")
+
+		// test store errors
+		mockctx = newMockProvider(t)
+		mockctx.StorageProviderValue = &mockstorage.MockStoreProvider{
+			ErrOpenStoreHandle: errors.New(sampleWalletErr),
+		}
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get store")
+
+		// invalid user profile
+		mockctx = newMockProvider(t)
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get wallet user profile")
+
+		// invalid auth
+		mockctx = newMockProvider(t)
+
+		err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, "", ""))
+		require.NoError(t, err)
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase("invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "message authentication failed")
+
+		// test create key pair error
+		mockctx = newMockProvider(t)
+
+		err = CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase),
+			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, "", ""))
+		require.NoError(t, err)
+
+		mockStPvdr, ok := mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider)
+		require.True(t, ok)
+		mockStPvdr.Store.ErrPut = errors.New(sampleWalletErr)
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create key pairs")
+	})
+
+	t.Run("test update profile errors", func(t *testing.T) {
+		require.Error(t, updateProfile("invalid", &profile{}))
+
+		token := uuid.New().String()
+
+		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
+			&mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
+				if kt == kms.HMACSHA256Tag256Type {
+					return "", nil, errors.New(sampleWalletErr)
+				}
+				return "", nil, nil
+			}}, 1000*time.Millisecond))
+
+		err := updateProfile(token, &profile{EDVConf: &edvConf{}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create EDV MAC key pair")
+
+		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
+			&mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
+				if kt == kms.NISTP256ECDHKWType {
+					return "", nil, errors.New(sampleWalletErr)
+				}
+				return "", nil, nil
+			}}, 1000*time.Millisecond))
+
+		err = updateProfile(token, &profile{EDVConf: &edvConf{}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create EDV encryption key pair")
+	})
+}
+
 func TestNew(t *testing.T) {
 	t.Run("test get wallet by user", func(t *testing.T) {
 		mockctx := newMockProvider(t)
@@ -570,23 +688,14 @@ func TestWallet_OpenClose(t *testing.T) {
 			WithEDVStorage(sampleEDVServerURL, sampleEDVVaultID, sampleEDVEncryptionKID, sampleEDVMacKID))
 		require.NoError(t, err)
 
+		// create key pairs
+		err = CreateDataVaultKeyPairs(user, mockctx, WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
 		wallet, err := New(user, mockctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, wallet)
 
-		// create test key IDS for EDV use & update profile
-		tkn, err := keyManager().createKeyManager(wallet.profile, wallet.storeProvider,
-			&unlockOpts{passphrase: samplePassPhrase})
-		require.NoError(t, err)
-
-		wallet.profile.EDVConf.EncryptionKeyID = ""
-		wallet.profile.EDVConf.MACKeyID = ""
-		ok, err := wallet.profile.setupEDVKeys(tkn, "", "")
-		require.True(t, ok)
-		require.NoError(t, err)
-		require.True(t, wallet.Close())
-
-		// get token
 		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase), WithUnlockEDVOptions(
 			edv.WithFullDocumentsReturnedFromQueries(), edv.WithBatchEndpointExtension(),
 		))

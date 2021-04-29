@@ -24,6 +24,7 @@ type KeyManager struct {
 	CreateKeyID              string
 	CreateKeyValue           *keyset.Handle
 	CreateKeyErr             error
+	CreateKeyFn              func(kt kmsservice.KeyType) (string, interface{}, error)
 	GetKeyValue              *keyset.Handle
 	GetKeyErr                error
 	RotateKeyID              string
@@ -45,6 +46,10 @@ type KeyManager struct {
 func (k *KeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) {
 	if k.CreateKeyErr != nil {
 		return "", nil, k.CreateKeyErr
+	}
+
+	if k.CreateKeyFn != nil {
+		return k.CreateKeyFn(kt)
 	}
 
 	return k.CreateKeyID, k.CreateKeyValue, nil

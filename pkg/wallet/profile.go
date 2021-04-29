@@ -110,12 +110,11 @@ func (pr *profile) setKMSOptions(passphrase string, secretLockSvc secretlock.Ser
 }
 
 func (pr *profile) setEDVOptions(opts *edvConf) error {
-	// non EDV users.
 	if opts == nil {
 		return nil
 	}
 
-	if opts.ServerURL == "" || opts.VaultID == "" || opts.EncryptionKeyID == "" || opts.MACKeyID == "" {
+	if opts.ServerURL == "" || opts.VaultID == "" {
 		return errors.New("invalid EDV settings in profile")
 	}
 
@@ -124,49 +123,26 @@ func (pr *profile) setEDVOptions(opts *edvConf) error {
 	return nil
 }
 
-// nolint:gocyclo
-func (pr *profile) setupEDVKeys(auth string, encryptionKeyType, macKeyType kms.KeyType) (bool, error) {
-	setupEncKey := pr.EDVConf != nil && pr.EDVConf.EncryptionKeyID == ""
-	setupMacKey := pr.EDVConf != nil && pr.EDVConf.MACKeyID == ""
-
-	if !(setupEncKey || setupMacKey) {
-		return false, nil
-	}
-
-	keyMgr, err := keyManager().getKeyManger(auth)
+func (pr *profile) setupEDVEncryptionKey(keyManager kms.KeyManager) error {
+	kid, _, err := keyManager.Create(kms.NISTP256ECDHKWType)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	// if encryption key is not yet setup then create one and set.
-	if setupEncKey {
-		if encryptionKeyType == "" {
-			encryptionKeyType = kms.NISTP256ECDHKWType
-		}
+	pr.EDVConf.EncryptionKeyID = kid
 
-		kid, _, err := keyMgr.Create(encryptionKeyType)
-		if err != nil {
-			return false, err
-		}
+	return nil
+}
 
-		pr.EDVConf.EncryptionKeyID = kid
+func (pr *profile) setupEDVMacKey(keyManager kms.KeyManager) error {
+	kid, _, err := keyManager.Create(kms.HMACSHA256Tag256Type)
+	if err != nil {
+		return err
 	}
 
-	// if MAC key is not yet setup then create one and set.
-	if setupMacKey {
-		if macKeyType == "" {
-			macKeyType = kms.HMACSHA256Tag256Type
-		}
+	pr.EDVConf.MACKeyID = kid
 
-		kid, _, err := keyMgr.Create(macKeyType)
-		if err != nil {
-			return false, err
-		}
-
-		pr.EDVConf.MACKeyID = kid
-	}
-
-	return true, nil
+	return nil
 }
 
 func (pr *profile) resetKMSOptions() {

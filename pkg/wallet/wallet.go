@@ -126,11 +126,58 @@ func CreateProfile(userID string, ctx provider, options ...ProfileOptions) error
 
 // UpdateProfile updates existing verifiable credential wallet profile.
 // Will create new profile if no profile exists for given user.
-// Caution:  - you might lose your existing keys if you change kms options.
-// - you might lose your existing wallet contents if you change storage options
-// (ex: switching from EDV to/from context storage provider).
+// Caution:
+// - you might lose your existing keys if you change kms options.
+// - you might lose your existing wallet contents if you change storage/EDV options
+// (ex: switching context storage provider or changing EDV settings).
 func UpdateProfile(userID string, ctx provider, options ...ProfileOptions) error {
 	return createOrUpdate(userID, ctx, true, options...)
+}
+
+// CreateDataVaultKeyPairs can be used create EDV key pairs for given profile.
+// Wallet will create key pairs in profile kms and updates profile with newly generate EDV encryption & MAC key IDs.
+func CreateDataVaultKeyPairs(userID string, ctx provider, options ...UnlockOptions) error {
+	store, err := newProfileStore(ctx.StorageProvider())
+	if err != nil {
+		return fmt.Errorf("failed to get wallet user profile: failed to get store: %w", err)
+	}
+
+	profile, err := store.get(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get wallet user profile: %w", err)
+	}
+
+	if profile.EDVConf == nil {
+		return fmt.Errorf("invalid operation, no edv configuration found in profile: %w", err)
+	}
+
+	opts := &unlockOpts{}
+
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// unlock key manager
+	token, err := keyManager().createKeyManager(profile, ctx.StorageProvider(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	defer keyManager().removeKeyManager(userID)
+
+	// update profile
+	err = updateProfile(token, profile)
+	if err != nil {
+		return fmt.Errorf("failed to create key pairs: %w", err)
+	}
+
+	// update profile
+	err = store.save(profile, true)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	return nil
 }
 
 func createOrUpdate(userID string, ctx provider, update bool, options ...ProfileOptions) error {
@@ -680,4 +727,25 @@ func addContext(v interface{}, context string) {
 
 		vc.Context = append(vc.Context, context)
 	}
+}
+
+func updateProfile(auth string, profile *profile) error {
+	// get key manager
+	keyManager, err := keyManager().getKeyManger(auth)
+	if err != nil {
+		return err
+	}
+
+	// setup key pairs
+	err = profile.setupEDVEncryptionKey(keyManager)
+	if err != nil {
+		return fmt.Errorf("failed to create EDV encryption key pair: %w", err)
+	}
+
+	err = profile.setupEDVMacKey(keyManager)
+	if err != nil {
+		return fmt.Errorf("failed to create EDV MAC key pair: %w", err)
+	}
+
+	return nil
 }
