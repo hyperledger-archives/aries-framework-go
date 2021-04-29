@@ -16,27 +16,27 @@ import (
 )
 
 func TestDeriveKEK_Util(t *testing.T) {
-	kek, err := Derive25519KEK(nil, nil, nil, nil, nil)
-	require.EqualError(t, err, "invalid key")
-	require.Empty(t, kek)
+	z, err := DeriveECDHX25519(nil, nil)
+	require.EqualError(t, err, "deriveECDHX25519: invalid key")
+	require.Empty(t, z)
 
 	validChachaKey, err := base64.RawURLEncoding.DecodeString("c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs")
 	require.NoError(t, err)
 
 	chachaKey := new([chacha.KeySize]byte)
 	copy(chachaKey[:], validChachaKey)
-	kek, err = Derive25519KEK(nil, nil, nil, chachaKey, nil)
-	require.EqualError(t, err, "invalid key")
-	require.Empty(t, kek)
+	z, err = DeriveECDHX25519(chachaKey, nil)
+	require.EqualError(t, err, "deriveECDHX25519: invalid key")
+	require.Empty(t, z)
 
 	validChachaKey2, err := base64.RawURLEncoding.DecodeString("AAjrHjiFLw6kf6CZ5zqH1ooG3y2aQhuqxmUvqJnIvDI")
 	require.NoError(t, err)
 
 	chachaKey2 := new([chacha.KeySize]byte)
 	copy(chachaKey2[:], validChachaKey2)
-	kek, err = Derive25519KEK(nil, nil, nil, chachaKey, chachaKey2)
+	z, err = DeriveECDHX25519(chachaKey, chachaKey2)
 	require.NoError(t, err)
-	require.NotEmpty(t, kek)
+	require.NotEmpty(t, z)
 
 	// lowOrderPoint from golang.org/x/crypto/curve25519.
 	// https://github.com/golang/crypto/blob/f4817d981/curve25519/vectors_test.go#L10
@@ -46,9 +46,9 @@ func TestDeriveKEK_Util(t *testing.T) {
 	}
 	chachaKey2 = new([chacha.KeySize]byte)
 	copy(chachaKey2[:], lowOrderPoint)
-	// test error from curve25519.X25519() call in Derive25519KEK()
-	_, err = Derive25519KEK(nil, nil, nil, chachaKey, chachaKey2)
-	require.Error(t, err)
+	// test error from curve25519.X25519() call in DeriveECDHX25519()
+	_, err = DeriveECDHX25519(chachaKey, chachaKey2)
+	require.EqualError(t, err, "deriveECDHX25519: bad input point: low order point")
 }
 
 func TestNonceGeneration(t *testing.T) {

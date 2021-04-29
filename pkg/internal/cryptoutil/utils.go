@@ -7,68 +7,29 @@ SPDX-License-Identifier: Apache-2.0
 package cryptoutil
 
 import (
-	"crypto"
 	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
 	"fmt"
 
-	josecipher "github.com/square/go-jose/v3/cipher"
 	"github.com/teserakt-io/golang-ed25519/extra25519"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 )
 
-// Derive25519KEK is a utility function that will derive an ephemeral
-// symmetric key (kek) using fromPrivKey and toPubKey.
-func Derive25519KEK(alg, apu, apv []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
+// DeriveECDHX25519 does X25519 ECDH using fromPrivKey and toPubKey.
+func DeriveECDHX25519(fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
 	if fromPrivKey == nil || toPubKey == nil {
-		return nil, errors.New("invalid key")
+		return nil, errors.New("deriveECDHX25519: invalid key")
 	}
 
-	const (
-		numBitsPerByte = 8
-		supPubInfoLen  = 4
-	)
-
-	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
-	// ( equivalent to derive an EC key )
+	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point (ECDH)
 	z, err := curve25519.X25519(fromPrivKey[:], toPubKey[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("deriveECDHX25519: %w", err)
 	}
 
-	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
-	// -> DeriveECDHES() call
-	// suppPubInfo is the encoded length of the recipient shared key output size in bits
-	supPubInfo := make([]byte, supPubInfoLen)
-	// since we're using chacha20poly1305 keys, keySize is known
-	binary.BigEndian.PutUint32(supPubInfo, uint32(chacha.KeySize)*numBitsPerByte)
-
-	// as per https://tools.ietf.org/html/rfc7518#section-4.6.2
-	// concatKDF requires info data to be length prefixed with BigEndian 32 bits type
-	// length prefix alg
-	algInfo := LengthPrefix(alg)
-
-	// length prefix apu
-	apuInfo := LengthPrefix(apu)
-
-	// length prefix apv
-	apvInfo := LengthPrefix(apv)
-
-	// get a Concat KDF stream for z, encryption algorithm, api, supPubInfo and empty supPrivInfo using sha256
-	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algInfo, apuInfo, apvInfo, supPubInfo, []byte{})
-
-	// kek is the recipient specific encryption key used to encrypt the sharedSymKey
-	kek := make([]byte, chacha.KeySize)
-
-	// Read on the KDF will never fail
-	_, err = reader.Read(kek)
-	if err != nil {
-		return nil, err
-	}
-
-	return kek, nil
+	return z, nil
 }
 
 // LengthPrefix array with a bigEndian uint32 value of array's length.
