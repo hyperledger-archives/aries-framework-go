@@ -272,9 +272,8 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	}
 
 	// we are only validating the VerifiableCredential here, hence ignoring other return values
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 VC Validate Command - Add keys for proof
-	//  verification as options to the function.
 	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential),
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher()),
 		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ValidateCredentialCommandMethod, "validate vc : "+err.Error())
