@@ -32,6 +32,7 @@ const (
 	sampleEDVEncryptionKID = "sample-edv-encryption-kid"
 	sampleEDVMacKID        = "sample-edv-mac-kid"
 	sampleCommandError     = "sample-command-error-01"
+	sampleFakeTkn          = "sample-fake-token-01"
 )
 
 func TestNew(t *testing.T) {
@@ -40,7 +41,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 2, len(handlers))
+		require.Equal(t, 4, len(handlers))
 	})
 }
 
@@ -296,11 +297,215 @@ func TestCommand_UpdateProfile(t *testing.T) {
 	})
 }
 
+func TestCommand_OpenAndClose(t *testing.T) {
+	const (
+		sampleUser1 = "sample-user-01"
+		sampleUser2 = "sample-user-02"
+		sampleUser3 = "sample-user-03"
+	)
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:      sampleUser2,
+		KeyStoreURL: sampleKeyStoreURL,
+	})
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser3,
+		LocalKMSPassphrase: samplePassPhrase,
+		EDVConfiguration: &EDVConfiguration{
+			ServerURL: sampleEDVServerURL,
+			VaultID:   sampleEDVVaultID,
+		},
+	})
+
+	t.Run("successfully unlock & lock wallet (local kms)", func(t *testing.T) {
+		cmd := New(mockctx)
+
+		request := &UnlockWalletRquest{
+			UserID:             sampleUser1,
+			LocalKMSPassphrase: samplePassPhrase,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser1}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser1}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("successfully unlock & lock wallet (remote kms)", func(t *testing.T) {
+		cmd := New(mockctx)
+
+		request := &UnlockWalletRquest{
+			UserID:     sampleUser2,
+			WebKMSAuth: sampleFakeTkn,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("successfully unlock & lock wallet (local kms, edv user)", func(t *testing.T) {
+		cmd := New(mockctx)
+
+		request := &UnlockWalletRquest{
+			UserID:             sampleUser3,
+			LocalKMSPassphrase: samplePassPhrase,
+			EDVUnlock: &EDVUnlockRequest{
+				AuthToken: sampleFakeTkn,
+			},
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("lock & unlock failures", func(t *testing.T) {
+		cmd := New(mockctx)
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Open(&b, getReader(t, &UnlockWalletRquest{}))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ExecuteError, OpenWalletErrorCode, "profile does not exist")
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		cmdErr = cmd.Open(&b, getReader(t, ""))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "cannot unmarshal string into Go")
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		cmdErr = cmd.Close(&b, getReader(t, &UnlockWalletRquest{}))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ExecuteError, CloseWalletErrorCode, "profile does not exist")
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		cmdErr = cmd.Close(&b, getReader(t, ""))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "cannot unmarshal string into Go")
+		require.Empty(t, b.Len())
+		b.Reset()
+	})
+}
+
+func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *CreateOrUpdateProfileRequest) {
+	cmd := New(ctx)
+	require.NotNil(t, cmd)
+
+	var l bytes.Buffer
+	cmdErr := cmd.CreateProfile(&l, getReader(t, request))
+	require.NoError(t, cmdErr)
+}
+
 func getReader(t *testing.T, v interface{}) io.Reader {
 	vcReqBytes, err := json.Marshal(v)
 	require.NoError(t, err)
 
 	return bytes.NewBuffer(vcReqBytes)
+}
+
+func getUnlockToken(t *testing.T, b bytes.Buffer) string {
+	var response UnlockWalletResponse
+
+	require.NoError(t, json.NewDecoder(&b).Decode(&response))
+
+	return response.Token
+}
+
+func validateError(t *testing.T, err command.Error,
+	expectedType command.Type, expectedCode command.Code, contains string) {
+	require.Error(t, err)
+	require.Equal(t, err.Type(), expectedType)
+	require.Equal(t, err.Code(), expectedCode)
+
+	if contains != "" {
+		require.Contains(t, err.Error(), contains)
+	}
 }
 
 func newMockProvider(t *testing.T) *mockprovider.Provider {

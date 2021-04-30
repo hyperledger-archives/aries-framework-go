@@ -8,10 +8,13 @@ package vcwallet
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -34,6 +37,12 @@ const (
 
 	// UpdateProfileErrorCode for errors during update wallet profile operations.
 	UpdateProfileErrorCode
+
+	// OpenWalletErrorCode for errors during update wallet unlock operations.
+	OpenWalletErrorCode
+
+	// CloseWalletErrorCode for errors during update wallet lock operations.
+	CloseWalletErrorCode
 )
 
 // All command operations.
@@ -43,10 +52,15 @@ const (
 	// command methods.
 	CreateProfileMethod = "CreateProfile"
 	UpdateProfileMethod = "UpdateProfile"
+	OpenMethod          = "Open"
+	CloseMethod         = "Close"
 )
 
 // miscellaneous constants for the vc wallet command controller.
-const ()
+const (
+	// log constants.
+	logSuccess = "success"
+)
 
 // provider contains dependencies for the verifiable credential wallet command controller
 // and is typically created by using aries.Context().
@@ -72,6 +86,8 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, CreateProfileMethod, o.CreateProfile),
 		cmdutil.NewCommandHandler(CommandName, UpdateProfileMethod, o.UpdateProfile),
+		cmdutil.NewCommandHandler(CommandName, OpenMethod, o.Open),
+		cmdutil.NewCommandHandler(CommandName, CloseMethod, o.Close),
 	}
 }
 
@@ -129,6 +145,63 @@ func (o *Command) UpdateProfile(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// Open unlocks given user's wallet and returns a token for subsequent use of wallet features.
+func (o *Command) Open(rw io.Writer, req io.Reader) command.Error {
+	request := &UnlockWalletRquest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
+
+		return command.NewExecuteError(OpenWalletErrorCode, err)
+	}
+
+	token, err := vcWallet.Open(prepareUnlockOptions(request)...)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
+
+		return command.NewExecuteError(OpenWalletErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, UnlockWalletResponse{Token: token}, logger)
+	logutil.LogDebug(logger, CommandName, OpenMethod, logSuccess)
+
+	return nil
+}
+
+// Close locks given user's wallet.
+func (o *Command) Close(rw io.Writer, req io.Reader) command.Error {
+	request := &LockWalletRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, CloseMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, CloseMethod, err.Error())
+
+		return command.NewExecuteError(CloseWalletErrorCode, err)
+	}
+
+	closed := vcWallet.Close()
+
+	command.WriteNillableResponse(rw, LockWalletResponse{Closed: closed}, logger)
+	logutil.LogDebug(logger, CommandName, OpenMethod, logSuccess)
+
+	return nil
+}
+
 // prepareProfileOptions prepares options for creating wallet profile.
 func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileOptions {
 	var options []wallet.ProfileOptions
@@ -148,5 +221,33 @@ func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileO
 		))
 	}
 
+	return options
+}
+
+func prepareUnlockOptions(rqst *UnlockWalletRquest) []wallet.UnlockOptions {
+	var options []wallet.UnlockOptions
+
+	if rqst.LocalKMSPassphrase != "" {
+		options = append(options, wallet.WithUnlockByPassphrase(rqst.LocalKMSPassphrase))
+	}
+
+	if rqst.WebKMSAuth != "" {
+		options = append(options, wallet.WithUnlockByAuthorizationToken(rqst.LocalKMSPassphrase))
+	}
+
+	// TODO edv sign header function for zcap support #2433
+	if rqst.EDVUnlock != nil {
+		if rqst.EDVUnlock.AuthToken != "" {
+			options = append(options, wallet.WithUnlockEDVOptions(edv.WithHeaders(
+				func(req *http.Request) (*http.Header, error) {
+					req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+
+					return &req.Header, nil
+				},
+			)))
+		}
+	}
+
+	// TODO web kms sign header function for zcap support #2433
 	return options
 }
