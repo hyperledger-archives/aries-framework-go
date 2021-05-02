@@ -63,7 +63,7 @@ var jwkCurves = map[string]kms.KeyType{
 // errors.
 var (
 	// ErrAlreadyUnlocked error when key manager is already created for a given user.
-	ErrAlreadyUnlocked = errors.New("profile already unlocked")
+	ErrAlreadyUnlocked = errors.New("wallet already unlocked")
 
 	// WalletLocked when key manager operation is attempted without unlocking wallet.
 	ErrWalletLocked = errors.New("wallet locked")

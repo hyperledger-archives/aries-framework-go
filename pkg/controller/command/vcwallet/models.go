@@ -41,3 +41,53 @@ type EDVConfiguration struct {
 	// If profile is using localkms then wallet will create this key set for wallet user.
 	MACKeyID string `json:"macKID,omitempty"`
 }
+
+// UnlockWalletRquest contains different options for unlocking wallet.
+type UnlockWalletRquest struct {
+	// user ID of the wallet to be unlocked.
+	UserID string `json:"userID"`
+
+	// passphrase for local kms for key operations.
+	// Optional, to be used if profile for this wallet user is setup with local KMS.
+	LocalKMSPassphrase string `json:"localKMSPassphrase,omitempty"`
+
+	// WebKMSAuth for authorizing acccess to web/remote kms.
+	// Optional, to be used if profile for this wallet user is setup with web/remote KMS.
+	WebKMSAuth string `json:"webKMSAuth,omitempty"`
+
+	// Options for authorizing access to wallet's EDV content store.
+	// Optional, to be used only if profile for this wallet user is setup to use EDV as content store.
+	EDVUnlock *EDVUnlockRequest `json:"edvUnlock,omitempty"`
+}
+
+// EDVUnlockRequest contains different options for authorizing access to wallet's EDV content store.
+type EDVUnlockRequest struct {
+	// Capability if ZCAP sign header feature to be used for authorizing EDV access.
+	// Optional, can be used only if ZCAP sign header feature is configured with command controller
+	// TODO to be implemented #2433
+	Capability string `json:"capability,omitempty"`
+
+	// Authorization token to be used for authorizing EDV access.
+	// Optional, only if required by wallet user.
+	AuthToken string `json:"authToken,omitempty"`
+}
+
+// UnlockWalletResponse contains response for wallet unlock operation.
+type UnlockWalletResponse struct {
+	// Token for granting access to wallet for subsequent wallet operations.
+	Token string `json:"token,omitempty"`
+}
+
+// LockWalletRequest contains options for locking wallet.
+type LockWalletRequest struct {
+	// user ID of the wallet to be locked.
+	UserID string `json:"userID"`
+}
+
+// LockWalletResponse contains response for wallet lock operation.
+type LockWalletResponse struct {
+	// Closed status of the wallet lock operation.
+	// if true, wallet is closed successfully
+	// if false, wallet is already closed or never unlocked.
+	Closed bool `json:"userID"`
+}
