@@ -22,7 +22,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
-	github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1
+	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multibase v0.0.1
 	github.com/multiformats/go-multihash v0.0.13
