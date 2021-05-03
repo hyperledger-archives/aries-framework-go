@@ -262,9 +262,7 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 // Close expires token issued to this VC wallet, removes the key manager instance and closes wallet content store.
 // returns false if token is not found or already expired for this wallet user.
 func (c *Wallet) Close() bool {
-	c.contents.Close()
-
-	return keyManager().removeKeyManager(c.userID)
+	return keyManager().removeKeyManager(c.userID) && c.contents.Close()
 }
 
 // Export produces a serialized exported wallet representation.

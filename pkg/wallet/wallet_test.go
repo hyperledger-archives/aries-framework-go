@@ -713,6 +713,33 @@ func TestWallet_OpenClose(t *testing.T) {
 		require.False(t, wallet.Close())
 	})
 
+	t.Run("test opened wallet between multliple instances", func(t *testing.T) {
+		mockctx := newMockProvider(t)
+		err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+
+		wallet1, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet1)
+
+		// get token
+		token, err := wallet1.Open(WithUnlockByPassphrase(samplePassPhrase), WithUnlockExpiry(500*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		// create new instance for same profile
+		wallet2, err := New(sampleUserID, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet2)
+
+		// no need to unlock again since token is shared
+		require.NoError(t, wallet2.Add(token, Metadata, []byte(sampleContentValid)))
+
+		// close first instance
+		wallet1.Close()
+		require.Error(t, wallet2.Add(token, Metadata, []byte(sampleContentNoID)))
+	})
+
 	t.Run("test open wallet failure when store open fails", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))

@@ -38,11 +38,26 @@ const (
 	// UpdateProfileErrorCode for errors during update wallet profile operations.
 	UpdateProfileErrorCode
 
-	// OpenWalletErrorCode for errors during update wallet unlock operations.
+	// OpenWalletErrorCode for errors during wallet unlock operations.
 	OpenWalletErrorCode
 
-	// CloseWalletErrorCode for errors during update wallet lock operations.
+	// CloseWalletErrorCode for errors during wallet lock operations.
 	CloseWalletErrorCode
+
+	// AddToWalletErrorCode for errors while adding contents to wallet.
+	AddToWalletErrorCode
+
+	// RemoveFromWalletErrorCode for errors while removing contents from wallet.
+	RemoveFromWalletErrorCode
+
+	// GetFromWalletErrorCode for errors while getting a content from wallet.
+	GetFromWalletErrorCode
+
+	// GetAllFromWalletErrorCode for errors while getting all contents from wallet.
+	GetAllFromWalletErrorCode
+
+	// QueryWalletErrorCode for errors while querying credentials contents from wallet.
+	QueryWalletErrorCode
 )
 
 // All command operations.
@@ -54,12 +69,18 @@ const (
 	UpdateProfileMethod = "UpdateProfile"
 	OpenMethod          = "Open"
 	CloseMethod         = "Close"
+	AddMethod           = "Add"
+	RemoveMethod        = "Remove"
+	GetMethod           = "Get"
+	GetAllMethod        = "GetAll"
+	QueryMethod         = "Query"
 )
 
 // miscellaneous constants for the vc wallet command controller.
 const (
 	// log constants.
-	logSuccess = "success"
+	logSuccess   = "success"
+	logUserIDKey = "userID"
 )
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -88,6 +109,11 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, UpdateProfileMethod, o.UpdateProfile),
 		cmdutil.NewCommandHandler(CommandName, OpenMethod, o.Open),
 		cmdutil.NewCommandHandler(CommandName, CloseMethod, o.Close),
+		cmdutil.NewCommandHandler(CommandName, AddMethod, o.Add),
+		cmdutil.NewCommandHandler(CommandName, RemoveMethod, o.Remove),
+		cmdutil.NewCommandHandler(CommandName, GetMethod, o.Get),
+		cmdutil.NewCommandHandler(CommandName, GetAllMethod, o.GetAll),
+		cmdutil.NewCommandHandler(CommandName, QueryMethod, o.Query),
 	}
 }
 
@@ -120,6 +146,9 @@ func (o *Command) CreateProfile(rw io.Writer, req io.Reader) command.Error {
 		}
 	}
 
+	logutil.LogDebug(logger, CommandName, CreateProfileMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
 	return nil
 }
 
@@ -141,6 +170,9 @@ func (o *Command) UpdateProfile(rw io.Writer, req io.Reader) command.Error {
 
 		return command.NewExecuteError(UpdateProfileErrorCode, err)
 	}
+
+	logutil.LogDebug(logger, CommandName, UpdateProfileMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil
 }
@@ -171,7 +203,9 @@ func (o *Command) Open(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	command.WriteNillableResponse(rw, UnlockWalletResponse{Token: token}, logger)
-	logutil.LogDebug(logger, CommandName, OpenMethod, logSuccess)
+
+	logutil.LogDebug(logger, CommandName, OpenMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil
 }
@@ -197,7 +231,171 @@ func (o *Command) Close(rw io.Writer, req io.Reader) command.Error {
 	closed := vcWallet.Close()
 
 	command.WriteNillableResponse(rw, LockWalletResponse{Closed: closed}, logger)
-	logutil.LogDebug(logger, CommandName, OpenMethod, logSuccess)
+
+	logutil.LogDebug(logger, CommandName, CloseMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// Add adds given data model to wallet content store.
+func (o *Command) Add(rw io.Writer, req io.Reader) command.Error {
+	request := &AddContentRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, AddMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, AddMethod, err.Error())
+
+		return command.NewExecuteError(AddToWalletErrorCode, err)
+	}
+
+	err = vcWallet.Add(request.Auth, request.ContentType, request.Content, wallet.AddByCollection(request.CollectionID))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, AddMethod, err.Error())
+
+		return command.NewExecuteError(AddToWalletErrorCode, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, AddMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// Remove deletes given content from wallet content store.
+func (o *Command) Remove(rw io.Writer, req io.Reader) command.Error {
+	request := &RemoveContentRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RemoveMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RemoveMethod, err.Error())
+
+		return command.NewExecuteError(RemoveFromWalletErrorCode, err)
+	}
+
+	err = vcWallet.Remove(request.Auth, request.ContentType, request.ContentID)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RemoveMethod, err.Error())
+
+		return command.NewExecuteError(RemoveFromWalletErrorCode, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, RemoveMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// Get returns wallet content by ID from wallet content store.
+func (o *Command) Get(rw io.Writer, req io.Reader) command.Error {
+	request := &GetContentRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetMethod, err.Error())
+
+		return command.NewExecuteError(GetFromWalletErrorCode, err)
+	}
+
+	content, err := vcWallet.Get(request.Auth, request.ContentType, request.ContentID)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetMethod, err.Error())
+
+		return command.NewExecuteError(GetFromWalletErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, GetContentResponse{Content: content}, logger)
+
+	logutil.LogDebug(logger, CommandName, GetMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// GetAll gets all wallet content from wallet content store for given type.
+func (o *Command) GetAll(rw io.Writer, req io.Reader) command.Error {
+	request := &GetAllContentRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewExecuteError(GetAllFromWalletErrorCode, err)
+	}
+
+	contents, err := vcWallet.GetAll(request.Auth, request.ContentType)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewExecuteError(GetAllFromWalletErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, GetAllContentResponse{Contents: contents}, logger)
+
+	logutil.LogDebug(logger, CommandName, GetAllMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// Query runs credential queries against wallet credential contents and
+// returns presentation containing credential results.
+func (o *Command) Query(rw io.Writer, req io.Reader) command.Error {
+	request := &ContentQueryRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewExecuteError(QueryWalletErrorCode, err)
+	}
+
+	presentations, err := vcWallet.Query(request.Auth, request.Query...)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
+
+		return command.NewExecuteError(QueryWalletErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ContentQueryResponse{Results: presentations}, logger)
+
+	logutil.LogDebug(logger, CommandName, GetAllMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil
 }
@@ -224,6 +422,7 @@ func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileO
 	return options
 }
 
+// prepareUnlockOptions prepares options for unlocking wallet.
 func prepareUnlockOptions(rqst *UnlockWalletRquest) []wallet.UnlockOptions {
 	var options []wallet.UnlockOptions
 
