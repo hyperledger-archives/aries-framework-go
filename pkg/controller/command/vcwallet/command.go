@@ -618,14 +618,17 @@ func prepareProveOptions(rqst *ProveRequest) []wallet.ProveOptions {
 	var options []wallet.ProveOptions
 
 	if len(rqst.StoredCredentials) > 0 {
-		options = append(options, wallet.WithStoredCredentialsToPresent(rqst.StoredCredentials...))
+		options = append(options, wallet.WithStoredCredentialsToProve(rqst.StoredCredentials...))
 	}
 
 	if len(rqst.RawCredentials) > 0 {
-		options = append(options, wallet.WithRawCredentialsToPresent(rqst.RawCredentials...))
+		options = append(options, wallet.WithRawCredentialsToProve(rqst.RawCredentials...))
 	}
 
-	// TODO option to pass raw presentation #2433
+	if len(rqst.Presentation) > emptyRawLength {
+		options = append(options, wallet.WithRawPresentationToProve(rqst.Presentation))
+	}
+
 	return options
 }
 

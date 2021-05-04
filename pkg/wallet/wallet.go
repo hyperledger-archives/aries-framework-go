@@ -39,7 +39,8 @@ const (
 
 // miscellaneous constants.
 const (
-	bbsContext = "https://w3id.org/security/bbs/v1"
+	bbsContext     = "https://w3id.org/security/bbs/v1"
+	emptyRawLength = 4
 )
 
 // proof options.
@@ -504,6 +505,7 @@ func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options
 	return derived, nil
 }
 
+//nolint: funlen,gocyclo
 func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOptions) (*verifiable.Presentation, error) {
 	var allCredentials []*verifiable.Credential
 
@@ -554,6 +556,16 @@ func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOption
 		opts.presentation.AddCredentials(allCredentials...)
 
 		return opts.presentation, nil
+	} else if len(opts.rawPresentation) > emptyRawLength {
+		vp, err := verifiable.ParsePresentation(opts.rawPresentation, verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
+		if err != nil {
+			return nil, err
+		}
+
+		vp.AddCredentials(allCredentials...)
+
+		return vp, nil
 	}
 
 	return verifiable.NewPresentation(verifiable.WithCredentials(allCredentials...))
