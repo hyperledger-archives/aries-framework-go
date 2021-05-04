@@ -1194,6 +1194,27 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		presentation = parsePresentation(t, b)
 		require.NotEmpty(t, presentation.Proofs)
+		require.Len(t, presentation.Credentials(), 2)
+		require.Len(t, presentation.Proofs, 1)
+		b.Reset()
+
+		// prove using raw presentation
+		rawPresentation, err := presentation.MarshalJSON()
+		require.NoError(t, err)
+
+		cmdErr = cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			Presentation:      rawPresentation,
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		require.NoError(t, cmdErr)
+		presentation2 := parsePresentation(t, b)
+		require.NotEmpty(t, presentation2.Proofs)
+		require.Len(t, presentation2.Credentials(), 3)
+		require.Len(t, presentation2.Proofs, 2)
 	})
 
 	t.Run("verify a raw presentation", func(t *testing.T) {

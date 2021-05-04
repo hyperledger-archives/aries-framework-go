@@ -1179,8 +1179,8 @@ func TestClient_Prove(t *testing.T) {
 		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, []byte(sampleDIDResolutionResponse)))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
-			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
+			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
@@ -1198,8 +1198,8 @@ func TestClient_Prove(t *testing.T) {
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey2},
-			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
+			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read json keyset from reader")
@@ -1219,8 +1219,8 @@ func TestClient_Prove(t *testing.T) {
 		vcWalletClient.Close()
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
-			wallet.WithStoredCredentialsToPresent("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToPresent([]byte(sampleUDCVC)),
+			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
+			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
 		)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrWalletLocked))
