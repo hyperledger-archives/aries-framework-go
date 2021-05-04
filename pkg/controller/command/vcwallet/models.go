@@ -103,14 +103,14 @@ type LockWalletResponse struct {
 type WalletAuth struct {
 	// Authorization token for performing wallet operations.
 	Auth string `json:"auth"`
+
+	// ID of wallet user.
+	UserID string `json:"userID"`
 }
 
 // AddContentRequest is request for adding a content to wallet.
 type AddContentRequest struct {
 	WalletAuth
-
-	// ID of wallet user.
-	UserID string `json:"userID"`
 
 	// type of the content to be added to the wallet.
 	// supported types: collection, credential, didResolutionResponse, metadata, connection, key
@@ -127,9 +127,6 @@ type AddContentRequest struct {
 type RemoveContentRequest struct {
 	WalletAuth
 
-	// ID of wallet user.
-	UserID string `json:"userID"`
-
 	// type of the content to be removed from the wallet.
 	// supported types: collection, credential, didResolutionResponse, metadata, connection
 	ContentType wallet.ContentType `json:"contentType"`
@@ -141,9 +138,6 @@ type RemoveContentRequest struct {
 // GetContentRequest is request for getting a content from wallet.
 type GetContentRequest struct {
 	WalletAuth
-
-	// ID of wallet user.
-	UserID string `json:"userID"`
 
 	// type of the content to be returned from wallet.
 	// supported types: collection, credential, didResolutionResponse, metadata, connection
@@ -163,9 +157,6 @@ type GetContentResponse struct {
 type GetAllContentRequest struct {
 	WalletAuth
 
-	// ID of wallet user.
-	UserID string `json:"userID"`
-
 	// type of the contents to be returned from wallet.
 	// supported types: collection, credential, didResolutionResponse, metadata, connection
 	ContentType wallet.ContentType `json:"contentType"`
@@ -182,9 +173,6 @@ type GetAllContentResponse struct {
 type ContentQueryRequest struct {
 	WalletAuth
 
-	// ID of wallet user.
-	UserID string `json:"userID"`
-
 	// credential query(s) for querying wallet contents.
 	Query []*wallet.QueryParams `json:"query"`
 }
@@ -194,4 +182,94 @@ type ContentQueryResponse struct {
 	// contents retrieved from wallet content store.
 	// map of content ID to content.
 	Results []*verifiable.Presentation `json:"results"`
+}
+
+// IssueRequest is request model for issuing credential from wallet.
+type IssueRequest struct {
+	WalletAuth
+
+	// raw credential to be issued from wallet.
+	Credential json.RawMessage `json:"credential"`
+
+	// proof options for issuing credential
+	ProofOptions *wallet.ProofOptions `json:"proofOptions"`
+}
+
+// IssueResponse is response for issue credential interface from wallet.
+type IssueResponse struct {
+	// credential issued.
+	Credential *verifiable.Credential `json:"credential"`
+}
+
+// ProveRequest for producing verifiable presentation from wallet.
+// Contains options for proofs and credential. Any combination of credential option can be mixed.
+type ProveRequest struct {
+	WalletAuth
+
+	// IDs of credentials already saved in wallet content store.
+	StoredCredentials []string `json:"storedCredentials"`
+
+	// List of raw credentials to be presented.
+	RawCredentials []json.RawMessage `json:"rawCredentials"`
+
+	// Presentation to be proved.
+	Presentation json.RawMessage `json:"presentation"`
+
+	// proof options for issuing credential.
+	ProofOptions *wallet.ProofOptions `json:"proofOptions"`
+}
+
+// ProveResponse contains response presentation from prove operation.
+type ProveResponse struct {
+	// presentation response from prove operation.
+	Presentation *verifiable.Presentation `json:"presentation"`
+}
+
+// VerifyRequest request for verifying a credential or presentation from wallet.
+// Any one of the credential option should be used.
+type VerifyRequest struct {
+	WalletAuth
+
+	// ID of the credential already saved in wallet content store.
+	// optional, if provided then this option takes precedence over other options.
+	StoredCredentialID string `json:"storedCredentialID"`
+
+	// List of raw credential to be presented.
+	// optional, if provided then this option takes precedence over presentation options.
+	RawCredential json.RawMessage `json:"rawCredential"`
+
+	// Presentation to be proved.
+	// optional, will be used only if other options are not provided.
+	Presentation json.RawMessage `json:"presentation"`
+}
+
+// VerifyResponse is response model for wallet verify operation.
+type VerifyResponse struct {
+	// if true then verification is successful.
+	Verified bool `json:"verified"`
+
+	// error details if verified is false.
+	Error string `json:"error,omitempty"`
+}
+
+// DeriveRequest is request model for deriving a credential from wallet.
+type DeriveRequest struct {
+	WalletAuth
+
+	// ID of the credential already saved in wallet content store.
+	// optional, if provided then this option takes precedence.
+	StoredCredentialID string `json:"storedCredentialID"`
+
+	// List of raw credential to be presented.
+	// optional, will be used only if other options is not provided.
+	RawCredential json.RawMessage `json:"rawCredential"`
+
+	// DeriveOptions options for deriving credential
+	*wallet.DeriveOptions `json:"deriveOption"`
+}
+
+// DeriveResponse is response for derived credential operation.
+type DeriveResponse struct {
+	// credential derived.
+	Credential *verifiable.Credential `json:"credential"`
 }
