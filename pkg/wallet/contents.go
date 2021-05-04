@@ -15,6 +15,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/bluele/gcache"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -100,6 +103,7 @@ var (
 
 // contentStore is store for wallet contents for given user profile.
 type contentStore struct {
+	storeID  string
 	provider *storageProvider
 	open     storeOpenHandle
 	close    storeCloseHandle
@@ -109,7 +113,13 @@ type contentStore struct {
 // newContentStore returns new wallet content store instance.
 // will use underlying storage provider as content storage if profile doesn't have edv settings.
 func newContentStore(p storage.Provider, pr *profile) *contentStore {
-	return &contentStore{open: storeLocked, close: noOp, provider: newWalletStorageProvider(pr, p)}
+	contents := &contentStore{open: storeLocked, close: noOp, provider: newWalletStorageProvider(pr, p), storeID: pr.ID}
+
+	if store, err := storeManager().get(pr.ID); err == nil {
+		contents.updateStoreHandles(store)
+	}
+
+	return contents
 }
 
 func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
@@ -120,9 +130,20 @@ func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
 		return err
 	}
 
+	// store instances needs to be cached to share unlock session between multiple instances of wallet.
+	if err := storeManager().persist(cs.storeID, store, opts.tokenExpiry); err != nil {
+		return err
+	}
+
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
+	cs.updateStoreHandles(store)
+
+	return nil
+}
+
+func (cs *contentStore) updateStoreHandles(store storage.Store) {
 	// give access to store only when auth is valid & not expired.
 	cs.open = func(auth string) (storage.Store, error) {
 		_, err := keyManager().getKeyManger(auth)
@@ -136,11 +157,9 @@ func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
 	cs.close = func() error {
 		return store.Close()
 	}
-
-	return nil
 }
 
-func (cs *contentStore) Close() {
+func (cs *contentStore) Close() bool {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
@@ -150,6 +169,8 @@ func (cs *contentStore) Close() {
 
 	cs.open = storeLocked
 	cs.close = noOp
+
+	return storeManager().delete(cs.storeID)
 }
 
 // Save for storing given wallet content to store by content ID (content document id) & content type.
@@ -453,4 +474,48 @@ func (v *walletVDR) Resolve(didID string, opts ...vdr.DIDMethodOption) (*did.Doc
 	}
 
 	return v.Registry.Resolve(didID, opts...)
+}
+
+//nolint:gochecknoglobals
+var (
+	walletStoreInstance *walletStoreManager
+	walletStoreOnce     sync.Once
+)
+
+func storeManager() *walletStoreManager {
+	walletStoreOnce.Do(func() {
+		walletStoreInstance = &walletStoreManager{
+			gstore: gcache.New(0).Build(),
+		}
+	})
+
+	return walletStoreInstance
+}
+
+// walletStoreManager manages store instances in cache.
+// this is store manager singleton - access only via storeManager()
+// underlying gcache is threasafe, no need of locks.
+type walletStoreManager struct {
+	gstore gcache.Cache
+}
+
+func (ws *walletStoreManager) persist(id string, store storage.Store, expiration time.Duration) error {
+	if expiration == 0 {
+		expiration = defaultCacheExpiry
+	}
+
+	return ws.gstore.SetWithExpire(id, store, expiration)
+}
+
+func (ws *walletStoreManager) get(id string) (storage.Store, error) {
+	val, err := ws.gstore.Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.(storage.Store), nil
+}
+
+func (ws *walletStoreManager) delete(id string) bool {
+	return ws.gstore.Remove(id)
 }
