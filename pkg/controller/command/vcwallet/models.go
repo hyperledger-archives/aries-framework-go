@@ -49,8 +49,8 @@ type EDVConfiguration struct {
 	MACKeyID string `json:"macKID,omitempty"`
 }
 
-// UnlockWalletRquest contains different options for unlocking wallet.
-type UnlockWalletRquest struct {
+// UnlockWalletRequest contains different options for unlocking wallet.
+type UnlockWalletRequest struct {
 	// user ID of the wallet to be unlocked.
 	UserID string `json:"userID"`
 
@@ -96,7 +96,7 @@ type LockWalletResponse struct {
 	// Closed status of the wallet lock operation.
 	// if true, wallet is closed successfully
 	// if false, wallet is already closed or never unlocked.
-	Closed bool `json:"userID"`
+	Closed bool `json:"closed"`
 }
 
 // WalletAuth contains wallet auth parameters for performing wallet operations.

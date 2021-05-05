@@ -202,7 +202,7 @@ func (o *Command) UpdateProfile(rw io.Writer, req io.Reader) command.Error {
 
 // Open unlocks given user's wallet and returns a token for subsequent use of wallet features.
 func (o *Command) Open(rw io.Writer, req io.Reader) command.Error {
-	request := &UnlockWalletRquest{}
+	request := &UnlockWalletRequest{}
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -586,7 +586,7 @@ func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileO
 }
 
 // prepareUnlockOptions prepares options for unlocking wallet.
-func prepareUnlockOptions(rqst *UnlockWalletRquest) []wallet.UnlockOptions {
+func prepareUnlockOptions(rqst *UnlockWalletRequest) []wallet.UnlockOptions {
 	var options []wallet.UnlockOptions
 
 	if rqst.LocalKMSPassphrase != "" {

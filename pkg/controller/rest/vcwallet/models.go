@@ -1,0 +1,211 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package vcwallet
+
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
+)
+
+// createOrUpdateProfileRequest is request model for
+// creating a new wallet profile or updating an existing wallet profile.
+//
+// swagger:parameters createOrUpdateProfileReq
+type createOrUpdateProfileRequest struct { // nolint: unused,deadcode
+	// Params for creating new wallet profile or for updating existing wallet profile.
+	//
+	// in: body
+	Params *vcwallet.CreateOrUpdateProfileRequest
+}
+
+// unlockWalletRequest contains different options for unlocking wallet.
+//
+// swagger:parameters unlockWalletReq
+type unlockWalletRequest struct { // nolint: unused,deadcode
+	// Params for unlocking wallet.
+	//
+	// in: body
+	Params *vcwallet.UnlockWalletRequest
+}
+
+// unlockWalletResponse contains response for wallet unlock operation.
+//
+// swagger:response unlockWalletRes
+type unlockWalletResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.UnlockWalletResponse
+}
+
+// lockWalletRequest contains options for locking wallet.
+//
+// swagger:parameters lockWalletReq
+type lockWalletRequest struct { // nolint: unused,deadcode
+	// Params for locking wallet.
+	//
+	// in: body
+	Params *vcwallet.LockWalletRequest
+}
+
+// lockWalletResponse contains response for wallet lock operation.
+//
+// swagger:response lockWalletRes
+type lockWalletResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.LockWalletResponse
+}
+
+// addContentRequest is request for adding a content to wallet.
+//
+// swagger:parameters addContentReq
+type addContentRequest struct { // nolint: unused,deadcode
+	// Params for adding content to wallet.
+	//
+	// in: body
+	Params *vcwallet.AddContentRequest
+}
+
+// removeContentRequest is request for removing a content from wallet.
+//
+// swagger:parameters removeContentReq
+type removeContentRequest struct { // nolint: unused,deadcode
+	// Params for removing content from wallet.
+	//
+	// in: body
+	Params *vcwallet.RemoveContentRequest
+}
+
+// getContentRequest is request for getting a content from wallet.
+//
+// swagger:parameters getContentReq
+type getContentRequest struct { // nolint: unused,deadcode
+	// Params for getting content from wallet.
+	//
+	// in: body
+	Params *vcwallet.GetContentRequest
+}
+
+// getContentResponse response for get content from wallet operation.
+//
+// swagger:response getContentRes
+type getContentResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.GetContentResponse
+}
+
+// getAllContentRequest is request for getting all contents from wallet for given content type.
+//
+// swagger:parameters getAllContentReq
+type getAllContentRequest struct { // nolint: unused,deadcode
+	// Params for getting all contents from wallet.
+	//
+	// in: body
+	Params *vcwallet.GetAllContentRequest
+}
+
+// getAllContentResponse response for get all content by content type wallet operation.
+//
+// swagger:response getAllContentRes
+type getAllContentResponse struct {
+	// in: body
+	vcwallet.GetAllContentResponse
+}
+
+// contentQueryRequest is request model for querying wallet contents.
+//
+// swagger:parameters contentQueryReq
+type contentQueryRequest struct { // nolint: unused,deadcode
+	// Params for querying credentials from wallet.
+	//
+	// in: body
+	Params *vcwallet.ContentQueryRequest
+}
+
+// contentQueryResponse response for wallet content query.
+//
+// swagger:response contentQueryRes
+type contentQueryResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.ContentQueryResponse
+}
+
+// issueRequest is request model for adding proof to credential from wallet.
+//
+// swagger:parameters issueReq
+type issueRequest struct { // nolint: unused,deadcode
+	// Params for issuing credential from wallet.
+	//
+	// in: body
+	Params *vcwallet.IssueRequest
+}
+
+// issueResponse is response for issue credential interface from wallet.
+//
+// swagger:response issueRes
+type issueResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.IssueResponse
+}
+
+// proveRequest for producing verifiable presentation from wallet.
+// Contains options for proofs and credential. Any combination of credential option can be mixed.
+//
+// swagger:parameters proveReq
+type proveRequest struct { // nolint: unused,deadcode
+	// Params for producing verifiable presentation from wallet.
+	//
+	// in: body
+	Params *vcwallet.ProveRequest
+}
+
+// proveResponse contains response presentation from prove operation.
+//
+// swagger:response proveRes
+type proveResponse struct { // nolint: unused,deadcode
+	// in: body
+	vcwallet.ProveResponse
+}
+
+// verifyRequest request for verifying a credential or presentation from wallet.
+// Any one of the credential option should be used.
+//
+// swagger:parameters verifyReq
+type verifyRequest struct { // nolint: unused,deadcode
+	// Params for producing verifying a credential or presentation from wallet.
+	//
+	// in: body
+	Params *vcwallet.VerifyRequest
+}
+
+// verifyResponse is response model for wallet verify operation.
+//
+// swagger:response verifyRes
+type verifyResponse struct {
+	// in: body
+	vcwallet.VerifyResponse
+}
+
+// deriveRequest is request model for deriving a credential from wallet.
+//
+// swagger:parameters deriveReq
+type deriveRequest struct { // nolint: unused,deadcode
+	// Params for deriving a credential from wallet.
+	//
+	// in: body
+	Params *vcwallet.DeriveRequest
+}
+
+// deriveResponse is response for derived credential operation.
+//
+// swagger:response deriveRes
+type deriveResponse struct {
+	// in: body
+	vcwallet.DeriveResponse
+}
+
+// emptyRes model
+//
+// swagger:response emptyRes
+type emptyRes struct{} // nolint: unused,deadcode

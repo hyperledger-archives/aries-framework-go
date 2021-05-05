@@ -236,8 +236,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t))
 		require.NotNil(t, cmd)
 
-		handlers := cmd.GetHandlers()
-		require.Equal(t, 13, len(handlers))
+		require.Len(t, cmd.GetHandlers(), 13)
 	})
 }
 
@@ -524,7 +523,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	t.Run("successfully unlock & lock wallet (local kms)", func(t *testing.T) {
 		cmd := New(mockctx)
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:             sampleUser1,
 			LocalKMSPassphrase: samplePassPhrase,
 		}
@@ -562,7 +561,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	t.Run("successfully unlock & lock wallet (remote kms)", func(t *testing.T) {
 		cmd := New(mockctx)
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:     sampleUser2,
 			WebKMSAuth: sampleFakeTkn,
 		}
@@ -600,7 +599,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	t.Run("successfully unlock & lock wallet (local kms, edv user)", func(t *testing.T) {
 		cmd := New(mockctx)
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:             sampleUser3,
 			LocalKMSPassphrase: samplePassPhrase,
 			EDVUnlock: &EDVUnlockRequest{
@@ -643,7 +642,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 
 		var b bytes.Buffer
 
-		cmdErr := cmd.Open(&b, getReader(t, &UnlockWalletRquest{}))
+		cmdErr := cmd.Open(&b, getReader(t, &UnlockWalletRequest{}))
 		require.Error(t, cmdErr)
 		validateError(t, cmdErr, command.ExecuteError, OpenWalletErrorCode, "profile does not exist")
 		require.Empty(t, b.Len())
@@ -655,7 +654,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		require.Empty(t, b.Len())
 		b.Reset()
 
-		cmdErr = cmd.Close(&b, getReader(t, &UnlockWalletRquest{}))
+		cmdErr = cmd.Close(&b, getReader(t, &UnlockWalletRequest{}))
 		require.Error(t, cmdErr)
 		validateError(t, cmdErr, command.ExecuteError, CloseWalletErrorCode, "profile does not exist")
 		require.Empty(t, b.Len())
@@ -683,7 +682,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token1, lock1 := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token1, lock1 := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -695,7 +694,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		KeyStoreURL: sampleKeyStoreURL,
 	})
 
-	token2, lock2 := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token2, lock2 := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:     sampleUser2,
 		WebKMSAuth: sampleFakeTkn,
 	})
@@ -948,7 +947,7 @@ func TestCommand_Query(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token, lock := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -1070,7 +1069,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token, lock := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -1386,7 +1385,7 @@ func TestCommand_Derive(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token, lock := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -1526,7 +1525,7 @@ func getUnlockToken(t *testing.T, b bytes.Buffer) string {
 	return response.Token
 }
 
-func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalletRquest) (string, func()) {
+func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalletRequest) (string, func()) {
 	cmd := New(ctx)
 
 	var b bytes.Buffer
