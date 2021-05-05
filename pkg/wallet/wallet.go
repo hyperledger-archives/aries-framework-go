@@ -126,7 +126,6 @@ func CreateProfile(userID string, ctx provider, options ...ProfileOptions) error
 }
 
 // UpdateProfile updates existing verifiable credential wallet profile.
-// Will create new profile if no profile exists for given user.
 // Caution:
 // - you might lose your existing keys if you change kms options.
 // - you might lose your existing wallet contents if you change storage/EDV options
@@ -380,6 +379,7 @@ func (c *Wallet) GetAll(authToken string, contentType ContentType, options ...Ge
 // 	- https://www.w3.org/TR/json-ld11-framing
 // 	- https://identity.foundation/presentation-exchange
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+// 	- https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
 //
 func (c *Wallet) Query(authToken string, params ...*QueryParams) ([]*verifiable.Presentation, error) {
 	vcContents, err := c.contents.GetAll(authToken, Credential)
