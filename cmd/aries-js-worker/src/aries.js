@@ -1071,6 +1071,187 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "ImportKey", req, "timeout while importing key")
             },
         },
+        /**
+         * Verifiable Credential Wallet based on Universal Wallet 2020 https://w3c-ccg.github.io/universal-wallet-interop-spec/#interface
+         *
+         * Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        vcwallet: {
+            pkgname: "vcwallet",
+
+            /**
+             * Creates new wallet profile and returns error if wallet profile is already created.
+             *
+             * @returns {Promise<Object>}
+             */
+            createProfile: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateProfile", req, "timeout while creating wallet profile")
+            },
+
+            /**
+             * Updates an existing wallet profile and returns error if profile doesn't exists.
+             *
+             * @returns {Promise<Object>}
+             */
+            updateProfile: async function (req) {
+                return invoke(aw, pending, this.pkgname, "UpdateProfile", req, "timeout while updating wallet profile")
+            },
+
+            /**
+             * Unlocks given wallet's key manager instance & content store and
+             * returns a authorization token to be used for performing wallet operations.
+             *
+             * @returns {Promise<Object>}
+             */
+            open: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Open", req, "timeout while opening wallet")
+            },
+
+            /**
+             * Expires token issued to this VC wallet, removes wallet's key manager instance and closes wallet content store.
+             *
+             * returns response containing bool flag false if token is not found or already expired for this wallet user.
+             *
+             * @returns {Promise<Object>}
+             */
+            close: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Close", req, "timeout while closing wallet")
+            },
+
+            /**
+             * adds given data model to wallet content store.
+             *
+             * Supported data models:
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
+             *
+             * @returns {Promise<Object>}
+             */
+            add: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Add", req, "timeout while adding content to wallet")
+            },
+
+            /**
+             * removes given content from wallet content store.
+             *
+             * Supported data models:
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            remove: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Remove", req, "timeout while removing content from wallet")
+            },
+
+            /**
+             * gets content from wallet content store.
+             *
+             * Supported data models:
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            get: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Get", req, "timeout while getting content from wallet")
+            },
+
+            /**
+             * gets all contents from wallet content store for given content type.
+             *
+             * Supported data models:
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             * 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            getAll: async function (req) {
+                return invoke(aw, pending, this.pkgname, "GetAll", req, "timeout getting all contents wallet")
+            },
+
+            /**
+             *
+             * runs query against wallet credential contents and returns presentation containing credential results.
+             *
+             * This function may return multiple presentations as a result based on combination of query types used.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#query
+             *
+             * Supported Query Types:
+             * 	- https://www.w3.org/TR/json-ld11-framing
+             * 	- https://identity.foundation/presentation-exchange
+             * 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+             * 	- https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
+             *
+             * @returns {Promise<Object>}
+             */
+            query: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Query", req, "timeout while querying wallet")
+            },
+
+            /**
+             *
+             * adds proof to a Verifiable Credential.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#issue
+             *
+             * @returns {Promise<Object>}
+             */
+            issue: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Issue", req, "timeout while issuing from wallet")
+            },
+
+            /**
+             *
+             * produces a Verifiable Presentation.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#prove
+             *
+             * @returns {Promise<Object>}
+             */
+            prove: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Prove", req, "timeout while proving from wallet")
+            },
+
+            /**
+             *
+             * verifies a Verifiable Credential or a Verifiable Presentation.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#prove
+             *
+             * @returns {Promise<Object>}
+             */
+            verify: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Verify", req, "timeout while verifying from wallet")
+            },
+
+            /**
+             *
+             * derives a Verifiable Credential.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#derive
+             *
+             * @returns {Promise<Object>}
+             */
+            derive: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Derive", req, "timeout while deriving from wallet")
+            },
+        },
     }
 
     // start aries worker
