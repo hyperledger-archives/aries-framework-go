@@ -55,8 +55,8 @@ type Operation struct {
 }
 
 // New returns new verfiable credential wallet REST controller.
-func New(p provider) *Operation {
-	cmd := vcwallet.New(p)
+func New(p provider, config *vcwallet.Config) *Operation {
+	cmd := vcwallet.New(p, config)
 
 	o := &Operation{command: cmd}
 
@@ -89,7 +89,7 @@ func (o *Operation) registerHandler() {
 	}
 }
 
-// CreateProfile swagger:route POST /vcwallet/create-profile vcwallet createOrUpdateProfileReq
+// CreateProfile swagger:route POST /vcwallet/create-profile vcwallet createProfileReq
 //
 // Creates new wallet profile and returns error if wallet profile is already created.
 //
@@ -100,7 +100,7 @@ func (o *Operation) CreateProfile(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.CreateProfile, rw, req.Body)
 }
 
-// UpdateProfile swagger:route POST /vcwallet/update-profile vcwallet createOrUpdateProfileReq
+// UpdateProfile swagger:route POST /vcwallet/update-profile vcwallet UpdateProfileReq
 //
 // Updates an existing wallet profile and returns error if profile doesn't exists.
 //
@@ -256,7 +256,7 @@ func (o *Operation) Issue(rw http.ResponseWriter, req *http.Request) {
 //
 // Responses:
 //    default: genericError
-//        200: proveReq
+//        200: proveRes
 func (o *Operation) Prove(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Prove, rw, req.Body)
 }

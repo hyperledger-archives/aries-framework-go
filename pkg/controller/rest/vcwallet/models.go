@@ -7,15 +7,26 @@ SPDX-License-Identifier: Apache-2.0
 package vcwallet
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 )
 
-// createOrUpdateProfileRequest is request model for
-// creating a new wallet profile or updating an existing wallet profile.
+// createProfileRequest is request model for creating a new wallet profile.
 //
-// swagger:parameters createOrUpdateProfileReq
-type createOrUpdateProfileRequest struct { // nolint: unused,deadcode
-	// Params for creating new wallet profile or for updating existing wallet profile.
+// swagger:parameters createProfileRequest
+type createProfileRequest struct { // nolint: unused,deadcode
+	// Params for creating new wallet profile.
+	//
+	// in: body
+	Params *vcwallet.CreateOrUpdateProfileRequest
+}
+
+// updateProfileRequest is request model for updating an existing wallet profile.
+//
+// swagger:parameters updateProfileRequest
+type updateProfileRequest struct { // nolint: unused,deadcode
+	// Params for updating an existing wallet profile.
 	//
 	// in: body
 	Params *vcwallet.CreateOrUpdateProfileRequest
@@ -91,8 +102,10 @@ type getContentRequest struct { // nolint: unused,deadcode
 //
 // swagger:response getContentRes
 type getContentResponse struct { // nolint: unused,deadcode
+	// content retrieved from wallet content store.
+	//
 	// in: body
-	vcwallet.GetContentResponse
+	Content json.RawMessage `json:"content"`
 }
 
 // getAllContentRequest is request for getting all contents from wallet for given content type.
@@ -108,9 +121,12 @@ type getAllContentRequest struct { // nolint: unused,deadcode
 // getAllContentResponse response for get all content by content type wallet operation.
 //
 // swagger:response getAllContentRes
-type getAllContentResponse struct {
+type getAllContentResponse struct { // nolint: unused,deadcode
+	// contents retrieved from wallet content store.
+	// map of content ID to content.
+	//
 	// in: body
-	vcwallet.GetAllContentResponse
+	Contents json.RawMessage `json:"contents"`
 }
 
 // contentQueryRequest is request model for querying wallet contents.
@@ -127,8 +143,10 @@ type contentQueryRequest struct { // nolint: unused,deadcode
 //
 // swagger:response contentQueryRes
 type contentQueryResponse struct { // nolint: unused,deadcode
+	// response presentation(s) containing query results.
+	//
 	// in: body
-	vcwallet.ContentQueryResponse
+	Results []json.RawMessage `json:"results"`
 }
 
 // issueRequest is request model for adding proof to credential from wallet.
@@ -145,8 +163,10 @@ type issueRequest struct { // nolint: unused,deadcode
 //
 // swagger:response issueRes
 type issueResponse struct { // nolint: unused,deadcode
+	// credential issued.
+	//
 	// in: body
-	vcwallet.IssueResponse
+	Credential json.RawMessage `json:"credential"`
 }
 
 // proveRequest for producing verifiable presentation from wallet.
@@ -164,8 +184,10 @@ type proveRequest struct { // nolint: unused,deadcode
 //
 // swagger:response proveRes
 type proveResponse struct { // nolint: unused,deadcode
+	// presentation response from prove operation.
+	//
 	// in: body
-	vcwallet.ProveResponse
+	Presentation json.RawMessage `json:"presentation"`
 }
 
 // verifyRequest request for verifying a credential or presentation from wallet.
@@ -201,8 +223,10 @@ type deriveRequest struct { // nolint: unused,deadcode
 //
 // swagger:response deriveRes
 type deriveResponse struct {
+	// credential derives
+	//
 	// in: body
-	vcwallet.DeriveResponse
+	Credential json.RawMessage `json:"credential"`
 }
 
 // emptyRes model

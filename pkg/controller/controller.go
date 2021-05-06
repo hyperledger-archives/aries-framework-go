@@ -18,6 +18,7 @@ import (
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	vcwalletcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -29,6 +30,7 @@ import (
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	vcwalletrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
 	vdrrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -41,6 +43,7 @@ type allOpts struct {
 	autoAccept   bool
 	msgHandler   command.MessageHandler
 	notifier     command.Notifier
+	walletConf   *vcwalletcmd.Config
 }
 
 const wsPath = "/ws"
@@ -80,6 +83,13 @@ func WithAutoAccept(autoAccept bool) Opt {
 func WithMessageHandler(handler command.MessageHandler) Opt {
 	return func(opts *allOpts) {
 		opts.msgHandler = handler
+	}
+}
+
+// WithWalletConfiguration is an option for customizing vcwallet controller.
+func WithWalletConfiguration(conf *vcwalletcmd.Config) Opt {
+	return func(opts *allOpts) {
+		opts.walletConf = conf
 	}
 }
 
@@ -154,6 +164,9 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
+	// vc wallet command controller
+	wallet := vcwalletrest.New(ctx, restAPIOpts.walletConf)
+
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
@@ -166,6 +179,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, wallet.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -250,6 +264,9 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
+	// vc wallet command controller
+	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
+
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, vcmd.GetHandlers()...)
@@ -261,6 +278,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
+	allHandlers = append(allHandlers, wallet.GetHandlers()...)
 
 	return allHandlers, nil
 }

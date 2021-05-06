@@ -60,23 +60,23 @@ type UnlockWalletRequest struct {
 
 	// WebKMSAuth for authorizing acccess to web/remote kms.
 	// Optional, to be used if profile for this wallet user is setup with web/remote KMS.
-	WebKMSAuth string `json:"webKMSAuth,omitempty"`
+	WebKMSAuth *UnlockAuth `json:"webKMSAuth,omitempty"`
 
 	// Options for authorizing access to wallet's EDV content store.
 	// Optional, to be used only if profile for this wallet user is setup to use EDV as content store.
-	EDVUnlock *EDVUnlockRequest `json:"edvUnlock,omitempty"`
+	EDVUnlock *UnlockAuth `json:"edvUnlock,omitempty"`
 }
 
-// EDVUnlockRequest contains different options for authorizing access to wallet's EDV content store.
-type EDVUnlockRequest struct {
-	// Capability if ZCAP sign header feature to be used for authorizing EDV access.
-	// Optional, can be used only if ZCAP sign header feature is configured with command controller
-	// TODO to be implemented #2433
-	Capability string `json:"capability,omitempty"`
-
-	// Authorization token to be used for authorizing EDV access.
+// UnlockAuth contains different options for authorizing access to wallet's EDV content store & webkms.
+type UnlockAuth struct {
+	// Http header 'authorization' bearer token to be used.
 	// Optional, only if required by wallet user.
 	AuthToken string `json:"authToken,omitempty"`
+
+	// Capability if ZCAP sign header feature to be used for authorizing access.
+	// Optional, can be used only if ZCAP sign header feature is configured with command controller.
+	// Note: will not be considered When provided with `AuthToken` option.
+	Capability string `json:"capability,omitempty"`
 }
 
 // UnlockWalletResponse contains response for wallet unlock operation.
