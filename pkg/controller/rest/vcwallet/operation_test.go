@@ -235,7 +235,7 @@ const (
 
 func TestNew(t *testing.T) {
 	t.Run("successfully create rest command instance", func(t *testing.T) {
-		cmd := New(newMockProvider(t))
+		cmd := New(newMockProvider(t), &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		require.Len(t, cmd.GetRESTHandlers(), 13)
@@ -246,7 +246,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (localkms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		request := &vcwallet.CreateOrUpdateProfileRequest{
@@ -263,7 +263,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (webkms/remotekms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		request := &vcwallet.CreateOrUpdateProfileRequest{
@@ -280,7 +280,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile with EDV configuration", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		// create with remote kms.
@@ -324,7 +324,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("failed to create duplicate profile", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		request := &vcwallet.CreateOrUpdateProfileRequest{
@@ -351,7 +351,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid settings", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		request := &vcwallet.CreateOrUpdateProfileRequest{
@@ -367,7 +367,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid request", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		rq := httptest.NewRequest(http.MethodPost, CreateProfilePath, getReader(t, "--"))
@@ -379,7 +379,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to EDV key set creation failure", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
 		mockStProv, ok := mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider)
@@ -407,7 +407,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 func TestOperation_UpdateProfile(t *testing.T) {
 	mockctx := newMockProvider(t)
 
-	cmd := New(mockctx)
+	cmd := New(mockctx, &vcwallet.Config{})
 	require.NotNil(t, cmd)
 
 	createRqst := &vcwallet.CreateOrUpdateProfileRequest{
@@ -499,7 +499,7 @@ func TestOperation_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		request := &vcwallet.UnlockWalletRequest{
 			UserID:             sampleUser1,
@@ -537,11 +537,11 @@ func TestOperation_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (remote kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		request := &vcwallet.UnlockWalletRequest{
 			UserID:     sampleUser2,
-			WebKMSAuth: sampleFakeTkn,
+			WebKMSAuth: &vcwallet.UnlockAuth{AuthToken: sampleFakeTkn},
 		}
 
 		// unlock wallet
@@ -575,12 +575,12 @@ func TestOperation_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms, edv user)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		request := &vcwallet.UnlockWalletRequest{
 			UserID:             sampleUser3,
 			LocalKMSPassphrase: samplePassPhrase,
-			EDVUnlock: &vcwallet.EDVUnlockRequest{
+			EDVUnlock: &vcwallet.UnlockAuth{
 				AuthToken: sampleFakeTkn,
 			},
 		}
@@ -616,7 +616,7 @@ func TestOperation_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("lock & unlock failures", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		rq := httptest.NewRequest(http.MethodPost, OpenPath, getReader(t, vcwallet.UnlockWalletRequest{}))
 		rw := httptest.NewRecorder()
@@ -676,7 +676,7 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, AddPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Add(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 	})
@@ -691,7 +691,7 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, AddPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Add(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 	})
@@ -706,13 +706,13 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, GetPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Get(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 	})
 
 	t.Run("get all credentials from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		// save multiple credentials, one already saved
 		const count = 6
@@ -742,10 +742,10 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 		cmd.GetAll(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
-		var response getAllContentResponse
+		var response map[string]interface{}
 		require.NoError(t, json.NewDecoder(rw.Body).Decode(&response))
 		require.NotEmpty(t, response)
-		require.Len(t, response.Contents, count)
+		require.Len(t, response["contents"], count)
 	})
 
 	t.Run("remove a credential from wallet", func(t *testing.T) {
@@ -755,7 +755,7 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 			WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token1},
 		}
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		rq := httptest.NewRequest(http.MethodPost, RemovePath, getReader(t, request))
 		rw := httptest.NewRecorder()
@@ -765,7 +765,7 @@ func TestOperation_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("try content operations from invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 
 		const expectedErr = "invalid auth token"
 
@@ -858,7 +858,7 @@ func TestOperation_Query(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, QueryPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Query(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -886,7 +886,7 @@ func TestOperation_Query(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, QueryPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Query(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
 		require.Contains(t, rw.Body.String(), "invalid auth token")
@@ -910,7 +910,7 @@ func TestOperation_Query(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, QueryPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Query(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
 		require.Contains(t, rw.Body.String(), "unsupported query type")
@@ -965,7 +965,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, IssuePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Issue(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -992,7 +992,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, VerifyPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Verify(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1011,7 +1011,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, VerifyPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Verify(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1034,7 +1034,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, VerifyPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Verify(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1060,7 +1060,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, ProvePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Prove(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1106,7 +1106,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, VerifyPath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Verify(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1148,7 +1148,7 @@ func TestOperation_IssueProveVerify(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, ProvePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Prove(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
 		require.Contains(t, rw.Body.String(), "invalid auth token")
@@ -1212,7 +1212,7 @@ func TestOperation_Derive(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, DerivePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Derive(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1235,7 +1235,7 @@ func TestOperation_Derive(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, DerivePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Derive(rw, rq)
 		require.Equal(t, rw.Code, http.StatusOK)
 
@@ -1258,7 +1258,7 @@ func TestOperation_Derive(t *testing.T) {
 		rq := httptest.NewRequest(http.MethodPost, DerivePath, getReader(t, request))
 		rw := httptest.NewRecorder()
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Derive(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
 		require.Contains(t, rw.Body.String(), "invalid auth token")
@@ -1266,7 +1266,7 @@ func TestOperation_Derive(t *testing.T) {
 }
 
 func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.CreateOrUpdateProfileRequest) {
-	cmd := New(ctx)
+	cmd := New(ctx, &vcwallet.Config{})
 	require.NotNil(t, cmd)
 
 	rq := httptest.NewRequest(http.MethodPost, CreateProfilePath, getReader(t, request))
@@ -1294,7 +1294,7 @@ func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.Un
 	rq := httptest.NewRequest(http.MethodPost, OpenPath, getReader(t, request))
 	rw := httptest.NewRecorder()
 
-	cmd := New(ctx)
+	cmd := New(ctx, &vcwallet.Config{})
 	cmd.Open(rw, rq)
 
 	require.Equal(t, rw.Code, http.StatusOK)
@@ -1310,7 +1310,7 @@ func addContent(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.AddC
 	rq := httptest.NewRequest(http.MethodPost, AddPath, getReader(t, request))
 	rw := httptest.NewRecorder()
 
-	cmd := New(ctx)
+	cmd := New(ctx, &vcwallet.Config{})
 	cmd.Add(rw, rq)
 	require.Equal(t, rw.Code, http.StatusOK)
 }

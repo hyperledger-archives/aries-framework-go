@@ -42,6 +42,7 @@ const (
 	sampleEDVMacKID        = "sample-edv-mac-kid"
 	sampleCommandError     = "sample-command-error-01"
 	sampleFakeTkn          = "sample-fake-token-01"
+	sampleFakeCapability   = "sample-fake-capability-01"
 	sampleDIDKey           = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	sampleUDCVC            = `{
       "@context": [
@@ -233,7 +234,7 @@ const (
 
 func TestNew(t *testing.T) {
 	t.Run("successfully create new command instance", func(t *testing.T) {
-		cmd := New(newMockProvider(t))
+		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
 		require.Len(t, cmd.GetHandlers(), 13)
@@ -244,7 +245,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (localkms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -265,7 +266,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (webkms/remotekms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -286,7 +287,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile with EDV configuration", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		// create with remote kms.
@@ -333,7 +334,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create duplicate profile", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -360,7 +361,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid settings", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -377,7 +378,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid request", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		var b1 bytes.Buffer
@@ -390,7 +391,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to EDV key set creation failure", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		mockStProv, ok := mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider)
@@ -420,7 +421,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 func TestCommand_UpdateProfile(t *testing.T) {
 	mockctx := newMockProvider(t)
 
-	cmd := New(mockctx)
+	cmd := New(mockctx, &Config{})
 	require.NotNil(t, cmd)
 
 	createRqst := &CreateOrUpdateProfileRequest{
@@ -521,7 +522,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		request := &UnlockWalletRequest{
 			UserID:             sampleUser1,
@@ -559,11 +560,51 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (remote kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		request := &UnlockWalletRequest{
 			UserID:     sampleUser2,
-			WebKMSAuth: sampleFakeTkn,
+			WebKMSAuth: &UnlockAuth{AuthToken: sampleFakeTkn},
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("successfully unlock & lock wallet (remote kms, capability)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{
+			WebKMSCacheSize: 99,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID:     sampleUser2,
+			WebKMSAuth: &UnlockAuth{Capability: sampleFakeCapability},
 		}
 
 		// unlock wallet
@@ -597,12 +638,12 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms, edv user)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		request := &UnlockWalletRequest{
 			UserID:             sampleUser3,
 			LocalKMSPassphrase: samplePassPhrase,
-			EDVUnlock: &EDVUnlockRequest{
+			EDVUnlock: &UnlockAuth{
 				AuthToken: sampleFakeTkn,
 			},
 		}
@@ -637,8 +678,52 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		b.Reset()
 	})
 
+	t.Run("successfully unlock & lock wallet (local kms, edv capability user)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{
+			EDVReturnFullDocumentsOnQuery:    true,
+			EDVBatchEndpointExtensionEnabled: true,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID:             sampleUser3,
+			LocalKMSPassphrase: samplePassPhrase,
+			EDVUnlock: &UnlockAuth{
+				Capability: sampleFakeCapability,
+			},
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
 	t.Run("lock & unlock failures", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -696,13 +781,13 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 
 	token2, lock2 := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:     sampleUser2,
-		WebKMSAuth: sampleFakeTkn,
+		WebKMSAuth: &UnlockAuth{AuthToken: sampleFakeTkn},
 	})
 
 	defer lock2()
 
 	t.Run("add a credential to wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -715,7 +800,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("add a metadata to wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -728,7 +813,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("get a credential from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -746,7 +831,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("get all credentials from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		// save multiple credentials, one already saved
 		const count = 6
@@ -778,7 +863,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("remove a credential from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -791,7 +876,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("get a credential from different wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -804,7 +889,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("try content operations from invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -840,7 +925,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("try content operations from invalid content type", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -879,7 +964,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("try content operations from invalid profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -915,7 +1000,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("try content operations from invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -967,7 +1052,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("successfully query credentials", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -993,7 +1078,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("query credentials with invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1010,7 +1095,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("query credentials with invalid wallet profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1027,7 +1112,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("query credentials with invalid query type", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1044,7 +1129,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("query credentials with invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1090,7 +1175,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	var rawCredentialToVerify json.RawMessage
 
 	t.Run("issue a credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1119,7 +1204,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("verify a credential from store", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1136,7 +1221,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("verify a raw credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1157,7 +1242,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 		invalidVC := string(rawCredentialToVerify)
 		invalidVC = strings.ReplaceAll(invalidVC, "Jayden Doe", "John Smith")
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1177,7 +1262,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	var presentation *verifiable.Presentation
 
 	t.Run("prove credentials", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1220,7 +1305,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 		vpBytes, err := presentation.MarshalJSON()
 		require.NoError(t, err)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1254,7 +1339,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("failed to prove a credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1269,7 +1354,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("failed to prove a credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1285,7 +1370,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("issue,prove,verify with invalid profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1320,7 +1405,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("issue,prove,verify with invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1348,7 +1433,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	})
 
 	t.Run("issue,prove,verify with invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1404,7 +1489,7 @@ func TestCommand_Derive(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
 
 	t.Run("derive a credential from stored credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1425,7 +1510,7 @@ func TestCommand_Derive(t *testing.T) {
 	})
 
 	t.Run("derive a credential from raw credential", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1446,7 +1531,7 @@ func TestCommand_Derive(t *testing.T) {
 	})
 
 	t.Run("derive a credential using invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1463,7 +1548,7 @@ func TestCommand_Derive(t *testing.T) {
 	})
 
 	t.Run("derive a credential using invalid profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1480,7 +1565,7 @@ func TestCommand_Derive(t *testing.T) {
 	})
 
 	t.Run("derive a credential using invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1502,7 +1587,7 @@ func TestCommand_Derive(t *testing.T) {
 }
 
 func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *CreateOrUpdateProfileRequest) {
-	cmd := New(ctx)
+	cmd := New(ctx, &Config{})
 	require.NotNil(t, cmd)
 
 	var l bytes.Buffer
@@ -1526,7 +1611,7 @@ func getUnlockToken(t *testing.T, b bytes.Buffer) string {
 }
 
 func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalletRequest) (string, func()) {
-	cmd := New(ctx)
+	cmd := New(ctx, nil)
 
 	var b bytes.Buffer
 
@@ -1542,7 +1627,7 @@ func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalle
 }
 
 func addContent(t *testing.T, ctx *mockprovider.Provider, request *AddContentRequest) {
-	cmd := New(ctx)
+	cmd := New(ctx, &Config{})
 
 	var b bytes.Buffer
 	defer b.Reset()
