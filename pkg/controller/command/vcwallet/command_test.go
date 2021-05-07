@@ -862,6 +862,68 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		require.Len(t, response.Contents, count)
 	})
 
+	t.Run("get all credentials from wallet by collection ID", func(t *testing.T) {
+		const orgCollection = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "did:example:acme123456789abcdefghi",
+                    "type": "Organization",
+                    "name": "Acme Corp.",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "A software company.",
+                    "tags": ["professional", "organization"],
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+                }`
+
+		const collectionID = "did:example:acme123456789abcdefghi"
+
+		cmd := New(mockctx, &Config{})
+
+		// save a collection
+		var b bytes.Buffer
+		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
+			Content:     []byte(orgCollection),
+			ContentType: wallet.Collection,
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
+		}))
+		require.NoError(t, cmdErr)
+
+		// save only 2 credentials by collection,
+		const count = 6
+		for i := 1; i < count; i++ {
+			var cid string
+
+			if i%2 == 0 {
+				cid = collectionID
+			}
+
+			var vcb bytes.Buffer
+			cErr := cmd.Add(&vcb, getReader(t, &AddContentRequest{
+				Content: []byte(strings.ReplaceAll(sampleUDCVC, `"http://example.edu/credentials/1877"`,
+					fmt.Sprintf(`"http://example.edu/credentials/18722%d"`, i))),
+				ContentType:  "credential",
+				CollectionID: cid,
+				WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token1},
+			}))
+			require.NoError(t, cErr)
+
+			vcb.Reset()
+		}
+
+		b.Reset()
+
+		cmdErr = cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
+			ContentType:  "credential",
+			CollectionID: collectionID,
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token1},
+		}))
+		require.NoError(t, cmdErr)
+
+		var response GetAllContentResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Contents, 2)
+	})
+
 	t.Run("remove a credential from wallet", func(t *testing.T) {
 		cmd := New(mockctx, &Config{})
 
