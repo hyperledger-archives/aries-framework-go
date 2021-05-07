@@ -60,11 +60,11 @@ type UnlockWalletRequest struct {
 
 	// WebKMSAuth for authorizing acccess to web/remote kms.
 	// Optional, to be used if profile for this wallet user is setup with web/remote KMS.
-	WebKMSAuth *UnlockAuth `json:"webKMSAuth,omitempty"`
+	WebKMSAuth *UnlockAuth `json:"webKMSAuth"`
 
 	// Options for authorizing access to wallet's EDV content store.
 	// Optional, to be used only if profile for this wallet user is setup to use EDV as content store.
-	EDVUnlock *UnlockAuth `json:"edvUnlock,omitempty"`
+	EDVUnlock *UnlockAuth `json:"edvUnlocks"`
 }
 
 // UnlockAuth contains different options for authorizing access to wallet's EDV content store & webkms.
@@ -160,6 +160,9 @@ type GetAllContentRequest struct {
 	// type of the contents to be returned from wallet.
 	// supported types: collection, credential, didResolutionResponse, metadata, connection
 	ContentType wallet.ContentType `json:"contentType"`
+
+	// ID of the collection on which the response contents to be filtered.
+	CollectionID string `json:"collectionID,omitempty"`
 }
 
 // GetAllContentResponse response for get all content by content type wallet operation.
@@ -179,8 +182,7 @@ type ContentQueryRequest struct {
 
 // ContentQueryResponse response for wallet content query.
 type ContentQueryResponse struct {
-	// contents retrieved from wallet content store.
-	// map of content ID to content.
+	// response presentation(s) containing query results.
 	Results []*verifiable.Presentation `json:"results"`
 }
 

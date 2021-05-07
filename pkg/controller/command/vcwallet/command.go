@@ -404,7 +404,8 @@ func (o *Command) GetAll(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(GetAllFromWalletErrorCode, err)
 	}
 
-	contents, err := vcWallet.GetAll(request.Auth, request.ContentType)
+	contents, err := vcWallet.GetAll(request.Auth, request.ContentType,
+		wallet.FilterByCollection(request.CollectionID))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, GetAllMethod, err.Error())
 
