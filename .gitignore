@@ -42,3 +42,7 @@ profile.out
 
 # mobile related files
 cmd/aries-agent-mobile/build/
+
+# node.js modules
+node_modules/
+package-lock.json
