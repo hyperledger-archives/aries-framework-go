@@ -2,9 +2,6 @@
 
 The Aries framework can be configured to use encrypted storage. [EDV](https://identity.foundation/confidential-storage/) server storage is supported right out of the box, but other custom encrypted storage configurations are possible - see below for details.
 
-
-DEREK REMOVE AFTER [An implementation conforming to the Store interface](../component/storage/edv/restprovider.go) that is capable of storing to an [EDV](https://identity.foundation/confidential-storage/) server is included, but it's possible to  The EDV data format can be used in another underlying storage provider by making use of the but custom encrypted storage implementations can be used instead by using the [Formatted Storage Provider](../component/storageutil/formattedstore/formattedstore.go).
-
 ## Configuring Aries Framework with encrypted storage in Go Code
 
 ### Using an EDV server
