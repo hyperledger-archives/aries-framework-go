@@ -17,6 +17,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 )
 
+const doACAPYInterop = true
+
 /*
 This file contains interop fixes for DID doc serialization, that break compliance with the DID spec.
 As interop partners continue their interop work, these fixes should stop being necessary.
@@ -159,11 +161,7 @@ func pubKeyFromDIDKey(didKey string) ([]byte, error) {
 // Services are serialized to accommodate aca-py issue #1106:
 //   https://github.com/hyperledger/aries-cloudagent-python/issues/1106
 func (doc *Doc) SerializeInterop() ([]byte, error) {
-	context := contextV011
-
-	if len(doc.Context) > 0 {
-		context = doc.Context[0]
-	}
+	context := ContextV1Old
 
 	vm, err := populateRawVM(context, doc.ID, doc.processingMeta.baseURI, doc.VerificationMethod)
 	if err != nil {
@@ -202,7 +200,7 @@ func (doc *Doc) SerializeInterop() ([]byte, error) {
 	services := populateRawServicesInterop(doc.Service, doc.ID, doc.processingMeta.baseURI)
 
 	raw := &rawDoc{
-		Context: doc.Context, ID: doc.ID, VerificationMethod: vm,
+		Context: []string{context}, ID: doc.ID, VerificationMethod: vm,
 		Authentication: auths, AssertionMethod: assertionMethods, CapabilityDelegation: capabilityDelegations,
 		CapabilityInvocation: capabilityInvocations, KeyAgreement: keyAgreements,
 		Service: services, Created: doc.Created,
@@ -215,7 +213,7 @@ func (doc *Doc) SerializeInterop() ([]byte, error) {
 
 	byteDoc, err := json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of document failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
 
 	return byteDoc, nil

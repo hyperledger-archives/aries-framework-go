@@ -120,48 +120,13 @@ func TestCreateDestinationFromLegacyDoc(t *testing.T) {
 		require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
 		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
-
-	t.Run("error while getting service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = nil
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing DID doc service")
-		require.Nil(t, dest)
-	})
-
-	t.Run("missing service endpoint", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = []did.Service{{
-			Type: legacyDIDCommServiceType,
-		}}
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no service endpoint")
-		require.Nil(t, dest)
-	})
-
-	t.Run("missing recipient keys", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = []did.Service{{
-			Type:            legacyDIDCommServiceType,
-			ServiceEndpoint: "localhost:8080",
-		}}
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no recipient keys")
-		require.Nil(t, dest)
-	})
 }
 
-func TestLookupIndyKeys(t *testing.T) {
-	t.Run("lookup recipient keys", func(t *testing.T) {
+func TestB58ToDIDKeys(t *testing.T) {
+	t.Run("convert recipient keys in did doc", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockIndyDoc(t)
 
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
+		recipientKeys := convertAnyB58Keys(didDoc.Service[0].RecipientKeys)
 		require.NotNil(t, recipientKeys)
 		require.Len(t, recipientKeys, 1)
 
@@ -170,29 +135,57 @@ func TestLookupIndyKeys(t *testing.T) {
 		require.ElementsMatch(t, didDoc.VerificationMethod[0].Value, pk)
 	})
 
-	t.Run("no keys to lookup", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-
-		recipientKeys := lookupIndyRecipientKeys(didDoc, nil)
+	t.Run("no keys given", func(t *testing.T) {
+		recipientKeys := convertAnyB58Keys(nil)
 		require.Nil(t, recipientKeys)
 	})
 
-	t.Run("skip key that isn't found in verificationmethod list", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
+	t.Run("some keys are converted", func(t *testing.T) {
+		inKeys := []string{
+			"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx",
+			"#key1",
+			"6oDmCnt5w4h2hEQ12hwvD8w5JdvMDPYMzKNv5yPVomFu",
+			"did:key:z6MkjtX1C5tGbsNxcGBdCnkfzPw4pHq3fuufgFNkBpFtviAL",
+			"QEaG6QrDbx7dQ7U5Bm1Bqvx3psrGEqSieZACZ1LyU62",
+			"/path#fragment",
+			"9onu2hZrqtcoiVTkBStZ4N8iLYd24bmuHUvx9w3jb9av",
+			"GTcPhsGS3XdkWL5mS8sxsTLzwPfSBCYVY93QeT95U6NQ",
+			"?query=value",
+			"FFPJcCWHGchhuiE5hV1BTRaiBzXpZfgYdsSPFHu6DSAC",
+			"",
+			"@!~unexpected data~!@",
+		}
+		expectedKeys := []string{
+			"did:key:z6MkjtX1C5tGbsNxcGBdCnkfzPw4pHq3fuufgFNkBpFtviAL",
+			"#key1",
+			"did:key:z6MkkFUoo38XGcBVojEhiGum4EV58DCCdGnigLHqvFMWiz3H",
+			"did:key:z6MkjtX1C5tGbsNxcGBdCnkfzPw4pHq3fuufgFNkBpFtviAL",
+			"did:key:z6MkerVcrLfHZ9SajtxAkkir2wUwsQ9hg85oQfU62pyMtgsQ",
+			"/path#fragment",
+			"did:key:z6MkoG3wcwpJBS7GpzJSs1rPuTgiA7tsUV2FyVqszD1kWNNJ",
+			"did:key:z6MkuusSJ7WsP58DcpvU7hqoiYtzkxwHb5nrE9xLUj76PK9n",
+			"?query=value",
+			"did:key:z6MktheMCSkicACB2D4nP3y2JX8i1ZofyYvuKtMK5Zs78ewa",
+			"",
+			"@!~unexpected data~!@",
+		}
 
-		didDoc.Service[0].RecipientKeys = []string{"bad key"}
+		outKeys := convertAnyB58Keys(inKeys)
 
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
-		require.Len(t, recipientKeys, 0)
-	})
+		require.Equal(t, len(expectedKeys), len(outKeys))
 
-	t.Run("skip keys that aren't of handled type", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
+		for i := range outKeys {
+			require.Equal(t, expectedKeys[i], outKeys[i])
 
-		didDoc.VerificationMethod[0].Type = "bad type"
+			// if we expect the key to be converted, check if it's converted correctly
+			if inKeys[i] != expectedKeys[i] {
+				pk, err := fingerprint.PubKeyFromDIDKey(outKeys[i])
+				require.NoError(t, err)
 
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
-		require.Len(t, recipientKeys, 0)
+				pkb58 := base58.Encode(pk)
+				require.Equal(t, inKeys[i], pkb58)
+			}
+		}
 	})
 }
 

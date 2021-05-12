@@ -362,14 +362,15 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	// Interop: handle legacy did docs that incorrectly indicate they use the new format
-	if requiresLegacyHandling(raw) {
+	// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	if doACAPYInterop && requiresLegacyHandling(raw) {
 		raw.Context = []string{contextV011}
-	}
-
-	// validate did document
-	err = validate(data, raw.schemaLoader())
-	if err != nil {
-		return nil, err
+	} else {
+		// validate did document
+		err = validate(data, raw.schemaLoader())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	doc := &Doc{
@@ -411,20 +412,18 @@ func ParseDocument(data []byte) (*Doc, error) {
 }
 
 func requiresLegacyHandling(raw *rawDoc) bool {
-	// docs in v1 format don't have a top-level publicKey array, but verificationMethod instead
-	if len(raw.PublicKey) == 0 || len(raw.VerificationMethod) > 0 {
-		return false
-	}
-
 	context, _ := parseContext(raw.Context)
 
 	for _, ctx := range context {
-		if ctx == ContextV1Old { // docs that state they use v1 format but still have a top-level publicKey array
+		if ctx == ContextV1Old {
+			// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+			//  old v1 context is (currently) only used by projects like aca-py that
+			//  have not fully updated to latest did spec for aip2.0
 			return true
 		}
 	}
 
-	return false // docs in older formats
+	return false
 }
 
 func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {
@@ -861,6 +860,8 @@ func validate(data []byte, schemaLoader gojsonschema.JSONLoader) error {
 		for _, desc := range result.Errors() {
 			errMsg += fmt.Sprintf("- %s\n", desc)
 		}
+
+		errMsg += fmt.Sprintf("Document: %s\n", string(data))
 
 		return errors.New(errMsg)
 	}
