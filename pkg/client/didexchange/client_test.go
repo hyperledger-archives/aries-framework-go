@@ -9,6 +9,7 @@ package didexchange
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1171,10 +1172,8 @@ func TestServiceEvents(t *testing.T) {
 			Thread: &decorator.Thread{
 				PID: invitation.ID,
 			},
-			Connection: &didexchange.Connection{
-				DID:    doc.DIDDocument.ID,
-				DIDDoc: doc.DIDDocument,
-			},
+			DID:       doc.DIDDocument.ID,
+			DocAttach: unsignedDocAttach(t, doc.DIDDocument),
 		},
 	)
 	require.NoError(t, err)
@@ -1276,10 +1275,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			Thread: &decorator.Thread{
 				PID: invitation.ID,
 			},
-			Connection: &didexchange.Connection{
-				DID:    doc.DIDDocument.ID,
-				DIDDoc: doc.DIDDocument,
-			},
+			DocAttach: unsignedDocAttach(t, doc.DIDDocument),
+			DID:       doc.DIDDocument.ID,
 		},
 	)
 	require.NoError(t, err)
@@ -1444,4 +1441,19 @@ func newKMS(t *testing.T, store spi.Provider) kms.KeyManager {
 	require.NoError(t, err)
 
 	return customKMS
+}
+
+func unsignedDocAttach(t *testing.T, doc *did.Doc) *decorator.Attachment {
+	t.Helper()
+
+	docBytes, err := doc.JSONBytes()
+	require.NoError(t, err)
+
+	att := &decorator.Attachment{
+		Data: decorator.AttachmentData{
+			Base64: base64.StdEncoding.EncodeToString(docBytes),
+		},
+	}
+
+	return att
 }

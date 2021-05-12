@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -827,10 +828,8 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				Thread: &decorator.Thread{
 					PID: invitation.ID,
 				},
-				Connection: &didexsvc.Connection{
-					DID:    didDoc.DIDDocument.ID,
-					DIDDoc: didDoc.DIDDocument,
-				},
+				DID:       didDoc.DIDDocument.ID,
+				DocAttach: unsignedDocAttach(t, didDoc.DIDDocument),
 			},
 		)
 		require.NoError(t, err)
@@ -1028,4 +1027,19 @@ func newKMS(t *testing.T, store spi.Provider) kms.KeyManager {
 	require.NoError(t, err)
 
 	return customKMS
+}
+
+func unsignedDocAttach(t *testing.T, doc *did.Doc) *decorator.Attachment {
+	t.Helper()
+
+	docBytes, err := doc.JSONBytes()
+	require.NoError(t, err)
+
+	att := &decorator.Attachment{
+		Data: decorator.AttachmentData{
+			Base64: base64.StdEncoding.EncodeToString(docBytes),
+		},
+	}
+
+	return att
 }

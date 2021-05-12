@@ -8,6 +8,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 
@@ -47,8 +48,11 @@ func GetDestination(did string, vdr vdrapi.Registry) (*Destination, error) {
 func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 	didCommService, ok := diddoc.LookupService(didDoc, didCommServiceType)
 	if !ok {
-		// Interop: legacy docs may use the IndyAgent service type for didcomm, with slightly different content format.
-		return createDestinationFromIndy(didDoc)
+		// Interop: fallback to using IndyAgent service type
+		didCommService, ok = diddoc.LookupService(didDoc, legacyDIDCommServiceType)
+		if !ok {
+			return nil, fmt.Errorf("create destination: missing DID doc service")
+		}
 	}
 
 	if didCommService.ServiceEndpoint == "" {
@@ -59,65 +63,43 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
 	}
 
+	// Interop: service keys that are raw base58 public keys should be converted to did:key format
 	return &Destination{
-		RecipientKeys:     didCommService.RecipientKeys,
+		RecipientKeys:     convertAnyB58Keys(didCommService.RecipientKeys),
 		ServiceEndpoint:   didCommService.ServiceEndpoint,
-		RoutingKeys:       didCommService.RoutingKeys,
+		RoutingKeys:       convertAnyB58Keys(didCommService.RoutingKeys),
 		MediaTypeProfiles: didCommService.Accept,
 	}, nil
 }
 
-func createDestinationFromIndy(didDoc *diddoc.Doc) (*Destination, error) {
-	didCommService, ok := diddoc.LookupService(didDoc, legacyDIDCommServiceType)
-	if !ok {
-		return nil, fmt.Errorf("create destination: missing DID doc service")
-	}
-
-	if didCommService.ServiceEndpoint == "" {
-		return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
-	}
-
-	if len(didCommService.RecipientKeys) == 0 {
-		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
-	}
-
-	// TODO ensure recipient keys are did:key's
-	//  https://github.com/hyperledger/aries-framework-go/issues/1604
-
-	// convert plain base58 keys to did:key
-	recKeys := lookupIndyRecipientKeys(didDoc, didCommService.RecipientKeys)
-	routeKeys := lookupIndyRecipientKeys(didDoc, didCommService.RoutingKeys)
-
-	return &Destination{
-		RecipientKeys:   recKeys,
-		ServiceEndpoint: didCommService.ServiceEndpoint,
-		RoutingKeys:     routeKeys,
-	}, nil
-}
-
-func lookupIndyRecipientKeys(didDoc *diddoc.Doc, recipientKeys []string) []string {
-	b58VMkeys := map[string]int{}
-
-	for i, vm := range didDoc.VerificationMethod {
-		b58Key := base58.Encode(vm.Value)
-		b58VMkeys[b58Key] = i
-	}
-
+func convertAnyB58Keys(keys []string) []string {
 	var didKeys []string
 
-	for _, key := range recipientKeys {
-		vmIdx, ok := b58VMkeys[key]
-		if !ok {
+	for _, key := range keys {
+		if key == "" {
+			didKeys = append(didKeys, key)
 			continue
 		}
 
-		vm := didDoc.VerificationMethod[vmIdx]
-		if vm.Type != "Ed25519VerificationKey2018" {
-			// TODO: handle further key types
+		// skip if the key is a relative did-url (ie, it starts with ?, /, or #)
+		if strings.Contains("?/#", string(key[0])) { // nolint:gocritic
+			didKeys = append(didKeys, key)
 			continue
 		}
 
-		didKey, _ := fingerprint.CreateDIDKey(vm.Value)
+		// skip if the key is already a did
+		if strings.HasPrefix(key, "did:") {
+			didKeys = append(didKeys, key)
+			continue
+		}
+
+		rawKey := base58.Decode(key)
+		if len(rawKey) == 0 {
+			didKeys = append(didKeys, key)
+			continue
+		}
+
+		didKey, _ := fingerprint.CreateDIDKey(rawKey)
 
 		didKeys = append(didKeys, didKey)
 	}
