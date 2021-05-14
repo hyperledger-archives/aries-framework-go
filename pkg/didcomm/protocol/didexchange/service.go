@@ -776,11 +776,6 @@ func pad(b64 string) string {
 }
 
 func getRequestConnection(r *Request) (*Connection, error) {
-	// Interop: accept the 'connection' attribute of rfc 0160 (connection protocol) if present
-	if r.Connection != nil {
-		return r.Connection, nil
-	}
-
 	if r.DocAttach == nil {
 		return nil, fmt.Errorf("missing did_doc~attach from request")
 	}

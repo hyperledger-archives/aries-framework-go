@@ -1281,14 +1281,6 @@ func Test_getRequestConnection(t *testing.T) {
 	store := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, store)
 
-	t.Run("success - connection member exists", func(t *testing.T) {
-		r := Request{Connection: &Connection{DID: "test", DIDDoc: newPeerDID(t, k)}}
-
-		conn, err := getRequestConnection(&r)
-		require.NoError(t, err)
-		require.Equal(t, "test", conn.DID)
-	})
-
 	t.Run("success - did_doc~attach present", func(t *testing.T) {
 		testDoc := newPeerDID(t, k)
 		docBytes, err := testDoc.MarshalJSON()
