@@ -127,7 +127,7 @@ type DocumentMetadata struct {
 	// CanonicalID is canonical ID key.
 	CanonicalID string `json:"canonicalId,omitempty"`
 	// EquivalentID is equivalent ID array.
-	EquivalentID string `json:"equivalentId,omitempty"`
+	EquivalentID []string `json:"equivalentId,omitempty"`
 	// Method is used for method metadata within did document metadata.
 	Method *MethodMetadata `json:"method,omitempty"`
 }
