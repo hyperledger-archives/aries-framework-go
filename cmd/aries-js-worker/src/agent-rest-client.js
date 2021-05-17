@@ -21,12 +21,12 @@ const pkgs = {
         AcceptInvitation: {
             path: "/connections/{id}/accept-invitation",
             method: "POST",
-            pathParam:"id"
+            pathParam: "id"
         },
         AcceptExchangeRequest: {
             path: "/connections/{id}/accept-request",
             method: "POST",
-            pathParam:"id"
+            pathParam: "id"
         },
         CreateImplicitInvitation: {
             path: "/connections/create-implicit-invitation",
@@ -39,12 +39,12 @@ const pkgs = {
         RemoveConnection: {
             path: "/connections/{id}/remove",
             method: "POST",
-            pathParam:"id"
+            pathParam: "id"
         },
         QueryConnectionByID: {
             path: "/connections/{id}",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         QueryConnections: {
             path: "/connections",
@@ -63,12 +63,12 @@ const pkgs = {
         GetDID: {
             path: "/vdr/did/{id}",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         ResolveDID: {
             path: "/vdr/did/resolve/{id}",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         GetDIDs: {
             path: "/vdr/did/records",
@@ -143,12 +143,12 @@ const pkgs = {
         GetCredential: {
             path: "/verifiable/credential/{id}",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         GetCredentialByName: {
             path: "/verifiable/credential/name/{name}",
             method: "GET",
-            pathParam:"name"
+            pathParam: "name"
         },
         GetCredentials: {
             path: "/verifiable/credentials",
@@ -169,7 +169,7 @@ const pkgs = {
         GeneratePresentationByID: {
             path: "/verifiable/credential/{id}/presentation",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         SavePresentation: {
             path: "/verifiable/presentation",
@@ -185,7 +185,7 @@ const pkgs = {
             method: "GET",
         },
     },
-    introduce:{
+    introduce: {
         Actions: {
             path: "/introduce/actions",
             method: "GET"
@@ -197,7 +197,7 @@ const pkgs = {
         AcceptProblemReport: {
             path: "/introduce/{piid}/accept-problem-report",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         SendProposalWithOOBInvitation: {
             path: "/introduce/send-proposal-with-oob-invitation",
@@ -282,55 +282,55 @@ const pkgs = {
         AcceptProposal: {
             path: "/issuecredential/{piid}/accept-proposal",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineProposal: {
             path: "/issuecredential/{piid}/decline-proposal",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptOffer: {
             path: "/issuecredential/{piid}/accept-offer",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptProblemReport: {
             path: "/issuecredential/{piid}/accept-problem-report",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineOffer: {
             path: "/issuecredential/{piid}/decline-offer",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         NegotiateProposal: {
             path: "/issuecredential/{piid}/negotiate-proposal",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptRequest: {
             path: "/issuecredential/{piid}/accept-request",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineRequest: {
             path: "/issuecredential/{piid}/decline-request",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptCredential: {
             path: "/issuecredential/{piid}/accept-credential",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineCredential: {
             path: "/issuecredential/{piid}/decline-credential",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
     },
-    presentproof:{
+    presentproof: {
         Actions: {
             path: "/presentproof/actions",
             method: "GET",
@@ -346,42 +346,42 @@ const pkgs = {
         AcceptProblemReport: {
             path: "/presentproof/{piid}/accept-problem-report",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptRequestPresentation: {
             path: "/presentproof/{piid}/accept-request-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptProposePresentation: {
             path: "/presentproof/{piid}/accept-propose-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         AcceptPresentation: {
             path: "/presentproof/{piid}/accept-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         NegotiateRequestPresentation: {
             path: "/presentproof/{piid}/negotiate-request-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineRequestPresentation: {
             path: "/presentproof/{piid}/decline-request-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclineProposePresentation: {
             path: "/presentproof/{piid}/decline-propose-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
         DeclinePresentation: {
             path: "/presentproof/{piid}/decline-presentation",
             method: "POST",
-            pathParam:"piid"
+            pathParam: "piid"
         },
     },
     kms: {
@@ -445,6 +445,12 @@ const pkgs = {
         },
         Derive: {
             path: "/vcwallet/derive",
+            method: "POST",
+        },
+    },
+    context: {
+        AddContext: {
+            path: "/jsonld/context/add",
             method: "POST",
         },
     },

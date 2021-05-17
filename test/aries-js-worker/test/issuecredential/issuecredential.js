@@ -3,9 +3,11 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 import {environment} from "../environment.js";
 import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
 import {watchForEvent} from "../common.js";
+import {addJSONLDContexts} from "../contexts";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
@@ -71,6 +73,9 @@ async function issueCredential (mode) {
 
         holder = didexClient.agent1
         issuer = didexClient.agent2
+
+        await addJSONLDContexts(holder)
+        await addJSONLDContexts(issuer)
     })
 
     after(async () => {

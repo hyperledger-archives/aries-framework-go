@@ -39,6 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddjsonld "github.com/hyperledger/aries-framework-go/test/bdd/pkg/jsonld"
 )
 
 const (
@@ -342,7 +343,8 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 }
 
 func createJSONLDDocumentLoader(storageProvider storage.Provider) (ld.DocumentLoader, error) {
-	loader, err := jsonld.NewDocumentLoader(cachedstore.NewProvider(storageProvider, mem.NewProvider()))
+	loader, err := jsonld.NewDocumentLoader(cachedstore.NewProvider(storageProvider, mem.NewProvider()),
+		jsonld.WithExtraContexts(bddjsonld.Contexts()...))
 	if err != nil {
 		return nil, err
 	}
