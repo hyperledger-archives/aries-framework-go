@@ -23,7 +23,7 @@ type eventProps struct {
 	err        error
 }
 
-func newEventProps(md *metaData) *eventProps {
+func newEventProps(md *MetaData) *eventProps {
 	properties := md.properties
 	if properties == nil {
 		properties = map[string]interface{}{}
