@@ -58,14 +58,14 @@ func TestStart_CanTransitionTo(t *testing.T) {
 }
 
 func TestStart_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&start{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&start{}).ExecuteInbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&start{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&start{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -93,7 +93,7 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
 	t.Run("With code", func(t *testing.T) {
-		md := &metaData{}
+		md := &MetaData{}
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
 
 		thID := uuid.New().String()
@@ -123,14 +123,14 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("With invalid message", func(t *testing.T) {
-		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(&metaData{})
+		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(&MetaData{})
 		require.EqualError(t, errors.Unwrap(err), service.ErrInvalidMessage.Error())
 		require.Nil(t, followup)
 		require.Nil(t, action)
 	})
 
 	t.Run("With custom error", func(t *testing.T) {
-		md := &metaData{err: customError{error: errors.New("error")}}
+		md := &MetaData{err: customError{error: errors.New("error")}}
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
 
 		thID := uuid.New().String()
@@ -160,7 +160,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Without code", func(t *testing.T) {
-		md := &metaData{}
+		md := &MetaData{}
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
 
 		require.NoError(t, md.Msg.SetID(uuid.New().String()))
@@ -175,7 +175,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&abandoning{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&abandoning{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -188,14 +188,14 @@ func TestDone_CanTransitionTo(t *testing.T) {
 }
 
 func TestDone_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&done{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&done{}).ExecuteInbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NoError(t, action(nil))
 }
 
 func TestDone_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&done{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&done{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -208,14 +208,14 @@ func TestNoOp_CanTransitionTo(t *testing.T) {
 }
 
 func TestNoOp_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&noOp{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&noOp{}).ExecuteInbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "cannot execute no-op")
 	require.Nil(t, followup)
 	require.Nil(t, action)
 }
 
 func TestNoOp_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&noOp{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&noOp{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "cannot execute no-op")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -242,14 +242,14 @@ func TestProposalReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestProposalReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&proposalReceived{}).ExecuteInbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &offerSent{}, followup)
 	require.NotNil(t, action)
 }
 
 func TestProposalReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposalReceived{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&proposalReceived{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -277,7 +277,7 @@ func TestOfferSent_CanTransitionTo(t *testing.T) {
 
 func TestOfferSent_ExecuteInbound(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&offerSent{}).ExecuteInbound(&metaData{offerCredential: &OfferCredential{}})
+		followup, action, err := (&offerSent{}).ExecuteInbound(&MetaData{offerCredential: &OfferCredential{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -292,7 +292,7 @@ func TestOfferSent_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("OfferCredential is absent", func(t *testing.T) {
-		followup, action, err := (&offerSent{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&offerSent{}).ExecuteInbound(&MetaData{})
 		require.Contains(t, fmt.Sprintf("%v", err), "offer credential was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
@@ -300,7 +300,7 @@ func TestOfferSent_ExecuteInbound(t *testing.T) {
 }
 
 func TestOfferSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&offerSent{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&offerSent{}).ExecuteOutbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NotNil(t, action)
@@ -336,7 +336,7 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{issueCredential: &IssueCredential{}})
+		followup, action, err := (&requestReceived{}).ExecuteInbound(&MetaData{issueCredential: &IssueCredential{}})
 		require.NoError(t, err)
 		require.Equal(t, &credentialIssued{}, followup)
 		require.NotNil(t, action)
@@ -351,7 +351,7 @@ func TestRequestReceived_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("IssueCredential is absent", func(t *testing.T) {
-		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&requestReceived{}).ExecuteInbound(&MetaData{})
 		require.Contains(t, fmt.Sprintf("%v", err), "issue credential was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
@@ -359,7 +359,7 @@ func TestRequestReceived_ExecuteInbound(t *testing.T) {
 }
 
 func TestRequestReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&requestReceived{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&requestReceived{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -386,14 +386,14 @@ func TestCredentialIssued_CanTransitionTo(t *testing.T) {
 }
 
 func TestCredentialIssued_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&credentialIssued{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&credentialIssued{}).ExecuteInbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NoError(t, action(nil))
 }
 
 func TestCredentialIssued_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&credentialIssued{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&credentialIssued{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -421,7 +421,7 @@ func TestProposalSent_CanTransitionTo(t *testing.T) {
 
 func TestProposalSent_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{proposeCredential: &ProposeCredential{}})
+		followup, action, err := (&proposalSent{}).ExecuteInbound(&MetaData{proposeCredential: &ProposeCredential{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -436,7 +436,7 @@ func TestProposalSent_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("ProposeCredential is absent", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&proposalSent{}).ExecuteInbound(&MetaData{})
 		require.Contains(t, fmt.Sprintf("%v", err), "propose credential was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
@@ -444,7 +444,7 @@ func TestProposalSent_ExecuteInbound(t *testing.T) {
 }
 
 func TestProposalSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposalSent{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&proposalSent{}).ExecuteOutbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NotNil(t, action)
@@ -482,7 +482,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 	t.Run("incorrect data (with ProposeCredential)", func(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 
-		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&MetaData{
 			proposeCredential: &ProposeCredential{},
 			transitionalPayload: transitionalPayload{
 				Action: Action{Msg: msg},
@@ -494,7 +494,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("correct data (without ProposeCredential)", func(t *testing.T) {
-		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&MetaData{})
 		require.NoError(t, err)
 		require.Equal(t, &requestSent{}, followup)
 		require.NotNil(t, action)
@@ -509,7 +509,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Decode error", func(t *testing.T) {
-		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&MetaData{
 			transitionalPayload: transitionalPayload{
 				Action: Action{Msg: service.DIDCommMsgMap{"@type": map[int]int{}}},
 			},
@@ -522,7 +522,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 }
 
 func TestOfferReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&offerReceived{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&offerReceived{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -549,14 +549,14 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 }
 
 func TestRequestSent_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&requestSent{}).ExecuteInbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NoError(t, action(nil))
 }
 
 func TestRequestSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&requestSent{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&requestSent{}).ExecuteOutbound(&MetaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NotNil(t, action)
@@ -592,7 +592,7 @@ func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{issueCredential: &IssueCredential{}})
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&MetaData{issueCredential: &IssueCredential{}})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
@@ -608,7 +608,7 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 }
 
 func TestCredentialReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&credentialReceived{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&credentialReceived{}).ExecuteOutbound(&MetaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)

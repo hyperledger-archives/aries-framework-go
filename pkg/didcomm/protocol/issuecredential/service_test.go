@@ -48,7 +48,7 @@ func TestService_Use(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		meta := &metaData{
+		meta := &MetaData{
 			state: &done{},
 			msgClone: service.NewDIDCommMsgMap(struct {
 				Type string `json:"@type"`
@@ -108,7 +108,7 @@ func TestService_Use(t *testing.T) {
 			})
 		})
 
-		_, _, err = svc.execute(&done{}, &metaData{})
+		_, _, err = svc.execute(&done{}, &MetaData{})
 		require.EqualError(t, err, "done: ExecuteOutbound is not implemented yet")
 	})
 
@@ -130,7 +130,7 @@ func TestService_Use(t *testing.T) {
 			})
 		})
 
-		_, _, err = svc.execute(&done{}, &metaData{})
+		_, _, err = svc.execute(&done{}, &MetaData{})
 		require.EqualError(t, err, "middleware: "+msgErr)
 	})
 }

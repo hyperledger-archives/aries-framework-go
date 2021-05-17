@@ -62,8 +62,8 @@ type transitionalPayload struct {
 	StateName string
 }
 
-// metaData type to store data for internal usage.
-type metaData struct {
+// MetaData type to store data for internal usage.
+type MetaData struct {
 	transitionalPayload
 	state           state
 	msgClone        service.DIDCommMsg
@@ -82,35 +82,43 @@ type metaData struct {
 	err error
 }
 
-func (md *metaData) Message() service.DIDCommMsg {
+// Message is the didcomm message.
+func (md *MetaData) Message() service.DIDCommMsg {
 	return md.msgClone
 }
 
-func (md *metaData) OfferCredential() *OfferCredential {
+// OfferCredential didcomm message.
+func (md *MetaData) OfferCredential() *OfferCredential {
 	return md.offerCredential
 }
 
-func (md *metaData) ProposeCredential() *ProposeCredential {
+// ProposeCredential didcomm message.
+func (md *MetaData) ProposeCredential() *ProposeCredential {
 	return md.proposeCredential
 }
 
-func (md *metaData) RequestCredential() *RequestCredential {
+// RequestCredential didcomm message.
+func (md *MetaData) RequestCredential() *RequestCredential {
 	return md.requestCredential
 }
 
-func (md *metaData) IssueCredential() *IssueCredential {
+// IssueCredential didcomm message.
+func (md *MetaData) IssueCredential() *IssueCredential {
 	return md.issueCredential
 }
 
-func (md *metaData) CredentialNames() []string {
+// CredentialNames are the names with which to save credentials with.
+func (md *MetaData) CredentialNames() []string {
 	return md.credentialNames
 }
 
-func (md *metaData) StateName() string {
+// StateName returns the name of the currently executing state.
+func (md *MetaData) StateName() string {
 	return md.state.Name()
 }
 
-func (md *metaData) Properties() map[string]interface{} {
+// Properties returns metadata properties.
+func (md *MetaData) Properties() map[string]interface{} {
 	return md.properties
 }
 
@@ -124,12 +132,12 @@ type Action struct {
 }
 
 // Opt describes option signature for the Continue function.
-type Opt func(md *metaData)
+type Opt func(md *MetaData)
 
 // WithProposeCredential allows providing ProposeCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
 func WithProposeCredential(msg *ProposeCredential) Opt {
-	return func(md *metaData) {
+	return func(md *MetaData) {
 		md.proposeCredential = msg
 	}
 }
@@ -137,7 +145,7 @@ func WithProposeCredential(msg *ProposeCredential) Opt {
 // WithRequestCredential allows providing RequestCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
 func WithRequestCredential(msg *RequestCredential) Opt {
-	return func(md *metaData) {
+	return func(md *MetaData) {
 		md.requestCredential = msg
 	}
 }
@@ -145,7 +153,7 @@ func WithRequestCredential(msg *RequestCredential) Opt {
 // WithOfferCredential allows providing OfferCredential message
 // USAGE: This message should be provided after receiving a ProposeCredential message.
 func WithOfferCredential(msg *OfferCredential) Opt {
-	return func(md *metaData) {
+	return func(md *MetaData) {
 		md.offerCredential = msg
 	}
 }
@@ -153,7 +161,7 @@ func WithOfferCredential(msg *OfferCredential) Opt {
 // WithIssueCredential allows providing IssueCredential message
 // USAGE: This message should be provided after receiving a RequestCredential message.
 func WithIssueCredential(msg *IssueCredential) Opt {
-	return func(md *metaData) {
+	return func(md *MetaData) {
 		md.issueCredential = msg
 	}
 }
@@ -161,7 +169,7 @@ func WithIssueCredential(msg *IssueCredential) Opt {
 // WithFriendlyNames allows providing names for the credentials.
 // USAGE: This function should be used when the Holder receives IssueCredential message.
 func WithFriendlyNames(names ...string) Opt {
-	return func(md *metaData) {
+	return func(md *MetaData) {
 		md.credentialNames = names
 	}
 }
@@ -177,7 +185,7 @@ type Service struct {
 	service.Action
 	service.Message
 	store      storage.Store
-	callbacks  chan *metaData
+	callbacks  chan *MetaData
 	messenger  service.Messenger
 	middleware Handler
 }
@@ -197,7 +205,7 @@ func New(p Provider) (*Service, error) {
 	svc := &Service{
 		messenger:  p.Messenger(),
 		store:      store,
-		callbacks:  make(chan *metaData),
+		callbacks:  make(chan *MetaData),
 		middleware: initialHandler,
 	}
 
@@ -294,7 +302,7 @@ func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, st
 	return piID, stateName, nil
 }
 
-func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, error) {
+func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*MetaData, error) {
 	piID, stateName, err := s.getCurrentStateNameAndPIID(msg)
 	if err != nil {
 		return nil, fmt.Errorf("getCurrentStateNameAndPIID: %w", err)
@@ -311,7 +319,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 		return nil, fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
 
-	return &metaData{
+	return &MetaData{
 		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
 			Action: Action{
@@ -352,7 +360,7 @@ func isNoOp(s state) bool {
 	return ok
 }
 
-func (s *Service) handle(md *metaData) error {
+func (s *Service) handle(md *MetaData) error {
 	var (
 		current   = md.state
 		actions   []stateAction
@@ -517,7 +525,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		return fmt.Errorf("get transitional payload: %w", err)
 	}
 
-	md := &metaData{
+	md := &MetaData{
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
@@ -545,7 +553,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		return fmt.Errorf("get transitional payload: %w", err)
 	}
 
-	md := &metaData{
+	md := &MetaData{
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
@@ -605,14 +613,14 @@ func (s *Service) Actions() ([]Action, error) {
 	return actions, nil
 }
 
-func (s *Service) processCallback(msg *metaData) {
+func (s *Service) processCallback(msg *MetaData) {
 	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
 	// channel internally.
 	s.callbacks <- msg
 }
 
 // newDIDCommActionMsg creates new DIDCommAction message.
-func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
+func (s *Service) newDIDCommActionMsg(md *MetaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
 	return service.DIDCommAction{
@@ -645,7 +653,7 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	}
 }
 
-func (s *Service) execute(next state, md *metaData) (state, stateAction, error) {
+func (s *Service) execute(next state, md *MetaData) (state, stateAction, error) {
 	md.state = next
 	s.sendMsgEvents(md, next.Name(), service.PreState)
 
@@ -666,7 +674,7 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 }
 
 // sendMsgEvents triggers the message events.
-func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.StateMsgType) {
+func (s *Service) sendMsgEvents(md *MetaData, stateID string, stateType service.StateMsgType) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
 		handler <- service.StateMsg{
