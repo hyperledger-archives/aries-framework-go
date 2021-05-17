@@ -25,9 +25,6 @@ const (
 	jsonThreadID       = "thid"
 	jsonParentThreadID = "pthid"
 	jsonMetadata       = "_internal_metadata"
-
-	basePIURI = "https://didcomm.org/"
-	oldPIURI  = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/"
 )
 
 // Metadata may contain additional payload for the protocol. It might be populated by the client/protocol
@@ -77,11 +74,6 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	err := json.Unmarshal(payload, &msg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid payload data format: %w", err)
-	}
-
-	// Interop: accept old PIURI when it's used, as we handle backwards-compatibility at a more fine-grained level.
-	if typ := msg.Type(); typ != "" {
-		msg[jsonType] = strings.Replace(typ, oldPIURI, basePIURI, 1)
 	}
 
 	return msg, nil

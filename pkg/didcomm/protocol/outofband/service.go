@@ -29,12 +29,8 @@ const (
 	Name = "out-of-band"
 	// PIURI is the Out-of-Band protocol's protocol instance URI.
 	PIURI = "https://didcomm.org/out-of-band/1.0"
-	// oldPIURI is the old OOB protocol's protocol instance URI.
-	oldPIURI = "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/out-of-band/1.0"
 	// InvitationMsgType is the '@type' for the invitation message.
 	InvitationMsgType = PIURI + "/invitation"
-	// OldInvitationMsgType is the `@type` for the old invitation message.
-	OldInvitationMsgType = oldPIURI + "/invitation"
 	// HandshakeReuseMsgType is the '@type' for the reuse message.
 	HandshakeReuseMsgType = PIURI + "/handshake-reuse"
 	// HandshakeReuseAcceptedMsgType is the '@type' for the reuse-accepted message.
@@ -216,7 +212,7 @@ func (s *Service) Name() string {
 // Accept determines whether this service can handle the given type of message.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case InvitationMsgType, HandshakeReuseMsgType, HandshakeReuseAcceptedMsgType, OldInvitationMsgType:
+	case InvitationMsgType, HandshakeReuseMsgType, HandshakeReuseAcceptedMsgType:
 		return true
 	}
 
@@ -619,7 +615,7 @@ func listener(
 			select {
 			case c := <-callbacks:
 				switch c.msg.Type() {
-				case InvitationMsgType, HandshakeReuseMsgType, OldInvitationMsgType:
+				case InvitationMsgType, HandshakeReuseMsgType:
 					_, err := handleCallbackFunc(c)
 					if err != nil {
 						logutil.LogError(logger, Name, "handleCallback", err.Error(),
@@ -649,7 +645,7 @@ func listener(
 
 func (s *Service) handleCallback(c *callback) (string, error) {
 	switch c.msg.Type() {
-	case InvitationMsgType, OldInvitationMsgType:
+	case InvitationMsgType:
 		return s.handleInvitationCallback(c)
 	case HandshakeReuseMsgType:
 		return "", s.handleHandshakeReuseCallback(c)
