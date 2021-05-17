@@ -16,7 +16,7 @@ const (
 	doACAPyInterop = false
 )
 
-// TODO interop: this is a stub method, that is substituted for special functionality
+// Interop: this is a stub method, that is substituted for special functionality
 //   when the ACAPyInterop flag is enabled.
 //   This can be removed when https://github.com/hyperledger/aries-cloudagent-python/issues/1048 is fixed.
 func convertPeerToSov(doc *did.Doc) (*did.Doc, error) {

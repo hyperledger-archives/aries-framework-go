@@ -189,15 +189,7 @@ func (d *AttachmentData) Sign(c crypto.Crypto, kh, pub interface{}, pubBytes []b
 
 	protectedB64 := base64.RawURLEncoding.EncodeToString(protectedBytes)
 
-	var b64data string
-
-	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
-	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
-	if doACAPyInterop {
-		b64data = b64ToRawURL(d.Base64)
-	} else {
-		b64data = d.Base64
-	}
+	b64data := b64ToRawURL(d.Base64)
 
 	signedData := fmt.Sprintf("%s.%s", protectedB64, b64data)
 
@@ -228,8 +220,8 @@ func b64ToRawURL(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.Trim(s, "="), "+", "-"), "/", "_")
 }
 
-// Verify verify the signature on the attachment data.
-func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) error { // nolint:funlen,gocyclo
+// Verify verifies the signature on the attachment data.
+func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) error { // nolint:gocyclo
 	if d.JWS == nil {
 		return fmt.Errorf("no signature to verify")
 	}
@@ -280,15 +272,7 @@ func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) erro
 		return fmt.Errorf("decoding signature: %w", err)
 	}
 
-	var b64data string
-
-	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
-	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
-	if doACAPyInterop {
-		b64data = b64ToRawURL(d.Base64)
-	} else {
-		b64data = d.Base64
-	}
+	b64data := b64ToRawURL(d.Base64)
 
 	signedData := fmt.Sprintf("%s.%s", jws.Protected, b64data)
 
