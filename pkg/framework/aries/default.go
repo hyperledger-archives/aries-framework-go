@@ -226,7 +226,10 @@ func assignVerifiableStoreIfNeeded(aries *Aries, storeProvider storage.Provider)
 		return nil
 	}
 
-	provider, err := context.New(context.WithStorageProvider(storeProvider))
+	provider, err := context.New(
+		context.WithStorageProvider(storeProvider),
+		context.WithJSONLDDocumentLoader(aries.jsonldDocumentLoader),
+	)
 	if err != nil {
 		return fmt.Errorf("verifiable store initialization failed : %w", err)
 	}

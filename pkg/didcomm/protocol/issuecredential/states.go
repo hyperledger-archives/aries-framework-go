@@ -331,12 +331,19 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}
 
+	response := &RequestCredential{
+		Type:           RequestCredentialMsgType,
+		RequestsAttach: offer.OffersAttach,
+	}
+
+	if md.RequestCredential() != nil {
+		response = md.RequestCredential()
+		response.Type = RequestCredentialMsgType
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(RequestCredential{
-			Type:           RequestCredentialMsgType,
-			RequestsAttach: offer.OffersAttach,
-		}), md.MyDID, md.TheirDID)
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID)
 	}
 
 	return &requestSent{}, action, nil

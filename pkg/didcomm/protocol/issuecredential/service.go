@@ -225,8 +225,17 @@ func (s *Service) Use(items ...Middleware) {
 	s.middleware = handler
 }
 
+// AddMiddleware appends the given Middleware to the chain of middlewares.
+func (s *Service) AddMiddleware(mw ...Middleware) {
+	for i := len(mw) - 1; i >= 0; i-- {
+		s.middleware = mw[i](s.middleware)
+	}
+}
+
 // HandleInbound handles inbound message (issuecredential protocol).
 func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	logger.Debugf("handling inbound: %+v", msg)
+
 	aEvent := s.ActionEvent()
 
 	// throw error if there is no action event registered for inbound messages
