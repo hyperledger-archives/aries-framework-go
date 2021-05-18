@@ -9,6 +9,7 @@ package kms
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/testkeyset"
@@ -129,7 +130,13 @@ func CreateMockAESGCMKeyHandle() (*keyset.Handle, error) {
 
 // CreateMockED25519KeyHandle is a utility function that returns a mock key (for tests only, not registered in Tink).
 func CreateMockED25519KeyHandle() (*keyset.Handle, error) {
-	ks := testutil.NewTestKeyset(testutil.NewED25519PrivateKeyData(), tinkpb.OutputPrefixType_TINK)
+	serializedKey, err := proto.Marshal(testutil.NewED25519PrivateKey())
+	if err != nil {
+		return nil, err
+	}
+
+	ks := testutil.NewTestKeyset(testutil.NewKeyData(testutil.ED25519SignerTypeURL, serializedKey,
+		tinkpb.KeyData_ASYMMETRIC_PRIVATE), tinkpb.OutputPrefixType_TINK)
 
 	return createMockKeyHandle(ks)
 }

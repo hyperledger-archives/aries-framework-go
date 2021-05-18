@@ -201,15 +201,15 @@ func TestCrypto_ComputeMAC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, macBytes)
 	})
-	t.Run("fail - message to compute MAC for is empty", func(t *testing.T) {
+	t.Run("success - message to compute MAC with nil data - should be treated as empty data", func(t *testing.T) {
 		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 		require.NotNil(t, kh)
 
 		c := Crypto{}
 		macBytes, err := c.ComputeMAC(nil, kh)
-		require.EqualError(t, err, "HMAC: invalid input")
-		require.Empty(t, macBytes)
+		require.NoError(t, err)
+		require.NotEmpty(t, macBytes)
 	})
 	t.Run("invalid key handle", func(t *testing.T) {
 		c := Crypto{}
