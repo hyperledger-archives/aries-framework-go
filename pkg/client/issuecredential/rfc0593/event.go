@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -25,18 +26,25 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
 	// ProofVCDetailFormat is the attachment format used in the proposal, offer, and request message attachments.
 	ProofVCDetailFormat = "aries/ld-proof-vc-detail@v1.0"
 	// ProofVCFormat is the attachment format used in the issue-credential message attachment.
-	ProofVCFormat   = "aries/ld-proof-vc@v1.0"
+	ProofVCFormat = "aries/ld-proof-vc@v1.0"
+	// StoreName is the name of the transient store used by AutoExecute.
+	StoreName       = "RFC0593TransientStore"
 	mediaTypeJSON   = "application/json"
 	mediaTypeJSONLD = "application/ld+json"
 )
 
-var errRFC0593DoesNotApply = errors.New("RFC0593 is not applicable")
+// ErrRFC0593NotApplicable indicates RFC0593 does not apply to the message being handled because
+// it does not contain an attachment with the proof format identifiers.
+//
+// See also: ProofVCDetailFormat, ProofVCFormat.
+var ErrRFC0593NotApplicable = errors.New("RFC0593 is not applicable")
 
 // CredentialSpec is the attachment payload in messages conforming to the RFC0593 format.
 type CredentialSpec struct {
@@ -75,33 +83,59 @@ type CredentialStatus struct {
 //     next := make(chan service.DIDCommAction)
 //     go AutoExecute(p, next)(events)
 //     for event := range next {
-//         // handle events from issue-credential and other protocols
-//         // that do not conform to RFC0593
+//         // handle events from issue-credential that do not conform to RFC0593
 //     }
+//
+// Note: use the protocol Middleware if the protocol needs to be started with a request-credential message.
 //
 // See also: service.AutoExecuteActionEvent.
 func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.DIDCommAction) {
 	return func(events chan service.DIDCommAction) {
+		// TODO make AutoExecute return an error if the store cannot be opened?
+		db, err := p.ProtocolStateStorageProvider().OpenStore(StoreName)
+
 		for event := range events {
+			if err != nil {
+				event.Stop(fmt.Errorf("rfc0593: failed to open transient store: %w", err))
+
+				continue
+			}
+
 			var (
-				arg interface{}
-				err error
+				arg     interface{}
+				options *CredentialSpecOptions
 			)
 
 			switch event.Message.Type() {
 			case issuecredential.ProposeCredentialMsgType:
-				arg, err = ReplayProposal(p, event.Message)
+				arg, options, err = ReplayProposal(p, event.Message)
+				err = saveOptionsIfNoError(err, db, event.Message, options)
 			case issuecredential.OfferCredentialMsgType:
-				arg, err = ReplayOffer(p, event.Message)
+				arg, options, err = ReplayOffer(p, event.Message)
+				err = saveOptionsIfNoError(err, db, event.Message, options)
 			case issuecredential.RequestCredentialMsgType:
-				arg, err = IssueCredential(p, event.Message)
+				arg, options, err = IssueCredential(p, event.Message)
+				err = saveOptionsIfNoError(err, db, event.Message, options)
+			case issuecredential.IssueCredentialMsgType:
+				// TODO credential issued to us. We have middleware that automatically saves the credentials.
+				//  Should this package ensure it's saved?
+				//  Should we ensure issued VC is up to spec?
+				options, err = fetchCredentialSpecOptions(db, event.Message)
+				if err != nil {
+					err = fmt.Errorf("failed to fetch credential spec options to validate credential: %w", err)
+
+					break
+				}
+
+				arg, err = VerifyCredential(p, options, uuid.New().String(), event.Message)
+				err = deleteOptionsIfNoError(err, db, event.Message)
 			default:
 				next <- event
 
 				continue
 			}
 
-			if errors.Is(err, errRFC0593DoesNotApply) {
+			if errors.Is(err, ErrRFC0593NotApplicable) {
 				next <- event
 
 				continue
@@ -131,25 +165,33 @@ func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.
 //     }
 //     for event := range events {
 //         if event.Message.Type() == issuecredential.ProposeCredentialMsgType {
-//             arg, err := ReplayProposal(p, event.Message)
+//             arg, options, err := ReplayProposal(p, event.Message)
+//             if errors.Is(err, ErrRFC0593NotApplicable) {
+//                 // inspect and handle the event yourself
+//                 arg, err = handleEvent(event)
+//             }
+//
 //             if err != nil {
 //                 event.Stop(err)
 //             }
 //
+//             // inspect options
+//
 //             event.Continue(arg)
 //         }
 //     }
-func ReplayProposal(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interface{}, error) {
+func ReplayProposal(p JSONLDDocumentLoaderProvider,
+	msg service.DIDCommMsg) (interface{}, *CredentialSpecOptions, error) {
 	proposal := &issuecredential.ProposeCredential{}
 
 	err := msg.Decode(proposal)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
 	payload, err := getPayload(p, proposal.Formats, proposal.FiltersAttach)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract payload for msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to extract payload for msg type %s: %w", msg.Type(), err)
 	}
 
 	attachID := uuid.New().String()
@@ -168,7 +210,7 @@ func ReplayProposal(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (int
 				JSON: payload,
 			},
 		}},
-	}), nil
+	}), payload.Options, nil
 }
 
 // ReplayOffer replays the inbound offered CredentialSpec as an outbound request that can be sent back to the
@@ -184,25 +226,32 @@ func ReplayProposal(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (int
 //     }
 //     for event := range events {
 //         if event.Message.Type() == issuecredential.OfferCredentialMsgType {
-//             arg, err := ReplayOffer(p, event.Message)
+//             arg, options, err := ReplayOffer(p, event.Message)
+//             if errors.Is(err, ErrRFC0593NotApplicable) {
+//                 // inspect and handle the event yourself
+//                 arg, err = handleEvent(event)
+//             }
+//
 //             if err != nil {
 //                 event.Stop(err)
 //             }
 //
+//             // inspect options
+//
 //             event.Continue(arg)
 //         }
 //     }
-func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interface{}, error) {
+func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interface{}, *CredentialSpecOptions, error) {
 	offer := &issuecredential.OfferCredential{}
 
 	err := msg.Decode(offer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
 	payload, err := getPayload(p, offer.Formats, offer.OffersAttach)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract payoad for msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to extract payoad for msg type %s: %w", msg.Type(), err)
 	}
 
 	attachID := uuid.New().String()
@@ -221,7 +270,7 @@ func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interf
 				JSON: payload,
 			},
 		}},
-	}), nil
+	}), payload.Options, nil
 }
 
 // IssueCredential attaches an LD proof to the template VC in the inbound request message and attaches the
@@ -237,25 +286,32 @@ func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interf
 //     }
 //     for event := range events {
 //         if event.Message.Type() == issuecredential.RequestCredentialMsgType {
-//             arg, err := IssueCredential(p, event.Message)
+//             arg, options, err := IssueCredential(p, event.Message)
+//             if errors.Is(err, ErrRFC0593NotApplicable) {
+//                 // inspect and handle the event yourself
+//                 arg, err = handleEvent(event)
+//             }
+//
 //             if err != nil {
 //                 event.Stop(err)
 //             }
 //
+//             // inspect options
+//
 //             event.Continue(arg)
 //         }
 //     }
-func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, error) {
+func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, *CredentialSpecOptions, error) {
 	request := &issuecredential.RequestCredential{}
 
 	err := msg.Decode(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
 	payload, err := getPayload(p, request.Formats, request.RequestsAttach)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get payload for msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to get payload for msg type %s: %w", msg.Type(), err)
 	}
 
 	vc, err := verifiable.ParseCredential(
@@ -264,17 +320,17 @@ func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, error) {
 		verifiable.WithJSONLDDocumentLoader(p.JSONLDDocumentLoader()),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse vc for msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to parse vc for msg type %s: %w", msg.Type(), err)
 	}
 
 	ctx, err := ldProofContext(p, payload.Options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine the LD context required to add a proof: %w", err)
+		return nil, nil, fmt.Errorf("failed to determine the LD context required to add a proof: %w", err)
 	}
 
 	err = vc.AddLinkedDataProof(ctx, jsonld.WithDocumentLoader(p.JSONLDDocumentLoader()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to add LD proof for msg type %s: %w", msg.Type(), err)
+		return nil, nil, fmt.Errorf("failed to add LD proof for msg type %s: %w", msg.Type(), err)
 	}
 
 	attachID := uuid.New().String()
@@ -293,7 +349,87 @@ func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, error) {
 				JSON: vc,
 			},
 		}},
-	}), nil
+	}), payload.Options, nil
+}
+
+// VerifyCredential verifies the credential received in an RFC0593 issue-credential message.
+//
+// The credential is validated to ensure it complies with the given CredentialSpecOptions.
+//
+// The credential will then be saved with the given name.
+//
+// Usage:
+//     var p Provider = ...
+//     client := issuecredential.Client = ...
+//     var events chan service.DIDCommAction = ...
+//     err := client.RegisterActionEvent(events)
+//     if err != nil {
+//         panic(err)
+//     }
+//     var options *CredentialSpecOptions
+//     for event := range events {
+//         switch event.Message.Type() {
+//         case issuecredential.OfferCredentialMsgType:
+//             arg, opts, err := ReplayOffer(p, event.Message)
+//             if err != nil {
+//                 event.Stop(err)
+//             }
+//
+//             options = opts
+//             event.Continue(arg)
+//         case issuecredential.IssueCredentialMsgType:
+//             arg, err := VerifyCredential(p, options, "my_vc", event.Message)
+//             if errors.Is(err, ErrRFC0593NotApplicable) {
+//                 // inspect and handle the event yourself
+//                 arg, err = handleEvent(event)
+//             }
+//
+//             if err != nil {
+//                 event.Stop(err)
+//             }
+//
+//             event.Continue(arg)
+//         }
+//     }
+func VerifyCredential(p Provider,
+	options *CredentialSpecOptions, name string, msg service.DIDCommMsg) (interface{}, error) {
+	issueCredential := &issuecredential.IssueCredential{}
+
+	err := msg.Decode(issueCredential)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
+	}
+
+	attachment, err := findAttachment(ProofVCFormat, issueCredential.Formats, issueCredential.CredentialsAttach)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch attachment with format %s: %w", ProofVCFormat, err)
+	}
+
+	raw, err := attachment.Data.Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch the attachment's contents: %w", err)
+	}
+
+	vc, err := verifiable.ParseCredential(
+		raw,
+		verifiable.WithJSONLDDocumentLoader(p.JSONLDDocumentLoader()),
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(p.VDRegistry()).PublicKeyFetcher()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse vc: %w", err)
+	}
+
+	err = validateCredentialRequestVC(vc)
+	if err != nil {
+		return nil, fmt.Errorf("invalid credential: %w", err)
+	}
+
+	err = validateVCMatchesOptionsSpec(vc, options)
+	if err != nil {
+		return nil, fmt.Errorf("invalid credential: %w", err)
+	}
+
+	return issuecredential.WithFriendlyNames(name), nil
 }
 
 func ldProofContext(p Provider, options *CredentialSpecOptions) (*verifiable.LinkedDataProofContext, error) {
@@ -408,7 +544,7 @@ func findAttachment(formatType string,
 	}
 
 	if attachID == "" {
-		return nil, errRFC0593DoesNotApply
+		return nil, ErrRFC0593NotApplicable
 	}
 
 	for i := range attachments {
@@ -442,6 +578,98 @@ func validateCredentialRequestOptions(_ *CredentialSpec) error {
 func validateCredentialRequestVC(_ *verifiable.Credential) error {
 	// TODO validate claims in credential template
 	return nil
+}
+
+func validateVCMatchesOptionsSpec(vc *verifiable.Credential, options *CredentialSpecOptions) error { // nolint:gocyclo
+	if len(vc.Proofs) == 0 {
+		return errors.New("vc is missing a proof")
+	}
+
+	// TODO which proof?
+	proof := vc.Proofs[0]
+
+	if !reflect.DeepEqual(options.ProofType, proof["type"]) {
+		return fmt.Errorf("expected proofType %s but got %s", options.ProofType, proof["type"])
+	}
+
+	if !reflect.DeepEqual(options.Domain, proof["domain"]) {
+		return fmt.Errorf("expected domain %s but got %s", options.Domain, proof["domain"])
+	}
+
+	if !reflect.DeepEqual(options.Challenge, proof["challenge"]) {
+		return fmt.Errorf("expected challenge %s but got %s", options.Challenge, proof["challenge"])
+	}
+
+	if options.ProofPurpose != "" && !reflect.DeepEqual(options.ProofPurpose, proof["proofPurpose"]) {
+		return fmt.Errorf("expected proofPurpose %s but got %s", options.ProofPurpose, proof["proofPurpose"])
+	}
+
+	if options.Status != nil {
+		if vc.Status == nil {
+			return fmt.Errorf("expected credentialStatus of type %s but VC does not have any", options.Status.Type)
+		}
+
+		if options.Status.Type != vc.Status.Type {
+			return fmt.Errorf("expected credentialStatus of type %s but got %s", options.Status.Type, vc.Status.Type)
+		}
+	}
+
+	if options.Created == "" {
+		return fmt.Errorf("missing 'created' on proof") // RFC: default current system time it unspecified in options
+	}
+
+	if options.Created != "" && !reflect.DeepEqual(options.Created, proof["created"]) {
+		return fmt.Errorf("expected proof.created %s but got %s", options.Created, proof["created"])
+	}
+
+	return nil
+}
+
+func saveOptionsIfNoError(err error, s storage.Store, msg service.DIDCommMsg, options *CredentialSpecOptions) error {
+	if err != nil {
+		return err
+	}
+
+	thid, err := msg.ThreadID()
+	if err != nil {
+		return fmt.Errorf("failed to get message's threadID: %w", err)
+	}
+
+	raw, err := json.Marshal(options)
+	if err != nil {
+		return fmt.Errorf("failed to marshal options: %w", err)
+	}
+
+	return s.Put(thid, raw)
+}
+
+func fetchCredentialSpecOptions(s storage.Store, msg service.DIDCommMsg) (*CredentialSpecOptions, error) {
+	thid, err := msg.ThreadID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message's threadID: %w", err)
+	}
+
+	raw, err := s.Get(thid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch options from store with threadID %s: %w", thid, err)
+	}
+
+	options := &CredentialSpecOptions{}
+
+	return options, json.Unmarshal(raw, options)
+}
+
+func deleteOptionsIfNoError(err error, s storage.Store, msg service.DIDCommMsg) error {
+	if err != nil {
+		return err
+	}
+
+	thid, err := msg.ThreadID()
+	if err != nil {
+		return fmt.Errorf("failed to get message's threadID: %w", err)
+	}
+
+	return s.Delete(thid)
 }
 
 type bbsSigner struct {

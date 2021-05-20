@@ -10,14 +10,27 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+// ServiceProvider is used to lookup the issuecredential service.
+type ServiceProvider interface {
+	Service(name string) (interface{}, error)
+}
+
+// IssueCredentialService defines the API required on the issue-credential protocol service implementation.
+type IssueCredentialService interface {
+	AddMiddleware(...issuecredential.Middleware)
+}
 
 // JSONLDDocumentLoaderProvider provides an ld.DocumentLoader.
 //
@@ -26,13 +39,20 @@ type JSONLDDocumentLoaderProvider interface {
 	JSONLDDocumentLoader() ld.DocumentLoader
 }
 
+// TransientStorage provides transient storage.
+type TransientStorage interface {
+	ProtocolStateStorageProvider() storage.Provider
+}
+
 // Provider provides all dependencies.
 //
 // See also: context.Provider.
 type Provider interface {
 	JSONLDDocumentLoaderProvider
+	TransientStorage
 	KMS() kms.KeyManager
 	Crypto() crypto.Crypto
+	VDRegistry() vdr.Registry
 }
 
 // Signer is used to create signer.SignatureSuite and attach LD proofs.

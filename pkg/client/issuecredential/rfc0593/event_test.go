@@ -23,12 +23,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestAutoExecute(t *testing.T) {
@@ -105,11 +111,14 @@ func TestAutoExecute(t *testing.T) {
 				)
 
 				ready := make(chan struct{})
+				msg := service.NewDIDCommMsgMap(tc.msg)
+				err = msg.SetID(uuid.New().String())
+				require.NoError(t, err)
 
 				go func() {
 					events <- service.DIDCommAction{
 						ProtocolName: issuecredential.Name,
-						Message:      service.NewDIDCommMsgMap(tc.msg),
+						Message:      msg,
 						Continue: func(a interface{}) {
 							arg = a
 							ready <- struct{}{}
@@ -260,7 +269,7 @@ func TestReplayProposal(t *testing.T) {
 			},
 		}
 
-		arg, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
+		arg, options, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
 			Type: issuecredential.ProposeCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -274,6 +283,7 @@ func TestReplayProposal(t *testing.T) {
 			}},
 		}))
 		require.NoError(t, err)
+		require.Equal(t, expected.Options, options)
 
 		opt, ok := arg.(issuecredential.Opt)
 		require.True(t, ok)
@@ -293,7 +303,7 @@ func TestReplayProposal(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
+		_, _, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
 			Type: issuecredential.ProposeCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -325,7 +335,7 @@ func TestReplayOffer(t *testing.T) {
 			},
 		}
 
-		arg, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
+		arg, options, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
 			Type: issuecredential.OfferCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -339,6 +349,7 @@ func TestReplayOffer(t *testing.T) {
 			}},
 		}))
 		require.NoError(t, err)
+		require.Equal(t, expected.Options, options)
 
 		opt, ok := arg.(issuecredential.Opt)
 		require.True(t, ok)
@@ -358,7 +369,7 @@ func TestReplayOffer(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
+		_, _, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
 			Type: issuecredential.OfferCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -393,7 +404,7 @@ func TestIssueCredential(t *testing.T) {
 				},
 			}
 
-			arg, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
 				Type: issuecredential.RequestCredentialMsgType,
 				Formats: []issuecredential.Format{{
 					AttachID: "123",
@@ -407,6 +418,7 @@ func TestIssueCredential(t *testing.T) {
 				}},
 			}))
 			require.NoError(t, err)
+			require.Equal(t, spec.Options, options)
 
 			opt, ok := arg.(issuecredential.Opt)
 			require.True(t, ok)
@@ -449,7 +461,7 @@ func TestIssueCredential(t *testing.T) {
 				},
 			}
 
-			arg, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
 				Type: issuecredential.RequestCredentialMsgType,
 				Formats: []issuecredential.Format{{
 					AttachID: "123",
@@ -463,6 +475,7 @@ func TestIssueCredential(t *testing.T) {
 				}},
 			}))
 			require.NoError(t, err)
+			require.Equal(t, spec.Options, options)
 
 			opt, ok := arg.(issuecredential.Opt)
 			require.True(t, ok)
@@ -494,7 +507,7 @@ func TestIssueCredential(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
 			Type: issuecredential.RequestCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -515,7 +528,7 @@ func TestIssueCredential(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Options.ProofType = "UNSUPPORTED"
 
-		_, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
 			Type: issuecredential.RequestCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -540,9 +553,10 @@ func TestIssueCredential(t *testing.T) {
 			loader: ctx.JSONLDDocumentLoader(),
 			km:     ctx.KMS(),
 			cr:     &mockcrypto.Crypto{SignErr: expected},
+			sp:     mem.NewProvider(),
 		}
 
-		_, err := rfc0593.IssueCredential(provider, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(provider, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
 			Type: issuecredential.RequestCredentialMsgType,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -556,6 +570,67 @@ func TestIssueCredential(t *testing.T) {
 			}},
 		}))
 		require.ErrorIs(t, err, expected)
+	})
+}
+
+func TestVerifyCredential(t *testing.T) {
+	t.Run("verifies the credential", func(t *testing.T) {
+		agent := agent(t)
+		spec := randomCredSpec(t)
+		name := uuid.New().String()
+		attachID := uuid.New().String()
+		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredential{
+			Type: issuecredential.IssueCredentialMsgType,
+			Formats: []issuecredential.Format{{
+				AttachID: attachID,
+				Format:   rfc0593.ProofVCFormat,
+			}},
+			CredentialsAttach: []decorator.Attachment{{
+				ID: attachID,
+				Data: decorator.AttachmentData{
+					JSON: newVCWithProof(t, agent, spec),
+				},
+			}},
+		})
+		err := msg.SetID(uuid.New().String())
+		require.NoError(t, err)
+
+		arg, err := rfc0593.VerifyCredential(agent, spec.Options, name, msg)
+		require.NoError(t, err)
+
+		opt, ok := arg.(issuecredential.Opt)
+		require.True(t, ok)
+
+		md := &issuecredential.MetaData{}
+		opt(md)
+
+		require.Len(t, md.CredentialNames(), 1)
+		require.Equal(t, name, md.CredentialNames()[0])
+	})
+
+	t.Run("fails if credential has no proof", func(t *testing.T) {
+		// TODO - enable when ParseCredential is fixed: https://github.com/hyperledger/aries-framework-go/issues/2799
+		t.Skip()
+		agent := agent(t)
+		attachID := uuid.New().String()
+		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredential{
+			Type: issuecredential.IssueCredentialMsgType,
+			Formats: []issuecredential.Format{{
+				AttachID: attachID,
+				Format:   rfc0593.ProofVCFormat,
+			}},
+			CredentialsAttach: []decorator.Attachment{{
+				ID: attachID,
+				Data: decorator.AttachmentData{
+					JSON: newVC(t),
+				},
+			}},
+		})
+		err := msg.SetID(uuid.New().String())
+		require.NoError(t, err)
+
+		_, err = rfc0593.VerifyCredential(agent, nil, uuid.New().String(), msg)
+		require.NoError(t, err)
 	})
 }
 
@@ -645,6 +720,44 @@ func newVC(t *testing.T) *verifiable.Credential {
 	}
 }
 
+func newVCWithProof(t *testing.T, agent *context.Provider, spec *rfc0593.CredentialSpec) *verifiable.Credential {
+	t.Helper()
+
+	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	require.NoError(t, err)
+
+	keyBytes, err := agent.KMS().ExportPubKeyBytes(keyID)
+	require.NoError(t, err)
+
+	_, verificationMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, keyBytes)
+
+	suiteSigner := suite.NewCryptoSigner(agent.Crypto(), kh)
+
+	vc, err := verifiable.ParseCredential(
+		spec.Template,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(agent.JSONLDDocumentLoader()),
+	)
+	require.NoError(t, err)
+
+	created, err := time.Parse(time.RFC3339, spec.Options.Created)
+	require.NoError(t, err)
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		SignatureType:           spec.Options.ProofType,
+		Suite:                   ed25519signature2018.New(suite.WithSigner(suiteSigner)),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      verificationMethod,
+		Challenge:               spec.Options.Challenge,
+		Domain:                  spec.Options.Domain,
+		Purpose:                 spec.Options.ProofPurpose,
+	}, jsonld.WithDocumentLoader(agent.JSONLDDocumentLoader()))
+	require.NoError(t, err)
+
+	return vc
+}
+
 func randomCredSpec(t *testing.T) *rfc0593.CredentialSpec {
 	t.Helper()
 
@@ -655,7 +768,7 @@ func randomCredSpec(t *testing.T) *rfc0593.CredentialSpec {
 			Created:      time.Now().Format(time.RFC3339),
 			Domain:       uuid.New().String(),
 			Challenge:    uuid.New().String(),
-			ProofType:    "Ed25519Signature2018",
+			ProofType:    ed25519signature2018.SignatureType,
 		},
 	}
 }
@@ -664,6 +777,8 @@ type mockProvider struct {
 	loader ld.DocumentLoader
 	km     kms.KeyManager
 	cr     crypto.Crypto
+	sp     storage.Provider
+	vdr    vdr.Registry
 }
 
 func (m *mockProvider) JSONLDDocumentLoader() ld.DocumentLoader {
@@ -676,4 +791,12 @@ func (m *mockProvider) KMS() kms.KeyManager {
 
 func (m *mockProvider) Crypto() crypto.Crypto {
 	return m.cr
+}
+
+func (m *mockProvider) ProtocolStateStorageProvider() storage.Provider {
+	return m.sp
+}
+
+func (m *mockProvider) VDRegistry() vdr.Registry {
+	return m.vdr
 }

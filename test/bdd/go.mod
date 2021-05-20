@@ -10,6 +10,7 @@ require (
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/Microsoft/hcsshim v0.8.11 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta
+	github.com/cenkalti/backoff/v4 v4.0.2 // indirect
 	github.com/containerd/cgroups v0.0.0-20201119153540-4cbc285b3327 // indirect
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/containerd/continuity v0.0.0-20201208142359-180525291bb7 // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
+	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/piprate/json-gold v0.4.0
 	github.com/trustbloc/sidetree-core-go v0.6.0
 	go.opencensus.io v0.22.5 // indirect
