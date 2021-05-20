@@ -220,7 +220,7 @@ func TestNegativeCases(t *testing.T) {
 
 	t.Run("call newECDHKey() with bad marshalled bytes", func(t *testing.T) {
 		_, err := newECDHKey([]byte("bad data"))
-		require.EqualError(t, err, "unexpected EOF")
+		require.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 	})
 
 	t.Run("get undefined curve from getCurveProto should fail", func(t *testing.T) {

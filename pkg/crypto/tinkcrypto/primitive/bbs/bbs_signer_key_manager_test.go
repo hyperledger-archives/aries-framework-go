@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package bbs
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -31,8 +30,9 @@ func TestBBSignerKeyManager_Primitive(t *testing.T) {
 
 	t.Run("Test signer key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, fmt.Sprintf("%s: %s", errInvalidBBSSignerKey.Error(), "invalid proto: unexpected EOF"),
-			"bbsSignerKeyManager primitive from bad serialized key must fail")
+		require.Contains(t, err.Error(), errInvalidBBSSignerKey.Error())
+		require.Contains(t, err.Error(), "invalid proto: proto:")
+		require.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 		require.Empty(t, p)
 	})
 
@@ -130,8 +130,9 @@ func TestBBSSignerKeyManager_NewKey(t *testing.T) {
 
 	t.Run("Test signer key manager NewKey() with bad serialize key", func(t *testing.T) {
 		p, err := km.NewKey([]byte("bad.data"))
-		require.EqualError(t, err, fmt.Sprintf("%s: %s", errInvalidBBSSignerKeyFormat.Error(),
-			"invalid proto: unexpected EOF"), "BBS Signer NewKey() from bad serialized key must fail")
+		require.Contains(t, err.Error(), errInvalidBBSSignerKey.Error())
+		require.Contains(t, err.Error(), "invalid proto: proto:")
+		require.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 		require.Empty(t, p)
 	})
 

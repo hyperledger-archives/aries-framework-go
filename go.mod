@@ -13,8 +13,8 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/golang/mock v1.4.4
-	github.com/golang/protobuf v1.4.2
-	github.com/google/tink/go v1.5.0
+	github.com/golang/protobuf v1.5.0
+	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20210422133815-2ef2d99cb692
@@ -36,7 +36,7 @@ require (
 	github.com/tidwall/sjson v1.1.4
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.26.0
 	nhooyr.io/websocket v1.8.3
 )
 
