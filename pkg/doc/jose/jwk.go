@@ -31,13 +31,13 @@ import (
 const (
 	secp256k1Alg   = "ES256K"
 	secp256k1Crv   = "secp256k1"
-	secp256k1Kty   = "EC"
 	secp256k1Size  = 32
 	bitsPerByte    = 8
+	ecKty          = "EC"
+	okpKty         = "OKP"
 	x25519Crv      = "X25519"
 	ed25519Crv     = "Ed25519"
-	okpKty         = "OKP"
-	bls12381G2Crv  = "BLS12381G2"
+	bls12381G2Crv  = "BLS12381_G2"
 	bls12381G2Size = 96
 	blsComprPrivSz = 32
 )
@@ -363,12 +363,12 @@ func isEd25519(kty, crv string) bool {
 }
 
 func isBLS12381G2(kty, crv string) bool {
-	return strings.EqualFold(kty, okpKty) && strings.EqualFold(crv, bls12381G2Crv)
+	return strings.EqualFold(kty, ecKty) && strings.EqualFold(crv, bls12381G2Crv)
 }
 
 func isSecp256k1(alg, kty, crv string) bool {
 	return strings.EqualFold(alg, secp256k1Alg) ||
-		(strings.EqualFold(kty, secp256k1Kty) && strings.EqualFold(crv, secp256k1Crv))
+		(strings.EqualFold(kty, ecKty) && strings.EqualFold(crv, secp256k1Crv))
 }
 
 func unmarshalSecp256k1(jwk *jsonWebKey) (*JWK, error) {
@@ -524,7 +524,7 @@ func marshalBLS12381G2(jwk *JWK) ([]byte, error) {
 		}
 
 		raw = jsonWebKey{
-			Kty: okpKty,
+			Kty: ecKty,
 			Crv: bls12381G2Crv,
 			X:   newFixedSizeBuffer(mKey, bls12381G2Size),
 		}
@@ -548,7 +548,7 @@ func marshalBLS12381G2(jwk *JWK) ([]byte, error) {
 		}
 
 		raw = jsonWebKey{
-			Kty: okpKty,
+			Kty: ecKty,
 			Crv: bls12381G2Crv,
 			X:   newFixedSizeBuffer(mPubKey, bls12381G2Size),
 			D:   newFixedSizeBuffer(mPrivKey, blsComprPrivSz),
@@ -570,7 +570,7 @@ func marshalSecp256k1(jwk *JWK) ([]byte, error) {
 	switch ecdsaKey := jwk.Key.(type) {
 	case *ecdsa.PublicKey:
 		raw = jsonWebKey{
-			Kty: secp256k1Kty,
+			Kty: ecKty,
 			Crv: secp256k1Crv,
 			X:   newFixedSizeBuffer(ecdsaKey.X.Bytes(), secp256k1Size),
 			Y:   newFixedSizeBuffer(ecdsaKey.Y.Bytes(), secp256k1Size),
@@ -578,7 +578,7 @@ func marshalSecp256k1(jwk *JWK) ([]byte, error) {
 
 	case *ecdsa.PrivateKey:
 		raw = jsonWebKey{
-			Kty: secp256k1Kty,
+			Kty: ecKty,
 			Crv: secp256k1Crv,
 			X:   newFixedSizeBuffer(ecdsaKey.X.Bytes(), secp256k1Size),
 			Y:   newFixedSizeBuffer(ecdsaKey.Y.Bytes(), secp256k1Size),
