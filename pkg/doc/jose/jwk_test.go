@@ -101,9 +101,9 @@ func TestDecodePublicKey(t *testing.T) {
 				name: "get public key bytes BBS+ JWK",
 				//nolint:lll
 				jwkJSON: `{
-							"kty": "OKP",
+							"kty": "EC",
 							"use": "enc",
-							"crv": "BLS12381G2",
+							"crv": "BLS12381_G2",
 							"kid": "sample@sample.id",
 							"x": "tKWJu0SOY7onl4tEyOOH11XBriQN2JgzV-UmjgBMSsNkcAx3_l97SVYViSDBouTVBkBfrLh33C5icDD-4UEDxNO3Wn1ijMHvn2N63DU4pkezA3kGN81jGbwbrsMPpiOF"
 						}`,
@@ -227,7 +227,7 @@ func TestDecodePublicKey(t *testing.T) {
 					bbsPubKeyBytes, err := bbsPubKey.Marshal()
 					require.NoError(t, err)
 					require.Equal(t, bls12381G2Size, len(bbsPubKeyBytes))
-					require.Equal(t, okpKty, jwkKey.Kty)
+					require.Equal(t, ecKty, jwkKey.Kty)
 
 					newJWK, err := PubKeyBytesToJWK(pkBytes, kms.BLS12381G2Type)
 					require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestDecodePublicKey(t *testing.T) {
 					bbsPubKeyBytes, err = bbsPubKey.Marshal()
 					require.NoError(t, err)
 					require.Equal(t, bls12381G2Size, len(bbsPubKeyBytes))
-					require.Equal(t, okpKty, newJWK.Kty)
+					require.Equal(t, ecKty, newJWK.Kty)
 				case "get public key bytes Ed25519 JWK":
 					jwkKey, err := JWKFromKey(jwk.Key)
 					require.NoError(t, err)
@@ -561,7 +561,7 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 		JSONWebKey: jose.JSONWebKey{
 			Key: privateKey,
 		},
-		Kty: okpKty,
+		Kty: ecKty,
 		Crv: bls12381G2Crv,
 	}
 
@@ -598,8 +598,8 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 	t.Run("test UnmarshalJSON of valid BBS private key JWK - with both x and d headers", func(t *testing.T) {
 		//nolint:lll
 		goodJWK := `{
-	"kty":"OKP",
-	"crv":"BLS12381G2",
+	"kty":"EC",
+	"crv":"BLS12381_G2",
 	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu",
 	"d":"MhYilAbhICa8T6m0U2gLAgLvPEsF05XN1yYHZgkfAK4"
 }`
@@ -612,8 +612,8 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 
 	t.Run("test UnmarshalJSON of invalid BBS private key JWK - no x header", func(t *testing.T) {
 		goodJWK := `{
-	"kty":"OKP",
-	"crv":"BLS12381G2",
+	"kty":"EC",
+	"crv":"BLS12381_G2",
 	"d":"MhYilAbhICa8T6m0U2gLAgLvPEsF05XN1yYHZgkfAK4"
 }`
 
@@ -626,8 +626,8 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 	t.Run("test UnmarshalJSON of valid BBS public key JWK", func(t *testing.T) {
 		//nolint:lll
 		goodJWK := `{
-	"kty":"OKP",
-	"crv":"BLS12381G2",
+	"kty":"EC",
+	"crv":"BLS12381_G2",
 	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu"
 }`
 
@@ -639,8 +639,8 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 
 	t.Run("test UnmarshalJSON of invalid BBS public key JWK - x wrong size", func(t *testing.T) {
 		goodJWK := `{
-	"kty":"OKP",
-	"crv":"BLS12381G2",
+	"kty":"EC",
+	"crv":"BLS12381_G2",
 	"x":"oUd1"
 }`
 
@@ -653,8 +653,8 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 	t.Run("test UnmarshalJSON of invalid BBS private key JWK - d wrong size", func(t *testing.T) {
 		//nolint:lll
 		goodJWK := `{
-	"kty":"OKP",
-	"crv":"BLS12381G2",
+	"kty":"EC",
+	"crv":"BLS12381_G2",
 	"x":"oUd1c-NsWZy2oCaST4CRW1naLjgYY3OhHgTMie4uzgrB5VuVqx0pdYf4XWWlnEkZERnpMhgo2re4tQtdCguhI4OIGyAXFaML8D6E1ZYO8B0WmysMZUnC5BWWEfOid1lu",
 	"d":"MhYi"
 }`
@@ -696,9 +696,9 @@ func TestJWK_KeyType(t *testing.T) {
 			{
 				//nolint:lll
 				jwk: `{
-					"kty": "OKP",
+					"kty": "EC",
 					"use": "enc",
-					"crv": "BLS12381G2",
+					"crv": "BLS12381_G2",
 					"kid": "sample@sample.id",
 					"x": "tKWJu0SOY7onl4tEyOOH11XBriQN2JgzV-UmjgBMSsNkcAx3_l97SVYViSDBouTVBkBfrLh33C5icDD-4UEDxNO3Wn1ijMHvn2N63DU4pkezA3kGN81jGbwbrsMPpiOF"
 				}`,
@@ -936,7 +936,7 @@ func TestPubKeyBytesToJWK(t *testing.T) {
 				jwk, err := PubKeyBytesToJWK(keyBytes, tc.keyType)
 				require.NoError(t, err)
 				require.NotEmpty(t, jwk)
-				require.Equal(t, okpKty, jwk.Kty)
+				require.Equal(t, ecKty, jwk.Kty)
 				require.Equal(t, bls12381G2Crv, jwk.Crv)
 			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
 				crv := getECDSACurve(tc.keyType)
