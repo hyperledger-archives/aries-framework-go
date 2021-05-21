@@ -8,14 +8,12 @@ package didexchange
 
 import (
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +25,6 @@ import (
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
@@ -39,7 +36,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestNoopState(t *testing.T) {
@@ -786,7 +782,7 @@ func TestRespondedState_Execute(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			request, err := createRequest(t, tc.ctx)
+			request, err := createRequest(t, tc.ctx, false)
 			require.NoError(t, err)
 			requestPayloadBytes, err := json.Marshal(request)
 			require.NoError(t, err)
@@ -899,19 +895,21 @@ func TestCompletedState_Execute(t *testing.T) {
 	ctx.connectionRecorder = connRec
 
 	newDIDDoc := createDIDDocWithKey(pubKey, encKey)
-	c := &Connection{
-		DID:    newDIDDoc.ID,
-		DIDDoc: newDIDDoc,
-	}
+
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
-	connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
+
+	didKey, err := ctx.getVerKey(invitation.ID)
+	require.NoError(t, err)
+
+	docAttach, err := ctx.didDocAttachment(newDIDDoc, didKey)
 	require.NoError(t, err)
 
 	response := &Response{
-		Type:                ResponseMsgType,
-		ID:                  randomString(),
-		ConnectionSignature: connectionSignature,
+		Type:      ResponseMsgType,
+		ID:        randomString(),
+		DocAttach: docAttach,
+		DID:       newDIDDoc.ID,
 		Thread: &decorator.Thread{
 			ID: "test",
 		},
@@ -1045,7 +1043,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.Nil(t, followup)
 	})
 	t.Run("execute inbound handle inbound response  error", func(t *testing.T) {
-		response.ConnectionSignature = &ConnectionSignature{}
+		response.DID = ""
 		responsePayloadBytes, err := json.Marshal(response)
 		require.NoError(t, err)
 		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
@@ -1054,243 +1052,6 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "handle inbound response")
 		require.Nil(t, followup)
-	})
-}
-
-func TestVerifySignature(t *testing.T) {
-	prov := getProvider(t)
-	ctx := &context{
-		crypto:           &tinkcrypto.Crypto{},
-		kms:              prov.KMS(),
-		keyType:          kms.ED25519Type,
-		keyAgreementType: kms.X25519ECDHKWType,
-	}
-	pubKey, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
-	connRec, err := connection.NewRecorder(&prov)
-
-	require.NoError(t, err)
-	require.NotNil(t, connRec)
-
-	ctx.connectionRecorder = connRec
-
-	newDIDDoc := createDIDDocWithKey(pubKey, encKey)
-	c := &Connection{
-		DID:    newDIDDoc.ID,
-		DIDDoc: newDIDDoc,
-	}
-	invitation, err := createMockInvitation(pubKey, ctx)
-	require.NoError(t, err)
-
-	t.Run("signature verified", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-		con, err := verifySignature(connectionSignature, invitation.RecipientKeys[0])
-		require.NoError(t, err)
-		require.NotNil(t, con)
-		require.Equal(t, newDIDDoc.ID, con.DID)
-	})
-	t.Run("missing/invalid signature data", func(t *testing.T) {
-		con, err := verifySignature(&ConnectionSignature{}, invitation.RecipientKeys[0])
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing or invalid signature data")
-		require.Nil(t, con)
-	})
-	t.Run("decode signature data error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-
-		connectionSignature.SignedData = "invalid-signed-data"
-		con, err := verifySignature(connectionSignature, "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decode signature data: illegal base64 data")
-		require.Nil(t, con)
-	})
-	t.Run("decode signature error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-
-		connectionSignature.Signature = "invalid-signature"
-		con, err := verifySignature(connectionSignature, "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decode signature: illegal base64 data")
-		require.Nil(t, con)
-	})
-	t.Run("decode verification key error ", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-
-		con, err := verifySignature(connectionSignature, "invalid-key")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "verifySignature: failed to parse pubKeyBytes from recipientKeys ")
-		require.Nil(t, con)
-	})
-	t.Run("verify signature error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-
-		// generate different key and assign it to signature verification key
-		pubKey2, _ := newSigningAndEncryptionDIDKeys(t, ctx)
-		con, err := verifySignature(connectionSignature, pubKey2)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "ed25519: invalid signature")
-		require.Nil(t, con)
-	})
-	t.Run("connection unmarshal error", func(t *testing.T) {
-		connAttributeBytes := []byte("{hello world}")
-
-		now := getEpochTime()
-		timestampBuf := make([]byte, timestamplen)
-		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
-		concatenateSignData := append(timestampBuf, connAttributeBytes...)
-
-		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(pubKey)
-		require.NoError(t, err)
-
-		// simulate kid generation from public signature verification key bytes
-		kid, err := localkms.CreateKID(pubKeyBytes, ctx.keyType)
-		require.NoError(t, err)
-
-		kh, err := prov.KMS().Get(kid)
-		require.NoError(t, err)
-
-		// now sign with read signing keyset handle
-		signature, err := ctx.crypto.Sign(concatenateSignData, kh)
-		require.NoError(t, err)
-
-		cs := &ConnectionSignature{
-			Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
-			SignedData: base64.URLEncoding.EncodeToString(concatenateSignData),
-			SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
-			Signature:  base64.URLEncoding.EncodeToString(signature),
-		}
-
-		con, err := verifySignature(cs, invitation.RecipientKeys[0])
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "JSON unmarshalling of connection")
-		require.Nil(t, con)
-	})
-	t.Run("missing connection attribute bytes", func(t *testing.T) {
-		now := getEpochTime()
-		timestampBuf := make([]byte, timestamplen)
-		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
-
-		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(pubKey)
-		require.NoError(t, err)
-
-		// simulate kid generation from public signature verification key bytes
-		kid, err := localkms.CreateKID(pubKeyBytes, ctx.keyType)
-		require.NoError(t, err)
-
-		kh, err := prov.KMS().Get(kid)
-		require.NoError(t, err)
-
-		// now sign with read signing keyset handle
-		signature, err := ctx.crypto.Sign(timestampBuf, kh)
-		require.NoError(t, err)
-
-		cs := &ConnectionSignature{
-			Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
-			SignedData: base64.URLEncoding.EncodeToString(timestampBuf),
-			SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
-			Signature:  base64.URLEncoding.EncodeToString(signature),
-		}
-
-		con, err := verifySignature(cs, invitation.RecipientKeys[0])
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing connection attribute bytes")
-		require.Nil(t, con)
-	})
-}
-
-func TestPrepareConnectionSignature(t *testing.T) {
-	prov := getProvider(t)
-	ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
-	verPubKey, _ := newSigningAndEncryptionDIDKeys(t, ctx)
-	invitation, err := createMockInvitation(verPubKey, ctx)
-	require.NoError(t, err)
-	doc, err := ctx.vdRegistry.Create(testMethod, nil)
-	require.NoError(t, err)
-
-	c := &Connection{
-		DID:    doc.DIDDocument.ID,
-		DIDDoc: doc.DIDDocument,
-	}
-
-	t.Run("prepare connection signature", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
-		require.NoError(t, err)
-		require.NotNil(t, connectionSignature)
-		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
-		require.NoError(t, err)
-		connBytes := sigData[timestamplen:]
-		sigDataConnection := &Connection{}
-		err = json.Unmarshal(connBytes, sigDataConnection)
-		require.NoError(t, err)
-		require.Equal(t, c.DID, sigDataConnection.DID)
-	})
-	t.Run("implicit invitation with DID - success", func(t *testing.T) {
-		connRec, err := connection.NewRecorder(&prov)
-		require.NoError(t, err)
-		require.NotNil(t, connRec)
-
-		ctx2 := &context{
-			outboundDispatcher: prov.OutboundDispatcher(),
-			vdRegistry:         &mockvdr.MockVDRegistry{ResolveValue: doc.DIDDocument},
-			crypto:             &tinkcrypto.Crypto{},
-			connectionRecorder: connRec,
-			kms:                prov.CustomKMS,
-			keyType:            ctx.keyType,
-			keyAgreementType:   ctx.keyAgreementType,
-		}
-		connectionSignature, err := ctx2.prepareConnectionSignature(c, doc.DIDDocument.ID)
-		require.NoError(t, err)
-		require.NotNil(t, connectionSignature)
-		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
-		require.NoError(t, err)
-		connBytes := sigData[timestamplen:]
-		sigDataConnection := &Connection{}
-		err = json.Unmarshal(connBytes, sigDataConnection)
-		require.NoError(t, err)
-		require.Equal(t, c.DID, sigDataConnection.DID)
-	})
-	t.Run("prepare connection signature get invitation", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(c, "test")
-		require.ErrorIs(t, err, storage.ErrDataNotFound)
-		require.Nil(t, connectionSignature)
-	})
-	t.Run("prepare connection signature get invitation", func(t *testing.T) {
-		inv := &Invitation{
-			Type: InvitationMsgType,
-			ID:   randomString(),
-			DID:  "test",
-		}
-		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
-		require.NoError(t, err)
-		connectionSignature, err := ctx.prepareConnectionSignature(c, inv.ID)
-		require.ErrorIs(t, err, storage.ErrDataNotFound)
-		require.Nil(t, connectionSignature)
-	})
-	t.Run("prepare connection signature error", func(t *testing.T) {
-		connRec, err := connection.NewRecorder(&prov)
-		require.NoError(t, err)
-		require.NotNil(t, connRec)
-
-		ctx2 := &context{
-			crypto: &mockcrypto.Crypto{
-				SignErr: errors.New("sign error"),
-			},
-			connectionRecorder: connRec,
-			kms:                prov.KMS(),
-			keyType:            ctx.keyType,
-			keyAgreementType:   ctx.keyAgreementType,
-		}
-		c2 := &Connection{
-			DIDDoc: mockdiddoc.GetMockDIDDoc(t),
-		}
-		connectionSignature, err := ctx2.prepareConnectionSignature(c2, invitation.ID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "sign error")
-		require.Nil(t, connectionSignature)
 	})
 }
 
@@ -1392,6 +1153,19 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
 	})
+	t.Run("unsuccessful new request from invitation (creating did doc attachment for request)", func(t *testing.T) {
+		prov := getProvider(t)
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		ctx.doACAPyInterop = true
+		ctx.crypto = &mockcrypto.Crypto{
+			SignErr: fmt.Errorf("sign error"),
+		}
+
+		_, _, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{}, &connection.Record{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "creating did doc attachment for request")
+	})
 }
 
 func TestNewResponseFromRequest(t *testing.T) {
@@ -1401,7 +1175,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 	t.Run("successful new response from request", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.NoError(t, err)
@@ -1409,16 +1183,16 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, connRec.TheirDID)
 	})
 
-	t.Run("unsuccessful new response from request due to get connection error", func(t *testing.T) {
+	t.Run("unsuccessful new response from request due to resolve DID error", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
-		request.Connection = nil
+		request.DID = ""
 
 		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "extracting connection data")
+		require.Contains(t, err.Error(), "resolve did doc from exchange request")
 		require.Nil(t, connRec)
 	})
 
@@ -1431,18 +1205,21 @@ func TestNewResponseFromRequest(t *testing.T) {
 			},
 			routeSvc: &mockroute.MockMediatorSvc{},
 		}
-		request := &Request{Connection: &Connection{DID: didDoc.ID, DIDDoc: didDoc}}
+		request := &Request{
+			DID:       didDoc.ID,
+			DocAttach: signedDocAttach(t, didDoc),
+		}
 		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
 	})
 
-	t.Run("unsuccessful new response from request due to getDIDDocAndConnection error", func(t *testing.T) {
+	t.Run("unsuccessful new response from request due to get did doc error", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
 		ctx.connectionStore = &mockConnectionStore{saveDIDFromDocErr: fmt.Errorf("save did error")}
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
@@ -1468,10 +1245,12 @@ func TestNewResponseFromRequest(t *testing.T) {
 			kms:                prov.CustomKMS,
 			keyType:            kms.ED25519Type,
 			keyAgreementType:   kms.X25519ECDHKWType,
+			doACAPyInterop:     true,
 		}
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, true)
 		require.NoError(t, err)
+
 		_, connRecord, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 
 		require.Error(t, err)
@@ -1481,7 +1260,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
 		ctx := &context{vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")}}
-		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
+		request := &Request{DID: "did:sidetree:abc"}
 		_, _, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
@@ -1493,11 +1272,11 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
-		require.NotNil(t, request.Connection)
-		request.Connection.DIDDoc = mockDoc
+		request.DID = mockDoc.ID
+		request.DocAttach = unsignedDocAttach(t, mockDoc)
 
 		_, _, err = ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
@@ -1510,10 +1289,10 @@ func TestPrepareResponse(t *testing.T) {
 
 	t.Run("successful new response from request", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
 		require.NoError(t, err)
 	})
 
@@ -1521,31 +1300,11 @@ func TestPrepareResponse(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
 		ctx.doACAPyInterop = true
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
 		require.NoError(t, err)
-	})
-
-	t.Run("failed verification of request doc", func(t *testing.T) {
-		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
-		ctx.doACAPyInterop = true
-
-		request, err := createRequest(t, ctx)
-		require.NoError(t, err)
-
-		mockDocBytes, err := mockdiddoc.GetMockDIDDoc(t).JSONBytes()
-		require.NoError(t, err)
-
-		request.DocAttach = &decorator.Attachment{
-			Data: decorator.AttachmentData{
-				Base64: base64.RawURLEncoding.EncodeToString(mockDocBytes),
-			},
-		}
-
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
-		require.Error(t, err)
 	})
 
 	t.Run("wraps error from connection store", func(t *testing.T) {
@@ -1563,10 +1322,10 @@ func TestPrepareResponse(t *testing.T) {
 
 		ctx.connectionRecorder = connRecorder(t, pr)
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -1576,12 +1335,12 @@ func TestPrepareResponse(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
 		ctx.doACAPyInterop = true
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
 		ctx.kms = &mockkms.KeyManager{GetKeyErr: expected}
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -1590,7 +1349,7 @@ func TestPrepareResponse(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
 		ctx.doACAPyInterop = true
 
-		request, err := createRequest(t, ctx)
+		request, err := createRequest(t, ctx, false)
 		require.NoError(t, err)
 
 		// fails to do ed25519 sign with wrong type of key
@@ -1599,8 +1358,190 @@ func TestPrepareResponse(t *testing.T) {
 
 		ctx.kms = &mockkms.KeyManager{GetKeyValue: mockKey}
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t), &Connection{})
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
 		require.Error(t, err)
+	})
+}
+
+func TestContext_DIDDocAttachment(t *testing.T) {
+	prov := getProvider(t)
+
+	t.Run("successful new did doc attachment without signing", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		doc := mockdiddoc.GetMockDIDDoc(t)
+
+		att, err := ctx.didDocAttachment(doc, "")
+		require.NoError(t, err)
+
+		attData, err := att.Data.Fetch()
+		require.NoError(t, err)
+
+		checkDoc, err := diddoc.ParseDocument(attData)
+		require.NoError(t, err)
+		require.NotNil(t, checkDoc)
+
+		require.Equal(t, checkDoc.ID, doc.ID)
+	})
+
+	t.Run("successful new did doc attachment with signing", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		ctx.doACAPyInterop = true
+
+		doc := mockdiddoc.GetMockDIDDoc(t)
+
+		_, pub, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		require.NoError(t, err)
+
+		didKey, _ := fingerprint.CreateDIDKey(pub)
+
+		att, err := ctx.didDocAttachment(doc, didKey)
+		require.NoError(t, err)
+
+		attData, err := att.Data.Fetch()
+		require.NoError(t, err)
+
+		checkDoc, err := diddoc.ParseDocument(attData)
+		require.NoError(t, err)
+		require.NotNil(t, checkDoc)
+
+		require.Equal(t, checkDoc.ID, doc.ID)
+	})
+
+	t.Run("fail to create did doc attachment, invalid key", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		ctx.doACAPyInterop = true
+
+		doc := mockdiddoc.GetMockDIDDoc(t)
+
+		_, err := ctx.didDocAttachment(doc, "not a did key")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to extract pubKeyBytes")
+	})
+
+	t.Run("fail to create did doc attachment, can't create KID", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		ctx.doACAPyInterop = true
+
+		doc := mockdiddoc.GetMockDIDDoc(t)
+
+		didKey, _ := fingerprint.CreateDIDKey([]byte("abcdefghabcdefghabcdefghabcdefgh~!@#"))
+
+		_, err := ctx.didDocAttachment(doc, didKey)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to generate KID from public key")
+	})
+}
+
+func TestResolveDIDDocFromMessage(t *testing.T) {
+	prov := getProvider(t)
+
+	t.Run("success", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		docIn := mockdiddoc.GetMockDIDDoc(t)
+
+		att, err := ctx.didDocAttachment(docIn, "")
+		require.NoError(t, err)
+
+		doc, err := ctx.resolveDidDocFromMessage(docIn.ID, att)
+		require.NoError(t, err)
+
+		require.Equal(t, docIn.ID, doc.ID)
+	})
+
+	t.Run("success - public resolution", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		docIn := mockdiddoc.GetMockDIDDoc(t)
+		docIn.ID = "did:remote:abc"
+
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: docIn}
+
+		doc, err := ctx.resolveDidDocFromMessage(docIn.ID, nil)
+		require.NoError(t, err)
+
+		require.Equal(t, docIn.ID, doc.ID)
+	})
+
+	t.Run("failure - can't do public resolution", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		docIn := mockdiddoc.GetMockDIDDoc(t)
+		docIn.ID = "did:remote:abc"
+
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")}
+
+		_, err := ctx.resolveDidDocFromMessage(docIn.ID, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve public did")
+	})
+
+	t.Run("failure - can't parse did", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		_, err := ctx.resolveDidDocFromMessage("blah blah", nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse did")
+	})
+
+	t.Run("failure - missing attachment for private did", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		_, err := ctx.resolveDidDocFromMessage("did:peer:abcdefg", nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing did_doc~attach")
+	})
+
+	t.Run("failure - bad base64 data in attachment", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		att := decorator.Attachment{Data: decorator.AttachmentData{Base64: "!@#$%^&*"}}
+
+		_, err := ctx.resolveDidDocFromMessage("did:peer:abcdefg", &att)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse base64 attachment data")
+	})
+
+	t.Run("failure - attachment contains encoded broken document", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		att := decorator.Attachment{
+			Data: decorator.AttachmentData{
+				Base64: base64.StdEncoding.EncodeToString([]byte("abcdefg")),
+			},
+		}
+
+		_, err := ctx.resolveDidDocFromMessage("did:peer:abcdefg", &att)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse did document")
+	})
+
+	t.Run("success - interop mode", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		docIn := mockdiddoc.GetMockDIDDoc(t)
+		docIn.ID = "did:sov:abcdefg"
+
+		att, err := ctx.didDocAttachment(docIn, "")
+		require.NoError(t, err)
+
+		ctx.doACAPyInterop = true
+
+		doc, err := ctx.resolveDidDocFromMessage(docIn.ID, att)
+		require.NoError(t, err)
+
+		require.Equal(t, docIn.ID, doc.ID)
+	})
+
+	t.Run("failure - can't store document locally", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create error")}
+
+		docIn := mockdiddoc.GetMockDIDDoc(t)
+
+		att, err := ctx.didDocAttachment(docIn, "")
+		require.NoError(t, err)
+
+		_, err = ctx.resolveDidDocFromMessage(docIn.ID, att)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to store provided did document")
 	})
 }
 
@@ -1610,8 +1551,6 @@ func TestHandleInboundResponse(t *testing.T) {
 	_, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
 
 	_, err := createMockInvitation(encKey, ctx)
-	require.NoError(t, err)
-	request, err := createRequest(t, ctx)
 	require.NoError(t, err)
 
 	t.Run("handle inbound responses get connection record error", func(t *testing.T) {
@@ -1626,15 +1565,6 @@ func TestHandleInboundResponse(t *testing.T) {
 		_, connRec, e := ctx.handleInboundResponse(response)
 		require.Error(t, e)
 		require.Contains(t, e.Error(), "empty bytes")
-		require.Nil(t, connRec)
-	})
-	t.Run("handle inbound responses missing signature data", func(t *testing.T) {
-		resp, err := saveMockConnectionRecord(t, request, ctx)
-		require.NoError(t, err)
-		resp.ConnectionSignature = &ConnectionSignature{}
-		_, connRec, e := ctx.handleInboundResponse(resp)
-		require.Error(t, e)
-		require.Contains(t, e.Error(), "missing or invalid signature data")
 		require.Nil(t, connRec)
 	})
 }
@@ -1723,21 +1653,18 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			connectionRecorder: connRec,
 			connectionStore:    didConnStore,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID, nil)
+		didDoc, err := ctx.getMyDIDDoc(doc.ID, nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
-		require.NotNil(t, conn)
-		require.Equal(t, didDoc.ID, conn.DID)
 	})
 	t.Run("error getting public did doc from resolver", func(t *testing.T) {
 		ctx := context{
 			vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id", nil)
+		didDoc, err := ctx.getMyDIDDoc("did-id", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 		require.Nil(t, didDoc)
-		require.Nil(t, conn)
 	})
 	t.Run("error creating peer did", func(t *testing.T) {
 		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
@@ -1748,11 +1675,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
+		didDoc, err := ctx.getMyDIDDoc("", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "creator error")
 		require.Nil(t, didDoc)
-		require.Nil(t, conn)
 	})
 	t.Run("successfully created peer did", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
@@ -1769,11 +1695,9 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:            kms.ED25519Type,
 			keyAgreementType:   kms.X25519ECDHKWType,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("", nil)
+		didDoc, err := ctx.getMyDIDDoc("", nil)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
-		require.NotNil(t, conn)
-		require.Equal(t, didDoc.ID, conn.DID)
 	})
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
@@ -1788,11 +1712,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 				ConfigErr:   errors.New("router config error"),
 			},
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
+		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - fetch router config")
 		require.Nil(t, didDoc)
-		require.Nil(t, conn)
 	})
 
 	t.Run("test create did doc - router service config error", func(t *testing.T) {
@@ -1810,11 +1733,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, conn, err := ctx.getDIDDocAndConnection("", []string{"xyz"})
+		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)
-		require.Nil(t, conn)
 	})
 }
 
@@ -2024,7 +1946,7 @@ func getContext(t *testing.T, prov *protocol.MockProvider, keyType, keyAgreement
 	return ctx
 }
 
-func createRequest(t *testing.T, ctx *context) (*Request, error) {
+func createRequest(t *testing.T, ctx *context, signDoc bool) (*Request, error) {
 	t.Helper()
 
 	pubKey, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
@@ -2035,6 +1957,14 @@ func createRequest(t *testing.T, ctx *context) (*Request, error) {
 	}
 
 	newDidDoc := createDIDDocWithKey(pubKey, encKey)
+
+	var att *decorator.Attachment
+	if signDoc {
+		att = signedDocAttach(t, newDidDoc)
+	} else {
+		att = unsignedDocAttach(t, newDidDoc)
+	}
+
 	// Prepare did-exchange inbound request
 	request := &Request{
 		Type:  RequestMsgType,
@@ -2044,10 +1974,8 @@ func createRequest(t *testing.T, ctx *context) (*Request, error) {
 			PID: invitation.ID,
 		},
 
-		Connection: &Connection{
-			DID:    newDidDoc.ID,
-			DIDDoc: newDidDoc,
-		},
+		DID:       newDidDoc.ID,
+		DocAttach: att,
 	}
 
 	return request, nil
@@ -2059,12 +1987,12 @@ func createResponse(request *Request, ctx *context) (*Response, error) {
 		return nil, err
 	}
 
-	c := &Connection{
-		DID:    doc.DIDDocument.ID,
-		DIDDoc: doc.DIDDocument,
+	didKey, err := ctx.getVerKey(request.Thread.PID)
+	if err != nil {
+		return nil, err
 	}
 
-	connectionSignature, err := ctx.prepareConnectionSignature(c, request.Thread.PID)
+	docAttach, err := ctx.didDocAttachment(doc.DIDDocument, didKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2075,38 +2003,7 @@ func createResponse(request *Request, ctx *context) (*Response, error) {
 		Thread: &decorator.Thread{
 			ID: request.ID,
 		},
-		ConnectionSignature: connectionSignature,
-	}
-
-	return response, nil
-}
-
-func saveMockConnectionRecord(t *testing.T, request *Request, ctx *context) (*Response, error) {
-	t.Helper()
-
-	response, err := createResponse(request, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
-	connRec := &connection.Record{
-		State:         (&responded{}).Name(),
-		ThreadID:      response.Thread.ID,
-		ConnectionID:  "123",
-		InvitationID:  request.Thread.PID,
-		RecipientKeys: []string{encKey},
-	}
-
-	err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
-	if err != nil {
-		return nil, err
-	}
-
-	err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(ResponseMsgType),
-		connRec.ConnectionID)
-	if err != nil {
-		return nil, err
+		DocAttach: docAttach,
 	}
 
 	return response, nil

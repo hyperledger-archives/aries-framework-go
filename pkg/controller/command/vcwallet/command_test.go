@@ -19,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -40,6 +42,8 @@ const (
 	sampleEDVMacKID        = "sample-edv-mac-kid"
 	sampleCommandError     = "sample-command-error-01"
 	sampleFakeTkn          = "sample-fake-token-01"
+	sampleFakeCapability   = "sample-fake-capability-01"
+	sampleDIDKey           = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	sampleUDCVC            = `{
       "@context": [
         "https://www.w3.org/2018/credentials/v1",
@@ -151,15 +155,89 @@ const (
                     ],
                     "required": true
                 }`
+	sampleFrame = `
+		{
+			"@context": [
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/security/bbs/v1"
+			],
+  			"type": ["VerifiableCredential", "UniversityDegreeCredential"],
+  			"@explicit": true,
+  			"identifier": {},
+  			"issuer": {},
+  			"issuanceDate": {},
+  			"credentialSubject": {
+    			"@explicit": true,
+    			"degree": {},
+    			"name": {}
+  			}
+		}
+	`
+	sampleKeyContentBase58 = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+  		  	"controller": "did:example:123456789abcdefghi",
+			"type": "Ed25519VerificationKey2018",
+			"privateKeyBase58":"2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
+  		}`
+	sampleDIDResolutionResponse = `{
+        "@context": [
+            "https://w3id.org/wallet/v1",
+            "https://w3id.org/did-resolution/v1"
+        ],
+        "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+        "type": ["DIDResolutionResponse"],
+        "name": "Farming Sensor DID Document",
+        "image": "https://via.placeholder.com/150",
+        "description": "An IoT device in the middle of a corn field.",
+        "tags": ["professional"],
+        "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+        "created": "2017-06-18T21:19:10Z",
+        "expires": "2026-06-18T21:19:10Z",
+        "didDocument": {
+            "@context": [
+                "https://w3id.org/did/v0.11"
+            ],
+            "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+            "publicKey": [
+                {
+                    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                    "type": "Ed25519VerificationKey2018",
+                    "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                    "publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh"
+                }
+            ],
+            "authentication": [
+                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+            ],
+            "assertionMethod": [
+                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+            ],
+            "capabilityDelegation": [
+                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+            ],
+            "capabilityInvocation": [
+                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+            ],
+            "keyAgreement": [
+                {
+                    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
+                    "type": "X25519KeyAgreementKey2019",
+                    "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+                    "publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN"
+                }
+            ]
+        }
+    }`
 )
 
 func TestNew(t *testing.T) {
 	t.Run("successfully create new command instance", func(t *testing.T) {
-		cmd := New(newMockProvider(t))
+		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		handlers := cmd.GetHandlers()
-		require.Equal(t, 9, len(handlers))
+		require.Len(t, cmd.GetHandlers(), 13)
 	})
 }
 
@@ -167,7 +245,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (localkms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -188,7 +266,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile (webkms/remotekms)", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -209,7 +287,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("successfully create a new wallet profile with EDV configuration", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		// create with remote kms.
@@ -256,7 +334,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create duplicate profile", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -283,7 +361,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid settings", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		request := &CreateOrUpdateProfileRequest{
@@ -300,7 +378,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to invalid request", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		var b1 bytes.Buffer
@@ -313,7 +391,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 	t.Run("failed to create profile due to EDV key set creation failure", func(t *testing.T) {
 		mockctx := newMockProvider(t)
 
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 		require.NotNil(t, cmd)
 
 		mockStProv, ok := mockctx.StorageProviderValue.(*mockstorage.MockStoreProvider)
@@ -343,7 +421,7 @@ func TestCommand_CreateProfile(t *testing.T) {
 func TestCommand_UpdateProfile(t *testing.T) {
 	mockctx := newMockProvider(t)
 
-	cmd := New(mockctx)
+	cmd := New(mockctx, &Config{})
 	require.NotNil(t, cmd)
 
 	createRqst := &CreateOrUpdateProfileRequest{
@@ -444,9 +522,9 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:             sampleUser1,
 			LocalKMSPassphrase: samplePassPhrase,
 		}
@@ -482,11 +560,51 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (remote kms)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:     sampleUser2,
-			WebKMSAuth: sampleFakeTkn,
+			WebKMSAuth: &UnlockAuth{AuthToken: sampleFakeTkn},
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("successfully unlock & lock wallet (remote kms, capability)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{
+			WebKMSCacheSize: 99,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID:     sampleUser2,
+			WebKMSAuth: &UnlockAuth{Capability: sampleFakeCapability},
 		}
 
 		// unlock wallet
@@ -520,12 +638,12 @@ func TestCommand_OpenAndClose(t *testing.T) {
 	})
 
 	t.Run("successfully unlock & lock wallet (local kms, edv user)", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
-		request := &UnlockWalletRquest{
+		request := &UnlockWalletRequest{
 			UserID:             sampleUser3,
 			LocalKMSPassphrase: samplePassPhrase,
-			EDVUnlock: &EDVUnlockRequest{
+			EDVUnlock: &UnlockAuth{
 				AuthToken: sampleFakeTkn,
 			},
 		}
@@ -560,12 +678,56 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		b.Reset()
 	})
 
+	t.Run("successfully unlock & lock wallet (local kms, edv capability user)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{
+			EDVReturnFullDocumentsOnQuery:    true,
+			EDVBatchEndpointExtensionEnabled: true,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID:             sampleUser3,
+			LocalKMSPassphrase: samplePassPhrase,
+			EDVUnlock: &UnlockAuth{
+				Capability: sampleFakeCapability,
+			},
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser3}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
 	t.Run("lock & unlock failures", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
-		cmdErr := cmd.Open(&b, getReader(t, &UnlockWalletRquest{}))
+		cmdErr := cmd.Open(&b, getReader(t, &UnlockWalletRequest{}))
 		require.Error(t, cmdErr)
 		validateError(t, cmdErr, command.ExecuteError, OpenWalletErrorCode, "profile does not exist")
 		require.Empty(t, b.Len())
@@ -577,7 +739,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		require.Empty(t, b.Len())
 		b.Reset()
 
-		cmdErr = cmd.Close(&b, getReader(t, &UnlockWalletRquest{}))
+		cmdErr = cmd.Close(&b, getReader(t, &UnlockWalletRequest{}))
 		require.Error(t, cmdErr)
 		validateError(t, cmdErr, command.ExecuteError, CloseWalletErrorCode, "profile does not exist")
 		require.Empty(t, b.Len())
@@ -605,7 +767,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token1, lock1 := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token1, lock1 := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -617,51 +779,48 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		KeyStoreURL: sampleKeyStoreURL,
 	})
 
-	token2, lock2 := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token2, lock2 := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:     sampleUser2,
-		WebKMSAuth: sampleFakeTkn,
+		WebKMSAuth: &UnlockAuth{AuthToken: sampleFakeTkn},
 	})
 
 	defer lock2()
 
 	t.Run("add a credential to wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			UserID:      sampleUser1,
 			Content:     []byte(sampleUDCVC),
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 	})
 
 	t.Run("add a metadata to wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			UserID:      sampleUser1,
 			Content:     []byte(sampleMetadata),
 			ContentType: "metadata",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 	})
 
 	t.Run("get a credential from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Get(&b, getReader(t, &GetContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 
@@ -672,18 +831,17 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 	})
 
 	t.Run("get all credentials from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		// save multiple credentials, one already saved
 		const count = 6
 		for i := 1; i < count; i++ {
 			var b bytes.Buffer
 			cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-				UserID: sampleUser1,
 				Content: []byte(strings.ReplaceAll(sampleUDCVC, `"http://example.edu/credentials/1877"`,
 					fmt.Sprintf(`"http://example.edu/credentials/1872%d"`, i))),
 				ContentType: "credential",
-				WalletAuth:  WalletAuth{Auth: token1},
+				WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 			}))
 			require.NoError(t, cmdErr)
 
@@ -693,9 +851,8 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		var b bytes.Buffer
 
 		cmdErr := cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
-			UserID:      sampleUser1,
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 
@@ -705,100 +862,153 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		require.Len(t, response.Contents, count)
 	})
 
+	t.Run("get all credentials from wallet by collection ID", func(t *testing.T) {
+		const orgCollection = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "did:example:acme123456789abcdefghi",
+                    "type": "Organization",
+                    "name": "Acme Corp.",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "A software company.",
+                    "tags": ["professional", "organization"],
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+                }`
+
+		const collectionID = "did:example:acme123456789abcdefghi"
+
+		cmd := New(mockctx, &Config{})
+
+		// save a collection
+		var b bytes.Buffer
+		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
+			Content:     []byte(orgCollection),
+			ContentType: wallet.Collection,
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
+		}))
+		require.NoError(t, cmdErr)
+
+		// save only 2 credentials by collection,
+		const count = 6
+		for i := 1; i < count; i++ {
+			var cid string
+
+			if i%2 == 0 {
+				cid = collectionID
+			}
+
+			var vcb bytes.Buffer
+			cErr := cmd.Add(&vcb, getReader(t, &AddContentRequest{
+				Content: []byte(strings.ReplaceAll(sampleUDCVC, `"http://example.edu/credentials/1877"`,
+					fmt.Sprintf(`"http://example.edu/credentials/18722%d"`, i))),
+				ContentType:  "credential",
+				CollectionID: cid,
+				WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token1},
+			}))
+			require.NoError(t, cErr)
+
+			vcb.Reset()
+		}
+
+		b.Reset()
+
+		cmdErr = cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
+			ContentType:  "credential",
+			CollectionID: collectionID,
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token1},
+		}))
+		require.NoError(t, cmdErr)
+
+		var response GetAllContentResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Contents, 2)
+	})
+
 	t.Run("remove a credential from wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Remove(&b, getReader(t, &RemoveContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 	})
 
 	t.Run("get a credential from different wallet", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Get(&b, getReader(t, &GetContentRequest{
-			UserID:      sampleUser2,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: token2},
+			WalletAuth:  WalletAuth{UserID: sampleUser2, Auth: token2},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetFromWalletErrorCode, "data not found")
 	})
 
 	t.Run("try content operations from invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		const expectedErr = "invalid auth token"
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			UserID:      sampleUser1,
 			Content:     []byte(sampleUDCVC),
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, AddToWalletErrorCode, expectedErr)
 		b.Reset()
 
 		cmdErr = cmd.Get(&b, getReader(t, &GetContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetFromWalletErrorCode, expectedErr)
 
 		cmdErr = cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
-			UserID:      sampleUser1,
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetAllFromWalletErrorCode, expectedErr)
 
 		cmdErr = cmd.Remove(&b, getReader(t, &RemoveContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, RemoveFromWalletErrorCode, expectedErr)
 	})
 
 	t.Run("try content operations from invalid content type", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			UserID:      sampleUser1,
 			Content:     []byte(sampleUDCVC),
 			ContentType: "mango",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, AddToWalletErrorCode, "invalid content type")
 		b.Reset()
 
 		cmdErr = cmd.Get(&b, getReader(t, &GetContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "pineapple",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetFromWalletErrorCode, "data not found")
 
 		cmdErr = cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
-			UserID:      sampleUser1,
 			ContentType: "orange",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 
@@ -808,56 +1018,51 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		b.Reset()
 
 		cmdErr = cmd.Remove(&b, getReader(t, &RemoveContentRequest{
-			UserID:      sampleUser1,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "strawberry",
-			WalletAuth:  WalletAuth{Auth: token1},
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
 		require.NoError(t, cmdErr)
 	})
 
 	t.Run("try content operations from invalid profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		const expectedErr = "profile does not exist"
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			UserID:      sampleUser3,
 			Content:     []byte(sampleUDCVC),
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser3, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, AddToWalletErrorCode, expectedErr)
 		b.Reset()
 
 		cmdErr = cmd.Get(&b, getReader(t, &GetContentRequest{
-			UserID:      sampleUser3,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser3, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetFromWalletErrorCode, expectedErr)
 
 		cmdErr = cmd.GetAll(&b, getReader(t, &GetAllContentRequest{
-			UserID:      sampleUser3,
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser3, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, GetAllFromWalletErrorCode, expectedErr)
 
 		cmdErr = cmd.Remove(&b, getReader(t, &RemoveContentRequest{
-			UserID:      sampleUser3,
 			ContentID:   "http://example.edu/credentials/1877",
 			ContentType: "credential",
-			WalletAuth:  WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth:  WalletAuth{UserID: sampleUser3, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, RemoveFromWalletErrorCode, expectedErr)
 	})
 
 	t.Run("try content operations from invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -889,7 +1094,7 @@ func TestCommand_Query(t *testing.T) {
 		LocalKMSPassphrase: samplePassPhrase,
 	})
 
-	token, lock := unlockWallet(t, mockctx, &UnlockWalletRquest{
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
 		UserID:             sampleUser1,
 		LocalKMSPassphrase: samplePassPhrase,
 	})
@@ -897,26 +1102,23 @@ func TestCommand_Query(t *testing.T) {
 	defer lock()
 
 	addContent(t, mockctx, &AddContentRequest{
-		UserID:      sampleUser1,
 		Content:     []byte(sampleUDCVC),
 		ContentType: "credential",
-		WalletAuth:  WalletAuth{Auth: token},
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
 
 	addContent(t, mockctx, &AddContentRequest{
-		UserID:      sampleUser1,
 		Content:     []byte(sampleBBSVC),
 		ContentType: "credential",
-		WalletAuth:  WalletAuth{Auth: token},
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
 
 	t.Run("successfully query credentials", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Query(&b, getReader(t, &ContentQueryRequest{
-			UserID: sampleUser1,
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByExample",
@@ -927,7 +1129,7 @@ func TestCommand_Query(t *testing.T) {
 					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
 				},
 			},
-			WalletAuth: WalletAuth{Auth: token},
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
 		}))
 		require.NoError(t, cmdErr)
 
@@ -938,61 +1140,58 @@ func TestCommand_Query(t *testing.T) {
 	})
 
 	t.Run("query credentials with invalid auth", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Query(&b, getReader(t, &ContentQueryRequest{
-			UserID: sampleUser1,
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByFrame",
 					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
 				},
 			},
-			WalletAuth: WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, QueryWalletErrorCode, "invalid auth token")
 	})
 
 	t.Run("query credentials with invalid wallet profile", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Query(&b, getReader(t, &ContentQueryRequest{
-			UserID: sampleUserID,
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByFrame",
 					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
 				},
 			},
-			WalletAuth: WalletAuth{Auth: sampleFakeTkn},
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, QueryWalletErrorCode, "profile does not exist")
 	})
 
 	t.Run("query credentials with invalid query type", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
 		cmdErr := cmd.Query(&b, getReader(t, &ContentQueryRequest{
-			UserID: sampleUser1,
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByOrange",
 					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
 				},
 			},
-			WalletAuth: WalletAuth{Auth: token},
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, QueryWalletErrorCode, "unsupported query type")
 	})
 
 	t.Run("query credentials with invalid request", func(t *testing.T) {
-		cmd := New(mockctx)
+		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
 
@@ -1001,8 +1200,456 @@ func TestCommand_Query(t *testing.T) {
 	})
 }
 
+func TestCommand_IssueProveVerify(t *testing.T) {
+	const sampleUser1 = "sample-user-01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	tcrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	mockctx.CryptoValue = tcrypto
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     []byte(sampleKeyContentBase58),
+		ContentType: wallet.Key,
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     []byte(sampleDIDResolutionResponse),
+		ContentType: wallet.DIDResolutionResponse,
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
+	var rawCredentialToVerify json.RawMessage
+
+	t.Run("issue a credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Issue(&b, getReader(t, &IssueRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Credential: []byte(sampleUDCVC),
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		require.NoError(t, cmdErr)
+
+		credentialIssued := parseCredential(t, b)
+		require.Len(t, credentialIssued.Proofs, 1)
+		b.Reset()
+
+		rawCredentialToVerify, err = credentialIssued.MarshalJSON()
+		require.NoError(t, err)
+	})
+
+	// save it in store for next tests
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     rawCredentialToVerify,
+		ContentType: wallet.Credential,
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
+	t.Run("verify a credential from store", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:         WalletAuth{UserID: sampleUser1, Auth: token},
+			StoredCredentialID: "http://example.edu/credentials/1877",
+		}))
+		require.NoError(t, cmdErr)
+
+		var response VerifyResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.True(t, response.Verified)
+		require.Empty(t, response.Error)
+	})
+
+	t.Run("verify a raw credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:    WalletAuth{UserID: sampleUser1, Auth: token},
+			RawCredential: rawCredentialToVerify,
+		}))
+		require.NoError(t, cmdErr)
+
+		var response VerifyResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.True(t, response.Verified)
+		require.Empty(t, response.Error)
+	})
+
+	t.Run("verify a invalid credential", func(t *testing.T) {
+		// tamper a credential
+		invalidVC := string(rawCredentialToVerify)
+		invalidVC = strings.ReplaceAll(invalidVC, "Jayden Doe", "John Smith")
+
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:    WalletAuth{UserID: sampleUser1, Auth: token},
+			RawCredential: []byte(invalidVC),
+		}))
+		require.NoError(t, cmdErr)
+
+		var response VerifyResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.False(t, response.Verified)
+		require.NotEmpty(t, response.Error)
+		require.Contains(t, response.Error, "invalid signature")
+	})
+
+	var presentation *verifiable.Presentation
+
+	t.Run("prove credentials", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
+			RawCredentials:    []json.RawMessage{rawCredentialToVerify},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		require.NoError(t, cmdErr)
+
+		presentation = parsePresentation(t, b)
+		require.NotEmpty(t, presentation.Proofs)
+		require.Len(t, presentation.Credentials(), 2)
+		require.Len(t, presentation.Proofs, 1)
+		b.Reset()
+
+		// prove using raw presentation
+		rawPresentation, err := presentation.MarshalJSON()
+		require.NoError(t, err)
+
+		cmdErr = cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			Presentation:      rawPresentation,
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		require.NoError(t, cmdErr)
+		presentation2 := parsePresentation(t, b)
+		require.NotEmpty(t, presentation2.Proofs)
+		require.Len(t, presentation2.Credentials(), 3)
+		require.Len(t, presentation2.Proofs, 2)
+	})
+
+	t.Run("verify a raw presentation", func(t *testing.T) {
+		vpBytes, err := presentation.MarshalJSON()
+		require.NoError(t, err)
+
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Presentation: vpBytes,
+		}))
+		require.NoError(t, cmdErr)
+
+		var response VerifyResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.True(t, response.Verified)
+		require.Empty(t, response.Error)
+		b.Reset()
+
+		// tamper it and try
+		invalidVP := string(vpBytes)
+		invalidVP = strings.ReplaceAll(invalidVP, "Jayden Doe", "John Smith")
+
+		cmdErr = cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Presentation: []byte(invalidVP),
+		}))
+		require.NoError(t, cmdErr)
+
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.False(t, response.Verified)
+		require.NotEmpty(t, response.Error)
+		require.Contains(t, response.Error, "invalid signature")
+		b.Reset()
+	})
+
+	t.Run("failed to prove a credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Issue(&b, getReader(t, &IssueRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Credential: []byte(sampleUDCVC),
+			ProofOptions: &wallet.ProofOptions{
+				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, IssueFromWalletErrorCode, "failed to prepare proof")
+	})
+
+	t.Run("failed to prove a credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
+			RawCredentials:    []json.RawMessage{rawCredentialToVerify},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			ProofOptions: &wallet.ProofOptions{
+				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, ProveFromWalletErrorCode, "failed to prepare proof")
+	})
+
+	t.Run("issue,prove,verify with invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		const errMsg = "profile does not exist"
+
+		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUserID, Auth: token},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			ProofOptions: &wallet.ProofOptions{
+				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, ProveFromWalletErrorCode, errMsg)
+		b.Reset()
+
+		cmdErr = cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth:         WalletAuth{UserID: sampleUserID, Auth: token},
+			StoredCredentialID: "http://example.edu/credentials/1877",
+		}))
+		validateError(t, cmdErr, command.ExecuteError, VerifyFromWalletErrorCode, errMsg)
+		b.Reset()
+
+		cmdErr = cmd.Issue(&b, getReader(t, &IssueRequest{
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: token},
+			Credential: []byte(sampleUDCVC),
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, IssueFromWalletErrorCode, errMsg)
+		b.Reset()
+	})
+
+	t.Run("issue,prove,verify with invalid auth", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		const errMsg = "invalid auth token"
+
+		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
+			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			ProofOptions: &wallet.ProofOptions{
+				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, ProveFromWalletErrorCode, errMsg)
+		b.Reset()
+
+		cmdErr = cmd.Issue(&b, getReader(t, &IssueRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+			Credential: []byte(sampleUDCVC),
+			ProofOptions: &wallet.ProofOptions{
+				Controller: sampleDIDKey,
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, IssueFromWalletErrorCode, wallet.ErrWalletLocked.Error())
+		b.Reset()
+	})
+
+	t.Run("issue,prove,verify with invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+		}))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid option")
+		b.Reset()
+
+		const errMsg = "invalid character"
+
+		cmdErr = cmd.Prove(&b, bytes.NewBufferString("----"))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, errMsg)
+		b.Reset()
+
+		cmdErr = cmd.Verify(&b, bytes.NewBufferString("----"))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, errMsg)
+		b.Reset()
+
+		cmdErr = cmd.Issue(&b, bytes.NewBufferString("----"))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, errMsg)
+		b.Reset()
+	})
+}
+
+func TestCommand_Derive(t *testing.T) {
+	const sampleUser1 = "sample-user-01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     []byte(sampleBBSVC),
+		ContentType: "credential",
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
+	// prepare frame
+	var frameDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+
+	t.Run("derive a credential from stored credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Derive(&b, getReader(t, &DeriveRequest{
+			WalletAuth:         WalletAuth{UserID: sampleUser1, Auth: token},
+			StoredCredentialID: "http://example.edu/credentials/1872",
+			DeriveOptions: &wallet.DeriveOptions{
+				Frame: frameDoc,
+				Nonce: uuid.New().String(),
+			},
+		}))
+		require.NoError(t, cmdErr)
+
+		var response DeriveResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Credential)
+	})
+
+	t.Run("derive a credential from raw credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Derive(&b, getReader(t, &DeriveRequest{
+			WalletAuth:    WalletAuth{UserID: sampleUser1, Auth: token},
+			RawCredential: []byte(sampleBBSVC),
+			DeriveOptions: &wallet.DeriveOptions{
+				Frame: frameDoc,
+				Nonce: uuid.New().String(),
+			},
+		}))
+		require.NoError(t, cmdErr)
+
+		var response DeriveResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Credential)
+	})
+
+	t.Run("derive a credential using invalid auth", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Derive(&b, getReader(t, &DeriveRequest{
+			WalletAuth:         WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+			StoredCredentialID: "http://example.edu/credentials/1872",
+			DeriveOptions: &wallet.DeriveOptions{
+				Frame: frameDoc,
+				Nonce: uuid.New().String(),
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, DeriveFromWalletErrorCode, "invalid auth token")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("derive a credential using invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Derive(&b, getReader(t, &DeriveRequest{
+			WalletAuth:         WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
+			StoredCredentialID: "http://example.edu/credentials/1872",
+			DeriveOptions: &wallet.DeriveOptions{
+				Frame: frameDoc,
+				Nonce: uuid.New().String(),
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, DeriveFromWalletErrorCode, "profile does not exist")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("derive a credential using invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Derive(&b, bytes.NewBufferString("--"))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+		b.Reset()
+
+		cmdErr = cmd.Derive(&b, getReader(t, &DeriveRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			DeriveOptions: &wallet.DeriveOptions{
+				Frame: frameDoc,
+				Nonce: uuid.New().String(),
+			},
+		}))
+		validateError(t, cmdErr, command.ExecuteError, DeriveFromWalletErrorCode, "failed to resolve request")
+		require.Empty(t, b.Bytes())
+	})
+}
+
 func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *CreateOrUpdateProfileRequest) {
-	cmd := New(ctx)
+	cmd := New(ctx, &Config{})
 	require.NotNil(t, cmd)
 
 	var l bytes.Buffer
@@ -1025,8 +1672,8 @@ func getUnlockToken(t *testing.T, b bytes.Buffer) string {
 	return response.Token
 }
 
-func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalletRquest) (string, func()) {
-	cmd := New(ctx)
+func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalletRequest) (string, func()) {
+	cmd := New(ctx, nil)
 
 	var b bytes.Buffer
 
@@ -1042,7 +1689,7 @@ func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *UnlockWalle
 }
 
 func addContent(t *testing.T, ctx *mockprovider.Provider, request *AddContentRequest) {
-	cmd := New(ctx)
+	cmd := New(ctx, &Config{})
 
 	var b bytes.Buffer
 	defer b.Reset()
@@ -1091,4 +1738,38 @@ func getMockDIDKeyVDR() *mockvdr.MockVDRegistry {
 			return nil, fmt.Errorf("did not found")
 		},
 	}
+}
+
+func parseCredential(t *testing.T, b bytes.Buffer) *verifiable.Credential {
+	var response struct {
+		Credential json.RawMessage
+	}
+
+	require.NoError(t, json.NewDecoder(&b).Decode(&response))
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
+	vc, err := verifiable.ParseCredential(response.Credential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	return vc
+}
+
+func parsePresentation(t *testing.T, b bytes.Buffer) *verifiable.Presentation {
+	var response struct {
+		Presentation json.RawMessage
+	}
+
+	require.NoError(t, json.NewDecoder(&b).Decode(&response))
+
+	loader, err := jsonldtest.DocumentLoader()
+	require.NoError(t, err)
+
+	vp, err := verifiable.ParsePresentation(response.Presentation, verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	return vp
 }

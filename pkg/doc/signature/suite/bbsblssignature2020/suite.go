@@ -26,7 +26,8 @@ type Suite struct {
 }
 
 const (
-	signatureType = "BbsBlsSignature2020"
+	// SignatureType is the BbsBlsSignature2020 type string.
+	SignatureType = "BbsBlsSignature2020"
 	rdfDataSetAlg = "URDNA2015"
 )
 
@@ -52,5 +53,5 @@ func (s *Suite) GetDigest(doc []byte) []byte {
 
 // Accept will accept only BbsBlsSignature2020 signature type.
 func (s *Suite) Accept(t string) bool {
-	return t == signatureType
+	return t == SignatureType
 }

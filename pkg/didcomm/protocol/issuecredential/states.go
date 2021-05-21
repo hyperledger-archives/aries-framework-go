@@ -50,8 +50,8 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(msg *metaData) (state, stateAction, error)
-	ExecuteOutbound(msg *metaData) (state, stateAction, error)
+	ExecuteInbound(msg *MetaData) (state, stateAction, error)
+	ExecuteOutbound(msg *MetaData) (state, stateAction, error)
 }
 
 // represents zero state's action.
@@ -68,11 +68,11 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *noOp) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
-func (s *noOp) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *noOp) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
@@ -96,11 +96,11 @@ func (s *start) CanTransitionTo(st state) bool {
 	return false
 }
 
-func (s *start) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *start) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *start) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *start) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -117,7 +117,7 @@ func (s *abandoning) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *abandoning) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	// if code is not provided it means we do not need to notify the another agent.
 	// if we received ProblemReport message no need to answer.
 	if s.Code == "" || md.Msg.Type() == ProblemReportMsgType {
@@ -144,7 +144,7 @@ func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
-func (s *abandoning) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *abandoning) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -159,11 +159,11 @@ func (s *done) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *done) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *done) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
 }
 
-func (s *done) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *done) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -178,11 +178,11 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameOfferSent || st.Name() == stateNameAbandoning
 }
 
-func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalReceived) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return &offerSent{}, zeroAction, nil
 }
 
-func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -199,7 +199,7 @@ func (s *offerSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *offerSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	if md.offerCredential == nil {
 		return nil, nil, errors.New("offer credential was not provided")
 	}
@@ -214,7 +214,7 @@ func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
 	return &noOp{}, action, nil
 }
 
-func (s *offerSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+func (s *offerSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action.
 	action := func(messenger service.Messenger) error {
 		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
@@ -234,7 +234,7 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameCredentialIssued || st.Name() == stateNameAbandoning
 }
 
-func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *requestReceived) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	if md.issueCredential == nil {
 		return nil, nil, errors.New("issue credential was not provided")
 	}
@@ -249,7 +249,7 @@ func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, erro
 	return &credentialIssued{}, action, nil
 }
 
-func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *requestReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -264,11 +264,11 @@ func (s *credentialIssued) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
-func (s *credentialIssued) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *credentialIssued) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
 }
 
-func (s *credentialIssued) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *credentialIssued) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -283,7 +283,7 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameOfferReceived || st.Name() == stateNameAbandoning
 }
 
-func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *proposalSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	if md.proposeCredential == nil {
 		return nil, nil, errors.New("propose credential was not provided")
 	}
@@ -298,7 +298,7 @@ func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) 
 	return &noOp{}, action, nil
 }
 
-func (s *proposalSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+func (s *proposalSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
@@ -320,7 +320,7 @@ func (s *offerReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	// sends propose credential if it was provided
 	if md.proposeCredential != nil {
 		return &proposalSent{}, zeroAction, nil
@@ -331,18 +331,25 @@ func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error)
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}
 
+	response := &RequestCredential{
+		Type:           RequestCredentialMsgType,
+		RequestsAttach: offer.OffersAttach,
+	}
+
+	if md.RequestCredential() != nil {
+		response = md.RequestCredential()
+		response.Type = RequestCredentialMsgType
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(RequestCredential{
-			Type:           RequestCredentialMsgType,
-			RequestsAttach: offer.OffersAttach,
-		}), md.MyDID, md.TheirDID)
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID)
 	}
 
 	return &requestSent{}, action, nil
 }
 
-func (s *offerReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *offerReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
@@ -357,11 +364,11 @@ func (s *requestSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameCredentialReceived || st.Name() == stateNameAbandoning
 }
 
-func (s *requestSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *requestSent) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
 }
 
-func (s *requestSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+func (s *requestSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
@@ -381,7 +388,7 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
-func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *credentialReceived) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
@@ -392,6 +399,6 @@ func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, e
 	return &done{}, action, nil
 }
 
-func (s *credentialReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *credentialReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }

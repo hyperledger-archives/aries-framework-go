@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -150,4 +151,15 @@ func TestWithMessageHandler(t *testing.T) {
 	opt(controllerOpts)
 
 	require.NotNil(t, controllerOpts.msgHandler)
+}
+
+func TestWithWalletConfiguration(t *testing.T) {
+	controllerOpts := &allOpts{}
+
+	opt := WithWalletConfiguration(&vcwallet.Config{WebKMSCacheSize: 99})
+
+	opt(controllerOpts)
+
+	require.NotNil(t, controllerOpts.walletConf)
+	require.Equal(t, controllerOpts.walletConf.WebKMSCacheSize, 99)
 }

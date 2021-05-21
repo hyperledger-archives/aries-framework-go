@@ -936,6 +936,28 @@ func TestValidateDidDocProof(t *testing.T) {
 	})
 }
 
+func TestRequiresLegacyHandling(t *testing.T) {
+	doc := &rawDoc{}
+
+	err := json.Unmarshal([]byte(validDocV011), doc)
+	require.NoError(t, err)
+
+	doc.Context = []string{ContextV1Old}
+
+	ret := requiresLegacyHandling(doc)
+	require.Equal(t, true, ret)
+
+	doc.Context = []string{ContextV1}
+
+	ret = requiresLegacyHandling(doc)
+	require.Equal(t, false, ret)
+
+	doc.Context = []string{contextV011}
+
+	ret = requiresLegacyHandling(doc)
+	require.Equal(t, false, ret)
+}
+
 func TestJSONConversion(t *testing.T) {
 	docs := []string{
 		validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships, validDocWithBase,

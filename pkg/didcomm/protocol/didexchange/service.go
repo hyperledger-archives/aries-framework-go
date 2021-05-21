@@ -351,8 +351,6 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
 
-		logger.Debugf("updated connection record %+v", connectionRecord)
-
 		if connectionRecord.State == StateIDCompleted {
 			err = s.connectionStore.SaveDIDByResolving(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
 			if err != nil {
@@ -778,11 +776,6 @@ func pad(b64 string) string {
 }
 
 func getRequestConnection(r *Request) (*Connection, error) {
-	// Interop: accept the 'connection' attribute of rfc 0160 (connection protocol) if present
-	if r.Connection != nil {
-		return r.Connection, nil
-	}
-
 	if r.DocAttach == nil {
 		return nil, fmt.Errorf("missing did_doc~attach from request")
 	}
@@ -826,11 +819,11 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		Namespace:    theirNSPrefix,
 	}
 
-	// Interop: read their DID from the connection attribute if present
-	if request.Connection != nil {
-		connRecord.TheirDID = request.Connection.DID
-	} else {
-		connRecord.TheirDID = request.DID
+	connRecord.TheirDID = request.DID
+
+	// ACA-Py Interop: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	if !strings.HasPrefix(connRecord.TheirDID, "did") {
+		connRecord.TheirDID = "did:peer:" + connRecord.TheirDID
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
