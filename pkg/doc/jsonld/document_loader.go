@@ -17,7 +17,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-const contextsDBName = "jsonldContexts"
+// ContextsDBName is a name of DB for storing JSON-LD contexts.
+const ContextsDBName = "jsonldContexts"
 
 // ErrContextNotFound is returned when JSON-LD context document is not found in the underlying storage.
 var ErrContextNotFound = errors.New("context document not found")
@@ -42,7 +43,7 @@ func NewDocumentLoader(storageProvider storage.Provider, opts ...DocumentLoaderO
 		opts[i](options)
 	}
 
-	store, err := storageProvider.OpenStore(contextsDBName)
+	store, err := storageProvider.OpenStore(ContextsDBName)
 	if err != nil {
 		return nil, fmt.Errorf("new document loader: %w", err)
 	}
@@ -143,12 +144,9 @@ type DocumentLoaderOpts func(opts *documentLoaderOpts)
 
 // ContextDocument is a JSON-LD context document with associated metadata.
 type ContextDocument struct {
-	// URL is a context URL that shows up in the documents.
-	URL string
-	// The final URL of the loaded context document (https://www.w3.org/TR/json-ld11-api/#remotedocument).
-	DocumentURL string
-	// Content of the context document.
-	Content []byte
+	URL         string `json:"url"`                   // URL is a context URL that shows up in the documents.
+	DocumentURL string `json:"documentURL,omitempty"` // The final URL of the loaded context document.
+	Content     []byte `json:"content"`               // Content of the context document.
 }
 
 // WithExtraContexts sets the extra contexts (in addition to embedded) for preloading into the underlying storage.

@@ -20,25 +20,23 @@ var (
 	//go:embed contexts/third_party/w3c-ccg.github.io/did_v1.jsonld
 	w3idDIDv1 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/ldp-bbs2020_v1.jsonld
-	w3idBBS []byte
+	ldpBBS2020 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/lds-jws2020_v1.jsonld
-	w3idJWS []byte
+	ldsJWS2020 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/security_v1.jsonld
-	w3idSecurityV1 []byte
+	securityV1 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/security_v2.jsonld
-	w3idSecurityV2 []byte
+	securityV2 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/revocationList2020.jsonld
-	w3idRevocationList2020 []byte
+	revocationList2020 []byte
+	//go:embed contexts/third_party/digitalbazaar.github.io/ed25519-signature-2018-v1.jsonld
+	ed255192018 []byte
 	//go:embed contexts/third_party/identity.foundation/presentation-submission_v1.jsonld
 	presentationSubmission []byte
-)
-
-// nolint:gochecknoglobals // TODO: Remove as part of https://github.com/hyperledger/aries-framework-go/issues/2730
-var (
-	//go:embed contexts/third_party/w3.org/odrl.jsonld
-	odrl []byte
-	//go:embed contexts/third_party/w3.org/credentials-examples_v1.jsonld
-	credentialExamples []byte
+	//go:embed contexts/third_party/ns.did.ai/x25519-2019_v1.jsonld
+	x255192019 []byte
+	//go:embed contexts/third_party/ns.did.ai/secp256k1-2019_v1.jsonld
+	secp256k12019 []byte
 )
 
 var embedContexts = []ContextDocument{ //nolint:gochecknoglobals
@@ -65,43 +63,56 @@ var embedContexts = []ContextDocument{ //nolint:gochecknoglobals
 	{
 		URL:         "https://w3id.org/security/bbs/v1",
 		DocumentURL: "https://w3c-ccg.github.io/ldp-bbs2020/contexts/v1/",
-		Content:     w3idBBS,
+		Content:     ldpBBS2020,
+	},
+	{
+		URL:         "https://w3id.org/security/suites/bls12381-2020/v1",
+		DocumentURL: "https://w3c-ccg.github.io/ldp-bbs2020/contexts/v1/",
+		Content:     ldpBBS2020,
 	},
 	{
 		URL:         "https://w3id.org/security/jws/v1",
 		DocumentURL: "https://w3c-ccg.github.io/lds-jws2020/contexts/v1/",
-		Content:     w3idJWS,
+		Content:     ldsJWS2020,
+	},
+	{
+		URL:         "https://w3id.org/security/suites/jws-2020/v1",
+		DocumentURL: "https://w3c-ccg.github.io/lds-jws2020/contexts/v1/",
+		Content:     ldsJWS2020,
 	},
 	{
 		URL:         "https://w3id.org/security/v1",
 		DocumentURL: "https://w3c-ccg.github.io/security-vocab/contexts/security-v1.jsonld",
-		Content:     w3idSecurityV1,
+		Content:     securityV1,
 	},
 	{
 		URL:         "https://w3id.org/security/v2",
 		DocumentURL: "https://w3c-ccg.github.io/security-vocab/contexts/security-v2.jsonld",
-		Content:     w3idSecurityV2,
+		Content:     securityV2,
 	},
 	{
 		URL:         "https://w3id.org/vc-revocation-list-2020/v1",
 		DocumentURL: "https://w3c-ccg.github.io/vc-status-rl-2020/contexts/vc-revocation-list-2020/v1.jsonld",
-		Content:     w3idRevocationList2020,
+		Content:     revocationList2020,
 	},
 	{
 		URL:         "https://identity.foundation/presentation-exchange/submission/v1",
 		DocumentURL: "https://identity.foundation/presentation-exchange/submission/v1/",
 		Content:     presentationSubmission,
 	},
-	// Contexts below are used when making calls from BDD tests. Remove them as soon as there is ability
-	// to add these contexts thru API (#2730).
 	{
-		URL:         "https://www.w3.org/ns/odrl.jsonld",
-		DocumentURL: "https://www.w3.org/ns/odrl.jsonld",
-		Content:     odrl,
+		URL:         "https://w3id.org/security/suites/ed25519-2018/v1",
+		DocumentURL: "https://digitalbazaar.github.io/ed25519-signature-2018-context/contexts/ed25519-signature-2018-v1.jsonld", //nolint:lll
+		Content:     ed255192018,
 	},
 	{
-		URL:         "https://www.w3.org/2018/credentials/examples/v1",
-		DocumentURL: "https://www.w3.org/2018/credentials/examples/v1",
-		Content:     credentialExamples,
+		URL:         "https://w3id.org/security/suites/x25519-2019/v1",
+		DocumentURL: "https://ns.did.ai/suites/x25519-2019/v1/",
+		Content:     x255192019,
+	},
+	{
+		URL:         "https://w3id.org/security/suites/secp256k1-2019/v1",
+		DocumentURL: "https://ns.did.ai/suites/secp256k1-2019/v1/",
+		Content:     secp256k12019,
 	},
 }

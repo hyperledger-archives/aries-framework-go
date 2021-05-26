@@ -17,11 +17,16 @@ import (
 	"github.com/cucumber/godog"
 	"nhooyr.io/websocket"
 
+	jsonldcontext "github.com/hyperledger/aries-framework-go/pkg/client/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/jsonld"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
-const timeoutWebSocketDial = 5 * time.Second
+const (
+	timeoutWebSocketDial = 5 * time.Second
+	timeoutAddContexts   = 5 * time.Second
+)
 
 // ControllerSteps contains steps for controller based agent.
 type ControllerSteps struct {
@@ -136,6 +141,11 @@ func (a *ControllerSteps) checkAgentIsRunning(agentID, controllerURL, webhookURL
 		a.bddContext.RegisterWebhookURL(agentID, webhookURL)
 	}
 
+	if err = addJSONLDContexts(controllerURL); err != nil {
+		logger.Debugf("Fail to add JSON-LD contexts: %s", err.Error())
+		return err
+	}
+
 	return nil
 }
 
@@ -187,4 +197,13 @@ func (a *ControllerSteps) healthCheck(endpoint string) error {
 	}
 
 	return errors.New("url scheme is not supported for url = " + endpoint)
+}
+
+func addJSONLDContexts(agentURL string) error {
+	client := jsonldcontext.NewClient(agentURL, jsonldcontext.WithHTTPClient(util.DefaultClient))
+
+	ctx, cancel := goctx.WithTimeout(goctx.Background(), timeoutAddContexts)
+	defer cancel()
+
+	return client.Add(ctx, jsonld.Contexts()...)
 }

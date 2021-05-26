@@ -6,9 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package jsonldtest
 
-// nolint:golint
 import (
-	_ "embed"
+	_ "embed" //nolint:gci // required for go:embed
 	"fmt"
 	"testing"
 
@@ -19,7 +18,7 @@ import (
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
-// nolint:gochecknoglobals // embedded test contexts
+// nolint:gochecknoglobals // required for go:embed
 var (
 	//go:embed contexts/third_party/w3c-ccg.github.io/citizenship_v1.jsonld
 	citizenship []byte
@@ -30,6 +29,26 @@ var (
 	//go:embed contexts/third_party/trustbloc.github.io/trustbloc-examples_v1.jsonld
 	vcExamples []byte
 )
+
+var testContexts = []jsonld.ContextDocument{ //nolint:gochecknoglobals // embedded test contexts
+	{
+		URL:         "https://w3id.org/citizenship/v1",
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+		Content:     citizenship,
+	},
+	{
+		URL:     "https://www.w3.org/ns/odrl.jsonld",
+		Content: odrl,
+	},
+	{
+		URL:     "https://www.w3.org/2018/credentials/examples/v1",
+		Content: credentialExamples,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+		Content: vcExamples,
+	},
+}
 
 // WithDocumentLoader returns an option with a custom JSON-LD document loader preloaded with embedded contexts.
 func WithDocumentLoader(t *testing.T) jld.ProcessorOpts {
@@ -47,25 +66,7 @@ func DocumentLoader(extraContexts ...jsonld.ContextDocument) (*jsonld.DocumentLo
 }
 
 func createTestDocumentLoader(extraContexts ...jsonld.ContextDocument) (*jsonld.DocumentLoader, error) {
-	contexts := append([]jsonld.ContextDocument{
-		{
-			URL:         "https://w3id.org/citizenship/v1",
-			DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
-			Content:     citizenship,
-		},
-		{
-			URL:     "https://www.w3.org/ns/odrl.jsonld",
-			Content: odrl,
-		},
-		{
-			URL:     "https://www.w3.org/2018/credentials/examples/v1",
-			Content: credentialExamples,
-		},
-		{
-			URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
-			Content: vcExamples,
-		},
-	}, extraContexts...)
+	contexts := append(testContexts, extraContexts...)
 
 	loader, err := jsonld.NewDocumentLoader(mem.NewProvider(),
 		jsonld.WithExtraContexts(contexts...),
@@ -75,4 +76,9 @@ func createTestDocumentLoader(extraContexts ...jsonld.ContextDocument) (*jsonld.
 	}
 
 	return loader, nil
+}
+
+// Contexts returns test JSON-LD contexts.
+func Contexts() []jsonld.ContextDocument {
+	return testContexts
 }
