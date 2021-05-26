@@ -1267,7 +1267,7 @@ const Aries = function (opts) {
              * @returns {Promise<Object>}
              */
             add: async function (req) {
-                return invoke(aw, pending, this.pkgname, "AddContext", req, "timeout while adding contexts")
+                return invoke(aw, pending, this.pkgname, "Add", req, "timeout while adding contexts")
             },
         },
     }

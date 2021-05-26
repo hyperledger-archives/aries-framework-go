@@ -103,25 +103,6 @@ func TestCommand_Add(t *testing.T) {
 		require.Contains(t, err.Error(), "content is mandatory")
 	})
 
-	t.Run("Fail to read context document", func(t *testing.T) {
-		cmd, err := context.New(newMockProvider(t))
-		require.NoError(t, err)
-
-		b, err := json.Marshal(context.AddRequest{Documents: []jsonld.ContextDocument{
-			{
-				URL:     "https://www.w3.org/2018/credentials/examples/v1",
-				Content: []byte("invalid content"),
-			},
-		}})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.Add(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "document from reader: loading document failed")
-	})
-
 	t.Run("Fail to save contexts", func(t *testing.T) {
 		storage := mockstorage.NewMockStoreProvider()
 		storage.Store.ErrBatch = errors.New("batch error")

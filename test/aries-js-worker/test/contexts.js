@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-const credentialExamplesVocab = JSON.parse(`{
+export const credentialExamplesVocab = JSON.parse(`{
   "@context": [{
     "@version": 1.1
   },"https://www.w3.org/ns/odrl.jsonld", {
@@ -52,7 +52,7 @@ const credentialExamplesVocab = JSON.parse(`{
   }]
 }`)
 
-const odrlVocab = JSON.parse(`{
+export const odrlVocab = JSON.parse(`{
  "@context": {
     "odrl":    "http://www.w3.org/ns/odrl/2/",
     "rdf":     "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
