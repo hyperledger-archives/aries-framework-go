@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
@@ -265,4 +266,14 @@ func (ar *Aries) GetKMSController() (api.KMSController, error) {
 	}
 
 	return &KMS{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetJSONLDContextController returns a JSONLDContext instance.
+func (ar *Aries) GetJSONLDContextController() (api.JSONLDContextController, error) {
+	endpoints, ok := ar.endpoints[jsonldcontextrest.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", jsonldcontextrest.OperationID)
+	}
+
+	return &JSONLDContext{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

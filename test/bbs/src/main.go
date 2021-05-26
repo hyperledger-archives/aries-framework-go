@@ -251,8 +251,12 @@ func deriveProofVC(pubKeyB64, vcJSON, revealJSON, nonce string) ([]byte, error) 
 
 // nolint:gochecknoglobals // embedded custom context
 var (
-	//go:embed citizenship.jsonld
-	citizenship []byte
+	//go:embed contexts/citizenship_v1.jsonld
+	citizenshipVocab []byte
+	//go:embed contexts/credentials-examples_v1.jsonld
+	credentialExamplesVocab []byte
+	//go:embed contexts/odrl.jsonld
+	odrlVocab []byte
 )
 
 func createJSONLDDocumentLoader() (ld.DocumentLoader, error) {
@@ -261,8 +265,18 @@ func createJSONLDDocumentLoader() (ld.DocumentLoader, error) {
 			jld.ContextDocument{
 				URL:         "https://w3id.org/citizenship/v1",
 				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
-				Content:     citizenship,
-			}))
+				Content:     citizenshipVocab,
+			},
+			jld.ContextDocument{
+				URL:     "https://www.w3.org/2018/credentials/examples/v1",
+				Content: credentialExamplesVocab,
+			},
+			jld.ContextDocument{
+				URL:     "https://www.w3.org/ns/odrl.jsonld",
+				Content: odrlVocab,
+			},
+		),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
