@@ -35,7 +35,7 @@ const (
 	// CommandName is a base command name for JSON-LD context operations.
 	CommandName = "context"
 	// AddContextCommandMethod is a command method for adding context.
-	AddContextCommandMethod = "AddContext"
+	AddContextCommandMethod = "Add"
 )
 
 var logger = log.New("aries-framework/command/jsonld/context")

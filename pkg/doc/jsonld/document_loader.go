@@ -144,9 +144,9 @@ type DocumentLoaderOpts func(opts *documentLoaderOpts)
 
 // ContextDocument is a JSON-LD context document with associated metadata.
 type ContextDocument struct {
-	URL         string `json:"url"`                   // URL is a context URL that shows up in the documents.
-	DocumentURL string `json:"documentURL,omitempty"` // The final URL of the loaded context document.
-	Content     []byte `json:"content"`               // Content of the context document.
+	URL         string          `json:"url,omitempty"`         // URL is a context URL that shows up in the documents.
+	DocumentURL string          `json:"documentURL,omitempty"` // The final URL of the loaded context document.
+	Content     json.RawMessage `json:"content,omitempty"`     // Content of the context document.
 }
 
 // WithExtraContexts sets the extra contexts (in addition to embedded) for preloading into the underlying storage.

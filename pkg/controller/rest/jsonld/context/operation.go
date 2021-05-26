@@ -18,7 +18,7 @@ import (
 
 // constants for the JSON-LD context operations.
 const (
-	OperationID    = "/jsonld/context"
+	OperationID    = "/context"
 	AddContextPath = OperationID + "/add"
 )
 
@@ -56,7 +56,7 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 	return o.handlers
 }
 
-// Add swagger:route POST /jsonld/context/add context addContextReq
+// Add swagger:route POST /context/add context addContextReq
 //
 // Adds JSON-LD context documents to the underlying storage.
 //

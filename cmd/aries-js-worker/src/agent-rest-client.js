@@ -449,8 +449,8 @@ const pkgs = {
         },
     },
     context: {
-        AddContext: {
-            path: "/jsonld/context/add",
+        Add: {
+            path: "/context/add",
             method: "POST",
         },
     },

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 import {environment} from "../environment.js";
 import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
 import {watchForEvent} from "../common.js";
-import {addJSONLDContexts} from "../contexts";
+import {addJSONLDContexts} from "../contexts.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
