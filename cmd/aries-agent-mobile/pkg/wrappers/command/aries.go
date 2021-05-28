@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	jsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/command/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
@@ -321,4 +322,14 @@ func (a *Aries) GetKMSController() (api.KMSController, error) {
 	}
 
 	return &KMS{handlers: handlers}, nil
+}
+
+// GetJSONLDContextController returns a JSONLDContext instance.
+func (a *Aries) GetJSONLDContextController() (api.JSONLDContextController, error) {
+	handlers, ok := a.handlers[jsonldcontext.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", jsonldcontext.CommandName)
+	}
+
+	return &JSONLDContext{handlers: handlers}, nil
 }

@@ -12,6 +12,7 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
+	cmdjsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/command/jsonld/context"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
@@ -22,6 +23,7 @@ import (
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
+	opjsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	opkms "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
@@ -50,6 +52,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
 	allEndpoints[opkms.KmsOperationID] = getKMSEndpoints()
+	allEndpoints[opjsonldcontext.OperationID] = getJSONLDContextEndpoints()
 
 	return allEndpoints
 }
@@ -431,6 +434,15 @@ func getKMSEndpoints() map[string]*endpoint {
 		},
 		cmdkms.ImportKeyCommandMethod: {
 			Path:   opkms.ImportKeyPath,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getJSONLDContextEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdjsonldcontext.AddContextCommandMethod: {
+			Path:   opjsonldcontext.AddContextPath,
 			Method: http.MethodPost,
 		},
 	}

@@ -16,6 +16,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -37,6 +38,14 @@ import (
 var logger = log.New("aries-framework/doc/verifiable/test-suite")
 var loader ld.DocumentLoader //nolint:gochecknoglobals
 
+// nolint:gochecknoglobals //required for go:embed
+var (
+	//go:embed contexts/credentials-examples_v1.jsonld
+	credentialExamplesVocab []byte
+	//go:embed contexts/odrl.jsonld
+	odrlVocab []byte
+)
+
 func main() {
 	inputFile := os.Args[len(os.Args)-1]
 
@@ -47,7 +56,18 @@ func main() {
 
 	var err error
 
-	loader, err = jsonld.NewDocumentLoader(mem.NewProvider())
+	loader, err = jsonld.NewDocumentLoader(mem.NewProvider(),
+		jsonld.WithExtraContexts(
+			jsonld.ContextDocument{
+				URL:     "https://www.w3.org/2018/credentials/examples/v1",
+				Content: credentialExamplesVocab,
+			},
+			jsonld.ContextDocument{
+				URL:     "https://www.w3.org/ns/odrl.jsonld",
+				Content: odrlVocab,
+			},
+		),
+	)
 	if err != nil {
 		abort("create document loader: %v", err)
 	}
