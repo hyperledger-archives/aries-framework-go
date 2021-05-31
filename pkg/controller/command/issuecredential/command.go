@@ -13,6 +13,7 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential/rfc0593"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -95,35 +96,75 @@ const (
 	_states  = "_states"
 )
 
+// Options contains configuration options.
+type Options struct {
+	rfc0593Provider rfc0593.Provider
+}
+
+// Option modifies Options.
+type Option func(*Options)
+
+// WithAutoExecuteRFC0593 enables RFC0593.
+func WithAutoExecuteRFC0593(p rfc0593.Provider) Option {
+	return func(o *Options) {
+		o.rfc0593Provider = p
+	}
+}
+
 // Command is controller command for issue credential.
 type Command struct {
 	client *issuecredential.Client
 }
 
 // New returns new issue credential controller command instance.
-func New(ctx issuecredential.Provider, notifier command.Notifier) (*Command, error) {
+func New(ctx issuecredential.Provider, notifier command.Notifier, options ...Option) (*Command, error) {
+	opts := &Options{}
+
+	for i := range options {
+		options[i](opts)
+	}
+
 	client, err := issuecredential.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create a client: %w", err)
 	}
 
-	// creates action channel
-	actions := make(chan service.DIDCommAction)
-	// registers action channel to listen for events
-	if err := client.RegisterActionEvent(actions); err != nil {
-		return nil, fmt.Errorf("register action event: %w", err)
-	}
-
 	// creates state channel
 	states := make(chan service.StateMsg)
 	// registers state channel to listen for events
-	if err := client.RegisterMsgEvent(states); err != nil {
+	if err = client.RegisterMsgEvent(states); err != nil {
 		return nil, fmt.Errorf("register msg event: %w", err)
 	}
 
 	obs := webnotifier.NewObserver(notifier)
-	obs.RegisterAction(protocol.Name+_actions, actions)
 	obs.RegisterStateMsg(protocol.Name+_states, states)
+
+	// creates action channel
+	actions := make(chan service.DIDCommAction)
+	// registers action channel to listen for events
+	if err = client.RegisterActionEvent(actions); err != nil {
+		return nil, fmt.Errorf("register action event: %w", err)
+	}
+
+	if opts.rfc0593Provider != nil {
+		mw, err := rfc0593.NewMiddleware(opts.rfc0593Provider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init rfc0593 middleware: %w", err)
+		}
+
+		err = rfc0593.RegisterMiddleware(mw, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register rfc0593 middleware: %w", err)
+		}
+
+		next := make(chan service.DIDCommAction)
+
+		go rfc0593.AutoExecute(opts.rfc0593Provider, next)(actions)
+
+		obs.RegisterAction(protocol.Name+_actions, next)
+	} else {
+		obs.RegisterAction(protocol.Name+_actions, actions)
+	}
 
 	return &Command{client: client}, nil
 }

@@ -35,8 +35,8 @@ import (
 	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// Steps are the BDD test steps.
-type Steps struct {
+// GoSDKSteps are the BDD test steps.
+type GoSDKSteps struct {
 	context    *bddcontext.BDDContext
 	agents     map[string]*context.Provider
 	clients    map[string]*issuecredential.Client
@@ -45,9 +45,9 @@ type Steps struct {
 	vcTemplate *verifiable.Credential
 }
 
-// NewSteps returns a new Steps.
-func NewSteps() *Steps {
-	return &Steps{
+// NewGoSDKSteps returns a new GoSDKSteps.
+func NewGoSDKSteps() *GoSDKSteps {
+	return &GoSDKSteps{
 		agents:  make(map[string]*context.Provider),
 		clients: make(map[string]*issuecredential.Client),
 		dids:    make(map[string]string),
@@ -55,12 +55,12 @@ func NewSteps() *Steps {
 }
 
 // SetContext sets the BDD context.
-func (s *Steps) SetContext(ctx *bddcontext.BDDContext) {
+func (s *GoSDKSteps) SetContext(ctx *bddcontext.BDDContext) {
 	s.context = ctx
 }
 
 // RegisterSteps for this BDD test.
-func (s *Steps) RegisterSteps(g *godog.Suite) {
+func (s *GoSDKSteps) RegisterSteps(g *godog.Suite) {
 	g.Step(`^"([^"]*)" is running and has enabled auto-execution of RFC0593$`, s.setupAgent)
 	g.Step(`^"([^"]*)" and "([^"]*)" are connected$`, s.connectAgents)
 	g.Step(`^options "([^"]*)" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" "([^"]*)"$`, s.scenario)
@@ -70,7 +70,7 @@ func (s *Steps) RegisterSteps(g *godog.Suite) {
 	g.Step(`^"([^"]*)" is issued the verifiable credential in JSONLD format$`, s.verifyCredential)
 }
 
-func (s *Steps) setupAgent(agent string) error {
+func (s *GoSDKSteps) setupAgent(agent string) error {
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		return fmt.Errorf("failed to obtain a free port: %w", err)
@@ -119,7 +119,7 @@ func (s *Steps) setupAgent(agent string) error {
 	return nil
 }
 
-func (s *Steps) initClient(agent string, ctx *context.Provider) error {
+func (s *GoSDKSteps) initClient(agent string, ctx *context.Provider) error {
 	var err error
 
 	s.clients[agent], err = issuecredential.New(ctx)
@@ -141,7 +141,7 @@ func (s *Steps) initClient(agent string, ctx *context.Provider) error {
 	return nil
 }
 
-func (s *Steps) connectAgents(holder, issuer string) error {
+func (s *GoSDKSteps) connectAgents(holder, issuer string) error {
 	holderDIDClient, err := didexchangeClient(s.agents[holder])
 	if err != nil {
 		return fmt.Errorf("'%s': %w", holder, err)
@@ -180,7 +180,7 @@ func (s *Steps) connectAgents(holder, issuer string) error {
 	return nil
 }
 
-func (s *Steps) scenario(proofPurpose, created, domain, challenge, proofType string) error {
+func (s *GoSDKSteps) scenario(proofPurpose, created, domain, challenge, proofType string) error {
 	s.options = &rfc0593.CredentialSpecOptions{
 		ProofPurpose: proofPurpose,
 		Created:      created,
@@ -192,7 +192,7 @@ func (s *Steps) scenario(proofPurpose, created, domain, challenge, proofType str
 	return nil
 }
 
-func (s *Steps) sendProposal(holder, issuer string) error {
+func (s *GoSDKSteps) sendProposal(holder, issuer string) error {
 	s.vcTemplate = newVCTemplate()
 
 	raw, err := json.Marshal(s.vcTemplate)
@@ -228,7 +228,7 @@ func (s *Steps) sendProposal(holder, issuer string) error {
 	return nil
 }
 
-func (s *Steps) sendOffer(issuer, holder string) error {
+func (s *GoSDKSteps) sendOffer(issuer, holder string) error {
 	s.vcTemplate = newVCTemplate()
 
 	raw, err := json.Marshal(s.vcTemplate)
@@ -264,7 +264,7 @@ func (s *Steps) sendOffer(issuer, holder string) error {
 	return nil
 }
 
-func (s *Steps) sendRequest(holder, issuer string) error {
+func (s *GoSDKSteps) sendRequest(holder, issuer string) error {
 	s.vcTemplate = newVCTemplate()
 
 	raw, err := json.Marshal(s.vcTemplate)
@@ -300,7 +300,7 @@ func (s *Steps) sendRequest(holder, issuer string) error {
 	return nil
 }
 
-func (s *Steps) verifyCredential(holder string) error { // nolint:funlen,gocyclo
+func (s *GoSDKSteps) verifyCredential(holder string) error { // nolint:funlen,gocyclo
 	var (
 		vc  *verifiable.Credential
 		err error
@@ -364,7 +364,7 @@ func (s *Steps) verifyCredential(holder string) error { // nolint:funlen,gocyclo
 	return nil
 }
 
-func (s *Steps) verifyConnectionStates(holder, issuer string,
+func (s *GoSDKSteps) verifyConnectionStates(holder, issuer string,
 	holderDIDClient, issuerDIDClient *didexchange.Client) error {
 	err := retry(func() error {
 		return s.checkConnection(holder, issuer, holderDIDClient)
@@ -383,7 +383,7 @@ func (s *Steps) verifyConnectionStates(holder, issuer string,
 	return nil
 }
 
-func (s *Steps) checkConnection(agentA, agentB string, client *didexchange.Client) error {
+func (s *GoSDKSteps) checkConnection(agentA, agentB string, client *didexchange.Client) error {
 	connections, err := client.QueryConnections(&didexchange.QueryConnectionsParams{})
 	if err != nil {
 		return fmt.Errorf("'%s' failed to fetch their connection record: %w", agentA, err)

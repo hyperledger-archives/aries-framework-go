@@ -333,6 +333,7 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 
 	response := &RequestCredential{
 		Type:           RequestCredentialMsgType,
+		Formats:        offer.Formats,
 		RequestsAttach: offer.OffersAttach,
 	}
 

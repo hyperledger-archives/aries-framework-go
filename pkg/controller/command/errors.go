@@ -70,6 +70,9 @@ const (
 
 	// JSONLDContext error group for JSON-LD context command errors.
 	JSONLDContext = 13000
+
+	// RFC0593 error group for RFC0593 command errors.
+	RFC0593 = 13000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

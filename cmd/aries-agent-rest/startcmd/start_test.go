@@ -742,6 +742,33 @@ func TestStoreProvider(t *testing.T) {
 	})
 }
 
+func TestStartCmdInvalidAutoExecuteRFC0593Value(t *testing.T) {
+	startCmd, err := Cmd(&mockServer{})
+	require.NoError(t, err)
+
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundHostExternalFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + databaseTypeFlagName,
+		databaseTypeMemOption,
+		"--" + agentDefaultLabelFlagName,
+		"agent",
+		"--" + agentWebhookFlagName,
+		"",
+		"--" + agentAutoExecuteRFC0593FlagName,
+		"INVALID",
+	}
+	startCmd.SetArgs(args)
+
+	err = startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
+}
+
 func waitForServerToStart(t *testing.T, host, inboundHost string) {
 	if err := listenFor(host); err != nil {
 		t.Fatal(err)

@@ -30,14 +30,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-func TestAutoExecute(t *testing.T) {
+func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 	t.Run("auto-executes RFC0593", func(t *testing.T) {
 		provider := agent(t)
 		events := make(chan service.DIDCommAction)
@@ -242,6 +242,52 @@ func TestAutoExecute(t *testing.T) {
 				Stop: func(e error) {
 					require.Error(t, e)
 					require.Contains(t, e.Error(), "failed to unmarshal attachment contents")
+					ready <- struct{}{}
+				},
+			}
+		}()
+
+		select {
+		case <-ready:
+		case <-time.After(time.Second):
+			require.Fail(t, "timeout")
+		}
+	})
+
+	t.Run("stops the protocol if the DB cannot be opened", func(t *testing.T) {
+		events := make(chan service.DIDCommAction)
+
+		agent := agent(t, withProtoStateStorageProvider(&mockstorage.MockStoreProvider{
+			Store:         &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)},
+			FailNamespace: rfc0593.StoreName,
+		}))
+
+		go rfc0593.AutoExecute(agent, nil)(events)
+
+		ready := make(chan struct{})
+
+		go func() {
+			events <- service.DIDCommAction{
+				Message: service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+					Type:    issuecredential.RequestCredentialMsgType,
+					Comment: uuid.New().String(),
+					Formats: []issuecredential.Format{{
+						AttachID: "123",
+						Format:   rfc0593.ProofVCDetailFormat,
+					}},
+					RequestsAttach: []decorator.Attachment{{
+						ID: "123",
+						Data: decorator.AttachmentData{
+							JSON: randomCredSpec(t),
+						},
+					}},
+				}),
+				Continue: func(interface{}) {
+					require.Fail(t, "protocol was continued")
+				},
+				Stop: func(e error) {
+					require.Error(t, e)
+					require.Contains(t, e.Error(), "failed to open store")
 					ready <- struct{}{}
 				},
 			}
@@ -643,12 +689,32 @@ func marshal(t *testing.T, v interface{}) []byte {
 	return raw
 }
 
-func agent(t *testing.T) *context.Provider {
+type options struct {
+	protoStateStorageProvider storage.Provider
+}
+
+type option func(*options)
+
+func withProtoStateStorageProvider(p storage.Provider) option {
+	return func(o *options) {
+		o.protoStateStorageProvider = p
+	}
+}
+
+func agent(t *testing.T, o ...option) rfc0593.Provider {
 	t.Helper()
+
+	opts := &options{
+		protoStateStorageProvider: mem.NewProvider(),
+	}
+
+	for i := range o {
+		o[i](opts)
+	}
 
 	a, err := aries.New(
 		aries.WithStoreProvider(mem.NewProvider()),
-		aries.WithProtocolStateStoreProvider(mem.NewProvider()),
+		aries.WithProtocolStateStoreProvider(opts.protoStateStorageProvider),
 	)
 	require.NoError(t, err)
 
@@ -720,7 +786,7 @@ func newVC(t *testing.T) *verifiable.Credential {
 	}
 }
 
-func newVCWithProof(t *testing.T, agent *context.Provider, spec *rfc0593.CredentialSpec) *verifiable.Credential {
+func newVCWithProof(t *testing.T, agent rfc0593.Provider, spec *rfc0593.CredentialSpec) *verifiable.Credential {
 	t.Helper()
 
 	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)

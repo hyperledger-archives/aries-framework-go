@@ -89,14 +89,14 @@ type CredentialStatus struct {
 // Note: use the protocol Middleware if the protocol needs to be started with a request-credential message.
 //
 // See also: service.AutoExecuteActionEvent.
-func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.DIDCommAction) {
+func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.DIDCommAction) { // nolint:funlen
 	return func(events chan service.DIDCommAction) {
 		// TODO make AutoExecute return an error if the store cannot be opened?
-		db, err := p.ProtocolStateStorageProvider().OpenStore(StoreName)
+		db, storeErr := p.ProtocolStateStorageProvider().OpenStore(StoreName)
 
 		for event := range events {
-			if err != nil {
-				event.Stop(fmt.Errorf("rfc0593: failed to open transient store: %w", err))
+			if storeErr != nil {
+				event.Stop(fmt.Errorf("rfc0593: failed to open transient store: %w", storeErr))
 
 				continue
 			}
@@ -104,6 +104,7 @@ func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.
 			var (
 				arg     interface{}
 				options *CredentialSpecOptions
+				err     error
 			)
 
 			switch event.Message.Type() {
@@ -189,7 +190,7 @@ func ReplayProposal(p JSONLDDocumentLoaderProvider,
 		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
-	payload, err := getPayload(p, proposal.Formats, proposal.FiltersAttach)
+	payload, err := GetCredentialSpec(p, proposal.Formats, proposal.FiltersAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract payload for msg type %s: %w", msg.Type(), err)
 	}
@@ -249,7 +250,7 @@ func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interf
 		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
-	payload, err := getPayload(p, offer.Formats, offer.OffersAttach)
+	payload, err := GetCredentialSpec(p, offer.Formats, offer.OffersAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract payoad for msg type %s: %w", msg.Type(), err)
 	}
@@ -309,35 +310,46 @@ func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, *Credenti
 		return nil, nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
-	payload, err := getPayload(p, request.Formats, request.RequestsAttach)
+	payload, err := GetCredentialSpec(p, request.Formats, request.RequestsAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get payload for msg type %s: %w", msg.Type(), err)
 	}
 
+	ic, err := CreateIssueCredentialMsg(p, payload)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create issue-credential msg: %w", err)
+	}
+
+	ic.Comment = fmt.Sprintf("response to request with id %s", msg.ID())
+
+	return issuecredential.WithIssueCredential(ic), payload.Options, nil
+}
+
+// CreateIssueCredentialMsg creates an issue-credential message using the credential spec.
+func CreateIssueCredentialMsg(p Provider, spec *CredentialSpec) (*issuecredential.IssueCredential, error) {
 	vc, err := verifiable.ParseCredential(
-		payload.Template,
+		spec.Template,
 		verifiable.WithDisabledProofCheck(), // no proof is expected in this credential
 		verifiable.WithJSONLDDocumentLoader(p.JSONLDDocumentLoader()),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse vc for msg type %s: %w", msg.Type(), err)
+		return nil, fmt.Errorf("failed to parse vc: %w", err)
 	}
 
-	ctx, err := ldProofContext(p, payload.Options)
+	ctx, err := ldProofContext(p, spec.Options)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to determine the LD context required to add a proof: %w", err)
+		return nil, fmt.Errorf("failed to determine the LD context required to add a proof: %w", err)
 	}
 
 	err = vc.AddLinkedDataProof(ctx, jsonld.WithDocumentLoader(p.JSONLDDocumentLoader()))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to add LD proof for msg type %s: %w", msg.Type(), err)
+		return nil, fmt.Errorf("failed to add LD proof: %w", err)
 	}
 
 	attachID := uuid.New().String()
 
-	return issuecredential.WithIssueCredential(&issuecredential.IssueCredential{
-		Type:    issuecredential.IssueCredentialMsgType,
-		Comment: fmt.Sprintf("response to request with id %s", msg.ID()),
+	return &issuecredential.IssueCredential{
+		Type: issuecredential.IssueCredentialMsgType,
 		Formats: []issuecredential.Format{{
 			AttachID: attachID,
 			Format:   ProofVCFormat,
@@ -349,7 +361,7 @@ func IssueCredential(p Provider, msg service.DIDCommMsg) (interface{}, *Credenti
 				JSON: vc,
 			},
 		}},
-	}), payload.Options, nil
+	}, nil
 }
 
 // VerifyCredential verifies the credential received in an RFC0593 issue-credential message.
@@ -400,7 +412,7 @@ func VerifyCredential(p Provider,
 		return nil, fmt.Errorf("failed to decode msg type %s: %w", msg.Type(), err)
 	}
 
-	attachment, err := findAttachment(ProofVCFormat, issueCredential.Formats, issueCredential.CredentialsAttach)
+	attachment, err := FindAttachment(ProofVCFormat, issueCredential.Formats, issueCredential.CredentialsAttach)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch attachment with format %s: %w", ProofVCFormat, err)
 	}
@@ -424,7 +436,7 @@ func VerifyCredential(p Provider,
 		return nil, fmt.Errorf("invalid credential: %w", err)
 	}
 
-	err = validateVCMatchesOptionsSpec(vc, options)
+	err = ValidateVCMatchesSpecOptions(vc, options)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credential: %w", err)
 	}
@@ -491,9 +503,10 @@ func signatureSuite(p Provider, proofType string) (signer.SignatureSuite, *Signa
 	return spec.Suite(suite.WithSigner(suiteSigner)), &spec, verMethod, nil
 }
 
-func getPayload(p JSONLDDocumentLoaderProvider,
+// GetCredentialSpec extracts the CredentialSpec from the formats and attachments.
+func GetCredentialSpec(p JSONLDDocumentLoaderProvider,
 	formats []issuecredential.Format, attachments []decorator.Attachment) (*CredentialSpec, error) {
-	attachment, err := findAttachment(ProofVCDetailFormat, formats, attachments)
+	attachment, err := FindAttachment(ProofVCDetailFormat, formats, attachments)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find attachment of type %s: %w", ProofVCDetailFormat, err)
 	}
@@ -527,8 +540,8 @@ func getPayload(p JSONLDDocumentLoaderProvider,
 	return payload, nil
 }
 
-// findAttachment returns the attachment corresponding to the RFC0593 format entry.
-func findAttachment(formatType string,
+// FindAttachment returns the attachment corresponding to the RFC0593 format entry.
+func FindAttachment(formatType string,
 	formats []issuecredential.Format, attachments []decorator.Attachment) (*decorator.Attachment, error) {
 	// TODO not documented in the RFC but the intent of having `format` and `requests~attach` be an array
 	//  is not to enable "bulk issuance" (issuance of multiple vcs), but to requests a single credential
@@ -580,7 +593,8 @@ func validateCredentialRequestVC(_ *verifiable.Credential) error {
 	return nil
 }
 
-func validateVCMatchesOptionsSpec(vc *verifiable.Credential, options *CredentialSpecOptions) error { // nolint:gocyclo
+// ValidateVCMatchesSpecOptions ensures the vc matches the spec.
+func ValidateVCMatchesSpecOptions(vc *verifiable.Credential, options *CredentialSpecOptions) error { // nolint:gocyclo
 	if len(vc.Proofs) == 0 {
 		return errors.New("vc is missing a proof")
 	}

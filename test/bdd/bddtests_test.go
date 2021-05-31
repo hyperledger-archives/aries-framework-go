@@ -111,7 +111,7 @@ func runBddTests(tags, format string) int {
 						panic(fmt.Sprintf("Invalid value found in 'TEST_SLEEP': %s", e))
 					}
 				}
-				fmt.Printf("*** testSleep=%d", testSleep)
+				fmt.Printf("*** testSleep=%d\n", testSleep)
 				time.Sleep(time.Second * time.Duration(testSleep))
 			}
 		})
@@ -197,6 +197,7 @@ func features() []feature {
 		presentproof.NewPresentProofSDKSteps(),
 		presentproof.NewPresentProofControllerSteps(),
 		vdr.NewVDRControllerSteps(),
-		rfc0593.NewSteps(),
+		rfc0593.NewGoSDKSteps(),
+		rfc0593.NewRestSDKSteps(),
 	}
 }

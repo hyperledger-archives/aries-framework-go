@@ -112,7 +112,7 @@ func (h *handler) Handle(md issuecredential.Metadata) error {
 		return fmt.Errorf("rfc0593: failed to decode msg type %s: %w", md.Message().Type(), err)
 	}
 
-	attachment, err := findAttachment(ProofVCDetailFormat, formats, attachments)
+	attachment, err := FindAttachment(ProofVCDetailFormat, formats, attachments)
 	if errors.Is(err, ErrRFC0593NotApplicable) {
 		return h.next.Handle(md)
 	}
