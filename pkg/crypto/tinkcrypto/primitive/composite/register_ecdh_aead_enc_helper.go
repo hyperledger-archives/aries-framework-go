@@ -8,6 +8,7 @@ package composite
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -20,9 +21,14 @@ import (
 	"github.com/google/tink/go/tink"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
+	cbchmacpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
 )
 
 const (
+	// AESCBCHMACAEADTypeURL for AESCBC+HMAC AEAD content encryption URL.
+	AESCBCHMACAEADTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.AesCbcHmacAeadKey"
 	// AESGCMTypeURL for AESGCM content encryption URL identifier.
 	AESGCMTypeURL = "type.googleapis.com/google.crypto.tink.AesGcmKey"
 	// ChaCha20Poly1305TypeURL for Chacha20Poly1305 content encryption URL identifier.
@@ -45,6 +51,7 @@ type RegisterCompositeAEADEncHelper struct {
 var _ EncrypterHelper = (*RegisterCompositeAEADEncHelper)(nil)
 
 // NewRegisterCompositeAEADEncHelper initializes and returns a RegisterCompositeAEADEncHelper.
+//nolint:gocyclo
 func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterCompositeAEADEncHelper, error) {
 	var (
 		tagSize, ivSize int
@@ -53,6 +60,21 @@ func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterComposit
 	)
 
 	switch k.TypeUrl {
+	case AESCBCHMACAEADTypeURL:
+		cbcHMACKeyFormat := new(cbchmacpb.AesCbcHmacAeadKeyFormat)
+
+		err = proto.Unmarshal(k.Value, cbcHMACKeyFormat)
+		if err != nil {
+			return nil, fmt.Errorf("compositeAEADEncHelper: failed to unmarshal cbcHMACKeyFormat: %w", err)
+		}
+
+		tagSize = int(cbcHMACKeyFormat.HmacKeyFormat.Params.TagSize)
+		ivSize = subtle.AESCBCIVSize
+
+		skf, err = proto.Marshal(cbcHMACKeyFormat)
+		if err != nil {
+			return nil, fmt.Errorf("compositeAEADEncHelper: failed to serialize cbcHMAC key format, error: %w", err)
+		}
 	case AESGCMTypeURL:
 		gcmKeyFormat := new(gcmpb.AesGcmKeyFormat)
 
@@ -180,13 +202,18 @@ func (r *RegisterCompositeAEADEncHelper) GetAEAD(symmetricKeyValue []byte) (tink
 	return g, nil
 }
 
-func (r *RegisterCompositeAEADEncHelper) getSerializedKey(symmetricKeyValue []byte) ([]byte, error) {
+func (r *RegisterCompositeAEADEncHelper) getSerializedKey(symmetricKeyValue []byte) ([]byte, error) { //nolint:gocyclo
 	var (
 		sk  []byte
 		err error
 	)
 
 	switch r.encKeyURL {
+	case AESCBCHMACAEADTypeURL:
+		sk, err = r.getSerializedAESCBCHMACKey(symmetricKeyValue)
+		if err != nil {
+			return nil, fmt.Errorf("registerCompositeAEADEncHelper: failed to serialize key, error: %w", err)
+		}
 	case AESGCMTypeURL:
 		sk, err = r.getSerializedAESGCMKey(symmetricKeyValue)
 		if err != nil {
@@ -239,6 +266,36 @@ func (r *RegisterCompositeAEADEncHelper) getSerializedAESGCMKey(symmetricKeyValu
 	gcmKey.KeyValue = symmetricKeyValue
 
 	return proto.Marshal(gcmKey)
+}
+
+func (r *RegisterCompositeAEADEncHelper) getSerializedAESCBCHMACKey(symmetricKeyValue []byte) ([]byte, error) {
+	cbcHMACKey := new(cbchmacpb.AesCbcHmacAeadKey)
+
+	err := proto.Unmarshal(r.keyData, cbcHMACKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cbcHMACKeyFormat: %w", err)
+	}
+
+	var (
+		keySize int
+		twoKeys = 2
+	)
+
+	switch len(symmetricKeyValue) {
+	case subtle.AES128Size * twoKeys:
+		keySize = subtle.AES128Size
+	case subtle.AES192Size * twoKeys:
+		keySize = subtle.AES192Size
+	case subtle.AES256Size * twoKeys:
+		keySize = subtle.AES256Size
+	default:
+		return nil, errors.New("symmetric key must be either 32, 48 or 64 bytes")
+	}
+
+	cbcHMACKey.AesCbcKey.KeyValue = symmetricKeyValue[:keySize]
+	cbcHMACKey.HmacKey.KeyValue = symmetricKeyValue[keySize:]
+
+	return proto.Marshal(cbcHMACKey)
 }
 
 // BuildEncData will build the []byte representing the ciphertext sent to the end user as a result of the Composite
