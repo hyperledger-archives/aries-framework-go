@@ -75,7 +75,7 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 }
 
 func TestGetRESTHandlers_Success(t *testing.T) {
-	t.Run("", func(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
 		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
 			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, handlers)
 	})
-	t.Run("", func(t *testing.T) {
+	t.Run("with options", func(t *testing.T) {
 		framework, err := aries.New(defaults.WithInboundHTTPAddr(":"+
 			strconv.Itoa(transportutil.GetRandomPort(3)), "", "", ""))
 		require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 		require.NotNil(t, ctx)
 
 		handlers, err := GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
-			WithAutoAccept(true), WithDefaultLabel("sample-label"),
+			WithAutoAccept(true), WithDefaultLabel("sample-label"), WithAutoExecuteRFC0593(true),
 			WithWebhookURLs("sample-wh-url"))
 		require.NoError(t, err)
 		require.NotEmpty(t, handlers)

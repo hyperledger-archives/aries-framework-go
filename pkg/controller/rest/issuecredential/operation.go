@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential/rfc0593"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -50,8 +51,14 @@ type Operation struct {
 }
 
 // New returns new issue credential rest client protocol instance.
-func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
-	cmd, err := issuecredential.New(ctx, notifier)
+func New(ctx client.Provider, notifier command.Notifier, enableRFC0593 rfc0593.Provider) (*Operation, error) {
+	var options []issuecredential.Option
+
+	if enableRFC0593 != nil {
+		options = append(options, issuecredential.WithAutoExecuteRFC0593(enableRFC0593))
+	}
+
+	cmd, err := issuecredential.New(ctx, notifier, options...)
 	if err != nil {
 		return nil, fmt.Errorf("issue credential command : %w", err)
 	}

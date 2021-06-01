@@ -13,13 +13,20 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/issuecredential"
 	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const jsonPayload = `{"piid":"id"}`
@@ -44,6 +51,18 @@ func TestNew(t *testing.T) {
 		require.NotEmpty(t, handlers)
 	})
 
+	t.Run("Success - autoExecuteRFC0593", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(&mockProtocol{}, nil).MaxTimes(2)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil), WithAutoExecuteRFC0593(&mockRFC0593Provider{}))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handlers := cmd.GetHandlers()
+		require.NotEmpty(t, handlers)
+	})
+
 	t.Run("Create client (error)", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(nil, nil)
@@ -55,6 +74,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("Register action event (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterMsgEvent(gomock.Any())
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(errors.New("error"))
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -67,7 +87,6 @@ func TestNew(t *testing.T) {
 
 	t.Run("Register msg event (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
-		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(errors.New("error"))
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -1295,3 +1314,65 @@ func toProtocolActions(actions []issuecredential.Action) []protocol.Action {
 
 	return res
 }
+
+type mockRFC0593Provider struct{}
+
+func (m *mockRFC0593Provider) JSONLDDocumentLoader() ld.DocumentLoader {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) ProtocolStateStorageProvider() storage.Provider {
+	return mem.NewProvider()
+}
+
+func (m *mockRFC0593Provider) KMS() kms.KeyManager {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) Crypto() crypto.Crypto {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) VDRegistry() vdrapi.Registry {
+	panic("implement me")
+}
+
+type mockProtocol struct{}
+
+func (m *mockProtocol) HandleInbound(didcomm.DIDCommMsg, didcomm.DIDCommContext) (string, error) {
+	panic("implement me")
+}
+
+func (m *mockProtocol) HandleOutbound(didcomm.DIDCommMsg, string, string) (string, error) {
+	panic("implement me")
+}
+
+func (m *mockProtocol) RegisterActionEvent(chan<- didcomm.DIDCommAction) error {
+	return nil
+}
+
+func (m *mockProtocol) UnregisterActionEvent(chan<- didcomm.DIDCommAction) error {
+	panic("implement me")
+}
+
+func (m *mockProtocol) RegisterMsgEvent(chan<- didcomm.StateMsg) error {
+	return nil
+}
+
+func (m *mockProtocol) UnregisterMsgEvent(chan<- didcomm.StateMsg) error {
+	panic("implement me")
+}
+
+func (m *mockProtocol) Actions() ([]protocol.Action, error) {
+	panic("implement me")
+}
+
+func (m *mockProtocol) ActionContinue(string, protocol.Opt) error {
+	panic("implement me")
+}
+
+func (m *mockProtocol) ActionStop(string, error) error {
+	panic("implement me")
+}
+
+func (m *mockProtocol) AddMiddleware(...protocol.Middleware) {}

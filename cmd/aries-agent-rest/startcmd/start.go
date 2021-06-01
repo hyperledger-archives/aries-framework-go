@@ -156,6 +156,12 @@ const (
 		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint: lll
 		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
 
+	agentAutoExecuteRFC0593FlagName  = "rfc0593-auto-execute"
+	agentAutoExecuteRFC0593EnvKey    = "ARIESD_RFC0593_AUTO_EXECUTE"
+	agentAutoExecuteRFC0593FlagUsage = "Enables automatic execution of the issue-credential protocol with" +
+		"RFC0593-compliant attachment formats. Default is false." +
+		" Alternatively, this can be set with the following environment variable: " + agentAutoExecuteRFC0593EnvKey
+
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
@@ -178,6 +184,7 @@ type agentParameters struct {
 	autoAccept                                     bool
 	msgHandler                                     command.MessageHandler
 	dbParam                                        *dbParam
+	autoExecuteRFC0593                             bool
 }
 
 type dbParam struct {
@@ -221,7 +228,7 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
-func createStartCMD(server server) *cobra.Command { //nolint: funlen, gocyclo
+func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,gocognit
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -296,6 +303,11 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen, gocyclo
 				return err
 			}
 
+			autoExecuteRFC0593, err := getAutoExecuteRFC0593(cmd)
+			if err != nil {
+				return err
+			}
+
 			tlsCertFile, err := getUserSetVar(cmd, agentTLSCertFileFlagName, agentTLSCertFileEnvKey, true)
 			if err != nil {
 				return err
@@ -321,6 +333,7 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen, gocyclo
 				transportReturnRoute: transportReturnRoute,
 				tlsCertFile:          tlsCertFile,
 				tlsKeyFile:           tlsKeyFile,
+				autoExecuteRFC0593:   autoExecuteRFC0593,
 			}
 
 			return startAgent(parameters)
@@ -375,6 +388,20 @@ func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
 	return strconv.ParseBool(v)
 }
 
+func getAutoExecuteRFC0593(cmd *cobra.Command) (bool, error) {
+	autoExecuteRFC0593Str, err := getUserSetVar(cmd, agentAutoExecuteRFC0593FlagName,
+		agentAutoExecuteRFC0593EnvKey, true)
+	if err != nil {
+		return false, err
+	}
+
+	if autoExecuteRFC0593Str == "" {
+		return false, nil
+	}
+
+	return strconv.ParseBool(autoExecuteRFC0593Str)
+}
+
 func createFlags(startCmd *cobra.Command) {
 	// agent host flag
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
@@ -419,6 +446,8 @@ func createFlags(startCmd *cobra.Command) {
 
 	// transport return route option flag
 	startCmd.Flags().StringP(agentTransportReturnRouteFlagName, "", "", agentTransportReturnRouteFlagUsage)
+
+	startCmd.Flags().StringP(agentAutoExecuteRFC0593FlagName, "", "", agentAutoExecuteRFC0593FlagUsage)
 
 	// tls cert file
 	startCmd.Flags().StringP(agentTLSCertFileFlagName,
@@ -633,7 +662,8 @@ func startAgent(parameters *agentParameters) error {
 	// get all HTTP REST API handlers available for controller API
 	handlers, err := controller.GetRESTHandlers(ctx, controller.WithWebhookURLs(parameters.webhookURLs...),
 		controller.WithDefaultLabel(parameters.defaultLabel), controller.WithAutoAccept(parameters.autoAccept),
-		controller.WithMessageHandler(parameters.msgHandler))
+		controller.WithMessageHandler(parameters.msgHandler),
+		controller.WithAutoExecuteRFC0593(parameters.autoExecuteRFC0593))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)

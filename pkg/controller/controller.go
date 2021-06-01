@@ -32,6 +32,7 @@ import (
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/rfc0593"
 	vcwalletrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
 	vdrrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -40,12 +41,13 @@ import (
 )
 
 type allOpts struct {
-	webhookURLs  []string
-	defaultLabel string
-	autoAccept   bool
-	msgHandler   command.MessageHandler
-	notifier     command.Notifier
-	walletConf   *vcwalletcmd.Config
+	webhookURLs        []string
+	defaultLabel       string
+	autoAccept         bool
+	autoExecuteRFC0593 bool
+	msgHandler         command.MessageHandler
+	notifier           command.Notifier
+	walletConf         *vcwalletcmd.Config
 }
 
 const wsPath = "/ws"
@@ -78,6 +80,13 @@ func WithDefaultLabel(defaultLabel string) Opt {
 func WithAutoAccept(autoAccept bool) Opt {
 	return func(opts *allOpts) {
 		opts.autoAccept = autoAccept
+	}
+}
+
+// WithAutoExecuteRFC0593 enables RFC0593.
+func WithAutoExecuteRFC0593(autoExecute bool) Opt {
+	return func(opts *allOpts) {
+		opts.autoExecuteRFC0593 = autoExecute
 	}
 }
 
@@ -139,11 +148,19 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create verifiable rest command : %w", err)
 	}
 
+	var issuecredentialOp *issuecredentialrest.Operation
+
+	if restAPIOpts.autoExecuteRFC0593 {
+		issuecredentialOp, err = issuecredentialrest.New(ctx, notifier, ctx)
+	} else {
+		issuecredentialOp, err = issuecredentialrest.New(ctx, notifier, nil)
+	}
 	// issuecredential REST operation
-	issuecredentialOp, err := issuecredentialrest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create issue-credential rest command : %w", err)
 	}
+
+	rfc0593Op := rfc0593.New(ctx)
 
 	// presentproof REST operation
 	presentproofOp, err := presentproofrest.New(ctx, notifier)
@@ -183,6 +200,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, rfc0593Op.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)

@@ -72,6 +72,7 @@ services:
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
+      - ARIESD_RFC0593_AUTO_EXECUTE=true
     volumes:
       - ../keys/tls:/etc/tls
     ports:

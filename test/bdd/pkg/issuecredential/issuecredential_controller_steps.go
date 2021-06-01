@@ -55,7 +55,7 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
-	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through IssueCredential controller$`, s.establishConnection)
+	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through IssueCredential controller$`, s.EstablishConnection)
 	gs.Step(`^"([^"]*)" requests credential from "([^"]*)" through IssueCredential controller$`, s.requestCredential)
 	gs.Step(`^"([^"]*)" sends an offer to the "([^"]*)" through IssueCredential controller$`, s.sendOffer)
 	gs.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)" through IssueCredential controller$`, s.sendProposal)
@@ -67,7 +67,39 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" checks that issued credential is being stored under "([^"]*)" name$`, s.validateCredential)
 }
 
-func (s *ControllerSteps) establishConnection(holder, issuer string) error {
+// Options for sending and accepting messages.
+type Options struct {
+	Proposal *client.ProposeCredential
+	Request  *client.RequestCredential
+	Offer    *client.OfferCredential
+}
+
+// Option will configure Options.
+type Option func(*Options)
+
+// WithProposal sets the proposal to send.
+func WithProposal(p *client.ProposeCredential) Option {
+	return func(o *Options) {
+		o.Proposal = p
+	}
+}
+
+// WithRequest sets the request to send or reply with.
+func WithRequest(r *client.RequestCredential) Option {
+	return func(o *Options) {
+		o.Request = r
+	}
+}
+
+// WithOffer sets the offer to send or reply with.
+func WithOffer(of *client.OfferCredential) Option {
+	return func(o *Options) {
+		o.Offer = of
+	}
+}
+
+// EstablishConnection will connect the two agents together.
+func (s *ControllerSteps) EstablishConnection(holder, issuer string) error {
 	ds := didexsteps.NewDIDExchangeControllerSteps()
 	ds.SetContext(s.bddContext)
 
@@ -103,6 +135,19 @@ func (s *ControllerSteps) establishConnection(holder, issuer string) error {
 }
 
 func (s *ControllerSteps) requestCredential(holder, issuer string) error {
+	return s.RequestCredentialWithOpts(holder, issuer)
+}
+
+// RequestCredentialWithOpts will send a default (empty) request unless one is provided using WithRequest.
+func (s *ControllerSteps) RequestCredentialWithOpts(holder, issuer string, options ...Option) error {
+	opts := &Options{
+		Request: &client.RequestCredential{},
+	}
+
+	for i := range options {
+		options[i](opts)
+	}
+
 	url, ok := s.bddContext.GetControllerURL(holder)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
@@ -111,11 +156,24 @@ func (s *ControllerSteps) requestCredential(holder, issuer string) error {
 	return postToURL(url+sendRequest, issuecredentialcmd.SendRequestArgs{
 		MyDID:             s.did[holder],
 		TheirDID:          s.did[issuer],
-		RequestCredential: &client.RequestCredential{},
+		RequestCredential: opts.Request,
 	})
 }
 
 func (s *ControllerSteps) sendOffer(issuer, holder string) error {
+	return s.SendOfferWithOpts(issuer, holder)
+}
+
+// SendOfferWithOpts will send a default (empty) offer unless one is provided using WithOffer.
+func (s *ControllerSteps) SendOfferWithOpts(issuer, holder string, options ...Option) error {
+	opts := &Options{
+		Offer: &client.OfferCredential{},
+	}
+
+	for i := range options {
+		options[i](opts)
+	}
+
 	url, ok := s.bddContext.GetControllerURL(issuer)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
@@ -124,11 +182,24 @@ func (s *ControllerSteps) sendOffer(issuer, holder string) error {
 	return postToURL(url+sendOffer, issuecredentialcmd.SendOfferArgs{
 		MyDID:           s.did[issuer],
 		TheirDID:        s.did[holder],
-		OfferCredential: &client.OfferCredential{},
+		OfferCredential: opts.Offer,
 	})
 }
 
 func (s *ControllerSteps) sendProposal(holder, issuer string) error {
+	return s.SendProposalWithOpts(holder, issuer)
+}
+
+// SendProposalWithOpts sends a default (empty) proposal unless one is provided using WithProposal.
+func (s *ControllerSteps) SendProposalWithOpts(holder, issuer string, options ...Option) error {
+	opts := &Options{
+		Proposal: &client.ProposeCredential{},
+	}
+
+	for i := range options {
+		options[i](opts)
+	}
+
 	url, ok := s.bddContext.GetControllerURL(holder)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
@@ -137,7 +208,7 @@ func (s *ControllerSteps) sendProposal(holder, issuer string) error {
 	return postToURL(url+sendProposal, issuecredentialcmd.SendProposalArgs{
 		MyDID:             s.did[holder],
 		TheirDID:          s.did[issuer],
-		ProposeCredential: &client.ProposeCredential{},
+		ProposeCredential: opts.Proposal,
 	})
 }
 
@@ -184,6 +255,11 @@ func (s *ControllerSteps) acceptOffer(holder string) error {
 		return err
 	}
 
+	return s.AcceptOfferPIID(url, piid)
+}
+
+// AcceptOfferPIID invokes the endpoint on the url for accepting an offer with the piid.
+func (s *ControllerSteps) AcceptOfferPIID(url, piid string) error {
 	return postToURL(url+fmt.Sprintf(acceptOffer, piid), nil)
 }
 
@@ -218,10 +294,15 @@ func (s *ControllerSteps) acceptCredential(holder, credential string) error {
 		return err
 	}
 
-	s.nameToPIID[credential] = piid
+	return s.AcceptCredentialPIID(credential, url, piid)
+}
+
+// AcceptCredentialPIID invokes the accept-credential endpoint on the url with the given piid and name.
+func (s *ControllerSteps) AcceptCredentialPIID(name, url, piid string) error {
+	s.nameToPIID[name] = piid
 
 	return postToURL(url+fmt.Sprintf(acceptCredential, piid), issuecredentialcmd.AcceptCredentialArgs{
-		Names: []string{credential},
+		Names: []string{name},
 	})
 }
 

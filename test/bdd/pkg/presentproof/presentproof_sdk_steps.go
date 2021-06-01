@@ -327,7 +327,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}
 
-	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), "")
+	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), pubKey.ID)
 	if err != nil {
 		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
 	}

@@ -16,23 +16,25 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	client "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/issuecredential"
 	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func provider(ctrl *gomock.Controller) client.Provider {
-	service := mocks.NewMockProtocolService(ctrl)
-	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
-	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-	service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).AnyTimes()
-	service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).AnyTimes()
-
 	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+	provider.EXPECT().Service(gomock.Any()).Return(&mockService{}, nil).MaxTimes(2)
 
 	return provider
 }
@@ -42,7 +44,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -56,7 +58,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -75,7 +77,7 @@ func TestOperation_AcceptOffer(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -94,7 +96,7 @@ func TestOperation_AcceptProblemReport(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -113,7 +115,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -127,7 +129,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -146,7 +148,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -160,7 +162,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -179,7 +181,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -193,7 +195,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	})
 
 	t.Run("Empty payload (success)", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -207,7 +209,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -226,7 +228,7 @@ func TestOperation_DeclineProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -245,7 +247,7 @@ func TestOperation_DeclineOffer(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -264,7 +266,7 @@ func TestOperation_DeclineRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -283,7 +285,7 @@ func TestOperation_DeclineCredential(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -335,3 +337,65 @@ func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path stri
 
 	return rr.Body, rr.Code, nil
 }
+
+type mockRFC0593Provider struct{}
+
+func (m *mockRFC0593Provider) JSONLDDocumentLoader() ld.DocumentLoader {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) ProtocolStateStorageProvider() storage.Provider {
+	return mem.NewProvider()
+}
+
+func (m *mockRFC0593Provider) KMS() kms.KeyManager {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) Crypto() crypto.Crypto {
+	panic("implement me")
+}
+
+func (m *mockRFC0593Provider) VDRegistry() vdrapi.Registry {
+	panic("implement me")
+}
+
+type mockService struct{}
+
+func (m *mockService) HandleInbound(service.DIDCommMsg, service.DIDCommContext) (string, error) {
+	return "", nil
+}
+
+func (m *mockService) HandleOutbound(service.DIDCommMsg, string, string) (string, error) {
+	return "", nil
+}
+
+func (m *mockService) RegisterActionEvent(chan<- service.DIDCommAction) error {
+	return nil
+}
+
+func (m *mockService) UnregisterActionEvent(chan<- service.DIDCommAction) error {
+	return nil
+}
+
+func (m *mockService) RegisterMsgEvent(chan<- service.StateMsg) error {
+	return nil
+}
+
+func (m *mockService) UnregisterMsgEvent(chan<- service.StateMsg) error {
+	return nil
+}
+
+func (m *mockService) Actions() ([]issuecredential.Action, error) {
+	return nil, nil
+}
+
+func (m *mockService) ActionContinue(string, issuecredential.Opt) error {
+	return nil
+}
+
+func (m *mockService) ActionStop(string, error) error {
+	return nil
+}
+
+func (m *mockService) AddMiddleware(...issuecredential.Middleware) {}
