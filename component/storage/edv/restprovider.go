@@ -1102,6 +1102,10 @@ func (r *restIterator) Tags() ([]spi.Tag, error) {
 	return filterOutKeyTag(r.currentTags, r.currentKey), nil
 }
 
+func (r *restIterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
+}
+
 // Nothing to close for a restIterator.
 func (r *restIterator) Close() error {
 	return nil

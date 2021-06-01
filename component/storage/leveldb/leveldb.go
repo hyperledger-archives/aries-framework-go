@@ -573,6 +573,10 @@ func (i *iterator) Tags() ([]storage.Tag, error) {
 	return tags, nil
 }
 
+func (i *iterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
+}
+
 func (i *iterator) Close() error {
 	return nil
 }
