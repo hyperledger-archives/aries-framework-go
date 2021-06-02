@@ -44,6 +44,10 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type errMessage struct {
+	Error string `json:"errMessage"`
+}
+
 type createKeystoreReq struct {
 	Controller string `json:"controller,omitempty"`
 	VaultID    string `json:"vaultID,omitempty"`
@@ -95,7 +99,7 @@ type RemoteKMS struct {
 // Returns:
 //  - keystore URL (if successful)
 //  - error (if error encountered)
-func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string,
+func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string, // nolint: gocyclo, funlen
 	opts ...Opt) (string, string, error) {
 	createKeyStoreStart := time.Now()
 	kmsOpts := NewOpt()
@@ -143,10 +147,21 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 		return "", "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
 	}
 
-	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
-
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "CreateKeyStore")
+
+	if resp.StatusCode != http.StatusCreated {
+		var errAPI errMessage
+
+		err = json.NewDecoder(resp.Body).Decode(&errAPI)
+		if err != nil {
+			return "", "", err
+		}
+
+		return "", "", errors.New(errAPI.Error)
+	}
+
+	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
 
 	keystoreURL := resp.Header.Get(LocationHeader)
 	capability := resp.Header.Get(XRootCapabilityHeader)

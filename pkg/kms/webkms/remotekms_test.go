@@ -55,6 +55,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, defaultExportPubKey)
+		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
 
@@ -75,6 +76,36 @@ func TestRemoteKeyStore(t *testing.T) {
 		_, _, err = CreateKeyStore(blankClient, "``#$%", controller, "")
 		require.EqualError(t, err, "build request for Create keystore error: parse \"``#$%/kms/keystores\": "+
 			"invalid URL escape \"%/k\"")
+	})
+
+	t.Run("CreateKeyStore API error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		_, _, err = CreateKeyStore(_client, _url, controller, "")
+		require.Contains(t, err.Error(), "api error msg")
+	})
+
+	t.Run("CreateKeyStore json error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`[]`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		_, _, err = CreateKeyStore(_client, _url, controller, "")
+		require.Contains(t, err.Error(), "cannot unmarshal array into Go value")
 	})
 
 	t.Run("CreateKeyStore json marshal failure", func(t *testing.T) {
@@ -221,6 +252,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, defaultExportPubKey)
+		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
 
