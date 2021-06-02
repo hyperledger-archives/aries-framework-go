@@ -15,11 +15,6 @@ import (
 	josecipher "github.com/square/go-jose/v3/cipher"
 )
 
-const (
-	// AESCBCIVSize is the IV size that this implementation supports.
-	AESCBCIVSize = 16
-)
-
 // AESCBCHMAC is an implementation of AEAD interface.
 type AESCBCHMAC struct {
 	Key []byte

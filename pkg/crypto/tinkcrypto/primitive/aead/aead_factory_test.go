@@ -151,14 +151,31 @@ func TestFactoryWithInvalidPrimitiveSetType(t *testing.T) {
 
 func TestFactoryWithValidPrimitiveSetType(t *testing.T) {
 	goodKH, err := keyset.NewHandle(aead.AES128CBCHMACSHA256KeyTemplate())
-	if err != nil {
-		t.Fatalf("failed to build *keyset.Handle: %s", err)
-	}
+	require.NoError(t, err, "failed to build *keyset.Handle")
 
 	_, err = aead.New(goodKH)
-	if err != nil {
-		t.Fatalf("calling New() with good *keyset.Handle failed: %s", err)
-	}
+	require.NoError(t, err, "calling New() with good *keyset.Handle failed")
+}
+
+func TestFactoryAndPrimitiveSetWithBadCiphertext(t *testing.T) {
+	goodKH, err := keyset.NewHandle(aead.AES128CBCHMACSHA256KeyTemplate())
+	require.NoError(t, err, "failed to build *keyset.Handle")
+
+	aeadPrimitive, err := aead.New(goodKH)
+	require.NoError(t, err, "calling New() with good *keyset.Handle failed")
+
+	pt := []byte("test plaintext")
+	ad := []byte("aad")
+
+	ct, err := aeadPrimitive.Encrypt(pt, ad)
+	require.NoError(t, err)
+
+	plaintext, err := aeadPrimitive.Decrypt(ct, ad)
+	require.NoError(t, err)
+	require.EqualValues(t, pt, plaintext)
+
+	_, err = aeadPrimitive.Decrypt([]byte("bad ciphertext"), ad)
+	require.EqualError(t, err, "aead_factory: Decrypt() - decryption failed")
 }
 
 // NewTestAESCBCHMACKeyset creates a new Keyset containing an AESCBC+HMAC aead.

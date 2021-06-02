@@ -206,6 +206,16 @@ func TestIETFTestVector(t *testing.T) {
 
 			tagSize := len(tc.expectedAuthtag)
 
+			ct := make([]byte, len(nonce)+len(tc.expectedCiphertext)+len(tc.expectedAuthtag))
+			copy(ct, nonce)
+			copy(ct[len(nonce):], tc.expectedCiphertext)
+			copy(ct[len(nonce)+len(tc.expectedCiphertext):], tc.expectedAuthtag)
+
+			out1, err := enc.Decrypt(ct, aad)
+			require.NoError(t, err, "unable to decrypt")
+
+			require.EqualValues(t, plaintext, out1)
+
 			if !bytes.Equal(out[len(nonce):len(out)-tagSize], tc.expectedCiphertext) {
 				t.Error("Ciphertext did not match, got", out[len(nonce):len(out)-tagSize], "wanted", tc.expectedCiphertext)
 			}
@@ -219,9 +229,9 @@ func TestIETFTestVector(t *testing.T) {
 
 type mockNONCEInCBCHMAC struct {
 	subtle.AESCBCHMAC
-	nonce []byte
 
 	cbcHMAC cipher.AEAD
+	nonce   []byte
 }
 
 // Encrypt using the mocked nonce instead of generating a random one.
@@ -241,21 +251,14 @@ func (a *mockNONCEInCBCHMAC) Encrypt(plaintext, additionalData []byte) ([]byte, 
 }
 
 func (a *mockNONCEInCBCHMAC) Decrypt(ciphertext, additionalData []byte) ([]byte, error) {
-	cbcAEAD, err := josecipher.NewCBCHMAC(a.Key, aes.NewCipher)
-	if err != nil {
-		return nil, err
-	}
-
-	ivSize := cbcAEAD.NonceSize()
+	ivSize := a.cbcHMAC.NonceSize()
 	if len(ciphertext) < ivSize {
 		return nil, fmt.Errorf("aes_cbc_hmac: ciphertext too short")
 	}
 
 	iv := ciphertext[:ivSize]
 
-	plaintext := make([]byte, len(ciphertext)-ivSize)
-
-	return cbcAEAD.Open(plaintext, iv, ciphertext[ivSize:], additionalData)
+	return a.cbcHMAC.Open(nil, iv, ciphertext[ivSize:], additionalData)
 }
 
 func TestAESCBCRoundtrip(t *testing.T) {

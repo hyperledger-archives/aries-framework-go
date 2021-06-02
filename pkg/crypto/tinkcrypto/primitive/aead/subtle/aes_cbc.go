@@ -16,6 +16,11 @@ import (
 	"github.com/google/tink/go/subtle/random"
 )
 
+const (
+	// AESCBCIVSize is the IV size that this implementation supports.
+	AESCBCIVSize = 16
+)
+
 // AESCBC is an implementation of AEAD interface.
 type AESCBC struct {
 	Key []byte
@@ -101,12 +106,13 @@ func (a *AESCBC) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	padding := bytes.Repeat([]byte{last}, count)
-	if !bytes.HasSuffix(plaintext, padding) { // padding not found, return full plaintext.
-		return plaintext, nil
+	if bytes.HasSuffix(plaintext, padding) {
+		// padding was found, trim it and return remaining plaintext.
+		return plaintext[:len(plaintext)-len(padding)], nil
 	}
 
-	// padding was found, trim it and return remaining plaintext.
-	return plaintext[:len(plaintext)-len(padding)], nil
+	// padding not found, return full plaintext.
+	return plaintext, nil
 }
 
 // newIV creates a new IV for encryption.
