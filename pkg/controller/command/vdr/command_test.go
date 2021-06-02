@@ -282,13 +282,14 @@ func TestResolveDID(t *testing.T) {
 		cmdErr := cmd.ResolveDID(&getRW, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		response := Document{}
+		response := did.DocResolution{}
 		err = json.NewDecoder(&getRW).Decode(&response)
 		require.NoError(t, err)
 
 		// verify response
 		require.NotEmpty(t, response)
-		require.NotEmpty(t, response.DID)
+		require.NotEmpty(t, response.DIDDocument)
+		require.NotEmpty(t, response.DIDDocument.ID)
 	})
 
 	t.Run("test get did - invalid request", func(t *testing.T) {
