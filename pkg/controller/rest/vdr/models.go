@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	vdrcommand "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
@@ -72,6 +73,17 @@ type documentRes struct {
 
 	// in: body
 	DID json.RawMessage `json:"did,omitempty"`
+}
+
+// docResolutionResponse model
+//
+// This is used for returning DID document resolution response.
+//
+// swagger:response docResResponse
+type docResolutionResponse struct { // nolint: unused,deadcode
+
+	// in: body
+	Result *did.DocResolution `json:"result,omitempty"`
 }
 
 // didRecordResult model

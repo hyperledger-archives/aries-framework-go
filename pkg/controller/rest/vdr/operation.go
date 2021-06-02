@@ -123,7 +123,7 @@ func (o *Operation) GetDID(rw http.ResponseWriter, req *http.Request) {
 //
 // Responses:
 //    default: genericError
-//        200: documentRes
+//        200: docResResponse
 func (o *Operation) ResolveDID(rw http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
 
