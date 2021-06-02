@@ -12,7 +12,17 @@ import (
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
+	cbcaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+)
+
+type aeadAlg int
+
+const (
+	aesGCM = iota
+	xc20p
+	aesCBC
 )
 
 // NISTP256ECDHKWKeyTemplate is a KeyTemplate that generates a key that accepts a CEK for JWE content
@@ -20,8 +30,11 @@ import (
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS. The
 // recipient key represented in this key template uses the following key wrapping curve:
 //  - NIST curve P-256.
+// Keys created with this template are mainly used for key wrapping of a cek. They are independent of the AEAD content
+// encryption algorithm.
 func NISTP256ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(true, commonpb.EllipticCurveType_NIST_P256, nil)
+	// aesGCM is set to pass key generation in the key manager, it's irrelevant to the key or its intended use.
+	return createKeyTemplate(true, aesGCM, commonpb.EllipticCurveType_NIST_P256, nil)
 }
 
 // NISTP384ECDHKWKeyTemplate is a KeyTemplate that generates a key that accepts a CEK for JWE content
@@ -29,8 +42,11 @@ func NISTP256ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS. The
 // recipient key represented in this key template uses the following key wrapping curve:
 //  - NIST curve P-384
+// Keys created with this template are mainly used for key wrapping of a cek. They are independent of the AEAD content
+// encryption algorithm.
 func NISTP384ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(true, commonpb.EllipticCurveType_NIST_P384, nil)
+	// aesGCM is set to pass key generation in the key manager, it's irrelevant to the key or its intended use.
+	return createKeyTemplate(true, aesGCM, commonpb.EllipticCurveType_NIST_P384, nil)
 }
 
 // NISTP521ECDHKWKeyTemplate is a KeyTemplate that generates a key that accepts a CEK for JWE content
@@ -38,8 +54,11 @@ func NISTP384ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS. The
 // recipient key represented in this key template uses the following key wrapping curve:
 //  - NIST curve P-521
+// Keys created with this template are mainly used for key wrapping of a cek. They are independent of the AEAD content
+// encryption algorithm.
 func NISTP521ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(true, commonpb.EllipticCurveType_NIST_P521, nil)
+	// aesGCM is set to pass key generation in the key manager, it's irrelevant to the key or its intended use.
+	return createKeyTemplate(true, aesGCM, commonpb.EllipticCurveType_NIST_P521, nil)
 }
 
 // X25519ECDHKWKeyTemplate is a KeyTemplate that generates a key that accepts a CEK for JWE content
@@ -47,8 +66,11 @@ func NISTP521ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.The
 // recipient key represented in this key template uses the following key wrapping curve:
 //  - Curve25519
+// Keys created with this template are mainly used for key wrapping of a cek. They are independent of the AEAD content
+// encryption algorithm.
 func X25519ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(false, commonpb.EllipticCurveType_CURVE25519, nil)
+	// xc20p is set to pass key generation in the key manager, it's irrelevant to the key or its intended use.
+	return createKeyTemplate(false, xc20p, commonpb.EllipticCurveType_CURVE25519, nil)
 }
 
 // NISTPECDHAES256GCMKeyTemplateWithCEK is similar to NISTP256ECDHKWKeyTemplate but adding the cek to execute the
@@ -61,7 +83,7 @@ func X25519ECDHKWKeyTemplate() *tinkpb.KeyTemplate {
 func NISTPECDHAES256GCMKeyTemplateWithCEK(cek []byte) *tinkpb.KeyTemplate {
 	// the curve passed in the template below is ignored when executing the primitive, it's hardcoded to pass key
 	// key format validation only.
-	return createKeyTemplate(true, 0, cek)
+	return createKeyTemplate(true, aesGCM, 0, cek)
 }
 
 // X25519ECDHXChachaKeyTemplateWithCEK is similar to X25519ECDHKWKeyTemplate but adding the cek to execute the
@@ -71,13 +93,48 @@ func NISTPECDHAES256GCMKeyTemplateWithCEK(cek []byte) *tinkpb.KeyTemplate {
 // execution using content encryption algorithm:
 //  - XChacha20Poly1305
 func X25519ECDHXChachaKeyTemplateWithCEK(cek []byte) *tinkpb.KeyTemplate {
-	return createKeyTemplate(false, 0, cek)
+	return createKeyTemplate(false, xc20p, 0, cek)
+}
+
+// NISTPECDHAESCBCHMACKeyTemplateWithCEK is similar to NISTPECDHAES256GCMKeyTemplateWithCEK but using AES_CBC+HMAC aead.
+// KW is not executed by this template, so it is ignored and set to NIST P Curved key by default.
+// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS.
+// The key created from this template has no recipient key info linked to it. It is exclusively used for primitive
+// execution using content encryption algorithm:
+//  - CBC+HMAC aead
+//  - cek size determines the cipher block and HMAC function to use, with valid size:
+// 		* 32: AES_CBC 16 bytes key size (128 bits) and SHA128 HMAC
+//		* 48: AES_CBC 24 bytes key size (192 bits) and SHA192 HMAC
+//		* 64: AES_CBC 32 bytes key size (256 bits) and SHA256 HMAC
+//		* and other size of cek will return a template with an empty AEAD embedded template which will fail encryption.
+func NISTPECDHAESCBCHMACKeyTemplateWithCEK(cek []byte) *tinkpb.KeyTemplate {
+	// the curve passed in the template below is ignored when executing the primitive, it's hardcoded to pass key
+	// key format validation only.
+	return createKeyTemplate(true, aesCBC, 0, cek)
+}
+
+// X25519ECDHAESCBCHMACKeyTemplateWithCEK is similar to X25519ECDHXChachaKeyTemplateWithCEK but using AES_CBC+HMAC aead.
+// KW is not executed by this template, so it is ignored and set to NIST P Curved key by default.
+// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS.
+// The key created from this template has no recipient key info linked to it. It is exclusively used for primitive
+// execution using content encryption algorithm:
+//  - CBC+HMAC aead
+//  - cek size determines the cipher block and HMAC function to use, with valid size:
+// 		* 32: AES_CBC 16 bytes key size (128 bits) and SHA128 HMAC
+//		* 48: AES_CBC 24 bytes key size (192 bits) and SHA192 HMAC
+//		* 64: AES_CBC 32 bytes key size (256 bits) and SHA256 HMAC
+//		* and other size of cek will return a template with an empty AEAD embedded template which will fail encryption.
+func X25519ECDHAESCBCHMACKeyTemplateWithCEK(cek []byte) *tinkpb.KeyTemplate {
+	// the curve passed in the template below is ignored when executing the primitive, it's hardcoded to pass key
+	// key format validation only.
+	return createKeyTemplate(false, aesCBC, 0, cek)
 }
 
 // createKeyTemplate creates a new ECDH-AEAD key template with the set cek for primitive execution. Boolean flag used:
 //  - nistpKW flag to state if kw is either NIST P curves (true) or Curve25519 (false)
-func createKeyTemplate(nistpKW bool, c commonpb.EllipticCurveType, cek []byte) *tinkpb.KeyTemplate {
-	typeURL, keyType, encTemplate := getTypeParams(nistpKW)
+//  - encAlg + cek to determine the the nested AEAD key template to use
+func createKeyTemplate(nistpKW bool, encAlg aeadAlg, c commonpb.EllipticCurveType, cek []byte) *tinkpb.KeyTemplate {
+	typeURL, keyType, encTemplate := getTypeParams(nistpKW, encAlg, cek)
 
 	format := &ecdhpb.EcdhAeadKeyFormat{
 		Params: &ecdhpb.EcdhAeadParams{
@@ -105,10 +162,31 @@ func createKeyTemplate(nistpKW bool, c commonpb.EllipticCurveType, cek []byte) *
 	}
 }
 
-func getTypeParams(nispKW bool) (string, ecdhpb.KeyType, *tinkpb.KeyTemplate) {
-	if nispKW {
-		return nistpECDHKWPrivateKeyTypeURL, ecdhpb.KeyType_EC, aead.AES256GCMKeyTemplate()
+func getTypeParams(nistpKW bool, encAlg aeadAlg, cek []byte) (string, ecdhpb.KeyType, *tinkpb.KeyTemplate) {
+	var (
+		keyTemplate *tinkpb.KeyTemplate
+		twoKeys     = 2
+	)
+
+	switch encAlg {
+	case aesGCM:
+		keyTemplate = aead.AES256GCMKeyTemplate()
+	case aesCBC:
+		switch len(cek) {
+		case subtle.AES128Size * twoKeys:
+			keyTemplate = cbcaead.AES128CBCHMACSHA256KeyTemplate()
+		case subtle.AES192Size * twoKeys:
+			keyTemplate = cbcaead.AES192CBCHMACSHA384KeyTemplate()
+		case subtle.AES256Size * twoKeys:
+			keyTemplate = cbcaead.AES256CBCHMACSHA512KeyTemplate()
+		}
+	case xc20p:
+		keyTemplate = aead.XChaCha20Poly1305KeyTemplate()
 	}
 
-	return x25519ECDHKWPrivateKeyTypeURL, ecdhpb.KeyType_OKP, aead.XChaCha20Poly1305KeyTemplate()
+	if nistpKW {
+		return nistpECDHKWPrivateKeyTypeURL, ecdhpb.KeyType_EC, keyTemplate
+	}
+
+	return x25519ECDHKWPrivateKeyTypeURL, ecdhpb.KeyType_OKP, keyTemplate
 }

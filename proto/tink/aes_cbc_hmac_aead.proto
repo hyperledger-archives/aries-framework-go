@@ -1,0 +1,28 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+package google.crypto.tink;
+
+import "proto/aes_cbc.proto";
+import "proto/hmac.proto";
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option go_package = "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto";
+
+message AesCbcHmacAeadKeyFormat {
+  AesCbcKeyFormat aes_cbc_key_format = 1;
+  HmacKeyFormat hmac_key_format = 2;
+}
+
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.AesCbcHmacAeadKey
+message AesCbcHmacAeadKey {
+  uint32 version = 1;
+  AesCbcKey aes_cbc_key = 2;
+  HmacKey hmac_key = 3;
+}

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	subtleaead "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/mac"
@@ -20,6 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
+
+	cbchmacaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
+	subtlecbchmacaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
+	aeadpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
 )
 
 func newKeyTemplates() []*tinkpb.KeyTemplate {
@@ -28,6 +33,9 @@ func newKeyTemplates() []*tinkpb.KeyTemplate {
 		aead.XChaCha20Poly1305KeyTemplate(),
 		aead.AES256GCMKeyTemplate(),
 		aead.AES128GCMKeyTemplate(),
+		cbchmacaead.AES128CBCHMACSHA256KeyTemplate(),
+		cbchmacaead.AES192CBCHMACSHA384KeyTemplate(),
+		cbchmacaead.AES256CBCHMACSHA512KeyTemplate(),
 	}
 }
 
@@ -39,6 +47,14 @@ func TestCipherGetters(t *testing.T) {
 		require.NoError(t, err, "error generating a content encryption helper")
 
 		switch rDem.encKeyURL {
+		case AESCBCHMACAEADTypeURL:
+			require.EqualValues(t, subtlecbchmacaead.AESCBCIVSize, rDem.GetIVSize())
+
+			format := new(aeadpb.AesCbcHmacAeadKeyFormat)
+			err = proto.Unmarshal(c.Value, format)
+			require.NoError(t, err)
+
+			require.EqualValues(t, format.HmacKeyFormat.Params.TagSize, rDem.GetTagSize())
 		case AESGCMTypeURL:
 			require.EqualValues(t, subtleaead.AESGCMIVSize, rDem.GetIVSize())
 			require.EqualValues(t, subtleaead.AESGCMTagSize, rDem.GetTagSize())
