@@ -145,7 +145,7 @@ func runCommonTests(t *testing.T, provider spi.Provider) {
 	commonstoragetest.TestStoreGetTags(t, provider)
 	commonstoragetest.TestStoreGetBulk(t, provider)
 	commonstoragetest.TestStoreDelete(t, provider)
-	commonstoragetest.TestStoreQuery(t, provider)
+	commonstoragetest.TestStoreQuery(t, provider, commonstoragetest.WithIteratorTotalItemCountTests())
 	commonstoragetest.TestStoreBatch(t, provider)
 	commonstoragetest.TestStoreFlush(t, provider)
 	commonstoragetest.TestStoreClose(t, provider)

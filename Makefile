@@ -33,7 +33,7 @@ all: clean checks unit-test unit-test-wasm unit-test-mobile bdd-test
 checks: license lint generate-openapi-spec
 
 .PHONY: lint
-lint: mocks
+lint:
 	@scripts/check_lint.sh
 
 .PHONY: license

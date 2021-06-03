@@ -193,7 +193,7 @@ func runCommonTests(t *testing.T, provider storage.Provider) {
 	commontest.TestStoreGetTags(t, provider)
 	commontest.TestStoreGetBulk(t, provider)
 	commontest.TestStoreDelete(t, provider)
-	commontest.TestStoreQuery(t, provider)
+	commontest.TestStoreQuery(t, provider, commontest.WithIteratorTotalItemCountTests())
 	commontest.TestStoreBatch(t, provider)
 	commontest.TestStoreFlush(t, provider)
 	commontest.TestStoreClose(t, provider)

@@ -134,6 +134,9 @@ type Iterator struct {
 	TagsReturn []spi.Tag
 	ErrTags    error
 
+	TotalItemsReturn int
+	ErrTotalItems    error
+
 	ErrClose error
 }
 
@@ -155,6 +158,11 @@ func (i *Iterator) Value() ([]byte, error) {
 // Tags returns mocked results.
 func (i *Iterator) Tags() ([]spi.Tag, error) {
 	return i.TagsReturn, i.ErrTags
+}
+
+// TotalItems returns mocked results.
+func (i *Iterator) TotalItems() (int, error) {
+	return i.TotalItemsReturn, i.ErrTotalItems
 }
 
 // Close returns mocked results.
