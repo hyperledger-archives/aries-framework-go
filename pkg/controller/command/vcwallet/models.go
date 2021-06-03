@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -274,4 +275,17 @@ type DeriveRequest struct {
 type DeriveResponse struct {
 	// credential derived.
 	Credential *verifiable.Credential `json:"credential"`
+}
+
+// CreateKeyPairRequest is request model for creating key pair from wallet.
+type CreateKeyPairRequest struct {
+	WalletAuth
+
+	// type of the key to be created.
+	KeyType kms.KeyType `json:"keyType,omitempty"`
+}
+
+// CreateKeyPairResponse is response model for creating key pair from wallet.
+type CreateKeyPairResponse struct {
+	*wallet.KeyPair
 }

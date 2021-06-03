@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -238,7 +239,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetRESTHandlers(), 13)
+		require.Len(t, cmd.GetRESTHandlers(), 14)
 	})
 }
 
@@ -1260,6 +1261,61 @@ func TestOperation_Derive(t *testing.T) {
 
 		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.Derive(rw, rq)
+		require.Equal(t, rw.Code, http.StatusInternalServerError)
+		require.Contains(t, rw.Body.String(), "invalid auth token")
+	})
+}
+
+func TestOperation_CreateKeyPair(t *testing.T) {
+	const sampleUser1 = "sample-user-01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	createSampleUserProfile(t, mockctx, &vcwallet.CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &vcwallet.UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("create a key pair from wallet", func(t *testing.T) {
+		request := &vcwallet.CreateKeyPairRequest{
+			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
+			KeyType:    kms.ED25519,
+		}
+
+		rq := httptest.NewRequest(http.MethodPost, CreateKeyPairPath, getReader(t, request))
+		rw := httptest.NewRecorder()
+
+		cmd := New(mockctx, &vcwallet.Config{})
+		cmd.CreateKeyPair(rw, rq)
+		require.Equal(t, rw.Code, http.StatusOK)
+
+		var r createKeyPairResponse
+		require.NoError(t, json.NewDecoder(rw.Body).Decode(&r.Response))
+		require.NotEmpty(t, r)
+		require.NotEmpty(t, r.Response)
+		require.NotEmpty(t, r.Response.PublicKey)
+		require.NotEmpty(t, r.Response.KeyID)
+	})
+
+	t.Run("create a key pair from wallet using invalid auth", func(t *testing.T) {
+		request := &vcwallet.CreateKeyPairRequest{
+			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+			KeyType:    kms.ED25519,
+		}
+
+		rq := httptest.NewRequest(http.MethodPost, CreateKeyPairPath, getReader(t, request))
+		rw := httptest.NewRecorder()
+
+		cmd := New(mockctx, &vcwallet.Config{})
+		cmd.CreateKeyPair(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
 		require.Contains(t, rw.Body.String(), "invalid auth token")
 	})

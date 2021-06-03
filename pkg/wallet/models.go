@@ -92,3 +92,11 @@ type TrustedIssuerDefinition struct {
 	Issuer   string `json:"issuer"`
 	Required bool   `json:"required"`
 }
+
+// KeyPair is response of creating key pair inside wallet.
+type KeyPair struct {
+	// base64 encoded key ID of the key created.
+	KeyID string `json:"keyID,omitempty"`
+	// base64 encoded public key of the key pair created.
+	PublicKey string `json:"publicKey,omitempty"`
+}

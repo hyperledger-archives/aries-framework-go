@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -237,7 +238,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 13)
+		require.Len(t, cmd.GetHandlers(), 14)
 	})
 }
 
@@ -1644,6 +1645,91 @@ func TestCommand_Derive(t *testing.T) {
 			},
 		}))
 		validateError(t, cmdErr, command.ExecuteError, DeriveFromWalletErrorCode, "failed to resolve request")
+		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_CreateKeyPair(t *testing.T) {
+	const sampleUser1 = "sample-user-01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully create key pair (local kms)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &CreateKeyPairRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			KeyType:    kms.ED25519,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.CreateKeyPair(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response CreateKeyPairResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.KeyID)
+		require.NotEmpty(t, response.PublicKey)
+	})
+
+	t.Run("create key pair using invalid auth (local kms)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &CreateKeyPairRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
+			KeyType:    kms.ED25519,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.CreateKeyPair(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, CreateKeyPairFromWalletErrorCode, "invalid auth token")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("create key pair using invalid request (local kms)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.CreateKeyPair(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("create key pair using invalid profile (local kms)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &CreateKeyPairRequest{
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
+			KeyType:    kms.ED25519,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.CreateKeyPair(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, CreateKeyPairFromWalletErrorCode, "failed to get VC wallet profile")
 		require.Empty(t, b.Bytes())
 	})
 }

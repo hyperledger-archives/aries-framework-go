@@ -2401,6 +2401,44 @@ func TestWallet_Derive(t *testing.T) {
 	})
 }
 
+func TestWallet_CreateKeyPair(t *testing.T) {
+	sampleKeyPairUser := uuid.New().String()
+	mockctx := newMockProvider(t)
+	err := CreateProfile(sampleKeyPairUser, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	wallet, err := New(sampleKeyPairUser, mockctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, wallet)
+
+	token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase), WithUnlockExpiry(500*time.Millisecond))
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	defer wallet.Close()
+
+	t.Run("test creating key pair", func(t *testing.T) {
+		keyPair, err := wallet.CreateKeyPair(token, kms.ED25519)
+		require.NoError(t, err)
+		require.NotEmpty(t, keyPair)
+		require.NotEmpty(t, keyPair.KeyID)
+		require.NotEmpty(t, keyPair.PublicKey)
+	})
+
+	t.Run("test creating key pair with invalid auth", func(t *testing.T) {
+		keyPair, err := wallet.CreateKeyPair(sampleFakeTkn, kms.ED25519)
+		require.True(t, errors.Is(err, ErrInvalidAuthToken))
+		require.Empty(t, keyPair)
+	})
+
+	t.Run("test failure while creating key pair", func(t *testing.T) {
+		keyPair, err := wallet.CreateKeyPair(token, kms.KeyType("invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create new key")
+		require.Empty(t, keyPair)
+	})
+}
+
 func newMockProvider(t *testing.T) *mockprovider.Provider {
 	t.Helper()
 

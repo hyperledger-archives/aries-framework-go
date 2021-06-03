@@ -229,6 +229,26 @@ type deriveResponse struct {
 	Credential json.RawMessage `json:"credential"`
 }
 
+// createKeyPairRequest is request model for creating a key pair from wallet.
+//
+// swagger:parameters createKeyPairReq
+type createKeyPairRequest struct { // nolint: unused,deadcode
+	// Params for creating key pair from wallet.
+	//
+	// in: body
+	Params *vcwallet.CreateKeyPairRequest
+}
+
+// createKeyPairResponse is response model for creating a key pair from wallet.
+//
+// swagger:response createKeyPairRes
+type createKeyPairResponse struct {
+	// key pair created
+	//
+	// in: body
+	Response *vcwallet.CreateKeyPairResponse `json:"response"`
+}
+
 // emptyRes model
 //
 // swagger:response emptyRes

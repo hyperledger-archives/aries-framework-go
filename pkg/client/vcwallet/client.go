@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -314,4 +315,19 @@ func (c *Client) Derive(credential wallet.CredentialToDerive, options *wallet.De
 	}
 
 	return c.wallet.Derive(auth, credential, options)
+}
+
+// CreateKeyPair creates key pair inside a wallet.
+//
+//	Args:
+//		- authToken: authorization for performing create key pair operation.
+//		- keyType: type of the key to be created.
+//
+func (c *Client) CreateKeyPair(keyType kms.KeyType) (*wallet.KeyPair, error) {
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.CreateKeyPair(auth, keyType)
 }

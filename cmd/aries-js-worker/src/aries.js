@@ -1251,6 +1251,16 @@ const Aries = function (opts) {
             derive: async function (req) {
                 return invoke(aw, pending, this.pkgname, "Derive", req, "timeout while deriving from wallet")
             },
+
+            /**
+             *
+             * creates a key pair from wallet.
+             *
+             * @returns {Promise<Object>}
+             */
+            createKeyPair: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateKeyPair", req, "timeout while creating key pair from wallet")
+            },
         },
         /**
          * JSON-LD context management API.

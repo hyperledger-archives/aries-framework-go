@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -1481,6 +1482,44 @@ func TestWallet_Derive(t *testing.T) {
 		})
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, result)
+	})
+}
+
+func TestClient_CreateKeyPair(t *testing.T) {
+	sampleUser := uuid.New().String()
+	mockctx := newMockProvider(t)
+
+	err := CreateProfile(sampleUser, mockctx, wallet.WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	vcWallet, err := New(sampleUser, mockctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, vcWallet)
+
+	err = vcWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	t.Run("test creating key pair", func(t *testing.T) {
+		keyPair, err := vcWallet.CreateKeyPair(kms.ED25519)
+		require.NoError(t, err)
+		require.NotEmpty(t, keyPair)
+		require.NotEmpty(t, keyPair.KeyID)
+		require.NotEmpty(t, keyPair.PublicKey)
+	})
+
+	t.Run("test failure while creating key pair", func(t *testing.T) {
+		keyPair, err := vcWallet.CreateKeyPair(kms.KeyType("invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create new key")
+		require.Empty(t, keyPair)
+	})
+
+	t.Run("test failure while creating key pair (closed wallet)", func(t *testing.T) {
+		require.True(t, vcWallet.Close())
+
+		keyPair, err := vcWallet.CreateKeyPair(kms.KeyType("invalid"))
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, keyPair)
 	})
 }
 
