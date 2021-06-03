@@ -1740,6 +1740,84 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 }
 
+const sovDoc = `{
+  "@context": "https://www.w3.org/2019/did/v1",
+  "id": "did:sov:17hRTxZFuRqqwFPxXnnuLj",
+  "service": [
+    {
+      "type": "endpoint",
+      "serviceEndpoint": "http://172.17.0.1:9031"
+    }
+  ],
+  "authentication": [
+    {
+      "type": "Ed25519SignatureAuthentication2018",
+      "publicKey": [
+        "did:sov:17hRTxZFuRqqwFPxXnnuLj#key-1"
+      ]
+    }
+  ],
+  "publicKey": [
+    {
+      "id": "did:sov:17hRTxZFuRqqwFPxXnnuLj#key-1",
+      "type": "Ed25519VerificationKey2018",
+      "publicKeyBase58": "14ehnBh9oevUhQUADCRk5dmMCk3cmLukZcKNCTxLGiic"
+    }
+  ]
+}`
+
+func TestGetServiceBlock(t *testing.T) {
+	doc, err := diddoc.ParseDocument([]byte(sovDoc))
+	require.NoError(t, err)
+
+	v := &mockvdr.MockVDRegistry{ResolveValue: doc}
+
+	t.Run("success: get service block from public sov did", func(t *testing.T) {
+		ctx := &context{
+			doACAPyInterop: true,
+			vdRegistry:     v,
+		}
+
+		inv := newOOBInvite(doc.ID)
+
+		svc, err := ctx.getServiceBlock(inv)
+		require.NoError(t, err)
+		require.Len(t, svc.RecipientKeys, 1)
+	})
+
+	t.Run("failure: get service block from public sov did, not in interop mode", func(t *testing.T) {
+		ctx := &context{
+			vdRegistry: v,
+		}
+
+		inv := newOOBInvite(doc.ID)
+
+		svc, err := ctx.getServiceBlock(inv)
+		require.Error(t, err)
+		require.Nil(t, svc)
+		require.Contains(t, err.Error(), "no valid service block found")
+	})
+
+	t.Run("failure: get service block from public sov did, doc does not have endpoint service", func(t *testing.T) {
+		doc2, err := diddoc.ParseDocument([]byte(sovDoc))
+		require.NoError(t, err)
+
+		doc2.Service = nil
+
+		ctx := &context{
+			vdRegistry:     &mockvdr.MockVDRegistry{ResolveValue: doc2},
+			doACAPyInterop: true,
+		}
+
+		inv := newOOBInvite(doc.ID)
+
+		svc, err := ctx.getServiceBlock(inv)
+		require.Error(t, err)
+		require.Nil(t, svc)
+		require.Contains(t, err.Error(), "failed to get interop doc service")
+	})
+}
+
 func TestGetVerKey(t *testing.T) {
 	k := newKMS(t, mockstorage.NewMockStoreProvider())
 	ctx := &context{
@@ -1774,6 +1852,26 @@ func TestGetVerKey(t *testing.T) {
 		result, err := ctx.getVerKey(invitation.ThreadID)
 		require.NoError(t, err)
 		require.Equal(t, publicDID.Service[0].RecipientKeys[0], result)
+	})
+
+	t.Run("returns verkey from implicit (interop) oob invitation", func(t *testing.T) {
+		publicDID, err := diddoc.ParseDocument([]byte(sovDoc))
+		require.NoError(t, err)
+		invitation := newOOBInvite(publicDID.ID)
+		ctx.connectionRecorder = connRecorder(t, testProvider())
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{
+			ResolveValue: publicDID,
+		}
+		ctx.doACAPyInterop = true
+
+		err = ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
+		require.NoError(t, err)
+
+		result, err := ctx.getVerKey(invitation.ThreadID)
+		require.NoError(t, err)
+		require.Equal(t, publicDID.Service[0].RecipientKeys[0], result)
+
+		ctx.doACAPyInterop = false
 	})
 
 	t.Run("returns verkey from explicit didexchange invitation", func(t *testing.T) {
