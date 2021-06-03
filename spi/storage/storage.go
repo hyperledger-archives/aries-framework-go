@@ -204,6 +204,11 @@ type Iterator interface {
 	// Tags returns the tags associated with the key of the current entry.
 	Tags() ([]Tag, error)
 
+	// TotalItems returns a count of the number of entries (key + value + tags triplets) matched by the query
+	// that generated this Iterator. This count is not affected by the page settings used (i.e. the count is of all
+	// results as if you queried starting from the first page and with an unlimited page size).
+	TotalItems() (int, error)
+
 	// Close closes this iterator object, freeing resources.
 	Close() error
 }

@@ -70,6 +70,8 @@ func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storag
 	return store, nil
 }
 
+// TODO (#2815): find a way to allow EDV to be used without importing the edv package, since it causes the main Aries
+//               module to depend on edv
 func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (storage.Provider, error) {
 	if conf.EncryptionKeyID == "" || conf.MACKeyID == "" {
 		return nil, errors.New("invalid EDV configuration found in wallet profile, key IDs for encryption and MAC operations are missing") //nolint: lll

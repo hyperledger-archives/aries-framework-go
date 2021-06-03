@@ -1097,6 +1097,10 @@ func (f *formattedIterator) Tags() ([]spi.Tag, error) {
 	return filterOutKeyTag(tags, base64.StdEncoding.EncodeToString([]byte(key))), nil
 }
 
+func (f *formattedIterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
+}
+
 func (f *formattedIterator) Close() error {
 	err := f.underlyingIterator.Close()
 	if err != nil {

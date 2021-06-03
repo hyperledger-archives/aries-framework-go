@@ -9,6 +9,7 @@ package storage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -361,6 +362,10 @@ func (i *iterator) Tags() ([]spi.Tag, error) {
 	}
 
 	return tags, nil
+}
+
+func (i *iterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
 }
 
 func (i *iterator) Close() error {
