@@ -75,7 +75,7 @@ func (km *aesCBCHMACAEADKeyManager) Primitive(serializedKey []byte) (interface{}
 		return nil, fmt.Errorf("aes_cbc_hmac_aead_key_manager: %w", err)
 	}
 
-	ctr, err := subtle.NewAESCBC(key.AesCbcKey.KeyValue)
+	cbc, err := subtle.NewAESCBC(key.AesCbcKey.KeyValue)
 	if err != nil {
 		return nil, fmt.Errorf("aes_cbc_hmac_aead_key_manager: cannot create new primitive: %w", err)
 	}
@@ -84,10 +84,10 @@ func (km *aesCBCHMACAEADKeyManager) Primitive(serializedKey []byte) (interface{}
 
 	hmac, err := subtlemac.NewHMAC(hmacKey.Params.Hash.String(), hmacKey.KeyValue, hmacKey.Params.TagSize)
 	if err != nil {
-		return nil, fmt.Errorf("aes_cbc_hmac_aead_key_manager: cannot create mac primitive, error: %w", err)
+		return nil, fmt.Errorf("aes_cbc_hmac_aead_key_manager: cannot create hmac primitive, error: %w", err)
 	}
 
-	aead, err := subtleaead.NewEncryptThenAuthenticate(ctr, hmac, int(hmacKey.Params.TagSize))
+	aead, err := subtleaead.NewEncryptThenAuthenticate(cbc, hmac, int(hmacKey.Params.TagSize))
 	if err != nil {
 		return nil, fmt.Errorf("aes_cbc_hmac_aead_key_manager: cannot create encrypt then authenticate primitive,"+
 			" error: %w", err)
@@ -204,7 +204,7 @@ func (km *aesCBCHMACAEADKeyManager) validateKeyFormat(format *aeadpb.AesCbcHmacA
 	}
 
 	if hmacKeyFormat.Params.TagSize > tagSize {
-		return fmt.Errorf("aes_cbc_hmac_aead_key_manager: invalid HmacParams: tagSize %d is too big for HashType %q",
+		return fmt.Errorf("aes_cbc_hmac_aead_key_manager: invalid HmacParams: TagSize %d is too big for HashType %q",
 			hmacKeyFormat.Params.TagSize, hmacKeyFormat.Params.Hash)
 	}
 
