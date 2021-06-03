@@ -447,6 +447,10 @@ const pkgs = {
             path: "/vcwallet/derive",
             method: "POST",
         },
+        CreateKeyPair: {
+            path: "/vcwallet/create-key-pair",
+            method: "POST",
+        },
     },
     context: {
         Add: {

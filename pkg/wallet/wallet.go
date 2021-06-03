@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -503,6 +505,29 @@ func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options
 	}
 
 	return derived, nil
+}
+
+// CreateKeyPair creates key pair inside a wallet.
+//
+//	Args:
+//		- authToken: authorization for performing create key pair operation.
+//		- keyType: type of the key to be created.
+//
+func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair, error) {
+	kmgr, err := keyManager().getKeyManger(authToken)
+	if err != nil {
+		return nil, ErrInvalidAuthToken
+	}
+
+	kid, pubBytes, err := kmgr.CreateAndExportPubKeyBytes(keyType)
+	if err != nil {
+		return nil, err
+	}
+
+	return &KeyPair{
+		KeyID:     kid,
+		PublicKey: base64.StdEncoding.EncodeToString(pubBytes),
+	}, nil
 }
 
 //nolint: funlen,gocyclo

@@ -72,6 +72,9 @@ const (
 
 	// DeriveFromWalletErrorCode for errors while deriving a credential from wallet.
 	DeriveFromWalletErrorCode
+
+	// CreateKeyPairFromWalletErrorCode for errors while creating key pair from wallet.
+	CreateKeyPairFromWalletErrorCode
 )
 
 // All command operations.
@@ -92,6 +95,7 @@ const (
 	ProveMethod         = "Prove"
 	VerifyMethod        = "Verify"
 	DeriveMethod        = "Derive"
+	CreateKeyPairMethod = "CreateKeyPair"
 )
 
 // miscellaneous constants for the vc wallet command controller.
@@ -167,6 +171,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, ProveMethod, o.Prove),
 		cmdutil.NewCommandHandler(CommandName, VerifyMethod, o.Verify),
 		cmdutil.NewCommandHandler(CommandName, DeriveMethod, o.Derive),
+		cmdutil.NewCommandHandler(CommandName, CreateKeyPairMethod, o.CreateKeyPair),
 	}
 }
 
@@ -589,6 +594,39 @@ func (o *Command) Derive(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &DeriveResponse{Credential: derived}, logger)
 
 	logutil.LogDebug(logger, CommandName, DeriveMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// CreateKeyPair creates key pair from wallet.
+func (o *Command) CreateKeyPair(rw io.Writer, req io.Reader) command.Error {
+	request := &CreateKeyPairRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, CreateKeyPairMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, CreateKeyPairMethod, err.Error())
+
+		return command.NewExecuteError(CreateKeyPairFromWalletErrorCode, err)
+	}
+
+	response, err := vcWallet.CreateKeyPair(request.Auth, request.KeyType)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, CreateKeyPairMethod, err.Error())
+
+		return command.NewExecuteError(CreateKeyPairFromWalletErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &CreateKeyPairResponse{response}, logger)
+
+	logutil.LogDebug(logger, CommandName, CreateKeyPairMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil

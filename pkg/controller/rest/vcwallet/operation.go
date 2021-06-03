@@ -37,6 +37,7 @@ const (
 	ProvePath         = OperationID + "/prove"
 	VerifyPath        = OperationID + "/verify"
 	DerivePath        = OperationID + "/derive"
+	CreateKeyPairPath = OperationID + "/create-key-pair"
 )
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -86,6 +87,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(ProvePath, http.MethodPost, o.Prove),
 		cmdutil.NewHTTPHandler(VerifyPath, http.MethodPost, o.Verify),
 		cmdutil.NewHTTPHandler(DerivePath, http.MethodPost, o.Derive),
+		cmdutil.NewHTTPHandler(CreateKeyPairPath, http.MethodPost, o.CreateKeyPair),
 	}
 }
 
@@ -285,4 +287,15 @@ func (o *Operation) Verify(rw http.ResponseWriter, req *http.Request) {
 //        200: deriveRes
 func (o *Operation) Derive(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Derive, rw, req.Body)
+}
+
+// CreateKeyPair swagger:route POST /vcwallet/create-key-pair vcwallet createKeyPairReq
+//
+// creates a new key pair from wallet.
+//
+// Responses:
+//    default: genericError
+//        200: createKeyPairRes
+func (o *Operation) CreateKeyPair(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.CreateKeyPair, rw, req.Body)
 }
