@@ -555,7 +555,7 @@ func (i *iterator) Tags() ([]storage.Tag, error) {
 }
 
 func (i *iterator) TotalItems() (int, error) {
-	return -1, errors.New("not implemented")
+	return len(i.keys), nil
 }
 
 func (i *iterator) Close() error {

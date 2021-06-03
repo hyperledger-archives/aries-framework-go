@@ -1103,7 +1103,11 @@ func (r *restIterator) Tags() ([]spi.Tag, error) {
 }
 
 func (r *restIterator) TotalItems() (int, error) {
-	return -1, errors.New("not implemented")
+	if len(r.documentIDs) == 0 {
+		return len(r.documents), nil
+	}
+
+	return len(r.documentIDs), nil
 }
 
 // Nothing to close for a restIterator.

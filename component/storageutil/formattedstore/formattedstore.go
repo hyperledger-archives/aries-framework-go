@@ -1098,7 +1098,7 @@ func (f *formattedIterator) Tags() ([]spi.Tag, error) {
 }
 
 func (f *formattedIterator) TotalItems() (int, error) {
-	return -1, errors.New("not implemented")
+	return f.underlyingIterator.TotalItems()
 }
 
 func (f *formattedIterator) Close() error {

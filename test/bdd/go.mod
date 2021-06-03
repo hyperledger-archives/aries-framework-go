@@ -21,9 +21,9 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210520055214-ae429bb89bf7
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210520055214-ae429bb89bf7
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210520055214-ae429bb89bf7
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210603134946-53276bbf0c28
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210603182844-353ecb34cf4d
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210603182844-353ecb34cf4d
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210603182844-353ecb34cf4d
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2

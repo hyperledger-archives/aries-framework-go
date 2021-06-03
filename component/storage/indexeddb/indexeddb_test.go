@@ -28,7 +28,7 @@ func TestCommon(t *testing.T) {
 	commontest.TestStoreGetTags(t, provider)
 	commontest.TestProviderOpenStoreSetGetConfig(t, provider)
 	commontest.TestStoreDelete(t, provider)
-	commontest.TestStoreQuery(t, provider)
+	commontest.TestStoreQuery(t, provider, commontest.WithIteratorTotalItemCountTests())
 	commontest.TestStoreBatch(t, provider)
 	commontest.TestStoreClose(t, provider)
 	commontest.TestProviderClose(t, provider)

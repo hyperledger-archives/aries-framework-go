@@ -420,7 +420,7 @@ func (m *memIterator) Tags() ([]spi.Tag, error) {
 }
 
 func (m *memIterator) TotalItems() (int, error) {
-	return -1, errors.New("not implemented")
+	return len(m.keys), nil
 }
 
 // Close is a no-op, since there's nothing to close for a memIterator.
