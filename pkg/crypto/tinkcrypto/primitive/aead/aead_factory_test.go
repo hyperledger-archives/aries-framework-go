@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/core/cryptofmt"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
@@ -38,7 +39,7 @@ func TestFactoryMultipleKeys(t *testing.T) {
 	keysetHandle, err := testkeyset.NewHandle(ks)
 	require.NoError(t, err)
 
-	a, err := aead.New(keysetHandle)
+	a, err := tinkaead.New(keysetHandle)
 	require.NoError(t, err)
 
 	expectedPrefix, err := cryptofmt.OutputPrefix(primaryKey)
@@ -54,7 +55,7 @@ func TestFactoryMultipleKeys(t *testing.T) {
 	keysetHandle2, err := testkeyset.NewHandle(keyset2)
 	require.NoError(t, err)
 
-	a2, err := aead.New(keysetHandle2)
+	a2, err := tinkaead.New(keysetHandle2)
 	require.NoError(t, err)
 
 	validateAEADFactoryCipher(t, a2, a, cryptofmt.RawPrefix, true)
@@ -68,7 +69,7 @@ func TestFactoryMultipleKeys(t *testing.T) {
 	keysetHandle2, err = testkeyset.NewHandle(keyset2)
 	require.NoError(t, err)
 
-	a2, err = aead.New(keysetHandle2)
+	a2, err = tinkaead.New(keysetHandle2)
 	require.NoErrorf(t, err, "aead.New failed")
 
 	validateAEADFactoryCipher(t, a2, a, expectedPrefix, false)
@@ -81,7 +82,7 @@ func TestFactoryRawKeyAsPrimary(t *testing.T) {
 	keysetHandle, err := testkeyset.NewHandle(ks)
 	require.NoError(t, err)
 
-	a, err := aead.New(keysetHandle)
+	a, err := tinkaead.New(keysetHandle)
 	require.NoError(t, err)
 
 	validateAEADFactoryCipher(t, a, a, cryptofmt.RawPrefix, true)
@@ -143,7 +144,7 @@ func TestFactoryWithInvalidPrimitiveSetType(t *testing.T) {
 		t.Fatalf("failed to build *keyset.Handle: %s", err)
 	}
 
-	_, err = aead.New(wrongKH)
+	_, err = tinkaead.New(wrongKH)
 	if err == nil {
 		t.Fatalf("calling New() with wrong *keyset.Handle should fail")
 	}
@@ -153,7 +154,7 @@ func TestFactoryWithValidPrimitiveSetType(t *testing.T) {
 	goodKH, err := keyset.NewHandle(aead.AES128CBCHMACSHA256KeyTemplate())
 	require.NoError(t, err, "failed to build *keyset.Handle")
 
-	_, err = aead.New(goodKH)
+	_, err = tinkaead.New(goodKH)
 	require.NoError(t, err, "calling New() with good *keyset.Handle failed")
 }
 
@@ -161,7 +162,7 @@ func TestFactoryAndPrimitiveSetWithBadCiphertext(t *testing.T) {
 	goodKH, err := keyset.NewHandle(aead.AES128CBCHMACSHA256KeyTemplate())
 	require.NoError(t, err, "failed to build *keyset.Handle")
 
-	aeadPrimitive, err := aead.New(goodKH)
+	aeadPrimitive, err := tinkaead.New(goodKH)
 	require.NoError(t, err, "calling New() with good *keyset.Handle failed")
 
 	pt := []byte("test plaintext")
@@ -175,7 +176,7 @@ func TestFactoryAndPrimitiveSetWithBadCiphertext(t *testing.T) {
 	require.EqualValues(t, pt, plaintext)
 
 	_, err = aeadPrimitive.Decrypt([]byte("bad ciphertext"), ad)
-	require.EqualError(t, err, "aead_factory: Decrypt() - decryption failed")
+	require.EqualError(t, err, "aead_factory: decryption failed")
 }
 
 // NewTestAESCBCHMACKeyset creates a new Keyset containing an AESCBC+HMAC aead.

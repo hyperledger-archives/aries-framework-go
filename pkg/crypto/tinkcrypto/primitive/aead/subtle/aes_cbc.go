@@ -97,22 +97,7 @@ func (a *AESCBC) Decrypt(ciphertext []byte) ([]byte, error) {
 		return plaintext, nil
 	}
 
-	// unpad plaintext if not block size.
-	last := plaintext[len(plaintext)-1]
-	count := int(last)
-
-	if count == 0 || count > blockSize || count > len(plaintext) {
-		return nil, errors.New("aes_cbc: invalid padding")
-	}
-
-	padding := bytes.Repeat([]byte{last}, count)
-	if bytes.HasSuffix(plaintext, padding) {
-		// padding was found, trim it and return remaining plaintext.
-		return plaintext[:len(plaintext)-len(padding)], nil
-	}
-
-	// padding not found, return full plaintext.
-	return plaintext, nil
+	return Unpad(plaintext), nil
 }
 
 // newIV creates a new IV for encryption.
@@ -127,34 +112,46 @@ func newCipher(key, iv []byte, decrypt bool) (cipher.BlockMode, error) {
 		return nil, fmt.Errorf("aes_cbc: failed to create block cipher, error: %w", err)
 	}
 
-	// If the IV is less than BlockSize bytes we need to pad it with zeros otherwise NewCBCEncrypter will panic.
+	// IV size must be at least BlockSize.
 	if len(iv) < aes.BlockSize {
-		paddedIV := make([]byte, aes.BlockSize)
-		if n := copy(paddedIV, iv); n != len(iv) {
-			return nil, errors.New("aes_cbc: failed to pad IV")
-		}
-
-		if !decrypt {
-			return cipher.NewCBCEncrypter(block, paddedIV), nil
-		}
-
-		return cipher.NewCBCDecrypter(block, paddedIV), nil
+		return nil, errors.New("aes_cbc: invalid iv size")
 	}
 
-	if !decrypt {
-		return cipher.NewCBCEncrypter(block, iv), nil
+	if decrypt {
+		return cipher.NewCBCDecrypter(block, iv), nil
 	}
 
-	return cipher.NewCBCDecrypter(block, iv), nil
+	return cipher.NewCBCEncrypter(block, iv), nil
 }
 
 // Pad text to blockSize.
 func Pad(text []byte, originalTextSize, blockSize int) []byte {
-	// pad to block size if needed.
+	// pad to block size if needed. The value of missing is between 0 and blockSize.
 	missing := blockSize - (originalTextSize % blockSize)
-	if missing > 0 && originalTextSize > 0 {
+	if missing > 0 {
 		text = append(text, bytes.Repeat([]byte{byte(missing)}, missing)...)
+
+		return text
 	}
 
+	// return original text if missing =< 0
+	return text
+}
+
+// Unpad a padded text of blockSize.
+func Unpad(text []byte) []byte {
+	last := text[len(text)-1]
+	count := int(last)
+
+	// check for padding, count is the padding value.
+	if count > 0 {
+		padding := bytes.Repeat([]byte{last}, count)
+		if bytes.HasSuffix(text, padding) {
+			// padding was found, trim it and return remaining plaintext.
+			return text[:len(text)-len(padding)]
+		}
+	}
+
+	// count is <= 0 or text has no padding, return text as is.
 	return text
 }

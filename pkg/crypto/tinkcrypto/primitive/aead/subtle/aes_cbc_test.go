@@ -197,12 +197,25 @@ func TestEncryptRandomKeyAndMessage(t *testing.T) {
 func validateCiphertext(t *testing.T, plaintext, ciphertext []byte, id int) {
 	t.Helper()
 
-	if len(plaintext) > 0 {
-		padding := aes.BlockSize - ((len(plaintext) + subtle.AESCBCIVSize) % aes.BlockSize)
-		expectedCTSize := len(plaintext) + subtle.AESCBCIVSize + padding
-		require.Equalf(t, len(ciphertext), expectedCTSize, fmt.Sprintf("invalid ciphertext length for i = %d, "+
-			"ciphertext length: %d, msg length: %d", id, len(ciphertext), len(plaintext)+subtle.AESCBCIVSize))
-	} else {
-		require.Equal(t, len(ciphertext), subtle.AESCBCIVSize)
+	padding := aes.BlockSize - ((len(plaintext) + subtle.AESCBCIVSize) % aes.BlockSize)
+	expectedCTSize := len(plaintext) + subtle.AESCBCIVSize + padding
+	require.Equalf(t, len(ciphertext), expectedCTSize, fmt.Sprintf("invalid ciphertext length for i = %d, "+
+		"ciphertext length: %d, msg length: %d", id, len(ciphertext), len(plaintext)+subtle.AESCBCIVSize))
+}
+
+func TestPadUnpad(t *testing.T) {
+	// test pad empty text.
+	ciphertext := []byte("")
+	paddedCT := subtle.Pad(ciphertext, 0, aes.BlockSize)
+	unpaddedCT := subtle.Unpad(paddedCT)
+	require.EqualValues(t, ciphertext, unpaddedCT)
+
+	newCiphertext := append(ciphertext, byte(0))
+	for i := 1; i < 3*aes.BlockSize+1; i++ {
+		paddedCT = subtle.Pad(newCiphertext, len(newCiphertext), aes.BlockSize)
+		unpaddedCT = subtle.Unpad(paddedCT)
+		require.EqualValues(t, newCiphertext, unpaddedCT)
+
+		newCiphertext = append(newCiphertext, byte(i))
 	}
 }

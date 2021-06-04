@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"testing"
 
+	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,7 @@ func TestKeyTemplates(t *testing.T) {
 func testEncryptDecrypt(t *testing.T, kh *keyset.Handle) {
 	t.Helper()
 
-	primitive, err := aead.New(kh)
+	primitive, err := tinkaead.New(kh)
 	require.NoError(t, err, "aead.New(handle) failed")
 
 	testInputs := []struct {

@@ -12,6 +12,7 @@ import (
 	"log"
 	"testing"
 
+	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/core/registry"
 	"github.com/google/tink/go/keyset"
 
@@ -24,7 +25,7 @@ func Example() {
 		log.Fatal(err)
 	}
 
-	a, err := aead.New(kh)
+	a, err := tinkaead.New(kh)
 	if err != nil {
 		log.Fatal(err)
 	}
