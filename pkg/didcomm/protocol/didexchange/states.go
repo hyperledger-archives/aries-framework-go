@@ -823,6 +823,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 	return pubKey, nil
 }
 
+// nolint:gocyclo
 func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 	logger.Debugf("extracting service block from oobinvitation=%+v", i)
 
@@ -837,9 +838,16 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 
 		s, found := did.LookupService(docResolution.DIDDocument, didCommServiceType)
 		if !found {
-			return nil, fmt.Errorf(
-				"no valid service block found on myDID=%s with serviceType=%s",
-				svc, didCommServiceType)
+			if ctx.doACAPyInterop {
+				s, err = ctx.interopSovService(docResolution.DIDDocument)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get interop doc service: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf(
+					"no valid service block found on OOB invitation DID=%s with serviceType=%s",
+					svc, didCommServiceType)
+			}
 		}
 
 		block = s
@@ -872,6 +880,24 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 	logger.Debugf("extracted service block=%+v", block)
 
 	return block, nil
+}
+
+func (ctx *context) interopSovService(doc *did.Doc) (*did.Service, error) {
+	s, found := did.LookupService(doc, "endpoint")
+	if !found {
+		return nil, fmt.Errorf("no valid service block found on OOB invitation DID=%s with serviceType=%s",
+			doc.ID, "endpoint")
+	}
+
+	if len(s.RecipientKeys) == 0 {
+		for _, vm := range doc.VerificationMethod {
+			didKey, _ := fingerprint.CreateDIDKey(vm.Value)
+
+			s.RecipientKeys = append(s.RecipientKeys, didKey)
+		}
+	}
+
+	return s, nil
 }
 
 func (ctx *context) resolveVerKey(i *OOBInvitation) (string, error) {
