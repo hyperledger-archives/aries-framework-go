@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	schemaV1                   = "https://w3id.org/did/v1"
+	schemaResV1                = "https://w3id.org/did-resolution/v1"
+	schemaDIDV1                = "https://w3id.org/did/v1"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
 	bls12381G2Key2020          = "Bls12381G2Key2020"
@@ -76,7 +77,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 		}
 	}
 
-	return &did.DocResolution{DIDDocument: createDoc(publicKey, keyAgr, didKey)}, nil
+	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: createDoc(publicKey, keyAgr, didKey)}, nil
 }
 
 func getKeyCode(keyType kms.KeyType, verificationMethod *did.VerificationMethod) (uint64, error) {
@@ -130,7 +131,7 @@ func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did
 	}
 
 	return &did.Doc{
-		Context:              []string{schemaV1},
+		Context:              []string{schemaDIDV1},
 		ID:                   didKey,
 		VerificationMethod:   []did.VerificationMethod{*pubKey},
 		Authentication:       []did.Verification{*did.NewReferencedVerification(pubKey, did.Authentication)},

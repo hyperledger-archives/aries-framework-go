@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	schemaResV1                = "https://w3id.org/did-resolution/v1"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 	jsonWebKey2020             = "JsonWebKey2020"
 	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
@@ -57,7 +58,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 		return nil, err
 	}
 
-	return &did.DocResolution{DIDDocument: didDoc}, nil
+	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: didDoc}, nil
 }
 
 //nolint: funlen,gocyclo

@@ -36,7 +36,7 @@ func (v *VDR) Read(didKey string, _ ...vdrapi.DIDMethodOption) (*did.DocResoluti
 		return nil, fmt.Errorf("creating did document from public key failed: %w", err)
 	}
 
-	return &did.DocResolution{DIDDocument: didDoc}, nil
+	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: didDoc}, nil
 }
 
 func createDIDDocFromPubKey(kid string, code uint64, pubKeyBytes []byte) (*did.Doc, error) {
