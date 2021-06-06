@@ -526,7 +526,7 @@ func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair,
 
 	return &KeyPair{
 		KeyID:     kid,
-		PublicKey: base64.StdEncoding.EncodeToString(pubBytes),
+		PublicKey: base64.RawURLEncoding.EncodeToString(pubBytes),
 	}, nil
 }
 

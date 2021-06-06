@@ -205,7 +205,7 @@ func assertBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, p
 func assertDualBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, pubKeyBase58,
 	agreementKeyID, keyAgreementType, keyAgreementBase58 string) {
 	// validate @context
-	require.Equal(t, schemaV1, doc.Context[0])
+	require.Equal(t, schemaDIDV1, doc.Context[0])
 
 	// validate id
 	require.Equal(t, didKey, doc.ID)
