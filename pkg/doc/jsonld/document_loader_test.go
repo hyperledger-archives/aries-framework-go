@@ -28,7 +28,7 @@ func TestNewDocumentLoader(t *testing.T) {
 
 		require.NotNil(t, loader)
 		require.NoError(t, err)
-		require.Equal(t, 15, len(storageProvider.Store.Store))
+		require.Equal(t, 16, len(storageProvider.Store.Store))
 	})
 
 	t.Run("Fail to open context DB store", func(t *testing.T) {
