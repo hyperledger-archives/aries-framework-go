@@ -19,6 +19,8 @@ var (
 	w3idDIDv011 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/did_v1.jsonld
 	w3idDIDv1 []byte
+	//go:embed contexts/third_party/w3c-ccg.github.io/did_docres_v1.jsonld
+	w3idDIDDocResv1 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/ldp-bbs2020_v1.jsonld
 	ldpBBS2020 []byte
 	//go:embed contexts/third_party/w3c-ccg.github.io/lds-jws2020_v1.jsonld
@@ -59,6 +61,11 @@ var embedContexts = []ContextDocument{ //nolint:gochecknoglobals
 		URL:         "https://w3id.org/did/v1",
 		DocumentURL: "https://w3c-ccg.github.io/did-spec/contexts/did-v1.jsonld",
 		Content:     w3idDIDv1,
+	},
+	{
+		URL:         "https://w3id.org/did-resolution/v1",
+		DocumentURL: "https://w3c-ccg.github.io/did-resolution/contexts/did-resolution-v1.json",
+		Content:     w3idDIDDocResv1,
 	},
 	{
 		URL:         "https://w3id.org/security/bbs/v1",
