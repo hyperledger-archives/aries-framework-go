@@ -20,6 +20,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	cbcaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
@@ -103,6 +104,13 @@ func TestECDHNISTPAESPublicKeyManager_Primitive(t *testing.T) {
 				Value:            badSerializedFormat,
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},
+		},
+		{
+			tcName:    "success public key manager Primitive() with AES-CBC+HMAC encTmp",
+			version:   0,
+			curveType: commonpb.EllipticCurveType_NIST_P256,
+			ecPtFmt:   commonpb.EcPointFormat_UNCOMPRESSED,
+			encTmp:    cbcaead.AES128CBCHMACSHA256KeyTemplate(),
 		},
 	}
 

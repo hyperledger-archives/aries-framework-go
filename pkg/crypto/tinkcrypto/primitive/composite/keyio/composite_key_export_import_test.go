@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/hybrid"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
@@ -68,12 +69,12 @@ func TestPubKeyExport(t *testing.T) {
 
 			require.EqualValues(t, ecPubKey, extractedPubKey)
 
-			// now convert back ecPubKey to *keyset.Handle using default AES content encryption template
-			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey)
+			// now convert back ecPubKey to *keyset.Handle using NISTP KW with default AES content encryption template
+			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey, ecdh.AES256GCM)
 			require.NoError(t, err)
 
 			// now convert back ecPubKey to *keyset.Handle using XChacha content encryption template
-			x2PubKH, err := PublicKeyToKeysetHandleXChacha(ecPubKey)
+			x2PubKH, err := PublicKeyToKeysetHandle(ecPubKey, ecdh.XC20P)
 			require.NoError(t, err)
 
 			xk, err := ExtractPrimaryPublicKey(xPubKH)
@@ -86,6 +87,24 @@ func TestPubKeyExport(t *testing.T) {
 			if strings.Contains(tt.keyTemplate.TypeUrl, "X25519Kw") {
 				require.EqualValues(t, x2k.Curve, commonpb.EllipticCurveType_CURVE25519.String())
 				require.EqualValues(t, xk.Curve, commonpb.EllipticCurveType_CURVE25519.String())
+			}
+
+			// now convert back ecPubKey to *keyset.Handle with CBC+HMAC content encryption.
+			cbcHMACAlgs := []ecdh.AEADAlg{
+				ecdh.AES128CBCHMACSHA256, ecdh.AES192CBCHMACSHA384, ecdh.AES256CBCHMACSHA384, ecdh.AES256CBCHMACSHA512,
+			}
+
+			for _, cbcAEAD := range cbcHMACAlgs {
+				x3PubKH, err := PublicKeyToKeysetHandle(ecPubKey, cbcAEAD)
+				require.NoError(t, err)
+
+				xk, err = ExtractPrimaryPublicKey(x3PubKH)
+				require.NoError(t, err)
+				require.EqualValues(t, ecPubKey, xk)
+
+				x3k, err := ExtractPrimaryPublicKey(x3PubKH)
+				require.NoError(t, err)
+				require.EqualValues(t, ecPubKey, x3k)
 			}
 		})
 	}
@@ -229,7 +248,7 @@ func TestNegativeCases(t *testing.T) {
 
 		_, err = PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
 			Curve: "",
-		})
+		}, ecdh.AES256GCM)
 		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert curve string to proto: "+
 			"unsupported curve")
 	})
@@ -237,8 +256,39 @@ func TestNegativeCases(t *testing.T) {
 	t.Run("PublicKeyToKeysetHandle using pubKey with bad keyType", func(t *testing.T) {
 		_, err := PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
 			Curve: elliptic.P256().Params().Name,
-		})
+		}, ecdh.AES256GCM)
 		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert key type to proto: unsupported key type")
+	})
+
+	t.Run("PublicKeyToKeysetHandle with valid key and bad AEADAlg", func(t *testing.T) {
+		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
+		require.NoError(t, err)
+		require.NotEmpty(t, kh)
+
+		exportedKeyBytes := exportRawPublicKeyBytes(t, kh, false)
+		require.NotEmpty(t, exportedKeyBytes)
+
+		ecPubKey := new(cryptoapi.PublicKey)
+		err = json.Unmarshal(exportedKeyBytes, ecPubKey)
+		require.NoError(t, err)
+
+		_, err = PublicKeyToKeysetHandle(ecPubKey, -1)
+		require.EqualError(t, err, "publicKeyToKeysetHandle: invalid encryption algorithm: ''")
+	})
+
+	t.Run("ExtractPrimaryPublicKey using an invalid (symmetric key)", func(t *testing.T) {
+		kt := tinkaead.AES128CTRHMACSHA256KeyTemplate()
+		badKH, err := keyset.NewHandle(kt)
+		require.NoError(t, err)
+
+		_, err = ExtractPrimaryPublicKey(badKH)
+		require.EqualError(t, err, "extractPrimaryPublicKey: failed to get public key content: exporting "+
+			"unencrypted secret key material is forbidden")
+	})
+
+	t.Run("keyTemplateAndURL with invalid curve", func(t *testing.T) {
+		_, _, err := keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM)
+		require.EqualError(t, err, "invalid public key curve: 'UNKNOWN_CURVE'")
 	})
 }
 

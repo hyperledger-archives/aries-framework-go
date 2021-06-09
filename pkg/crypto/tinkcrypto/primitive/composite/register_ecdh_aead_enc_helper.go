@@ -286,10 +286,12 @@ func (r *RegisterCompositeAEADEncHelper) getSerializedAESCBCHMACKey(symmetricKey
 		keySize = subtle.AES128Size
 	case subtle.AES192Size * twoKeys:
 		keySize = subtle.AES192Size
+	case subtle.AES256Size + subtle.AES192Size:
+		keySize = subtle.AES256Size
 	case subtle.AES256Size * twoKeys:
 		keySize = subtle.AES256Size
 	default:
-		return nil, errors.New("symmetric key must be either 32, 48 or 64 bytes")
+		return nil, errors.New("AES-CBC+HMAC-SHA key must be either 32, 48, 56 or 64 bytes")
 	}
 
 	cbcHMACKey.AesCbcKey.KeyValue = symmetricKeyValue[:keySize]

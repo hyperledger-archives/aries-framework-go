@@ -62,6 +62,7 @@ func TestBadSenderKeyType(t *testing.T) {
 		senderKH:       aeadKH,
 		recipientsKeys: recipients,
 		crypto:         c,
+		encAlg:         A256GCM,
 	}
 
 	_, err = jweEncrypter.Encrypt([]byte{})
@@ -173,4 +174,57 @@ func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle) {
 	require.NoError(t, err)
 
 	return buf.Bytes(), kh
+}
+
+func TestFailJWEEncrypt(t *testing.T) {
+	testEncType := "application/test-encrypted+json"
+	testPayloadType := "application/test-content+json"
+
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, recsKH := createRecipients(t, 2)
+
+	enc, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"0", recsKH["0"], recipients, c)
+	require.NoError(t, err)
+
+	enc.encAlg = "Undefined"
+
+	_, err = enc.Encrypt([]byte("test"))
+	require.EqualError(t, err, "jweencrypt: failed to get encryption primitive: getECDHEncPrimitive: encAlg"+
+		" not supported: 'Undefined'")
+}
+
+func TestFailJWEDecrypt(t *testing.T) {
+	testEncType := "application/test-encrypted+json"
+	testPayloadType := "application/test-content+json"
+
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, _ := createRecipients(t, 2)
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"", nil, recipients, c)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+	require.Equal(t, len(recipients), len(jwe.Recipients))
+
+	dec := NewJWEDecrypt(nil, c, nil)
+	require.NotEmpty(t, dec)
+
+	jwe.ProtectedHeaders[HeaderEncryption] = "Undefined"
+
+	_, err = dec.decryptJWE(jwe, []byte(""))
+	require.EqualError(t, err, "jwedecrypt: failed to get decryption primitive: invalid content encAlg: 'Undefined'")
+
+	delete(jwe.ProtectedHeaders, HeaderEncryption)
+
+	_, err = dec.decryptJWE(jwe, []byte(""))
+	require.EqualError(t, err, "jwedecrypt: JWE 'enc' protected header is missing")
 }

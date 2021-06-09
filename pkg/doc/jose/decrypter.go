@@ -48,12 +48,14 @@ func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *J
 	}
 }
 
-func getECDHDecPrimitive(cek []byte, encAlg string) (api.CompositeDecrypt, error) {
-	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+func getECDHDecPrimitive(cek []byte, encAlg EncAlg, nistpKW bool) (api.CompositeDecrypt, error) {
+	ceAlg := aeadAlg[encAlg]
 
-	if encAlg == XC20PALG {
-		kt = ecdh.X25519ECDHXChachaKeyTemplateWithCEK(cek)
+	if ceAlg <= 0 {
+		return nil, fmt.Errorf("invalid content encAlg: '%s'", encAlg)
 	}
+
+	kt := ecdh.KeyTemplateForECDHPrimitiveWithCEK(cek, nistpKW, ceAlg)
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {
@@ -65,7 +67,7 @@ func getECDHDecPrimitive(cek []byte, encAlg string) (api.CompositeDecrypt, error
 
 // Decrypt a deserialized JWE, decrypts its protected content and returns plaintext.
 func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
-	err := jd.validateAndExtractProtectedHeaders(jwe)
+	encAlg, err := jd.validateAndExtractProtectedHeaders(jwe)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
@@ -74,7 +76,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 
 	skid, ok := jwe.ProtectedHeaders.SenderKeyID()
 	if ok && skid != "" {
-		senderKH, e := jd.fetchSenderPubKey(skid)
+		senderKH, e := jd.fetchSenderPubKey(skid, EncAlg(encAlg))
 		if e != nil {
 			return nil, fmt.Errorf("jwedecrypt: failed to add sender public key for skid: %w", e)
 		}
@@ -149,7 +151,7 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 		return nil, fmt.Errorf("jwedecrypt: JWE 'enc' protected header is missing")
 	}
 
-	decPrimitive, err := getECDHDecPrimitive(cek, encAlg)
+	decPrimitive, err := getECDHDecPrimitive(cek, EncAlg(encAlg), true)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: failed to get decryption primitive: %w", err)
 	}
@@ -169,45 +171,52 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 	return decPrimitive.Decrypt(encryptedData, authData)
 }
 
-func (jd *JWEDecrypt) fetchSenderPubKey(skid string) (*keyset.Handle, error) {
+func (jd *JWEDecrypt) fetchSenderPubKey(skid string, encAlg EncAlg) (*keyset.Handle, error) {
 	mKey, err := jd.store.Get(skid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get sender key from DB: %w", err)
+		return nil, fmt.Errorf("fetchSenderPubKey: failed to get sender key from DB: %w", err)
 	}
 
 	var senderKey *cryptoapi.PublicKey
 
 	err = json.Unmarshal(mKey, &senderKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal sender key from DB: %w", err)
+		return nil, fmt.Errorf("fetchSenderPubKey: failed to unmarshal sender key from DB: %w", err)
 	}
 
-	return keyio.PublicKeyToKeysetHandle(senderKey)
+	ceAlg := aeadAlg[encAlg]
+
+	if ceAlg <= 0 {
+		return nil, fmt.Errorf("fetchSenderPubKey: invalid content encAlg: '%s'", encAlg)
+	}
+
+	return keyio.PublicKeyToKeysetHandle(senderKey, ceAlg)
 }
 
-func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) error {
+func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) (string, error) {
 	if jwe == nil {
-		return fmt.Errorf("jwe is nil")
+		return "", fmt.Errorf("jwe is nil")
 	}
 
 	if len(jwe.ProtectedHeaders) == 0 {
-		return fmt.Errorf("jwe is missing protected headers")
+		return "", fmt.Errorf("jwe is missing protected headers")
 	}
 
 	protectedHeaders := jwe.ProtectedHeaders
 
 	encAlg, ok := protectedHeaders.Encryption()
 	if !ok {
-		return fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
+		return "", fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
 	}
 
 	switch encAlg {
-	case string(A256GCM), string(XC20P):
+	case string(A256GCM), string(XC20P), string(A128CBCHS256),
+		string(A192CBCHS384), string(A256CBCHS384), string(A256CBCHS512):
 	default:
-		return fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
+		return "", fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
 
-	return nil
+	return encAlg, nil
 }
 
 func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWrappedKey, error) {
