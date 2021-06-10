@@ -35,6 +35,10 @@ func convertPeerToSov(doc *did.Doc) (*did.Doc, error) {
 		return nil, fmt.Errorf("peer did not in 3 parts")
 	}
 
+	if didParts[1] != "peer" {
+		return doc, nil
+	}
+
 	id := base58.Encode(base58.Decode(didParts[2])[:16])
 
 	newDID := fmt.Sprintf("did:sov:%s", id)
