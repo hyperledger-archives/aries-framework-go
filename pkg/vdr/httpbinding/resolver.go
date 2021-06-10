@@ -93,5 +93,7 @@ func (v *VDR) Read(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolutio
 		return nil, err
 	}
 
+	didDoc = interopPreprocess(didDoc)
+
 	return &did.DocResolution{DIDDocument: didDoc}, nil
 }

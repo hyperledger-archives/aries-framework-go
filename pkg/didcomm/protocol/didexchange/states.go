@@ -839,7 +839,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		s, found := did.LookupService(docResolution.DIDDocument, didCommServiceType)
 		if !found {
 			if ctx.doACAPyInterop {
-				s, err = ctx.interopSovService(docResolution.DIDDocument)
+				s, err = interopSovService(docResolution.DIDDocument)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get interop doc service: %w", err)
 				}
@@ -882,7 +882,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 	return block, nil
 }
 
-func (ctx *context) interopSovService(doc *did.Doc) (*did.Service, error) {
+func interopSovService(doc *did.Doc) (*did.Service, error) {
 	s, found := did.LookupService(doc, "endpoint")
 	if !found {
 		return nil, fmt.Errorf("no valid service block found on OOB invitation DID=%s with serviceType=%s",
