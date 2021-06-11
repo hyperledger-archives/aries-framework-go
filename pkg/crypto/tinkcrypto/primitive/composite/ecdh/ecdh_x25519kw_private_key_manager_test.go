@@ -18,6 +18,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	cbcaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
@@ -83,6 +84,13 @@ func TestECDHX25519XChachaPrivateKeyManager_Primitive(t *testing.T) {
 				TypeUrl:          "bad.type/url/value",
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},
+		},
+		{
+			tcName:    "success private key manager Primitive() with AES-CBC+HMAC encTmp",
+			version:   0,
+			curveType: commonpb.EllipticCurveType_CURVE25519,
+			keyType:   ecdhpb.KeyType_OKP,
+			encTmp:    cbcaead.AES128CBCHMACSHA256KeyTemplate(),
 		},
 	}
 

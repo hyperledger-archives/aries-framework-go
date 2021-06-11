@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/tink/go/aead"
+	tinkaead "github.com/google/tink/go/aead"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/insecurecleartextkeyset"
 	"github.com/google/tink/go/keyset"
@@ -23,6 +23,8 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 )
 
@@ -243,23 +245,13 @@ func writePubKeyFromKeyHandle(handle *keyset.Handle) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// PublicKeyToKeysetHandle converts pubKey into a *keyset.Handle where pubKey could be either a sender or a recipient
-// key. The resulting handle cannot be directly used for primitive execution as the cek is not set. This function serves
-// as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt). The keyset handle
-// will be set with AES256-GCM AEAD key template for content encryption with NIST P KW.
-func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey) (*keyset.Handle, error) {
-	return publicKeyWithEncTemplateToKeysetHandle(pubKey, true)
-}
-
-// PublicKeyToKeysetHandleXChacha converts pubKey into a *keyset.Handle where pubKey could be either a sender or a
+// PublicKeyToKeysetHandle converts pubKey into a *keyset.Handle where pubKey could be either a sender or a
 // recipient key. The resulting handle cannot be directly used for primitive execution as the cek is not set. This
-// as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt). The keyset handle
-// will be set with XChacha20Poly1305 AEAD key template for content encryption with X25519 KW.
-func PublicKeyToKeysetHandleXChacha(pubKey *cryptoapi.PublicKey) (*keyset.Handle, error) {
-	return publicKeyWithEncTemplateToKeysetHandle(pubKey, false)
-}
-
-func publicKeyWithEncTemplateToKeysetHandle(pubKey *cryptoapi.PublicKey, isAES bool) (*keyset.Handle, error) {
+// function serves as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt).
+// The keyset handle will be set with AES256-GCM AEAD key template for content encryption. With:
+// - pubKey the public key to convert.
+// - aeadAlg the content encryption algorithm to use along the ECDH primitive.
+func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey, aeadAlg ecdh.AEADAlg) (*keyset.Handle, error) {
 	// validate curve
 	cp, err := getCurveProto(pubKey.Curve)
 	if err != nil {
@@ -271,12 +263,9 @@ func publicKeyWithEncTemplateToKeysetHandle(pubKey *cryptoapi.PublicKey, isAES b
 		return nil, fmt.Errorf("publicKeyToKeysetHandle: failed to convert key type to proto: %w", err)
 	}
 
-	encT := aead.AES256GCMKeyTemplate()
-	keyURL := nistPECDHKWPublicKeyTypeURL
-
-	if !isAES {
-		encT = aead.XChaCha20Poly1305KeyTemplate()
-		keyURL = x25519ECDHKWPublicKeyTypeURL
+	encT, keyURL, err := keyTemplateAndURL(cp, aeadAlg)
+	if err != nil {
+		return nil, fmt.Errorf("publicKeyToKeysetHandle: %w", err)
 	}
 
 	protoKey := &ecdhpb.EcdhAeadPublicKey{
@@ -311,6 +300,44 @@ func publicKeyWithEncTemplateToKeysetHandle(pubKey *cryptoapi.PublicKey, isAES b
 	}
 
 	return parsedHandle, nil
+}
+
+func keyTemplateAndURL(cp commonpb.EllipticCurveType, aeadAlg ecdh.AEADAlg) (*tinkpb.KeyTemplate, string, error) {
+	// set ecdh kw public keyTypeURL.
+	var (
+		encT   *tinkpb.KeyTemplate
+		keyURL string
+	)
+
+	switch cp {
+	case commonpb.EllipticCurveType_NIST_P256, commonpb.EllipticCurveType_NIST_P384,
+		commonpb.EllipticCurveType_NIST_P521:
+		keyURL = nistPECDHKWPublicKeyTypeURL
+	case commonpb.EllipticCurveType_CURVE25519:
+		keyURL = x25519ECDHKWPublicKeyTypeURL
+	default:
+		return nil, "", fmt.Errorf("invalid public key curve: '%v'", cp)
+	}
+
+	// set aeadAlg encryption primitive template.
+	switch aeadAlg {
+	case ecdh.AES256GCM:
+		encT = tinkaead.AES256GCMKeyTemplate()
+	case ecdh.XC20P:
+		encT = tinkaead.XChaCha20Poly1305KeyTemplate()
+	case ecdh.AES128CBCHMACSHA256:
+		encT = aead.AES128CBCHMACSHA256KeyTemplate()
+	case ecdh.AES192CBCHMACSHA384:
+		encT = aead.AES192CBCHMACSHA384KeyTemplate()
+	case ecdh.AES256CBCHMACSHA384:
+		encT = aead.AES256CBCHMACSHA384KeyTemplate()
+	case ecdh.AES256CBCHMACSHA512:
+		encT = aead.AES256CBCHMACSHA512KeyTemplate()
+	default:
+		return nil, "", fmt.Errorf("invalid encryption algorithm: '%v'", ecdh.EncryptionAlgLabel[aeadAlg])
+	}
+
+	return encT, keyURL, nil
 }
 
 func getCurveProto(c string) (commonpb.EllipticCurveType, error) {

@@ -9,6 +9,7 @@ package composite
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -27,20 +28,33 @@ import (
 	aeadpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
 )
 
-func newKeyTemplates() []*tinkpb.KeyTemplate {
+func newKeyTemplates() ([]*tinkpb.KeyTemplate, []int) {
+	twoKeys := 2
+
 	return []*tinkpb.KeyTemplate{
-		aead.ChaCha20Poly1305KeyTemplate(),
-		aead.XChaCha20Poly1305KeyTemplate(),
-		aead.AES256GCMKeyTemplate(),
-		aead.AES128GCMKeyTemplate(),
-		cbchmacaead.AES128CBCHMACSHA256KeyTemplate(),
-		cbchmacaead.AES192CBCHMACSHA384KeyTemplate(),
-		cbchmacaead.AES256CBCHMACSHA512KeyTemplate(),
-	}
+			aead.ChaCha20Poly1305KeyTemplate(),
+			aead.XChaCha20Poly1305KeyTemplate(),
+			aead.AES256GCMKeyTemplate(),
+			aead.AES128GCMKeyTemplate(),
+			cbchmacaead.AES128CBCHMACSHA256KeyTemplate(),
+			cbchmacaead.AES192CBCHMACSHA384KeyTemplate(),
+			cbchmacaead.AES256CBCHMACSHA384KeyTemplate(),
+			cbchmacaead.AES256CBCHMACSHA512KeyTemplate(),
+		},
+		[]int{
+			chacha20poly1305.KeySize,
+			chacha20poly1305.KeySize,
+			subtlecbchmacaead.AES256Size,
+			subtlecbchmacaead.AES128Size,
+			subtlecbchmacaead.AES128Size * twoKeys,
+			subtlecbchmacaead.AES192Size * twoKeys,
+			subtlecbchmacaead.AES256Size + subtlecbchmacaead.AES192Size,
+			subtlecbchmacaead.AES256Size * twoKeys,
+		}
 }
 
 func TestCipherGetters(t *testing.T) {
-	keyTemplates := newKeyTemplates()
+	keyTemplates, _ := newKeyTemplates()
 
 	for _, c := range keyTemplates {
 		rDem, err := NewRegisterCompositeAEADEncHelper(c)
@@ -68,6 +82,53 @@ func TestCipherGetters(t *testing.T) {
 	}
 }
 
+func TestCipherGettersFailures(t *testing.T) {
+	tests := []struct {
+		name       string
+		typeURL    string
+		formatName string
+	}{
+		{
+			name:       "AESCBCHMAC AEAD error",
+			typeURL:    AESCBCHMACAEADTypeURL,
+			formatName: "cbcHMACKeyFormat",
+		},
+		{
+			name:       "AESGCM AEAD error",
+			typeURL:    AESGCMTypeURL,
+			formatName: "gcmKeyFormat",
+		},
+		{
+			name:       "C20P AEAD error",
+			typeURL:    ChaCha20Poly1305TypeURL,
+			formatName: "chachaKeyFormat",
+		},
+		{
+			name:       "XC20P AEAD error",
+			typeURL:    XChaCha20Poly1305TypeURL,
+			formatName: "xChachaKeyFormat",
+		},
+	}
+
+	t.Parallel()
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			c := &tinkpb.KeyTemplate{
+				TypeUrl:          tc.typeURL,
+				Value:            []byte("bad serialized key"),
+				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
+			}
+
+			rDem, err := NewRegisterCompositeAEADEncHelper(c)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), fmt.Sprintf("compositeAEADEncHelper: failed to unmarshal %s", tc.formatName))
+			require.Empty(t, rDem)
+		})
+	}
+}
+
 func TestUnsupportedKeyTemplates(t *testing.T) {
 	uTemplates := []*tinkpb.KeyTemplate{
 		signature.ECDSAP256KeyTemplate(),
@@ -84,15 +145,15 @@ func TestUnsupportedKeyTemplates(t *testing.T) {
 }
 
 func TestAead(t *testing.T) {
-	keyTemplates := newKeyTemplates()
+	keyTemplates, keysSizes := newKeyTemplates()
 
-	for _, c := range keyTemplates {
+	for i, c := range keyTemplates {
 		pt := random.GetRandomBytes(20)
 		ad := random.GetRandomBytes(20)
 		rEnc, err := NewRegisterCompositeAEADEncHelper(c)
 		require.NoError(t, err, "error generating a content encryption helper")
 
-		keySize := uint32(32)
+		keySize := uint32(keysSizes[i])
 		sk := random.GetRandomBytes(keySize)
 		a, err := rEnc.GetAEAD(sk)
 		require.NoError(t, err, "error getting AEAD primitive")

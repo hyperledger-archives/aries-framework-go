@@ -23,13 +23,18 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 )
 
 const (
 	// ECDHESA256KWAlg is the ECDH-ES with AES-GCM 256 key wrapping algorithm.
 	ECDHESA256KWAlg = "ECDH-ES+A256KW"
-	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-GCM 256 key wrapping algorithm.
+	// ECDH1PUA128KWAlg is the ECDH-1PU with AES-CBC 128+HMAC-SHA 256 key wrapping algorithm.
+	ECDH1PUA128KWAlg = "ECDH-1PU+A128KW"
+	// ECDH1PUA192KWAlg is the ECDH-1PU with AES-CBC 192+HMAC-SHA 384 key wrapping algorithm.
+	ECDH1PUA192KWAlg = "ECDH-1PU+A192KW"
+	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-CBC 256+HMAC-SHA 512 key wrapping algorithm.
 	ECDH1PUA256KWAlg = "ECDH-1PU+A256KW"
 	// ECDHESXC20PKWAlg is the ECDH-ES with XChacha20Poly1305 key wrapping algorithm.
 	ECDHESXC20PKWAlg = "ECDH-ES+XC20PKW"
@@ -97,6 +102,10 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 		ivSize = chacha20poly1305.NonceSizeX
 	case *aeadsubtle.AESGCM:
 		ivSize = aeadsubtle.AESGCMIVSize
+	case *aeadsubtle.EncryptThenAuthenticate:
+		// AESCBC+HMACSHA Tink keys use Tink's EncryptThenAuthenticate AEAD primitive as per the CBC hmac key manager's
+		// Primitive() call.
+		ivSize = subtle.AES128Size
 	default:
 		ivSize = aeadsubtle.AESGCMIVSize
 	}

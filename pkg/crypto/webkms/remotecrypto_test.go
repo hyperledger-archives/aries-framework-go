@@ -1417,7 +1417,7 @@ func TestCloseResponseBody(t *testing.T) {
 
 func nonceSize(ps *primitiveset.PrimitiveSet) int {
 	var ivSize int
-	// AESGCM and XChacha20Poly1305 nonce sizes supported only for now
+	// AES256GCM and XChacha20Poly1305 nonce sizes supported only for now
 	switch ps.Primary.Primitive.(type) {
 	case *aeadsubtle.XChaCha20Poly1305:
 		ivSize = chacha20poly1305.NonceSizeX

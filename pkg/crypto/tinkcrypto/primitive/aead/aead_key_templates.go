@@ -59,7 +59,7 @@ func AES256CBCHMACSHA384KeyTemplate() *tinkpb.KeyTemplate {
 //  - AES key size: 32 bytes
 //  - HMAC key size: 32 bytes
 //  - HMAC tag size: 32 bytes
-//  - HMAC hash function: SHA384
+//  - HMAC hash function: SHA512
 func AES256CBCHMACSHA512KeyTemplate() *tinkpb.KeyTemplate {
 	return createAESCBCHMACAEADKeyTemplate(subtle.AES256Size, subtle.AES256Size, subtle.AES256Size,
 		commonpb.HashType_SHA512)

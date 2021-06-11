@@ -22,6 +22,7 @@ import (
 	"github.com/square/go-jose/v3"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
@@ -36,6 +37,14 @@ const (
 	A256GCM = EncAlg(A256GCMALG)
 	// XC20P for XChacha20Poly1305 content encryption.
 	XC20P = EncAlg(XC20PALG)
+	// A128CBCHS256 for A128CBC-HS256 (AES128-CBC+HMAC-SHA256) content encryption.
+	A128CBCHS256 = EncAlg(A128CBCHS256ALG)
+	// A192CBCHS384 for A192CBC-HS384 (AES192-CBC+HMAC-SHA384) content encryption.
+	A192CBCHS384 = EncAlg(A192CBCHS384ALG)
+	// A256CBCHS384 for A256CBC-HS384 (AES256-CBC+HMAC-SHA384) content encryption.
+	A256CBCHS384 = EncAlg(A256CBCHS384ALG)
+	// A256CBCHS512 for A256CBC-HS512 (AES256-CBC+HMAC-SHA512) content encryption.
+	A256CBCHS512 = EncAlg(A256CBCHS512ALG)
 )
 
 // Encrypter interface to Encrypt/Decrypt JWE messages.
@@ -61,14 +70,14 @@ type JWEEncrypt struct {
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
 // senderKID and senderKH are used for Authcrypt (to authenticate the sender), if not set JWEEncrypt assumes Anoncrypt.
-func NewJWEEncrypt(encAlg EncAlg, encType, cty, senderKID string, senderKH *keyset.Handle,
+func NewJWEEncrypt(encAlg EncAlg, envelopMediaType, cty, senderKID string, senderKH *keyset.Handle,
 	recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}
 
 	switch encAlg {
-	case A256GCM, XC20P:
+	case A256GCM, XC20P, A128CBCHS256, A192CBCHS384, A256CBCHS384, A256CBCHS512:
 	default:
 		return nil, fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
@@ -89,18 +98,21 @@ func NewJWEEncrypt(encAlg EncAlg, encType, cty, senderKID string, senderKH *keys
 		skid:           senderKID,
 		senderKH:       senderKH,
 		encAlg:         encAlg,
-		encTyp:         encType,
+		encTyp:         envelopMediaType,
 		cty:            cty,
 		crypto:         crypto,
 	}, nil
 }
 
 func (je *JWEEncrypt) getECDHEncPrimitive(cek []byte) (api.CompositeEncrypt, error) {
-	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+	nistpKW := je.useNISTPKW()
 
-	if je.encAlg == XC20P {
-		kt = ecdh.X25519ECDHXChachaKeyTemplateWithCEK(cek)
+	encAlg, ok := aeadAlg[je.encAlg]
+	if !ok {
+		return nil, fmt.Errorf("getECDHEncPrimitive: encAlg not supported: '%v'", je.encAlg)
 	}
+
+	kt := ecdh.KeyTemplateForECDHPrimitiveWithCEK(cek, nistpKW, encAlg)
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {
@@ -129,7 +141,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 
 	je.addExtraProtectedHeaders(protectedHeaders)
 
-	cek := random.GetRandomBytes(uint32(cryptoapi.DefKeySize))
+	cek := je.newCEK()
 
 	// creating the crypto primitive requires a pre-built cek
 	encPrimitive, err := je.getECDHEncPrimitive(cek)
@@ -434,6 +446,45 @@ func (je *JWEEncrypt) addExtraProtectedHeaders(protectedHeaders map[string]inter
 	// set skid if it's not empty
 	if je.skid != "" {
 		protectedHeaders[HeaderSenderKeyID] = je.skid
+	}
+}
+
+func (je *JWEEncrypt) useNISTPKW() bool {
+	if je.senderKH == nil {
+		return true
+	}
+
+	for _, ki := range je.senderKH.KeysetInfo().KeyInfo {
+		switch ki.TypeUrl {
+		case "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey",
+			"type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey":
+			return true
+		case "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey",
+			"type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPrivateKey":
+			return false
+		}
+	}
+
+	return true
+}
+
+func (je *JWEEncrypt) newCEK() []byte {
+	twoKeys := 2
+	defKeySize := 32
+
+	switch je.encAlg {
+	case A256GCM, XC20P:
+		return random.GetRandomBytes(uint32(defKeySize))
+	case A128CBCHS256:
+		return random.GetRandomBytes(uint32(subtle.AES128Size * twoKeys)) // cek: 32 bytes.
+	case A192CBCHS384:
+		return random.GetRandomBytes(uint32(subtle.AES192Size * twoKeys)) // cek: 48 bytes.
+	case A256CBCHS384:
+		return random.GetRandomBytes(uint32(subtle.AES256Size + subtle.AES192Size)) // cek: 56 bytes.
+	case A256CBCHS512:
+		return random.GetRandomBytes(uint32(subtle.AES256Size * twoKeys)) // cek: 64 bytes.
+	default:
+		return random.GetRandomBytes(uint32(defKeySize)) // default cek: 32 bytes.
 	}
 }
 

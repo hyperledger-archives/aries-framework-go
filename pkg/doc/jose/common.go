@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package jose
 
+import "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+
 // IANA registered JOSE headers (https://tools.ietf.org/html/rfc7515#section-4.1)
 const (
 	// HeaderAlgorithm identifies:
@@ -85,9 +87,26 @@ const (
 	// A256GCMALG is the default content encryption algorithm value as per
 	// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
 	A256GCMALG = "A256GCM"
-	// XC20PALG represented XChacha20Poly1305 content encryption algorithm value.
+	// XC20PALG represents XChacha20Poly1305 content encryption algorithm value.
 	XC20PALG = "XC20P"
+	// A128CBCHS256ALG represents AES_128_CBC_HMAC_SHA_256 encryption algorithm value.
+	A128CBCHS256ALG = "A128CBC-HS256"
+	// A192CBCHS384ALG represents AES_192_CBC_HMAC_SHA_384 encryption algorithm value.
+	A192CBCHS384ALG = "A192CBC-HS384"
+	// A256CBCHS384ALG represents AES_256_CBC_HMAC_SHA_384 encryption algorithm value (not defined in JWA spec above).
+	A256CBCHS384ALG = "A256CBC-HS384"
+	// A256CBCHS512ALG represents AES_256_CBC_HMAC_SHA_512 encryption algorithm value.
+	A256CBCHS512ALG = "A256CBC-HS512"
 )
+
+var aeadAlg = map[EncAlg]ecdh.AEADAlg{ //nolint:gochecknoglobals
+	A256GCM:      ecdh.AES256GCM,
+	XC20P:        ecdh.XC20P,
+	A128CBCHS256: ecdh.AES128CBCHMACSHA256,
+	A192CBCHS384: ecdh.AES192CBCHMACSHA384,
+	A256CBCHS384: ecdh.AES256CBCHMACSHA384,
+	A256CBCHS512: ecdh.AES256CBCHMACSHA512,
+}
 
 // Headers represents JOSE headers.
 type Headers map[string]interface{}
