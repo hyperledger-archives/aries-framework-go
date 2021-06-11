@@ -393,7 +393,7 @@ func mapDIDKeyType(proofType string) string {
 	case ldpEd25519Signature2018, jwsProof:
 		return "Ed25519VerificationKey2018"
 	case ldpJSONWebSignatureECP256, ldpJSONWebSignatureEd25519, ldpJSONWebSignatureSecp256k1:
-		return "JwsVerificationKey2020"
+		return "JsonWebKey2020"
 	case ldpEcdsaSecp256k1Signature2019:
 		return "EcdsaSecp256k1VerificationKey2019"
 	default:

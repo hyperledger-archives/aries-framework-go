@@ -447,7 +447,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 
 			case "#key2":
 				return &sigverifier.PublicKey{
-					Type:  "JwsVerificationKey2020",
+					Type:  "JsonWebKey2020",
 					Value: ecdsaSigner.PublicKeyBytes(),
 					JWK:   jwk,
 				}, nil

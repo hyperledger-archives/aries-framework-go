@@ -34,7 +34,7 @@ type Suite struct {
 
 const (
 	signatureType = "JsonWebSignature2020"
-	jwkType       = "JwsVerificationKey2020"
+	jwkType       = "JsonWebKey2020"
 	rdfDataSetAlg = "URDNA2015"
 )
 

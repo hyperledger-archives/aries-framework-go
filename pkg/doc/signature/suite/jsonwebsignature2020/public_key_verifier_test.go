@@ -70,7 +70,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 				require.NoError(t, err)
 
 				pubKey := &sigverifier.PublicKey{
-					Type:  "JwsVerificationKey2020",
+					Type:  "JsonWebKey2020",
 					Value: signer.PublicKeyBytes(),
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
@@ -102,7 +102,7 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
-		Type: "JwsVerificationKey2020",
+		Type: "JsonWebKey2020",
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{Key: signer.PublicKey()},
 			Kty:        "OKP",
@@ -125,7 +125,7 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
-		Type: "JwsVerificationKey2020",
+		Type: "JsonWebKey2020",
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "PS256",

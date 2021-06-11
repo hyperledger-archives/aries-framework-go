@@ -318,7 +318,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
-				Type: "JwsVerificationKey2020",
+				Type: "JsonWebKey2020",
 				JWK:  jwk,
 			}, nil
 		}),
@@ -1088,7 +1088,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 
 			case "#key2":
 				return &sigverifier.PublicKey{
-					Type:  "JwsVerificationKey2020",
+					Type:  "JsonWebKey2020",
 					Value: ecdsaSigner.PublicKeyBytes(),
 					JWK:   jwk,
 				}, nil
