@@ -35,7 +35,7 @@ jobs:
     - name: Setup node
       uses: actions/setup-node@v1.4.4
       with:
-        node-version: '10.x'
+        node-version: '16.x'
 
     - name: Setup mocha
       timeout-minutes: 10
