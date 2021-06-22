@@ -56,6 +56,11 @@ type Packer struct {
 // (as the sender packs the envelope with its own key).
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
+	err := validateEncAlg(encAlg)
+	if err != nil {
+		return nil, fmt.Errorf("authcrypt: %w", err)
+	}
+
 	k := ctx.KMS()
 	if k == nil {
 		return nil, errors.New("authcrypt: failed to create packer because KMS is empty")
@@ -87,6 +92,16 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		thirdPartyKS:  store,
 		cryptoService: c,
 	}, nil
+}
+
+func validateEncAlg(alg jose.EncAlg) error {
+	switch alg {
+	// authcrypt supports AES-CBC+HMAC-SHA algorithms only, anoncrypt supports the same and AES256-GCM.
+	case jose.A128CBCHS256, jose.A192CBCHS384ALG, jose.A256CBCHS384, jose.A256CBCHS512, jose.XC20P:
+		return nil
+	default:
+		return fmt.Errorf("unsupported content encrytpion algorithm: %v", alg)
+	}
 }
 
 // Pack will encode the payload argument with contentType argument

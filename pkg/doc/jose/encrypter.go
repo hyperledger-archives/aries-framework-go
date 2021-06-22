@@ -10,23 +10,29 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
+	"strings"
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/square/go-jose/v3"
+	"golang.org/x/crypto/curve25519"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // EncAlg represents the JWE content encryption algorithm.
@@ -154,6 +160,16 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 		return nil, fmt.Errorf("jweencrypt: computeAuthData: marshal error %w", err)
 	}
 
+	if je.senderKH != nil && je.skid != "" {
+		// ecdh-1pu encryption requires CBC+HMAC encAlg types.
+		return je.encryptWithSender(encPrimitive, plaintext, authData, cek, aad)
+	}
+
+	return je.encrypt(protectedHeaders, encPrimitive, plaintext, authData, cek, aad)
+}
+
+func (je *JWEEncrypt) encrypt(protectedHeaders map[string]interface{}, encPrimitive api.CompositeEncrypt,
+	plaintext, authData, cek, aad []byte) (*JSONWebEncryption, error) {
 	recipients, singleRecipientHeaderADDs, err := je.wrapCEKForRecipients(cek, []byte{}, []byte{}, authData, json.Marshal)
 	if err != nil {
 		return nil, fmt.Errorf("jweencrypt: failed to wrap cek: %w", err)
@@ -163,7 +179,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 		authData = singleRecipientHeaderADDs
 	}
 
-	recipientsHeaders, singleRecipientHeaders, err := je.buildRecs(recipients)
+	recipientsHeaders, singleRecipientHeaders, err := je.buildRecs(recipients, false)
 	if err != nil {
 		return nil, fmt.Errorf("jweencrypt: failed to build recipients: %w", err)
 	}
@@ -187,6 +203,47 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 	return getJSONWebEncryption(encData, recipientsHeaders, protectedHeaders, aad), nil
 }
 
+func (je *JWEEncrypt) encryptWithSender(primitive api.CompositeEncrypt,
+	plaintext, authData, cek, aad []byte) (*JSONWebEncryption, error) {
+	// pre-generate an EPK + compute apu and apv to be added to authData
+	apu, apv, err := je.buildAPUAPV()
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: %w", err)
+	}
+
+	// protectHeaders must be replaced for 1PU to match authData for encryption/decryption
+	// (including EPK, APU, APV always + alg and kid if single recipient).
+	epk, authData, newProtectedHeaders, err := je.generateEPKAndUpdateAuthDataFor1PU(authData, cek, apu, apv)
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: %w", err)
+	}
+
+	serializedEncData, err := primitive.Encrypt(plaintext, authData)
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: failed to Encrypt: %w", err)
+	}
+
+	encData := new(composite.EncryptedData)
+
+	err = json.Unmarshal(serializedEncData, encData)
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: unmarshal encrypted data failed: %w", err)
+	}
+
+	recipients, _, err := je.wrapCEKForRecipientsWithTagAndEPK(cek, apu, apv, authData,
+		encData.Tag, json.Marshal, epk)
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: failed to wrap cek: %w", err)
+	}
+
+	recipientsHeaders, _, err := je.buildRecs(recipients, true)
+	if err != nil {
+		return nil, fmt.Errorf("jweencryptWithSender: failed to build recipients: %w", err)
+	}
+
+	return getJSONWebEncryption(encData, recipientsHeaders, newProtectedHeaders, aad), nil
+}
+
 func getJSONWebEncryption(encData *composite.EncryptedData, recipientsHeaders []*Recipient,
 	protectedHeaders map[string]interface{}, aad []byte) *JSONWebEncryption {
 	return &JSONWebEncryption{
@@ -201,11 +258,47 @@ func getJSONWebEncryption(encData *composite.EncryptedData, recipientsHeaders []
 
 func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 	marshaller marshalFunc) ([]*cryptoapi.RecipientWrappedKey, []byte, error) {
-	if len(je.recipientsKeys) == 0 {
-		return nil, nil, fmt.Errorf("JWEEncrypt - wrapCEKForRecipients: missing recipients public keys for " +
-			"key wrapping")
+	return je.wrapCEKForRecipientsWithTagAndEPK(cek, apu, apv, aad, nil, marshaller, nil)
+}
+
+func (je *JWEEncrypt) wrapCEKForRecipientsWithTagAndEPK(cek, apu, apv, aad, tag []byte,
+	marshaller marshalFunc, epk *cryptoapi.PrivateKey) ([]*cryptoapi.RecipientWrappedKey, []byte, error) {
+	var (
+		computedAPU []byte
+		computedAPV []byte
+		err         error
+	)
+
+	if len(tag) > 0 {
+		// build apu/apv prior to key wrapping for 1PU only (tag not empty).
+		computedAPU, computedAPV, err = je.buildAPUAPV()
+		if err != nil {
+			return nil, nil, fmt.Errorf("wrapCEKForRecipientsWithTagAndEPK: %w", err)
+		}
 	}
 
+	if len(apv) == 0 {
+		apv = make([]byte, len(computedAPV))
+		copy(apv, computedAPV)
+	}
+
+	if len(apu) == 0 && je.skid != "" {
+		apu = make([]byte, len(computedAPU))
+		copy(apu, computedAPU)
+	}
+
+	wrapOpts := je.getWrapKeyOpts(tag, epk)
+
+	rw, kek, err := je.wrapKey(cek, apu, apv, aad, wrapOpts, marshaller)
+	if err != nil {
+		return nil, nil, fmt.Errorf("wrapCEKForRecipientsWithTagAndEPK: %w", err)
+	}
+
+	return rw, kek, nil
+}
+
+func (je *JWEEncrypt) wrapKey(cek, apu, apv, aad []byte, wrapOpts []cryptoapi.WrapKeyOpts,
+	marshaller marshalFunc) ([]*cryptoapi.RecipientWrappedKey, []byte, error) {
 	var (
 		recipientsWK       []*cryptoapi.RecipientWrappedKey
 		singleRecipientAAD []byte
@@ -217,16 +310,6 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 			err error
 		)
 
-		wrapOpts := je.getWrapKeyOpts()
-
-		if len(apv) == 0 {
-			apv = append(apv, recPubKey.KID...)
-		}
-
-		if len(apu) == 0 && je.skid != "" {
-			apu = append(apu, je.skid...)
-		}
-
 		if len(wrapOpts) > 0 {
 			kek, err = je.crypto.WrapKey(cek, apu, apv, recPubKey, wrapOpts...)
 		} else {
@@ -234,7 +317,7 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 		}
 
 		if err != nil {
-			return nil, nil, fmt.Errorf("wrapCEKForRecipient %d failed: %w", i+1, err)
+			return nil, nil, fmt.Errorf("wrapKey: %d failed: %w", i+1, err)
 		}
 
 		je.encodeAPUAPV(kek)
@@ -244,7 +327,7 @@ func (je *JWEEncrypt) wrapCEKForRecipients(cek, apu, apv, aad []byte,
 		if len(je.recipientsKeys) == 1 {
 			singleRecipientAAD, err = mergeSingleRecipientHeaders(kek, aad, marshaller)
 			if err != nil {
-				return nil, nil, fmt.Errorf("wrapCEKForRecipient merge recipent headers failed for %d: %w", i+1, err)
+				return nil, nil, fmt.Errorf("wrapKey: merge recipent headers failed for %d: %w", i+1, err)
 			}
 		}
 	}
@@ -269,15 +352,23 @@ func (je *JWEEncrypt) encodeAPUAPV(kek *cryptoapi.RecipientWrappedKey) {
 	}
 }
 
-func (je *JWEEncrypt) getWrapKeyOpts() []cryptoapi.WrapKeyOpts {
+func (je *JWEEncrypt) getWrapKeyOpts(tag []byte, epk *cryptoapi.PrivateKey) []cryptoapi.WrapKeyOpts {
 	var wrapOpts []cryptoapi.WrapKeyOpts
 
-	if je.encAlg == XC20P {
+	if je.recipientsKeys[0].Type == "OKP" {
 		wrapOpts = append(wrapOpts, cryptoapi.WithXC20PKW())
 	}
 
 	if je.skid != "" && je.senderKH != nil {
 		wrapOpts = append(wrapOpts, cryptoapi.WithSender(je.senderKH))
+	}
+
+	if len(tag) > 0 {
+		wrapOpts = append(wrapOpts, cryptoapi.WithTag(tag))
+	}
+
+	if epk != nil {
+		wrapOpts = append(wrapOpts, cryptoapi.WithEPK(epk))
 	}
 
 	return wrapOpts
@@ -350,7 +441,7 @@ func addKDFHeaders(rawHeaders map[string]json.RawMessage, recipientWK *cryptoapi
 	marshaller marshalFunc) error {
 	var err error
 
-	mEPK, err := convertRecEPKToMarshalledJWK(recipientWK)
+	mEPK, err := convertRecEPKToMarshalledJWK(&recipientWK.EPK)
 	if err != nil {
 		return err
 	}
@@ -391,14 +482,15 @@ func mergeRecipientHeaders(headers map[string]interface{}, recHeaders *Recipient
 	}
 }
 
-func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey) ([]*Recipient, *RecipientHeaders, error) {
+func (je *JWEEncrypt) buildRecs(recWKs []*cryptoapi.RecipientWrappedKey,
+	forAuthcrypt bool) ([]*Recipient, *RecipientHeaders, error) {
 	var (
 		recipients             []*Recipient
 		singleRecipientHeaders *RecipientHeaders
 	)
 
 	for _, rec := range recWKs {
-		recHeaders, err := buildRecipientHeaders(rec)
+		recHeaders, err := buildRecipientHeaders(rec, forAuthcrypt)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -488,6 +580,188 @@ func (je *JWEEncrypt) newCEK() []byte {
 	}
 }
 
+func (je *JWEEncrypt) buildAPUAPV() ([]byte, []byte, error) {
+	if je.skid == "" {
+		return nil, nil, fmt.Errorf("cannot create APU/APV with empty sender skid")
+	}
+
+	if len(je.recipientsKeys) == 0 {
+		return nil, nil, fmt.Errorf("cannot create APU/APV with empty recipient keys")
+	}
+
+	var recKIDs []string
+
+	apu := make([]byte, len(je.skid))
+	copy(apu, je.skid)
+
+	for _, r := range je.recipientsKeys {
+		recKIDs = append(recKIDs, r.KID)
+	}
+
+	sort.Strings(recKIDs)
+
+	apv := []byte(strings.Join(recKIDs, "."))
+
+	return apu, apv, nil
+}
+
+func (je *JWEEncrypt) generateEPKAndUpdateAuthDataFor1PU(auth,
+	cek, apu, apv []byte) (*cryptoapi.PrivateKey, []byte, map[string]interface{}, error) {
+	var epk *cryptoapi.PrivateKey
+
+	// generate an EPK based on the first recipient.
+	epk, kwAlg, err := je.newEPK(cek)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("generateEPKAndUpdateAuthDataFor1PU: %w", err)
+	}
+
+	aadIndex := bytes.Index(auth, []byte("."))
+	lastIndex := aadIndex
+
+	if lastIndex < 0 {
+		lastIndex = len(auth)
+	}
+
+	return je.buildCommonAuthData(aadIndex, kwAlg, string(auth[:lastIndex]), auth, apu, apv, epk)
+}
+
+func (je *JWEEncrypt) buildCommonAuthData(aadIndex int, kwAlg, authData string, auth, apu, apv []byte,
+	epk *cryptoapi.PrivateKey) (*cryptoapi.PrivateKey, []byte, map[string]interface{}, error) {
+	authDataBytes, err := base64.RawURLEncoding.DecodeString(authData)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("buildCommonAuthData: authdata decode: %w", err)
+	}
+
+	authDataJSON := map[string]interface{}{}
+
+	err = json.Unmarshal(authDataBytes, &authDataJSON)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("buildCommonAuthData: authData unmarshall: %w", err)
+	}
+
+	if len(je.recipientsKeys) == 1 {
+		// kid is part of the protected headers for single recipient JWEs.
+		authDataJSON["kid"] = je.recipientsKeys[0].KID
+	}
+
+	authDataJSON["alg"] = kwAlg
+
+	marshalledEPK, err := convertRecEPKToMarshalledJWK(&epk.PublicKey)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("buildCommonAuthData: epk marshall: %w", err)
+	}
+
+	authDataJSON["epk"] = json.RawMessage(marshalledEPK)
+
+	encodedAPU := []byte(base64.RawURLEncoding.EncodeToString(apu))
+	authDataJSON["apu"] = string(encodedAPU)
+
+	encodedAPV := []byte(base64.RawURLEncoding.EncodeToString(apv))
+	authDataJSON["apv"] = string(encodedAPV)
+
+	newAuth, err := json.Marshal(authDataJSON)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("buildCommonAuthData: authData marshall: %w", err)
+	}
+
+	authData = base64.RawURLEncoding.EncodeToString(newAuth)
+
+	if aadIndex > 0 {
+		authData += string(auth[aadIndex:])
+	}
+
+	return epk, []byte(authData), authDataJSON, nil
+}
+
+func (je *JWEEncrypt) newEPK(cek []byte) (*cryptoapi.PrivateKey, string, error) {
+	var (
+		kwAlg string
+		epk   *cryptoapi.PrivateKey
+		err   error
+	)
+
+	switch je.recipientsKeys[0].Type {
+	case "EC":
+		epk, kwAlg, err = je.ecEPKAndAlg(cek)
+		if err != nil {
+			return nil, "", fmt.Errorf("newEPK: %w", err)
+		}
+	case "OKP":
+		epk, kwAlg, err = je.okpEPKAndAlg()
+		if err != nil {
+			return nil, "", fmt.Errorf("newEPK: %w", err)
+		}
+	default:
+		return nil, "", fmt.Errorf("newEPK: invalid key type '%v'", je.recipientsKeys[0].Type)
+	}
+
+	return epk, kwAlg, nil
+}
+
+func (je *JWEEncrypt) ecEPKAndAlg(cek []byte) (*cryptoapi.PrivateKey, string, error) {
+	var kwAlg string
+
+	curve, err := hybrid.GetCurve(je.recipientsKeys[0].Curve)
+	if err != nil {
+		return nil, "", fmt.Errorf("ecEPKAndAlg: getCurve: %w", err)
+	}
+
+	pk, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		return nil, "", fmt.Errorf("ecEPKAndAlg: generate ec key: %w", err)
+	}
+
+	epk := &cryptoapi.PrivateKey{
+		PublicKey: cryptoapi.PublicKey{
+			Type:  "EC",
+			Curve: pk.Curve.Params().Name,
+			X:     pk.X.Bytes(),
+			Y:     pk.Y.Bytes(),
+		},
+		D: pk.D.Bytes(),
+	}
+
+	two := 2
+
+	switch len(cek) {
+	case subtle.AES128Size * two:
+		kwAlg = tinkcrypto.ECDH1PUA128KWAlg
+	case subtle.AES192Size * two:
+		kwAlg = tinkcrypto.ECDH1PUA192KWAlg
+	case subtle.AES256Size * two:
+		kwAlg = tinkcrypto.ECDH1PUA256KWAlg
+	}
+
+	return epk, kwAlg, nil
+}
+
+func (je *JWEEncrypt) okpEPKAndAlg() (*cryptoapi.PrivateKey, string, error) {
+	ephemeralPrivKey := make([]byte, cryptoutil.Curve25519KeySize)
+
+	_, err := rand.Read(ephemeralPrivKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("okpEPKAndAlg: generate random key for OKP: %w", err)
+	}
+
+	ephemeralPubKey, err := curve25519.X25519(ephemeralPrivKey, curve25519.Basepoint)
+	if err != nil {
+		return nil, "", fmt.Errorf("okpEPKAndAlg: get public epk for OKP: %w", err)
+	}
+
+	kwAlg := tinkcrypto.ECDH1PUXC20PKWAlg
+
+	epk := &cryptoapi.PrivateKey{
+		PublicKey: cryptoapi.PublicKey{
+			Type:  "OKP",
+			Curve: "X25519",
+			X:     ephemeralPubKey,
+		},
+		D: ephemeralPrivKey,
+	}
+
+	return epk, kwAlg, nil
+}
+
 func decodeAPUAPV(headers *RecipientHeaders) ([]byte, []byte, error) {
 	var (
 		decodedAPU []byte
@@ -512,42 +786,48 @@ func decodeAPUAPV(headers *RecipientHeaders) ([]byte, []byte, error) {
 	return decodedAPU, decodedAPV, nil
 }
 
-func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey) (*RecipientHeaders, error) {
-	mRecJWK, err := convertRecEPKToMarshalledJWK(rec)
+func buildRecipientHeaders(rec *cryptoapi.RecipientWrappedKey, forAuthcrypt bool) (*RecipientHeaders, error) {
+	mRecJWK, err := convertRecEPKToMarshalledJWK(&rec.EPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert recipient key to marshalled JWK: %w", err)
 	}
 
-	return &RecipientHeaders{
+	rh := &RecipientHeaders{
 		KID: rec.KID,
-		Alg: rec.Alg,
-		EPK: mRecJWK,
-		APU: string(rec.APU),
-		APV: string(rec.APV),
-	}, nil
+	}
+
+	// authcrypt envelopes have these headers shared for all recipients in the protected headers.
+	if !forAuthcrypt {
+		rh.Alg = rec.Alg
+		rh.EPK = mRecJWK
+		rh.APU = string(rec.APU)
+		rh.APV = string(rec.APV)
+	}
+
+	return rh, nil
 }
 
-func convertRecEPKToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, error) {
+func convertRecEPKToMarshalledJWK(recEPK *cryptoapi.PublicKey) ([]byte, error) {
 	var (
 		c   elliptic.Curve
 		err error
 		key interface{}
 	)
 
-	switch rec.EPK.Type {
+	switch recEPK.Type {
 	case ecdhpb.KeyType_EC.String():
-		c, err = hybrid.GetCurve(rec.EPK.Curve)
+		c, err = hybrid.GetCurve(recEPK.Curve)
 		if err != nil {
 			return nil, err
 		}
 
 		key = &ecdsa.PublicKey{
 			Curve: c,
-			X:     new(big.Int).SetBytes(rec.EPK.X),
-			Y:     new(big.Int).SetBytes(rec.EPK.Y),
+			X:     new(big.Int).SetBytes(recEPK.X),
+			Y:     new(big.Int).SetBytes(recEPK.Y),
 		}
 	case ecdhpb.KeyType_OKP.String():
-		key = rec.EPK.X
+		key = recEPK.X
 	default:
 		return nil, errors.New("invalid key type")
 	}
@@ -556,8 +836,8 @@ func convertRecEPKToMarshalledJWK(rec *cryptoapi.RecipientWrappedKey) ([]byte, e
 		JSONWebKey: jose.JSONWebKey{
 			Key: key,
 		},
-		Kty: rec.EPK.Type,
-		Crv: rec.EPK.Curve,
+		Kty: recEPK.Type,
+		Crv: recEPK.Curve,
 	}
 
 	return recJWK.MarshalJSON()
@@ -573,16 +853,21 @@ func computeAuthData(protectedHeaders map[string]interface{}, aad []byte) ([]byt
 		for k, v := range protectedHeaders {
 			mV, err := json.Marshal(v)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("computeAuthData: %w", err)
 			}
 
 			rawMsg := json.RawMessage(mV) // need to explicitly convert []byte to RawMessage (same as go-jose)
 			protectedHeadersJSON[k] = rawMsg
 		}
 
+		err := jwkMarshalEPK(protectedHeadersJSON)
+		if err != nil {
+			return nil, fmt.Errorf("computeAuthData: %w", err)
+		}
+
 		mProtected, err := json.Marshal(protectedHeadersJSON)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("computeAuthData: %w", err)
 		}
 
 		protected = base64.RawURLEncoding.EncodeToString(mProtected)
@@ -602,4 +887,25 @@ func computeAuthData(protectedHeaders map[string]interface{}, aad []byte) ([]byt
 	}
 
 	return output, nil
+}
+
+func jwkMarshalEPK(protectedHeadersJSON map[string]json.RawMessage) error {
+	// must use jwk.MarshalJSON() to marshal EPK to maintain headers order.
+	if protectedHeadersJSON[HeaderEPK] != nil {
+		epk := &JWK{}
+
+		err := epk.UnmarshalJSON(protectedHeadersJSON[HeaderEPK])
+		if err != nil {
+			return err
+		}
+
+		mEPK, err := epk.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("jwkMarshalEPK: %w", err)
+		}
+
+		protectedHeadersJSON[HeaderEPK] = mEPK
+	}
+
+	return nil
 }

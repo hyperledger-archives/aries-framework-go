@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/subtle/random"
+	josecipher "github.com/square/go-jose/v3/cipher"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
@@ -77,6 +78,51 @@ func TestNistTestVector(t *testing.T) {
 	plaintext2, err := cbc.Decrypt(ciphertext1)
 	require.NoError(t, err)
 	require.EqualValues(t, plaintext2, message, "encrypted plaintext doesn't match message")
+}
+
+func Test1PUAppendixBExample(t *testing.T) {
+	aad := []byte{
+		123, 34, 97, 108, 103, 34, 58, 34, 69, 67, 68, 72, 45, 49, 80, 85,
+		43, 65, 49, 50, 56, 75, 87, 34, 44, 34, 101, 110, 99, 34, 58, 34,
+		65, 50, 53, 54, 67, 66, 67, 45, 72, 83, 53, 49, 50, 34, 44, 34, 97,
+		112, 117, 34, 58, 34, 81, 87, 120, 112, 89, 50, 85, 34, 44, 34, 97,
+		112, 118, 34, 58, 34, 81, 109, 57, 105, 73, 71, 70, 117, 90, 67, 66,
+		68, 97, 71, 70, 121, 98, 71, 108, 108, 34, 44, 34, 101, 112, 107,
+		34, 58, 123, 34, 107, 116, 121, 34, 58, 34, 79, 75, 80, 34, 44, 34,
+		99, 114, 118, 34, 58, 34, 88, 50, 53, 53, 49, 57, 34, 44, 34, 120,
+		34, 58, 34, 107, 57, 111, 102, 95, 99, 112, 65, 97, 106, 121, 48,
+		112, 111, 87, 53, 103, 97, 105, 120, 88, 71, 115, 57, 110, 72, 107,
+		119, 103, 49, 65, 70, 113, 85, 65, 70, 97, 51, 57, 100, 121, 66, 99,
+		34, 125, 125,
+	}
+
+	cek := []byte{
+		0xff, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0xf0,
+		0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9, 0xe8, 0xe7, 0xe6, 0xe5, 0xe4, 0xe3, 0xe2, 0xe1, 0xe0,
+		0xdf, 0xde, 0xdd, 0xdc, 0xdb, 0xda, 0xd9, 0xd8, 0xd7, 0xd6, 0xd5, 0xd4, 0xd3, 0xd2, 0xd1, 0xd0,
+		0xcf, 0xce, 0xcd, 0xcc, 0xcb, 0xca, 0xc9, 0xc8, 0xc7, 0xc6, 0xc5, 0xc4, 0xc3, 0xc2, 0xc1, 0xc0,
+	}
+
+	iv := []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+	}
+
+	plaintext := []byte("Three is a magic number.")
+
+	cbcHMAC, err := josecipher.NewCBCHMAC(cek, aes.NewCipher)
+	require.NoError(t, err)
+
+	cbc := mockNONCEInCBCHMAC{
+		nonce:   iv,
+		cbcHMAC: cbcHMAC,
+	}
+
+	enc, err := cbc.Encrypt(plaintext, aad)
+	require.NoError(t, err)
+
+	dec, err := cbc.Decrypt(enc, aad)
+	require.NoError(t, err)
+	require.EqualValues(t, plaintext, dec)
 }
 
 func TestMultipleEncrypt(t *testing.T) {

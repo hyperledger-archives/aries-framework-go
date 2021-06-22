@@ -287,8 +287,11 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("keyTemplateAndURL with invalid curve", func(t *testing.T) {
-		_, _, err := keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM)
-		require.EqualError(t, err, "invalid public key curve: 'UNKNOWN_CURVE'")
+		_, _, err := keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM, true)
+		require.EqualError(t, err, "invalid key curve: 'UNKNOWN_CURVE'")
+
+		_, _, err = keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM, false)
+		require.EqualError(t, err, "invalid key curve: 'UNKNOWN_CURVE'")
 	})
 }
 

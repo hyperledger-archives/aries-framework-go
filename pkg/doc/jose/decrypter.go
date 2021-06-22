@@ -9,8 +9,8 @@ package jose
 import (
 	"crypto/ecdsa"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -72,7 +72,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
-	var senderOpt cryptoapi.WrapKeyOpts
+	var wkOpts []cryptoapi.WrapKeyOpts
 
 	skid, ok := jwe.ProtectedHeaders.SenderKeyID()
 	if ok && skid != "" {
@@ -81,7 +81,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 			return nil, fmt.Errorf("jwedecrypt: failed to add sender public key for skid: %w", e)
 		}
 
-		senderOpt = cryptoapi.WithSender(senderKH)
+		wkOpts = append(wkOpts, cryptoapi.WithSender(senderKH), cryptoapi.WithTag([]byte(jwe.Tag)))
 	}
 
 	recWK, err := buildRecipientsWrappedKey(jwe)
@@ -89,14 +89,14 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: failed to build recipients WK: %w", err)
 	}
 
-	cek, err := jd.unwrapCEK(recWK, senderOpt)
+	cek, err := jd.unwrapCEK(recWK, wkOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
 	if len(recWK) == 1 {
 		// ensure EPK is marshalled the same way as during encryption since it is merged into ProtectHeaders.
-		marshalledEPK, err := convertRecEPKToMarshalledJWK(recWK[0])
+		marshalledEPK, err := convertRecEPKToMarshalledJWK(&recWK[0].EPK)
 		if err != nil {
 			return nil, fmt.Errorf("jwedecrypt: %w", err)
 		}
@@ -108,8 +108,11 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 }
 
 func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
-	senderOpt cryptoapi.WrapKeyOpts) ([]byte, error) {
-	var cek []byte
+	senderOpt ...cryptoapi.WrapKeyOpts) ([]byte, error) {
+	var (
+		cek  []byte
+		errs []error
+	)
 
 	for _, rec := range recWK {
 		var unwrapOpts []cryptoapi.WrapKeyOpts
@@ -124,7 +127,7 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 		}
 
 		if senderOpt != nil {
-			unwrapOpts = append(unwrapOpts, senderOpt)
+			unwrapOpts = append(unwrapOpts, senderOpt...)
 		}
 
 		if len(unwrapOpts) > 0 {
@@ -136,10 +139,12 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 		if err == nil {
 			break
 		}
+
+		errs = append(errs, err)
 	}
 
 	if len(cek) == 0 {
-		return nil, errors.New("failed to unwrap cek")
+		return nil, fmt.Errorf("failed to unwrap cek: %v", errs)
 	}
 
 	return cek, nil
@@ -227,7 +232,11 @@ func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWr
 
 	for _, recJWE := range jwe.Recipients {
 		headers := recJWE.Header
-		if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
+		alg, ok := jwe.ProtectedHeaders.Algorithm()
+		is1PU := ok && strings.Contains(strings.ToUpper(alg), "1PU")
+
+		if len(jwe.Recipients) == 1 || is1PU {
+			// compact serialization: it has only 1 recipient with no headers or 1pu, extract from protectedHeaders.
 			headers, err = extractRecipientHeaders(jwe.ProtectedHeaders)
 			if err != nil {
 				return nil, err
@@ -235,6 +244,10 @@ func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWr
 		}
 
 		var recWK *cryptoapi.RecipientWrappedKey
+		// set kid if 1PU (authcrypt) with multi recipients since common protected headers don't have the recipient kid.
+		if is1PU && len(jwe.Recipients) > 1 {
+			headers.KID = recJWE.Header.KID
+		}
 
 		recWK, err = createRecWK(headers, []byte(recJWE.EncryptedKey))
 		if err != nil {
@@ -269,7 +282,7 @@ func createRecWK(headers *RecipientHeaders, encryptedKey []byte) (*cryptoapi.Rec
 func updateAPUAPVInRecWK(recWK *cryptoapi.RecipientWrappedKey, headers *RecipientHeaders) error {
 	decodedAPU, decodedAPV, err := decodeAPUAPV(headers)
 	if err != nil {
-		return err
+		return fmt.Errorf("updateAPUAPVInRecWK: %w", err)
 	}
 
 	recWK.APU = decodedAPU

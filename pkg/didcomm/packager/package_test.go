@@ -55,7 +55,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			packers:       nil,
 			crypto:        cryptoSvc,
 		}
-		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
+		testPacker, err := authcrypt.New(mockedProviders, jose.A128CBCHS256)
 		require.NoError(t, err)
 
 		mockedProviders.primaryPacker = testPacker
@@ -79,7 +79,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			packers:       nil,
 			crypto:        cryptoSvc,
 		}
-		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
+		testPacker, err := authcrypt.New(mockedProviders, jose.A192CBCHS384)
 		require.NoError(t, err)
 
 		mockedProviders.primaryPacker = testPacker
@@ -129,7 +129,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			primaryPacker: nil,
 			packers:       nil,
 		}
-		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
+		testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
 		require.NoError(t, err)
 
 		// use a real testPacker and a real KMS to validate pack/unpack
@@ -192,7 +192,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
 		e := func(cty string, payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
-			p, e := authcrypt.New(mockedProviders, jose.A256GCM)
+			p, e := authcrypt.New(mockedProviders, jose.A128CBCHS256)
 			require.NoError(t, e)
 			return p.Pack(cty, payload, senderPubKey, recipientsKeys)
 		}
@@ -276,7 +276,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		// create a real testPacker (no mocking here)
-		testPacker, err := authcrypt.New(mockedProviders, jose.A256GCM)
+		testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
 		require.NoError(t, err)
 		mockedProviders.primaryPacker = testPacker
 
