@@ -75,6 +75,9 @@ const (
 
 	// CreateKeyPairFromWalletErrorCode for errors while creating key pair from wallet.
 	CreateKeyPairFromWalletErrorCode
+
+	// ProfileExistsErrorCode for errors while checking if profile exists for a wallet user.
+	ProfileExistsErrorCode
 )
 
 // All command operations.
@@ -84,6 +87,7 @@ const (
 	// command methods.
 	CreateProfileMethod = "CreateProfile"
 	UpdateProfileMethod = "UpdateProfile"
+	ProfileExistsMethod = "ProfileExists"
 	OpenMethod          = "Open"
 	CloseMethod         = "Close"
 	AddMethod           = "Add"
@@ -160,6 +164,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, CreateProfileMethod, o.CreateProfile),
 		cmdutil.NewCommandHandler(CommandName, UpdateProfileMethod, o.UpdateProfile),
+		cmdutil.NewCommandHandler(CommandName, ProfileExistsMethod, o.ProfileExists),
 		cmdutil.NewCommandHandler(CommandName, OpenMethod, o.Open),
 		cmdutil.NewCommandHandler(CommandName, CloseMethod, o.Close),
 		cmdutil.NewCommandHandler(CommandName, AddMethod, o.Add),
@@ -231,6 +236,30 @@ func (o *Command) UpdateProfile(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, CommandName, UpdateProfileMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// ProfileExists checks if wallet profile exists for given wallet user.
+func (o *Command) ProfileExists(rw io.Writer, req io.Reader) command.Error {
+	user := &WalletUser{}
+
+	err := json.NewDecoder(req).Decode(&user)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProfileExistsMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	err = wallet.ProfileExists(user.ID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProfileExistsMethod, err.Error())
+
+		return command.NewExecuteError(ProfileExistsErrorCode, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, ProfileExistsMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, user.ID))
 
 	return nil
 }

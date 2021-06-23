@@ -1099,6 +1099,15 @@ const Aries = function (opts) {
             },
 
             /**
+             * Checks if profile exists for given wallet user.
+             *
+             * @returns {Promise<Object>} - empty promise if found or error if not not found.
+             */
+            profileExists: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ProfileExists", req, "timeout while checking if profile exists")
+            },
+
+            /**
              * Unlocks given wallet's key manager instance & content store and
              * returns a authorization token to be used for performing wallet operations.
              *

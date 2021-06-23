@@ -229,6 +229,18 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 	return nil
 }
 
+// ProfileExists checks if profile exists for given wallet user, returns error if not found.
+func ProfileExists(userID string, ctx provider) error {
+	store, err := newProfileStore(ctx.StorageProvider())
+	if err != nil {
+		return fmt.Errorf("failed to get store to get VC wallet profile: %w", err)
+	}
+
+	_, err = store.get(userID)
+
+	return err
+}
+
 // Open unlocks wallet's key manager instance & open wallet content store and
 // returns a token for subsequent use of wallet features.
 //

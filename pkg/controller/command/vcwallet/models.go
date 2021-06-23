@@ -109,6 +109,12 @@ type WalletAuth struct {
 	UserID string `json:"userID"`
 }
 
+// WalletUser contains wallet user info for performing profile operations.
+type WalletUser struct {
+	// ID of wallet user.
+	ID string `json:"userID"`
+}
+
 // AddContentRequest is request for adding a content to wallet.
 type AddContentRequest struct {
 	WalletAuth

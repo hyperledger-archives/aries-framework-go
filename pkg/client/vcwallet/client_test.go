@@ -338,6 +338,7 @@ func TestCreateProfile(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
+		require.NoError(t, ProfileExists(sampleUserID, mockctx))
 
 		vcWallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
@@ -348,6 +349,7 @@ func TestCreateProfile(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithSecretLockService(&secretlock.MockSecretLock{}))
 		require.NoError(t, err)
+		require.NoError(t, ProfileExists(sampleUserID, mockctx))
 
 		vcWallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
@@ -358,6 +360,7 @@ func TestCreateProfile(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, wallet.WithKeyServerURL(sampleKeyServerURL))
 		require.NoError(t, err)
+		require.NoError(t, ProfileExists(sampleUserID, mockctx))
 
 		vcWallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
@@ -369,6 +372,7 @@ func TestCreateProfile(t *testing.T) {
 		err := CreateProfile(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid create profile options")
+		require.True(t, errors.Is(ProfileExists(sampleUserID, mockctx), wallet.ErrProfileNotFound))
 
 		vcWallet, err := New(sampleUserID, mockctx)
 		require.Error(t, err)
@@ -388,6 +392,10 @@ func TestCreateProfile(t *testing.T) {
 		vcWallet, err := New(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Empty(t, vcWallet)
+
+		err = ProfileExists(sampleUserID, mockctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleClientErr)
 	})
 
 	t.Run("test create new wallet failure - save profile error", func(t *testing.T) {

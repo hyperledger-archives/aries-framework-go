@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
@@ -239,7 +240,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &vcwallet.Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetRESTHandlers(), 14)
+		require.Len(t, cmd.GetRESTHandlers(), 15)
 	})
 }
 
@@ -468,6 +469,60 @@ func TestOperation_UpdateProfile(t *testing.T) {
 		rw := httptest.NewRecorder()
 		cmd.UpdateProfile(rw, rq)
 		require.Equal(t, rw.Code, http.StatusBadRequest)
+	})
+}
+
+func TestCommand_ProfileExists(t *testing.T) {
+	const (
+		sampleUser1 = "sample-user-01"
+		sampleUser2 = "sample-user-02"
+	)
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &vcwallet.CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	t.Run("profile exists", func(t *testing.T) {
+		cmd := New(mockctx, &vcwallet.Config{})
+		require.NotNil(t, cmd)
+
+		rw := httptest.NewRecorder()
+		rq := mux.SetURLVars(httptest.NewRequest(http.MethodGet, ProfileExistsPath, nil), map[string]string{
+			"id": sampleUser1,
+		})
+
+		cmd.ProfileExists(rw, rq)
+		require.Equal(t, rw.Code, http.StatusOK)
+		require.Empty(t, rw.Body.String())
+	})
+
+	t.Run("profile doesn't exists", func(t *testing.T) {
+		cmd := New(mockctx, &vcwallet.Config{})
+		require.NotNil(t, cmd)
+
+		rw := httptest.NewRecorder()
+		rq := mux.SetURLVars(httptest.NewRequest(http.MethodGet, ProfileExistsPath, nil), map[string]string{
+			"id": sampleUser2,
+		})
+
+		cmd.ProfileExists(rw, rq)
+		require.Equal(t, rw.Code, http.StatusInternalServerError)
+		require.Contains(t, rw.Body.String(), wallet.ErrProfileNotFound.Error())
+	})
+
+	t.Run("invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &vcwallet.Config{})
+		require.NotNil(t, cmd)
+
+		rw := httptest.NewRecorder()
+		rq := httptest.NewRequest(http.MethodGet, ProfileExistsPath, nil)
+
+		cmd.ProfileExists(rw, rq)
+		require.Equal(t, rw.Code, http.StatusBadRequest)
+		require.Contains(t, rw.Body.String(), "empty profile ID")
 	})
 }
 
