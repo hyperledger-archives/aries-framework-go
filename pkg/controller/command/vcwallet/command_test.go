@@ -238,7 +238,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 14)
+		require.Len(t, cmd.GetHandlers(), 15)
 	})
 }
 
@@ -416,6 +416,53 @@ func TestCommand_CreateProfile(t *testing.T) {
 		require.Equal(t, cmdErr.Code(), CreateProfileErrorCode)
 		require.Equal(t, cmdErr.Type(), command.ExecuteError)
 		require.Contains(t, cmdErr.Error(), sampleCommandError)
+	})
+}
+
+func TestCommand_ProfileExists(t *testing.T) {
+	const (
+		sampleUser1 = "sample-user-01"
+		sampleUser2 = "sample-user-02"
+	)
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	t.Run("profile exists", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProfileExists(&b, getReader(t, &WalletUser{
+			ID: sampleUser1,
+		}))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("profile doesn't exists", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProfileExists(&b, getReader(t, &WalletUser{
+			ID: sampleUser2,
+		}))
+
+		validateError(t, cmdErr, command.ExecuteError, ProfileExistsErrorCode, wallet.ErrProfileNotFound.Error())
+	})
+
+	t.Run("invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProfileExists(&b, bytes.NewBufferString(""))
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "EOF")
 	})
 }
 

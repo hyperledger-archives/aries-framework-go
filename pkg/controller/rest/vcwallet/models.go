@@ -249,6 +249,19 @@ type createKeyPairResponse struct {
 	Response *vcwallet.CreateKeyPairResponse `json:"response"`
 }
 
+// checkProfileRequest model
+//
+// to check if wallet profile exists for given wallet user.
+//
+// swagger:parameters checkProfile
+type checkProfileRequest struct { // nolint: unused,deadcode
+	// Wallet User's ID used to create profile.
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // emptyRes model
 //
 // swagger:response emptyRes
