@@ -183,6 +183,7 @@ func TestCreate(t *testing.T) {
 		mockctx := newMockProvider(t)
 		err := CreateProfile(sampleUserID, mockctx, WithPassphrase(samplePassPhrase))
 		require.NoError(t, err)
+		require.NoError(t, ProfileExists(sampleUserID, mockctx))
 
 		wallet, err := New(sampleUserID, mockctx)
 		require.NoError(t, err)
@@ -231,6 +232,8 @@ func TestCreate(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid create profile options")
 
+		require.True(t, errors.Is(ProfileExists(sampleUserID, mockctx), ErrProfileNotFound))
+
 		wallet, err := New(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Empty(t, wallet)
@@ -243,6 +246,10 @@ func TestCreate(t *testing.T) {
 		}
 
 		err := CreateProfile(sampleUserID, mockctx, WithKeyServerURL(sampleKeyServerURL))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleWalletErr)
+
+		err = ProfileExists(sampleUserID, mockctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
 

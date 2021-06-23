@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package vcwallet
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
@@ -21,11 +24,12 @@ import (
 
 // All command operations.
 const (
-	OperationID = "//vcwallet"
+	OperationID = "/vcwallet"
 
 	// command Paths.
 	CreateProfilePath = OperationID + "/create-profile"
 	UpdateProfilePath = OperationID + "/update-profile"
+	ProfileExistsPath = OperationID + "profile/{id}"
 	OpenPath          = OperationID + "/open"
 	ClosePath         = OperationID + "/close"
 	AddPath           = OperationID + "/add"
@@ -76,6 +80,7 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(CreateProfilePath, http.MethodPost, o.CreateProfile),
 		cmdutil.NewHTTPHandler(UpdateProfilePath, http.MethodPost, o.UpdateProfile),
+		cmdutil.NewHTTPHandler(ProfileExistsPath, http.MethodGet, o.ProfileExists),
 		cmdutil.NewHTTPHandler(OpenPath, http.MethodPost, o.Open),
 		cmdutil.NewHTTPHandler(ClosePath, http.MethodPost, o.Close),
 		cmdutil.NewHTTPHandler(AddPath, http.MethodPost, o.Add),
@@ -116,6 +121,22 @@ func (o *Operation) CreateProfile(rw http.ResponseWriter, req *http.Request) {
 //        200: emptyRes
 func (o *Operation) UpdateProfile(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.UpdateProfile, rw, req.Body)
+}
+
+// ProfileExists swagger:route GET /vcwallet/profile/{id} vcwallet checkProfile
+//
+// Checks if profile exists for given wallet user ID and returns error if profile doesn't exists.
+//
+// Responses:
+//    default: genericError
+//        200: emptyRes
+func (o *Operation) ProfileExists(rw http.ResponseWriter, req *http.Request) {
+	id, found := getIDFromRequest(rw, req)
+	if !found {
+		return
+	}
+
+	rest.Execute(o.command.ProfileExists, rw, bytes.NewBufferString(fmt.Sprintf(`{"userID": "%s"}`, id)))
 }
 
 // Open swagger:route POST /vcwallet/open vcwallet unlockWalletReq
@@ -298,4 +319,16 @@ func (o *Operation) Derive(rw http.ResponseWriter, req *http.Request) {
 //        200: createKeyPairRes
 func (o *Operation) CreateKeyPair(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.CreateKeyPair, rw, req.Body)
+}
+
+// getIDFromRequest returns ID from request.
+func getIDFromRequest(rw http.ResponseWriter, req *http.Request) (string, bool) {
+	id := mux.Vars(req)["id"]
+	if id == "" {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, vcwallet.InvalidRequestErrorCode,
+			fmt.Errorf("empty profile ID"))
+		return "", false
+	}
+
+	return id, true
 }
