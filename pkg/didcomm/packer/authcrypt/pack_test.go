@@ -53,27 +53,27 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 		cty     string
 	}{
 		{
-			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP256ECDHKW and AES128CBC+HMAC-SHA256",
 			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A128CBCHS256,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP384ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP384ECDHKW and AES192CBC+HMAC-SHA384",
 			keyType: kms.NISTP384ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A192CBCHS384,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP521ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP521ECDHKW and AES256CBC+HMAC-SHA512",
 			keyType: kms.NISTP521ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A256CBCHS512,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using X25519ECDHKWType and AES256-GCM",
+			name:    "authcrypt using X25519ECDHKWType and AES128CBC+HMAC-SHA256",
 			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A128CBCHS256ALG,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
@@ -101,9 +101,9 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			name:    "authcrypt using NISTP256ECDHKW and AES192CBC+HMAC-SHA384",
 			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A192CBCHS384,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
@@ -119,9 +119,9 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using X25519ECDHKW and AES256-GCM without cty",
+			name:    "authcrypt using X25519ECDHKW and AES256-CBC+SHA512",
 			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A256CBCHS512,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 	}
@@ -240,7 +240,7 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256CBCHS512)
 	require.NoError(t, err)
 
 	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
@@ -292,9 +292,19 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	skid, senderKey, _ := createAndMarshalKey(t, k)
 
+	t.Run("new Pack fail with nil crypto service", func(t *testing.T) {
+		_, err = New(newMockProvider(nil, k, nil), afgjose.A128CBCHS256)
+		require.EqualError(t, err, "authcrypt: failed to create packer because crypto service is empty")
+	})
+
 	t.Run("new Pack fail with nil thirdPartyKS provider", func(t *testing.T) {
-		_, err = New(newMockProvider(nil, k, cryptoSvc), afgjose.A256GCM)
+		_, err = New(newMockProvider(nil, k, cryptoSvc), afgjose.A128CBCHS256)
 		require.EqualError(t, err, "authcrypt: failed to create packer because StorageProvider is empty")
+	})
+
+	t.Run("new Pack fail with invalid encryption algorithm", func(t *testing.T) {
+		_, err = New(newMockProvider(nil, k, cryptoSvc), "invalidAlg")
+		require.EqualError(t, err, "authcrypt: unsupported content encrytpion algorithm: invalidAlg")
 	})
 
 	t.Run("new Pack fail with bad thirdPartyKS provider", func(t *testing.T) {
@@ -303,7 +313,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 			FailNamespace:      ThirdPartyKeysDB,
 		}
 
-		_, err = New(newMockProvider(badStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		_, err = New(newMockProvider(badStoreProvider, k, cryptoSvc), afgjose.A192CBCHS384)
 		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdpartykeysdb")
 	})
 
@@ -313,13 +323,13 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	}}
 
 	t.Run("new Pack fail with nil kms", func(t *testing.T) {
-		_, err = New(newMockProvider(mockStoreProvider, nil, cryptoSvc), afgjose.A256GCM)
+		_, err = New(newMockProvider(mockStoreProvider, nil, cryptoSvc), afgjose.A128CBCHS256)
 		require.EqualError(t, err, "authcrypt: failed to create packer because KMS is empty")
 	})
 
 	_, recipientsKeys, _ := createRecipients(t, k, 10)
 	origMsg := []byte("secret message")
-	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256CBCHS512)
 	require.NoError(t, err)
 
 	mockStoreMap[skid] = mockstorage.DBEntry{Value: senderKey}
@@ -338,9 +348,10 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.EncAlg(invalidAlg))
+		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256CBCHS512)
 		require.NoError(t, err)
 
+		invalidAuthPacker.encAlg = afgjose.EncAlg(invalidAlg)
 		_, err = invalidAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.EqualError(t, err, fmt.Sprintf("authcrypt Pack: failed to new JWEEncrypt instance: encryption"+
 			" algorithm '%s' not supported", invalidAlg))
@@ -354,7 +365,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		badKMS, err := localkms.New("local-lock://test/key/uri", p)
 		require.NoError(t, err)
 
-		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS, cryptoSvc), afgjose.A256GCM)
+		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS, cryptoSvc), afgjose.A128CBCHS256)
 		require.NoError(t, err)
 
 		_, err = badAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
@@ -362,7 +373,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A192CBCHS384)
 		require.NoError(t, err)
 
 		_, err = validAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
@@ -375,7 +386,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A192CBCHS384)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, [][]byte{recipientsKeys[0]})
@@ -395,7 +406,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
 		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A128CBCHS256)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, newRecKeys)
@@ -410,6 +421,28 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 		_, err = validAuthPacker.Unpack(ct)
 		require.EqualError(t, err, "authcrypt Unpack: no matching recipient in envelope")
+	})
+
+	t.Run("pack success but unpack fails with missing kms in packer", func(t *testing.T) {
+		kids, newRecKeys, _ := createRecipients(t, k, 2)
+		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A128CBCHS256)
+		require.NoError(t, err)
+
+		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, newRecKeys)
+		require.NoError(t, err)
+
+		// rotate keys to update keyID and force a failure
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[0])
+		require.NoError(t, err)
+
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[1])
+		require.NoError(t, err)
+
+		// mock kms get error
+		validAuthPacker.kms = &mockkms.KeyManager{GetKeyErr: errors.New("get error")}
+
+		_, err = validAuthPacker.Unpack(ct)
+		require.EqualError(t, err, "authcrypt Unpack: failed to get key from kms: get error")
 	})
 }
 

@@ -12,6 +12,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
+	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"math/big"
 	"strings"
@@ -942,94 +944,6 @@ func TestECDH1PU(t *testing.T) {
 		useCompact bool
 	}{
 		{
-			name:    "P-256 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
-		},
-		{
-			name:    "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
-		},
-		{
-			name:       "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
-		},
-		{
-			name:    "P-384 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   2,
-		},
-		{
-			name:    "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   1,
-		},
-		{
-			name:       "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP384ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
-		},
-		{
-			name:    "P-521 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   2,
-		},
-		{
-			name:    "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   1,
-		},
-		{
-			name:       "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP521ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
-		},
-		{
-			name:    "X25519 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
-		},
-		{
-			name:    "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
-		},
-		{
-			name:       "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
-		},
-		{
 			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.XC20P,
@@ -1163,23 +1077,45 @@ func TestECDH1PU(t *testing.T) {
 		},
 		{
 			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.A192CBCHS384,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   2,
 		},
 		{
 			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:     ariesjose.A192CBCHS384,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   1,
 		},
 		{
 			name:       "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
 			enc:        ariesjose.A192CBCHS384,
 			keyType:    kms.NISTP256ECDHKWType,
+			nbRec:      1,
+			useCompact: true,
+		},
+		{
+			name:    "P-384 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A192CBCHS384,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   2,
+		},
+		{
+			name:    "P-384 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:     ariesjose.A192CBCHS384,
+			keyType: kms.NISTP384ECDHKWType,
+			nbRec:   1,
+		},
+		{
+			name:       "P-384 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:        ariesjose.A192CBCHS384,
+			keyType:    kms.NISTP384ECDHKWType,
 			nbRec:      1,
 			useCompact: true,
 		},
@@ -1206,28 +1142,6 @@ func TestECDH1PU(t *testing.T) {
 			useCompact: true,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
-		},
-		{
-			name:    "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
-		},
-		{
-			name:       "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256CBCHS384,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
-		},
-		{
 			name:    "X25519 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.X25519ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256CBCHS384,
@@ -1250,22 +1164,22 @@ func TestECDH1PU(t *testing.T) {
 			useCompact: true,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			name:    "P-521 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256CBCHS512,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   2,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
+			name:    "P-521 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
+			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256CBCHS512,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   1,
 		},
 		{
-			name:       "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
+			name:       "P-521 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
+			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:        ariesjose.A256CBCHS512,
 			keyType:    kms.NISTP256ECDHKWType,
 			nbRec:      1,
@@ -1449,4 +1363,99 @@ type mockKMSGetter struct {
 
 func (k *mockKMSGetter) Get(kid string) (interface{}, error) {
 	return k.keys[kid], nil
+}
+
+// nolint:gochecknoglobals // embedded test data
+var (
+	// test vector retrieved from:
+	//nolint:lll
+	// (github: https://github.com/NeilMadden/jose-ecdh-1pu/blob/master/draft-madden-jose-ecdh-1pu-04/draft-madden-jose-ecdh-1pu-04.txt#L740)
+	// (ietf draft: https://datatracker.ietf.org/doc/html/draft-madden-jose-ecdh-1pu-04#appendix-B)
+	//go:embed testdata/alice_key_ref.json
+	aliceKeyRef string
+	//go:embed testdata/bob_key_ref.json
+	bobKeyRef string
+	//go:embed testdata/charlie_key_ref.json
+	charlieKeyRef string
+	//go:embed testdata/jwe_ref.json
+	jweRef string
+)
+
+//nolint:wsl
+func Test1PUDraft4ExampleBDecrypt(t *testing.T) {
+	testJWE := trimSpace(jweRef)
+	aliceKey := trimSpace(aliceKeyRef)
+	bobKey := trimSpace(bobKeyRef)
+	charlieKey := trimSpace(charlieKeyRef)
+
+	keys := convertX25519ToKH(t, []string{aliceKey, bobKey, charlieKey}, []string{"alice", "bob-key-2", "2021-05-06"})
+
+	c, k := createCryptoAndKMSServices(t, keys)
+
+	mockStoreMap := make(map[string]mockstorage.DBEntry)
+	mockStore := &mockstorage.MockStore{
+		Store: mockStoreMap,
+	}
+
+	localJWE, err := ariesjose.Deserialize(testJWE)
+	require.NoError(t, err)
+	require.NotEmpty(t, localJWE)
+
+	dec := ariesjose.NewJWEDecrypt(mockStore, c, k)
+	require.NotEmpty(t, dec)
+
+	// TODO skid is missing in the protected headers of Appendix B example of ecdh-1pu draft4. Uncomment below lines
+	//      and update jwe_ref.json when the example is updated and https://github.com/NeilMadden/jose-ecdh-1pu/issues/3
+	//      is closed.
+	// pt, err := dec.Decrypt(localJWE)
+	// require.NoError(t, err)
+	// require.EqualValues(t, []byte("Three is a magic number."), pt)
+}
+
+func trimSpace(s string) string {
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\n", "")
+
+	return s
+}
+
+func convertX25519ToKH(t *testing.T, keys, kids []string) map[string]*keyset.Handle {
+	t.Helper()
+
+	var err error
+
+	khs := make(map[string]*keyset.Handle)
+
+	for i, k := range keys {
+		delim := ",\"d\""
+		idx := strings.Index(k, delim)
+		mPubKey := k[:idx] + "}"
+		pubKey := &ariesjose.JWK{}
+		err = json.Unmarshal([]byte(mPubKey), pubKey)
+		require.NoError(t, err)
+
+		var d []byte
+
+		dVal := k[idx+len(delim)+3 : len(k)-2]
+		d, err = base64.RawURLEncoding.DecodeString(dVal)
+		require.NoError(t, err)
+
+		privKey := &cryptoapi.PrivateKey{
+			PublicKey: cryptoapi.PublicKey{
+				X:     pubKey.Key.([]byte),
+				Curve: pubKey.Crv,
+				Type:  pubKey.Kty,
+			},
+			D: d,
+		}
+
+		var kh *keyset.Handle
+
+		kh, err = keyio.PrivateKeyToKeysetHandle(privKey, ecdh.XC20P)
+		require.NoError(t, err)
+
+		khs[kids[i]] = kh
+	}
+
+	return khs
 }

@@ -196,7 +196,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 				return legacy.New(provider), nil
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
-				return authcrypt.New(provider, jose.A256GCM)
+				return authcrypt.New(provider, jose.A128CBCHS256)
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
 				return anoncrypt.New(provider, jose.A256GCM)

@@ -44,8 +44,9 @@ type Crypto interface {
 	// using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
 	VerifyMAC(mac, data []byte, kh interface{}) error
 	// WrapKey will execute key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
-	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key wrapping
-	// (aka Authcrypt). The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt). Another option that can
+	// 'opts' allows setting the optional sender key handle using WithSender() option and the an authentication tag
+	// using WithTag() option. These allow ECDH-1PU key unwrapping (aka Authcrypt).
+	// The absence of these options uses ECDH-ES key wrapping (aka Anoncrypt). Another option that can
 	// be used is WithXC20PKW() to instruct the WrapKey to use XC20P key wrapping instead of the default A256GCM.
 	// returns:
 	// 		RecipientWrappedKey containing the wrapped cek value
@@ -53,8 +54,9 @@ type Crypto interface {
 	WrapKey(cek, apu, apv []byte, recPubKey *PublicKey,
 		opts ...WrapKeyOpts) (*RecipientWrappedKey, error)
 	// UnwrapKey unwraps a key in recWK using recipient private key kh.
-	// 'opts' allows setting the option sender key handle using WithSender() option. It allows ECDH-1PU key unwrapping
-	// (aka Authcrypt). The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt). There is no need to
+	// 'opts' allows setting the optional sender key handle using WithSender() option and the an authentication tag
+	// using WithTag() option. These allow ECDH-1PU key unwrapping (aka Authcrypt).
+	// The absence of these options uses ECDH-ES key unwrapping (aka Anoncrypt). There is no need to
 	// use WithXC20PKW() for UnwrapKey since the function will use the wrapping algorithm based on recWK.Alg.
 	// returns:
 	// 		unwrapped key in raw bytes
@@ -104,4 +106,10 @@ type PublicKey struct {
 	Y     []byte `json:"y,omitempty"`
 	Curve string `json:"curve,omitempty"`
 	Type  string `json:"type,omitempty"`
+}
+
+// PrivateKey mainly used to exchange ephemeral private key in JWE encrypter.
+type PrivateKey struct {
+	PublicKey PublicKey `json:"pubKey,omitempty"`
+	D         []byte    `json:"d,omitempty"`
 }

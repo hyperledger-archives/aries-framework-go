@@ -414,12 +414,28 @@ func TestCrypto_ECDHES_Wrap_Unwrap_ForAllKeyTypes(t *testing.T) {
 			useXC20P: true,
 		},
 		{
-			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and A256GCM kw",
+			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and A128GCM kw",
 			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
-			kwAlg:    ECDH1PUA256KWAlg,
+			kwAlg:    ECDH1PUA128KWAlg,
 			keyType:  ecdhpb.KeyType_EC.String(),
 			keyCurve: elliptic.P256().Params().Name,
 			senderKT: ecdh.NISTP256ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and A192GCM kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA192KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+			senderKT: ecdh.NISTP384ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-521 key and A256GCM kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+			senderKT: ecdh.NISTP521ECDHKWKeyTemplate(),
 		},
 		{
 			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and A256GCM kw",
@@ -486,13 +502,15 @@ func TestCrypto_ECDHES_Wrap_Unwrap_ForAllKeyTypes(t *testing.T) {
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
 	for _, tt := range tests {
 		tc := tt
 		t.Run("Test "+tc.tcName, func(t *testing.T) {
+			keySize := aesCEKSize1PU(tc.kwAlg)
+
+			cek := random.GetRandomBytes(uint32(keySize))
 			recipientKeyHandle, err := keyset.NewHandle(tc.keyTempl)
 			require.NoError(t, err)
 
@@ -555,7 +573,7 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize * 2))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
@@ -613,7 +631,7 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key_Using_CryptoPubKey_as_SenderKey(t *testi
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize * 2))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
