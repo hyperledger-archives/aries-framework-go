@@ -71,13 +71,20 @@ type UnlockWalletRequest struct {
 // UnlockAuth contains different options for authorizing access to wallet's EDV content store & webkms.
 type UnlockAuth struct {
 	// Http header 'authorization' bearer token to be used.
-	// Optional, only if required by wallet user.
+	// Optional, only if required by wallet user (for webkms or edv).
 	AuthToken string `json:"authToken,omitempty"`
 
 	// Capability if ZCAP sign header feature to be used for authorizing access.
 	// Optional, can be used only if ZCAP sign header feature is configured with command controller.
-	// Note: will not be considered When provided with `AuthToken` option.
 	Capability string `json:"capability,omitempty"`
+
+	// AuthZKeyStoreURL if ZCAP sign header feature to be used for authorizing access.
+	// Optional, can be used only if ZCAP sign header feature is configured with command controller.
+	AuthZKeyStoreURL string `json:"authzKeyStoreURL,omitempty"`
+
+	// SecretShare if ZCAP sign header feature to be used for authorizing access.
+	// Optional, can be used only if ZCAP sign header feature is configured with command controller.
+	SecretShare string `json:"secretShare,omitempty"`
 }
 
 // UnlockWalletResponse contains response for wallet unlock operation.

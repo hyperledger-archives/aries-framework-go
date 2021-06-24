@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -647,7 +648,8 @@ func TestCommand_OpenAndClose(t *testing.T) {
 
 	t.Run("successfully unlock & lock wallet (remote kms, capability)", func(t *testing.T) {
 		cmd := New(mockctx, &Config{
-			WebKMSCacheSize: 99,
+			WebKMSCacheSize:     99,
+			WebKMSAuthzProvider: &mockAuthZCapability{},
 		})
 
 		request := &UnlockWalletRequest{
@@ -730,6 +732,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		cmd := New(mockctx, &Config{
 			EDVReturnFullDocumentsOnQuery:    true,
 			EDVBatchEndpointExtensionEnabled: true,
+			EdvAuthzProvider:                 &mockAuthZCapability{},
 		})
 
 		request := &UnlockWalletRequest{
@@ -796,6 +799,37 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		cmdErr = cmd.Close(&b, getReader(t, ""))
 		require.Error(t, cmdErr)
 		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "cannot unmarshal string into Go")
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// EDV authz error
+		request := &UnlockWalletRequest{
+			UserID:             sampleUser3,
+			LocalKMSPassphrase: samplePassPhrase,
+			EDVUnlock: &UnlockAuth{
+				Capability: sampleFakeCapability,
+			},
+		}
+
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode,
+			"authorization capability for EDV is not configured")
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// webKMS authz error
+		request = &UnlockWalletRequest{
+			UserID: sampleUser3,
+			WebKMSAuth: &UnlockAuth{
+				Capability: sampleFakeCapability,
+			},
+		}
+
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode,
+			"authorization capability for WebKMS is not configured")
 		require.Empty(t, b.Len())
 		b.Reset()
 	})
@@ -1905,4 +1939,20 @@ func parsePresentation(t *testing.T, b bytes.Buffer) *verifiable.Presentation {
 	require.NoError(t, err)
 
 	return vp
+}
+
+// mock authz capability.
+type mockAuthZCapability struct{}
+
+// GetHeaderSigner mock implementation.
+func (s *mockAuthZCapability) GetHeaderSigner(authzKeyStoreURL, accessToken, secretShare string) HTTPHeaderSigner {
+	return &mockHeaderSigner{}
+}
+
+// mock header signer.
+type mockHeaderSigner struct{}
+
+// SignHeader mock implementation.
+func (s *mockHeaderSigner) SignHeader(req *http.Request, capabilityBytes []byte) (*http.Header, error) {
+	return &http.Header{}, nil
 }
