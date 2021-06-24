@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/piprate/json-gold/ld"
 
@@ -109,6 +110,8 @@ const (
 	logUserIDKey = "userID"
 
 	emptyRawLength = 4
+
+	defaultTokenExpiry = 5 * time.Minute
 )
 
 // AuthCapabilityProvider is for providing Authorization Capabilities (ZCAP-LD) feature for
@@ -138,6 +141,9 @@ type Config struct {
 	EDVBatchEndpointExtensionEnabled bool
 	// Aries Web KMS cache size configuration.
 	WebKMSCacheSize int
+	// Default token expiry for all wallet profiles created.
+	// Will be used only if wallet unlock request doesn't supply default timeout value.
+	DefaultTokenExpiry time.Duration
 }
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -161,6 +167,10 @@ func New(p provider, config *Config) *Command {
 
 	if config != nil {
 		cmd.config = config
+	}
+
+	if cmd.config.DefaultTokenExpiry == 0 {
+		cmd.config.DefaultTokenExpiry = defaultTokenExpiry
 	}
 
 	return cmd
@@ -772,7 +782,13 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 		edvOpts = append(edvOpts, edv.WithFullDocumentsReturnedFromQueries())
 	}
 
-	options = append(options, wallet.WithUnlockWebKMSOptions(webkmsOpts...), wallet.WithUnlockEDVOptions(edvOpts...))
+	tokenExpiry := conf.DefaultTokenExpiry
+	if rqst.Expiry > 0 {
+		tokenExpiry = rqst.Expiry
+	}
+
+	options = append(options, wallet.WithUnlockWebKMSOptions(webkmsOpts...), wallet.WithUnlockEDVOptions(edvOpts...),
+		wallet.WithUnlockExpiry(tokenExpiry))
 
 	return options, nil
 }
