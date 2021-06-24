@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
+	"crypto/elliptic"
+	"encoding/base64"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,6 +40,15 @@ func TestReadInvalid(t *testing.T) {
 		doc, err := v.Read("invalid")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid did: invalid")
+		require.Nil(t, doc)
+	})
+
+	t.Run("validate an invalid did method", func(t *testing.T) {
+		v := New()
+
+		doc, err := v.Read("did:invalid:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid did:key method: invalid")
 		require.Nil(t, doc)
 	})
 }
@@ -99,24 +111,36 @@ func TestReadBBS(t *testing.T) {
 	})
 }
 
+func readBigInt(t *testing.T, b64 string) *big.Int {
+	buf, err := base64.RawURLEncoding.DecodeString(b64)
+	require.Nil(t, err, "can't parse string as b64: %v\n%s", err, b64)
+
+	var x big.Int
+	x = *x.SetBytes(buf)
+
+	return &x
+}
+
 func TestReadP256(t *testing.T) {
 	v := New()
 
 	const (
-		k1       = "did:key:zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z"
-		k1KID    = "did:key:zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z#zrurwcJZss4ruepVNu1H3xmSirvNbzgBk9qrCktB6kaewXnJAhYWwtP3bxACqBpzjZdN7TyHNzzGGSSH5qvZsSDir9z" //nolint:lll
-		k1Base58 = "3YRwdf868zp2t8c4oT4XdYfCihMsfR1zrVYyXS5SS4FwQ7wftDfoY5nohvhdgSk9LxyfzjTLzffJPmHgFBqizX9v"
-		k2       = "did:key:zrusAFgBbf84b8mBz8Cmy8UoFWKV52EaeRnK86vnLo4Z5QoRypE6hXVPN2urevZMAMtcTaCDFLWBaE1Q3jmdb1FHgve"
-		k2KID    = "did:key:zrusAFgBbf84b8mBz8Cmy8UoFWKV52EaeRnK86vnLo4Z5QoRypE6hXVPN2urevZMAMtcTaCDFLWBaE1Q3jmdb1FHgve#zrusAFgBbf84b8mBz8Cmy8UoFWKV52EaeRnK86vnLo4Z5QoRypE6hXVPN2urevZMAMtcTaCDFLWBaE1Q3jmdb1FHgve" //nolint:lll
-		k2Base58 = "3m5KFNv9LgHyajqGJNEEz5JbqAPS4KHwKQu28g7vLC8xXw4MTyJusqsZMkSN2sYQbK5tvbnruySsWjBXJuQkZMva"
+		k1    = "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"
+		k1KID = "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv#zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv" //nolint:lll
+		k1X   = "igrFmi0whuihKnj9R3Om1SoMph72wUGeFaBbzG2vzns"
+		k1Y   = "efsX5b10x8yjyrj4ny3pGfLcY7Xby1KzgqOdqnsrJIM"
+		k2    = "did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169"
+		k2KID = "did:key:zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169#zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169" //nolint:lll
+		k2X   = "fyNYMN0976ci7xqiSdag3buk-ZCwgXU4kz9XNkBlNUI"
+		k2Y   = "hW2ojTNfH7Jbi8--CJUo3OCbH3y5n91g-IMA9MLMbTU"
 	)
 
 	t.Run("key 1", func(t *testing.T) {
 		docResolution, err := v.Read(k1)
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
-
-		assertBase58Doc(t, docResolution.DIDDocument, k1, k1KID, jsonWebKey2020, k1Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k1, k1KID, elliptic.P256(),
+			readBigInt(t, k1X), readBigInt(t, k1Y))
 	})
 
 	t.Run("key 2", func(t *testing.T) {
@@ -124,7 +148,8 @@ func TestReadP256(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
-		assertBase58Doc(t, docResolution.DIDDocument, k2, k2KID, jsonWebKey2020, k2Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k2, k2KID, elliptic.P256(),
+			readBigInt(t, k2X), readBigInt(t, k2Y))
 	})
 }
 
@@ -132,20 +157,22 @@ func TestReadP384(t *testing.T) {
 	v := New()
 
 	const (
-		k1       = "did:key:zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU"                                                                                                                                         //nolint:lll
-		k1KID    = "did:key:zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU#zFwfeyrSyWdksRYykTGGtagWazFB5zS4CjQcxDMQSNmCTQB5QMqokx2VJz4vBB2hN1nUrYDTuYq3kd1BM5cUCfFD4awiNuzEBuoy6rZZTMCsZsdvWkDXY6832qcAnzE7YGw43KU" //nolint:lll
-		k1Base58 = "tAjHMcvoBXs3BSihDV85trHmstc3V3vTP7o2Si72eCWdVzeGgGvRd8h5neHEbqSL989h53yNj7M7wHckB2bKpGKQjnPDD7NphDa9nUUBggCB6aCWterfdXbH5DfWPZx5oXU"                                                                                                                                                     //nolint:lll
-		k2       = "did:key:zFwepbBSaPFjt5T1zWptHaXugLNxHYABfJrDoAZRYxKjNkpdfrniF3pvYQAXwxVB7afhmsgzYtSCzTVZQ3F5SPHzP5PuHgtBGNYucZTSrnA7yTTDr7WGQZaTTkJWfiH47jW5ahU"                                                                                                                                         //nolint:lll
-		k2KID    = "did:key:zFwepbBSaPFjt5T1zWptHaXugLNxHYABfJrDoAZRYxKjNkpdfrniF3pvYQAXwxVB7afhmsgzYtSCzTVZQ3F5SPHzP5PuHgtBGNYucZTSrnA7yTTDr7WGQZaTTkJWfiH47jW5ahU#zFwepbBSaPFjt5T1zWptHaXugLNxHYABfJrDoAZRYxKjNkpdfrniF3pvYQAXwxVB7afhmsgzYtSCzTVZQ3F5SPHzP5PuHgtBGNYucZTSrnA7yTTDr7WGQZaTTkJWfiH47jW5ahU" //nolint:lll
-		k2Base58 = "3n4GxVYnCBm5RWHJcUyUzCRZ5SLAwdN4E513ZHfZZZABmVbBANirrYnhZRjiMQKZ4TdDiPaXxwqVzFFMQke78kmbeZHAHa7mCvU3BuRS6G1URwVFm8K64SHcwwiSy2X7LuU"                                                                                                                                                     //nolint:lll
+		k1    = "did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9"                                                                         //nolint:lll
+		k1KID = "did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9#z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9" //nolint:lll
+		k1X   = "lInTxl8fjLKp_UCrxI0WDklahi-7-_6JbtiHjiRvMvhedhKVdHBfi2HCY8t_QJyc"
+		k1Y   = "y6N1IC-2mXxHreETBW7K3mBcw0qGr3CWHCs-yl09yCQRLcyfGv7XhqAngHOu51Zv"
+		k2    = "did:key:z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54"                                                                         //nolint:lll
+		k2KID = "did:key:z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54#z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54" //nolint:lll
+		k2X   = "CA-iNoHDg1lL8pvX3d1uvExzVfCz7Rn6tW781Ub8K5MrDf2IMPyL0RTDiaLHC1JT"
+		k2Y   = "Kpnrn8DkXUD3ge4mFxi-DKr0DYO2KuJdwNBrhzLRtfMa3WFMZBiPKUPfJj8dYNl_"
 	)
 
 	t.Run("key 1", func(t *testing.T) {
 		docResolution, err := v.Read(k1)
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
-
-		assertBase58Doc(t, docResolution.DIDDocument, k1, k1KID, jsonWebKey2020, k1Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k1, k1KID, elliptic.P384(),
+			readBigInt(t, k1X), readBigInt(t, k1Y))
 	})
 
 	t.Run("key 2", func(t *testing.T) {
@@ -153,7 +180,8 @@ func TestReadP384(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
-		assertBase58Doc(t, docResolution.DIDDocument, k2, k2KID, jsonWebKey2020, k2Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k2, k2KID, elliptic.P384(),
+			readBigInt(t, k2X), readBigInt(t, k2Y))
 	})
 }
 
@@ -161,20 +189,22 @@ func TestRead521(t *testing.T) {
 	v := New()
 
 	const (
-		k1       = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK"                                                                                                                                                                                          //nolint:lll
-		k1KID    = "did:key:zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK#zWGhj2NTyCiehTPioanYSuSrfB7RJKwZj6bBUDNojfGEA21nr5NcBsHme7hcVSbptpWKarJpTcw814J3X8gVU9gZmeKM27JpGA5wNMzt8JZwjDyf8EzCJg5ve5GR2Xfm7d9Djp73V7s35KPeKe7VHMzmL8aPw4XBniNej5sXapPFoBs5R8m195HK" //nolint:lll
-		k1Base58 = "mTQ9pPr2wkKdiTHhVG7xmLwyJ5mrgq1FKcHFz2XJprs4zAPtjXWFiEz6vsscbseSEzGdjAVzcUhwdodT5cbrRjQqFdz8d1yYVqMHXsVCdCUrmWNNHcZLJeYCn1dCtQX9YRVdDFfnzczKFxDXe9HusLqBWTobbxVvdj9cTi7rSWVznP5Emfo"                                                                                                                                                                                                       //nolint:lll
-		k2       = "did:key:zWGhiwzmESrRykvUMCSNCadMyhzgAMVXST3KLSxY5unckUdYaGBZs59WMkMggeenMFAr938YxbEesbQ7myxmqDYo3m7xgFu8ppYDx2waz2Lw6eD9aADLn6Cw6Q6gTrH6sry211Z16nvVW25dsY6bZKhGKt4DeB1gGfvBk8bxwKuxTUtZrgwrMm1S"                                                                                                                                                                                          //nolint:lll
-		k2KID    = "did:key:zWGhiwzmESrRykvUMCSNCadMyhzgAMVXST3KLSxY5unckUdYaGBZs59WMkMggeenMFAr938YxbEesbQ7myxmqDYo3m7xgFu8ppYDx2waz2Lw6eD9aADLn6Cw6Q6gTrH6sry211Z16nvVW25dsY6bZKhGKt4DeB1gGfvBk8bxwKuxTUtZrgwrMm1S#zWGhiwzmESrRykvUMCSNCadMyhzgAMVXST3KLSxY5unckUdYaGBZs59WMkMggeenMFAr938YxbEesbQ7myxmqDYo3m7xgFu8ppYDx2waz2Lw6eD9aADLn6Cw6Q6gTrH6sry211Z16nvVW25dsY6bZKhGKt4DeB1gGfvBk8bxwKuxTUtZrgwrMm1S" //nolint:lll
-		k2Base58 = "h5hR4XdKFH5BL77TASdHJECqKdja3H97ZC1cEYuuHUcoAyMZwPEyLu4J8vq52YAzRp18hU2s9anCV5up9Uq8YY2VQEJhHUG8An49FeUa3RyJgjWqhjZndUoe6cxy8EKQjsTEtK8DhJys9wKobqnucpetcxJ5ZW2wgTaxyEpWjXzSLZvTTPv"                                                                                                                                                                                                       //nolint:lll
+		k1    = "did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7"                                                                                                  //nolint:lll
+		k1KID = "did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7#z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7" //nolint:lll
+		k1X   = "ASUHPMyichQ0QbHZ9ofNx_l4y7luncn5feKLo3OpJ2nSbZoC7mffolj5uy7s6KSKXFmnNWxGJ42IOrjZ47qqwqyS"
+		k1Y   = "AW9ziIC4ZQQVSNmLlp59yYKrjRY0_VqO-GOIYQ9tYpPraBKUloEId6cI_vynCzlZWZtWpgOM3HPhYEgawQ703RjC"
+		k2    = "did:key:z2J9gcGdb2nEyMDmzQYv2QZQcM1vXktvy1Pw4MduSWxGabLZ9XESSWLQgbuPhwnXN7zP7HpTzWqrMTzaY5zWe6hpzJ2jnw4f"                                                                                                  //nolint:lll
+		k2KID = "did:key:z2J9gcGdb2nEyMDmzQYv2QZQcM1vXktvy1Pw4MduSWxGabLZ9XESSWLQgbuPhwnXN7zP7HpTzWqrMTzaY5zWe6hpzJ2jnw4f#z2J9gcGdb2nEyMDmzQYv2QZQcM1vXktvy1Pw4MduSWxGabLZ9XESSWLQgbuPhwnXN7zP7HpTzWqrMTzaY5zWe6hpzJ2jnw4f" //nolint:lll
+		k2X   = "AQgyFy6EwH3_u_KXPw8aTXTY7WSVytmbuJeFpq4U6LipxtSmBJe_jjRzms9qubnwm_fGoHMQlvQ1vzS2YLusR2V0"
+		k2Y   = "Ab06MCcgoG7dM2I-VppdLV1k3lDoeHMvyYqHVfP05Ep2O7Zu0Qwd6IVzfZi9K0KMDud22wdnGUpUtFukZo0EeO15"
 	)
 
 	t.Run("key 1", func(t *testing.T) {
 		docResolution, err := v.Read(k1)
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
-
-		assertBase58Doc(t, docResolution.DIDDocument, k1, k1KID, jsonWebKey2020, k1Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k1, k1KID, elliptic.P521(),
+			readBigInt(t, k1X), readBigInt(t, k1Y))
 	})
 
 	t.Run("key 2", func(t *testing.T) {
@@ -182,6 +212,7 @@ func TestRead521(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, docResolution.DIDDocument)
 
-		assertBase58Doc(t, docResolution.DIDDocument, k2, k2KID, jsonWebKey2020, k2Base58)
+		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k2, k2KID, elliptic.P521(),
+			readBigInt(t, k2X), readBigInt(t, k2Y))
 	})
 }
