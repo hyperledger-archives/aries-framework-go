@@ -71,13 +71,13 @@ func (w *mockKeyWrapperSupport) unwrap(block interface{}, wrappedKey []byte) ([]
 	return w.unwrapVal, w.unwrapErr
 }
 
-func (w *mockKeyWrapperSupport) deriveSender1Pu(kwAlg string, apu, apv []byte, epPriv, sePrivKey, recPubKey interface{},
-	keySize int) ([]byte, error) {
+func (w *mockKeyWrapperSupport) deriveSender1Pu(kwAlg string, apu, apv, tag []byte, epPriv, sePrivKey,
+	recPubKey interface{}, keySize int) ([]byte, error) {
 	return w.deriveSen1PuVal, w.deriveSen1PuErr
 }
 
-func (w *mockKeyWrapperSupport) deriveRecipient1Pu(kwAlg string, apu, apv []byte, epPub, sePubKey, rPrivKey interface{},
-	keySize int) ([]byte, error) {
+func (w *mockKeyWrapperSupport) deriveRecipient1Pu(kwAlg string, apu, apv, tag []byte, epPub, sePubKey,
+	rPrivKey interface{}, keySize int) ([]byte, error) {
 	return w.deriveRec1PuVal, w.deriveRec1PuErr
 }
 
@@ -97,7 +97,7 @@ func TestWrapKey_Failure(t *testing.T) {
 
 	_, err = c.WrapKey(cek, apu, apv, recipientKey)
 	require.EqualError(t, err, "wrapKey: deriveKEKAndWrap: error ECDH-ES kek derivation: deriveESKEK: error "+
-		"deriveESWithECKey: failed to generate ephemeral key: convertRecKeyAndGenEPKEC: failed to get curve of "+
+		"deriveESWithECKey: failed to generate ephemeral key: convertRecKeyAndGenOrGetEPKEC: failed to get curve of "+
 		"recipient key: bad Curve")
 
 	// test WrapKey with mocked generateKey error
@@ -105,7 +105,7 @@ func TestWrapKey_Failure(t *testing.T) {
 
 	_, err = c.WrapKey(cek, apu, apv, recipientKey)
 	require.EqualError(t, err, "wrapKey: deriveKEKAndWrap: error ECDH-ES kek derivation: deriveESKEK: error "+
-		"deriveESWithECKey: failed to generate ephemeral key: convertRecKeyAndGenEPKEC: failed to generate EPK: "+
+		"deriveESWithECKey: failed to generate ephemeral key: convertRecKeyAndGenOrGetEPKEC: failed to generate EPK: "+
 		"genKey failed")
 
 	epk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -320,10 +320,10 @@ func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
 	recKH, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
-	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, nil, nil)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, nil, nil, nil)
 	require.EqualError(t, err, "deriveKEKAndUnwrap: bad key handle format")
 
-	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, nil, recKH)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, nil, nil, recKH)
 	require.EqualError(t, err, "deriveKEKAndUnwrap: error ECDH-1PU kek derivation: derive1PUKEKForUnwrap: sender's"+
 		" public keyset handle option is required for 'ECDH-1PU+A256KW'")
 
@@ -338,7 +338,7 @@ func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
 		Type: ecdhpb.KeyType_EC.String(),
 	}
 
-	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, epk, senderKH, recKH)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, epk, senderKH, recKH)
 	require.EqualError(t, err, "deriveKEKAndUnwrap: error ECDH-1PU kek derivation: derive1PUKEKForUnwrap: EC key"+
 		" derivation error derive1PUWithECKeyForUnwrap: failed to retrieve sender key: ksToPublicECDSAKey: failed to"+
 		" GetCurve: getCurve error")
@@ -348,7 +348,7 @@ func Test_deriveKEKAndUnwrap_Failure(t *testing.T) {
 	}
 
 	epk.Curve = commonpb.EllipticCurveType_NIST_P256.String()
-	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, epk, senderKH, recKH)
+	_, err = c.deriveKEKAndUnwrap(ECDH1PUA256KWAlg, nil, nil, nil, nil, epk, senderKH, recKH)
 	require.EqualError(t, err, "deriveKEKAndUnwrap: error ECDH-1PU kek derivation: derive1PUKEKForUnwrap: EC key"+
 		" derivation error derive1PUWithECKeyForUnwrap: failed to derive kek: derive recipient 1pu error")
 }
@@ -410,7 +410,7 @@ func Test_deriveKEKUnwrapFailureDueToExtractPrivKeyError(t *testing.T) {
 	require.NoError(t, err)
 
 	c := Crypto{}
-	_, err = c.deriveKEKAndUnwrap("", nil, nil, nil, nil, nil, badPrivHK)
+	_, err = c.deriveKEKAndUnwrap("", nil, nil, nil, nil, nil, nil, badPrivHK)
 	require.EqualError(t, err, "deriveKEKAndUnwrap: extractPrivKey: invalid key: unsupported curve")
 }
 
@@ -421,14 +421,14 @@ func Test_generateEphemeralOKPKey_Failure(t *testing.T) {
 		},
 	}
 
-	_, _, err := c.generateEphemeralOKPKey()
+	_, _, err := c.generateOrGetEphemeralOKPKey(nil)
 	require.EqualError(t, err, "generate failure")
 
 	c.okpKW = &mockKeyWrapperSupport{
 		generateKeyVal: &ecdsa.PrivateKey{},
 	}
 
-	_, _, err = c.generateEphemeralOKPKey()
+	_, _, err = c.generateOrGetEphemeralOKPKey(nil)
 	require.EqualError(t, err, "invalid ephemeral key type, not OKP, want []byte for OKP")
 }
 

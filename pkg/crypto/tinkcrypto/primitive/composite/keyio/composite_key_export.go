@@ -32,8 +32,10 @@ import (
 // key (aka PublicKeyToHandle to be used as a valid Tink key)
 
 const (
-	nistPECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
-	x25519ECDHKWPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
+	nistPECDHKWPublicKeyTypeURL   = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
+	x25519ECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
+	nistPECDHKWPrivateKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
+	x25519ECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPrivateKey"
 )
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key. The raw bytes are a marshaled
@@ -248,7 +250,8 @@ func writePubKeyFromKeyHandle(handle *keyset.Handle) ([]byte, error) {
 // PublicKeyToKeysetHandle converts pubKey into a *keyset.Handle where pubKey could be either a sender or a
 // recipient key. The resulting handle cannot be directly used for primitive execution as the cek is not set. This
 // function serves as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt).
-// The keyset handle will be set with AES256-GCM AEAD key template for content encryption. With:
+// The keyset handle will be set with either AES256-GCM, AES128CBC+SHA256, AES192CBC+SHA384, AES256CBC+SHA384 or
+// AES256CBC+SHA512 AEAD key template for content encryption. With:
 // - pubKey the public key to convert.
 // - aeadAlg the content encryption algorithm to use along the ECDH primitive.
 func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey, aeadAlg ecdh.AEADAlg) (*keyset.Handle, error) {
@@ -263,7 +266,7 @@ func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey, aeadAlg ecdh.AEADAlg) 
 		return nil, fmt.Errorf("publicKeyToKeysetHandle: failed to convert key type to proto: %w", err)
 	}
 
-	encT, keyURL, err := keyTemplateAndURL(cp, aeadAlg)
+	encT, keyURL, err := keyTemplateAndURL(cp, aeadAlg, true)
 	if err != nil {
 		return nil, fmt.Errorf("publicKeyToKeysetHandle: %w", err)
 	}
@@ -302,21 +305,96 @@ func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey, aeadAlg ecdh.AEADAlg) 
 	return parsedHandle, nil
 }
 
-func keyTemplateAndURL(cp commonpb.EllipticCurveType, aeadAlg ecdh.AEADAlg) (*tinkpb.KeyTemplate, string, error) {
+// PrivateKeyToKeysetHandle converts privKey into a *keyset.Handle where privKey could be either a sender or a
+// recipient key. The resulting handle cannot be directly used for primitive execution as the cek is not set. This
+// function serves as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt).
+// The keyset handle will be set with either AES256-GCM, AES128CBC+SHA256, AES192CBC+SHA384, AES256CBC+SHA384 or
+// AES256CBC+SHA512 AEAD key template for content encryption. With:
+// - pubKey the public key to convert.
+// - aeadAlg the content encryption algorithm to use along the ECDH primitive.
+func PrivateKeyToKeysetHandle(privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAlg) (*keyset.Handle, error) {
+	// validate curve
+	cp, err := getCurveProto(privKey.PublicKey.Curve)
+	if err != nil {
+		return nil, fmt.Errorf("privateKeyToKeysetHandle: failed to convert curve string to proto: %w", err)
+	}
+
+	kt, err := getKeyType(privKey.PublicKey.Type)
+	if err != nil {
+		return nil, fmt.Errorf("privateKeyToKeysetHandle: failed to convert key type to proto: %w", err)
+	}
+
+	encT, keyURL, err := keyTemplateAndURL(cp, aeadAlg, false)
+	if err != nil {
+		return nil, fmt.Errorf("privateKeyToKeysetHandle: %w", err)
+	}
+
+	protoKey := &ecdhpb.EcdhAeadPrivateKey{
+		PublicKey: &ecdhpb.EcdhAeadPublicKey{
+			Version: 0,
+			Params: &ecdhpb.EcdhAeadParams{
+				KwParams: &ecdhpb.EcdhKwParams{
+					CurveType: cp,
+					KeyType:   kt,
+				},
+				EncParams: &ecdhpb.EcdhAeadEncParams{
+					AeadEnc: encT,
+				},
+				EcPointFormat: commonpb.EcPointFormat_UNCOMPRESSED,
+			},
+			KID: privKey.PublicKey.KID,
+			X:   privKey.PublicKey.X,
+			Y:   privKey.PublicKey.Y,
+		},
+	}
+
+	marshalledKey, err := proto.Marshal(protoKey)
+	if err != nil {
+		return nil, fmt.Errorf("privateKeyToKeysetHandle: failed to marshal proto: %w", err)
+	}
+
+	ks := newKeySet(keyURL, marshalledKey, tinkpb.KeyData_ASYMMETRIC_PUBLIC)
+
+	memReader := &keyset.MemReaderWriter{Keyset: ks}
+
+	parsedHandle, err := insecurecleartextkeyset.Read(memReader)
+	if err != nil {
+		return nil, fmt.Errorf("privateKeyToKeysetHandle: failed to create key handle: %w", err)
+	}
+
+	return parsedHandle, nil
+}
+
+var keyTemplateToPublicKeyURL = map[commonpb.EllipticCurveType]string{ //nolint:gochecknoglobals
+	commonpb.EllipticCurveType_NIST_P256:  nistPECDHKWPublicKeyTypeURL,
+	commonpb.EllipticCurveType_NIST_P384:  nistPECDHKWPublicKeyTypeURL,
+	commonpb.EllipticCurveType_NIST_P521:  nistPECDHKWPublicKeyTypeURL,
+	commonpb.EllipticCurveType_CURVE25519: x25519ECDHKWPublicKeyTypeURL,
+}
+
+var keyTemplateToPrivateKeyURL = map[commonpb.EllipticCurveType]string{ //nolint:gochecknoglobals
+	commonpb.EllipticCurveType_NIST_P256:  nistPECDHKWPrivateKeyTypeURL,
+	commonpb.EllipticCurveType_NIST_P384:  nistPECDHKWPrivateKeyTypeURL,
+	commonpb.EllipticCurveType_NIST_P521:  nistPECDHKWPrivateKeyTypeURL,
+	commonpb.EllipticCurveType_CURVE25519: x25519ECDHKWPrivateKeyTypeURL,
+}
+
+func keyTemplateAndURL(cp commonpb.EllipticCurveType, aeadAlg ecdh.AEADAlg,
+	isPublic bool) (*tinkpb.KeyTemplate, string, error) {
 	// set ecdh kw public keyTypeURL.
 	var (
 		encT   *tinkpb.KeyTemplate
 		keyURL string
 	)
 
-	switch cp {
-	case commonpb.EllipticCurveType_NIST_P256, commonpb.EllipticCurveType_NIST_P384,
-		commonpb.EllipticCurveType_NIST_P521:
-		keyURL = nistPECDHKWPublicKeyTypeURL
-	case commonpb.EllipticCurveType_CURVE25519:
-		keyURL = x25519ECDHKWPublicKeyTypeURL
-	default:
-		return nil, "", fmt.Errorf("invalid public key curve: '%v'", cp)
+	if isPublic {
+		keyURL = keyTemplateToPublicKeyURL[cp]
+	} else {
+		keyURL = keyTemplateToPrivateKeyURL[cp]
+	}
+
+	if keyURL == "" {
+		return nil, "", fmt.Errorf("invalid key curve: '%v'", cp)
 	}
 
 	// set aeadAlg encryption primitive template.

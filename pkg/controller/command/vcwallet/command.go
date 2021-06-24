@@ -75,6 +75,9 @@ const (
 
 	// CreateKeyPairFromWalletErrorCode for errors while creating key pair from wallet.
 	CreateKeyPairFromWalletErrorCode
+
+	// ProfileExistsErrorCode for errors while checking if profile exists for a wallet user.
+	ProfileExistsErrorCode
 )
 
 // All command operations.
@@ -84,6 +87,7 @@ const (
 	// command methods.
 	CreateProfileMethod = "CreateProfile"
 	UpdateProfileMethod = "UpdateProfile"
+	ProfileExistsMethod = "ProfileExists"
 	OpenMethod          = "Open"
 	CloseMethod         = "Close"
 	AddMethod           = "Add"
@@ -107,6 +111,13 @@ const (
 	emptyRawLength = 4
 )
 
+// AuthCapabilityProvider is for providing Authorization Capabilities (ZCAP-LD) feature for
+// wallet's EDV and WebKMS components.
+type AuthCapabilityProvider interface {
+	// Returns HTTP Header Signer.
+	GetHeaderSigner(authzKeyStoreURL, accessToken, secretShare string) HTTPHeaderSigner
+}
+
 // HTTPHeaderSigner is for http header signing, typically used for zcapld functionality.
 type HTTPHeaderSigner interface {
 	// SignHeader header with capability.
@@ -117,9 +128,9 @@ type HTTPHeaderSigner interface {
 // All properties of this config are optional, but they can be used to customize wallet's webkms and edv client's.
 type Config struct {
 	// EDV header signer, typically used for introducing zcapld feature.
-	EdvAuthSigner HTTPHeaderSigner
+	EdvAuthzProvider AuthCapabilityProvider
 	// Web KMS header signer, typically used for introducing zcapld feature.
-	WebKMSAuthSigner HTTPHeaderSigner
+	WebKMSAuthzProvider AuthCapabilityProvider
 	// option is a performance optimization that speeds up queries by getting full documents from
 	// the EDV server instead of only document locations.
 	EDVReturnFullDocumentsOnQuery bool
@@ -160,6 +171,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, CreateProfileMethod, o.CreateProfile),
 		cmdutil.NewCommandHandler(CommandName, UpdateProfileMethod, o.UpdateProfile),
+		cmdutil.NewCommandHandler(CommandName, ProfileExistsMethod, o.ProfileExists),
 		cmdutil.NewCommandHandler(CommandName, OpenMethod, o.Open),
 		cmdutil.NewCommandHandler(CommandName, CloseMethod, o.Close),
 		cmdutil.NewCommandHandler(CommandName, AddMethod, o.Add),
@@ -235,11 +247,42 @@ func (o *Command) UpdateProfile(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// ProfileExists checks if wallet profile exists for given wallet user.
+func (o *Command) ProfileExists(rw io.Writer, req io.Reader) command.Error {
+	user := &WalletUser{}
+
+	err := json.NewDecoder(req).Decode(&user)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProfileExistsMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	err = wallet.ProfileExists(user.ID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProfileExistsMethod, err.Error())
+
+		return command.NewExecuteError(ProfileExistsErrorCode, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, ProfileExistsMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, user.ID))
+
+	return nil
+}
+
 // Open unlocks given user's wallet and returns a token for subsequent use of wallet features.
 func (o *Command) Open(rw io.Writer, req io.Reader) command.Error {
 	request := &UnlockWalletRequest{}
 
 	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	opts, err := prepareUnlockOptions(request, o.config)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
 
@@ -253,7 +296,7 @@ func (o *Command) Open(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(OpenWalletErrorCode, err)
 	}
 
-	token, err := vcWallet.Open(prepareUnlockOptions(request, o.config)...)
+	token, err := vcWallet.Open(opts...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, OpenMethod, err.Error())
 
@@ -655,7 +698,8 @@ func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileO
 }
 
 // prepareUnlockOptions prepares options for unlocking wallet.
-func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) []wallet.UnlockOptions { // nolint:funlen,gocyclo
+//nolint: lll
+func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.UnlockOptions, error) { // nolint:funlen,gocyclo
 	var options []wallet.UnlockOptions
 
 	if rqst.LocalKMSPassphrase != "" {
@@ -665,21 +709,28 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) []wallet.Unlo
 	var webkmsOpts []webkms.Opt
 
 	if rqst.WebKMSAuth != nil {
-		if rqst.WebKMSAuth.AuthToken != "" {
-			webkmsOpts = append(webkmsOpts, webkms.WithHeaders(
-				func(req *http.Request) (*http.Header, error) {
-					req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+		var webKMSHeader func(*http.Request) (*http.Header, error)
 
-					return &req.Header, nil
-				},
-			))
-		} else if rqst.WebKMSAuth.Capability != "" && conf.WebKMSAuthSigner != nil {
-			webkmsOpts = append(webkmsOpts, webkms.WithHeaders(
-				func(req *http.Request) (*http.Header, error) {
-					return conf.EdvAuthSigner.SignHeader(req, []byte(rqst.WebKMSAuth.Capability))
-				},
-			))
+		if rqst.WebKMSAuth.Capability != "" { // zcap ld signing
+			if conf.WebKMSAuthzProvider == nil {
+				return nil, fmt.Errorf("authorization capability for WebKMS is not configured")
+			}
+
+			signer := conf.WebKMSAuthzProvider.GetHeaderSigner(rqst.WebKMSAuth.AuthZKeyStoreURL,
+				rqst.WebKMSAuth.AuthToken, rqst.WebKMSAuth.SecretShare)
+
+			webKMSHeader = func(req *http.Request) (*http.Header, error) {
+				return signer.SignHeader(req, []byte(rqst.WebKMSAuth.Capability))
+			}
+		} else if rqst.WebKMSAuth.AuthToken != "" { // auth token
+			webKMSHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+
+				return &req.Header, nil
+			}
 		}
+
+		webkmsOpts = append(webkmsOpts, webkms.WithHeaders(webKMSHeader))
 	}
 
 	if conf.WebKMSCacheSize > 0 {
@@ -689,21 +740,28 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) []wallet.Unlo
 	var edvOpts []edv.RESTProviderOption
 
 	if rqst.EDVUnlock != nil {
-		if rqst.EDVUnlock.AuthToken != "" {
-			edvOpts = append(edvOpts, edv.WithHeaders(
-				func(req *http.Request) (*http.Header, error) {
-					req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+		var edvHeader func(*http.Request) (*http.Header, error)
 
-					return &req.Header, nil
-				},
-			))
-		} else if rqst.EDVUnlock.Capability != "" && conf.EdvAuthSigner != nil {
-			edvOpts = append(edvOpts, edv.WithHeaders(
-				func(req *http.Request) (*http.Header, error) {
-					return conf.EdvAuthSigner.SignHeader(req, []byte(rqst.EDVUnlock.Capability))
-				},
-			))
+		if rqst.EDVUnlock.Capability != "" { // zcap ld signing
+			if conf.EdvAuthzProvider == nil {
+				return nil, fmt.Errorf("authorization capability for EDV is not configured")
+			}
+
+			signer := conf.EdvAuthzProvider.GetHeaderSigner(rqst.EDVUnlock.AuthZKeyStoreURL,
+				rqst.EDVUnlock.AuthToken, rqst.EDVUnlock.SecretShare)
+
+			edvHeader = func(req *http.Request) (*http.Header, error) {
+				return signer.SignHeader(req, []byte(rqst.EDVUnlock.Capability))
+			}
+		} else if rqst.EDVUnlock.AuthToken != "" { // auth token
+			edvHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+
+				return &req.Header, nil
+			}
 		}
+
+		edvOpts = append(edvOpts, edv.WithHeaders(edvHeader))
 	}
 
 	if conf.EDVBatchEndpointExtensionEnabled {
@@ -716,7 +774,7 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) []wallet.Unlo
 
 	options = append(options, wallet.WithUnlockWebKMSOptions(webkmsOpts...), wallet.WithUnlockEDVOptions(edvOpts...))
 
-	return options
+	return options, nil
 }
 
 func prepareProveOptions(rqst *ProveRequest) []wallet.ProveOptions {

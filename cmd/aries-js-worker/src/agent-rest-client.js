@@ -403,6 +403,11 @@ const pkgs = {
             path: "/vcwallet/update-profile",
             method: "POST",
         },
+        ProfileExists: {
+            path: "/vcwallet/profile/{id}",
+            method: "GET",
+            pathParam: "id",
+        },
         Open: {
             path: "/vcwallet/open",
             method: "POST",

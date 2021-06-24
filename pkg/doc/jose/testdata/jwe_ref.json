@@ -1,0 +1,26 @@
+{
+  "protected":
+  "eyJhbGciOiJFQ0RILTFQVStBMTI4S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwiYXB1Ijoi
+  UVd4cFkyVSIsImFwdiI6IlFtOWlJR0Z1WkNCRGFHRnliR2xsIiwiZXBrIjp7Imt0eSI6Ik9L
+  UCIsImNydiI6IlgyNTUxOSIsIngiOiJrOW9mX2NwQWFqeTBwb1c1Z2FpeFhHczluSGt3ZzFB
+  RnFVQUZhMzlkeUJjIn19",
+  "unprotected":
+  {"jku":"https://alice.example.com/keys.jwks"},
+  "recipients":[
+    {"header":
+    {"kid":"bob-key-2"},
+      "encrypted_key":
+      "pOMVA9_PtoRe7xXW1139NzzN1UhiFoio8lGto9cf0t8PyU-sjNXH8-LIRLycq8CHJQbDwvQ
+      eU1cSl55cQ0hGezJu2N9IY0QN"},
+    {"header":
+    {"kid":"2021-05-06"},
+      "encrypted_key":
+      "56GVudgRLIMEElQ7DpXsijJVRSWUSDNdbWkdV3g0GUNq6hcT_GkxwnxlPIWrTXCqRpVKQC8
+      fe4z3PQ2YH2afvjQ28aiCTWFE"}],
+      "iv":
+      "AAECAwQFBgcICQoLDA0ODw",
+      "ciphertext":
+      "Az2IWsISEMDJvyc5XRL-3-d-RgNBOGolCsxFFoUXFYw",
+      "tag":
+      "HLb4fTlm8spGmij3RyOs2gJ4DpHM4hhVRwdF_hGb3WQ"
+    }

@@ -96,6 +96,11 @@ func UpdateProfile(userID string, ctx provider, options ...wallet.ProfileOptions
 	return wallet.UpdateProfile(userID, ctx, options...)
 }
 
+// ProfileExists checks if profile exists for given wallet user, returns error if not found.
+func ProfileExists(userID string, ctx provider) error {
+	return wallet.ProfileExists(userID, ctx)
+}
+
 // Open unlocks wallet client's key manager instance and returns a token for subsequent use of wallet features.
 //
 //	Args:
