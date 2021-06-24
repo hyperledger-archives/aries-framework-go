@@ -8,6 +8,7 @@ package vcwallet
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -66,6 +67,9 @@ type UnlockWalletRequest struct {
 	// Options for authorizing access to wallet's EDV content store.
 	// Optional, to be used only if profile for this wallet user is setup to use EDV as content store.
 	EDVUnlock *UnlockAuth `json:"edvUnlocks"`
+
+	// Time duration in milliseconds after which wallet will expire its unlock status.
+	Expiry time.Duration `json:"expiry,omitempty"`
 }
 
 // UnlockAuth contains different options for authorizing access to wallet's EDV content store & webkms.

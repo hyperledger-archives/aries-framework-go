@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -655,6 +656,7 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		request := &UnlockWalletRequest{
 			UserID:     sampleUser2,
 			WebKMSAuth: &UnlockAuth{Capability: sampleFakeCapability},
+			Expiry:     10 * time.Second,
 		}
 
 		// unlock wallet
