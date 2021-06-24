@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"time"
@@ -50,12 +51,21 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 		return nil, fmt.Errorf("verification method is empty")
 	}
 
-	keyCode, err = getKeyCode(keyType, &didDoc.VerificationMethod[0])
-	if err != nil {
-		return nil, err
+	switch didDoc.VerificationMethod[0].Type {
+	case jsonWebKey2020:
+		didKey, keyID, err = fingerprint.CreateDIDKeyByJwk(didDoc.VerificationMethod[0].JSONWebKey())
+		if err != nil {
+			return nil, err
+		}
+	default:
+		keyCode, err = getKeyCode(keyType, &didDoc.VerificationMethod[0])
+		if err != nil {
+			return nil, err
+		}
+
+		didKey, keyID = fingerprint.CreateDIDKeyByCode(keyCode, didDoc.VerificationMethod[0].Value)
 	}
 
-	didKey, keyID = fingerprint.CreateDIDKeyByCode(keyCode, didDoc.VerificationMethod[0].Value)
 	publicKey = did.NewVerificationMethodFromBytes(keyID, didDoc.VerificationMethod[0].Type, didKey,
 		didDoc.VerificationMethod[0].Value)
 
@@ -89,6 +99,11 @@ func getKeyCode(keyType kms.KeyType, verificationMethod *did.VerificationMethod)
 	case bls12381G2Key2020:
 		keyCode = fingerprint.BLS12381g2PubKeyMultiCodec
 	case jsonWebKey2020:
+		// if json web key then a jwk must be passed in the verification method
+		if verificationMethod.JSONWebKey() == nil {
+			return 0, fmt.Errorf("jsonWebKey is required for verificationMethod.Type %s", jsonWebKey2020)
+		}
+
 		if keyType == "" {
 			return fetchECKeyCodeFromVerMethod(verificationMethod)
 		}
@@ -111,13 +126,21 @@ func getKeyCode(keyType kms.KeyType, verificationMethod *did.VerificationMethod)
 }
 
 func fetchECKeyCodeFromVerMethod(method *did.VerificationMethod) (uint64, error) {
-	ecdsaCodesByKeyLen := map[int]uint64{
-		64:  fingerprint.P256PubKeyMultiCodec,
-		96:  fingerprint.P384PubKeyMultiCodec,
-		132: fingerprint.P521PubKeyMultiCodec,
+	// ec keys must pass in a jwk
+	if method.JSONWebKey() == nil {
+		return 0, fmt.Errorf("jsonWebKey is required for EC key")
 	}
 
-	return ecdsaCodesByKeyLen[len(method.Value)], nil
+	switch method.JSONWebKey().Crv {
+	case elliptic.P256().Params().Name:
+		return fingerprint.P256PubKeyMultiCodec, nil
+	case elliptic.P384().Params().Name:
+		return fingerprint.P384PubKeyMultiCodec, nil
+	case elliptic.P521().Params().Name:
+		return fingerprint.P521PubKeyMultiCodec, nil
+	default:
+		return 0, fmt.Errorf("not supported EC Curve: %s", method.JSONWebKey().Crv)
+	}
 }
 
 func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did.Doc {

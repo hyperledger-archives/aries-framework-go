@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fingerprint
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 const (
@@ -54,6 +57,47 @@ func CreateDIDKeyByCode(code uint64, pubKey []byte) (string, string) {
 	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
 
 	return didKey, keyID
+}
+
+// CreateDIDKeyByJwk creates a did:key ID using the multicodec key fingerprint as per the did:key format spec found at:
+// https://w3c-ccg.github.io/did-method-key/#format.
+func CreateDIDKeyByJwk(jsonWebKey *jose.JWK) (string, string, error) {
+	if jsonWebKey == nil {
+		return "", "", fmt.Errorf("jsonWebKey is required")
+	}
+
+	switch jsonWebKey.Kty {
+	case "EC":
+		var curve elliptic.Curve
+
+		var code uint64
+
+		switch jsonWebKey.Crv {
+		case elliptic.P256().Params().Name:
+			curve = elliptic.P256()
+			code = P256PubKeyMultiCodec
+		case elliptic.P384().Params().Name:
+			curve = elliptic.P384()
+			code = P384PubKeyMultiCodec
+		case elliptic.P521().Params().Name:
+			curve = elliptic.P521()
+			code = P521PubKeyMultiCodec
+		default:
+			return "", "", fmt.Errorf("unsupported crv %s", jsonWebKey.Crv)
+		}
+
+		switch key := jsonWebKey.Key.(type) {
+		case *ecdsa.PublicKey:
+			bytes := elliptic.MarshalCompressed(curve, key.X, key.Y)
+			didKey, keyID := CreateDIDKeyByCode(code, bytes)
+
+			return didKey, keyID, nil
+		default:
+			return "", "", fmt.Errorf("unexpected key type")
+		}
+	default:
+		return "", "", fmt.Errorf("unsupported kty %s", jsonWebKey.Kty)
+	}
 }
 
 // KeyFingerprint generates a multicode fingerprint for pubKeyValue (raw key []byte).
