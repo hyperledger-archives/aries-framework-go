@@ -57,6 +57,7 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 				ServerURL: "sample-server",
 				VaultID:   "sample-vault-ID",
 			},
+			KeyServerURL: sampleKeyServerURL,
 		}
 
 		kmgr, err := keyManager().getKeyManger(token)
@@ -87,7 +88,7 @@ func TestStorageProvider_OpenStore(t *testing.T) {
 		require.NotEmpty(t, store)
 
 		// no edv opts
-		store, err = wsp.OpenStore(token, nil,
+		store, err = wsp.OpenStore(token, &unlockOpts{},
 			storage.StoreConfiguration{TagNames: []string{Credential.Name()}})
 		require.NoError(t, err)
 		require.NotEmpty(t, store)
