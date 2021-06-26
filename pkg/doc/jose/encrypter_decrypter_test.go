@@ -46,370 +46,429 @@ const (
 	DIDCommContentEncodingType = "application/didcomm-plain+json"
 )
 
+//nolint:gocognit
 func TestJWEEncryptRoundTrip(t *testing.T) {
 	_, err := ariesjose.NewJWEEncrypt("", "", "", "", nil, nil, nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
+	singleRecipientNISTPKWError := "jwedecrypt: failed to unwrap cek: [unwrapKey: deriveKEKAndUnwrap:" +
+		" failed to AES unwrap key: square/go-jose: key wrap input must be 8 byte blocks]"
+
+	singleRecipientX25519KWError := "jwedecrypt: failed to unwrap cek: [unwrapKey: deriveKEKAndUnwrap: failed to XC20P " +
+		"unwrap key: unwrap support: OKP unwrap invalid key]"
+
+	multiRecKWError := "jwedecrypt: failed to build recipients WK: unable to read " +
+		"JWK: invalid character 's' looking for beginning of value"
+
 	tests := []struct {
-		name       string
-		kt         *tinkpb.KeyTemplate
-		enc        ariesjose.EncAlg
-		keyType    kms.KeyType
-		nbRec      int
-		useCompact bool
+		name             string
+		kt               *tinkpb.KeyTemplate
+		enc              ariesjose.EncAlg
+		keyType          kms.KeyType
+		recipientKWError string
+		nbRec            int
+		useCompact       bool
 	}{
 		{
-			name:    "P-256 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "P-384 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   2,
+			name:             "P-384 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   1,
+			name:             "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP384ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-384 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "P-521 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   2,
+			name:             "P-521 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   1,
+			name:             "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.NISTP521ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-521 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and AES256GCM encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256GCM,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256GCM,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and AES256GCM encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256GCM,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.XC20P,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   2,
+			name:             "P-384 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP384ECDHKWType,
-			nbRec:   1,
+			name:             "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
-			enc:        ariesjose.XC20P,
-			keyType:    kms.NISTP384ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-384 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP384ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP384ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   2,
+			name:             "P-521 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.NISTP521ECDHKWType,
-			nbRec:   1,
+			name:             "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
-			enc:        ariesjose.XC20P,
-			keyType:    kms.NISTP521ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-521 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP521ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.NISTP521ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and XChacha20Poly1305 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.XC20P,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.XC20P,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and XChacha20Poly1305 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.XC20P,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A128CBCHS256 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A128CBCHS256,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and A128CBCHS256 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A128CBCHS256 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A128CBCHS256,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and A128CBCHS256 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and A128CBCHS256 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A128CBCHS256,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and A128CBCHS256 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A128CBCHS256 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A128CBCHS256,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and A128CBCHS256 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A128CBCHS256 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A128CBCHS256,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and A128CBCHS256 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and A128CBCHS256 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A128CBCHS256,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and A128CBCHS256 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A128CBCHS256,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A192CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A192CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A192CBCHS384,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A192CBCHS384,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A192CBCHS384,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A192CBCHS384,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A192CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256CBCHS384,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and A256CBCHS384 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and A256CBCHS384 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A256CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS384,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and A256CBCHS384 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and A256CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256CBCHS384,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and A256CBCHS384 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS384,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   2,
+			name:             "P-256 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.NISTP256ECDHKWType,
-			nbRec:   1,
+			name:             "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:       "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256CBCHS512,
-			keyType:    kms.NISTP256ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "P-256 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.NISTP256ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.NISTP256ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientNISTPKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   2,
+			name:             "X25519 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            2,
+			recipientKWError: multiRecKWError,
 		},
 		{
-			name:    "X25519 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.X25519ECDHKWKeyTemplate(),
-			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.X25519ECDHKWType,
-			nbRec:   1,
+			name:             "X25519 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 		{
-			name:       "X25519 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.X25519ECDHKWKeyTemplate(),
-			enc:        ariesjose.A256CBCHS512,
-			keyType:    kms.X25519ECDHKWType,
-			nbRec:      1,
-			useCompact: true,
+			name:             "X25519 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
+			kt:               ecdh.X25519ECDHKWKeyTemplate(),
+			enc:              ariesjose.A256CBCHS512,
+			keyType:          kms.X25519ECDHKWType,
+			nbRec:            1,
+			useCompact:       true,
+			recipientKWError: singleRecipientX25519KWError,
 		},
 	}
 
@@ -556,17 +615,19 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 							EPK: []byte("somerawbytes"),
 						},
 					},
-					{
+				}
+
+				if tc.nbRec > 1 {
+					badJWE.Recipients = append(badJWE.Recipients, &ariesjose.Recipient{
 						EncryptedKey: "someOtherKey",
 						Header: &ariesjose.RecipientHeaders{
 							EPK: []byte("someotherrawbytes"),
 						},
-					},
+					})
 				}
 
 				_, err = jweDecrypter.Decrypt(badJWE)
-				require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unable to read "+
-					"JWK: invalid character 's' looking for beginning of value")
+				require.EqualError(t, err, tc.recipientKWError)
 
 				// decrypt JWE with unsupported recipient key
 				var privKey *rsa.PrivateKey
@@ -591,16 +652,23 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 							EPK: mk,
 						},
 					},
-					{
+				}
+
+				if tc.nbRec > 1 {
+					badJWE.Recipients = append(badJWE.Recipients, &ariesjose.Recipient{
 						EncryptedKey: "someOtherKey",
 						Header: &ariesjose.RecipientHeaders{
 							EPK: mk,
 						},
-					},
+					})
 				}
 
 				_, err = jweDecrypter.Decrypt(badJWE)
-				require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unsupported recipient key type")
+				if tc.nbRec == 1 {
+					require.EqualError(t, err, tc.recipientKWError)
+				} else {
+					require.EqualError(t, err, "jwedecrypt: failed to build recipients WK: unsupported recipient key type")
+				}
 			})
 
 			t.Run("Decrypting JWE test success ", func(t *testing.T) {
@@ -1381,18 +1449,30 @@ var (
 	jweRef string
 )
 
-//nolint:wsl
 func Test1PUDraft4ExampleBDecrypt(t *testing.T) {
 	testJWE := trimSpace(jweRef)
 	aliceKey := trimSpace(aliceKeyRef)
 	bobKey := trimSpace(bobKeyRef)
 	charlieKey := trimSpace(charlieKeyRef)
 
-	keys := convertX25519ToKH(t, []string{aliceKey, bobKey, charlieKey}, []string{"alice", "bob-key-2", "2021-05-06"})
+	skid := "Alice"
+	keys := convertX25519ToKH(t, []string{aliceKey, bobKey, charlieKey}, []string{skid, "bob-key-2", "2021-05-06"})
 
 	c, k := createCryptoAndKMSServices(t, keys)
 
 	mockStoreMap := make(map[string]mockstorage.DBEntry)
+
+	pubKH, err := keys[skid].Public()
+	require.NoError(t, err)
+
+	senderPubKey, err := keyio.ExtractPrimaryPublicKey(pubKH)
+	require.NoError(t, err)
+
+	mSenderPubKey, err := json.Marshal(senderPubKey)
+	require.NoError(t, err)
+
+	mockStoreMap[skid] = mockstorage.DBEntry{Value: mSenderPubKey}
+
 	mockStore := &mockstorage.MockStore{
 		Store: mockStoreMap,
 	}
@@ -1404,12 +1484,9 @@ func Test1PUDraft4ExampleBDecrypt(t *testing.T) {
 	dec := ariesjose.NewJWEDecrypt(mockStore, c, k)
 	require.NotEmpty(t, dec)
 
-	// TODO skid is missing in the protected headers of Appendix B example of ecdh-1pu draft4. Uncomment below lines
-	//      and update jwe_ref.json when the example is updated and https://github.com/NeilMadden/jose-ecdh-1pu/issues/3
-	//      is closed.
-	// pt, err := dec.Decrypt(localJWE)
-	// require.NoError(t, err)
-	// require.EqualValues(t, []byte("Three is a magic number."), pt)
+	pt, err := dec.Decrypt(localJWE)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("Three is a magic number."), pt)
 }
 
 func trimSpace(s string) string {
@@ -1436,7 +1513,7 @@ func convertX25519ToKH(t *testing.T, keys, kids []string) map[string]*keyset.Han
 
 		var d []byte
 
-		dVal := k[idx+len(delim)+3 : len(k)-2]
+		dVal := k[idx+len(delim)+2 : len(k)-2]
 		d, err = base64.RawURLEncoding.DecodeString(dVal)
 		require.NoError(t, err)
 

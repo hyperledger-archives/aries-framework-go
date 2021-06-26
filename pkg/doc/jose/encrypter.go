@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -155,7 +156,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 		return nil, fmt.Errorf("jweencrypt: failed to get encryption primitive: %w", err)
 	}
 
-	authData, err := computeAuthData(protectedHeaders, aad)
+	authData, err := computeAuthData(protectedHeaders, "", aad)
 	if err != nil {
 		return nil, fmt.Errorf("jweencrypt: computeAuthData: marshal error %w", err)
 	}
@@ -598,9 +599,13 @@ func (je *JWEEncrypt) buildAPUAPV() ([]byte, []byte, error) {
 		recKIDs = append(recKIDs, r.KID)
 	}
 
+	// set recipients' sorted kids list then SHA256 hashed in apv.
 	sort.Strings(recKIDs)
 
-	apv := []byte(strings.Join(recKIDs, "."))
+	apvList := []byte(strings.Join(recKIDs, "."))
+	apv32 := sha256.Sum256(apvList)
+	apv := make([]byte, 32)
+	copy(apv, apv32[:])
 
 	return apu, apv, nil
 }
@@ -844,10 +849,15 @@ func convertRecEPKToMarshalledJWK(recEPK *cryptoapi.PublicKey) ([]byte, error) {
 }
 
 // Get the additional authenticated data from a JWE object.
-func computeAuthData(protectedHeaders map[string]interface{}, aad []byte) ([]byte, error) {
+func computeAuthData(protectedHeaders map[string]interface{}, origProtectedHeader string, aad []byte) ([]byte, error) {
 	var protected string
 
-	if protectedHeaders != nil {
+	if len(origProtectedHeader) > 0 {
+		// use origProtectedheader if set instead of marshal/unmarshal existing headers. This is important especially
+		// for ECDH-1PU because protectHeaders are used in the sender authentication mechanism. JSON keys order must
+		// remain untouched. This is critical for successful verification.
+		protected = origProtectedHeader
+	} else if protectedHeaders != nil {
 		protectedHeadersJSON := map[string]json.RawMessage{}
 
 		for k, v := range protectedHeaders {
@@ -871,8 +881,6 @@ func computeAuthData(protectedHeaders map[string]interface{}, aad []byte) ([]byt
 		}
 
 		protected = base64.RawURLEncoding.EncodeToString(mProtected)
-	} else {
-		protected = ""
 	}
 
 	output := []byte(protected)

@@ -8,6 +8,7 @@ package jose
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -75,6 +76,10 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	var wkOpts []cryptoapi.WrapKeyOpts
 
 	skid, ok := jwe.ProtectedHeaders.SenderKeyID()
+	if !ok {
+		skid, ok = fetchSKIDFromAPU(jwe)
+	}
+
 	if ok && skid != "" {
 		senderKH, e := jd.fetchSenderPubKey(skid, EncAlg(encAlg))
 		if e != nil {
@@ -105,6 +110,23 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	}
 
 	return jd.decryptJWE(jwe, cek)
+}
+
+func fetchSKIDFromAPU(jwe *JSONWebEncryption) (string, bool) {
+	// for multi-recipients only: check apu in protectedHeaders if it's found for ECDH-1PU, if skid header is empty then
+	// use apu as skid instead.
+	if len(jwe.Recipients) > 1 {
+		if a, apuOK := jwe.ProtectedHeaders["apu"]; apuOK {
+			skidBytes, err := base64.RawURLEncoding.DecodeString(a.(string))
+			if err != nil {
+				return "", false
+			}
+
+			return string(skidBytes), true
+		}
+	}
+
+	return "", false
 }
 
 func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
@@ -168,7 +190,7 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 
 	aadBytes := []byte(jwe.AAD)
 
-	authData, err := computeAuthData(jwe.ProtectedHeaders, aadBytes)
+	authData, err := computeAuthData(jwe.ProtectedHeaders, jwe.OrigProtectedHders, aadBytes)
 	if err != nil {
 		return nil, err
 	}

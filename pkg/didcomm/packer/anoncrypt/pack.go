@@ -8,13 +8,9 @@ package anoncrypt
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -110,7 +106,6 @@ func (p *Packer) Pack(contentType string, payload, _ []byte, recipientsPubKeys [
 func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, error) {
 	var (
 		pubKeys []*cryptoapi.PublicKey
-		kids    []string
 		aad     []byte
 	)
 
@@ -122,20 +117,7 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 			return nil, nil, err
 		}
 
-		kids = append(kids, ecKey.KID)
 		pubKeys = append(pubKeys, ecKey)
-	}
-
-	if len(keys) > 1 {
-		sort.Strings(kids)
-
-		kidsStr := strings.Join(kids, ".")
-		logger.Debugf("Anoncrypt Pack KIDs for AAD: %s", kidsStr)
-
-		aad32 := sha256.Sum256([]byte(kidsStr))
-		aad = make([]byte, 32)
-		copy(aad, aad32[:])
-		logger.Debugf("Anoncrypt Pack AAD: %s", base64.RawURLEncoding.EncodeToString(aad))
 	}
 
 	return pubKeys, aad, nil
