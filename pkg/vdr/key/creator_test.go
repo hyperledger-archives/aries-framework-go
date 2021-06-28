@@ -175,6 +175,19 @@ func TestBuild(t *testing.T) {
 		require.Error(t, err, "expecting an error")
 		require.Contains(t, err.Error(), "jsonWebKey is required", "incorrect error message")
 	})
+
+	t.Run("test create with invalid key type", func(t *testing.T) {
+		v := New()
+
+		pubKey := did.VerificationMethod{
+			Type:  "invalid",
+			Value: base58.Decode(pubKeyBase58P256),
+		}
+
+		_, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}})
+		require.Error(t, err, "expecting an error")
+		require.Contains(t, err.Error(), "not supported public key type", "incorrect error message")
+	})
 }
 
 func assertEd25519Doc(t *testing.T, doc *did.Doc) {
