@@ -7,11 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package fingerprint
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/base64"
+	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 func TestCreateDIDKey(t *testing.T) {
@@ -137,6 +143,94 @@ func TestCreateDIDKey(t *testing.T) {
 
 		_, _, err = PubKeyFromFingerprint("a6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH")
 		require.Error(t, err)
+	})
+}
+
+func readBigInt(t *testing.T, b64 string) *big.Int {
+	buf, err := base64.RawURLEncoding.DecodeString(b64)
+	require.Nil(t, err, "can't parse string as b64: %v\n%s", err, b64)
+
+	var x big.Int
+	x = *x.SetBytes(buf)
+
+	return &x
+}
+
+func TestCreateDIDKeyByJwk(t *testing.T) {
+	tests := []struct {
+		name     string
+		kty      string
+		curve    elliptic.Curve
+		x        string
+		y        string
+		DIDKey   string
+		DIDKeyID string
+	}{
+		{
+			name:     "test P-256",
+			kty:      "EC",
+			curve:    elliptic.P256(),
+			x:        "igrFmi0whuihKnj9R3Om1SoMph72wUGeFaBbzG2vzns",
+			y:        "efsX5b10x8yjyrj4ny3pGfLcY7Xby1KzgqOdqnsrJIM",
+			DIDKey:   "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv",
+			DIDKeyID: "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv#zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv", //nolint:lll
+		},
+		{
+			name:     "test P-384",
+			kty:      "EC",
+			curve:    elliptic.P384(),
+			x:        "lInTxl8fjLKp_UCrxI0WDklahi-7-_6JbtiHjiRvMvhedhKVdHBfi2HCY8t_QJyc",
+			y:        "y6N1IC-2mXxHreETBW7K3mBcw0qGr3CWHCs-yl09yCQRLcyfGv7XhqAngHOu51Zv",
+			DIDKey:   "did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9",
+			DIDKeyID: "did:key:z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9#z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9", //nolint:lll
+		},
+		{
+			name:     "test P-521",
+			kty:      "EC",
+			curve:    elliptic.P521(),
+			x:        "ASUHPMyichQ0QbHZ9ofNx_l4y7luncn5feKLo3OpJ2nSbZoC7mffolj5uy7s6KSKXFmnNWxGJ42IOrjZ47qqwqyS",
+			y:        "AW9ziIC4ZQQVSNmLlp59yYKrjRY0_VqO-GOIYQ9tYpPraBKUloEId6cI_vynCzlZWZtWpgOM3HPhYEgawQ703RjC",
+			DIDKey:   "did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7",
+			DIDKeyID: "did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7#z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7", //nolint:lll
+		},
+	}
+
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.name+" CreateDIDKeyByJwk", func(t *testing.T) {
+			x := readBigInt(t, test.x)
+			y := readBigInt(t, test.y)
+			publicKey := ecdsa.PublicKey{
+				Curve: test.curve,
+				X:     x,
+				Y:     y,
+			}
+			jwk, err := jose.JWKFromKey(&publicKey)
+
+			require.NoError(t, err)
+
+			didKey, keyID, err := CreateDIDKeyByJwk(jwk)
+
+			require.NoError(t, err)
+			require.Equal(t, tc.DIDKey, didKey)
+			require.Equal(t, tc.DIDKeyID, keyID)
+		})
+	}
+
+	t.Run("nil input", func(t *testing.T) {
+		_, _, err := CreateDIDKeyByJwk(nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "jsonWebKey is required")
+	})
+
+	t.Run("test invalid type", func(t *testing.T) {
+		jwk := jose.JWK{
+			Kty: "XX",
+			Crv: elliptic.P256().Params().Name,
+		}
+		_, _, err := CreateDIDKeyByJwk(&jwk)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported kty")
 	})
 }
 

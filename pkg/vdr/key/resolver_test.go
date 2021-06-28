@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestReadInvalid(t *testing.T) {
@@ -214,5 +216,19 @@ func TestRead521(t *testing.T) {
 
 		assertJSONWebKeyDoc(t, docResolution.DIDDocument, k2, k2KID, elliptic.P521(),
 			readBigInt(t, k2X), readBigInt(t, k2Y))
+	})
+}
+
+func TestCreateJsonWeKey(t *testing.T) {
+	t.Run("test invalid code", func(t *testing.T) {
+		_, err := createJSONWebKey2020DIDDoc("123", 0, []byte{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported key multicodec code for JsonWebKey2020")
+	})
+
+	t.Run("test invalid key bytes", func(t *testing.T) {
+		_, err := createJSONWebKey2020DIDDoc("123", fingerprint.P256PubKeyMultiCodec, []byte{0x01})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error unmarshalling key bytes")
 	})
 }

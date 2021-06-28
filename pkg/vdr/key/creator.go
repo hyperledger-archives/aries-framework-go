@@ -7,15 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package key
 
 import (
-	"crypto/elliptic"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
@@ -44,7 +41,6 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 		didKey            string
 		keyID             string
 		keyCode           uint64
-		keyType           kms.KeyType
 	)
 
 	if len(didDoc.VerificationMethod) == 0 {
@@ -58,7 +54,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 			return nil, err
 		}
 	default:
-		keyCode, err = getKeyCode(keyType, &didDoc.VerificationMethod[0])
+		keyCode, err = getKeyCode(&didDoc.VerificationMethod[0])
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +86,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: createDoc(publicKey, keyAgr, didKey)}, nil
 }
 
-func getKeyCode(keyType kms.KeyType, verificationMethod *did.VerificationMethod) (uint64, error) {
+func getKeyCode(verificationMethod *did.VerificationMethod) (uint64, error) {
 	var keyCode uint64
 
 	switch verificationMethod.Type {
@@ -98,49 +94,11 @@ func getKeyCode(keyType kms.KeyType, verificationMethod *did.VerificationMethod)
 		keyCode = fingerprint.ED25519PubKeyMultiCodec
 	case bls12381G2Key2020:
 		keyCode = fingerprint.BLS12381g2PubKeyMultiCodec
-	case jsonWebKey2020:
-		// if json web key then a jwk must be passed in the verification method
-		if verificationMethod.JSONWebKey() == nil {
-			return 0, fmt.Errorf("jsonWebKey is required for verificationMethod.Type %s", jsonWebKey2020)
-		}
-
-		if keyType == "" {
-			return fetchECKeyCodeFromVerMethod(verificationMethod)
-		}
-
-		switch keyType {
-		case kms.ECDSAP256TypeDER, kms.ECDSAP256TypeIEEEP1363:
-			keyCode = fingerprint.P256PubKeyMultiCodec
-		case kms.ECDSAP384TypeDER, kms.ECDSAP384TypeIEEEP1363:
-			keyCode = fingerprint.P384PubKeyMultiCodec
-		case kms.ECDSAP521TypeDER, kms.ECDSAP521TypeIEEEP1363:
-			keyCode = fingerprint.P521PubKeyMultiCodec
-		default:
-			return 0, errors.New("invalid jsonWebKey2020 key type")
-		}
 	default:
 		return 0, fmt.Errorf("not supported public key type: %s", verificationMethod.Type)
 	}
 
 	return keyCode, nil
-}
-
-func fetchECKeyCodeFromVerMethod(method *did.VerificationMethod) (uint64, error) {
-	// ec keys must pass in a jwk
-	if method.JSONWebKey() == nil {
-		return 0, fmt.Errorf("jsonWebKey is required for EC key")
-	}
-
-	switch method.JSONWebKey().Crv {
-	case elliptic.P256().Params().Name:
-		return fingerprint.P256PubKeyMultiCodec, nil
-	case elliptic.P384().Params().Name:
-		return fingerprint.P384PubKeyMultiCodec, nil
-	case elliptic.P521().Params().Name:
-		return fingerprint.P521PubKeyMultiCodec, nil
-	default:
-		return 0, fmt.Errorf("not supported EC Curve: %s", method.JSONWebKey().Crv)
-	}
 }
 
 func createDoc(pubKey, keyAgreement *did.VerificationMethod, didKey string) *did.Doc {
