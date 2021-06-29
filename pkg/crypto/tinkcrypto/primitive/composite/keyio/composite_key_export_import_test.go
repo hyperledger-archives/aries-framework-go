@@ -8,7 +8,10 @@ package keyio
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -17,6 +20,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/hybrid"
+	"github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
@@ -89,6 +93,10 @@ func TestPubKeyExport(t *testing.T) {
 				require.EqualValues(t, xk.Curve, commonpb.EllipticCurveType_CURVE25519.String())
 			}
 
+			t.Run("test PrivateKeyToKeysetHandle", func(t *testing.T) {
+				testPrivateKeyAsKH(t, ecPubKey)
+			})
+
 			// now convert back ecPubKey to *keyset.Handle with CBC+HMAC content encryption.
 			cbcHMACAlgs := []ecdh.AEADAlg{
 				ecdh.AES128CBCHMACSHA256, ecdh.AES192CBCHMACSHA384, ecdh.AES256CBCHMACSHA384, ecdh.AES256CBCHMACSHA512,
@@ -107,6 +115,60 @@ func TestPubKeyExport(t *testing.T) {
 				require.EqualValues(t, ecPubKey, x3k)
 			}
 		})
+	}
+}
+
+func testPrivateKeyAsKH(t *testing.T, pubKey *cryptoapi.PublicKey) {
+	var (
+		crv        elliptic.Curve
+		privECKey  *ecdsa.PrivateKey
+		privKey    *cryptoapi.PrivateKey
+		privOKPKey ed25519.PrivateKey
+		pubKOPKey  ed25519.PublicKey
+		err        error
+	)
+
+	privKey = &cryptoapi.PrivateKey{
+		PublicKey: cryptoapi.PublicKey{
+			Curve: pubKey.Curve,
+			Type:  pubKey.Type,
+		},
+	}
+
+	if pubKey.Type == "EC" {
+		crv, err = subtle.GetCurve(pubKey.Curve)
+		require.NoError(t, err)
+
+		privECKey, err = ecdsa.GenerateKey(crv, rand.Reader)
+		require.NoError(t, err)
+
+		privKey.PublicKey.X = privECKey.PublicKey.X.Bytes()
+		privKey.PublicKey.Y = privECKey.PublicKey.Y.Bytes()
+		privKey.D = privECKey.D.Bytes()
+	} else {
+		pubKOPKey, privOKPKey, err = ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		require.NotEmpty(t, pubKOPKey)
+		require.NotEmpty(t, privKey)
+
+		privKey.PublicKey.X = pubKOPKey
+		privKey.D = privOKPKey
+	}
+
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.AES256GCM)
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.XC20P)
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.AES128CBCHMACSHA256)
+}
+
+func testPrivateKeyToKeySetHandle(t *testing.T, privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAlg) {
+	pkh, err := PrivateKeyToKeysetHandle(privKey, aeadAlg)
+	require.NoError(t, err)
+	require.NotEmpty(t, pkh)
+
+	if privKey.PublicKey.Type == "EC" {
+		require.Equal(t, nistPECDHKWPrivateKeyTypeURL, pkh.KeysetInfo().KeyInfo[0].TypeUrl)
+	} else {
+		require.Equal(t, x25519ECDHKWPrivateKeyTypeURL, pkh.KeysetInfo().KeyInfo[0].TypeUrl)
 	}
 }
 

@@ -310,7 +310,7 @@ func PublicKeyToKeysetHandle(pubKey *cryptoapi.PublicKey, aeadAlg ecdh.AEADAlg) 
 // function serves as a helper to get a senderKH to be used as an option for ECDH execution (for ECDH-1PU/authcrypt).
 // The keyset handle will be set with either AES256-GCM, AES128CBC+SHA256, AES192CBC+SHA384, AES256CBC+SHA384 or
 // AES256CBC+SHA512 AEAD key template for content encryption. With:
-// - pubKey the public key to convert.
+// - privKey the private key to convert.
 // - aeadAlg the content encryption algorithm to use along the ECDH primitive.
 func PrivateKeyToKeysetHandle(privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAlg) (*keyset.Handle, error) {
 	// validate curve
@@ -330,6 +330,7 @@ func PrivateKeyToKeysetHandle(privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAl
 	}
 
 	protoKey := &ecdhpb.EcdhAeadPrivateKey{
+		Version: 0,
 		PublicKey: &ecdhpb.EcdhAeadPublicKey{
 			Version: 0,
 			Params: &ecdhpb.EcdhAeadParams{
@@ -346,6 +347,7 @@ func PrivateKeyToKeysetHandle(privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAl
 			X:   privKey.PublicKey.X,
 			Y:   privKey.PublicKey.Y,
 		},
+		KeyValue: privKey.D,
 	}
 
 	marshalledKey, err := proto.Marshal(protoKey)
@@ -353,7 +355,7 @@ func PrivateKeyToKeysetHandle(privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAl
 		return nil, fmt.Errorf("privateKeyToKeysetHandle: failed to marshal proto: %w", err)
 	}
 
-	ks := newKeySet(keyURL, marshalledKey, tinkpb.KeyData_ASYMMETRIC_PUBLIC)
+	ks := newKeySet(keyURL, marshalledKey, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 
 	memReader := &keyset.MemReaderWriter{Keyset: ks}
 

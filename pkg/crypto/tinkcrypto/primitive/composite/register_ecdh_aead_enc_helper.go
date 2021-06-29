@@ -294,8 +294,8 @@ func (r *RegisterCompositeAEADEncHelper) getSerializedAESCBCHMACKey(symmetricKey
 		return nil, errors.New("AES-CBC+HMAC-SHA key must be either 32, 48, 56 or 64 bytes")
 	}
 
-	cbcHMACKey.AesCbcKey.KeyValue = symmetricKeyValue[:keySize]
-	cbcHMACKey.HmacKey.KeyValue = symmetricKeyValue[keySize:]
+	cbcHMACKey.HmacKey.KeyValue = symmetricKeyValue[:keySize]
+	cbcHMACKey.AesCbcKey.KeyValue = symmetricKeyValue[keySize:]
 
 	return proto.Marshal(cbcHMACKey)
 }

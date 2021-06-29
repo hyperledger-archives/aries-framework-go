@@ -8,6 +8,7 @@ package subtle_test
 
 import (
 	"crypto/aes"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -107,6 +108,16 @@ func Test1PUAppendixBExample(t *testing.T) {
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 	}
 
+	aadB64fromAAD := base64.RawURLEncoding.EncodeToString(aad)
+	aadB64 := "eyJhbGciOiJFQ0RILTFQVStBMTI4S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwiYXB1IjoiUVd4cFkyVSIsImFwdiI6IlFtOWlJ" +
+		"R0Z1WkNCRGFHRnliR2xsIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJrOW9mX2NwQWFqeTBwb1c1Z2FpeFhHczlu" +
+		"SGt3ZzFBRnFVQUZhMzlkeUJjIn19"
+	require.Equal(t, aadB64, aadB64fromAAD)
+
+	ivB64 := "AAECAwQFBgcICQoLDA0ODw"
+	ctB64 := "Az2IWsISEMDJvyc5XRL-3-d-RgNBOGolCsxFFoUXFYw"
+	tagB64 := "HLb4fTlm8spGmij3RyOs2gJ4DpHM4hhVRwdF_hGb3WQ"
+
 	plaintext := []byte("Three is a magic number.")
 
 	cbcHMAC, err := josecipher.NewCBCHMAC(cek, aes.NewCipher)
@@ -117,10 +128,25 @@ func Test1PUAppendixBExample(t *testing.T) {
 		cbcHMAC: cbcHMAC,
 	}
 
-	enc, err := cbc.Encrypt(plaintext, aad)
+	enc, err := cbc.Encrypt(plaintext, []byte(aadB64))
 	require.NoError(t, err)
+	require.EqualValues(t, iv, enc[:16])
+	require.Equal(t, ivB64, base64.RawURLEncoding.EncodeToString(enc[:16]))
+	require.Equal(t, ctB64, base64.RawURLEncoding.EncodeToString(enc[16:len(enc)-32]))
+	require.Equal(t, tagB64, base64.RawURLEncoding.EncodeToString(enc[len(enc)-32:]))
 
-	dec, err := cbc.Decrypt(enc, aad)
+	t.Logf("enc: %v", enc)
+	t.Logf("iv: %v", enc[:16])
+	t.Logf("iv b64: %v", base64.RawURLEncoding.EncodeToString(enc[:16]))
+	t.Logf("ct: %v", enc[16:len(enc)-32])
+	t.Logf("ct b64: %v", base64.RawURLEncoding.EncodeToString(enc[16:len(enc)-32]))
+	t.Logf("tag: %v", enc[len(enc)-32:])
+	t.Logf("tag b64: %v", base64.RawURLEncoding.EncodeToString(enc[len(enc)-32:]))
+	t.Logf("aad: %v", aad)
+	t.Logf("aad b64: %v", []byte(aadB64))
+	t.Logf("aad b64 as string: %v", aadB64)
+
+	dec, err := cbc.Decrypt(enc, []byte(aadB64))
 	require.NoError(t, err)
 	require.EqualValues(t, plaintext, dec)
 }
