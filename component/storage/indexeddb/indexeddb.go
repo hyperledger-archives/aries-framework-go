@@ -209,6 +209,7 @@ func (p *Provider) openDB(db string, names ...string) error {
 type store struct {
 	name string
 	db   *js.Value
+	lock sync.RWMutex
 }
 
 func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
@@ -414,6 +415,9 @@ func (s *store) Close() error {
 }
 
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
 		return fmt.Errorf("failed to get tag map: %w", err)
@@ -448,6 +452,9 @@ func (s *store) updateTagMap(key string, tags []storage.Tag) error {
 }
 
 func (s *store) removeFromTagMap(keyToRemove string) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	tagMapBytes, err := s.Get(tagMapKey)
 	if err != nil {
 		// If there's no tag map, then this means that no store configuration was set.
