@@ -214,6 +214,7 @@ type store struct {
 	db    *leveldb.DB
 	name  string
 	close closer
+	lock  sync.RWMutex
 }
 
 // Put stores the key and the record.
@@ -397,6 +398,9 @@ func (s *store) Close() error {
 }
 
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	tagMap, err := s.getTagMap()
 	if err != nil {
 		return fmt.Errorf("failed to get tag map: %w", err)
@@ -464,6 +468,9 @@ func (s *store) getDBEntry(key string) (dbEntry, error) {
 }
 
 func (s *store) removeFromTagMap(keyToRemove string) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	tagMap, err := s.getTagMap()
 	if err != nil {
 		return fmt.Errorf("failed to get tag map: %w", err)
