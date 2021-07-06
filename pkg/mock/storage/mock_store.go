@@ -314,6 +314,10 @@ func (m *iterator) Tags() ([]storage.Tag, error) {
 	return m.currentDBEntry.Tags, nil
 }
 
+func (m *iterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
+}
+
 func (m *iterator) Close() error {
 	return nil
 }
