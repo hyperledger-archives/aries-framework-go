@@ -166,7 +166,6 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
-		// TODO get mapped verKey for the recipient encryption key (kid)
 		ecdhesPubKeyByes, err := exportPubKeyBytes(keyHandle)
 		if err != nil {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to export public key bytes: %w", err)

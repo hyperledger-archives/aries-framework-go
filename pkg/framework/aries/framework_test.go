@@ -637,6 +637,17 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, kms.BLS12381G2Type, aries.keyType)
 		require.Equal(t, kms.NISTP384ECDHKWType, aries.keyAgreementType)
 	})
+
+	t.Run("test new with mediaTypeProfiles", func(t *testing.T) {
+		aries, err := New(WithMediaTypeProfiles([]string{
+			transport.MediaTypeV2EncryptedEnvelope,
+			transport.MediaTypeV1EncryptedEnvelope,
+		}))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(aries.mediaTypeProfiles))
+		require.Equal(t, transport.MediaTypeV2EncryptedEnvelope, aries.mediaTypeProfiles[0])
+		require.Equal(t, transport.MediaTypeV1EncryptedEnvelope, aries.mediaTypeProfiles[1])
+	})
 }
 
 func Test_Packager(t *testing.T) {

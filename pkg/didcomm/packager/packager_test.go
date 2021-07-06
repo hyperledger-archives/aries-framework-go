@@ -295,53 +295,98 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		didKey, _ := fingerprint.CreateDIDKey(toKey)
 
-		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&transport.Envelope{
-			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
-			Message:          []byte("msg1"),
-			FromKey:          []byte(fromKID),
-			ToKeys:           []string{didKey},
-		})
-		require.NoError(t, err)
-
-		// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
-		// adding the key in the thirdPartyKeyStore of the recipient, stored using StorePrefixWrapper
-		fromWrappedKID := prefix.StorageKIDPrefix + fromKID
-		thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: fromKey}
-
-		// unpack the packed message above - should pass and match the same payload (msg1)
-		unpackedMsg, err := packager.UnpackMessage(packMsg)
-		require.NoError(t, err)
-		require.Equal(t, unpackedMsg.Message, []byte("msg1"))
-
-		// pack with legacy, unpack using a packager that has JWE as default but supports legacy
-
-		mockedProviders.primaryPacker = legacyPacker
-
-		packager2, err := New(mockedProviders)
-		require.NoError(t, err)
-
 		// legacy packer uses ED25519 keys only
-		_, fromKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
+		_, fromKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
-		_, toKey, err = customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
+		_, toKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
-		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKey)
+		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKeyEd25519)
 
-		packMsg, err = packager2.PackMessage(&transport.Envelope{
-			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
-			Message:          []byte("msg2"),
-			FromKey:          fromKey,
-			ToKeys:           []string{legacyDIDKey},
-		})
-		require.NoError(t, err)
+		tests := []struct {
+			name      string
+			mediaType string
+		}{
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeRFC0019EncryptedEnvelope),
+				mediaType: transport.MediaTypeRFC0019EncryptedEnvelope,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1PlaintextPayload),
+				mediaType: transport.MediaTypeV1PlaintextPayload,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1EncryptedEnvelope),
+				mediaType: transport.MediaTypeV1EncryptedEnvelope,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload),
+				mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2PlaintextPayload),
+				mediaType: transport.MediaTypeV2PlaintextPayload,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelope),
+				mediaType: transport.MediaTypeV2EncryptedEnvelope,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0019Profile),
+				mediaType: transport.MediaTypeAIP2RFC0019Profile,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0587Profile),
+				mediaType: transport.MediaTypeAIP2RFC0587Profile,
+			},
+			{
+				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeDIDCommV2Profile),
+				mediaType: transport.MediaTypeDIDCommV2Profile,
+			},
+		}
 
-		// unpack the packed message above - should pass and match the same payload (msg2)
-		unpackedMsg, err = packager.UnpackMessage(packMsg)
-		require.NoError(t, err)
-		require.Equal(t, unpackedMsg.Message, []byte("msg2"))
+		for _, tt := range tests {
+			tc := tt
+
+			t.Run(tc.name, func(t *testing.T) {
+				var (
+					fromKIDPack []byte
+					toKeysPack  []string
+				)
+
+				switch tc.mediaType {
+				case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
+					transport.MediaTypeAIP2RFC0019Profile:
+					fromKIDPack = fromKeyEd25519
+					toKeysPack = []string{legacyDIDKey}
+				case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+					transport.MediaTypeV2PlaintextPayload, transport.MediaTypeV2EncryptedEnvelope,
+					transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeDIDCommV2Profile:
+					fromKIDPack = []byte(fromKID)
+					toKeysPack = []string{didKey}
+				}
+
+				// pack an non empty envelope using packer selected by mediaType - should pass
+				packMsg, err := packager.PackMessage(&transport.Envelope{
+					MediaTypeProfile: tc.mediaType,
+					Message:          []byte("msg"),
+					FromKey:          fromKIDPack,
+					ToKeys:           toKeysPack,
+				})
+				require.NoError(t, err)
+
+				// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
+				// adding the key in the thirdPartyKeyStore of the recipient, stored using StorePrefixWrapper
+				fromWrappedKID := prefix.StorageKIDPrefix + fromKID
+				thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: fromKey}
+
+				// unpack the packed message above - should pass and match the same payload (msg1)
+				unpackedMsg, err := packager.UnpackMessage(packMsg)
+				require.NoError(t, err)
+				require.Equal(t, unpackedMsg.Message, []byte("msg"))
+			})
+		}
 	})
 
 	t.Run("test success - dids not found", func(t *testing.T) {

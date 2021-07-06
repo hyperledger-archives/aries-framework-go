@@ -620,4 +620,17 @@ func TestNewProvider(t *testing.T) {
 		_, err = New(WithKeyAgreementType(kms.XChaCha20Poly1305Type))
 		require.EqualError(t, err, "option failed: invalid KeyAgreement key type: XChaCha20Poly1305")
 	})
+
+	t.Run("test new with mediaTypeProfiles", func(t *testing.T) {
+		prov, err := New(WithMediaTypeProfiles([]string{
+			transport.MediaTypeV2EncryptedEnvelope,
+			transport.MediaTypeV1EncryptedEnvelope,
+			transport.MediaTypeRFC0019EncryptedEnvelope,
+		}))
+		require.NoError(t, err)
+		require.Equal(t, 3, len(prov.MediaTypeProfiles()))
+		require.Equal(t, transport.MediaTypeV2EncryptedEnvelope, prov.MediaTypeProfiles()[0])
+		require.Equal(t, transport.MediaTypeV1EncryptedEnvelope, prov.MediaTypeProfiles()[1])
+		require.Equal(t, transport.MediaTypeRFC0019EncryptedEnvelope, prov.MediaTypeProfiles()[2])
+	})
 }

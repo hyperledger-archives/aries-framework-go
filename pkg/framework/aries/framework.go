@@ -70,6 +70,7 @@ type Aries struct {
 	id                         string
 	keyType                    kms.KeyType
 	keyAgreementType           kms.KeyType
+	mediaTypeProfiles          []string
 }
 
 // Option configures the framework.
@@ -311,6 +312,16 @@ func WithKeyAgreementType(keyAgreementType kms.KeyType) Option {
 	}
 }
 
+// WithMediaTypeProfiles injects a default media types profile.
+func WithMediaTypeProfiles(mediaTypeProfiles []string) Option {
+	return func(opts *Aries) error {
+		opts.mediaTypeProfiles = make([]string, len(mediaTypeProfiles))
+		copy(opts.mediaTypeProfiles, mediaTypeProfiles)
+
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -336,6 +347,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithJSONLDDocumentLoader(a.jsonldDocumentLoader),
 		context.WithKeyType(a.keyType),
 		context.WithKeyAgreementType(a.keyAgreementType),
+		context.WithMediaTypeProfiles(a.mediaTypeProfiles),
 	)
 }
 
@@ -515,6 +527,9 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 		context.WithMessengerHandler(frameworkOpts.messenger),
 		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
+		context.WithKeyType(frameworkOpts.keyType),
+		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
+		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)

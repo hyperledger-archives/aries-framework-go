@@ -47,7 +47,6 @@ type Packer interface {
 	// returns:
 	// 		[]byte containing the encrypted envelope
 	//		error if encryption failed
-	// TODO add key type of recipients and sender keys to be validated by the implementation - Issue #272
 	Pack(contentType string, payload []byte, senderKey []byte, recipients [][]byte) ([]byte, error)
 	// Unpack an envelope in an Aries compliant format.
 	// 		The recipient's key will be the one found in KMS that matches one of the list of recipients in the envelope
@@ -55,7 +54,6 @@ type Packer interface {
 	// returns:
 	// 		Envelope containing the message, decryption key, and sender key
 	//		error if decryption failed
-	// TODO add key type of recipients keys to be validated by the implementation - Issue #272
 	Unpack(envelope []byte) (*transport.Envelope, error)
 
 	// Encoding returns the type of the encoding, as found in the protected header 'typ' field

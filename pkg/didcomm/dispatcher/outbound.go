@@ -8,11 +8,13 @@ package dispatcher
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -33,6 +35,7 @@ type provider interface {
 	KMS() kms.KeyManager
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
+	MediaTypeProfiles() []string
 }
 
 type connectionLookup interface {
@@ -48,7 +51,10 @@ type OutboundDispatcher struct {
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
 	connections          connectionLookup
+	mediaTypeProfiles    []string
 }
+
+var logger = log.New("aries-framework/didcomm/dispatcher")
 
 // NewOutbound return new dispatcher outbound instance.
 func NewOutbound(prov provider) (*OutboundDispatcher, error) {
@@ -58,6 +64,7 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRegistry(),
 		kms:                  prov.KMS(),
+		mediaTypeProfiles:    prov.MediaTypeProfiles(),
 	}
 
 	var err error
@@ -72,14 +79,27 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
+	var mediaTypes []string
+
 	connID, err := o.connections.GetConnectionIDByDIDs(myDID, theirDID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch connection ID for myDID=%s theirDID=%s: %w", myDID, theirDID, err)
+		if errors.Is(err, storage.ErrDataNotFound) {
+			// myDID and theirDID never had a connection, use default agent media type.
+			logger.Debugf("SendToDID: will go connectionless since failed to fetch connection ID for myDID=%s "+
+				"theirDID=%s: %w", myDID, theirDID, err)
+
+			mediaTypes = o.defaultMediaTypeProfiles()
+		} else {
+			return fmt.Errorf("SendToDID: failed to fetch connection ID for myDID=%s "+
+				"theirDID=%s: %w", myDID, theirDID, err)
+		}
 	}
 
-	record, err := o.connections.GetConnectionRecord(connID)
-	if err != nil {
-		return fmt.Errorf("failed to fetch connection record for connID=%s: %w", connID, err)
+	if connID != "" {
+		mediaTypes, err = o.mediaTypeProfilesFromConnection(mediaTypes, connID)
+		if err != nil {
+			return fmt.Errorf("outboundDispatcher.SendToDID: %w", err)
+		}
 	}
 
 	dest, err := service.GetDestination(theirDID, o.vdRegistry)
@@ -88,8 +108,8 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
 	}
 
-	if len(record.MediaTypeProfiles) > 0 {
-		dest.MediaTypeProfiles = record.MediaTypeProfiles
+	if len(mediaTypes) > 0 {
+		dest.MediaTypeProfiles = mediaTypes
 	}
 
 	src, err := service.GetDestination(myDID, o.vdRegistry)
@@ -103,6 +123,37 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 	key := src.RecipientKeys[0]
 
 	return o.Send(msg, key, dest)
+}
+
+func (o *OutboundDispatcher) defaultMediaTypeProfiles() []string {
+	mediaTypes := make([]string, len(o.mediaTypeProfiles))
+	copy(mediaTypes, o.mediaTypeProfiles)
+
+	return mediaTypes
+}
+
+func (o *OutboundDispatcher) mediaTypeProfilesFromConnection(mediaTypes []string, connID string) ([]string, error) {
+	record, err := o.connections.GetConnectionRecord(connID)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			if len(mediaTypes) == 0 {
+				// myDID and theirDID don't have a connection record but do have a connID, use default agent media type.
+				logger.Debugf("SendToDID: will go connectionless since failed to fetch connection record for "+
+					"connID:%s: %w", connID, err)
+
+				mediaTypes = o.defaultMediaTypeProfiles()
+			}
+		} else {
+			return nil, fmt.Errorf("failed to fetch connection record for connID=%s: %w", connID, err)
+		}
+	}
+
+	if record != nil {
+		mediaTypes = make([]string, len(record.MediaTypeProfiles))
+		copy(mediaTypes, record.MediaTypeProfiles)
+	}
+
+	return mediaTypes, nil
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
@@ -217,14 +268,11 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	}
 
 	// create key set
+	// TODO: why createForwardMessage require a new key on each call? It should be pulled from the DID doc instead.
 	_, senderVerKey, err := o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("failed Create and export SigningKey: %w", err)
 	}
-
-	// pack above message using auth crypt
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
-	//  algorithm(auth/anon crypt) for Forward(router) message
 
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
 		MediaTypeProfile: mediaTypeProfile(des),
@@ -266,11 +314,27 @@ func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.D
 	return req, nil
 }
 
-// TODO - inject MediaTypeProfile selection strategy.
 func mediaTypeProfile(des *service.Destination) string {
 	mt := ""
+
 	if len(des.MediaTypeProfiles) > 0 {
-		mt = des.MediaTypeProfiles[0]
+		for _, mtp := range des.MediaTypeProfiles {
+			switch mtp {
+			case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeRFC0019EncryptedEnvelope,
+				transport.MediaTypeAIP2RFC0019Profile:
+				// overridable with higher priority media type.
+				if mt == "" {
+					mt = mtp
+				}
+			case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+				transport.MediaTypeAIP2RFC0587Profile:
+				mt = mtp
+			case transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2PlaintextPayload,
+				transport.MediaTypeDIDCommV2Profile:
+				// V2 is highest priority, if found use it directly.
+				return mtp
+			}
+		}
 	}
 
 	return mt
