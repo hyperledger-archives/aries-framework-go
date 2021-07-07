@@ -91,11 +91,6 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 	var recipients [][]byte
 
 	for _, didKey := range messageEnvelope.ToKeys {
-		// TODO https://github.com/hyperledger/aries-framework-go/issues/749 It is possible to have
-		//  different key schemes in an interop situation
-		// there is no guarantee that each recipient is using the same key types
-		// for now this package uses Ed25519 signing keys. Other key schemes should have their own
-		// envelope implementations.
 		verKeyBytes, err := fingerprint.PubKeyFromDIDKey(didKey)
 		if err != nil {
 			return nil, fmt.Errorf("packMessage: failed to parse public key bytes from did:key verKey: %w", err)
@@ -105,15 +100,12 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 		recipients = append(recipients, verKeyBytes)
 	}
 
-	// TODO since o.packager's primary packer is LegacyPacker, CTY Envelope field is ignored. When DIDComm V2 is
-	//  is used, make sure it's set here or passed in by the caller and remove below hard coded cty variable. The
-	//  JWE packers will add it to the Protected Headers of the envelope if it's set.
-	cty := transport.MediaTypeV1PlaintextPayload
+	cty, p, err := bp.getCTYAndPacker(messageEnvelope)
+	if err != nil {
+		return nil, fmt.Errorf("packMessage: %w", err)
+	}
 
-	// TODO find a way to dynamically select a packer based on FromKey, recipients and their types.
-	//      https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
-	//      Use transport.Envelope.MediaTypeProfile for this.
-	bytes, err := bp.primaryPacker.Pack(cty, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
+	bytes, err := p.Pack(cty, messageEnvelope.Message, messageEnvelope.FromKey, recipients)
 	if err != nil {
 		return nil, fmt.Errorf("packMessage: failed to pack: %w", err)
 	}
@@ -192,4 +184,42 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 	}
 
 	return envelope, nil
+}
+
+func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packer.Packer, error) {
+	switch envelope.MediaTypeProfile {
+	case transport.MediaTypeAIP2RFC0019Profile:
+		return transport.MediaTypeRFC0019EncryptedEnvelope, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil
+	case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload:
+		return envelope.MediaTypeProfile, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil
+	case transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2PlaintextPayload,
+		transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeDIDCommV2Profile:
+		packerName := transport.MediaTypeV2EncryptedEnvelope
+		if len(envelope.FromKey) > 0 {
+			packerName += authSuffix
+		}
+
+		return transport.MediaTypeV2PlaintextPayload, bp.packers[packerName], nil
+	case transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload:
+		packerName := transport.MediaTypeV2EncryptedEnvelope
+		if len(envelope.FromKey) > 0 {
+			packerName += authSuffix
+		}
+
+		return transport.MediaTypeV1PlaintextPayload, bp.packers[packerName], nil
+	default:
+		// use primaryPacker if mediaProfile not registered.
+		if bp.primaryPacker != nil {
+			if bp.primaryPacker.EncodingType() == transport.MediaTypeRFC0019EncryptedEnvelope {
+				return transport.MediaTypeRFC0019EncryptedEnvelope, bp.primaryPacker, nil
+			}
+
+			// assuming primaryPacker is V2 version (currently primaryPacker is legacyPacker, ie V1).
+			return transport.MediaTypeV2PlaintextPayload, bp.primaryPacker, nil
+		}
+	}
+
+	// this should never happen since outbound calls use the framework's default media type profile (unless the default
+	// was overridden with an empty value during framework instance creation).
+	return "", nil, fmt.Errorf("no packer found for mediatype profile: '%v'", envelope.MediaTypeProfile)
 }

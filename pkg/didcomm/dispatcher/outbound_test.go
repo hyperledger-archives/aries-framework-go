@@ -174,7 +174,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	mockDoc := mockdiddoc.GetMockDIDDoc(t)
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with existing connection record", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			vdr: &mockvdr.MockVDRegistry{
@@ -189,6 +189,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		require.NoError(t, err)
 
 		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
 			getConnectionRecordVal: &connection.Record{},
 		}
 
@@ -229,6 +230,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
 		})
 		require.NoError(t, err)
 
@@ -254,18 +256,99 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
 		})
 		require.NoError(t, err)
 
 		expected := errors.New("test")
 
 		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
 			getConnectionRecordErr: expected,
 		}
 
 		err = o.SendToDID("data", "", "")
 		require.ErrorIs(t, err, expected)
 		require.Contains(t, err.Error(), "failed to fetch connection record")
+	})
+
+	t.Run("success event with nil connection, using default media type profile", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
+		})
+		require.NoError(t, err)
+
+		expected := storage.ErrDataNotFound
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsErr: expected,
+		}
+
+		require.NoError(t, o.SendToDID("data", "", ""))
+	})
+
+	t.Run("success event with nil connection record, using default media type profile", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
+		})
+		require.NoError(t, err)
+
+		expected := storage.ErrDataNotFound
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordErr: expected,
+		}
+
+		require.NoError(t, o.SendToDID("data", "", ""))
+	})
+
+	t.Run("success event with nil connection record, using default media type profile with "+
+		"priority", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles: []string{
+				transport.MediaTypeRFC0019EncryptedEnvelope,
+				transport.MediaTypeV1EncryptedEnvelope,
+				transport.MediaTypeV2EncryptedEnvelope,
+			},
+		})
+		require.NoError(t, err)
+
+		expected := storage.ErrDataNotFound
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordErr: expected,
+		}
+
+		require.NoError(t, o.SendToDID("data", "", ""))
 	})
 }
 
@@ -438,6 +521,7 @@ type mockProvider struct {
 	kms                     kms.KeyManager
 	storageProvider         storage.Provider
 	protoStorageProvider    storage.Provider
+	mediaTypeProfiles       []string
 }
 
 func (p *mockProvider) Packager() transport.Packager {
@@ -470,6 +554,10 @@ func (p *mockProvider) StorageProvider() storage.Provider {
 
 func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
 	return p.protoStorageProvider
+}
+
+func (p *mockProvider) MediaTypeProfiles() []string {
+	return p.mediaTypeProfiles
 }
 
 // mockOutboundTransport mock outbound transport.

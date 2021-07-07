@@ -56,6 +56,7 @@ type Provider struct {
 	frameworkID                string
 	keyType                    kms.KeyType
 	keyAgreementType           kms.KeyType
+	mediaTypeProfiles          []string
 }
 
 type inboundHandler struct {
@@ -298,6 +299,11 @@ func (p *Provider) KeyAgreementType() kms.KeyType {
 	return p.keyAgreementType
 }
 
+// MediaTypeProfiles returns the default media types profile.
+func (p *Provider) MediaTypeProfiles() []string {
+	return p.mediaTypeProfiles
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -491,5 +497,15 @@ func WithKeyAgreementType(keyAgreementType kms.KeyType) ProviderOption {
 		default:
 			return fmt.Errorf("invalid KeyAgreement key type: %s", keyAgreementType)
 		}
+	}
+}
+
+// WithMediaTypeProfiles injects a media type profile into the context.
+func WithMediaTypeProfiles(mediaTypeProfiles []string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.mediaTypeProfiles = make([]string, len(mediaTypeProfiles))
+		copy(opts.mediaTypeProfiles, mediaTypeProfiles)
+
+		return nil
 	}
 }

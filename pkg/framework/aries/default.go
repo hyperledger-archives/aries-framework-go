@@ -196,7 +196,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 				return legacy.New(provider), nil
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
-				return authcrypt.New(provider, jose.A128CBCHS256)
+				return authcrypt.New(provider, jose.A256CBCHS512)
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
 				return anoncrypt.New(provider, jose.A256GCM)
@@ -216,6 +216,13 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 
 	if frameworkOpts.msgSvcProvider == nil {
 		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
+	}
+
+	if frameworkOpts.mediaTypeProfiles == nil {
+		// for now only set legacy media type profile to match default key type and primary packer above.
+		// TODO once keyAgreement is added in the packers, this can be switched to DIDcomm V2 media type as well as
+		// 		switching legacyPacker with authcrtypt as primary packer and using an ECDH-1PU key as default key above.
+		frameworkOpts.mediaTypeProfiles = []string{transport.MediaTypeRFC0019EncryptedEnvelope}
 	}
 
 	return nil
