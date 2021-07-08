@@ -20,7 +20,7 @@ const (
 )
 
 // parseDIDWeb consumes a did:web identifier and returns the URL location of the did Doc.
-func parseDIDWeb(id string) (string, string, error) {
+func parseDIDWeb(id string, useHTTP bool) (string, string, error) {
 	var address, host string
 
 	parsedDID, err := did.Parse(id)
@@ -37,11 +37,16 @@ func parseDIDWeb(id string) (string, string, error) {
 
 	host = strings.Split(pathComponents[0], ":")[0]
 
+	protocol := "https://"
+	if useHTTP {
+		protocol = "http://"
+	}
+
 	switch len(pathComponents) {
 	case 1:
-		address = "https://" + pathComponents[0] + defaultPath
+		address = protocol + pathComponents[0] + defaultPath
 	default:
-		address = "https://" + strings.Join(pathComponents, "/") + documentPath
+		address = protocol + strings.Join(pathComponents, "/") + documentPath
 	}
 
 	return address, host, nil
