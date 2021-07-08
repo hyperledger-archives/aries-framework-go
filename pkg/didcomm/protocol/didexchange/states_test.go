@@ -1414,7 +1414,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 
 		doc := mockdiddoc.GetMockDIDDoc(t)
 
-		_, err := ctx.didDocAttachment(doc, "not a did key")
+		_, err := ctx.didDocAttachment(doc, "did:key:not a did key")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to extract pubKeyBytes")
 	})
@@ -1430,6 +1430,74 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 		_, err := ctx.didDocAttachment(doc, didKey)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to generate KID from public key")
+	})
+}
+
+func TestResolvePublicKey(t *testing.T) {
+	prov := getProvider(t)
+
+	t.Run("resolve key from did:key", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		keyBytes := []byte("12345678123456781234567812345678")
+		didKey, _ := fingerprint.CreateDIDKey(keyBytes)
+
+		pub, err := ctx.resolvePublicKey(didKey)
+		require.NoError(t, err)
+		require.EqualValues(t, keyBytes, pub)
+	})
+
+	t.Run("resolve key reference from doc in vdr", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		doc := mockdiddoc.GetMockDIDDoc(t)
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc}
+
+		vm := doc.VerificationMethod[0]
+
+		pub, err := ctx.resolvePublicKey(vm.ID)
+		require.NoError(t, err)
+		require.EqualValues(t, vm.Value, pub)
+	})
+
+	t.Run("fail to resolve public key from unknown kid", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		_, err := ctx.resolvePublicKey("something something")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve public key value from kid")
+	})
+
+	t.Run("fail to resolve public key from invalid did:key", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+
+		_, err := ctx.resolvePublicKey("did:key:not a did key")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to extract pubKeyBytes")
+	})
+
+	t.Run("fail to resolve doc for key reference", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		doc := mockdiddoc.GetMockDIDDoc(t)
+
+		vm := doc.VerificationMethod[0]
+
+		_, err := ctx.resolvePublicKey(vm.ID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve public did")
+	})
+
+	t.Run("fail to find key in resolved doc", func(t *testing.T) {
+		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType)
+		doc := mockdiddoc.GetMockDIDDoc(t)
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc}
+
+		kid := doc.VerificationMethod[0].ID
+
+		doc.VerificationMethod[0].ID = "wrong-key-id"
+
+		_, err := ctx.resolvePublicKey(kid)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to lookup public key")
 	})
 }
 
