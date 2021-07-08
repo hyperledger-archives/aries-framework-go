@@ -20,6 +20,9 @@ import (
 const (
 	// HTTPClientOpt http client opt.
 	HTTPClientOpt = "httpClient"
+
+	// UseHTTPOpt use http option.
+	UseHTTPOpt = "useHTTP"
 )
 
 var logger = log.New("aries-framework/pkg/vdr/web")
@@ -43,7 +46,14 @@ func (v *VDR) Read(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolu
 		}
 	}
 
-	address, _, err := parseDIDWeb(didID)
+	useHTTP := false
+
+	_, ok = didOpts.Values[UseHTTPOpt]
+	if ok {
+		useHTTP = true
+	}
+
+	address, _, err := parseDIDWeb(didID, useHTTP)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving did:web did --> could not parse did:web did --> %w", err)
 	}

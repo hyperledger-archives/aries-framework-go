@@ -44,19 +44,19 @@ const (
 
 func TestParseDID(t *testing.T) {
 	t.Run("test parse did success", func(t *testing.T) {
-		address, host, err := parseDIDWeb(validDID)
+		address, host, err := parseDIDWeb(validDID, false)
 		require.NoError(t, err)
 		require.Equal(t, "https://"+validURL+defaultPath, address)
 		require.Equal(t, validURL, host)
-		address, host, err = parseDIDWeb(validDIDWithPath)
+		address, host, err = parseDIDWeb(validDIDWithPath, false)
 		require.NoError(t, err)
 		require.Equal(t, "https://"+validURLWithPath+documentPath, address)
 		require.Equal(t, validURL, host)
-		address, host, err = parseDIDWeb(validDIDWithHost)
+		address, host, err = parseDIDWeb(validDIDWithHost, false)
 		require.NoError(t, err)
 		require.Equal(t, "https://localhost:8080/.well-known/did.json", address)
 		require.Equal(t, "localhost", host)
-		address, host, err = parseDIDWeb(validDIDWithHostAndPath)
+		address, host, err = parseDIDWeb(validDIDWithHostAndPath, false)
 		require.NoError(t, err)
 		require.Equal(t, "https://localhost:8080/user/example/did.json", address)
 		require.Equal(t, "localhost", host)
