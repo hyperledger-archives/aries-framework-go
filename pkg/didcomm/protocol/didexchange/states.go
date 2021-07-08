@@ -503,9 +503,27 @@ func (ctx *context) didDocAttachment(doc *did.Doc, myVerKey string) (*decorator.
 	// Interop: signing did_doc~attach has been removed from the spec, but aca-py still verifies signatures
 	// TODO make aca-py issue
 	if ctx.doACAPyInterop {
-		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(myVerKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", myVerKey, err)
+		var pubKeyBytes []byte
+
+		if strings.HasPrefix(myVerKey, "did:key:") {
+			pubKeyBytes, err = fingerprint.PubKeyFromDIDKey(myVerKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", myVerKey, err)
+			}
+		} else if strings.HasPrefix(myVerKey, "did:") {
+			vkDID := strings.Split(myVerKey, "#")[0]
+
+			pubDoc, err := ctx.vdRegistry.Resolve(vkDID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve public did for key ID '%s': %w", myVerKey, err)
+			}
+
+			vm, ok := did.LookupPublicKey(myVerKey, pubDoc.DIDDocument)
+			if !ok {
+				return nil, fmt.Errorf("failed to lookup public key for ID %s", myVerKey)
+			}
+
+			pubKeyBytes = vm.Value
 		}
 
 		// TODO: use dynamic context KeyType
