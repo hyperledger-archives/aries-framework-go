@@ -519,7 +519,7 @@ func (ctx *context) didDocAttachment(doc *did.Doc, myVerKey string) (*decorator.
 			return nil, fmt.Errorf("failed to get key handle: %w", err)
 		}
 
-		err = docAttach.Data.Sign(ctx.crypto, kh, ed25519.PublicKey(myVerKey), pubKeyBytes)
+		err = docAttach.Data.Sign(ctx.crypto, kh, ed25519.PublicKey(pubKeyBytes), pubKeyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("signing did_doc~attach: %w", err)
 		}
