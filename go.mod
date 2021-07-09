@@ -10,7 +10,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/btcsuite/btcd v0.20.1-beta
-	github.com/btcsuite/btcutil v1.0.1
+	github.com/btcsuite/btcutil v1.0.2
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.0
