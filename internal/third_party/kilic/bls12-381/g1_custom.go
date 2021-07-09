@@ -10,7 +10,7 @@ import (
 	"hash"
 )
 
-func HashToCurve(msg, domain []byte, hashFunc func() hash.Hash) ([]byte, error) {
+func (g *G1) HashToCurveGeneric(msg, domain []byte, hashFunc func() hash.Hash) (*PointG1, error) {
 	hashRes, err := hashToFpXMD(hashFunc, msg, domain, 2)
 	if err != nil {
 		return nil, err
@@ -22,9 +22,9 @@ func HashToCurve(msg, domain []byte, hashFunc func() hash.Hash) ([]byte, error) 
 	one := new(fe).one()
 	p0, p1 := &PointG1{*x0, *y0, *one}, &PointG1{*x1, *y1, *one}
 
-	Add(p0, p0, p1)
-	Affine(p0)
+	g.Add(p0, p0, p1)
+	g.Affine(p0)
 	isogenyMapG1(&p0[0], &p0[1])
-	ClearCofactor(p0)
-	return ToBytes(Affine(p0)), nil
+	g.ClearCofactor(p0)
+	return g.Affine(p0), nil
 }

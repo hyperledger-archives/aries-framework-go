@@ -13,10 +13,12 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-func TestG1Serialization(t *testing.T) {
+func TestG1CustomSerialization(t *testing.T) {
 	pointG1 := new(PointG1).Zero()
 
-	pointBytes := ToBytes(pointG1)
+	g := NewG1()
+
+	pointBytes := g.ToBytes(pointG1)
 	if len(pointBytes) == 0 {
 		t.Fatal("empty bytes")
 	}
@@ -28,7 +30,7 @@ func TestG1Serialization(t *testing.T) {
 		},
 	})
 
-	pointBytes = ToBytes(pointG1)
+	pointBytes = g.ToBytes(pointG1)
 	if len(pointBytes) == 0 {
 		t.Fatal("empty bytes")
 	}
@@ -42,7 +44,9 @@ func TestHashToCurve(t *testing.T) {
 		return h
 	}
 
-	curve, err := HashToCurve([]byte("hello"),
+	g := NewG1()
+
+	curve, err := g.HashToCurveGeneric([]byte("hello"),
 		[]byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0"),
 		hashFunc)
 	if err != nil {

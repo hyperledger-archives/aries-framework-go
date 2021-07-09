@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/hkdf"
 
-	bls12381intern "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub/internal/kilic/bls12-381"
+	bls12381intern "github.com/hyperledger/aries-framework-go/internal/third_party/kilic/bls12-381"
 )
 
 const (
@@ -104,12 +104,14 @@ func hashToG1(data []byte) (*bls12381.PointG1, error) {
 		return h
 	}
 
-	g1Bytes, err := bls12381intern.HashToCurve(data, dstG1, hashFunc)
+	g := bls12381intern.NewG1()
+
+	p, err := g.HashToCurveGeneric(data, dstG1, hashFunc)
 	if err != nil {
 		return nil, err
 	}
 
-	return g1.FromBytes(g1Bytes)
+	return g1.FromBytes(g.ToBytes(p))
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.
