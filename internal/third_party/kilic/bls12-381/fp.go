@@ -1,11 +1,3 @@
-/*
-Taken from https://github.com/kilic/bls12-381/blob/master/fp.go
-(rev 63668807ad6a84b02b1d905373956f2ae8eb2afa)
-
-SPDX-License-Identifier: Apache-2.0
-(https://github.com/kilic/bls12-381/blob/master/LICENSE)
-*/
-
 package bls12381
 
 import (
@@ -16,7 +8,7 @@ import (
 func fromBytes(in []byte) (*fe, error) {
 	fe := &fe{}
 	if len(in) != fpByteSize {
-		return nil, errors.New("input string should be equal 48 bytes")
+		return nil, errors.New("input string must be equal 48 bytes")
 	}
 	fe.setBytes(in)
 	if !fe.isValid() {
@@ -28,7 +20,7 @@ func fromBytes(in []byte) (*fe, error) {
 
 func from64Bytes(in []byte) (*fe, error) {
 	if len(in) != 32*2 {
-		return nil, errors.New("input string should be equal 64 bytes")
+		return nil, errors.New("input string must be equal 64 bytes")
 	}
 	a0 := make([]byte, fpByteSize)
 	copy(a0[fpByteSize-32:fpByteSize], in[:32])
@@ -57,14 +49,25 @@ func from64Bytes(in []byte) (*fe, error) {
 	return e1, nil
 }
 
-func newTempG1() [9]*fe {
-	t := [9]*fe{}
-
-	for i := 0; i < 9; i++ {
-		t[i] = &fe{}
+func fromBig(in *big.Int) (*fe, error) {
+	fe := new(fe).setBig(in)
+	if !fe.isValid() {
+		return nil, errors.New("invalid input string")
 	}
+	toMont(fe, fe)
+	return fe, nil
+}
 
-	return t
+func fromString(in string) (*fe, error) {
+	fe, err := new(fe).setString(in)
+	if err != nil {
+		return nil, err
+	}
+	if !fe.isValid() {
+		return nil, errors.New("invalid input string")
+	}
+	toMont(fe, fe)
+	return fe, nil
 }
 
 func toBytes(e *fe) []byte {
@@ -79,12 +82,40 @@ func toBig(e *fe) *big.Int {
 	return e2.big()
 }
 
+func toString(e *fe) (s string) {
+	e2 := new(fe)
+	fromMont(e2, e)
+	return e2.string()
+}
+
 func toMont(c, a *fe) {
 	mul(c, a, r2)
 }
 
 func fromMont(c, a *fe) {
 	mul(c, a, &fe{1})
+}
+
+func wfp2MulGeneric(c *wfe2, a, b *fe2) {
+	wt0, wt1 := new(wfe), new(wfe)
+	t0, t1 := new(fe), new(fe)
+	wmul(wt0, &a[0], &b[0])
+	wmul(wt1, &a[1], &b[1])
+	wsub(&c[0], wt0, wt1)
+	lwaddAssign(wt0, wt1)
+	ladd(t0, &a[0], &a[1])
+	ladd(t1, &b[0], &b[1])
+	wmul(wt1, t0, t1)
+	lwsub(&c[1], wt1, wt0)
+}
+
+func wfp2SquareGeneric(c *wfe2, a *fe2) {
+	t0, t1, t2 := new(fe), new(fe), new(fe)
+	ladd(t0, &a[0], &a[1])
+	sub(t1, &a[0], &a[1])
+	ldouble(t2, &a[0])
+	wmul(&c[0], t1, t0)
+	wmul(&c[1], t2, &a[1])
 }
 
 func exp(c, a *fe, e *big.Int) {
@@ -159,6 +190,65 @@ func inverse(inv, e *fe) {
 	inv.set(u)
 }
 
+func inverseBatch(in []fe) {
+
+	n, N, setFirst := 0, len(in), false
+
+	for i := 0; i < len(in); i++ {
+		if !in[i].isZero() {
+			n++
+		}
+	}
+	if n == 0 {
+		return
+	}
+
+	tA := make([]fe, n)
+	tB := make([]fe, n)
+
+	for i, j := 0, 0; i < N; i++ {
+		if !in[i].isZero() {
+			if !setFirst {
+				setFirst = true
+				tA[j].set(&in[i])
+			} else {
+				mul(&tA[j], &in[i], &tA[j-1])
+			}
+			j = j + 1
+		}
+	}
+
+	inverse(&tB[n-1], &tA[n-1])
+	for i, j := N-1, n-1; j != 0; i-- {
+		if !in[i].isZero() {
+			mul(&tB[j-1], &tB[j], &in[i])
+			j = j - 1
+		}
+	}
+
+	for i, j := 0, 0; i < N; i++ {
+		if !in[i].isZero() {
+			if setFirst {
+				setFirst = false
+				in[i].set(&tB[j])
+			} else {
+				mul(&in[i], &tA[j-1], &tB[j])
+			}
+			j = j + 1
+		}
+	}
+}
+
+func rsqrt(c, a *fe) bool {
+	t0, t1 := new(fe), new(fe)
+	sqrtAddchain(t0, a)
+	mul(t1, t0, a)
+	square(t1, t1)
+	ret := t1.equal(a)
+	c.set(t0)
+	return ret
+}
+
 func sqrt(c, a *fe) bool {
 	u, v := new(fe).set(a), new(fe)
 	// a ^ (p - 3) / 4
@@ -166,6 +256,13 @@ func sqrt(c, a *fe) bool {
 	// a ^ (p + 1) / 4
 	mul(c, c, u)
 
+	square(v, c)
+	return u.equal(v)
+}
+
+func _sqrt(c, a *fe) bool {
+	u, v := new(fe).set(a), new(fe)
+	exp(c, a, pPlus1Over4)
 	square(v, c)
 	return u.equal(v)
 }
