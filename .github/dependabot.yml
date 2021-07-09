@@ -1,0 +1,34 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: 2
+updates:
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 1
+
+  - package-ecosystem: "npm"
+    directory: "/cmd"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 1
+
+  - package-ecosystem: "npm"
+    directory: "/test"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 1
