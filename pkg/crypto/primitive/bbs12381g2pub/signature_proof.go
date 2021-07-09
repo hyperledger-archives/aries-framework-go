@@ -94,7 +94,7 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	exponents := make([]*bls12381.Fr, 0, 1+revealedMessagesCount)
 
 	basesDisclosed = append(basesDisclosed, g1.One())
-	exponents = append(exponents, bls12381.NewFr().RedOne())
+	exponents = append(exponents, bls12381.NewFr().One())
 
 	revealedMessagesInd := 0
 

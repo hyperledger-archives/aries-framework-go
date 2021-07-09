@@ -14,7 +14,7 @@ import (
 )
 
 func parseFr(data []byte) *bls12381.Fr {
-	return bls12381.NewFr().RedFromBytes(data)
+	return bls12381.NewFr().FromBytes(data)
 }
 
 func f2192() *bls12381.Fr {
@@ -35,10 +35,10 @@ func frFromOKM(message []byte) *bls12381.Fr {
 	okm := h.Sum(nil)
 	emptyEightBytes := make([]byte, eightBytes)
 
-	elm := bls12381.NewFr().RedFromBytes(append(emptyEightBytes, okm[:okmMiddle]...))
+	elm := bls12381.NewFr().FromBytes(append(emptyEightBytes, okm[:okmMiddle]...))
 	elm.Mul(elm, f2192())
 
-	fr := bls12381.NewFr().RedFromBytes(append(emptyEightBytes, okm[okmMiddle:]...))
+	fr := bls12381.NewFr().FromBytes(append(emptyEightBytes, okm[okmMiddle:]...))
 	elm.Add(elm, fr)
 
 	return elm
@@ -46,7 +46,7 @@ func frFromOKM(message []byte) *bls12381.Fr {
 
 func frToRepr(fr *bls12381.Fr) *bls12381.Fr {
 	frRepr := bls12381.NewFr()
-	frRepr.RedMul(fr, &bls12381.Fr{1})
+	frRepr.Mul(fr, &bls12381.Fr{1})
 
 	return frRepr
 }

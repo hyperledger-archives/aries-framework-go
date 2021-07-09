@@ -232,7 +232,7 @@ func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGe
 
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
-	cb.add(g1.One(), bls12381.NewFr().RedOne())
+	cb.add(g1.One(), bls12381.NewFr().One())
 	cb.add(key.h0, s)
 
 	for i := 0; i < len(messages); i++ {

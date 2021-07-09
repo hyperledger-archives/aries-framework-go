@@ -127,7 +127,7 @@ func UnmarshalPrivateKey(privKeyBytes []byte) (*PrivateKey, error) {
 
 // Marshal marshals PrivateKey.
 func (k *PrivateKey) Marshal() ([]byte, error) {
-	bytes := k.FR.RedToBytes()
+	bytes := k.FR.ToBytes()
 	return bytes, nil
 }
 
