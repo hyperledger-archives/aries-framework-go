@@ -503,9 +503,9 @@ func (ctx *context) didDocAttachment(doc *did.Doc, myVerKey string) (*decorator.
 	// Interop: signing did_doc~attach has been removed from the spec, but aca-py still verifies signatures
 	// TODO make aca-py issue
 	if ctx.doACAPyInterop {
-		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(myVerKey)
+		pubKeyBytes, err := ctx.resolvePublicKey(myVerKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", myVerKey, err)
+			return nil, fmt.Errorf("failed to resolve public key: %w", err)
 		}
 
 		// TODO: use dynamic context KeyType
@@ -519,13 +519,40 @@ func (ctx *context) didDocAttachment(doc *did.Doc, myVerKey string) (*decorator.
 			return nil, fmt.Errorf("failed to get key handle: %w", err)
 		}
 
-		err = docAttach.Data.Sign(ctx.crypto, kh, ed25519.PublicKey(pubKeyBytes), pubKeyBytes)
+		err = docAttach.Data.Sign(ctx.crypto, kh, ed25519.PublicKey(myVerKey), pubKeyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("signing did_doc~attach: %w", err)
 		}
 	}
 
 	return docAttach, nil
+}
+
+func (ctx *context) resolvePublicKey(kid string) ([]byte, error) {
+	if strings.HasPrefix(kid, "did:key:") {
+		pubKeyBytes, err := fingerprint.PubKeyFromDIDKey(kid)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract pubKeyBytes from did:key [%s]: %w", kid, err)
+		}
+
+		return pubKeyBytes, nil
+	} else if strings.HasPrefix(kid, "did:") {
+		vkDID := strings.Split(kid, "#")[0]
+
+		pubDoc, err := ctx.vdRegistry.Resolve(vkDID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve public did for key ID '%s': %w", kid, err)
+		}
+
+		vm, ok := did.LookupPublicKey(kid, pubDoc.DIDDocument)
+		if !ok {
+			return nil, fmt.Errorf("failed to lookup public key for ID %s", kid)
+		}
+
+		return vm.Value, nil
+	}
+
+	return nil, fmt.Errorf("failed to resolve public key value from kid '%s'", kid)
 }
 
 func getPublicDID(options *options) string {
