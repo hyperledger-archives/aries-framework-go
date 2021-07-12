@@ -33,7 +33,7 @@ jobs:
       id: go
 
     - name: Setup node
-      uses: actions/setup-node@v1.4.4
+      uses: actions/setup-node@v2.2.0
       with:
         node-version: '16.x'
 

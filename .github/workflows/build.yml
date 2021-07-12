@@ -73,7 +73,7 @@ jobs:
         id: go
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1.4.4
+        uses: actions/setup-node@v2.2.0
         with:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
@@ -125,7 +125,7 @@ jobs:
         id: go
 
       - name: Setup Node.js
-        uses: actions/setup-node@v1.4.4
+        uses: actions/setup-node@v2.2.0
         with:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
