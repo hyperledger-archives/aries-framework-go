@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
-import "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+import (
+	"github.com/piprate/json-gold/ld"
+
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+)
 
 // Options represents configurations for Aries.
 type Options struct {
@@ -19,6 +23,7 @@ type Options struct {
 	LogLevel             string
 	Logger               api.LoggerProvider
 	Storage              api.Provider
+	DocumentLoader       ld.DocumentLoader
 
 	// expected to be ignored by gomobile
 	// not intended to be used by golang code
