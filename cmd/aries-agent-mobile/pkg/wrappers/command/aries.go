@@ -134,6 +134,10 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 		options = append(options, rsopts...)
 	}
 
+	if opts.DocumentLoader != nil {
+		options = append(options, aries.WithJSONLDDocumentLoader(opts.DocumentLoader))
+	}
+
 	return options, nil
 }
 
