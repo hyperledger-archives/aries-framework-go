@@ -121,6 +121,23 @@ func TestRemoteKeyStore(t *testing.T) {
 		require.EqualValues(t, defaultKeystoreURL, ksID)
 	})
 
+	t.Run("Create API error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		tmpKMS := New(_url, _client)
+
+		_, _, err = tmpKMS.Create(kms.ED25519Type)
+		require.Contains(t, err.Error(), "api error msg")
+	})
+
 	t.Run("Create Key failure", func(t *testing.T) {
 		blankClient := &http.Client{}
 		tmpKMS := New(defaultKeystoreURL, blankClient)
@@ -161,6 +178,23 @@ func TestRemoteKeyStore(t *testing.T) {
 		pubKey, err := remoteKMS.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 		require.EqualValues(t, marshalledPubKey, pubKey)
+
+		t.Run("ExportPubKeyBytes API error", func(t *testing.T) {
+			_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+				require.NoError(t, err)
+			})
+
+			srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+			defer func() { require.NoError(t, srv.Close()) }()
+
+			tmpKMS := New(_url, _client)
+
+			_, err = tmpKMS.ExportPubKeyBytes("kid")
+			require.Contains(t, err.Error(), "api error msg")
+		})
 
 		t.Run("ExportPubKeyBytes json unmarshal failure", func(t *testing.T) {
 			remoteKMS3 := New(defaultKeystoreURL, client)
@@ -344,6 +378,23 @@ func TestImportPrivateKey(t *testing.T) {
 	require.Contains(t, err.Error(), "failingUnmarshal always fails")
 
 	remoteKMS.unmarshalFunc = json.Unmarshal
+
+	t.Run("ImportPrivateKey API error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		tmpKMS := New(_url, _client)
+
+		_, _, err = tmpKMS.ImportPrivateKey(privateKey, kms.ED25519Type)
+		require.Contains(t, err.Error(), "api error msg")
+	})
 }
 
 func TestCloseResponseBody(t *testing.T) {

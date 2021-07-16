@@ -90,6 +90,20 @@ type RemoteKMS struct {
 	opts          *Opts
 }
 
+func checkError(resp *http.Response) error {
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+		return nil
+	}
+
+	var errAPI errMessage
+
+	if err := json.NewDecoder(resp.Body).Decode(&errAPI); err != nil {
+		return err
+	}
+
+	return errors.New(errAPI.Error)
+}
+
 // CreateKeyStore calls the key server's create keystore REST function and returns the resulting keystoreURL value.
 // Arguments of this function are described below:
 //   - httpClient used to POST the request
@@ -99,7 +113,7 @@ type RemoteKMS struct {
 // Returns:
 //  - keystore URL (if successful)
 //  - error (if error encountered)
-func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string, // nolint: gocyclo, funlen
+func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string, // nolint: funlen
 	opts ...Opt) (string, string, error) {
 	createKeyStoreStart := time.Now()
 	kmsOpts := NewOpt()
@@ -150,15 +164,9 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "CreateKeyStore")
 
-	if resp.StatusCode != http.StatusCreated {
-		var errAPI errMessage
-
-		err = json.NewDecoder(resp.Body).Decode(&errAPI)
-		if err != nil {
-			return "", "", err
-		}
-
-		return "", "", errors.New(errAPI.Error)
+	err = checkError(resp)
+	if err != nil {
+		return "", "", err
 	}
 
 	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
@@ -279,6 +287,11 @@ func (r *RemoteKMS) createKey(kt kms.KeyType, exportKey bool) (string, []byte, e
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Create")
 
+	err = checkError(resp)
+	if err != nil {
+		return "", nil, err
+	}
+
 	keyURL := resp.Header.Get(LocationHeader)
 
 	if keyURL != "" && !exportKey {
@@ -349,6 +362,11 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ExportPubKeyBytes")
+
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -441,6 +459,11 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ImportPrivateKey")
+
+	err = checkError(resp)
+	if err != nil {
+		return "", nil, err
+	}
 
 	keyURL := resp.Header.Get(LocationHeader)
 
