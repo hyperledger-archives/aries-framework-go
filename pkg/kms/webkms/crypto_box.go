@@ -109,6 +109,11 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Easy")
 
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read ciphertext response for Easy failed [%s, %w]", destination, err)
@@ -156,6 +161,11 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "EasyOpen")
+
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -234,6 +244,11 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "SealOpen")
+
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
