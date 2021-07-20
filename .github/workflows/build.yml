@@ -38,7 +38,7 @@ jobs:
     - name: Upload coverage to Codecov
       timeout-minutes: 10
       if: matrix.os == 'ubuntu-18.04' && github.repository == 'hyperledger/aries-framework-go'
-      uses: codecov/codecov-action@v1.5.2
+      uses: codecov/codecov-action@v2.0.1
       with:
         file: ./coverage.out
 
