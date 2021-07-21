@@ -186,6 +186,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		frameworkOpts.keyAgreementType = kms.X25519ECDHKWType
 	}
 
+	// TODO, make authcrypt.Packer the primary packer below instead of legacy.Packer
 	if frameworkOpts.packerCreator == nil {
 		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
 			return legacy.New(provider), nil

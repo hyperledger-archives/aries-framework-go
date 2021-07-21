@@ -61,7 +61,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     And   "Dave-Router,Dave" retrieves connection record through controller and validates that connection state is "completed"
     And   "Dave" saves the connectionID to variable "dave-second-router-connID"
 
-    # Carl registers her routers
+    # Carl registers his routers
     Then   "Carl" unregisters the router with connection "carl-router-connID,carl-second-router-connID"
     And   "Carl" sets connection "carl-router-connID,carl-second-router-connID" as the router
     And   "Carl" verifies that the router connection is set to "carl-router-connID,carl-second-router-connID"

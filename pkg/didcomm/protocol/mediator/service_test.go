@@ -959,8 +959,7 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.Register("conn")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "router is already registered")
+		require.EqualError(t, err, "router is already registered")
 	})
 
 	t.Run("test register route - with client timeout error", func(t *testing.T) {
@@ -987,8 +986,7 @@ func TestRegister(t *testing.T) {
 			opts.Timeout = 1 * time.Millisecond
 		})
 
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get grant: store: data not found")
+		require.EqualError(t, err, "get grant: store: data not found")
 	})
 
 	t.Run("test register route - router connection not found", func(t *testing.T) {
@@ -1008,8 +1006,7 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.Register("conn")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), ErrConnectionNotFound.Error())
+		require.EqualError(t, err, "get connection: "+ErrConnectionNotFound.Error())
 	})
 
 	t.Run("test register route - router connection fetch error", func(t *testing.T) {
@@ -1031,8 +1028,7 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.Register("conn")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch connection record from store")
+		require.EqualError(t, err, "get connection: fetch connection record from store : get error")
 	})
 }
 
@@ -1074,8 +1070,7 @@ func TestUnregister(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.Unregister(connID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "router not registered")
+		require.EqualError(t, err, "ensure connection exists: router not registered")
 	})
 
 	t.Run("test unregister route - db error", func(t *testing.T) {
@@ -1094,7 +1089,6 @@ func TestUnregister(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.Unregister(connID)
-		require.Error(t, err)
 		require.EqualError(t, err, "ensure connection exists: get error")
 	})
 }
@@ -1187,16 +1181,14 @@ func TestKeylistUpdate(t *testing.T) {
 
 		// no router registered
 		err = svc.AddKey(connID, recKey)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "router not registered")
+		require.EqualError(t, err, "ensure connection exists: router not registered")
 
 		// save router connID
 		require.NoError(t, svc.saveRouterConnectionID("conn"))
 
 		// no connections saved
 		err = svc.AddKey("conn", recKey)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "connection not found")
+		require.EqualError(t, err, "get connection: connection not found")
 
 		// save connections
 		connRec := &connection.Record{
@@ -1221,8 +1213,7 @@ func TestKeylistUpdate(t *testing.T) {
 		}()
 
 		err = svc.AddKey("conn", recKey)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to update the recipient key with the router")
+		require.EqualError(t, err, "failed to update the recipient key with the router")
 	})
 
 	t.Run("test keylist update - timeout error", func(t *testing.T) {
@@ -1247,8 +1238,7 @@ func TestKeylistUpdate(t *testing.T) {
 		require.NoError(t, svc.saveRouterConnectionID("conn2"))
 
 		err = svc.AddKey("conn2", "recKey")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "timeout waiting for keylist update response from the router")
+		require.EqualError(t, err, "timeout waiting for keylist update response from the router")
 	})
 
 	t.Run("test keylist update - router connectionID fetch error", func(t *testing.T) {
@@ -1267,7 +1257,6 @@ func TestKeylistUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.AddKey("conn", "recKey")
-		require.Error(t, err)
 		require.EqualError(t, err, "ensure connection exists: get error")
 	})
 }
@@ -1314,7 +1303,7 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		conf, err := svc.Config("conn")
-		require.Error(t, err)
+		require.EqualError(t, err, "ensure connection exists: router not registered")
 		require.True(t, errors.Is(err, ErrRouterNotRegistered))
 		require.Nil(t, conf)
 	})
@@ -1335,8 +1324,7 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
 
 		conf, err := svc.Config("connID-123")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get router config data")
+		require.EqualError(t, err, "get router config data : data not found")
 		require.Nil(t, conf)
 	})
 
@@ -1383,7 +1371,6 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
 
 		conf, err := svc.Config("connID-123")
-		require.Error(t, err)
 		require.EqualError(t, err, "ensure connection exists: get error")
 		require.Nil(t, conf)
 	})

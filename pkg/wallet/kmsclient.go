@@ -24,7 +24,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -302,7 +302,7 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return v, nil
 }
 
-// importKeyJWK imports private key jwk found in key contents,
+// importKeyJWK imports private key jwkfingerprint found in key contents,
 // supported curve types - Ed25519, P-256, BLS12381G2.
 func importKeyJWK(auth string, key *keyContent) error {
 	keyManager, err := keyManager().getKeyManger(auth)
@@ -314,19 +314,19 @@ func importKeyJWK(auth string, key *keyContent) error {
 		return fmt.Errorf("failed to get key manager: %w", err)
 	}
 
-	var jwk jose.JWK
-	if e := jwk.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
-		return fmt.Errorf("failed to unmarshal jwk : %w", e)
+	var jwkKey jwk.JWK
+	if e := jwkKey.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
+		return fmt.Errorf("failed to unmarshal jwkfingerprint : %w", e)
 	}
 
-	keyType, ok := jwkCurves[jwk.Crv]
+	keyType, ok := jwkCurves[jwkKey.Crv]
 	if !ok {
-		return fmt.Errorf("unsupported Key type %s", jwk.Crv)
+		return fmt.Errorf("unsupported Key type %s", jwkKey.Crv)
 	}
 
-	_, _, err = keyManager.ImportPrivateKey(jwk.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwk)))
+	_, _, err = keyManager.ImportPrivateKey(jwkKey.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwkKey)))
 	if err != nil {
-		return fmt.Errorf("failed to import jwk key : %w", err)
+		return fmt.Errorf("failed to import jwkfingerprint key : %w", err)
 	}
 
 	return nil
@@ -379,9 +379,9 @@ func getKID(id string) string {
 	return ""
 }
 
-func getKIDFromJWK(id string, jwk *jose.JWK) string {
-	if jwk.KeyID != "" {
-		return jwk.KeyID
+func getKIDFromJWK(id string, jwkKey *jwk.JWK) string {
+	if jwkKey.KeyID != "" {
+		return jwkKey.KeyID
 	}
 
 	return getKID(id)

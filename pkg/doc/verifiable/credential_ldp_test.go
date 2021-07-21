@@ -21,7 +21,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -311,7 +312,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	copy(publicKey[0:32], decoded)
 	rv := ed25519.PublicKey(publicKey)
 
-	jwk, err := jose.JWKFromKey(rv)
+	jwkKey, err := jwksupport.JWKFromKey(rv)
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, []byte(vcJSON),
@@ -319,7 +320,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type: "JsonWebKey2020",
-				JWK:  jwk,
+				JWK:  jwkKey,
 			}, nil
 		}),
 		WithExternalJSONLDContext("https://w3id.org/security/jws/v1"),
@@ -656,7 +657,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromKey(signer.PublicKey())
+	jwkKey, err := jwksupport.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, vcBytes,
@@ -665,7 +666,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 			return &sigverifier.PublicKey{
 				Type:  "JwsVerificationKey2020",
 				Value: signer.PublicKeyBytes(),
-				JWK:   jwk,
+				JWK:   jwkKey,
 			}, nil
 		}))
 	r.NoError(err)
@@ -700,7 +701,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromKey(signer.PublicKey())
+	jwkKey, err := jwksupport.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	// JWK encoded public key
@@ -709,7 +710,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type: "EcdsaSecp256k1VerificationKey2019",
-				JWK:  jwk,
+				JWK:  jwkKey,
 			}, nil
 		}))
 	r.NoError(err)
@@ -1073,7 +1074,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
-	jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
+	jwkKey, err := jwksupport.JWKFromKey(ecdsaSigner.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, vcBytes,
@@ -1090,7 +1091,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 				return &sigverifier.PublicKey{
 					Type:  "JsonWebKey2020",
 					Value: ecdsaSigner.PublicKeyBytes(),
-					JWK:   jwk,
+					JWK:   jwkKey,
 				}, nil
 			}
 
@@ -1154,12 +1155,12 @@ func mapPublicKeyToKMSKeyType(pubKey *sigverifier.PublicKey) (kms.KeyType, error
 	}
 }
 
-func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
-	switch jwk.Kty {
+func mapJWKToKMSKeyType(jwkKey *jwk.JWK) (kms.KeyType, error) {
+	switch jwkKey.Kty {
 	case "OKP":
 		return kms.ED25519Type, nil
 	case "EC":
-		switch jwk.Crv {
+		switch jwkKey.Crv {
 		case "P-256":
 			return kms.ECDSAP256TypeIEEEP1363, nil
 		case "P-384":
@@ -1169,7 +1170,7 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unsupported JWK: %v", jwk)
+	return "", fmt.Errorf("unsupported JWK: %v", jwkKey)
 }
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {

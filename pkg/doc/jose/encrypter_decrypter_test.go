@@ -33,6 +33,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -634,7 +636,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 				privKey, err = rsa.GenerateKey(rand.Reader, 2048)
 
-				unsupportedJWK := ariesjose.JWK{
+				unsupportedJWK := jwk.JWK{
 					JSONWebKey: jose.JSONWebKey{
 						Key: &privKey.PublicKey,
 					},
@@ -953,7 +955,7 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 	crv, err := hybrid.GetCurve(pubKey.Curve)
 	require.NoError(t, err)
 
-	jwk := jose.JSONWebKey{
+	jwkKey := jose.JSONWebKey{
 		Key: &ecdsa.PublicKey{
 			Curve: crv,
 			X:     new(big.Int).SetBytes(pubKey.X),
@@ -961,7 +963,7 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 		},
 	}
 
-	jwkByte, err := jwk.MarshalJSON()
+	jwkByte, err := jwkKey.MarshalJSON()
 	require.NoError(t, err)
 	jwkStr, err := prettyPrint(jwkByte)
 	require.NoError(t, err)
@@ -970,11 +972,11 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 }
 
 func getPrintedX25519PubKey(t *testing.T, pubKeyType *cryptoapi.PublicKey) string {
-	jwk := jose.JSONWebKey{
+	jwkKey := jose.JSONWebKey{
 		Key: ed25519.PublicKey(pubKeyType.X),
 	}
 
-	jwkByte, err := jwk.MarshalJSON()
+	jwkByte, err := jwkKey.MarshalJSON()
 	require.NoError(t, err)
 
 	jwkStr, err := prettyPrint(jwkByte)
@@ -1300,6 +1302,8 @@ func TestECDH1PU(t *testing.T) {
 				Store: mockStoreMap,
 			}
 
+			storeResolver := &resolver.StoreResolver{Store: mockStore}
+
 			pt := []byte("secret message")
 			aad := []byte("aad value")
 
@@ -1383,20 +1387,20 @@ func TestECDH1PU(t *testing.T) {
 			t.Logf("JWE deserialize took %v", time.Since(testDeserTime))
 			require.NoError(t, err)
 
-			t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
-				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+			t.Run("Decrypting JWE message without kid key in the third party store should fail", func(t *testing.T) {
+				jd := ariesjose.NewJWEDecrypt(storeResolver, c, k)
 				require.NotEmpty(t, jd)
 
 				_, err = jd.Decrypt(localJWE)
 				require.EqualError(t, err, "jwedecrypt: failed to add sender public key for skid: fetchSenderPubKey: "+
-					"failed to get sender key from DB: data not found")
+					"storeResolver: failed to resolve kid from store: data not found")
 			})
 
 			// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
 			mockStoreMap[senderKIDs[0]] = mockstorage.DBEntry{Value: senderPubKey}
 
 			t.Run("Decrypting JWE message test success", func(t *testing.T) {
-				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+				jd := ariesjose.NewJWEDecrypt(storeResolver, c, k)
 				require.NotEmpty(t, jd)
 
 				var msg []byte
@@ -1481,7 +1485,7 @@ func Test1PUDraft4ExampleBDecrypt(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, localJWE)
 
-	dec := ariesjose.NewJWEDecrypt(mockStore, c, k)
+	dec := ariesjose.NewJWEDecrypt(&resolver.StoreResolver{Store: mockStore}, c, k)
 	require.NotEmpty(t, dec)
 
 	pt, err := dec.Decrypt(localJWE)
@@ -1507,7 +1511,7 @@ func convertX25519ToKH(t *testing.T, keys, kids []string) map[string]*keyset.Han
 		delim := ",\"d\""
 		idx := strings.Index(k, delim)
 		mPubKey := k[:idx] + "}"
-		pubKey := &ariesjose.JWK{}
+		pubKey := &jwk.JWK{}
 		err = json.Unmarshal([]byte(mPubKey), pubKey)
 		require.NoError(t, err)
 

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kmsdidkey
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -144,7 +145,7 @@ func TestBuildDIDKeyByKMSKeyType(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			didKey, err := BuildDIDKeyByKMSKeyType(tc.keyBytes, tc.keyType)
+			didKey, err := BuildDIDKeyByKeyType(tc.keyBytes, tc.keyType)
 			if tc.name == "test invalid key" {
 				require.EqualError(t, err, "keyType 'undefined' does not have a multi-base codec")
 
@@ -162,11 +163,28 @@ func TestBuildDIDKeyByKMSKeyType(t *testing.T) {
 				require.EqualError(t, err, "buildDIDkeyByKMSKeyType failed to unmarshal key type NISTP256ECDHKW:"+
 					" invalid character 'w' looking for beginning of value")
 
+				_, err = EncryptionPubKeyFromDIDKey(didKey)
+				require.Contains(t, err.Error(), "encryptionPubKeyFromDIDKey: extractRawKey: MethodIDFromDIDKey")
 				return
 			}
 
 			require.NoError(t, err)
 			require.Contains(t, didKey, "did:key:z")
+
+			switch tc.keyType {
+			case kms.NISTP256ECDHKW, kms.NISTP384ECDHKW, kms.NISTP521ECDHKW, kms.X25519ECDHKWType, kms.ED25519Type:
+				pubKey, err := EncryptionPubKeyFromDIDKey(didKey)
+				require.NoError(t, err)
+				require.NotEmpty(t, pubKey)
+
+				mPubKey, err := json.Marshal(pubKey)
+				require.NoError(t, err)
+				if tc.keyType == kms.ED25519Type {
+					require.EqualValues(t, tc.keyBytes, pubKey.X)
+				} else {
+					require.EqualValues(t, tc.keyBytes, mPubKey)
+				}
+			}
 		})
 	}
 }

@@ -513,6 +513,8 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 // The agent is registered with the router and retrieves the router endpoint and routing keys.
 // This function throws an error if the agent is already registered against a router.
 func (s *Service) Register(connectionID string, options ...ClientOption) error {
+	logger.Debugf("mediator about to register connection .. calling getConnection() with ID: [%v]", connectionID)
+
 	record, err := s.getConnection(connectionID)
 	if err != nil {
 		return fmt.Errorf("get connection: %w", err)

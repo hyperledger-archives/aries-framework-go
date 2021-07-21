@@ -19,7 +19,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -200,7 +200,7 @@ type VerificationMethod struct {
 
 	Value []byte
 
-	jsonWebKey  *jose.JWK
+	jsonWebKey  *jwk.JWK
 	relativeURL bool
 }
 
@@ -221,8 +221,8 @@ func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte
 }
 
 // NewVerificationMethodFromJWK creates a new VerificationMethod based on JSON Web Key.
-func NewVerificationMethodFromJWK(id, keyType, controller string, jwk *jose.JWK) (*VerificationMethod, error) {
-	pkBytes, err := jwk.PublicKeyBytes()
+func NewVerificationMethodFromJWK(id, keyType, controller string, jwkKey *jwk.JWK) (*VerificationMethod, error) {
+	pkBytes, err := jwkKey.PublicKeyBytes()
 	if err != nil {
 		return nil, fmt.Errorf("convert JWK to public key bytes: %w", err)
 	}
@@ -237,13 +237,13 @@ func NewVerificationMethodFromJWK(id, keyType, controller string, jwk *jose.JWK)
 		Type:        keyType,
 		Controller:  controller,
 		Value:       pkBytes,
-		jsonWebKey:  jwk,
+		jsonWebKey:  jwkKey,
 		relativeURL: relativeURL,
 	}, nil
 }
 
 // JSONWebKey returns JSON Web key if defined.
-func (pk *VerificationMethod) JSONWebKey() *jose.JWK {
+func (pk *VerificationMethod) JSONWebKey() *jwk.JWK {
 	return pk.jsonWebKey
 }
 
@@ -782,20 +782,20 @@ func decodeVMJwk(jwkMap map[string]interface{}, vm *VerificationMethod) error {
 		return nil
 	}
 
-	var jwk jose.JWK
+	var jwkKey jwk.JWK
 
-	err = json.Unmarshal(jwkBytes, &jwk)
+	err = json.Unmarshal(jwkBytes, &jwkKey)
 	if err != nil {
 		return fmt.Errorf("unmarshal JWK: %w", err)
 	}
 
-	pkBytes, err := jwk.PublicKeyBytes()
+	pkBytes, err := jwkKey.PublicKeyBytes()
 	if err != nil {
 		return fmt.Errorf("failed to decode public key from JWK: %w", err)
 	}
 
 	vm.Value = pkBytes
-	vm.jsonWebKey = &jwk
+	vm.jsonWebKey = &jwkKey
 
 	return nil
 }

@@ -21,8 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Decrypter interface to Decrypt JWE messages.
@@ -33,19 +34,18 @@ type Decrypter interface {
 
 // JWEDecrypt is responsible for decrypting a JWE message and returns its protected plaintext.
 type JWEDecrypt struct {
-	// store is required for Authcrypt/ECDH1PU only (Anoncrypt doesn't need it as the sender is anonymous)
-	store  storage.Store
-	crypto cryptoapi.Crypto
-	kms    kms.KeyManager
+	kidResolver resolver.KIDResolver
+	crypto      cryptoapi.Crypto
+	kms         kms.KeyManager
 }
 
 // NewJWEDecrypt creates a new JWEDecrypt instance to parse and decrypt a JWE message for a given recipient
 // store is needed for Authcrypt only (to fetch sender's pre agreed upon public key), it is not needed for Anoncrypt.
-func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
+func NewJWEDecrypt(kidResolver resolver.KIDResolver, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
 	return &JWEDecrypt{
-		store:  store,
-		crypto: c,
-		kms:    k,
+		kidResolver: kidResolver,
+		crypto:      c,
+		kms:         k,
 	}
 }
 
@@ -129,6 +129,7 @@ func fetchSKIDFromAPU(jwe *JSONWebEncryption) (string, bool) {
 	return "", false
 }
 
+//nolint:funlen,gocyclo
 func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	senderOpt ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	var (
@@ -138,6 +139,29 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 
 	for _, rec := range recWK {
 		var unwrapOpts []cryptoapi.WrapKeyOpts
+
+		if strings.HasPrefix(rec.KID, "did:key") {
+			// resolve and use kms KID if did:key or KeyAgreement.ID.
+			resolvedRec, err := jd.kidResolver.Resolve(rec.KID)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// Need to get the kms KID in order to do kms.Get() since original rec.KID is a did:key. This is necessary
+			// to ensure recipient is the owner of the key.
+			rec.KID = resolvedRec.KID
+		} else if strings.Index(rec.KID, "#") > 0 {
+			resolvedRec, err := jd.kidResolver.Resolve(rec.KID)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// Need to get the kms KID in order to do kms.Get() since rec.KID is KeyAgrement.ID. This is necessary to
+			// ensure recipient is the owner of the key.
+			rec.KID = resolvedRec.KID
+		}
 
 		recKH, err := jd.kms.Get(rec.KID)
 		if err != nil {
@@ -199,16 +223,9 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 }
 
 func (jd *JWEDecrypt) fetchSenderPubKey(skid string, encAlg EncAlg) (*keyset.Handle, error) {
-	mKey, err := jd.store.Get(skid)
+	senderKey, err := jd.kidResolver.Resolve(skid)
 	if err != nil {
-		return nil, fmt.Errorf("fetchSenderPubKey: failed to get sender key from DB: %w", err)
-	}
-
-	var senderKey *cryptoapi.PublicKey
-
-	err = json.Unmarshal(mKey, &senderKey)
-	if err != nil {
-		return nil, fmt.Errorf("fetchSenderPubKey: failed to unmarshal sender key from DB: %w", err)
+		return nil, fmt.Errorf("fetchSenderPubKey: %w", err)
 	}
 
 	ceAlg := aeadAlg[encAlg]
@@ -377,19 +394,19 @@ func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders,
 }
 
 func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWrappedKey, error) {
-	jwk := &JWK{}
+	jwkKey := &jwk.JWK{}
 
-	err := jwk.UnmarshalJSON(marshalledJWK)
+	err := jwkKey.UnmarshalJSON(marshalledJWK)
 	if err != nil {
 		return nil, err
 	}
 
 	epk := cryptoapi.PublicKey{
-		Curve: jwk.Crv,
-		Type:  jwk.Kty,
+		Curve: jwkKey.Crv,
+		Type:  jwkKey.Kty,
 	}
 
-	switch key := jwk.Key.(type) {
+	switch key := jwkKey.Key.(type) {
 	case *ecdsa.PublicKey:
 		epk.X = key.X.Bytes()
 		epk.Y = key.Y.Bytes()
@@ -400,7 +417,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWra
 	}
 
 	return &cryptoapi.RecipientWrappedKey{
-		KID: jwk.KeyID,
+		KID: jwkKey.KeyID,
 		EPK: epk,
 	}, nil
 }

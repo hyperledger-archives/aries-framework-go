@@ -25,7 +25,7 @@ import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -40,10 +40,10 @@ func TestCreateKID(t *testing.T) {
 
 	// now try building go-jose thumbprint and compare its base64URL with kid above
 	// they should not match since go-jose's thumbprint is built from a wrong Ed25519 JWK.
-	jwk, err := jose.JWKFromKey(pubKey)
+	jwkKey, err := jwksupport.JWKFromKey(pubKey)
 	require.NoError(t, err)
 
-	goJoseTP, err := jwk.Thumbprint(crypto.SHA256)
+	goJoseTP, err := jwkKey.Thumbprint(crypto.SHA256)
 	require.NoError(t, err)
 
 	goJoseKID := base64.RawURLEncoding.EncodeToString(goJoseTP)

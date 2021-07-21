@@ -20,7 +20,7 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -145,7 +145,7 @@ func TestImportKey(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		jwk := ariesjose.JWK{
+		jwkKey := jwk.JWK{
 			JSONWebKey: jose.JSONWebKey{
 				Key:       privateKey,
 				KeyID:     "kid",
@@ -153,7 +153,7 @@ func TestImportKey(t *testing.T) {
 			},
 		}
 
-		jwkBytes, err := json.Marshal(&jwk)
+		jwkBytes, err := json.Marshal(&jwkKey)
 		require.NoError(t, err)
 
 		var getRW bytes.Buffer
@@ -173,7 +173,7 @@ func TestImportKey(t *testing.T) {
 		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)
 
-		jwk := ariesjose.JWK{
+		jwkKey := jwk.JWK{
 			JSONWebKey: jose.JSONWebKey{
 				Key:       privateKey,
 				KeyID:     "kid",
@@ -181,7 +181,7 @@ func TestImportKey(t *testing.T) {
 			},
 		}
 
-		jwkBytes, err := json.Marshal(&jwk)
+		jwkBytes, err := json.Marshal(&jwkKey)
 		require.NoError(t, err)
 
 		var getRW bytes.Buffer
@@ -202,7 +202,7 @@ func TestImportKey(t *testing.T) {
 		privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 		require.NoError(t, err)
 
-		jwk := ariesjose.JWK{
+		jwkKey := jwk.JWK{
 			JSONWebKey: jose.JSONWebKey{
 				Key:       privateKey,
 				KeyID:     "kid",
@@ -210,7 +210,7 @@ func TestImportKey(t *testing.T) {
 			},
 		}
 
-		jwkBytes, err := json.Marshal(&jwk)
+		jwkBytes, err := json.Marshal(&jwkKey)
 		require.NoError(t, err)
 
 		var getRW bytes.Buffer
@@ -219,7 +219,7 @@ func TestImportKey(t *testing.T) {
 		require.Contains(t, cmdErr.Error(), "import key type not supported P-521")
 	})
 
-	t.Run("test import key - jwk without keyID", func(t *testing.T) {
+	t.Run("test import key - jwkfingerprint without keyID", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{})
 		require.NotNil(t, cmd)
 
@@ -231,14 +231,14 @@ func TestImportKey(t *testing.T) {
 		privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 		require.NoError(t, err)
 
-		jwk := ariesjose.JWK{
+		jwkKey := jwk.JWK{
 			JSONWebKey: jose.JSONWebKey{
 				Key:       privateKey,
 				Algorithm: "EdDSA",
 			},
 		}
 
-		jwkBytes, err := json.Marshal(&jwk)
+		jwkBytes, err := json.Marshal(&jwkKey)
 		require.NoError(t, err)
 
 		var getRW bytes.Buffer

@@ -472,6 +472,8 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
+		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
+		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -530,6 +532,7 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithKeyType(frameworkOpts.keyType),
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
+		// add vdr registry ??
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -568,6 +571,9 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 		context.WithJSONLDDocumentLoader(frameworkOpts.jsonldDocumentLoader),
+		context.WithKeyType(frameworkOpts.keyType),
+		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
+		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
@@ -595,6 +601,7 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithKMS(frameworkOpts.kms),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 	)
 	if err != nil {
 		return fmt.Errorf("create packer context failed: %w", err)

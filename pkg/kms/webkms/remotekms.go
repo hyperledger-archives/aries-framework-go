@@ -169,12 +169,12 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 		return "", "", err
 	}
 
-	logger.Infof("call of CreateStore http request duration: %s", time.Since(start))
+	logger.Debugf("call of CreateStore http request duration: %s", time.Since(start))
 
 	keystoreURL := resp.Header.Get(LocationHeader)
 	capability := resp.Header.Get(XRootCapabilityHeader)
 
-	logger.Infof("overall CreateStore duration: %s", time.Since(createKeyStoreStart))
+	logger.Debugf("overall CreateStore duration: %s", time.Since(createKeyStoreStart))
 
 	return keystoreURL, capability, nil
 }
@@ -241,7 +241,7 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 
 	resp, err := r.httpClient.Do(httpReq)
 
-	logger.Infof("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
+	logger.Debugf("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
 
 	return resp, err
 }
@@ -261,7 +261,7 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 
 	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
 
-	logger.Infof("overall Create key duration: %s", time.Since(startCreate))
+	logger.Debugf("overall Create key duration: %s", time.Since(startCreate))
 
 	return kid, keyURL, nil
 }
@@ -385,7 +385,7 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 		return nil, err
 	}
 
-	logger.Infof("overall ExportPubKeyBytes duration: %s", time.Since(startExport))
+	logger.Debugf("overall ExportPubKeyBytes duration: %s", time.Since(startExport))
 
 	return keyBytes, nil
 }
@@ -406,7 +406,7 @@ func (r *RemoteKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, 
 
 	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
 
-	logger.Infof("overall CreateAndExportPubKeyBytes duration: %s", time.Since(start))
+	logger.Debugf("overall CreateAndExportPubKeyBytes duration: %s", time.Since(start))
 
 	return kid, keyBytes, nil
 }

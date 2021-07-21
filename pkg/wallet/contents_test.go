@@ -383,7 +383,7 @@ func TestContentStores(t *testing.T) {
 		err = contentStore.Save(tkn, Key, []byte(sampleKeyContentBase58Valid))
 		require.NoError(t, err)
 
-		// import jwk private key
+		// import jwkfingerprint private key
 		err = contentStore.Save(tkn, Key, []byte(sampleKeyContentJwkValid))
 		require.NoError(t, err)
 

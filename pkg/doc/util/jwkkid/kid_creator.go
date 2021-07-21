@@ -21,7 +21,8 @@ import (
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -62,12 +63,12 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		return bbsKID, nil
 	}
 
-	jwk, err := BuildJWK(keyBytes, kt)
+	jwkKey, err := BuildJWK(keyBytes, kt)
 	if err != nil {
 		return "", fmt.Errorf("createKID: failed to build jwk: %w", err)
 	}
 
-	tp, err := jwk.Thumbprint(crypto.SHA256)
+	tp, err := jwkKey.Thumbprint(crypto.SHA256)
 	if err != nil {
 		return "", fmt.Errorf("createKID: failed to get jwk Thumbprint: %w", err)
 	}
@@ -76,15 +77,15 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 }
 
 // BuildJWK builds a go jose JWK from keyBytes with key type kt.
-func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
+func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 	var (
-		jwk *jose.JWK
-		err error
+		jwkKey *jwk.JWK
+		err    error
 	)
 
 	switch kt {
 	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
-		jwk, err = generateJWKFromDERECDSA(keyBytes)
+		jwkKey, err = generateJWKFromDERECDSA(keyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa DER key: %w", err)
 		}
@@ -105,12 +106,12 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 			Y:     y,
 		}
 
-		jwk, err = jose.JWKFromKey(pubKey)
+		jwkKey, err = jwksupport.JWKFromKey(pubKey)
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa key in IEEE1363 format: %w", err)
 		}
 	case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
-		jwk, err = generateJWKFromECDH(keyBytes)
+		jwkKey, err = generateJWKFromECDH(keyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdh key: %w", err)
 		}
@@ -118,19 +119,19 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jose.JWK, error) {
 		return nil, fmt.Errorf("buildJWK: %w: '%s'", errInvalidKeyType, kt)
 	}
 
-	return jwk, nil
+	return jwkKey, nil
 }
 
-func generateJWKFromDERECDSA(keyBytes []byte) (*jose.JWK, error) {
+func generateJWKFromDERECDSA(keyBytes []byte) (*jwk.JWK, error) {
 	pubKey, err := x509.ParsePKIXPublicKey(keyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generateJWKFromDERECDSA: failed to parse ecdsa key in DER format: %w", err)
 	}
 
-	return jose.JWKFromKey(pubKey)
+	return jwksupport.JWKFromKey(pubKey)
 }
 
-func generateJWKFromECDH(keyBytes []byte) (*jose.JWK, error) {
+func generateJWKFromECDH(keyBytes []byte) (*jwk.JWK, error) {
 	compositeKey, err := unmarshalECDHKey(keyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generateJWKFromECDH: %w", err)
@@ -147,7 +148,7 @@ func generateJWKFromECDH(keyBytes []byte) (*jose.JWK, error) {
 		Y:     new(big.Int).SetBytes(compositeKey.Y),
 	}
 
-	return jose.JWKFromKey(pubKey)
+	return jwksupport.JWKFromKey(pubKey)
 }
 
 func getCurveByKMSKeyType(kt kms.KeyType) elliptic.Curve {
@@ -181,12 +182,12 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 		return "", fmt.Errorf("createX25519KID: %w", err)
 	}
 
-	jwk, err := buildX25519JWK(compositeKey.X)
+	jwkStr, err := buildX25519JWK(compositeKey.X)
 	if err != nil {
 		return "", fmt.Errorf("createX25519KID: %w", err)
 	}
 
-	thumbprint := sha256Sum(jwk)
+	thumbprint := sha256Sum(jwkStr)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
@@ -203,9 +204,9 @@ func createED25519KID(keyBytes []byte) (string, error) {
 	pad := make([]byte, ed25519.PublicKeySize-lenKey)
 	ed25519RawKey := append(pad, keyBytes...)
 
-	jwk := fmt.Sprintf(ed25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
+	jwkStr := fmt.Sprintf(ed25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
 
-	thumbprint := sha256Sum(jwk)
+	thumbprint := sha256Sum(jwkStr)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
@@ -221,9 +222,9 @@ func buildX25519JWK(keyBytes []byte) (string, error) {
 	pad := make([]byte, cryptoutil.Curve25519KeySize-lenKey)
 	x25519RawKey := append(pad, keyBytes...)
 
-	jwk := fmt.Sprintf(x25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(x25519RawKey))
+	jwkStr := fmt.Sprintf(x25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(x25519RawKey))
 
-	return jwk, nil
+	return jwkStr, nil
 }
 
 func createBLS12381G2KID(keyBytes []byte) (string, error) {
@@ -242,16 +243,16 @@ func createBLS12381G2KID(keyBytes []byte) (string, error) {
 	pad := make([]byte, bls12381G2PublicKeyLen-lenKey)
 	bbsRawKey := append(pad, keyBytes...)
 
-	jwk := fmt.Sprintf(bls12381g2ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(bbsRawKey))
+	jwkStr := fmt.Sprintf(bls12381g2ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(bbsRawKey))
 
-	thumbprint := sha256Sum(jwk)
+	thumbprint := sha256Sum(jwkStr)
 
 	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
 }
 
-func sha256Sum(jwk string) []byte {
+func sha256Sum(jwkStr string) []byte {
 	h := crypto.SHA256.New()
-	_, _ = h.Write([]byte(jwk)) // SHA256 digest returns empty error on Write()
+	_, _ = h.Write([]byte(jwkStr)) // SHA256 digest returns empty error on Write()
 
 	return h.Sum(nil)
 }

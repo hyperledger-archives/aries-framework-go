@@ -32,11 +32,13 @@ import (
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	spilog "github.com/hyperledger/aries-framework-go/spi/log"
 )
@@ -130,7 +132,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 		tc := tt
 		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
 			t.Logf("anoncrypt packing - creating recipient %s keys...", tc.keyType)
-			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
+			kids, _, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
 			log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
 
@@ -151,7 +153,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			msg, err := anonPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			recKey, err := exportPubKeyBytes(keyHandles[0])
+			recKey, err := exportPubKeyBytes(keyHandles[0], kids[0])
 			require.NoError(t, err)
 
 			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
@@ -200,10 +202,10 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
 
 	k := createKMS(t)
-	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
-	_, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP384ECDHKW)
-	_, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP521ECDHKW)
-	_, recipientsKey4, _ := createRecipientsByKeyType(t, k, 1, kms.X25519ECDHKW)
+	kids, _, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	_, _, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP384ECDHKW) //nolint:dogsled
+	_, _, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP521ECDHKW) //nolint:dogsled
+	_, _, recipientsKey4, _ := createRecipientsByKeyType(t, k, 1, kms.X25519ECDHKW)   //nolint:dogsled
 
 	recipientsKeys := make([][]byte, 4)
 	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
@@ -236,7 +238,7 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	msg, err := anonPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	recKey, err := exportPubKeyBytes(keyHandles1[0])
+	recKey, err := exportPubKeyBytes(keyHandles1[0], kids[0])
 	require.NoError(t, err)
 
 	require.EqualValues(t, &transport.Envelope{
@@ -260,6 +262,13 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 func TestAnoncryptPackerFail(t *testing.T) {
 	cty := transport.MediaTypeV1PlaintextPayload
 
+	t.Run("new Pack fail with nil crypto service", func(t *testing.T) {
+		k := createKMS(t)
+
+		_, err := New(newMockProvider(k, nil), afgjose.A128CBCHS256)
+		require.EqualError(t, err, "anoncrypt: failed to create packer because crypto service is empty")
+	})
+
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
@@ -268,8 +277,20 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		require.EqualError(t, err, "anoncrypt: failed to create packer because KMS is empty")
 	})
 
+	t.Run("new Pack fail with nil vdr", func(t *testing.T) {
+		k := createKMS(t)
+		c, e := tinkcrypto.New()
+		require.NoError(t, e)
+
+		p := newMockProvider(k, c)
+		p.VDRegistryValue = nil
+
+		_, err = New(p, afgjose.A192CBCHS384)
+		require.EqualError(t, err, "anoncrypt: failed to create packer because vdr registry is empty")
+	})
+
 	k := createKMS(t)
-	_, recipientsKeys, _ := createRecipients(t, k, 10)
+	_, _, recipientsKeys, _ := createRecipients(t, k, 10) //nolint:dogsled
 	origMsg := []byte("secret message")
 	anonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 	require.NoError(t, err)
@@ -328,7 +349,7 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
-		kids, newRecKeys, _ := createRecipients(t, k, 2)
+		kids, _, newRecKeys, _ := createRecipients(t, k, 2)
 		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)
 
@@ -348,34 +369,38 @@ func TestAnoncryptPackerFail(t *testing.T) {
 }
 
 // createRecipients and return their public key and keyset.Handle.
-func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
+func createRecipients(t *testing.T, k *localkms.LocalKMS,
+	recipientsCount int) ([]string, []string, [][]byte, []*keyset.Handle) {
 	return createRecipientsByKeyType(t, k, recipientsCount, kms.NISTP256ECDHKW)
 }
 
 func createRecipientsByKeyType(t *testing.T, k *localkms.LocalKMS, recipientsCount int,
-	kt kms.KeyType) ([]string, [][]byte, []*keyset.Handle) {
+	kt kms.KeyType) ([]string, []string, [][]byte, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r    [][]byte
-		rKH  []*keyset.Handle
-		kids []string
+		r       [][]byte
+		rKH     []*keyset.Handle
+		kids    []string
+		didKeys []string
 	)
 
 	for i := 0; i < recipientsCount; i++ {
-		kid, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
+		kid, didKey, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
 
 		r = append(r, marshalledPubKey)
 		rKH = append(rKH, kh)
 		kids = append(kids, kid)
+		didKeys = append(didKeys, didKey)
 	}
 
-	return kids, r, rKH
+	return kids, didKeys, r, rKH
 }
 
 // createAndMarshalKeyByKeyType creates a new recipient keyset.Handle, extracts public key, marshals it and returns
-// both marshalled public key and original recipient keyset.Handle.
-func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.KeyType) (string, []byte, *keyset.Handle) {
+// both marshalled public key, jwk kid, didKey and original recipient keyset.Handle.
+func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS,
+	kt kms.KeyType) (string, string, []byte, *keyset.Handle) {
 	t.Helper()
 
 	kid, keyHandle, err := k.Create(kt)
@@ -384,23 +409,26 @@ func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.Key
 	kh, ok := keyHandle.(*keyset.Handle)
 	require.True(t, ok)
 
-	pubKeyBytes, err := exportPubKeyBytes(kh)
+	pubKeyBytes, err := exportPubKeyBytes(kh, kid)
 	require.NoError(t, err)
 
 	key := &cryptoapi.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
 
-	key.KID = kid
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, kt)
+	require.NoError(t, err)
+
+	key.KID = didKey
 	mKey, err := json.Marshal(key)
 	require.NoError(t, err)
 
-	printKey(t, mKey, kh, kid)
+	printKey(t, mKey, kh, kid, didKey)
 
-	return kid, mKey, kh
+	return kid, didKey, mKey, kh
 }
 
-func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid string) {
+func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid, didKey string) {
 	t.Helper()
 
 	extractKey, err := extractPrivKey(kh)
@@ -408,14 +436,16 @@ func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid string) {
 
 	switch keyType := extractKey.(type) {
 	case *hybrid.ECPrivateKey:
-		t.Logf("** EC key: %s, kid: %s", getPrintedECPrivKey(t, keyType), kid)
+		t.Logf("** EC key: %s, \n\t kms kid: %s, \n\t jwe kid (did:key):%s", getPrintedECPrivKey(t, keyType), kid,
+			didKey)
 	case []byte:
 		pubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mPubKey, pubKey)
 		require.NoError(t, err)
 
 		fullKey := append(keyType, pubKey.X...)
-		t.Logf("** X25519 key: %s, kid: %s", getPrintedX25519PrivKey(t, fullKey), kid)
+		t.Logf("** X25519 key: %s, \n\t kms kid: %s, \n\t jwe kid (did:key):%s", getPrintedX25519PrivKey(t, fullKey), kid,
+			didKey)
 	default:
 		t.Errorf("not supported key type: %s", keyType)
 	}
@@ -529,11 +559,11 @@ func extractPrivKey(kh *keyset.Handle) (interface{}, error) {
 
 type noopAEAD struct{}
 
-func (n noopAEAD) Encrypt(plaintext, additionalData []byte) ([]byte, error) {
+func (n noopAEAD) Encrypt(plaintext, _ []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-func (n noopAEAD) Decrypt(ciphertext, additionalData []byte) ([]byte, error) {
+func (n noopAEAD) Decrypt(ciphertext, _ []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
@@ -570,7 +600,8 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 
 func newMockProvider(customKMS kms.KeyManager, customCrypto cryptoapi.Crypto) *mockprovider.Provider {
 	return &mockprovider.Provider{
-		KMSValue:    customKMS,
-		CryptoValue: customCrypto,
+		KMSValue:        customKMS,
+		CryptoValue:     customCrypto,
+		VDRegistryValue: &mockvdr.MockVDRegistry{},
 	}
 }

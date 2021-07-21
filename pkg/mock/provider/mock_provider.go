@@ -35,6 +35,7 @@ type Provider struct {
 	JSONLDDocumentLoaderValue         ld.DocumentLoader
 	KeyTypeValue                      kms.KeyType
 	KeyAgreementTypeValue             kms.KeyType
+	MediaTypeProfilesValue            []string
 }
 
 // Service return service.
@@ -118,4 +119,9 @@ func (p *Provider) KeyType() kms.KeyType {
 // KeyAgreementType returns a mocked keyType value for KeyAgreement.
 func (p *Provider) KeyAgreementType() kms.KeyType {
 	return p.KeyAgreementTypeValue
+}
+
+// MediaTypeProfiles returns the media type profiles.
+func (p *Provider) MediaTypeProfiles() []string {
+	return p.MediaTypeProfilesValue
 }

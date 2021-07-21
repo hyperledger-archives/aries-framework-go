@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
 
@@ -23,7 +23,7 @@ func main() {
 		panic(err)
 	}
 
-	jwk, err := jose.JWKFromKey(ed25519.PublicKey(key))
+	jwkKey, err := jwksupport.JWKFromKey(ed25519.PublicKey(key))
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	recoveryJWK, err := jose.JWKFromKey(publicKeyRecovery)
+	recoveryJWK, err := jwksupport.JWKFromKey(publicKeyRecovery)
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +43,7 @@ func main() {
 		panic(err)
 	}
 
-	updateJWK, err := jose.JWKFromKey(publicKeyUpdate)
+	updateJWK, err := jwksupport.JWKFromKey(publicKeyUpdate)
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +51,7 @@ func main() {
 	doc, err := sidetree.CreateDID(&sidetree.CreateDIDParams{
 		URL:             os.Args[1],
 		KeyID:           os.Args[2],
-		JWK:             jwk,
+		JWK:             jwkKey,
 		RecoveryJWK:     recoveryJWK,
 		UpdateJWK:       updateJWK,
 		ServiceEndpoint: os.Args[4],

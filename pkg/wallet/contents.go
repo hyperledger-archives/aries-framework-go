@@ -274,7 +274,7 @@ func saveKey(auth string, key *keyContent) error {
 	if len(key.PrivateKeyJwk) > 0 {
 		err := importKeyJWK(auth, key)
 		if err != nil {
-			return fmt.Errorf("failed to import private key jwk: %w", err)
+			return fmt.Errorf("failed to import private key jwkfingerprint: %w", err)
 		}
 	}
 

@@ -33,6 +33,7 @@ type provider interface {
 	TransportReturnRoute() string
 	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
+	KeyAgreementType() kms.KeyType
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	MediaTypeProfiles() []string
@@ -50,6 +51,7 @@ type OutboundDispatcher struct {
 	transportReturnRoute string
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
+	keyAgreementType     kms.KeyType
 	connections          connectionLookup
 	mediaTypeProfiles    []string
 }
@@ -64,6 +66,7 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRegistry(),
 		kms:                  prov.KMS(),
+		keyAgreementType:     prov.KeyAgreementType(),
 		mediaTypeProfiles:    prov.MediaTypeProfiles(),
 	}
 
@@ -119,7 +122,6 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 
 	// We get at least one recipient key, so we can use the first one
 	//  (right now, with only one key type used for sending)
-	// TODO: relies on hardcoded key type
 	key := src.RecipientKeys[0]
 
 	return o.Send(msg, key, dest)
@@ -157,7 +159,6 @@ func (o *OutboundDispatcher) mediaTypeProfilesFromConnection(mediaTypes []string
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-// nolint:gocyclo
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		// check if outbound accepts routing keys, else use recipient keys
@@ -180,18 +181,13 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		// update the outbound message with transport return route option [all or thread]
 		req, err = o.addTransportRouteOptions(req, des)
 		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options : %w", err)
-		}
-
-		sender, err := fingerprint.PubKeyFromDIDKey(senderVerKey)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to extract pubKeyBytes from senderVerKey: %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
 		}
 
 		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-			MediaTypeProfile: mediaTypeProfile(des),
+			MediaTypeProfile: o.mediaTypeProfile(des),
 			Message:          req,
-			FromKey:          sender,
+			FromKey:          []byte(senderVerKey),
 			ToKeys:           des.RecipientKeys,
 		})
 		if err != nil {
@@ -269,15 +265,18 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 
 	// create key set
 	// TODO: why createForwardMessage require a new key on each call? It should be pulled from the DID doc instead.
-	_, senderVerKey, err := o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	_, senderEncKey, err := o.kms.CreateAndExportPubKeyBytes(o.keyAgreementType)
 	if err != nil {
-		return nil, fmt.Errorf("failed Create and export SigningKey: %w", err)
+		return nil, fmt.Errorf("failed Create and export Encryption Key: %w", err)
 	}
 
+	// use did:key as senderKey since it is created above for mediator (ie not from DIDdoc).
+	senderKey, _ := fingerprint.CreateDIDKey(senderEncKey)
+
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-		MediaTypeProfile: mediaTypeProfile(des),
+		MediaTypeProfile: o.mediaTypeProfile(des),
 		Message:          req,
-		FromKey:          senderVerKey,
+		FromKey:          []byte(senderKey),
 		ToKeys:           des.RoutingKeys,
 	})
 	if err != nil {
@@ -314,7 +313,7 @@ func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.D
 	return req, nil
 }
 
-func mediaTypeProfile(des *service.Destination) string {
+func (o *OutboundDispatcher) mediaTypeProfile(des *service.Destination) string {
 	mt := ""
 
 	if len(des.MediaTypeProfiles) > 0 {
@@ -335,6 +334,10 @@ func mediaTypeProfile(des *service.Destination) string {
 				return mtp
 			}
 		}
+	}
+
+	if mt == "" {
+		return o.defaultMediaTypeProfiles()[0]
 	}
 
 	return mt

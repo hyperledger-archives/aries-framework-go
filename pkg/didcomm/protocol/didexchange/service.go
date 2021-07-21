@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
@@ -84,6 +85,7 @@ type provider interface {
 	Service(id string) (interface{}, error)
 	KeyType() kms.KeyType
 	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -114,6 +116,7 @@ type context struct {
 	doACAPyInterop     bool
 	keyType            kms.KeyType
 	keyAgreementType   kms.KeyType
+	mediaTypeProfiles  []string
 }
 
 // opts are used to provide client properties to DID Exchange service.
@@ -157,6 +160,11 @@ func New(prov provider) (*Service, error) {
 		keyAgreementType = kms.X25519ECDHKWType
 	}
 
+	mediaTypeProfiles := prov.MediaTypeProfiles()
+	if len(mediaTypeProfiles) == 0 {
+		mediaTypeProfiles = []string{transport.MediaTypeDIDCommV2Profile}
+	}
+
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -169,6 +177,7 @@ func New(prov provider) (*Service, error) {
 			doACAPyInterop:     doACAPyInterop,
 			keyType:            keyType,
 			keyAgreementType:   keyAgreementType,
+			mediaTypeProfiles:  mediaTypeProfiles,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel:    make(chan *message, callbackChannelSize),
@@ -348,7 +357,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		logger.Debugf("finished execute state: %s", next.Name())
 
 		if err = s.update(msg.Msg.Type(), connectionRecord); err != nil {
-			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
+			return fmt.Errorf("failed to persist state '%s': %w", next.Name(), err)
 		}
 
 		if connectionRecord.State == StateIDCompleted {

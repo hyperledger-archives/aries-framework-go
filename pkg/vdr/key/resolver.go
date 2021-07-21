@@ -13,7 +13,7 @@ import (
 	"regexp"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -99,12 +99,12 @@ func createJSONWebKey2020DIDDoc(kid string, code uint64, pubKeyBytes []byte) (*d
 		Y:     y,
 	}
 
-	jwk, err := jose.JWKFromKey(&publicKey)
+	jwkKey, err := jwksupport.JWKFromKey(&publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating JWK %w", err)
 	}
 
-	vm, err := did.NewVerificationMethodFromJWK(keyID, jsonWebKey2020, didKey, jwk)
+	vm, err := did.NewVerificationMethodFromJWK(keyID, jsonWebKey2020, didKey, jwkKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating verification method %w", err)
 	}
@@ -117,10 +117,6 @@ func createJSONWebKey2020DIDDoc(kid string, code uint64, pubKeyBytes []byte) (*d
 func createEd25519DIDDoc(kid string, pubKeyBytes []byte) (*did.Doc, error) {
 	didKey := fmt.Sprintf("did:key:%s", kid)
 
-	// did:key can't add non converted encryption key as keyAgreement (unless it's added as an option just like creator,
-	// it can be added and read here if needed. Below TODO is a reminder for this)
-	// TODO find a way to get the Encryption key as in creator.go
-	// for now keeping original ed25519 to X25519 key conversion as keyAgreement.
 	keyAgr, err := keyAgreementFromEd25519(didKey, pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("pub:key vdr Read: failed to fetch KeyAgreement: %w", err)

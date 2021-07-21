@@ -273,13 +273,13 @@ func newSigningAndEncryptionDIDKeys(t *testing.T, ctx *context) (string, string)
 	_, pubKey, err := ctx.kms.CreateAndExportPubKeyBytes(ctx.keyType)
 	require.NoError(t, err)
 
-	didKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(pubKey, ctx.keyType)
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubKey, ctx.keyType)
 	require.NoError(t, err)
 
 	_, encPubKey, err := ctx.kms.CreateAndExportPubKeyBytes(ctx.keyAgreementType)
 	require.NoError(t, err)
 
-	encDIDKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(encPubKey, ctx.keyAgreementType)
+	encDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(encPubKey, ctx.keyAgreementType)
 	require.NoError(t, err)
 
 	return didKey, encDIDKey

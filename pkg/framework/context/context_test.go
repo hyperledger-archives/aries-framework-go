@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -25,6 +27,7 @@ import (
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -36,7 +39,9 @@ import (
 	mocklock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -189,6 +194,31 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	mainKey := make([]byte, 32)
+
+	n, err := rand.Read(mainKey)
+	require.NoError(t, err)
+	require.Equal(t, 32, n)
+
+	secretLock, err := local.NewService(
+		bytes.NewReader([]byte(base64.URLEncoding.EncodeToString(mainKey))),
+		nil)
+	require.NoError(t, err)
+
+	k, err := localkms.New("local-lock://key", mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(),
+		secretLock))
+	require.NoError(t, err)
+
+	_, toKeyBytes, err := k.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKW)
+	require.NoError(t, err)
+
+	toDIDKey, _ := fingerprint.CreateDIDKey(toKeyBytes)
+
+	_, fromKeyBytes, err := k.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKW)
+	require.NoError(t, err)
+
+	fromDIDKey, _ := fingerprint.CreateDIDKey(fromKeyBytes)
+
 	t.Run("inbound message handler: DID not found is ok", func(t *testing.T) {
 		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
 		messengerHandler.EXPECT().
@@ -197,8 +227,8 @@ func TestNewProvider(t *testing.T) {
 			AnyTimes()
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
-		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
-		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(toDIDKey).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(fromDIDKey).Return("", did.ErrNotFound)
 
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
@@ -216,7 +246,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		}`), FromKey: []byte(fromDIDKey), ToKey: []byte(toDIDKey)})
 		require.NoError(t, err)
 	})
 
@@ -229,12 +259,12 @@ func TestNewProvider(t *testing.T) {
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
 		connectionStore.EXPECT().
-			GetDID(base58.Encode([]byte("toKey"))).
+			GetDID(toDIDKey).
 			Return("", errors.New("get DID error")).
 			AnyTimes()
 
 		connectionStore.EXPECT().
-			GetDID(base58.Encode([]byte("fromKey"))).
+			GetDID(fromDIDKey).
 			Return("", nil).
 			AnyTimes()
 
@@ -254,7 +284,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		}`), FromKey: []byte(fromDIDKey), ToKey: []byte(toDIDKey)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get my did")
 	})
@@ -268,12 +298,12 @@ func TestNewProvider(t *testing.T) {
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
 		connectionStore.EXPECT().
-			GetDID(base58.Encode([]byte("toKey"))).
+			GetDID(toDIDKey).
 			Return("", nil).
 			AnyTimes()
 
 		connectionStore.EXPECT().
-			GetDID(base58.Encode([]byte("fromKey"))).
+			GetDID(fromDIDKey).
 			Return("", errors.New("get DID error")).
 			AnyTimes()
 
@@ -293,7 +323,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+		}`), FromKey: []byte(fromDIDKey), ToKey: []byte(toDIDKey)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get their did")
 	})

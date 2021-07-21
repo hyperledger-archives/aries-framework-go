@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -223,14 +222,15 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
+// TODO remove this function, ToKey and FromKey are now keyAgreement[*].VM.ID, so the DID ID is already in their values.
 func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
-	myDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
+	myDID, err := p.didConnectionStore.GetDID(string(envelope.ToKey))
 	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return "", "", fmt.Errorf("failed to get my did: %w", err)
 	}
 
-	theirDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
+	theirDID, err := p.didConnectionStore.GetDID(string(envelope.FromKey))
 	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return "", "", fmt.Errorf("failed to get their did: %w", err)

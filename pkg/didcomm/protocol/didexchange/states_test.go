@@ -486,7 +486,10 @@ func TestRequestedState_Execute(t *testing.T) {
 						return nil
 					},
 				}
-				inv := newOOBInvite(newServiceBlock())
+
+				_, encKey := newSigningAndEncryptionDIDKeys(t, tc.ctx)
+
+				inv := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))
 				inv.MyLabel = expected
 				_, _, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 					DIDCommMsg: service.NewDIDCommMsgMap(inv),
@@ -501,7 +504,6 @@ func TestRequestedState_Execute(t *testing.T) {
 		}
 	})
 	t.Run("handle inbound oob invitations - register recipient keys in router", func(t *testing.T) {
-		expected := "my test key"
 		registered := false
 		tests := []struct {
 			name string
@@ -532,6 +534,9 @@ func TestRequestedState_Execute(t *testing.T) {
 		for _, tt := range tests {
 			tc := tt
 			t.Run(tc.name, func(t *testing.T) {
+				_, expected := newSigningAndEncryptionDIDKeys(t, tc.ctx)
+				_, encKey := newSigningAndEncryptionDIDKeys(t, tc.ctx)
+
 				doc := createDIDDoc(t, tc.ctx)
 				doc.Service = []diddoc.Service{{
 					Type:            "did-communication",
@@ -552,8 +557,9 @@ func TestRequestedState_Execute(t *testing.T) {
 					},
 				}
 				_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
-					options:    &options{routerConnections: []string{"xyz"}},
-					DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+					options: &options{routerConnections: []string{"xyz"}},
+					DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(
+						newServiceBlock([]string{encKey}, []string{encKey}))),
 					connRecord: &connection.Record{},
 				}, "", tc.ctx)
 				require.NoError(t, err)
@@ -593,6 +599,8 @@ func TestRequestedState_Execute(t *testing.T) {
 		for _, tt := range tests {
 			tc := tt
 			t.Run(tc.name, func(t *testing.T) {
+				_, encKey := newSigningAndEncryptionDIDKeys(t, tc.ctx)
+
 				tc.ctx.routeSvc = &mockroute.MockMediatorSvc{
 					Connections:    []string{"xyz"},
 					RouterEndpoint: expected.Endpoint(),
@@ -610,7 +618,7 @@ func TestRequestedState_Execute(t *testing.T) {
 				}
 				_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 					options:    &options{routerConnections: []string{"xyz"}},
-					DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+					DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))),
 					connRecord: &connection.Record{},
 				}, "", tc.ctx)
 				require.NoError(t, err)
@@ -1894,8 +1902,10 @@ func TestGetVerKey(t *testing.T) {
 		keyAgreementType: kms.X25519ECDHKWType,
 	}
 
+	_, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
+
 	t.Run("returns verkey from explicit oob invitation", func(t *testing.T) {
-		expected := newServiceBlock()
+		expected := newServiceBlock([]string{encKey}, []string{encKey})
 		invitation := newOOBInvite(expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
@@ -1943,7 +1953,7 @@ func TestGetVerKey(t *testing.T) {
 	})
 
 	t.Run("returns verkey from explicit didexchange invitation", func(t *testing.T) {
-		expected := newServiceBlock()
+		expected := newServiceBlock([]string{encKey}, []string{encKey})
 		invitation := newDidExchangeInvite("", expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
@@ -1992,7 +2002,7 @@ func TestGetVerKey(t *testing.T) {
 		}
 		ctx.connectionRecorder = connRecorder(t, pr)
 
-		invitation := newOOBInvite(newServiceBlock())
+		invitation := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
@@ -2242,12 +2252,12 @@ func newOOBInvite(target interface{}) *OOBInvitation {
 	}
 }
 
-func newServiceBlock() *diddoc.Service {
+func newServiceBlock(recKeys, routingKeys []string) *diddoc.Service {
 	return &diddoc.Service{
 		ID:              uuid.New().String(),
 		Type:            didCommServiceType,
-		RecipientKeys:   []string{uuid.New().String()},
-		RoutingKeys:     []string{uuid.New().String()},
+		RecipientKeys:   recKeys,
+		RoutingKeys:     routingKeys,
 		ServiceEndpoint: "http://test.com",
 	}
 }

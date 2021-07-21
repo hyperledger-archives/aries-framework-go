@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
@@ -122,7 +122,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
-		jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
+		jwk, err := jwksupport.JWKFromKey(ecdsaSigner.PublicKey())
 		require.NoError(t, err)
 
 		vcDecoded, err = parseTestCredential(t, vcWithSecp256k1ProofBytes,

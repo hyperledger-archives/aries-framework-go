@@ -9,8 +9,8 @@ package packer
 import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 type Provider interface {
 	KMS() kms.KeyManager
 	Crypto() cryptoapi.Crypto
-	StorageProvider() storage.Provider
+	VDRegistry() vdrapi.Registry
 }
 
 // Creator method to create new Packer service.
@@ -56,6 +56,6 @@ type Packer interface {
 	//		error if decryption failed
 	Unpack(envelope []byte) (*transport.Envelope, error)
 
-	// Encoding returns the type of the encoding, as found in the protected header 'typ' field
+	// EncodingType returns the type of the encoding, as found in the protected header 'typ' field
 	EncodingType() string
 }

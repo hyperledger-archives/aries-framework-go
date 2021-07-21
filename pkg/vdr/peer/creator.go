@@ -61,7 +61,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: didDoc}, nil
 }
 
-//nolint: funlen,gocyclo
+//nolint: funlen,gocyclo,gocognit
 func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
 	if len(didDoc.VerificationMethod) == 0 && len(didDoc.KeyAgreement) == 0 {
 		return nil, fmt.Errorf("verification method and key agreement are empty, at least one should be set")
@@ -104,6 +104,20 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 			didDoc.Service[i].Priority = 0
 		}
 
+		if didDoc.Service[i].Type == vdrapi.DIDCommV2ServiceType {
+			didDoc.Service[i].Priority = 0
+			// for DIDComm V2, recipientKeys are the DIDdoc's KeyAgreement IDs, hence no need to populate RecipientKeys.
+			// for now, add the first keyAgreement.ID only as routingKey since it's optional in V2.
+			didDoc.Service[i].RoutingKeys = []string{keyAgreementVM[0].ID}
+
+			for i, s := range service { //nolint:gocritic
+				// remove DIDComm V1 if found, since V2 takes precedence.
+				if s.Type == vdrapi.DIDCommServiceType {
+					service = append(service[:i], service[i+1:]...)
+				}
+			}
+		}
+
 		service = append(service, didDoc.Service[i])
 	}
 
@@ -111,26 +125,28 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 	t := time.Now()
 
 	assertion := []did.Verification{{
-		VerificationMethod: *mainVM,
+		VerificationMethod: mainVM[0],
 		Relationship:       did.AssertionMethod,
 	}}
 
 	authentication := []did.Verification{{
-		VerificationMethod: *mainVM,
+		VerificationMethod: mainVM[0],
 		Relationship:       did.Authentication,
 	}}
 
 	var keyAgreement []did.Verification
 
-	verificationMethods := []did.VerificationMethod{*mainVM}
+	verificationMethods := mainVM
 
 	if keyAgreementVM != nil {
-		verificationMethods = append(verificationMethods, *keyAgreementVM)
+		verificationMethods = append(verificationMethods, keyAgreementVM...)
 
-		keyAgreement = []did.Verification{{
-			VerificationMethod: *keyAgreementVM,
-			Relationship:       did.KeyAgreement,
-		}}
+		for _, ka := range keyAgreementVM {
+			keyAgreement = append(keyAgreement, did.Verification{
+				VerificationMethod: ka,
+				Relationship:       did.KeyAgreement,
+			})
+		}
 	}
 
 	didDoc, err = NewDoc(
@@ -149,42 +165,44 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 	return &did.DocResolution{DIDDocument: didDoc}, nil
 }
 
-func buildDIDVMs(didDoc *did.Doc) (*did.VerificationMethod, *did.VerificationMethod, error) {
-	var mainVM, keyAgreementVM *did.VerificationMethod
+func buildDIDVMs(didDoc *did.Doc) ([]did.VerificationMethod, []did.VerificationMethod, error) {
+	var mainVM, keyAgreementVM []did.VerificationMethod
 
-	if len(didDoc.VerificationMethod) != 0 {
-		switch didDoc.VerificationMethod[0].Type {
+	// add all VMs, not only the first one.
+	for _, vm := range didDoc.VerificationMethod {
+		switch vm.Type {
 		case ed25519VerificationKey2018:
-			mainVM = did.NewVerificationMethodFromBytes(didDoc.VerificationMethod[0].ID, ed25519VerificationKey2018,
-				"#id", didDoc.VerificationMethod[0].Value)
+			mainVM = append(mainVM, *did.NewVerificationMethodFromBytes(vm.ID, ed25519VerificationKey2018,
+				"#id", didDoc.VerificationMethod[0].Value))
 		case jsonWebKey2020:
-			publicKey1, err := did.NewVerificationMethodFromJWK(didDoc.VerificationMethod[0].ID, jsonWebKey2020, "#id",
+			publicKey1, err := did.NewVerificationMethodFromJWK(vm.ID, jsonWebKey2020, "#id",
 				didDoc.VerificationMethod[0].JSONWebKey())
 			if err != nil {
 				return nil, nil, err
 			}
 
-			mainVM = publicKey1
+			mainVM = append(mainVM, *publicKey1)
 		default:
 			return nil, nil, fmt.Errorf("not supported VerificationMethod public key type: %s",
 				didDoc.VerificationMethod[0].Type)
 		}
 	}
 
-	if len(didDoc.KeyAgreement) != 0 {
-		switch didDoc.KeyAgreement[0].VerificationMethod.Type {
+	for _, vm := range didDoc.KeyAgreement {
+		switch vm.VerificationMethod.Type {
 		case x25519KeyAgreementKey2019:
-			keyAgreementVM = did.NewVerificationMethodFromBytes(didDoc.KeyAgreement[0].VerificationMethod.ID,
-				x25519KeyAgreementKey2019, "", didDoc.KeyAgreement[0].VerificationMethod.Value)
+			keyAgreementVM = append(keyAgreementVM, *did.NewVerificationMethodFromBytes(
+				didDoc.KeyAgreement[0].VerificationMethod.ID, x25519KeyAgreementKey2019, "",
+				didDoc.KeyAgreement[0].VerificationMethod.Value))
 
 		case jsonWebKey2020:
-			ka, err := did.NewVerificationMethodFromJWK(didDoc.VerificationMethod[0].ID, jsonWebKey2020, "",
+			ka, err := did.NewVerificationMethodFromJWK(didDoc.KeyAgreement[0].VerificationMethod.ID, jsonWebKey2020, "",
 				didDoc.VerificationMethod[0].JSONWebKey())
 			if err != nil {
 				return nil, nil, err
 			}
 
-			keyAgreementVM = ka
+			keyAgreementVM = append(keyAgreementVM, *ka)
 		default:
 			return nil, nil, fmt.Errorf("not supported KeyAgreement public key type: %s", didDoc.VerificationMethod[0].Type)
 		}

@@ -10,8 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/btcsuite/btcutil/base58"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -41,8 +40,6 @@ type ConnectionStoreImpl struct {
 
 type didRecord struct {
 	DID string `json:"did,omitempty"`
-	// TODO add type below to distinguish Legacy vs new Packer
-	// envelopeType string
 }
 
 type connectionProvider interface {
@@ -89,17 +86,28 @@ func (c *ConnectionStoreImpl) SaveDID(did string, keys ...string) error {
 // SaveDIDFromDoc saves a map from a did doc's keys to the did.
 func (c *ConnectionStoreImpl) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
+
 	for i := range doc.VerificationMethod {
-		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
-		// keeping these keys base58 encoded as long as legacyPacker exists
-		keys = append(keys, base58.Encode(doc.VerificationMethod[i].Value))
+		keyID := doc.VerificationMethod[i].ID
+
+		if strings.HasPrefix(keyID, "#") {
+			keyID = doc.ID + keyID
+		}
+
+		keys = append(keys, keyID)
 	}
 
 	// assumption doc.KeyAgreement exists when separate encryption keys and verifications keys are used for this DID
 	// eg: used by Authcrypt/Anoncrypt Packer (not Legacy Packer)
 	for i := range doc.KeyAgreement {
 		// add proper crypto keys (as opposed to verification keys as doc.VerificationMethod above)
-		keys = append(keys, doc.KeyAgreement[i].VerificationMethod.ID[1:])
+		keyID := doc.KeyAgreement[i].VerificationMethod.ID
+
+		if strings.HasPrefix(keyID, "#") {
+			keyID = doc.ID + keyID
+		}
+
+		keys = append(keys, keyID)
 	}
 
 	// save recipientKeys from didcomm-enabled service entries

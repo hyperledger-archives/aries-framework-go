@@ -272,7 +272,7 @@ func TestImportKeyJWK(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, tkn)
 
-	t.Run("test successful jwk key imports", func(t *testing.T) {
+	t.Run("test successful jwkfingerprint key imports", func(t *testing.T) {
 		tests := []struct {
 			name      string
 			sampleJWK []byte
@@ -325,7 +325,7 @@ func TestImportKeyJWK(t *testing.T) {
 				ID: "did:example:123#z6MkiEh8RQL83nkPo8ehDeE10",
 			},
 			{
-				name: "import Ed25519 failure - invalid jwk",
+				name: "import Ed25519 failure - invalid jwkfingerprint",
 				sampleJWK: []byte(`{
 							"invalid":"test"
 				}`),
