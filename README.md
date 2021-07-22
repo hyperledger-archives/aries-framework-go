@@ -38,6 +38,8 @@ The packages intended for end developer usage are within the [pkg/client](https:
 
 The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediator.md).
 
+Information about Verifiable Credential Wallet framework based on [Universal Wallet](https://w3c-ccg.github.io/universal-wallet-interop-spec/) can be found [here](docs/vc_wallet.md).
+
 Key concepts about the Hyperledger Aries Project can be found [here](/docs/concepts).
 
 ## Controller Bindings
