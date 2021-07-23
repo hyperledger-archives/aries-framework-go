@@ -18,7 +18,7 @@ Refer [profile section](#creating-and-updating-wallet-profiles) for more details
 
 Note: Each wallet profiles can have their own storage types (like leveldb, couchdb, EDV etc) and KMS (local or remote).
 
-![Alt text](images/vcwallet-profiles.png "Wallet Profiles")
+![image](https://user-images.githubusercontent.com/29631944/126654261-dc49eb29-5fa9-46cf-b189-b1773064e496.png)
 
 * Storage - Agent creates new storage for each wallet profile during profile creation. 
 Storage type is typically same as agent's storage type, but a profile can also be created using already configured EDV if wallet user wish to use 
@@ -83,40 +83,40 @@ Opening a wallet returns a auth token which expires when wallet is closed or whe
 > Aries Go SDK Sample for opening a wallet for profile using local KMS settings - 1.
 ```
 // creating vcwallet instance for user with local KMS settings.
-wallet, err := vcwallet.New(sampleUserID, ctx)
+myWallet, err := vcwallet.New(sampleUserID, ctx)
 
 // opening a wallet with local KMS passphrase and getting a token for subsequent use.
-err = vcwallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
+err = myWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
 
 ```
 
 > Aries Go SDK Sample for opening a wallet with expiry for profile using local KMS settings.
 ```
 // creating vcwallet instance for user with local KMS settings.
-wallet, err := vcwallet.New(sampleUserID, ctx)
+myWallet, err := vcwallet.New(sampleUserID, ctx)
 
 // opening a wallet with local KMS secret lock service and getting a token for subsequent use.
-err = vcwallet.Open(wallet.WithUnlockBySecretLockService(mySecretLockSvc), wallet.WithUnlockExpiry(10 * time.Second))
+err = myWallet.Open(wallet.WithUnlockBySecretLockService(mySecretLockSvc), wallet.WithUnlockExpiry(10 * time.Second))
 
 ```
 
 > Aries Go SDK Sample for opening a wallet for profile using web KMS.
 ```
 // creating vcwallet instance for user with web KMS settings.
-wallet, err := vcwallet.New(sampleUserID, ctx)
+myWallet, err := vcwallet.New(sampleUserID, ctx)
 
 // opening a wallet with web kms auth options and getting a token for subsequent use.
-err = vcwallet.Open(wallet.WithUnlockWebKMSOptions(opts...))
+err = myWallet.Open(wallet.WithUnlockWebKMSOptions(opts...))
 
 ```
 
 > Aries Go SDK Sample for opening a wallet for profile using web KMS & EDV.
 ```
 // creating vcwallet instance for user with web KMS settings.
-wallet, err := vcwallet.New(sampleUserID, ctx)
+myWallet, err := vcwallet.New(sampleUserID, ctx)
 
 // opening a wallet with web kms auth options and getting a token for subsequent use.
-err = vcwallet.Open(wallet.WithUnlockWebKMSOptions(opts...), wallet.WithUnlockEDVOptions(opts...))
+err = myWallet.Open(wallet.WithUnlockWebKMSOptions(opts...), wallet.WithUnlockEDVOptions(opts...))
 
 ```
 
@@ -130,15 +130,15 @@ A wallet can be closed by simply calling ``Close`` function on wallet. It return
 > Aries Go SDK Sample for closing a wallet.
 ```
 // creating vcwallet instance for user with local KMS settings.
-wallet, err := vcwallet.New(sampleUserID, ctx)
+myWallet, err := vcwallet.New(sampleUserID, ctx)
 
 // opening a wallet with local KMS passphrase and getting a token for subsequent use.
-err = vcwallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
+err = myWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
 
 //... perform your operation
 
 // close the wallet,
-ok := vcwallet.Close() // returns true
+ok := myWallet.Close() // returns true
 
 ```
 
@@ -558,82 +558,83 @@ Refer [Go Docs](https://github.com/hyperledger/aries-framework-go/blob/main/pkg/
 Aries verifiable credential wallet is [available](https://github.com/hyperledger/aries-framework-go/blob/main/cmd/aries-js-worker/src/aries.js#L1080-L1273) as both Aries JavaScript WebAssembly and REST JS versions.
   > Sample Aries JS wallet operations.
   ```
-  // create agent instance
-  let agent = new Agent.Framework(agentOpts)
   
-  // create profile
-  await agent.vcwallet.createProfile({userID, keyStoreURL, edvConfiguration})
-  
-  // open wallet
-  let auth = await agent.vcwallet.open({userID, webKMSAuth, edvUnlocks, expiry})
-  
-  // add content
-  await agent.vcwallet.add({userID, auth, contentType, collectionID, content})
-  
-  // get content
-  let {content} = await agent.vcwallet.get({userID, auth, contentType, contentID})
-  
-  // get all content
-  let {contents} = await agent.vcwallet.getAll({userID, auth, contentType})
-  
-  // remove content
-  let {content} = await agent.vcwallet.remove({userID, auth, contentType, contentID})
-  
-  // query by QueryByExample & QueryByFrame
-  let {results} = await agent.vcwallet.query({userID: this.user, auth, [{
-                                                                                        "type": "QueryByFrame",
-                                                                                        "credentialQuery": [{
-                                                                                            "reason": "Please provide your Passport details.",
-                                                                                            "frame": {
-                                                                                                "@context": ["https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1", "https://w3id.org/security/bbs/v1"],
-                                                                                                "type": ["VerifiableCredential", "PermanentResidentCard"],
-                                                                                                "@explicit": true,
-                                                                                                "identifier": {},
-                                                                                                "issuer": {},
-                                                                                                "issuanceDate": {},
-                                                                                                "credentialSubject": {"@explicit": true, "name": {}, "spouse": {}}
-                                                                                            },
-                                                                                            "trustedIssuer": [{"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f", "required": true}],
-                                                                                            "required": true
-                                                                                        }]
-                                                                                    }, {
-                                                                                        "type": "QueryByExample",
-                                                                                        "credentialQuery": [{
-                                                                                            "reason": "Please present your valid degree certificate.",
-                                                                                            "example": {
-                                                                                                "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
-                                                                                                "type": ["UniversityDegreeCredential"],
-                                                                                                "trustedIssuer": [
-                                                                                                    {"issuer": "urn:some:required:issuer"},
-                                                                                                    {
-                                                                                                        "required": true,
-                                                                                                        "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
-                                                                                                    }
-                                                                                                ],
-                                                                                                "credentialSubject": {"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"}
-                                                                                            }
-                                                                                        }]
-                                                                                    }
-                                                                                    ]})
-   
-  
-  // issue credential
-  let vc = await agent.vcwallet.issue({userID, auth, credential, {controller}})
-   
-  // verify credential
-  let verified = await agent.vcwallet.verify({userID auth, storedCredentialID, rawCredential, presentation})  
-   
-  // prove credential
-  let vp = await agent.vcwallet.prove({userID, auth, storedCredentials, rawCredentials, presentation, {controller}})
-     
-  // derive credential
-  let derived = await agent.vcwallet.derive({userID, auth, storedCredentialID, rawCredential, deriveOption})
-       
-  // create key pair
-  let vc = await agent.vcwallet.createKeyPair({userID, auth, keyType})
-  
-  // close wallet
-  await agent.vcwallet.close({userID})
+// create agent instance
+let agent = new Agent.Framework(agentOpts)
+
+// create profile
+await agent.vcwallet.createProfile({userID, keyStoreURL, edvConfiguration})
+
+// open wallet
+let auth = await agent.vcwallet.open({userID, webKMSAuth, edvUnlocks, expiry})
+
+// add content
+await agent.vcwallet.add({userID, auth, contentType, collectionID, content})
+
+// get content
+let {content} = await agent.vcwallet.get({userID, auth, contentType, contentID})
+
+// get all content
+let {contents} = await agent.vcwallet.getAll({userID, auth, contentType})
+
+// remove content
+let {content} = await agent.vcwallet.remove({userID, auth, contentType, contentID})
+
+// query by QueryByExample & QueryByFrame
+let {results} = await agent.vcwallet.query({userID: this.user, auth, [{
+        "type": "QueryByFrame",
+        "credentialQuery": [{
+            "reason": "Please provide your Passport details.",
+            "frame": {
+                "@context": ["https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1", "https://w3id.org/security/bbs/v1"],
+                "type": ["VerifiableCredential", "PermanentResidentCard"],
+                "@explicit": true,
+                "identifier": {},
+                "issuer": {},
+                "issuanceDate": {},
+                "credentialSubject": {"@explicit": true, "name": {}, "spouse": {}}
+            },
+            "trustedIssuer": [{"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f", "required": true}],
+            "required": true
+        }]
+    }, {
+    "type": "QueryByExample",
+        "credentialQuery": [{
+        "reason": "Please present your valid degree certificate.",
+        "example": {
+            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+            "type": ["UniversityDegreeCredential"],
+            "trustedIssuer": [
+                {"issuer": "urn:some:required:issuer"},
+                {
+                    "required": true,
+                    "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+                }
+            ],
+            "credentialSubject": {"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"}
+        }
+    }]
+}
+]})
+
+
+// issue credential
+let vc = await agent.vcwallet.issue({userID, auth, credential, {controller}})
+
+// verify credential
+let verified = await agent.vcwallet.verify({userID auth, storedCredentialID, rawCredential, presentation})
+
+// prove credential
+let vp = await agent.vcwallet.prove({userID, auth, storedCredentials, rawCredentials, presentation, {controller}})
+
+// derive credential
+let derived = await agent.vcwallet.derive({userID, auth, storedCredentialID, rawCredential, deriveOption})
+
+// create key pair
+let vc = await agent.vcwallet.createKeyPair({userID, auth, keyType})
+
+// close wallet
+await agent.vcwallet.close({userID})
   
   ```
 
