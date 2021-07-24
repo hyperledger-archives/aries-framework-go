@@ -15,7 +15,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -650,7 +650,7 @@ func WithBaseContextExtendedValidation(customContexts, customTypes []string) Cre
 }
 
 // WithJSONLDDocumentLoader defines a JSON-LD document loader.
-func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
+func WithJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.jsonldDocumentLoader = documentLoader
 	}

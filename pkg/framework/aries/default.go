@@ -40,7 +40,7 @@ import (
 )
 
 // defFrameworkOpts provides default framework options.
-func defFrameworkOpts(frameworkOpts *Aries) error {
+func defFrameworkOpts(frameworkOpts *Aries) error { //nolint:gocyclo
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/209 Move default providers to the sub-package
 	if len(frameworkOpts.outboundTransports) == 0 {
 		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
@@ -55,7 +55,17 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProvider()
 	}
 
-	err := createJSONLDDocumentLoader(frameworkOpts)
+	err := createJSONLDContextStore(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	err = createJSONLDRemoteProviderStore(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	err = createJSONLDDocumentLoader(frameworkOpts)
 	if err != nil {
 		return err
 	}
@@ -235,7 +245,7 @@ func assignVerifiableStoreIfNeeded(aries *Aries, storeProvider storage.Provider)
 
 	provider, err := context.New(
 		context.WithStorageProvider(storeProvider),
-		context.WithJSONLDDocumentLoader(aries.jsonldDocumentLoader),
+		context.WithJSONLDDocumentLoader(aries.documentLoader),
 	)
 	if err != nil {
 		return fmt.Errorf("verifiable store initialization failed : %w", err)

@@ -38,6 +38,7 @@ services:
       - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
       - ARIESD_LOG_LEVEL=DEBUG
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${E2E_SECOND_USER_INBOUND_PORT}:${E2E_SECOND_USER_INBOUND_PORT}
       - ${E2E_SECOND_USER_API_PORT}:${E2E_SECOND_USER_API_PORT}
@@ -56,6 +57,7 @@ services:
       - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
       - ARIESD_LOG_LEVEL=DEBUG
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${E2E_THIRD_USER_INBOUND_PORT}:${E2E_THIRD_USER_INBOUND_PORT}
       - ${E2E_THIRD_USER_API_PORT}:${E2E_THIRD_USER_API_PORT}
@@ -74,6 +76,7 @@ services:
       - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
       - ARIESD_LOG_LEVEL=DEBUG
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${E2E_USER_INBOUND_PORT}:${E2E_USER_INBOUND_PORT}
       - ${E2E_USER_API_PORT}:${E2E_USER_API_PORT}
@@ -88,3 +91,14 @@ services:
       - SIDETREE_MOCK_DID_NAMESPACE=did:sidetree:test
     ports:
       - 48326:48326
+
+  file-server.js.example.com: # file server for hosting static resources (e.g. JSON-LD contexts)
+    container_name: file-server.js.example.com
+    image: halverneus/static-file-server:latest
+    environment:
+      - PORT=10096
+      - FOLDER=/data
+    ports:
+      - "10096:10096"
+    volumes:
+      - ./data:/data

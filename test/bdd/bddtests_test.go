@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
@@ -199,5 +200,6 @@ func features() []feature {
 		vdr.NewVDRControllerSteps(),
 		rfc0593.NewGoSDKSteps(),
 		rfc0593.NewRestSDKSteps(),
+		ld.NewLDControllerSteps(),
 	}
 }

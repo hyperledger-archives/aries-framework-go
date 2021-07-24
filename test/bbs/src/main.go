@@ -18,16 +18,18 @@ import (
 	"syscall/js"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	bbs "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 )
 
 func main() {
@@ -132,7 +134,7 @@ func signVC(privKeyB64, vcJSON, verificationMethod string) ([]byte, error) {
 		return nil, err
 	}
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(jsonldDocLoader))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(jsonldDocLoader))
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +153,13 @@ func verifyVC(pubKeyB64, vcJSON string) error {
 	sigSuite := bbsblssignature2020.New(
 		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
 
-	jsonldDocLoader, err := createJSONLDDocumentLoader()
+	documentLoader, err := createJSONLDDocumentLoader()
 	if err != nil {
 		return err
 	}
 
 	_, err = verifiable.ParseCredential([]byte(vcJSON),
-		verifiable.WithJSONLDDocumentLoader(jsonldDocLoader),
+		verifiable.WithJSONLDDocumentLoader(documentLoader),
 		verifiable.WithEmbeddedSignatureSuites(sigSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
 	)
@@ -259,19 +261,47 @@ var (
 	odrlVocab []byte
 )
 
-func createJSONLDDocumentLoader() (ld.DocumentLoader, error) {
-	loader, err := jld.NewDocumentLoader(mem.NewProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
+type provider struct {
+	ContextStore        ldstore.ContextStore
+	RemoteProviderStore ldstore.RemoteProviderStore
+}
+
+func (p *provider) JSONLDContextStore() ldstore.ContextStore {
+	return p.ContextStore
+}
+
+func (p *provider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
+func createJSONLDDocumentLoader() (jsonld.DocumentLoader, error) {
+	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
+	}
+
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create remote provider store: %w", err)
+	}
+
+	p := &provider{
+		ContextStore:        contextStore,
+		RemoteProviderStore: remoteProviderStore,
+	}
+
+	loader, err := ld.NewDocumentLoader(p,
+		ld.WithExtraContexts(
+			ldcontext.Document{
 				URL:         "https://w3id.org/citizenship/v1",
 				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
 				Content:     citizenshipVocab,
 			},
-			jld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://www.w3.org/2018/credentials/examples/v1",
 				Content: credentialExamplesVocab,
 			},
-			jld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://www.w3.org/ns/odrl.jsonld",
 				Content: odrlVocab,
 			},

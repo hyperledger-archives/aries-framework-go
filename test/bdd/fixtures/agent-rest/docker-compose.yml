@@ -20,6 +20,7 @@ services:
       - ARIESD_DATABASE_PREFIX=alice
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
     volumes:
@@ -45,6 +46,7 @@ services:
       - ARIESD_DATABASE_PREFIX=erin
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
     volumes:
@@ -70,6 +72,7 @@ services:
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_DEFAULT_LABEL=bob-agent
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
       - ARIESD_RFC0593_AUTO_EXECUTE=true
@@ -125,6 +128,7 @@ services:
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
       - ARIESD_TRANSPORT_RETURN_ROUTE=${TRANSPORT_RETURN_OPTION_ALL}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
     volumes:
@@ -195,6 +199,7 @@ services:
       - ARIESD_DATABASE_TIMEOUT=60
       - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
       - ARIESD_TRANSPORT_RETURN_ROUTE=${TRANSPORT_RETURN_OPTION_ALL}
+      - ARIESD_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - TLS_CERT_FILE=/etc/tls/ec-pubCert.pem
       - TLS_KEY_FILE=/etc/tls/ec-key.pem
     volumes:
@@ -304,6 +309,22 @@ services:
       - couchdb.example.com
     networks:
       - bdd_net
+
+  file-server.example.com: # file server for hosting static resources (e.g. JSON-LD contexts)
+      container_name: file-server.example.com
+      image: halverneus/static-file-server:latest
+      environment:
+        - PORT=443
+        - FOLDER=/data
+        - TLS_CERT=/etc/tls/ec-pubCert.pem
+        - TLS_KEY=/etc/tls/ec-key.pem
+      ports:
+        - "443:443"
+      volumes:
+        - ./data:/data
+        - ../keys/tls:/etc/tls
+      networks:
+        - bdd_net
 
 networks:
   bdd_net:

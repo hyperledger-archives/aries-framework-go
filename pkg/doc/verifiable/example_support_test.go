@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 type UniversityDegree struct {
@@ -47,8 +47,8 @@ func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&cp)
 }
 
-func getJSONLDDocumentLoader() *jld.DocumentLoader {
-	loader, err := jsonldtest.DocumentLoader()
+func getJSONLDDocumentLoader() *ld.DocumentLoader {
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 func Test_getJWTHeader(t *testing.T) {
@@ -44,19 +44,19 @@ func Test_createVerifyJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	// happy path - no proof compaction
-	proofVerifyData, err := createVerifyJWS(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	proofVerifyData, err := createVerifyJWS(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, proofVerifyData)
 
 	// happy path - with proof compaction
 	proofVerifyData, err = createVerifyJWS(
-		&mockSignatureSuite{compactProof: true}, doc, p, jsonldtest.WithDocumentLoader(t))
+		&mockSignatureSuite{compactProof: true}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, proofVerifyData)
 
 	// artificial example - failure of doc canonization
 	doc["type"] = 777
-	proofVerifyData, err = createVerifyJWS(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	proofVerifyData, err = createVerifyJWS(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid type value")
 	require.Empty(t, proofVerifyData)
@@ -64,7 +64,7 @@ func Test_createVerifyJWS(t *testing.T) {
 	// invalid JWT passed (we need to read a header from it to prepare verify data)
 	doc["type"] = "Ed25519Signature2018"
 	p.JWS = "invalid jws"
-	proofVerifyData, err = createVerifyJWS(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	proofVerifyData, err = createVerifyJWS(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid JWT")
 	require.Empty(t, proofVerifyData)

@@ -457,9 +457,31 @@ const pkgs = {
             method: "POST",
         },
     },
-    context: {
-        Add: {
-            path: "/context/add",
+    ld: {
+        AddContexts: {
+            path: "/ld/context",
+            method: "POST",
+        },
+        AddRemoteProvider: {
+            path: "/ld/remote-provider",
+            method: "POST"
+        },
+        RefreshRemoteProvider: {
+            path: "/ld/remote-provider/{id}/refresh",
+            method: "POST",
+            pathParam: "id"
+        },
+        DeleteRemoteProvider: {
+            path: "/ld/remote-provider/{id}",
+            method: "DELETE",
+            pathParam: "id"
+        },
+        GetAllRemoteProviders: {
+            path: "/ld/remote-providers",
+            method: "GET",
+        },
+        RefreshAllRemoteProviders: {
+            path: "/ld/remote-providers/refresh",
             method: "POST",
         },
     },

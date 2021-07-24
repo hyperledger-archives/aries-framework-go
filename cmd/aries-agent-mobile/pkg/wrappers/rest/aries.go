@@ -24,8 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
-	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -268,12 +268,12 @@ func (ar *Aries) GetKMSController() (api.KMSController, error) {
 	return &KMS{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }
 
-// GetJSONLDContextController returns a JSONLDContext instance.
-func (ar *Aries) GetJSONLDContextController() (api.JSONLDContextController, error) {
-	endpoints, ok := ar.endpoints[jsonldcontextrest.OperationID]
+// GetLDController returns an LD instance.
+func (ar *Aries) GetLDController() (api.LDController, error) {
+	endpoints, ok := ar.endpoints[ld.OperationID]
 	if !ok {
-		return nil, fmt.Errorf("no endpoints found for controller [%s]", jsonldcontextrest.OperationID)
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", ld.OperationID)
 	}
 
-	return &JSONLDContext{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+	return &LD{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

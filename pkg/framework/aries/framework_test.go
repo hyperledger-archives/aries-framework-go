@@ -35,7 +35,7 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -45,6 +45,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -614,21 +615,29 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, mockStore, aries.didConnectionStore)
 	})
 
+	t.Run("test JSON-LD context store option", func(t *testing.T) {
+		store := mockldstore.NewMockContextStore()
+
+		aries, err := New(WithJSONLDContextStore(store))
+		require.NoError(t, err)
+		require.Equal(t, store, aries.contextStore)
+	})
+
+	t.Run("test JSON-LD remote provider store option", func(t *testing.T) {
+		store := mockldstore.NewMockRemoteProviderStore()
+
+		aries, err := New(WithJSONLDRemoteProviderStore(store))
+		require.NoError(t, err)
+		require.Equal(t, store, aries.remoteProviderStore)
+	})
+
 	t.Run("test JSON-LD document loader option", func(t *testing.T) {
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		aries, err := New(WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
-		require.Equal(t, loader, aries.jsonldDocumentLoader)
-	})
-
-	t.Run("test JSON-LD document loader creation error", func(t *testing.T) {
-		_, err := New(
-			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: "jsonldContexts"}),
-		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "document loader creation failed")
+		require.Equal(t, loader, aries.documentLoader)
 	})
 
 	t.Run("test KeyType and KeyAgreement option", func(t *testing.T) {

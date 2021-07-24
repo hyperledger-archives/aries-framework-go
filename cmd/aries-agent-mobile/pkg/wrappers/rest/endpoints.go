@@ -12,8 +12,8 @@ import (
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
-	cmdjsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/command/jsonld/context"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	cmdld "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	cmdoob "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -23,8 +23,8 @@ import (
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
-	opjsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	opkms "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	opld "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	opoob "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -52,7 +52,7 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
 	allEndpoints[opkms.KmsOperationID] = getKMSEndpoints()
-	allEndpoints[opjsonldcontext.OperationID] = getJSONLDContextEndpoints()
+	allEndpoints[opld.OperationID] = getLDEndpoints()
 
 	return allEndpoints
 }
@@ -439,10 +439,30 @@ func getKMSEndpoints() map[string]*endpoint {
 	}
 }
 
-func getJSONLDContextEndpoints() map[string]*endpoint {
+func getLDEndpoints() map[string]*endpoint {
 	return map[string]*endpoint{
-		cmdjsonldcontext.AddContextCommandMethod: {
-			Path:   opjsonldcontext.AddContextPath,
+		cmdld.AddContextsCommandMethod: {
+			Path:   opld.AddContextsPath,
+			Method: http.MethodPost,
+		},
+		cmdld.AddRemoteProviderCommandMethod: {
+			Path:   opld.AddRemoteProviderPath,
+			Method: http.MethodPost,
+		},
+		cmdld.RefreshRemoteProviderCommandMethod: {
+			Path:   opld.RefreshRemoteProviderPath,
+			Method: http.MethodPost,
+		},
+		cmdld.DeleteRemoteProviderCommandMethod: {
+			Path:   opld.DeleteRemoteProviderPath,
+			Method: http.MethodDelete,
+		},
+		cmdld.GetAllRemoteProvidersCommandMethod: {
+			Path:   opld.GetAllRemoteProvidersPath,
+			Method: http.MethodGet,
+		},
+		cmdld.RefreshAllRemoteProvidersCommandMethod: {
+			Path:   opld.RefreshAllRemoteProvidersPath,
 			Method: http.MethodPost,
 		},
 	}

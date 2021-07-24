@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -14,6 +14,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -32,7 +33,9 @@ type Provider struct {
 	OutboundDispatcherValue           dispatcher.Outbound
 	VDRegistryValue                   vdrapi.Registry
 	CryptoValue                       crypto.Crypto
-	JSONLDDocumentLoaderValue         ld.DocumentLoader
+	ContextStoreValue                 ld.ContextStore
+	RemoteProviderStoreValue          ld.RemoteProviderStore
+	DocumentLoaderValue               jsonld.DocumentLoader
 	KeyTypeValue                      kms.KeyType
 	KeyAgreementTypeValue             kms.KeyType
 }
@@ -105,9 +108,19 @@ func (p *Provider) VDRegistry() vdrapi.Registry {
 	return p.VDRegistryValue
 }
 
+// JSONLDContextStore returns JSON-LD context store.
+func (p *Provider) JSONLDContextStore() ld.ContextStore {
+	return p.ContextStoreValue
+}
+
+// JSONLDRemoteProviderStore returns remote JSON-LD context provider store.
+func (p *Provider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
+	return p.RemoteProviderStoreValue
+}
+
 // JSONLDDocumentLoader returns JSON-LD document loader.
-func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
-	return p.JSONLDDocumentLoaderValue
+func (p *Provider) JSONLDDocumentLoader() jsonld.DocumentLoader {
+	return p.DocumentLoaderValue
 }
 
 // KeyType returns a mocked keyType value for authentication (signing).

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
@@ -318,13 +318,13 @@ func TestSaveVC(t *testing.T) {
 }
 
 func TestGetVC(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVC, err := verifiable.ParseCredential([]byte(udCredential),
@@ -348,8 +348,8 @@ func TestGetVC(t *testing.T) {
 
 	t.Run("test success - vc without ID", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVC, err := verifiable.ParseCredential([]byte(udCredentialWithoutID),
@@ -372,7 +372,7 @@ func TestGetVC(t *testing.T) {
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
-			JSONLDDocumentLoaderValue: loader,
+			DocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		vc, err := s.GetCredential("vc1")
@@ -383,8 +383,8 @@ func TestGetVC(t *testing.T) {
 
 	t.Run("test error from new credential", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		require.NoError(t, s.SaveCredential(sampleCredentialName, &verifiable.Credential{ID: "vc1"}))
@@ -565,13 +565,13 @@ func TestSaveVP(t *testing.T) {
 }
 
 func TestGetVP(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	t.Run("test success - save presentation", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
@@ -594,8 +594,8 @@ func TestGetVP(t *testing.T) {
 
 	t.Run("test success - save VP", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation),
@@ -622,7 +622,7 @@ func TestGetVP(t *testing.T) {
 				Store:  make(map[string]mockstore.DBEntry),
 				ErrGet: fmt.Errorf("error get"),
 			}),
-			JSONLDDocumentLoaderValue: loader,
+			DocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		vp, err := s.GetPresentation("vpxyz")
@@ -633,8 +633,8 @@ func TestGetVP(t *testing.T) {
 
 	t.Run("test error from new presentation", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, &verifiable.Presentation{ID: "vp1"}))
@@ -729,13 +729,13 @@ func TestGetPresentations(t *testing.T) {
 	})
 
 	t.Run("test get presentations", func(t *testing.T) {
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		store := make(map[string]mockstore.DBEntry)
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 
@@ -755,13 +755,13 @@ func TestGetPresentations(t *testing.T) {
 }
 
 func TestRemoveVC(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	t.Run("test remove vc - success", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVC, err := verifiable.ParseCredential([]byte(udCredential),
@@ -795,7 +795,7 @@ func TestRemoveVC(t *testing.T) {
 				Store:     make(map[string]mockstore.DBEntry),
 				ErrDelete: fmt.Errorf("error delete"),
 			}),
-			JSONLDDocumentLoaderValue: loader,
+			DocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		udVC, err := verifiable.ParseCredential([]byte(udCredential),
@@ -845,13 +845,13 @@ func TestRemoveVC(t *testing.T) {
 }
 
 func TestRemoveVP(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	t.Run("test remove vp - success", func(t *testing.T) {
 		s, err := New(&mockprovider.Provider{
-			StorageProviderValue:      mockstore.NewMockStoreProvider(),
-			JSONLDDocumentLoaderValue: loader,
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			DocumentLoaderValue:  loader,
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
@@ -887,7 +887,7 @@ func TestRemoveVP(t *testing.T) {
 				Store:     make(map[string]mockstore.DBEntry),
 				ErrDelete: fmt.Errorf("error delete"),
 			}),
-			JSONLDDocumentLoaderValue: loader,
+			DocumentLoaderValue: loader,
 		})
 		require.NoError(t, err)
 		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),

@@ -68,11 +68,11 @@ const (
 	// VCWallet error group for verifiable Credential wallet command errors.
 	VCWallet = 12000
 
-	// JSONLDContext error group for JSON-LD context command errors.
-	JSONLDContext = 13000
-
 	// RFC0593 error group for RFC0593 command errors.
 	RFC0593 = 13000
+
+	// LD error group for JSON-LD command errors.
+	LD = 14000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.
@@ -80,7 +80,7 @@ type Error interface {
 	error
 	// Code returns error code for this command error.
 	Code() Code
-	// Code returns error type for this command error.
+	// Type returns error type for this command error.
 	Type() Type
 }
 

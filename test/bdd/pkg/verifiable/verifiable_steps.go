@@ -16,13 +16,13 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/cucumber/godog"
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
@@ -32,11 +32,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	bddagent "github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
-	bddjsonld "github.com/hyperledger/aries-framework-go/test/bdd/pkg/jsonld"
+	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
 // SDKSteps is steps for verifiable credentials using client SDK.
@@ -176,7 +177,7 @@ func (s *SDKSteps) getVCWithEcdsaSecp256k1Signature2019LDP(vc *verifiable.Creden
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(loader))
+	}, jsonldsig.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +206,7 @@ func (s *SDKSteps) getVCWithJSONWebSignatureLDP(vc *verifiable.Credential, proof
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(loader))
+	}, jsonldsig.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +227,7 @@ func (s *SDKSteps) getVCWithEd25519LDP(vc *verifiable.Credential,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &vc.Issued.Time,
 		VerificationMethod:      pubKeyID,
-	}, jsonld.WithDocumentLoader(loader))
+	}, jsonldsig.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -401,9 +402,37 @@ func mapDIDKeyType(proofType string) string {
 	}
 }
 
+type provider struct {
+	ContextStore        ldstore.ContextStore
+	RemoteProviderStore ldstore.RemoteProviderStore
+}
+
+func (p *provider) JSONLDContextStore() ldstore.ContextStore {
+	return p.ContextStore
+}
+
+func (p *provider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
 // CreateDocumentLoader creates a JSON-LD document loader with extra JSON-LD test contexts.
-func CreateDocumentLoader() (ld.DocumentLoader, error) {
-	loader, err := jld.NewDocumentLoader(mem.NewProvider(), jld.WithExtraContexts(bddjsonld.Contexts()...))
+func CreateDocumentLoader() (jsonld.DocumentLoader, error) {
+	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
+	}
+
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create remote provider store: %w", err)
+	}
+
+	p := &provider{
+		ContextStore:        contextStore,
+		RemoteProviderStore: remoteProviderStore,
+	}
+
+	loader, err := ld.NewDocumentLoader(p, ld.WithExtraContexts(bddldcontext.Extra()...))
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
