@@ -60,21 +60,27 @@ func (e eventProps) Err() error {
 
 // All implements EventProperties interface.
 func (e eventProps) All() map[string]interface{} {
+	props := map[string]interface{}{}
+
+	for k, v := range e.properties {
+		props[k] = v
+	}
+
 	if e.myDID != "" {
-		e.properties[myDIDPropKey] = e.myDID
+		props[myDIDPropKey] = e.myDID
 	}
 
 	if e.theirDID != "" {
-		e.properties[theirDIDPropKey] = e.theirDID
+		props[theirDIDPropKey] = e.theirDID
 	}
 
 	if e.piid != "" {
-		e.properties[piidPropKey] = e.piid
+		props[piidPropKey] = e.piid
 	}
 
 	if e.Err() != nil {
-		e.properties[errorPropKey] = e.Err()
+		props[errorPropKey] = e.Err()
 	}
 
-	return e.properties
+	return props
 }
