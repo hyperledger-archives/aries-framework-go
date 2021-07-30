@@ -17,10 +17,12 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	jsonpathkeys "github.com/kawamuray/jsonpath"
+	"github.com/piprate/json-gold/ld"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -39,6 +41,8 @@ const (
 )
 
 var errPathNotApplicable = errors.New("path not applicable")
+
+var logger = log.New("doc/presexch")
 
 type (
 	// Selection can be "all" or "pick".
@@ -296,7 +300,7 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
-	opts ...verifiable.CredentialOpt) (*verifiable.Presentation, error) {
+	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) (*verifiable.Presentation, error) {
 	if err := pd.ValidateSchema(); err != nil {
 		return nil, err
 	}
@@ -306,7 +310,7 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 		return nil, err
 	}
 
-	result, err := applyRequirement(req, credentials, opts...)
+	result, err := applyRequirement(req, credentials, documentLoader, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -337,11 +341,11 @@ var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
 // nolint: gocyclo,funlen,gocognit
 func applyRequirement(req *requirement, creds []*verifiable.Credential,
-	opts ...verifiable.CredentialOpt) (map[string][]*verifiable.Credential, error) {
+	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) (map[string][]*verifiable.Credential, error) {
 	result := make(map[string][]*verifiable.Credential)
 
 	for _, descriptor := range req.InputDescriptors {
-		filtered := filterSchema(descriptor.Schema, creds)
+		filtered := filterSchema(descriptor.Schema, creds, documentLoader)
 
 		filtered, err := filterConstraints(descriptor.Constraints, filtered, opts...)
 		if err != nil {
@@ -367,7 +371,7 @@ func applyRequirement(req *requirement, creds []*verifiable.Credential,
 	set := map[string]map[string]string{}
 
 	for _, r := range req.Nested {
-		res, err := applyRequirement(r, creds, opts...)
+		res, err := applyRequirement(r, creds, documentLoader, opts...)
 		if errors.Is(err, ErrNoCredentials) {
 			continue
 		}
@@ -876,19 +880,51 @@ func (a byID) Len() int           { return len(a) }
 func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*verifiable.Credential {
+// nolint: gocyclo
+func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
+	documentLoader ld.DocumentLoader) []*verifiable.Credential {
 	var result []*verifiable.Credential
 
+	contexts := map[string]*ld.Context{}
+
 	for _, credential := range credentials {
+		schemaSatisfied := map[string]struct{}{}
+
+		for _, ctx := range credential.Context {
+			ctxObj, ok := contexts[ctx]
+			if !ok {
+				context, err := getContext(ctx, documentLoader)
+				if err != nil {
+					logger.Errorf("failed to load context '%s': %s", ctx, err.Error())
+					return nil
+				}
+
+				contexts[ctx] = context
+				ctxObj = context
+			}
+
+			for _, typ := range credential.Types {
+				td := ctxObj.GetTermDefinition(typ)
+				if td == nil {
+					continue
+				}
+
+				if id, ok := td["@id"].(string); ok {
+					schemaSatisfied[id] = struct{}{}
+				}
+			}
+		}
+
 		var applicable bool
 
 		for _, schema := range schemas {
-			matches := schemaURIMatch(credential.Context, credential.Types, schema.URI)
-			if schema.Required && !matches {
+			_, ok := schemaSatisfied[schema.URI]
+			if ok {
+				applicable = true
+			} else if schema.Required {
+				applicable = false
 				break
 			}
-
-			applicable = applicable || matches
 		}
 
 		if applicable {
@@ -897,4 +933,30 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential) []*ve
 	}
 
 	return result
+}
+
+func getContext(contextURI string, documentLoader ld.DocumentLoader) (*ld.Context, error) {
+	contextURI = strings.SplitN(contextURI, "#", 2)[0]
+
+	remoteDoc, err := documentLoader.LoadDocument(contextURI)
+	if err != nil {
+		return nil, fmt.Errorf("loading document: %w", err)
+	}
+
+	doc, ok := remoteDoc.Document.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expects jsonld document to be unmarshaled into map[string]interface{}")
+	}
+
+	ctx, ok := doc["@context"]
+	if !ok {
+		return nil, fmt.Errorf("@context field not found in context %s", contextURI)
+	}
+
+	activeCtx, err := ld.NewContext(nil, nil).Parse(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return activeCtx, nil
 }

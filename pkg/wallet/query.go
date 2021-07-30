@@ -404,7 +404,7 @@ func (q *Query) queryByPresentationExchange(vcs []*verifiable.Credential, defs .
 			return nil, err
 		}
 
-		result, err := presDefinition.CreateVP(vcs, verifiable.WithDisabledProofCheck(),
+		result, err := presDefinition.CreateVP(vcs, q.documentLoader, verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(q.documentLoader))
 
 		if errors.Is(err, presexch.ErrNoCredentials) {

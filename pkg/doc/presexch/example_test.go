@@ -32,7 +32,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -71,7 +71,7 @@ func ExamplePresentationDefinition_CreateVP() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -129,7 +129,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -144,7 +144,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -198,7 +198,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -288,7 +288,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -303,7 +303,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -358,7 +358,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -492,7 +492,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -508,7 +508,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -525,7 +525,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -582,7 +582,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -716,7 +716,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -732,7 +732,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -748,7 +748,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -804,7 +804,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -894,13 +894,13 @@ func ExamplePresentationDefinition_Match() {
 			{
 				ID: "banking",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/account#Customer",
+					URI: "https://example.org/examples#Customer",
 				}},
 			},
 			{
 				ID: "residence",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/address#Street",
+					URI: "https://example.org/examples#Street",
 				}},
 			},
 		},
@@ -961,7 +961,7 @@ func ExamplePresentationDefinition_Match() {
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
-		receivedVP,
+		receivedVP, loader,
 		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)),
 	)
 	if err != nil {
@@ -1020,6 +1020,8 @@ const exampleJSONLDContext = `{
       "@protected":true,
       "name":"http://schema.org/name",
       "ex":"https://example.org/examples#",
+	  "Customer":"ex:Customer",
+	  "Street":"ex:Street",
       "xsd":"http://www.w3.org/2001/XMLSchema#"
    }
 }`
