@@ -82,11 +82,19 @@ export const didExchangeClient = class {
     }
 
     static async addRouter(mode, agent) {
-        let resp = await agent.mediator.getConnections()
-        if (resp.connections){
-            for (let i = 0; i < resp.connections.length; i++) {
-                await agent.mediator.unregister({"connectionID": resp.connections[i]})
+        try {
+            let resp = await agent.mediator.getConnections()
+            if (resp.connections){
+                for (let i = 0; i < resp.connections.length; i++) {
+                    await agent.mediator.unregister({"connectionID": resp.connections[i]})
+                }
             }
+        }catch (e){
+            if (!e.message.includes("data not found")) {
+                throw new Error(e);
+            }
+
+            console.log(e)
         }
 
         // receive an invitation from the router via the controller API

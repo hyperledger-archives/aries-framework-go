@@ -106,7 +106,9 @@ async function issueCredential (mode) {
 
     const credentialName = "license"
 
+    let credential;
     it("Holder accepts credential", async function () {
+        credential = getCredential(holder, credentialName)
         return holder.issuecredential.acceptCredential({
             piid: (await holderAction).Properties.piid,
             names: [credentialName],
@@ -114,11 +116,11 @@ async function issueCredential (mode) {
     })
 
     it("Checks credential", async function () {
-        let credential = await getCredential(holder, credentialName)
+        let cred = await credential;
         let credentials = await holder.verifiable.getCredentials()
 
         const check = (cred) =>{
-            if (cred.id !== credential.id){
+            if (cred.id !== cred.id){
                 return false
             }
 
