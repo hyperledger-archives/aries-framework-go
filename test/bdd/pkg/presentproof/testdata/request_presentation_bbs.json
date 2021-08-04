@@ -20,7 +20,7 @@
                 "id":"f5a19811-06b1-42ae-b9ae-56e95ef67bee",
                 "schema":[
                   {
-                    "uri": "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential"
+                    "uri": "https://example.org/examples#UniversityDegreeCredential"
                   }
                 ],
                 "constraints":{

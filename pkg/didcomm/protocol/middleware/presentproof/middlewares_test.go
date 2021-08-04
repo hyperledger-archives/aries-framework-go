@@ -471,7 +471,7 @@ func TestPresentationDefinition(t *testing.T) {
 							InputDescriptors: []*presexch.InputDescriptor{{
 								ID: uuid.New().String(),
 								Schema: []*presexch.Schema{{
-									URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+									URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 								}},
 								Constraints: &presexch.Constraints{
 									Fields: []*presexch.Field{{
@@ -542,7 +542,7 @@ func TestPresentationDefinition(t *testing.T) {
 							InputDescriptors: []*presexch.InputDescriptor{{
 								ID: uuid.New().String(),
 								Schema: []*presexch.Schema{{
-									URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+									URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 								}},
 								Constraints: &presexch.Constraints{
 									Fields: []*presexch.Field{{

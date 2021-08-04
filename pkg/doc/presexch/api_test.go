@@ -34,15 +34,22 @@ import (
 func TestPresentationDefinition_Match(t *testing.T) {
 	t.Run("match one credential", func(t *testing.T) {
 		uri := randomURI()
+
+		customType := "CustomType"
+
 		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", uri, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", uri, customType),
 				}},
 			}},
 		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
 
 		matched, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
@@ -50,7 +57,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 				Path: "$.verifiableCredential[0]",
 			}}},
 			expected,
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.NoError(t, err)
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
@@ -67,7 +74,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", uri, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 				}},
 			}},
 		}
@@ -80,6 +87,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 				}}},
 				expected,
 			),
+			contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
@@ -113,7 +121,9 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		vp.Context = []string{"https://www.w3.org/2018/credentials/v1"}
 
-		_, err := defs.Match(vp, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		docLoader := createTestDocumentLoader(t, uri)
+
+		_, err := defs.Match(vp, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -138,7 +148,9 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		vp.Type = []string{"VerifiablePresentation"}
 
-		_, err := defs.Match(vp, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		docLoader := createTestDocumentLoader(t, uri)
+
+		_, err := defs.Match(vp, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -153,13 +165,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
+		docLoader := createTestDocumentLoader(t, uri)
+
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 				ID:   "INVALID",
 				Path: "$.verifiableCredential[0]",
 			}}},
 			newVC([]string{uri}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -174,12 +188,14 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
+		docLoader := createTestDocumentLoader(t, uri)
+
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 				ID:   defs.InputDescriptors[0].ID,
 				Path: "$.verifiableCredential[1]",
 			}}}, nil,
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -194,12 +210,14 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
+		docLoader := createTestDocumentLoader(t, "invalidURI")
+
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 				ID:   defs.InputDescriptors[0].ID,
 				Path: "$.verifiableCredential[0]",
 			}}}, newVC([]string{uri}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, "invalidURI"))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -217,13 +235,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		diffURI := randomURI()
 		require.NotEqual(t, uri, diffURI)
 
+		docLoader := createTestDocumentLoader(t, diffURI)
+
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 				ID:   defs.InputDescriptors[0].ID,
 				Path: "$.verifiableCredential[0]",
 			}}},
 			newVC([]string{diffURI}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, diffURI))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -247,13 +267,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			},
 		}
 
+		docLoader := createTestDocumentLoader(t, uriOne)
+
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 				ID:   defs.InputDescriptors[0].ID,
 				Path: "$.verifiableCredential[0]",
 			}}},
 			newVC([]string{uriOne}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uriOne))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -268,15 +290,20 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
+		docLoader := createTestDocumentLoader(t, uri)
+
 		_, err := defs.Match(newVP(t,
 			nil,
 			newVC([]string{uri}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
 	t.Run("error if descriptor_map has an invalid ID", func(t *testing.T) {
 		uri := randomURI()
+
+		docLoader := createTestDocumentLoader(t, uri)
+
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
 				ID: uuid.New().String(),
@@ -289,7 +316,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		_, err := defs.Match(newVP(t,
 			&PresentationSubmission{},
 			newVC([]string{uri}),
-		), WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t, uri))))
+		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 }
@@ -297,18 +324,24 @@ func TestPresentationDefinition_Match(t *testing.T) {
 func TestE2E(t *testing.T) {
 	baseSchemaURI := randomURI()
 
+	customType := "CustomType"
+
 	// verifier sends their presentation definitions to the holder
 	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{{
 			ID: uuid.New().String(),
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", baseSchemaURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", baseSchemaURI, customType),
+			}, {
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 		}},
 	}
 
 	// holder builds their presentation submission against the verifier's definitions
 	holderCredential := newVC([]string{baseSchemaURI})
+	holderCredential.Types = append(holderCredential.Types, customType)
+
 	vp := newVP(t,
 		&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 			ID:   verifierDefinitions.InputDescriptors[0].ID,
@@ -321,7 +354,7 @@ func TestE2E(t *testing.T) {
 	vpBytes := marshal(t, vp)
 
 	// load json-ld context
-	loader := createTestDocumentLoader(t, baseSchemaURI)
+	loader := createTestDocumentLoader(t, baseSchemaURI, customType)
 
 	// verifier parses the vp
 	receivedVP, err := verifiable.ParsePresentation(vpBytes,
@@ -331,7 +364,7 @@ func TestE2E(t *testing.T) {
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
-		receivedVP,
+		receivedVP, loader,
 		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	require.NoError(t, err)
 	require.Len(t, matched, 1)
@@ -432,16 +465,23 @@ func randomURI() string {
 	return fmt.Sprintf("https://my.test.context.jsonld/%s", uuid.New().String())
 }
 
-func createTestDocumentLoader(t *testing.T, contextURL string) *jld.DocumentLoader {
-	const jsonLDContext = `{
+func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) *jld.DocumentLoader {
+	include := fmt.Sprintf(`"ctx":"%s#"`, contextURL)
+
+	for _, typ := range types {
+		include += fmt.Sprintf(`,"%s":"ctx:%s"`, typ, typ)
+	}
+
+	jsonLDContext := fmt.Sprintf(`{
     "@context":{
       "@version":1.1,
       "@protected":true,
       "name":"http://schema.org/name",
       "ex":"https://example.org/examples#",
-      "xsd":"http://www.w3.org/2001/XMLSchema#"
+      "xsd":"http://www.w3.org/2001/XMLSchema#",
+	  %s
    }
-}`
+}`, include)
 
 	loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
 		URL:     contextURL,

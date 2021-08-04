@@ -208,7 +208,7 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 				return fmt.Errorf("parse credentials: %w", err)
 			}
 
-			presentation, err := payload.PresentationDefinition.CreateVP(credentials,
+			presentation, err := payload.PresentationDefinition.CreateVP(credentials, documentLoader,
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
 				verifiable.WithJSONLDDocumentLoader(documentLoader))
 			if err != nil {
