@@ -198,6 +198,8 @@ func TestNewProvider(t *testing.T) {
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", errors.New("error"))
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", did.ErrNotFound)
 
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
@@ -206,7 +208,9 @@ func TestNewProvider(t *testing.T) {
 			HandleFunc:   func(msg service.DIDCommMsg) (string, error) { return uuid.New().String(), nil },
 		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
 			WithMessengerHandler(messengerHandler),
-			WithDIDConnectionStore(connectionStore))
+			WithDIDConnectionStore(connectionStore),
+			WithGetDIDsMaxRetries(1),
+			WithGetDIDsBackOffDuration(time.Millisecond))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 

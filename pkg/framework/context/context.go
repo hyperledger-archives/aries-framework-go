@@ -9,8 +9,10 @@ package context
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -27,6 +29,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+const defaultGetDIDsMaxRetries = 3
 
 // package context creates a framework Provider context to add optional (non default) framework services and provides
 // simple accessor methods to those same services.
@@ -57,6 +61,8 @@ type Provider struct {
 	keyType                    kms.KeyType
 	keyAgreementType           kms.KeyType
 	mediaTypeProfiles          []string
+	getDIDsMaxRetries          uint64
+	getDIDsBackOffDuration     time.Duration
 }
 
 type inboundHandler struct {
@@ -75,7 +81,10 @@ func (in *inboundHandler) HandleInbound(msg service.DIDCommMsg, ctx service.DIDC
 
 // New instantiates a new context provider.
 func New(opts ...ProviderOption) (*Provider, error) {
-	ctxProvider := Provider{}
+	ctxProvider := Provider{
+		getDIDsMaxRetries:      defaultGetDIDsMaxRetries,
+		getDIDsBackOffDuration: time.Second,
+	}
 
 	for _, opt := range opts {
 		err := opt(&ctxProvider)
@@ -224,19 +233,29 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 }
 
 func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
-	myDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return "", "", fmt.Errorf("failed to get my did: %w", err)
-	}
+	var (
+		myDID    string
+		theirDID string
+		err      error
+	)
 
-	theirDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return "", "", fmt.Errorf("failed to get their did: %w", err)
-	}
+	return myDID, theirDID, backoff.Retry(func() error {
+		var notFound bool
+		myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
+		if errors.Is(err, did.ErrNotFound) {
+			notFound = true
+		} else if err != nil {
+			return fmt.Errorf("failed to get my did: %w", err)
+		}
 
-	return myDID, theirDID, nil
+		theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
+		if notFound && errors.Is(err, did.ErrNotFound) {
+		} else if err != nil {
+			return fmt.Errorf("failed to get their did: %w", err)
+		}
+
+		return nil
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(p.getDIDsBackOffDuration), p.getDIDsMaxRetries))
 }
 
 // InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.
@@ -311,6 +330,22 @@ type ProviderOption func(opts *Provider) error
 func WithOutboundTransports(transports ...transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundTransports = transports
+		return nil
+	}
+}
+
+// WithGetDIDsMaxRetries sets max retries.
+func WithGetDIDsMaxRetries(retries uint64) ProviderOption {
+	return func(opts *Provider) error {
+		opts.getDIDsMaxRetries = retries
+		return nil
+	}
+}
+
+// WithGetDIDsBackOffDuration sets backoff duration.
+func WithGetDIDsBackOffDuration(duration time.Duration) ProviderOption {
+	return func(opts *Provider) error {
+		opts.getDIDsBackOffDuration = duration
 		return nil
 	}
 }
