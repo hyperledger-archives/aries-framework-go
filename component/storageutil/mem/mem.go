@@ -309,6 +309,10 @@ func (m *memStore) Delete(k string) error {
 // Batch performs multiple Put and/or Delete operations in order.
 // If any of the given keys are empty, then an error will be returned.
 func (m *memStore) Batch(operations []spi.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
