@@ -177,7 +177,7 @@ type Store interface {
 
 	// Batch performs multiple Put and/or Delete operations in order.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
-	// If any of the given keys are empty, then an error will be returned.
+	// If any of the given keys are empty, or the operations slice is empty or nil, then an error will be returned.
 	Batch(operations []Operation) error
 
 	// Flush forces any queued up Put and/or Delete operations to execute.
@@ -186,6 +186,7 @@ type Store interface {
 
 	// Close closes this store object, freeing resources. For persistent store implementations, this does not delete
 	// any data in the underlying databases.
+	// Close can be called repeatedly on the same store multiple times without causing an error.
 	Close() error
 }
 
