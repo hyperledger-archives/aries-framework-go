@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -1424,7 +1424,7 @@ func TestWallet_Derive(t *testing.T) {
 			verifiable.NewVDRKeyResolver(customVDR).PublicKeyFetcher(),
 		)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		credential, err := verifiable.ParseCredential([]byte(sampleBBSVC), pkFetcher,
@@ -1534,12 +1534,12 @@ func TestClient_CreateKeyPair(t *testing.T) {
 func newMockProvider(t *testing.T) *mockprovider.Provider {
 	t.Helper()
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	return &mockprovider.Provider{
-		StorageProviderValue:      mockstorage.NewMockStoreProvider(),
-		JSONLDDocumentLoaderValue: loader,
+		StorageProviderValue: mockstorage.NewMockStoreProvider(),
+		DocumentLoaderValue:  loader,
 	}
 }
 

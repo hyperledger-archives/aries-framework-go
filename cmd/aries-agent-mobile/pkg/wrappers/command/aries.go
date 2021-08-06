@@ -25,8 +25,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
-	jsonldcontext "github.com/hyperledger/aries-framework-go/pkg/controller/command/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -328,12 +328,12 @@ func (a *Aries) GetKMSController() (api.KMSController, error) {
 	return &KMS{handlers: handlers}, nil
 }
 
-// GetJSONLDContextController returns a JSONLDContext instance.
-func (a *Aries) GetJSONLDContextController() (api.JSONLDContextController, error) {
-	handlers, ok := a.handlers[jsonldcontext.CommandName]
+// GetLDController returns an LD instance.
+func (a *Aries) GetLDController() (api.LDController, error) {
+	handlers, ok := a.handlers[ld.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", jsonldcontext.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", ld.CommandName)
 	}
 
-	return &JSONLDContext{handlers: handlers}, nil
+	return &LD{handlers: handlers}, nil
 }

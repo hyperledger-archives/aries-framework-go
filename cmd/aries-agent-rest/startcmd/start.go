@@ -162,6 +162,14 @@ const (
 		"RFC0593-compliant attachment formats. Default is false." +
 		" Alternatively, this can be set with the following environment variable: " + agentAutoExecuteRFC0593EnvKey
 
+	// remote JSON-LD context provider url flag.
+	agentContextProviderFlagName  = "context-provider-url"
+	agentContextProviderEnvKey    = "ARIESD_CONTEXT_PROVIDER_URL"
+	agentContextProviderFlagUsage = "Remote context provider URL to get JSON-LD contexts from." +
+		" This flag can be repeated, allowing setting up multiple context providers." +
+		" Alternatively, this can be set with the following environment variable (in CSV format): " +
+		agentContextProviderEnvKey
+
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
@@ -181,6 +189,7 @@ type agentParameters struct {
 	token                                          string
 	webhookURLs, httpResolvers, outboundTransports []string
 	inboundHostInternals, inboundHostExternals     []string
+	contextProviderURLs                            []string
 	autoAccept                                     bool
 	msgHandler                                     command.MessageHandler
 	dbParam                                        *dbParam
@@ -303,6 +312,11 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,goc
 				return err
 			}
 
+			contextProviderURLs, err := getUserSetVars(cmd, agentContextProviderFlagName, agentContextProviderEnvKey, true)
+			if err != nil {
+				return err
+			}
+
 			autoExecuteRFC0593, err := getAutoExecuteRFC0593(cmd)
 			if err != nil {
 				return err
@@ -331,6 +345,7 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,goc
 				outboundTransports:   outboundTransports,
 				autoAccept:           autoAccept,
 				transportReturnRoute: transportReturnRoute,
+				contextProviderURLs:  contextProviderURLs,
 				tlsCertFile:          tlsCertFile,
 				tlsKeyFile:           tlsKeyFile,
 				autoExecuteRFC0593:   autoExecuteRFC0593,
@@ -446,6 +461,9 @@ func createFlags(startCmd *cobra.Command) {
 
 	// transport return route option flag
 	startCmd.Flags().StringP(agentTransportReturnRouteFlagName, "", "", agentTransportReturnRouteFlagUsage)
+
+	// remote JSON-LD context provider url flag
+	startCmd.Flags().StringSliceP(agentContextProviderFlagName, "", []string{}, agentContextProviderFlagUsage)
 
 	startCmd.Flags().StringP(agentAutoExecuteRFC0593FlagName, "", "", agentAutoExecuteRFC0593FlagUsage)
 
@@ -735,6 +753,10 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 
 	opts = append(opts, outboundTransportOpts...)
 	opts = append(opts, aries.WithMessageServiceProvider(parameters.msgHandler))
+
+	if len(parameters.contextProviderURLs) > 0 {
+		opts = append(opts, aries.WithJSONLDContextProviderURL(parameters.contextProviderURLs...))
+	}
 
 	framework, err := aries.New(opts...)
 	if err != nil {

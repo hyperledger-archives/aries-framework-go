@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package controller
 
 import (
+	"net/http"
 	"strconv"
 	"testing"
 
@@ -105,7 +106,7 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 
 		handlers, err := GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
 			WithAutoAccept(true), WithDefaultLabel("sample-label"), WithAutoExecuteRFC0593(true),
-			WithWebhookURLs("sample-wh-url"))
+			WithWebhookURLs("sample-wh-url"), WithHTTPClient(http.DefaultClient))
 		require.NoError(t, err)
 		require.NotEmpty(t, handlers)
 	})

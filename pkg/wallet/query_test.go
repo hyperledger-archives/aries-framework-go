@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
@@ -298,7 +298,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 	}
 	pubKeyFetcher := verifiable.NewVDRKeyResolver(customVDR).PublicKeyFetcher()
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	t.Run("test wallet queries", func(t *testing.T) {
@@ -525,7 +525,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 }
 
 func TestQueryByExample(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)),
@@ -959,7 +959,7 @@ func TestQueryByExample(t *testing.T) {
 }
 
 func TestQueryByFrame(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	vc1, err := verifiable.ParseCredential([]byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)),

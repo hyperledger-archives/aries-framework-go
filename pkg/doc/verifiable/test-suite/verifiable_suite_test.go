@@ -25,18 +25,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 )
 
 var logger = log.New("aries-framework/doc/verifiable/test-suite")
-var loader ld.DocumentLoader //nolint:gochecknoglobals
+var loader jsonld.DocumentLoader //nolint:gochecknoglobals
 
 // nolint:gochecknoglobals //required for go:embed
 var (
@@ -54,15 +56,28 @@ func main() {
 		abort("cannot open input file %s: %v", inputFile, readErr)
 	}
 
-	var err error
+	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
+	if err != nil {
+		abort("create JSON-LD context store: %v", err)
+	}
 
-	loader, err = jsonld.NewDocumentLoader(mem.NewProvider(),
-		jsonld.WithExtraContexts(
-			jsonld.ContextDocument{
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
+	if err != nil {
+		abort("create remote JSON-LD context provider store: %v", err)
+	}
+
+	p := &provider{
+		ContextStore:        contextStore,
+		RemoteProviderStore: remoteProviderStore,
+	}
+
+	loader, err = ld.NewDocumentLoader(p,
+		ld.WithExtraContexts(
+			ldcontext.Document{
 				URL:     "https://www.w3.org/2018/credentials/examples/v1",
 				Content: credentialExamplesVocab,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://www.w3.org/ns/odrl.jsonld",
 				Content: odrlVocab,
 			},
@@ -307,4 +322,17 @@ func abort(msg string, args ...interface{}) {
 
 func publicKeyPemToBytes(key *rsa.PublicKey) []byte {
 	return x509.MarshalPKCS1PublicKey(key)
+}
+
+type provider struct {
+	ContextStore        ldstore.ContextStore
+	RemoteProviderStore ldstore.RemoteProviderStore
+}
+
+func (p *provider) JSONLDContextStore() ldstore.ContextStore {
+	return p.ContextStore
+}
+
+func (p *provider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
+	return p.RemoteProviderStore
 }

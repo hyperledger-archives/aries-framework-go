@@ -32,7 +32,7 @@ async function waitUntil(f, timeoutMs) {
     });
 }
 
-export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = []) {
+export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = [], contextProviders = []) {
     await waitUntil(() => AriesWeb !== null, 5000);
 
     return new AriesWeb({
@@ -43,7 +43,8 @@ export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = 
         "outbound-transport": ["ws", "http"],
         "transport-return-route": "all",
         "log-level": environment.LOG_LEVEL,
-        "db-namespace": dbNS
+        "db-namespace": dbNS,
+        "context-provider-url": contextProviders
     })
 }
 

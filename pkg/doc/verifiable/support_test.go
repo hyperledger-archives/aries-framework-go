@@ -14,13 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -88,7 +89,7 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#any",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)
 
@@ -117,7 +118,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key1",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)
 
@@ -132,7 +133,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key2",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)
 
@@ -175,10 +176,10 @@ func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
 	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
-func createTestDocumentLoader(t *testing.T, extraContexts ...jld.ContextDocument) *jld.DocumentLoader {
+func createTestDocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.DocumentLoader {
 	t.Helper()
 
-	loader, err := jsonldtest.DocumentLoader(extraContexts...)
+	loader, err := ldtestutil.DocumentLoader(extraContexts...)
 	require.NoError(t, err)
 
 	return loader

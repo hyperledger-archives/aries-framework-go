@@ -10,7 +10,6 @@ import {
     newDIDExchangeRESTClient,
 } from "../didexchange/didexchange_e2e.js";
 import { watchForEvent } from "../common.js";
-import { addJSONLDContexts } from "../contexts.js";
 import "/base/node_modules/base64-js/base64js.min.js";
 import "/base/node_modules/base-58/Base58.js";
 
@@ -102,9 +101,6 @@ async function presentProofBBS(mode) {
 
         verifier = didClient.agent1;
         prover = didClient.agent2;
-
-        await addJSONLDContexts(verifier);
-        await addJSONLDContexts(prover);
     });
 
     after(async () => {
@@ -254,9 +250,6 @@ async function presentProof(mode) {
 
         verifier = didClient.agent1;
         prover = didClient.agent2;
-
-        await addJSONLDContexts(verifier);
-        await addJSONLDContexts(prover);
     });
 
     after(async () => {

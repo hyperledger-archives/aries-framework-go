@@ -13,20 +13,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -395,7 +395,7 @@ func newVC(ctx []string) *verifiable.Credential {
 }
 
 func newSignedVC(t *testing.T,
-	agent *context.Provider, ctx []string, ctxLoader ld.DocumentLoader) *verifiable.Credential {
+	agent *context.Provider, ctx []string, ctxLoader jsonld.DocumentLoader) *verifiable.Credential {
 	t.Helper()
 
 	vc := newVC(ctx)
@@ -420,7 +420,7 @@ func newSignedVC(t *testing.T,
 			VerificationMethod:      verMethod,
 			Purpose:                 "assertionMethod",
 		},
-		jsonld.WithDocumentLoader(ctxLoader),
+		jsonldsig.WithDocumentLoader(ctxLoader),
 	)
 	require.NoError(t, err)
 
@@ -465,7 +465,7 @@ func randomURI() string {
 	return fmt.Sprintf("https://my.test.context.jsonld/%s", uuid.New().String())
 }
 
-func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) *jld.DocumentLoader {
+func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) jsonld.DocumentLoader {
 	include := fmt.Sprintf(`"ctx":"%s#"`, contextURL)
 
 	for _, typ := range types {
@@ -483,7 +483,7 @@ func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) 
    }
 }`, include)
 
-	loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+	loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
 		URL:     contextURL,
 		Content: []byte(jsonLDContext),
 	})

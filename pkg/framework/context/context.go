@@ -13,7 +13,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -55,7 +56,9 @@ type Provider struct {
 	vdr                        vdrapi.Registry
 	verifiableStore            verifiable.Store
 	didConnectionStore         did.ConnectionStore
-	jsonldDocumentLoader       ld.DocumentLoader
+	contextStore               ld.ContextStore
+	remoteProviderStore        ld.RemoteProviderStore
+	documentLoader             jsonld.DocumentLoader
 	transportReturnRoute       string
 	frameworkID                string
 	keyType                    kms.KeyType
@@ -303,9 +306,19 @@ func (p *Provider) DIDConnectionStore() did.ConnectionStore {
 	return p.didConnectionStore
 }
 
+// JSONLDContextStore returns a JSON-LD context store.
+func (p *Provider) JSONLDContextStore() ld.ContextStore {
+	return p.contextStore
+}
+
+// JSONLDRemoteProviderStore returns a remote JSON-LD context provider store.
+func (p *Provider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
+	return p.remoteProviderStore
+}
+
 // JSONLDDocumentLoader returns a JSON-LD document loader.
-func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
-	return p.jsonldDocumentLoader
+func (p *Provider) JSONLDDocumentLoader() jsonld.DocumentLoader {
+	return p.documentLoader
 }
 
 // KeyType returns the default Key type (signing/authentication).
@@ -500,10 +513,26 @@ func WithDIDConnectionStore(store did.ConnectionStore) ProviderOption {
 	}
 }
 
-// WithJSONLDDocumentLoader injects a JSON-LD document loader into the context.
-func WithJSONLDDocumentLoader(loader ld.DocumentLoader) ProviderOption {
+// WithJSONLDContextStore injects a JSON-LD context store into the context.
+func WithJSONLDContextStore(store ld.ContextStore) ProviderOption {
 	return func(opts *Provider) error {
-		opts.jsonldDocumentLoader = loader
+		opts.contextStore = store
+		return nil
+	}
+}
+
+// WithJSONLDRemoteProviderStore injects a JSON-LD remote provider store into the context.
+func WithJSONLDRemoteProviderStore(store ld.RemoteProviderStore) ProviderOption {
+	return func(opts *Provider) error {
+		opts.remoteProviderStore = store
+		return nil
+	}
+}
+
+// WithJSONLDDocumentLoader injects a JSON-LD document loader into the context.
+func WithJSONLDDocumentLoader(loader jsonld.DocumentLoader) ProviderOption {
+	return func(opts *Provider) error {
+		opts.documentLoader = loader
 		return nil
 	}
 }

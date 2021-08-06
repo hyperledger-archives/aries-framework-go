@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 func TestCreateVerifyHashAlgorithm(t *testing.T) {
@@ -30,13 +30,13 @@ func TestCreateVerifyHashAlgorithm(t *testing.T) {
 	err := json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
-	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldtest.WithDocumentLoader(t))
+	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// test error due to missing proof option
 	delete(proofOptions, jsonldCreated)
-	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, jsonldtest.WithDocumentLoader(t))
+	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions, ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, normalizedDoc)
 	require.Contains(t, err.Error(), "created is missing")
@@ -64,7 +64,7 @@ func TestPrepareCanonicalProofOptions(t *testing.T) {
 	}
 
 	canonicalProofOptions, err := prepareCanonicalProofOptions(
-		&mockSignatureSuite{}, proofOptions, jsonldtest.WithDocumentLoader(t))
+		&mockSignatureSuite{}, proofOptions, ldtestutil.WithDocumentLoader(t))
 
 	require.NoError(t, err)
 	require.NotEmpty(t, canonicalProofOptions)
@@ -72,7 +72,7 @@ func TestPrepareCanonicalProofOptions(t *testing.T) {
 	// test missing created
 	delete(proofOptions, jsonldCreated)
 	canonicalProofOptions, err = prepareCanonicalProofOptions(
-		&mockSignatureSuite{}, proofOptions, jsonldtest.WithDocumentLoader(t))
+		&mockSignatureSuite{}, proofOptions, ldtestutil.WithDocumentLoader(t))
 
 	require.NotNil(t, err)
 	require.Nil(t, canonicalProofOptions)
@@ -94,26 +94,26 @@ func TestCreateVerifyData(t *testing.T) {
 	require.NoError(t, err)
 
 	p.SignatureRepresentation = SignatureProofValue
-	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureProofValue
 	normalizedDoc, err = CreateVerifyData(
-		&mockSignatureSuite{compactProof: true}, doc, p, jsonldtest.WithDocumentLoader(t))
+		&mockSignatureSuite{compactProof: true}, doc, p, ldtestutil.WithDocumentLoader(t))
 
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	p.SignatureRepresentation = SignatureJWS
 	p.JWS = "jws header.."
-	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// unsupported signature representation
 	p.SignatureRepresentation = SignatureRepresentation(-1)
-	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, jsonldtest.WithDocumentLoader(t))
+	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p, ldtestutil.WithDocumentLoader(t))
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported signature representation")

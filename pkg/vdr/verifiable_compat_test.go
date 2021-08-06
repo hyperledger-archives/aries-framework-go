@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
@@ -61,7 +61,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 				Domain:                  uuid.New().String(),
 				Purpose:                 "authentication",
 			},
-			jsonldtest.WithDocumentLoader(t),
+			ldtestutil.WithDocumentLoader(t),
 		)
 		require.NoError(t, err)
 
@@ -78,7 +78,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  uuid.New().String(),
 			Purpose:                 "authentication",
-		}, jsonldtest.WithDocumentLoader(t))
+		}, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 
 		// alice wires her VP and DID to Bob
@@ -100,7 +100,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrapi.WithOption("store", true))
 		require.NoError(t, err)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		// bob parses alice's VP

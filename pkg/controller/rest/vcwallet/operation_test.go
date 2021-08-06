@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -1429,12 +1429,12 @@ func addContent(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.AddC
 func newMockProvider(t *testing.T) *mockprovider.Provider {
 	t.Helper()
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	return &mockprovider.Provider{
-		StorageProviderValue:      mockstorage.NewMockStoreProvider(),
-		JSONLDDocumentLoaderValue: loader,
+		StorageProviderValue: mockstorage.NewMockStoreProvider(),
+		DocumentLoaderValue:  loader,
 	}
 }
 
@@ -1464,7 +1464,7 @@ func parseCredential(t *testing.T, b *bytes.Buffer) *verifiable.Credential {
 
 	require.NoError(t, json.NewDecoder(b).Decode(&response))
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	vc, err := verifiable.ParseCredential(response.Credential, verifiable.WithDisabledProofCheck(),
@@ -1481,7 +1481,7 @@ func parsePresentation(t *testing.T, b *bytes.Buffer) *verifiable.Presentation {
 
 	require.NoError(t, json.NewDecoder(b).Decode(&response))
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	vp, err := verifiable.ParsePresentation(response.Presentation, verifiable.WithPresDisabledProofCheck(),

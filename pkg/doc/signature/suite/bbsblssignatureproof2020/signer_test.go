@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 //nolint:gochecknoglobals
@@ -61,7 +61,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 	t.Run("single BBS+ signature", func(t *testing.T) {
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -93,7 +93,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docWithSeveralProofsMap, revealDocMap, nonce,
-			compositeResolver, jsonldtest.WithDocumentLoader(t))
+			compositeResolver, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -114,7 +114,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		docMap["bad"] = "example"
 		docMap["proof"] = "example"
 
-		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce, pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce, pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 	})
 
@@ -128,7 +128,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithoutProof, revealDocMap, nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "document does not have a proof")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -146,7 +146,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProof, revealDocMap, nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "get BLS proofs: read document proofs: proof is not map or array of maps")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -174,7 +174,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofValue, revealDocMap, nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: derive BBS+ proof: parse signature: invalid size of signature") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -202,7 +202,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofType, revealDocMap, nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "no BbsBlsSignature2020 proof present")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -214,7 +214,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			failingPublicKeyResolver, jsonldtest.WithDocumentLoader(t))
+			failingPublicKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: get public key and signature: resolve public key of BBS+ signature: public key not found") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -228,7 +228,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		require.NoError(t, err)
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(case18DocMap, case18RevealDocMap, case19Nonce,
-			pubKeyResolver, jsonldtest.WithDocumentLoader(t))
+			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -244,7 +244,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		_, err = verifiable.ParseCredential(case18DerivationBytes, verifiable.WithPublicKeyFetcher(pubKeyFetcher),

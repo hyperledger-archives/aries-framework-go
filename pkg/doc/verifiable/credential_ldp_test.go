@@ -22,8 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
@@ -55,7 +55,7 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -222,7 +222,7 @@ func TestParseCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		docLoader := createTestDocumentLoader(t, jld.ContextDocument{
+		docLoader := createTestDocumentLoader(t, ldcontext.Document{
 			URL:     "http://localhost:9191/example.jsonld",
 			Content: []byte(localJSONLDContext),
 		})
@@ -368,7 +368,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vc, err := parseTestCredential(t, []byte(vcJSON))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -434,7 +434,7 @@ func TestExtraContextWithLDP(t *testing.T) {
     }
 }
 `
-	loader := createTestDocumentLoader(t, jld.ContextDocument{
+	loader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     "http://localhost:8652/dummy.jsonld",
 		Content: []byte(dummyContext),
 	})
@@ -511,7 +511,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r.NoError(err)
 	r.Len(vc.Proofs, 0)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 	r.Len(vc.Proofs, 1)
 	r.Equal("BbsBlsSignature2020", vc.Proofs[0]["type"])
@@ -614,7 +614,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -650,7 +650,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -694,7 +694,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -750,7 +750,7 @@ func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 }
 `
 
-	docLoader := createTestDocumentLoader(t, jld.ContextDocument{
+	docLoader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     "http://127.0.0.1:53401/cmtr.jsonld",
 		Content: []byte(cmtrJSONLD),
 	})
@@ -1051,7 +1051,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureProofValue,
 		Suite:                   ed25519SigSuite,
 		VerificationMethod:      "did:example:123456#key1",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	ecdsaSigner, err := newCryptoSigner(kms.ECDSAP256TypeIEEEP1363)
@@ -1066,7 +1066,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureJWS,
 		Suite:                   ecdsaSigSuite,
 		VerificationMethod:      "did:example:123456#key2",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -1193,7 +1193,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  "issuer.service.com",
 			Purpose:                 "authentication",
-		}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+		}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
 		vcMap, err := toMap(vc)
@@ -1256,7 +1256,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			Domain:                  "issuer.service.com",
 			Purpose:                 "capabilityDelegation",
 			CapabilityChain:         []interface{}{rootCapability},
-		}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+		}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
 		r.Len(vc.Proofs, 1)

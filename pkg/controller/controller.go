@@ -8,13 +8,14 @@ package controller
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
-	jsonldcontextcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	ldcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -26,8 +27,8 @@ import (
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	introducerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
-	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -40,6 +41,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
 
+// HTTPClient represents an HTTP client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type allOpts struct {
 	webhookURLs        []string
 	defaultLabel       string
@@ -48,6 +54,7 @@ type allOpts struct {
 	msgHandler         command.MessageHandler
 	notifier           command.Notifier
 	walletConf         *vcwalletcmd.Config
+	httpClient         HTTPClient
 }
 
 const wsPath = "/ws"
@@ -104,9 +111,19 @@ func WithWalletConfiguration(conf *vcwalletcmd.Config) Opt {
 	}
 }
 
+// WithHTTPClient is an option for setting up a custom HTTP client.
+func WithHTTPClient(client HTTPClient) Opt {
+	return func(opts *allOpts) {
+		opts.httpClient = client
+	}
+}
+
 // GetRESTHandlers returns all REST handlers provided by controller.
 func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen,gocyclo
-	restAPIOpts := &allOpts{}
+	restAPIOpts := &allOpts{
+		httpClient: http.DefaultClient,
+	}
+
 	// Apply options
 	for _, opt := range opts {
 		opt(restAPIOpts)
@@ -186,11 +203,8 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// vc wallet command controller
 	wallet := vcwalletrest.New(ctx, restAPIOpts.walletConf)
 
-	// JSON-LD context REST operation
-	contextOp, err := jsonldcontextrest.New(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("create jsonld context rest command : %w", err)
-	}
+	// JSON-LD REST operation
+	ldOp := ldrest.New(ctx, restAPIOpts.httpClient)
 
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
@@ -206,7 +220,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetRESTHandlers()...)
-	allHandlers = append(allHandlers, contextOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, ldOp.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -222,7 +236,10 @@ type handlerProvider interface {
 
 // GetCommandHandlers returns all command handlers provided by controller.
 func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen,gocyclo
-	cmdOpts := &allOpts{}
+	cmdOpts := &allOpts{
+		httpClient: http.DefaultClient,
+	}
+
 	// Apply options
 	for _, opt := range opts {
 		opt(cmdOpts)
@@ -294,11 +311,8 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	// vc wallet command controller
 	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
 
-	// JSON-LD context command operation
-	contextcmd, err := jsonldcontextcmd.New(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("create jsonld context command : %w", err)
-	}
+	// JSON-LD command operation
+	ld := ldcmd.New(ctx, cmdOpts.httpClient)
 
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
@@ -312,7 +326,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetHandlers()...)
-	allHandlers = append(allHandlers, contextcmd.GetHandlers()...)
+	allHandlers = append(allHandlers, ld.GetHandlers()...)
 
 	return allHandlers, nil
 }

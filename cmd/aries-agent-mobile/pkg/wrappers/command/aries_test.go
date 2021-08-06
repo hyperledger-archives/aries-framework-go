@@ -215,7 +215,7 @@ func TestAries_GetJSONLDContextController(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, a)
 
-		controller, err := a.GetJSONLDContextController()
+		controller, err := a.GetLDController()
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})

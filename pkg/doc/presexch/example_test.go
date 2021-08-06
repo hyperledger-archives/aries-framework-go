@@ -13,11 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 const dummy = "DUMMY"
@@ -48,7 +48,7 @@ func ExamplePresentationDefinition_CreateVP() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +158,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -318,7 +318,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -540,7 +540,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -762,7 +762,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -935,12 +935,12 @@ func ExamplePresentationDefinition_Match() {
 	}
 
 	// load json-ld context
-	loader, err := jsonldtest.DocumentLoader(
-		jld.ContextDocument{
+	loader, err := ldtestutil.DocumentLoader(
+		ldcontext.Document{
 			URL:     "https://example.context.jsonld/account",
 			Content: []byte(exampleJSONLDContext),
 		},
-		jld.ContextDocument{
+		ldcontext.Document{
 			URL:     "https://example.context.jsonld/address",
 			Content: []byte(exampleJSONLDContext),
 		},
