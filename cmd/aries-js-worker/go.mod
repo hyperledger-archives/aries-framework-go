@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb v0.0.0-00010101000000-000000000000
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210708130136-17663938344d
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210806210220-65863dbe349a
 	github.com/mitchellh/mapstructure v1.3.0
 	github.com/stretchr/testify v1.7.0
 )

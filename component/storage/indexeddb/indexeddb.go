@@ -387,6 +387,10 @@ func (s *store) Delete(k string) error {
 }
 
 func (s *store) Batch(operations []storage.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	for _, operation := range operations {
 		if operation.Value == nil {
 			err := s.Delete(operation.Key)

@@ -4,6 +4,8 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 // Package storage contains common tests for storage provider implementations.
+// These tests are intended to demonstrate the expected behaviour as defined in the documentation above the
+// spi.Provider, spi.Store and spi.Iterator interface declarations.
 package storage
 
 import (
@@ -96,6 +98,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}}
 
 		err = provider.SetStoreConfig(testStoreName, config)
@@ -113,6 +119,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		// Set initial tags.
 		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
@@ -145,6 +155,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		// Set initial tags.
 		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
 		require.NoError(t, err)
@@ -164,6 +178,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		// Set initial tags.
 		err = provider.SetStoreConfig(storeName,
@@ -193,6 +211,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		// Tag names cannot contain any ':' characters since it's a reserved character in the query syntax.
 		// It would be impossible to do a query for one of these tags, so we must not allow it in the first place.
 		config := spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagNameWith:Character"}}
@@ -207,6 +229,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 	})
 	t.Run("Attempt to open a store with a blank name", func(t *testing.T) {
 		store, err := provider.OpenStore("")
+
 		require.Error(t, err)
 		require.Nil(t, store)
 	})
@@ -217,6 +240,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		storeWithCapitalLetter, err := provider.OpenStore("Some-store-name")
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, storeWithCapitalLetter.Close())
+		}()
+
 		err = storeWithCapitalLetter.Put("key", []byte("value"))
 		require.NoError(t, err)
 
@@ -224,6 +251,10 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		// contains the same data as the one above.
 		storeWithLowercaseLetter, err := provider.OpenStore("some-store-name")
 		require.NoError(t, err)
+
+		defer func() {
+			require.NoError(t, storeWithLowercaseLetter.Close())
+		}()
 
 		value, err := storeWithLowercaseLetter.Get("key")
 		require.NoError(t, err)
@@ -241,19 +272,35 @@ func TestProviderGetOpenStores(t *testing.T, provider spi.Provider) {
 	store1, err := provider.OpenStore("testStore1")
 	require.NoError(t, err)
 
+	defer func() {
+		// Although we close store1 later on as part of this test, in case it fails early we still need to make
+		// sure it's closed. Closing a store multiple times should not cause an error.
+		require.NoError(t, store1.Close())
+	}()
+
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 1)
 
 	store2, err := provider.OpenStore("testStore2")
 	require.NoError(t, err)
 
+	defer func() {
+		// Although we close store2 later on as part of this test, in case it fails early we still need to make
+		// sure it's closed. Closing a store multiple times should not cause an error.
+		require.NoError(t, store2.Close())
+	}()
+
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 2)
 
 	// Now we will attempt to open a previously opened store. Since it was opened previously, we expect that the
 	// number of open stores returned by GetOpenStores() to not change.
-	_, err = provider.OpenStore("testStore2")
+	store2Reopened, err := provider.OpenStore("testStore2")
 	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store2Reopened.Close())
+	}()
 
 	openStores = provider.GetOpenStores()
 	require.Len(t, openStores, 2)
@@ -353,6 +400,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put(testKeyNonURL, []byte(testValueSimpleString))
 		require.NoError(t, err)
 
@@ -372,11 +423,19 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			store1, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
+			defer func() {
+				require.NoError(t, store1.Close())
+			}()
+
 			err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 			require.NoError(t, err)
 
 			store2, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
+
+			defer func() {
+				require.NoError(t, store2.Close())
+			}()
 
 			// Store 2 should be disjoint from store 1. It should not contain the key + value pair from store 1.
 			value, err := store2.Get(testKeyNonURL)
@@ -389,11 +448,19 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
+				defer func() {
+					require.NoError(t, store1.Close())
+				}()
+
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
+
+				defer func() {
+					require.NoError(t, store2.Close())
+				}()
 
 				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
@@ -422,11 +489,19 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
 
+				defer func() {
+					require.NoError(t, store1.Close())
+				}()
+
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				store2, err := provider.OpenStore(randomStoreName())
 				require.NoError(t, err)
+
+				defer func() {
+					require.NoError(t, store2.Close())
+				}()
 
 				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
@@ -455,12 +530,20 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
+				defer func() {
+					require.NoError(t, store1.Close())
+				}()
+
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
 				store2, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
+
+				defer func() {
+					require.NoError(t, store2.Close())
+				}()
 
 				// Store 2 should find the same data that was put in store 1
 
@@ -480,12 +563,20 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				store1, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
 
+				defer func() {
+					require.NoError(t, store1.Close())
+				}()
+
 				err = store1.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
 
 				// Store 2 should contain the same data as store 1 since they were opened with the same name.
 				store2, err := provider.OpenStore(storeName)
 				require.NoError(t, err)
+
+				defer func() {
+					require.NoError(t, store2.Close())
+				}()
 
 				err = store2.Put(testKeyNonURL, []byte(testValueSimpleString))
 				require.NoError(t, err)
@@ -510,12 +601,20 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		_, err = store.Get("")
 		require.Error(t, err)
 	})
 	t.Run("Put with empty key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = store.Put("", []byte(testValueSimpleString))
 		require.Error(t, err)
@@ -524,6 +623,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put(testKeyNonURL, nil)
 		require.Error(t, err)
 	})
@@ -531,6 +634,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		t.Run("First tag name contains a ':'", func(t *testing.T) {
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = store.Put(testKeyNonURL, []byte("value"),
 				[]spi.Tag{
@@ -543,6 +650,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = store.Put(testKeyNonURL, []byte("value"),
 				[]spi.Tag{
 					{Name: "TagName1", Value: "TagValue1With:Character"},
@@ -554,6 +665,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = store.Put(testKeyNonURL, []byte("value"),
 				[]spi.Tag{
 					{Name: "TagName1", Value: "TagValue1"},
@@ -564,6 +679,10 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 		t.Run("Second tag value contains a ':'", func(t *testing.T) {
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = store.Put(testKeyNonURL, []byte("value"),
 				[]spi.Tag{
@@ -578,8 +697,13 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 // TestStoreGetTags tests common Store GetTags functionality.
 func TestStoreGetTags(t *testing.T, provider spi.Provider) {
 	storeName := randomStoreName()
+
 	store, err := provider.OpenStore(storeName)
 	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
 
 	err = provider.SetStoreConfig(storeName,
 		spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2"}})
@@ -616,6 +740,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put("key1", []byte("value1"),
 			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
@@ -641,6 +769,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put("key1", []byte("value1"),
 			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
@@ -658,6 +790,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = store.Put("key1", []byte("value1"),
 			[]spi.Tag{
@@ -687,6 +823,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put("key1", []byte("value1"),
 			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
@@ -705,6 +845,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		values, err := store.GetBulk(nil...)
 		require.Error(t, err)
 		require.Nil(t, values)
@@ -714,6 +858,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		values, err := store.GetBulk(make([]string, 0)...)
 		require.Error(t, err)
 		require.Nil(t, values)
@@ -722,6 +870,10 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		values, err := store.GetBulk("key1", "key2", "")
 		require.Error(t, err)
@@ -737,6 +889,10 @@ func TestStoreDelete(t *testing.T, provider spi.Provider) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Put(testKey, []byte("value1"))
 		require.NoError(t, err)
 
@@ -751,12 +907,20 @@ func TestStoreDelete(t *testing.T, provider spi.Provider) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = store.Delete("NonExistentKey")
 		require.NoError(t, err)
 	})
 	t.Run("Delete with blank key argument", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = store.Delete("")
 		require.Error(t, err)
@@ -790,6 +954,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
@@ -808,6 +976,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
@@ -829,6 +1001,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
@@ -847,6 +1023,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
@@ -882,6 +1062,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4", "tagName5"}})
 			require.NoError(t, err)
@@ -900,6 +1084,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4", "tagName5"}})
@@ -921,6 +1109,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4", "tagName5"}})
 			require.NoError(t, err)
@@ -939,6 +1131,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4", "tagName5"}})
@@ -978,6 +1174,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
@@ -996,6 +1196,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
@@ -1017,6 +1221,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 			require.NoError(t, err)
@@ -1035,6 +1243,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName,
 				spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
@@ -1072,6 +1284,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 		require.NoError(t, err)
@@ -1094,6 +1310,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3", "tagName4"}})
 		require.NoError(t, err)
@@ -1110,6 +1330,10 @@ func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) { /
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{})
 		require.NoError(t, err)
@@ -1204,6 +1428,10 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funl
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName, storeConfig)
 			require.NoError(t, err)
@@ -1512,6 +1740,10 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funl
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName, storeConfig)
 			require.NoError(t, err)
@@ -1906,6 +2138,10 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funl
 			require.NoError(t, err)
 			require.NotNil(t, store)
 
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
+
 			err = provider.SetStoreConfig(storeName, storeConfig)
 			require.NoError(t, err)
 
@@ -2214,6 +2450,10 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funl
 			store, err := provider.OpenStore(storeName)
 			require.NoError(t, err)
 			require.NotNil(t, store)
+
+			defer func() {
+				require.NoError(t, store.Close())
+			}()
 
 			err = provider.SetStoreConfig(storeName, storeConfig)
 			require.NoError(t, err)
@@ -2543,9 +2783,14 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, //nolint: funl
 func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // Test file
 	t.Run("Success: put three new values", func(t *testing.T) {
 		storeName := randomStoreName()
+
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
@@ -2593,6 +2838,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{
@@ -2653,6 +2902,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
 		require.NoError(t, err)
@@ -2705,6 +2958,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
 		require.NoError(t, err)
@@ -2747,6 +3004,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1"}})
 		require.NoError(t, err)
@@ -2774,6 +3035,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
@@ -2805,6 +3070,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{
@@ -2843,6 +3112,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{
@@ -2883,6 +3156,10 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		store, err := provider.OpenStore(storeName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = provider.SetStoreConfig(storeName,
 			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
@@ -2942,10 +3219,38 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.True(t, equalTags(key3FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 	})
+	t.Run("Failure: Operations slice is nil", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
+		err = store.Batch(nil)
+		require.Error(t, err)
+	})
+	t.Run("Failure: Operations slice is empty", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
+
+		err = store.Batch([]spi.Operation{})
+		require.Error(t, err)
+	})
 	t.Run("Failure: Operation has an empty key", func(t *testing.T) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		operations := []spi.Operation{
 			{Key: "key1", Value: []byte("value1"), Tags: []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}},
@@ -2963,6 +3268,10 @@ func TestStoreFlush(t *testing.T, provider spi.Provider) {
 		store, err := provider.OpenStore(randomStoreName())
 		require.NoError(t, err)
 		require.NotNil(t, store)
+
+		defer func() {
+			require.NoError(t, store.Close())
+		}()
 
 		err = store.Put("key1", []byte("value1"))
 		require.NoError(t, err)
@@ -2991,11 +3300,29 @@ func TestStoreClose(t *testing.T, provider spi.Provider) {
 		err = store.Close()
 		require.NoError(t, err)
 	})
+	t.Run("Close same store multiple times without error", func(t *testing.T) {
+		store, err := provider.OpenStore(randomStoreName())
+		require.NoError(t, err)
+		require.NotNil(t, store)
+
+		err = store.Close()
+		require.NoError(t, err)
+
+		err = store.Close()
+		require.NoError(t, err)
+
+		err = store.Close()
+		require.NoError(t, err)
+	})
 }
 
 func doPutThenGetTest(t *testing.T, provider spi.Provider, key string, value []byte) {
 	store, err := provider.OpenStore(randomStoreName())
 	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
 
 	err = store.Put(key, value)
 	require.NoError(t, err)
@@ -3008,6 +3335,10 @@ func doPutThenGetTest(t *testing.T, provider spi.Provider, key string, value []b
 func doPutThenUpdateThenGetTest(t *testing.T, provider spi.Provider, key string, value, updatedValue []byte) {
 	store, err := provider.OpenStore(randomStoreName())
 	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
 
 	err = store.Put(key, value)
 	require.NoError(t, err)
