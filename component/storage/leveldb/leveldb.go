@@ -368,6 +368,10 @@ func (s *store) Delete(key string) error {
 //  can at least perform the operations as expected without failing. It doesn't take advantage of LevelDB features that
 //  may allow for faster batch operations.
 func (s *store) Batch(operations []storage.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	for _, operation := range operations {
 		if operation.Value == nil {
 			err := s.Delete(operation.Key)
@@ -390,11 +394,17 @@ func (s *store) Flush() error {
 	return nil
 }
 
-// Nothing to close, so this always returns nil.
 func (s *store) Close() error {
 	s.close(s.name)
 
-	return s.db.Close()
+	err := s.db.Close()
+	if err != nil {
+		if err.Error() != "leveldb: closed" {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
