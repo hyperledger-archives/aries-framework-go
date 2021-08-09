@@ -7,17 +7,32 @@ SPDX-License-Identifier: Apache-2.0
 package presexch
 
 import (
+	_ "embed"
 	"fmt"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
 type mockLoader struct {
 	ctxDoc ld.RemoteDocument
 	err    error
 }
+
+// nolint:gochecknoglobals // required for go:embed
+var (
+	//go:embed testdata/contexts/mdl-v1.jsonld
+	mDLv1JSONLD []byte
+	//go:embed testdata/contexts/mdl-broken.jsonld
+	mDLBroken []byte
+)
 
 func (ml *mockLoader) LoadDocument(url string) (*ld.RemoteDocument, error) {
 	return &ml.ctxDoc, ml.err
@@ -52,4 +67,52 @@ func TestGetContext(t *testing.T) {
 		require.Nil(t, ctxOut)
 		require.Contains(t, err.Error(), "@context field not found")
 	})
+}
+
+func Test_mDLNestedCtx(t *testing.T) {
+	schemas := []*Schema{{
+		URI: "https://example.org/examples#mDL",
+	}}
+
+	creds := []*verifiable.Credential{
+		{
+			Context: []string{
+				verifiable.ContextURI,
+				"https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
+			},
+			Types: []string{verifiable.VCType, "mDL"},
+		},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		docLoader, err := jld.NewDocumentLoader(createMockCtxProvider(), jld.WithExtraContexts(ldcontext.Document{
+			URL:     "https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
+			Content: mDLv1JSONLD,
+		}))
+
+		require.NoError(t, err)
+
+		matched := filterSchema(schemas, creds, docLoader)
+		require.Len(t, matched, 1)
+	})
+
+	t.Run("failure: fail to parse child ctx", func(t *testing.T) {
+		docLoader, err := jld.NewDocumentLoader(createMockCtxProvider(), jld.WithExtraContexts(ldcontext.Document{
+			URL:     "https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
+			Content: mDLBroken,
+		}))
+		require.NoError(t, err)
+
+		matched := filterSchema(schemas, creds, docLoader)
+		require.Len(t, matched, 0)
+	})
+}
+
+func createMockCtxProvider() *mockprovider.Provider {
+	p := &mockprovider.Provider{
+		ContextStoreValue:        mockldstore.NewMockContextStore(),
+		RemoteProviderStoreValue: mockldstore.NewMockRemoteProviderStore(),
+	}
+
+	return p
 }

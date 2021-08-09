@@ -904,12 +904,12 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 			}
 
 			for _, typ := range credential.Types {
-				td := ctxObj.GetTermDefinition(typ)
-				if td == nil {
+				ids, err := typeFoundInContext(typ, ctxObj)
+				if err != nil {
 					continue
 				}
 
-				if id, ok := td["@id"].(string); ok {
+				for _, id := range ids {
 					schemaSatisfied[id] = struct{}{}
 				}
 			}
@@ -933,6 +933,39 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 	}
 
 	return result
+}
+
+func typeFoundInContext(typ string, ctxObj *ld.Context) ([]string, error) {
+	var out []string
+
+	td := ctxObj.GetTermDefinition(typ)
+	if td == nil {
+		return nil, nil
+	}
+
+	id, ok := td["@id"].(string)
+	if ok {
+		out = append(out, id)
+	}
+
+	tdCtx, ok := td["@context"].(map[string]interface{})
+	if !ok {
+		return out, nil
+	}
+
+	extendedCtx, err := ctxObj.Parse(tdCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	iri, err := extendedCtx.ExpandIri(id, false, false, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	out = append(out, iri)
+
+	return out, nil
 }
 
 func getContext(contextURI string, documentLoader ld.DocumentLoader) (*ld.Context, error) {
