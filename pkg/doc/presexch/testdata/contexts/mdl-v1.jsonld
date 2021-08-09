@@ -1,0 +1,53 @@
+{
+  "@context":{
+    "@version":1.1,
+    "id":"@id",
+    "type":"@type",
+    "name":"http://schema.org/name",
+    "description":"http://schema.org/description",
+
+    "mDL":{
+      "@id":"ex:mDL",
+      "@context":{
+        "@version":1.1,
+        "@protected":true,
+        "id":"@id",
+        "type":"@type",
+        "xsd":"http://www.w3.org/2001/XMLSchema#",
+        "ex":"https://example.org/examples#",
+
+        "family_name":{ "@id":"ex:family_name" },
+        "given_name":{ "@id":"ex:given_name" },
+        "birthdate":{ "@id":"ex:birthdate" },
+        "issue_date":{ "@id":"ex:issue_date" },
+        "expiry_date":{ "@id":"ex:expiry_date" },
+        "issuing_country":{ "@id":"ex:issuing_country" },
+        "issuing_authority":{ "@id":"ex:issuing_authority" },
+        "document_number":{ "@id":"ex:document_number" },
+        "driving_privileges":{ "@id":"ex:driving_privileges" },
+        "portrait":{ "@id":"ex:portrait" },
+        "administrative_number":{ "@id":"ex:administrative_number" },
+        "gender":{ "@id":"ex:gender" },
+        "height":{ "@id":"ex:height" },
+        "weight":{ "@id":"ex:weight" },
+        "eye_color":{ "@id":"ex:eye_color" },
+        "hair_color":{ "@id":"ex:hair_color" },
+        "birthplace":{ "@id":"ex:birthplace" },
+        "resident_address":{ "@id":"ex:resident_address" },
+        "portrait_capture_date":{ "@id":"ex:portrait_capture_date" },
+        "age_in_years":{ "@id":"ex:age_in_years" },
+        "age_birth_year":{ "@id":"ex:age_birth_year" },
+        "issuing_jurisdiction":{ "@id":"ex:issuing_jurisdiction" },
+        "nationality":{ "@id":"ex:nationality" },
+        "resident_city":{ "@id":"ex:resident_city" },
+        "resident_state":{ "@id":"ex:resident_state" },
+        "resident_postal_code":{ "@id":"ex:resident_postal_code" },
+        "biometric_template_xx":{ "@id":"ex:biometric_template_xx" },
+        "name_nat_char":{ "@id":"ex:name_nat_char" },
+        "mgmt_lastupdate":{ "@id":"ex:mgmt_lastupdate" },
+        "mgmt_validity":{ "@id":"ex:mgmt_validity" },
+        "mgmt_nextupdate":{ "@id":"ex:mgmt_nextupdate" }
+      }
+    }
+  }
+}
