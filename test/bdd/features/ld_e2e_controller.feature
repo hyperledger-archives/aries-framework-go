@@ -12,5 +12,5 @@ Feature: JSON-LD operations using controller API
   Scenario: Controller API for remote JSON-LD context provider
     Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
 
-    When  "Alice" adds a new remote provider with endpoint "https://file-server.example.com/ld-test-contexts.json" through controller
-    Then  contexts from the provider are available to the agent instance
+    When  "Alice" adds a new remote provider with endpoint "https://file-server.example.com/vaccination-context.json" through controller
+    Then  vaccination context from the provider is available to the agent instance

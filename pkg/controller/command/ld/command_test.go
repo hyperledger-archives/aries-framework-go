@@ -10,64 +10,47 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 
-	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	ldcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	mockld "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
 )
 
-const (
-	sampleContextsResponse = `{
-  "documents": [
-    {
-      "url": "https://example.com/context.jsonld",
-      "content": {
-        "@context": "remote"
-      }
-    }
-  ]
-}`
-)
+func TestNew(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{}, ldcmd.WithHTTPClient(&mockHTTPClient{}))
+		require.NotNil(t, cmd)
+	})
+}
 
 func TestCommand_GetHandlers(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		cmd := ldcmd.New(createMockProvider(), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 		require.Equal(t, 6, len(cmd.GetHandlers()))
 	})
 }
 
 func TestCommand_AddContexts(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		store := mockldstore.NewMockContextStore()
+		cmd := ldcmd.New(&mockld.MockService{})
 
-		cmd := ldcmd.New(createMockProvider(withContextStore(store)), &mockHTTPClient{})
-
-		contexts := ldtestutil.Contexts()
-
-		b, err := json.Marshal(ldcmd.AddContextsRequest{Documents: contexts})
+		b, err := json.Marshal(ldcmd.AddContextsRequest{Documents: ldtestutil.Contexts()})
 		require.NoError(t, err)
 
 		var rw bytes.Buffer
 		err = cmd.AddContexts(&rw, bytes.NewReader(b))
 
 		require.NoError(t, err)
-		require.Len(t, store.Store.Store, len(contexts))
 	})
 
 	t.Run("Fail to decode request", func(t *testing.T) {
-		cmd := ldcmd.New(createMockProvider(), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.AddContexts(&rw, strings.NewReader("invalid request"))
@@ -76,11 +59,8 @@ func TestCommand_AddContexts(t *testing.T) {
 		require.Contains(t, err.Error(), "decode request")
 	})
 
-	t.Run("Fail to import contexts", func(t *testing.T) {
-		store := mockldstore.NewMockContextStore()
-		store.ErrImport = errors.New("import error")
-
-		cmd := ldcmd.New(createMockProvider(withContextStore(store)), &mockHTTPClient{})
+	t.Run("Fail to add contexts", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrAddContexts: errors.New("add contexts error")})
 
 		context := ldtestutil.Contexts()[0]
 
@@ -98,28 +78,13 @@ func TestCommand_AddContexts(t *testing.T) {
 		err = cmd.AddContexts(&rw, bytes.NewReader(b))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "import contexts")
+		require.Contains(t, err.Error(), "add contexts")
 	})
 }
 
 func TestCommand_AddRemoteProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		b, err := json.Marshal(ldcmd.AddRemoteProviderRequest{Endpoint: "endpoint"})
 		require.NoError(t, err)
@@ -128,12 +93,10 @@ func TestCommand_AddRemoteProvider(t *testing.T) {
 		err = cmd.AddRemoteProvider(&rw, bytes.NewReader(b))
 
 		require.NoError(t, err)
-		require.Equal(t, 1, len(remoteProviderStore.Store.Store))
-		require.Equal(t, 1, len(contextStore.Store.Store))
 	})
 
 	t.Run("Fail to decode request", func(t *testing.T) {
-		cmd := ldcmd.New(createMockProvider(), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.AddRemoteProvider(&rw, bytes.NewReader([]byte("invalid request")))
@@ -142,17 +105,8 @@ func TestCommand_AddRemoteProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "decode request")
 	})
 
-	t.Run("Fail to get contexts from remote provider", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
-				}, nil
-			},
-		}
-
-		cmd := ldcmd.New(createMockProvider(), httpClient)
+	t.Run("Fail to add remote provider", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrAddRemoteProvider: errors.New("add remote provider error")})
 
 		b, err := json.Marshal(ldcmd.AddRemoteProviderRequest{Endpoint: "endpoint"})
 		require.NoError(t, err)
@@ -161,83 +115,13 @@ func TestCommand_AddRemoteProvider(t *testing.T) {
 		err = cmd.AddRemoteProvider(&rw, bytes.NewReader(b))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get contexts from remote provider")
-	})
-
-	t.Run("Fail to save remote provider", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.ErrSave = errors.New("save error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(remoteProviderStore)), httpClient)
-
-		b, err := json.Marshal(ldcmd.AddRemoteProviderRequest{Endpoint: "endpoint"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.AddRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "save remote provider")
-	})
-
-	t.Run("Fail to import contexts", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-		contextStore.ErrImport = errors.New("import error")
-
-		cmd := ldcmd.New(createMockProvider(withContextStore(contextStore)), httpClient)
-
-		b, err := json.Marshal(ldcmd.AddRemoteProviderRequest{Endpoint: "endpoint"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.AddRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "import contexts")
+		require.Contains(t, err.Error(), "add remote provider")
 	})
 }
 
 func TestCommand_RefreshRemoteProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
 		require.NoError(t, err)
@@ -246,12 +130,10 @@ func TestCommand_RefreshRemoteProvider(t *testing.T) {
 		err = cmd.RefreshRemoteProvider(&rw, bytes.NewReader(b))
 
 		require.NoError(t, err)
-		require.Equal(t, 1, len(remoteProviderStore.Store.Store))
-		require.Equal(t, 1, len(contextStore.Store.Store))
 	})
 
 	t.Run("Fail to decode request", func(t *testing.T) {
-		cmd := ldcmd.New(createMockProvider(), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.RefreshRemoteProvider(&rw, bytes.NewReader([]byte("invalid request")))
@@ -260,11 +142,8 @@ func TestCommand_RefreshRemoteProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "decode request")
 	})
 
-	t.Run("Fail to get remote provider from store", func(t *testing.T) {
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.ErrGet = errors.New("get error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+	t.Run("Fail to refresh remote provider", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrRefreshRemoteProvider: errors.New("refresh provider error")})
 
 		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
 		require.NoError(t, err)
@@ -273,110 +152,13 @@ func TestCommand_RefreshRemoteProvider(t *testing.T) {
 		err = cmd.RefreshRemoteProvider(&rw, bytes.NewReader(b))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get remote provider from store")
-	})
-
-	t.Run("Fail to get contexts from remote provider", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       ioutil.NopCloser(bytes.NewReader(nil)),
-				}, nil
-			},
-		}
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(remoteProviderStore)), httpClient)
-
-		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.RefreshRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get contexts from remote provider")
-	})
-
-	t.Run("Fail to import contexts", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-		contextStore.ErrImport = errors.New("import error")
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
-
-		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.RefreshRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "import contexts")
+		require.Contains(t, err.Error(), "refresh remote provider")
 	})
 }
 
 func TestCommand_DeleteRemoteProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		document, err := jsonld.DocumentFromReader(bytes.NewReader([]byte(`{"@context": "remote"}`)))
-		require.NoError(t, err)
-
-		rd := jsonld.RemoteDocument{
-			DocumentURL: "https://example.com/context.jsonld",
-			Document:    document,
-		}
-
-		b, err := json.Marshal(rd)
-		require.NoError(t, err)
-
-		contextStore := mockldstore.NewMockContextStore()
-		contextStore.Store.Store[rd.DocumentURL] = mockstorage.DBEntry{
-			Value: b,
-			Tags:  []storage.Tag{{Name: ld.ContextRecordTag}},
-		}
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		reqBytes, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
 		require.NoError(t, err)
@@ -385,12 +167,10 @@ func TestCommand_DeleteRemoteProvider(t *testing.T) {
 		err = cmd.DeleteRemoteProvider(&rw, bytes.NewReader(reqBytes))
 
 		require.NoError(t, err)
-		require.Equal(t, 0, len(remoteProviderStore.Store.Store))
-		require.Equal(t, 0, len(contextStore.Store.Store))
 	})
 
 	t.Run("Fail to decode request", func(t *testing.T) {
-		cmd := ldcmd.New(createMockProvider(), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.DeleteRemoteProvider(&rw, bytes.NewReader([]byte("invalid request")))
@@ -399,11 +179,8 @@ func TestCommand_DeleteRemoteProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "decode request")
 	})
 
-	t.Run("Fail to get remote provider from store", func(t *testing.T) {
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.ErrGet = errors.New("get error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+	t.Run("Fail to delete remote provider", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrDeleteRemoteProvider: errors.New("delete provider error")})
 
 		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
 		require.NoError(t, err)
@@ -412,110 +189,13 @@ func TestCommand_DeleteRemoteProvider(t *testing.T) {
 		err = cmd.DeleteRemoteProvider(&rw, bytes.NewReader(b))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get remote provider from store")
-	})
-
-	t.Run("Fail to get contexts from remote provider", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       ioutil.NopCloser(bytes.NewReader(nil)),
-				}, nil
-			},
-		}
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(remoteProviderStore)), httpClient)
-
-		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.DeleteRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get contexts from remote provider")
-	})
-
-	t.Run("Fail to delete contexts", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-		contextStore.ErrDelete = errors.New("delete error")
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
-
-		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.DeleteRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "delete contexts")
-	})
-
-	t.Run("Fail to delete remote provider record", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-		store.ErrDelete = errors.New("delete error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), httpClient)
-
-		b, err := json.Marshal(ldcmd.ProviderID{ID: "id"})
-		require.NoError(t, err)
-
-		var rw bytes.Buffer
-		err = cmd.DeleteRemoteProvider(&rw, bytes.NewReader(b))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "delete remote provider record:")
+		require.Contains(t, err.Error(), "delete remote provider")
 	})
 }
 
 func TestCommand_GetAllRemoteProviders(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.GetAllRemoteProviders(&rw, bytes.NewReader(nil))
@@ -526,122 +206,37 @@ func TestCommand_GetAllRemoteProviders(t *testing.T) {
 		require.NoError(t, e)
 
 		require.NoError(t, err)
-		require.Equal(t, 1, len(resp.Providers))
 	})
 
-	t.Run("Fail to get remote provider records", func(t *testing.T) {
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.ErrGetAll = errors.New("get all error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+	t.Run("Fail to get remote providers", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrGetAllRemoteProviders: errors.New("get providers error")})
 
 		var rw bytes.Buffer
 		err := cmd.GetAllRemoteProviders(&rw, bytes.NewReader(nil))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get remote provider records")
+		require.Contains(t, err.Error(), "get remote providers")
 	})
 }
 
 func TestCommand_RefreshAllRemoteProviders(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		contextStore := mockldstore.NewMockContextStore()
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(contextStore),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
+		cmd := ldcmd.New(&mockld.MockService{})
 
 		var rw bytes.Buffer
 		err := cmd.RefreshAllRemoteProviders(&rw, bytes.NewReader(nil))
 
 		require.NoError(t, err)
-		require.Equal(t, 1, len(remoteProviderStore.Store.Store))
-		require.Equal(t, 1, len(contextStore.Store.Store))
 	})
 
-	t.Run("Fail to get remote provider records", func(t *testing.T) {
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.ErrGetAll = errors.New("get all error")
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+	t.Run("Fail to refresh remote providers", func(t *testing.T) {
+		cmd := ldcmd.New(&mockld.MockService{ErrRefreshAllRemoteProviders: errors.New("refresh providers error")})
 
 		var rw bytes.Buffer
 		err := cmd.RefreshAllRemoteProviders(&rw, bytes.NewReader(nil))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get remote provider records")
-	})
-
-	t.Run("Fail to get contexts from remote provider", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       ioutil.NopCloser(bytes.NewReader(nil)),
-				}, nil
-			},
-		}
-
-		store := mockldstore.NewMockRemoteProviderStore()
-		store.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(withRemoteProviderStore(store)), httpClient)
-
-		var rw bytes.Buffer
-		err := cmd.RefreshAllRemoteProviders(&rw, bytes.NewReader(nil))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get contexts from remote provider")
-	})
-
-	t.Run("Fail to import contexts", func(t *testing.T) {
-		httpClient := &mockHTTPClient{
-			DoFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-				}, nil
-			},
-		}
-
-		store := mockldstore.NewMockContextStore()
-		store.ErrImport = errors.New("import error")
-
-		remoteProviderStore := mockldstore.NewMockRemoteProviderStore()
-		remoteProviderStore.Store.Store["id"] = mockstorage.DBEntry{
-			Value: []byte("endpoint"),
-			Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-		}
-
-		cmd := ldcmd.New(createMockProvider(
-			withContextStore(store),
-			withRemoteProviderStore(remoteProviderStore),
-		), httpClient)
-
-		var rw bytes.Buffer
-		err := cmd.RefreshAllRemoteProviders(&rw, bytes.NewReader(nil))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "import contexts")
+		require.Contains(t, err.Error(), "refresh remote providers")
 	})
 }
 
@@ -651,31 +246,4 @@ type mockHTTPClient struct {
 
 func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.DoFunc(req)
-}
-
-func createMockProvider(opts ...providerOptionFn) *mockprovider.Provider {
-	p := &mockprovider.Provider{
-		ContextStoreValue:        mockldstore.NewMockContextStore(),
-		RemoteProviderStoreValue: mockldstore.NewMockRemoteProviderStore(),
-	}
-
-	for i := range opts {
-		opts[i](p)
-	}
-
-	return p
-}
-
-type providerOptionFn func(opts *mockprovider.Provider)
-
-func withContextStore(store ld.ContextStore) providerOptionFn {
-	return func(p *mockprovider.Provider) {
-		p.ContextStoreValue = store
-	}
-}
-
-func withRemoteProviderStore(store ld.RemoteProviderStore) providerOptionFn {
-	return func(p *mockprovider.Provider) {
-		p.RemoteProviderStoreValue = store
-	}
 }
