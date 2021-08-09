@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -33,7 +33,7 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	var (
 		publicKey = &PublicKey{
 			Type: "TestType",
-			JWK: &jose.JWK{
+			JWK: &jwk.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "alg",
 				},
@@ -111,7 +111,7 @@ func TestNewCompositePublicKeyVerifier(t *testing.T) {
 	var (
 		publicKey = &PublicKey{
 			Type: "TestType",
-			JWK: &jose.JWK{
+			JWK: &jwk.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "alg",
 				},
@@ -200,7 +200,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 
 	pubKey := &PublicKey{
 		Type: "JwsVerificationKey2020",
-		JWK: &jose.JWK{
+		JWK: &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "PS256",
 			},
@@ -279,7 +279,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 				pubKey := &PublicKey{
 					Type:  "JwsVerificationKey2020",
 					Value: signer.PublicKeyBytes(),
-					JWK: &jose.JWK{
+					JWK: &jwk.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Algorithm: tc.algorithm,
 							Key:       signer.PublicKey(),
@@ -331,7 +331,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
 			Value: signer.PublicKeyBytes(),
-			JWK: &jose.JWK{
+			JWK: &jwk.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
 					Key:       ed25519Key,
@@ -349,7 +349,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 			Type:  "JwsVerificationKey2020",
 			Value: signer.PublicKeyBytes(),
 
-			JWK: &jose.JWK{
+			JWK: &jwk.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
 					Key:       signer.PublicKey(),

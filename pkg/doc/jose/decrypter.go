@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -377,19 +378,19 @@ func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders,
 }
 
 func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWrappedKey, error) {
-	jwk := &JWK{}
+	j := &jwk.JWK{}
 
-	err := jwk.UnmarshalJSON(marshalledJWK)
+	err := j.UnmarshalJSON(marshalledJWK)
 	if err != nil {
 		return nil, err
 	}
 
 	epk := cryptoapi.PublicKey{
-		Curve: jwk.Crv,
-		Type:  jwk.Kty,
+		Curve: j.Crv,
+		Type:  j.Kty,
 	}
 
-	switch key := jwk.Key.(type) {
+	switch key := j.Key.(type) {
 	case *ecdsa.PublicKey:
 		epk.X = key.X.Bytes()
 		epk.Y = key.Y.Bytes()
@@ -400,7 +401,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWra
 	}
 
 	return &cryptoapi.RecipientWrappedKey{
-		KID: jwk.KeyID,
+		KID: j.KeyID,
 		EPK: epk,
 	}, nil
 }

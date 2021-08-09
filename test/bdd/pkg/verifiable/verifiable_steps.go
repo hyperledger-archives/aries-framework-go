@@ -20,7 +20,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -347,18 +348,18 @@ func (s *SDKSteps) createSecp256k1KeyPair(agent string) error {
 
 	ecdsaPrivKey := btcecPrivKey.ToECDSA()
 
-	jwk, err := jose.JWKFromKey(&ecdsaPrivKey.PublicKey)
+	j, err := jwksupport.JWKFromKey(&ecdsaPrivKey.PublicKey)
 	if err != nil {
 		return err
 	}
 
-	s.bddContext.PublicKeys[agent] = jwk
+	s.bddContext.PublicKeys[agent] = j
 	s.secp256k1PrivKey = ecdsaPrivKey
 
 	return nil
 }
 
-func createJWK(pubKeyBytes []byte, keyType kms.KeyType) (*jose.JWK, error) {
+func createJWK(pubKeyBytes []byte, keyType kms.KeyType) (*jwk.JWK, error) {
 	var pubKey interface{}
 
 	switch keyType {
@@ -375,7 +376,7 @@ func createJWK(pubKeyBytes []byte, keyType kms.KeyType) (*jose.JWK, error) {
 		return nil, errors.New("unsupported key type: " + string(keyType))
 	}
 
-	return jose.JWKFromKey(pubKey)
+	return jwksupport.JWKFromKey(pubKey)
 }
 
 func mapCryptoKeyType(proofType string) kms.KeyType {

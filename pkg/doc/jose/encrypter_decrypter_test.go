@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -634,7 +635,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 				privKey, err = rsa.GenerateKey(rand.Reader, 2048)
 
-				unsupportedJWK := ariesjose.JWK{
+				unsupportedJWK := jwk.JWK{
 					JSONWebKey: jose.JSONWebKey{
 						Key: &privKey.PublicKey,
 					},
@@ -953,7 +954,7 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 	crv, err := hybrid.GetCurve(pubKey.Curve)
 	require.NoError(t, err)
 
-	jwk := jose.JSONWebKey{
+	j := jose.JSONWebKey{
 		Key: &ecdsa.PublicKey{
 			Curve: crv,
 			X:     new(big.Int).SetBytes(pubKey.X),
@@ -961,7 +962,7 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 		},
 	}
 
-	jwkByte, err := jwk.MarshalJSON()
+	jwkByte, err := j.MarshalJSON()
 	require.NoError(t, err)
 	jwkStr, err := prettyPrint(jwkByte)
 	require.NoError(t, err)
@@ -970,11 +971,11 @@ func getPrintedECPubKey(t *testing.T, pubKey *cryptoapi.PublicKey) string {
 }
 
 func getPrintedX25519PubKey(t *testing.T, pubKeyType *cryptoapi.PublicKey) string {
-	jwk := jose.JSONWebKey{
+	j := jose.JSONWebKey{
 		Key: ed25519.PublicKey(pubKeyType.X),
 	}
 
-	jwkByte, err := jwk.MarshalJSON()
+	jwkByte, err := j.MarshalJSON()
 	require.NoError(t, err)
 
 	jwkStr, err := prettyPrint(jwkByte)
@@ -1507,7 +1508,7 @@ func convertX25519ToKH(t *testing.T, keys, kids []string) map[string]*keyset.Han
 		delim := ",\"d\""
 		idx := strings.Index(k, delim)
 		mPubKey := k[:idx] + "}"
-		pubKey := &ariesjose.JWK{}
+		pubKey := &jwk.JWK{}
 		err = json.Unmarshal([]byte(mPubKey), pubKey)
 		require.NoError(t, err)
 

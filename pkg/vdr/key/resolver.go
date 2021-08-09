@@ -13,7 +13,7 @@ import (
 	"regexp"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -99,12 +99,12 @@ func createJSONWebKey2020DIDDoc(kid string, code uint64, pubKeyBytes []byte) (*d
 		Y:     y,
 	}
 
-	jwk, err := jose.JWKFromKey(&publicKey)
+	j, err := jwksupport.JWKFromKey(&publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating JWK %w", err)
 	}
 
-	vm, err := did.NewVerificationMethodFromJWK(keyID, jsonWebKey2020, didKey, jwk)
+	vm, err := did.NewVerificationMethodFromJWK(keyID, jsonWebKey2020, didKey, j)
 	if err != nil {
 		return nil, fmt.Errorf("error creating verification method %w", err)
 	}

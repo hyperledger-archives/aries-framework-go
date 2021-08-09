@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 )
 
 func TestBuild(t *testing.T) {
@@ -86,10 +86,10 @@ func TestBuild(t *testing.T) {
 			X:     x,
 			Y:     y,
 		}
-		jwk, err := jose.JWKFromKey(&key)
+		j, err := jwksupport.JWKFromKey(&key)
 		require.NoError(t, err, "error creating JWK from public key: %v", err)
 
-		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", jwk)
+		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", j)
 		require.NoError(t, err, "error creating verification method from JWK")
 
 		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{*vm}})
@@ -115,10 +115,10 @@ func TestBuild(t *testing.T) {
 			X:     x,
 			Y:     y,
 		}
-		jwk, err := jose.JWKFromKey(&key)
+		j, err := jwksupport.JWKFromKey(&key)
 		require.NoError(t, err, "error creating JWK from public key: %v", err)
 
-		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", jwk)
+		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", j)
 		require.NoError(t, err, "error creating verification method from JWK")
 
 		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{*vm}})
@@ -144,10 +144,10 @@ func TestBuild(t *testing.T) {
 			X:     x,
 			Y:     y,
 		}
-		jwk, err := jose.JWKFromKey(&key)
+		j, err := jwksupport.JWKFromKey(&key)
 		require.NoError(t, err, "error creating JWK from public key: %v", err)
 
-		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", jwk)
+		vm, err := did.NewVerificationMethodFromJWK("id", jsonWebKey2020, "", j)
 		require.NoError(t, err, "error creating verification method from JWK")
 
 		docResolution, err := v.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{*vm}})
@@ -320,10 +320,10 @@ func createVerificationMethodFromXAndY(t *testing.T, didKeyID, didKey string,
 		X:     x,
 		Y:     y,
 	}
-	jwk, err := jose.JWKFromKey(&publicKey)
+	j, err := jwksupport.JWKFromKey(&publicKey)
 	require.Nil(t, err, "error creating expected JWK from public key %w", err)
 
-	verificationMethod, err := did.NewVerificationMethodFromJWK(didKeyID, jsonWebKey2020, didKey, jwk)
+	verificationMethod, err := did.NewVerificationMethodFromJWK(didKeyID, jsonWebKey2020, didKey, j)
 	require.Nil(t, err, "error creating expected JWK %w", err)
 
 	return verificationMethod

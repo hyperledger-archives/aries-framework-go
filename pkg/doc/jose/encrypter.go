@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -837,7 +838,7 @@ func convertRecEPKToMarshalledJWK(recEPK *cryptoapi.PublicKey) ([]byte, error) {
 		return nil, errors.New("invalid key type")
 	}
 
-	recJWK := JWK{
+	recJWK := jwk.JWK{
 		JSONWebKey: jose.JSONWebKey{
 			Key: key,
 		},
@@ -900,7 +901,7 @@ func computeAuthData(protectedHeaders map[string]interface{}, origProtectedHeade
 func jwkMarshalEPK(protectedHeadersJSON map[string]json.RawMessage) error {
 	// must use jwk.MarshalJSON() to marshal EPK to maintain headers order.
 	if protectedHeadersJSON[HeaderEPK] != nil {
-		epk := &JWK{}
+		epk := &jwk.JWK{}
 
 		err := epk.UnmarshalJSON(protectedHeadersJSON[HeaderEPK])
 		if err != nil {

@@ -23,7 +23,7 @@ import (
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -1034,7 +1034,7 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jwk := &jose.JWK{
+	j := &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   pubKey,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
@@ -1042,19 +1042,19 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 	}
 
 	// Success.
-	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.NoError(t, err)
-	require.Equal(t, jwk, signingKey.JSONWebKey())
+	require.Equal(t, j, signingKey.JSONWebKey())
 	require.Equal(t, []byte(pubKey), signingKey.Value)
 
 	// Error - invalid JWK.
-	jwk = &jose.JWK{
+	j = &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   nil,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
 		},
 	}
-	signingKey, err = NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err = NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "convert JWK to public key bytes")
 	require.Nil(t, signingKey)
@@ -1066,16 +1066,16 @@ func TestJSONWebKey(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jwk := &jose.JWK{
+	j := &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   pubKey,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
 		},
 	}
 
-	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.NoError(t, err)
-	require.Equal(t, jwk, signingKey.JSONWebKey())
+	require.Equal(t, j, signingKey.JSONWebKey())
 
 	createdTime := time.Now()
 

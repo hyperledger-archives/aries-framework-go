@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -63,7 +63,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 				return err
 			}
 
-			pubKeyJWK, err = jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
+			pubKeyJWK, err = jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 			if err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
-		updateJWK, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyUpdateBytes))
+		updateJWK, err := jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyUpdateBytes))
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
-		recoveryJWK, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyRecoveryBytes))
+		recoveryJWK, err := jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyRecoveryBytes))
 		if err != nil {
 			return err
 		}

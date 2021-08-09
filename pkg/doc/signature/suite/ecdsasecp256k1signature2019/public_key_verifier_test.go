@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -35,7 +35,7 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	pubKey := &verifier.PublicKey{
 		Type: "EcdsaSecp256k1VerificationKey2019",
 
-		JWK: &jose.JWK{
+		JWK: &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "ES256K",
 				Key:       signer.PublicKey(),

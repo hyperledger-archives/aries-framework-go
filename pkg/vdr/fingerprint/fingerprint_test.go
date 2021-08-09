@@ -17,7 +17,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 )
 
 func TestCreateDIDKey(t *testing.T) {
@@ -205,11 +206,11 @@ func TestCreateDIDKeyByJwk(t *testing.T) {
 				X:     x,
 				Y:     y,
 			}
-			jwk, err := jose.JWKFromKey(&publicKey)
+			j, err := jwksupport.JWKFromKey(&publicKey)
 
 			require.NoError(t, err)
 
-			didKey, keyID, err := CreateDIDKeyByJwk(jwk)
+			didKey, keyID, err := CreateDIDKeyByJwk(j)
 
 			require.NoError(t, err)
 			require.Equal(t, tc.DIDKey, didKey)
@@ -224,11 +225,11 @@ func TestCreateDIDKeyByJwk(t *testing.T) {
 	})
 
 	t.Run("test invalid type", func(t *testing.T) {
-		jwk := jose.JWK{
+		j := jwk.JWK{
 			Kty: "XX",
 			Crv: elliptic.P256().Params().Name,
 		}
-		_, _, err := CreateDIDKeyByJwk(&jwk)
+		_, _, err := CreateDIDKeyByJwk(&j)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported kty")
 	})
