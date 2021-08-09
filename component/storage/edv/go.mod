@@ -12,8 +12,8 @@ require (
 	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0
 	github.com/google/uuid v1.1.2
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210603210127-e57b8c94e3cf
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210603210127-e57b8c94e3cf
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210603210127-e57b8c94e3cf
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210807121559-b41545a4f1e8
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210807121559-b41545a4f1e8
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210807121559-b41545a4f1e8
 	github.com/stretchr/testify v1.7.0
 )

@@ -136,13 +136,7 @@ func (r *RESTProvider) OpenStore(name string) (spi.Store, error) {
 		return newStore, nil
 	}
 
-	return &restStore{
-		vaultID:                    r.vaultID,
-		name:                       name,
-		formatter:                  r.formatter,
-		restClient:                 r.restClient,
-		returnFullDocumentsOnQuery: r.returnFullDocumentsOnQuery,
-	}, nil
+	return openStore, nil
 }
 
 // SetStoreConfig isn't needed for EDV storage, since indexes are managed by the server automatically based on the
@@ -380,6 +374,10 @@ func (r *restStore) Delete(key string) error {
 
 // TODO (#2494): Return a spi.MultiError from here in the case of a failure.
 func (r *restStore) Batch(operations []spi.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	for _, operation := range operations {
 		if operation.Key == "" {
 			return errEmptyKey

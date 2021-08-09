@@ -292,6 +292,10 @@ func (s *store) Delete(key string) error {
 }
 
 func (s *store) Batch(operations []spi.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	for _, operation := range operations {
 		if operation.Key == "" {
 			return errors.New("an operation's key was empty")
