@@ -39,6 +39,7 @@ import (
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 )
 
 // HTTPClient represents an HTTP client.
@@ -55,6 +56,7 @@ type allOpts struct {
 	notifier           command.Notifier
 	walletConf         *vcwalletcmd.Config
 	httpClient         HTTPClient
+	ldService          ldsvc.Service
 }
 
 const wsPath = "/ws"
@@ -118,10 +120,18 @@ func WithHTTPClient(client HTTPClient) Opt {
 	}
 }
 
+// WithLDService is an option for setting up a custom JSON-LD service.
+func WithLDService(svc ldsvc.Service) Opt {
+	return func(opts *allOpts) {
+		opts.ldService = svc
+	}
+}
+
 // GetRESTHandlers returns all REST handlers provided by controller.
 func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen,gocyclo
 	restAPIOpts := &allOpts{
 		httpClient: http.DefaultClient,
+		ldService:  ldsvc.New(ctx),
 	}
 
 	// Apply options
@@ -204,7 +214,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	wallet := vcwalletrest.New(ctx, restAPIOpts.walletConf)
 
 	// JSON-LD REST operation
-	ldOp := ldrest.New(ctx, restAPIOpts.httpClient)
+	ldOp := ldrest.New(restAPIOpts.ldService, ldrest.WithHTTPClient(restAPIOpts.httpClient))
 
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
@@ -238,6 +248,7 @@ type handlerProvider interface {
 func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen,gocyclo
 	cmdOpts := &allOpts{
 		httpClient: http.DefaultClient,
+		ldService:  ldsvc.New(ctx),
 	}
 
 	// Apply options
@@ -312,7 +323,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
 
 	// JSON-LD command operation
-	ld := ldcmd.New(ctx, cmdOpts.httpClient)
+	ldCmd := ldcmd.New(cmdOpts.ldService, ldcmd.WithHTTPClient(cmdOpts.httpClient))
 
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
@@ -326,7 +337,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetHandlers()...)
-	allHandlers = append(allHandlers, ld.GetHandlers()...)
+	allHandlers = append(allHandlers, ldCmd.GetHandlers()...)
 
 	return allHandlers, nil
 }

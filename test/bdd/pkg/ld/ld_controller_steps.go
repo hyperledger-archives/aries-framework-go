@@ -49,7 +49,7 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" adds a new remote provider with endpoint "([^"]*)" through controller$`, a.addRemoteProvider)
-	s.Step(`^contexts from the provider are available to the agent instance$`, a.checkContext)
+	s.Step(`^vaccination context from the provider is available to the agent instance$`, a.checkContext)
 }
 
 func (a *ControllerSteps) addRemoteProvider(agentID, endpoint string) error {

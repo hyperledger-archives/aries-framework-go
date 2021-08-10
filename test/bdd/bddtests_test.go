@@ -201,5 +201,6 @@ func features() []feature {
 		rfc0593.NewGoSDKSteps(),
 		rfc0593.NewRestSDKSteps(),
 		ld.NewLDControllerSteps(),
+		ld.NewSDKSteps(),
 	}
 }

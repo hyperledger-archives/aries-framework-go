@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
+	"github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 )
 
@@ -69,7 +70,8 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 
 		handlers, err := GetCommandHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
 			WithAutoAccept(true), WithDefaultLabel("sample-label"),
-			WithWebhookURLs("sample-wh-url"), WithNotifier(webhook.NewMockWebhookNotifier()))
+			WithWebhookURLs("sample-wh-url"), WithNotifier(webhook.NewMockWebhookNotifier()),
+			WithHTTPClient(http.DefaultClient), WithLDService(ld.New(ctx)))
 		require.NoError(t, err)
 		require.NotEmpty(t, handlers)
 	})
@@ -106,7 +108,7 @@ func TestGetRESTHandlers_Success(t *testing.T) {
 
 		handlers, err := GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
 			WithAutoAccept(true), WithDefaultLabel("sample-label"), WithAutoExecuteRFC0593(true),
-			WithWebhookURLs("sample-wh-url"), WithHTTPClient(http.DefaultClient))
+			WithWebhookURLs("sample-wh-url"), WithHTTPClient(http.DefaultClient), WithLDService(ld.New(ctx)))
 		require.NoError(t, err)
 		require.NotEmpty(t, handlers)
 	})

@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/ld"
 )
 
 const (
@@ -68,31 +68,24 @@ const (
 
 var logger = log.New("aries-framework/command/ld")
 
-// provider contains dependencies for the JSON-LD commands.
-type provider interface {
-	JSONLDContextStore() ld.ContextStore
-	JSONLDRemoteProviderStore() ld.RemoteProviderStore
-}
-
-// HTTPClient represents an HTTP client.
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 // Command contains command operations.
 type Command struct {
-	contextStore        ld.ContextStore
-	remoteProviderStore ld.RemoteProviderStore
-	httpClient          HTTPClient
+	service    ld.Service
+	httpClient HTTPClient
 }
 
 // New returns a new JSON-LD command instance.
-func New(ctx provider, httpClient HTTPClient) *Command {
-	return &Command{
-		contextStore:        ctx.JSONLDContextStore(),
-		remoteProviderStore: ctx.JSONLDRemoteProviderStore(),
-		httpClient:          httpClient,
+func New(svc ld.Service, opts ...Option) *Command {
+	cmd := &Command{
+		service:    svc,
+		httpClient: http.DefaultClient,
 	}
+
+	for _, opt := range opts {
+		opt(cmd)
+	}
+
+	return cmd
 }
 
 // GetHandlers returns list of all commands supported by this controller command.
@@ -115,7 +108,7 @@ func (c *Command) AddContexts(w io.Writer, r io.Reader) command.Error {
 		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
 	}
 
-	if err := c.contextStore.Import(req.Documents); err != nil {
+	if err := c.service.AddContexts(req.Documents); err != nil {
 		return commandError(AddContextsErrorCode, fmt.Errorf("import contexts: %w", err))
 	}
 
@@ -134,23 +127,12 @@ func (c *Command) AddRemoteProvider(w io.Writer, r io.Reader) command.Error {
 		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
 	}
 
-	p := remote.NewProvider(req.Endpoint, remote.WithHTTPClient(c.httpClient))
-
-	contexts, err := p.Contexts()
+	providerID, err := c.service.AddRemoteProvider(req.Endpoint, remote.WithHTTPClient(c.httpClient))
 	if err != nil {
-		return commandError(AddRemoteProviderErrorCode, fmt.Errorf("get contexts from remote provider: %w", err))
+		return commandError(AddRemoteProviderErrorCode, fmt.Errorf("add remote provider: %w", err))
 	}
 
-	record, err := c.remoteProviderStore.Save(req.Endpoint)
-	if err != nil {
-		return commandError(AddRemoteProviderErrorCode, fmt.Errorf("save remote provider: %w", err))
-	}
-
-	if err := c.contextStore.Import(contexts); err != nil {
-		return commandError(AddRemoteProviderErrorCode, fmt.Errorf("import contexts: %w", err))
-	}
-
-	command.WriteNillableResponse(w, &ProviderID{ID: record.ID}, logger)
+	command.WriteNillableResponse(w, &ProviderID{ID: providerID}, logger)
 
 	logutil.LogDebug(logger, CommandName, AddRemoteProviderCommandMethod, "success")
 
@@ -165,20 +147,8 @@ func (c *Command) RefreshRemoteProvider(w io.Writer, r io.Reader) command.Error 
 		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
 	}
 
-	record, err := c.remoteProviderStore.Get(req.ID)
-	if err != nil {
-		return commandError(RefreshRemoteProviderErrorCode, fmt.Errorf("get remote provider from store: %w", err))
-	}
-
-	p := remote.NewProvider(record.Endpoint, remote.WithHTTPClient(c.httpClient))
-
-	contexts, err := p.Contexts()
-	if err != nil {
-		return commandError(RefreshRemoteProviderErrorCode, fmt.Errorf("get contexts from remote provider: %w", err))
-	}
-
-	if err := c.contextStore.Import(contexts); err != nil {
-		return commandError(RefreshRemoteProviderErrorCode, fmt.Errorf("import contexts: %w", err))
+	if err := c.service.RefreshRemoteProvider(req.ID, remote.WithHTTPClient(c.httpClient)); err != nil {
+		return commandError(RefreshRemoteProviderErrorCode, fmt.Errorf("refresh remote provider: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -196,24 +166,8 @@ func (c *Command) DeleteRemoteProvider(w io.Writer, r io.Reader) command.Error {
 		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
 	}
 
-	record, err := c.remoteProviderStore.Get(req.ID)
-	if err != nil {
-		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("get remote provider from store: %w", err))
-	}
-
-	p := remote.NewProvider(record.Endpoint, remote.WithHTTPClient(c.httpClient))
-
-	contexts, err := p.Contexts()
-	if err != nil {
-		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("get contexts from remote provider: %w", err))
-	}
-
-	if err := c.contextStore.Delete(contexts); err != nil {
-		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("delete contexts: %w", err))
-	}
-
-	if err := c.remoteProviderStore.Delete(record.ID); err != nil {
-		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("delete remote provider record: %w", err))
+	if err := c.service.DeleteRemoteProvider(req.ID, remote.WithHTTPClient(c.httpClient)); err != nil {
+		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("delete remote provider: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -225,9 +179,9 @@ func (c *Command) DeleteRemoteProvider(w io.Writer, r io.Reader) command.Error {
 
 // GetAllRemoteProviders command gets all remote providers.
 func (c *Command) GetAllRemoteProviders(w io.Writer, _ io.Reader) command.Error {
-	records, err := c.remoteProviderStore.GetAll()
+	records, err := c.service.GetAllRemoteProviders()
 	if err != nil {
-		return commandError(GetAllRemoteProvidersErrorCode, fmt.Errorf("get remote provider records: %w", err))
+		return commandError(GetAllRemoteProvidersErrorCode, fmt.Errorf("get remote providers: %w", err))
 	}
 
 	command.WriteNillableResponse(w, &GetAllRemoteProvidersResponse{Providers: records}, logger)
@@ -239,23 +193,8 @@ func (c *Command) GetAllRemoteProviders(w io.Writer, _ io.Reader) command.Error 
 
 // RefreshAllRemoteProviders command updates contexts from all remote providers.
 func (c *Command) RefreshAllRemoteProviders(w io.Writer, _ io.Reader) command.Error {
-	records, err := c.remoteProviderStore.GetAll()
-	if err != nil {
-		return commandError(RefreshAllRemoteProvidersErrorCode, fmt.Errorf("get remote provider records: %w", err))
-	}
-
-	for _, record := range records {
-		p := remote.NewProvider(record.Endpoint, remote.WithHTTPClient(c.httpClient))
-
-		contexts, err := p.Contexts()
-		if err != nil {
-			return commandError(RefreshAllRemoteProvidersErrorCode,
-				fmt.Errorf("get contexts from remote provider: %w", err))
-		}
-
-		if err := c.contextStore.Import(contexts); err != nil {
-			return commandError(RefreshAllRemoteProvidersErrorCode, fmt.Errorf("import contexts: %w", err))
-		}
+	if err := c.service.RefreshAllRemoteProviders(remote.WithHTTPClient(c.httpClient)); err != nil {
+		return commandError(RefreshAllRemoteProvidersErrorCode, fmt.Errorf("refresh remote providers: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -269,4 +208,19 @@ func commandError(errorCode command.Code, err error) command.Error {
 	logutil.LogInfo(logger, CommandName, AddContextsCommandMethod, err.Error())
 
 	return command.NewValidationError(errorCode, err)
+}
+
+// Option configures the JSON-LD command.
+type Option func(cmd *Command)
+
+// HTTPClient represents an HTTP client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// WithHTTPClient sets the custom HTTP client.
+func WithHTTPClient(client HTTPClient) Option {
+	return func(cmd *Command) {
+		cmd.httpClient = client
+	}
 }

@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,29 +23,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
-)
-
-const (
-	sampleContextsResponse = `{
-  "documents": [
-    {
-      "url": "https://example.com/context.jsonld",
-      "content": {
-        "@context": "remote"
-      }
-    }
-  ]
-}`
+	mockld "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
 )
 
 func TestNew(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		op := ldrest.New(createMockProvider(), &mockHTTPClient{})
+		op := ldrest.New(&mockld.MockService{}, ldrest.WithHTTPClient(&mockHTTPClient{}))
 
 		require.NotNil(t, op)
 		require.Equal(t, 6, len(op.GetRESTHandlers()))
@@ -54,7 +36,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestOperation_AddContexts(t *testing.T) {
-	op := ldrest.New(createMockProvider(), &mockHTTPClient{})
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	reqBytes, err := json.Marshal(ldcmd.AddContextsRequest{
@@ -69,16 +51,7 @@ func TestOperation_AddContexts(t *testing.T) {
 }
 
 func TestOperation_AddRemoteProvider(t *testing.T) {
-	httpClient := &mockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-			}, nil
-		},
-	}
-
-	op := ldrest.New(createMockProvider(), httpClient)
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	reqBytes, err := json.Marshal(ldcmd.AddRemoteProviderRequest{
@@ -95,27 +68,10 @@ func TestOperation_AddRemoteProvider(t *testing.T) {
 
 	err = json.Unmarshal(respBody.Bytes(), &resp)
 	require.NoError(t, err)
-
-	require.NotEmpty(t, resp.ID)
 }
 
 func TestOperation_RefreshRemoteProvider(t *testing.T) {
-	httpClient := &mockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-			}, nil
-		},
-	}
-
-	store := mockldstore.NewMockRemoteProviderStore()
-	store.Store.Store["id"] = mockstorage.DBEntry{
-		Value: []byte("endpoint"),
-		Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-	}
-
-	op := ldrest.New(createMockProvider(withRemoteProviderStore(store)), httpClient)
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	handler := lookupHandler(t, op, ldrest.RefreshRemoteProviderPath, http.MethodPost)
@@ -125,22 +81,7 @@ func TestOperation_RefreshRemoteProvider(t *testing.T) {
 }
 
 func TestOperation_DeleteRemoteProvider(t *testing.T) {
-	httpClient := &mockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-			}, nil
-		},
-	}
-
-	store := mockldstore.NewMockRemoteProviderStore()
-	store.Store.Store["id"] = mockstorage.DBEntry{
-		Value: []byte("endpoint"),
-		Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-	}
-
-	op := ldrest.New(createMockProvider(withRemoteProviderStore(store)), httpClient)
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	handler := lookupHandler(t, op, ldrest.DeleteRemoteProviderPath, http.MethodDelete)
@@ -150,13 +91,7 @@ func TestOperation_DeleteRemoteProvider(t *testing.T) {
 }
 
 func TestOperation_GetRemoteProviders(t *testing.T) {
-	store := mockldstore.NewMockRemoteProviderStore()
-	store.Store.Store["id"] = mockstorage.DBEntry{
-		Value: []byte("endpoint"),
-		Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-	}
-
-	op := ldrest.New(createMockProvider(withRemoteProviderStore(store)), &mockHTTPClient{})
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	handler := lookupHandler(t, op, ldrest.GetAllRemoteProvidersPath, http.MethodGet)
@@ -168,29 +103,10 @@ func TestOperation_GetRemoteProviders(t *testing.T) {
 
 	err := json.Unmarshal(respBody.Bytes(), &resp)
 	require.NoError(t, err)
-
-	require.Equal(t, 1, len(resp.Providers))
-	require.Equal(t, "id", resp.Providers[0].ID)
-	require.Equal(t, "endpoint", resp.Providers[0].Endpoint)
 }
 
 func TestOperation_RefreshRemoteProviders(t *testing.T) {
-	httpClient := &mockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(bytes.NewReader([]byte(sampleContextsResponse))),
-			}, nil
-		},
-	}
-
-	store := mockldstore.NewMockRemoteProviderStore()
-	store.Store.Store["id"] = mockstorage.DBEntry{
-		Value: []byte("endpoint"),
-		Tags:  []storage.Tag{{Name: ld.RemoteProviderRecordTag}},
-	}
-
-	op := ldrest.New(createMockProvider(withRemoteProviderStore(store)), httpClient)
+	op := ldrest.New(&mockld.MockService{})
 	require.NotNil(t, op)
 
 	handler := lookupHandler(t, op, ldrest.RefreshAllRemoteProvidersPath, http.MethodPost)
@@ -243,25 +159,4 @@ type mockHTTPClient struct {
 
 func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.DoFunc(req)
-}
-
-func createMockProvider(opts ...providerOptionFn) *mockprovider.Provider {
-	p := &mockprovider.Provider{
-		ContextStoreValue:        mockldstore.NewMockContextStore(),
-		RemoteProviderStoreValue: mockldstore.NewMockRemoteProviderStore(),
-	}
-
-	for i := range opts {
-		opts[i](p)
-	}
-
-	return p
-}
-
-type providerOptionFn func(opts *mockprovider.Provider)
-
-func withRemoteProviderStore(store ld.RemoteProviderStore) providerOptionFn {
-	return func(p *mockprovider.Provider) {
-		p.RemoteProviderStoreValue = store
-	}
 }

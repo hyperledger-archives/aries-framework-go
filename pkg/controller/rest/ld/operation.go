@@ -13,10 +13,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
+	ldcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/ld"
 )
 
 // constants for the JSON-LD operations.
@@ -30,20 +30,21 @@ const (
 	RefreshAllRemoteProvidersPath = OperationID + "/remote-providers/refresh"
 )
 
-type provider interface {
-	JSONLDContextStore() ldstore.ContextStore
-	JSONLDRemoteProviderStore() ldstore.RemoteProviderStore
-}
-
 // Operation contains REST operations provided by JSON-LD API.
 type Operation struct {
 	handlers []rest.Handler
-	command  *ld.Command
+	command  *ldcmd.Command
 }
 
 // New returns a new instance of JSON-LD REST controller.
-func New(ctx provider, httpClient ld.HTTPClient) *Operation {
-	cmd := ld.New(ctx, httpClient)
+func New(svc ld.Service, opts ...Option) *Operation {
+	o := &options{httpClient: http.DefaultClient}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	cmd := ldcmd.New(svc, ldcmd.WithHTTPClient(o.httpClient))
 
 	op := &Operation{command: cmd}
 	op.registerHandlers()
@@ -130,4 +131,23 @@ func (o *Operation) GetAllRemoteProviders(rw http.ResponseWriter, req *http.Requ
 //    default: genericError
 func (o *Operation) RefreshAllRemoteProviders(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.RefreshAllRemoteProviders, rw, req.Body)
+}
+
+// HTTPClient represents an HTTP client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+type options struct {
+	httpClient HTTPClient
+}
+
+// Option configures the JSON-LD controller options.
+type Option func(opts *options)
+
+// WithHTTPClient sets the custom HTTP client.
+func WithHTTPClient(client HTTPClient) Option {
+	return func(opts *options) {
+		opts.httpClient = client
+	}
 }
