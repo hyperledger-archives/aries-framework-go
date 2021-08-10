@@ -17,7 +17,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 )
 
 const (
@@ -61,7 +61,7 @@ func CreateDIDKeyByCode(code uint64, pubKey []byte) (string, string) {
 
 // CreateDIDKeyByJwk creates a did:key ID using the multicodec key fingerprint as per the did:key format spec found at:
 // https://w3c-ccg.github.io/did-method-key/#format.
-func CreateDIDKeyByJwk(jsonWebKey *jose.JWK) (string, string, error) {
+func CreateDIDKeyByJwk(jsonWebKey *jwk.JWK) (string, string, error) {
 	if jsonWebKey == nil {
 		return "", "", fmt.Errorf("jsonWebKey is required")
 	}

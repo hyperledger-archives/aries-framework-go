@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -119,30 +119,30 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
 	}
 
-	var jwk jose.JWK
-	if errUnmarshal := jwk.UnmarshalJSON(buf.Bytes()); errUnmarshal != nil {
+	var j jwk.JWK
+	if errUnmarshal := j.UnmarshalJSON(buf.Bytes()); errUnmarshal != nil {
 		logutil.LogInfo(logger, CommandName, ImportKeyCommandMethod, errUnmarshal.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
 	}
 
-	if jwk.KeyID == "" {
+	if j.KeyID == "" {
 		logutil.LogDebug(logger, CommandName, ImportKeyCommandMethod, errEmptyKeyID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyID))
 	}
 
 	var keyType kms.KeyType
 
-	switch jwk.Crv {
+	switch j.Crv {
 	case "Ed25519":
 		keyType = kms.ED25519Type
 	case "P-256":
 		keyType = kms.ECDSAP256TypeIEEEP1363
 	default:
 		return command.NewValidationError(InvalidRequestErrorCode,
-			fmt.Errorf("import key type not supported %s", jwk.Crv))
+			fmt.Errorf("import key type not supported %s", j.Crv))
 	}
 
-	_, _, err = o.importKey(jwk.Key, keyType, kms.WithKeyID(jwk.KeyID))
+	_, _, err = o.importKey(j.Key, keyType, kms.WithKeyID(j.KeyID))
 	if err != nil {
 		logutil.LogError(logger, CommandName, ImportKeyCommandMethod, err.Error())
 		return command.NewExecuteError(ImportKeyError, err)

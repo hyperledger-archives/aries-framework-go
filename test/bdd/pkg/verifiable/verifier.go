@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -61,12 +61,12 @@ func mapPublicKeyToKMSKeyType(pubKey *sigverifier.PublicKey) (kms.KeyType, error
 	}
 }
 
-func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
-	switch jwk.Kty {
+func mapJWKToKMSKeyType(j *jwk.JWK) (kms.KeyType, error) {
+	switch j.Kty {
 	case "OKP":
 		return kms.ED25519Type, nil
 	case "EC":
-		switch jwk.Crv {
+		switch j.Crv {
 		case "P-256":
 			return kms.ECDSAP256TypeIEEEP1363, nil
 		case "P-384":
@@ -76,5 +76,5 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unsupported JWK: %v", jwk)
+	return "", fmt.Errorf("unsupported JWK: %v", j)
 }

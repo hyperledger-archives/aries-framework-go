@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package jose
 
-import "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+)
 
 // IANA registered JOSE headers (https://tools.ietf.org/html/rfc7515#section-4.1)
 const (
@@ -150,4 +153,21 @@ func (h Headers) stringValue(key string) (string, bool) {
 	str, ok := raw.(string)
 
 	return str, ok
+}
+
+// JWK gets JWK from JOSE headers.
+func (h Headers) JWK() (*jwk.JWK, bool) {
+	jwkRaw, ok := h[HeaderJSONWebKey]
+	if !ok {
+		return nil, false
+	}
+
+	var jwkKey jwk.JWK
+
+	err := convertMapToValue(jwkRaw, &jwkKey)
+	if err != nil {
+		return nil, false
+	}
+
+	return &jwkKey, true
 }

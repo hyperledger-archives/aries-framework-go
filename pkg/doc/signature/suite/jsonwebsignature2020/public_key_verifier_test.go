@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -72,7 +72,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 				pubKey := &sigverifier.PublicKey{
 					Type:  "JsonWebKey2020",
 					Value: signer.PublicKeyBytes(),
-					JWK: &jose.JWK{
+					JWK: &jwk.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Key:       signer.PublicKey(),
 							Algorithm: tc.algorithm,
@@ -103,7 +103,7 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 
 	pubKey := &sigverifier.PublicKey{
 		Type: "JsonWebKey2020",
-		JWK: &jose.JWK{
+		JWK: &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{Key: signer.PublicKey()},
 			Kty:        "OKP",
 			Crv:        "Ed25519",
@@ -126,7 +126,7 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 
 	pubKey := &sigverifier.PublicKey{
 		Type: "JsonWebKey2020",
-		JWK: &jose.JWK{
+		JWK: &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "PS256",
 			},

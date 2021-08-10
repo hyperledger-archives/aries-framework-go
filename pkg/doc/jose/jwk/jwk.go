@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package jose
+package jwk
 
 import (
 	"crypto/ecdsa"
@@ -22,7 +22,6 @@ import (
 	"github.com/square/go-jose/v3"
 	"golang.org/x/crypto/ed25519"
 
-	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -48,121 +47,6 @@ type JWK struct {
 
 	Kty string
 	Crv string
-}
-
-// JWKFromKey creates a JWK from an opaque key struct.
-// It's e.g. *ecdsa.PublicKey, *ecdsa.PrivateKey, ed25519.VerificationMethod, *bbs12381g2pub.PrivateKey or
-// *bbs12381g2pub.PublicKey.
-func JWKFromKey(opaqueKey interface{}) (*JWK, error) {
-	key := &JWK{
-		JSONWebKey: jose.JSONWebKey{
-			Key: opaqueKey,
-		},
-	}
-
-	// marshal/unmarshal to get all JWK's fields other than Key filled.
-	keyBytes, err := key.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	err = key.UnmarshalJSON(keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	return key, nil
-}
-
-// JWKFromX25519Key is similar to JWKFromKey but is specific to X25519 keys when using a public key as raw []byte.
-// This builder function presets the curve and key type in the JWK.
-// Using JWKFromKey for X25519 raw keys will not have these fields set and will not provide the right JWK output.
-func JWKFromX25519Key(pubKey []byte) (*JWK, error) {
-	key := &JWK{
-		JSONWebKey: jose.JSONWebKey{
-			Key: pubKey,
-		},
-		Crv: x25519Crv,
-		Kty: okpKty,
-	}
-
-	// marshal/unmarshal to get all JWK's fields other than Key filled.
-	keyBytes, err := key.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	err = key.UnmarshalJSON(keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create JWK: %w", err)
-	}
-
-	return key, nil
-}
-
-// PubKeyBytesToJWK converts marshalled bytes of keyType into JWK.
-func PubKeyBytesToJWK(bytes []byte, keyType kms.KeyType) (*JWK, error) { // nolint:gocyclo
-	switch keyType {
-	case kms.ED25519Type:
-		return JWKFromKey(ed25519.PublicKey(bytes))
-	case kms.BLS12381G2Type:
-		bbsKey, err := bbs12381g2pub.UnmarshalPublicKey(bytes)
-		if err != nil {
-			return nil, err
-		}
-
-		return JWKFromKey(bbsKey)
-	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
-		crv := getECDSACurve(keyType)
-		x, y := elliptic.Unmarshal(crv, bytes)
-
-		return JWKFromKey(&ecdsa.PublicKey{Curve: crv, X: x, Y: y})
-	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
-		pubKey, err := x509.ParsePKIXPublicKey(bytes)
-		if err != nil {
-			return nil, err
-		}
-
-		ecKey, ok := pubKey.(*ecdsa.PublicKey)
-		if !ok {
-			return nil, errors.New("invalid EC key")
-		}
-
-		return JWKFromKey(ecKey)
-	case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
-		crv := getECDSACurve(keyType)
-		pubKey := &cryptoapi.PublicKey{}
-
-		err := json.Unmarshal(bytes, pubKey)
-		if err != nil {
-			return nil, err
-		}
-
-		ecdsaKey := &ecdsa.PublicKey{
-			Curve: crv,
-			X:     new(big.Int).SetBytes(pubKey.X),
-			Y:     new(big.Int).SetBytes(pubKey.Y),
-		}
-
-		return JWKFromKey(ecdsaKey)
-	case kms.X25519ECDHKWType:
-		return JWKFromX25519Key(bytes)
-	default:
-		return nil, fmt.Errorf("convertPubKeyJWK: invalid key type: %s", keyType)
-	}
-}
-
-func getECDSACurve(keyType kms.KeyType) elliptic.Curve {
-	switch keyType {
-	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.NISTP256ECDHKWType:
-		return elliptic.P256()
-	case kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP384TypeDER, kms.NISTP384ECDHKWType:
-		return elliptic.P384()
-	case kms.ECDSAP521TypeIEEEP1363, kms.ECDSAP521TypeDER, kms.NISTP521ECDHKWType:
-		return elliptic.P521()
-	}
-
-	return nil
 }
 
 // PublicKeyBytes converts a public key to bytes.
@@ -591,23 +475,6 @@ func marshalSecp256k1(jwk *JWK) ([]byte, error) {
 	raw.Use = jwk.Use
 
 	return json.Marshal(raw)
-}
-
-// JWK gets JWK from JOSE headers.
-func (h Headers) JWK() (*JWK, bool) {
-	jwkRaw, ok := h[HeaderJSONWebKey]
-	if !ok {
-		return nil, false
-	}
-
-	var jwk JWK
-
-	err := convertMapToValue(jwkRaw, &jwk)
-	if err != nil {
-		return nil, false
-	}
-
-	return &jwk, true
 }
 
 // jsonWebKey contains subset of json web key json properties.

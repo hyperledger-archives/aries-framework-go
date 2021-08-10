@@ -24,7 +24,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -314,17 +314,17 @@ func importKeyJWK(auth string, key *keyContent) error {
 		return fmt.Errorf("failed to get key manager: %w", err)
 	}
 
-	var jwk jose.JWK
-	if e := jwk.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
+	var j jwk.JWK
+	if e := j.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
 		return fmt.Errorf("failed to unmarshal jwk : %w", e)
 	}
 
-	keyType, ok := jwkCurves[jwk.Crv]
+	keyType, ok := jwkCurves[j.Crv]
 	if !ok {
-		return fmt.Errorf("unsupported Key type %s", jwk.Crv)
+		return fmt.Errorf("unsupported Key type %s", j.Crv)
 	}
 
-	_, _, err = keyManager.ImportPrivateKey(jwk.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &jwk)))
+	_, _, err = keyManager.ImportPrivateKey(j.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &j)))
 	if err != nil {
 		return fmt.Errorf("failed to import jwk key : %w", err)
 	}
@@ -379,9 +379,9 @@ func getKID(id string) string {
 	return ""
 }
 
-func getKIDFromJWK(id string, jwk *jose.JWK) string {
-	if jwk.KeyID != "" {
-		return jwk.KeyID
+func getKIDFromJWK(id string, j *jwk.JWK) string {
+	if j.KeyID != "" {
+		return j.KeyID
 	}
 
 	return getKID(id)
