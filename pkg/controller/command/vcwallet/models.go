@@ -10,6 +10,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	outofbandCmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -305,4 +308,52 @@ type CreateKeyPairRequest struct {
 // CreateKeyPairResponse is response model for creating key pair from wallet.
 type CreateKeyPairResponse struct {
 	*wallet.KeyPair
+}
+
+// ConnectRequest is request model for wallet DID connect operation.
+type ConnectRequest struct {
+	WalletAuth
+
+	outofbandCmd.AcceptInvitationArgs
+
+	// Timeout (in milliseconds) waiting for connection status to be completed
+	Timeout time.Duration `json:"timeout,omitempty"`
+}
+
+// ConnectResponse is response model from wallet DID connection operation.
+type ConnectResponse struct {
+	// connection ID of the connection established.
+	ConnectionID string `json:"connectionID"`
+}
+
+// ProposePresentationRequest is request model for performing propose presentation operation from wallet.
+type ProposePresentationRequest struct {
+	WalletAuth
+
+	// out-of-band invitation to establish connection and send propose presentation message.
+	Invitation *outofband.Invitation `json:"invitation"`
+
+	// Optional From DID option to customize sender DID.
+	FromDID string `json:"from,omitempty"`
+
+	// Timeout (in milliseconds) waiting for connection status to be completed
+	Timeout time.Duration `json:"timeout,omitempty"`
+}
+
+// ProposePresentationResponse is response model from wallet propose presentation operation.
+type ProposePresentationResponse struct {
+	// response request presentation message from  relying party.
+	PresentationRequest *service.DIDCommMsgMap `json:"presentationRequest,omitempty"`
+}
+
+// PresentProofRequest is request model from wallet present proof operation.
+// Supported attachment MIME type "application/ld+json".
+type PresentProofRequest struct {
+	WalletAuth
+
+	// Thread ID from request presentation response
+	ThreadID string `json:"threadID,omitempty"`
+
+	// presentation to be sent as part of present proof message.
+	Presentation *verifiable.Presentation `json:"presentation,omitempty"`
 }

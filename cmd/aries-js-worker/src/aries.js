@@ -1271,6 +1271,38 @@ const Aries = function (opts) {
             createKeyPair: async function (req) {
                 return invoke(aw, pending, this.pkgname, "CreateKeyPair", req, "timeout while creating key pair from wallet")
             },
+
+            /**
+             *
+             * accepts out-of-band invitation and performs DID exchange from wallet.
+             *
+             * @returns {Promise<Object>}
+             */
+            connect: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Connect", req, "timeout while performing DID connect from wallet")
+            },
+
+            /**
+             *
+             * accepts out-of-band invitation and sends propose presentation message to sender.
+             *
+             *  Returns request presentation message response.
+             *
+             * @returns {Promise<Object>}
+             */
+            proposePresentation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ProposePresentation", req, "timeout while proposing presentation from wallet")
+            },
+
+            /**
+             *
+             * sends presentation as present proof message.
+             *
+             * @returns {Promise<Object>}
+             */
+            presentProof: async function (req) {
+                return invoke(aw, pending, this.pkgname, "PresentProof", req, "timeout while performing present proof from wallet")
+            },
         },
         /**
          * JSON-LD management API.

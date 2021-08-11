@@ -262,6 +262,56 @@ type checkProfileRequest struct { // nolint: unused,deadcode
 	ID string `json:"id"`
 }
 
+// connectRequest is request model for wallet DID connect operation.
+//
+// swagger:parameters connectReq
+type connectRequest struct { // nolint: unused,deadcode
+	// Params for connecting to wallet for DIDComm.
+	//
+	// in: body
+	Params *vcwallet.ConnectRequest
+}
+
+// connectResponse is response model from wallet DID connect operation.
+//
+// swagger:response connectRes
+type connectResponse struct {
+	// wallet connect response.
+	//
+	// in: body
+	Response *vcwallet.ConnectResponse `json:"response"`
+}
+
+// proposePresentationRequest is request model for performing propose presentation operation from wallet.
+//
+// swagger:parameters proposePresReq
+type proposePresentationRequest struct { // nolint: unused,deadcode
+	// Params for proposing presentation from wallet.
+	//
+	// in: body
+	Params *vcwallet.ProposePresentationRequest
+}
+
+// proposePresentationResponse is response model from wallet propose presentation operation.
+//
+// swagger:response proposePresRes
+type proposePresentationResponse struct {
+	// response containing request presentation message from relyinig party.
+	//
+	// in: body
+	Response *vcwallet.ProposePresentationResponse `json:"response"`
+}
+
+// presentProofRequest is request model for performing present proof operation from wallet.
+//
+// swagger:parameters presentProofReq
+type presentProofRequest struct { // nolint: unused,deadcode
+	// Params for accepting presentation request and sending present proof message to relying party.
+	//
+	// in: body
+	Params *vcwallet.PresentProofRequest
+}
+
 // emptyRes model
 //
 // swagger:response emptyRes
