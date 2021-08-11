@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -293,5 +294,90 @@ type getAllContentsOpts struct {
 func FilterByCollection(collectionID string) GetAllContentsOptions {
 	return func(opts *getAllContentsOpts) {
 		opts.collectionID = collectionID
+	}
+}
+
+// connectOpts contains options for wallet's DIDComm connect features.
+type connectOpts struct {
+	outofband.EventOptions
+	// timeout duration to wait before waiting for status 'completed'.
+	timeout time.Duration
+}
+
+// ConnectOptions options for accepting incoming out-of-band invitation and connecting.
+type ConnectOptions func(opts *connectOpts)
+
+// WithMyLabel option for providing label to be shared with the other agent during the subsequent did-exchange.
+func WithMyLabel(label string) ConnectOptions {
+	return func(opts *connectOpts) {
+		opts.Label = label
+	}
+}
+
+// WithReuseAnyConnection option to use any recognized DID in the services array for a reusable connection.
+func WithReuseAnyConnection() ConnectOptions {
+	return func(opts *connectOpts) {
+		opts.ReuseAny = true
+	}
+}
+
+// WithReuseDID option to provide DID to be used when reusing a connection.
+func WithReuseDID(did string) ConnectOptions {
+	return func(opts *connectOpts) {
+		opts.ReuseDID = did
+	}
+}
+
+// WithRouterConnections option to provide for router connections to be used.
+func WithRouterConnections(conns ...string) ConnectOptions {
+	return func(opts *connectOpts) {
+		opts.Connections = conns
+	}
+}
+
+// WithConnectTimeout option providing connect timeout, to wait for connection status to be 'completed'.
+func WithConnectTimeout(timeout time.Duration) ConnectOptions {
+	return func(opts *connectOpts) {
+		opts.timeout = timeout
+	}
+}
+
+// getOobMessageOptions gets out-of-band message options to accept invitation from connect opts.
+func getOobMessageOptions(opts *connectOpts) []outofband.MessageOption {
+	var result []outofband.MessageOption
+
+	if len(opts.Connections) > 0 {
+		result = append(result, outofband.WithRouterConnections(opts.Connections...))
+	}
+
+	if opts.ReuseAny {
+		result = append(result, outofband.ReuseAnyConnection())
+	}
+
+	return append(result, outofband.ReuseConnection(opts.ReuseDID))
+}
+
+// proposePresOpts contains options for proposing presentation from wallet.
+type proposePresOpts struct {
+	// optional from DID option to customize message sender DID.
+	from string
+	// timeout duration to wait for request presentation response from relying party.
+	timeout time.Duration
+}
+
+// ProposePresentationOption options for proposing presentation from wallet.
+type ProposePresentationOption func(opts *proposePresOpts)
+
+// WithFromDID option for providing customized from DID for sending propose presentation message.
+func WithFromDID(from string) ProposePresentationOption {
+	return func(opts *proposePresOpts) {
+		opts.from = from
+	}
+}
+
+// WithPresentProofTimeout to provide timeout duration to wait for request presentation response from relying party.
+func WithPresentProofTimeout(timeout time.Duration) ProposePresentationOption {
+	return func(opts *proposePresOpts) {
+		opts.timeout = timeout
 	}
 }

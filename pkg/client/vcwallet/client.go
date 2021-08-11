@@ -13,8 +13,10 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -34,6 +36,17 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
 	JSONLDDocumentLoader() ld.DocumentLoader
+	didCommProvider // to be used only if wallet needs to be participated in DIDComm.
+}
+
+// didCommProvider to be used only if wallet needs to be participated in DIDComm operation.
+// TODO: using wallet KMS instead of provider KMS.
+// TODO: reconcile Protocol storage with wallet store.
+type didCommProvider interface {
+	KMS() kms.KeyManager
+	ServiceEndpoint() string
+	ProtocolStateStorageProvider() storage.Provider
+	Service(id string) (interface{}, error)
 }
 
 // walletAuth is auth function which returns wallet unlock token.
@@ -335,4 +348,68 @@ func (c *Client) CreateKeyPair(keyType kms.KeyType) (*wallet.KeyPair, error) {
 	}
 
 	return c.wallet.CreateKeyPair(auth, keyType)
+}
+
+// Connect accepts out-of-band invitations and performs DID exchange.
+//
+// Args:
+// 		- invitation: out-of-band invitation.
+// 		- options: connection options.
+//
+// Returns:
+// 		- connection ID if DID exchange is successful.
+// 		- error if operation false.
+//
+func (c *Client) Connect(invitation *outofband.Invitation, options ...wallet.ConnectOptions) (string, error) {
+	auth, err := c.auth()
+	if err != nil {
+		return "", err
+	}
+
+	return c.wallet.Connect(auth, invitation, options...)
+}
+
+// ProposePresentation accepts out-of-band invitation and sends message proposing presentation
+// from wallet to relying party.
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+//
+// Args:
+// 		- invitation: out-of-band invitation from relying party.
+// 		- options: options for accepting invitation and send propose presentation message.
+//
+// Returns:
+// 		- DIDCommMsgMap containing request presentation message if operation is successful.
+// 		- error if operation fails.
+//
+func (c *Client) ProposePresentation(invitation *outofband.Invitation, options ...wallet.ProposePresentationOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.ProposePresentation(auth, invitation, options...)
+}
+
+// PresentProof sends message present proof message from wallet to relying party.
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+//
+// Args:
+// 		- thID: thread ID (action ID) of request presentation.
+// 		- presentation: presentation to be sent.
+//
+// Returns:
+// 		- error if operation fails.
+//
+// TODO: wait for acknowledgement option to be added.
+func (c *Client) PresentProof(thID string, presentation *verifiable.Presentation) error {
+	auth, err := c.auth()
+	if err != nil {
+		return err
+	}
+
+	return c.wallet.PresentProof(auth, thID, presentation)
 }

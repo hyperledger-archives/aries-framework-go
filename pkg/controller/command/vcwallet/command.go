@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -79,6 +80,15 @@ const (
 
 	// ProfileExistsErrorCode for errors while checking if profile exists for a wallet user.
 	ProfileExistsErrorCode
+
+	// DIDConnectErrorCode for errors while performing DID connect in wallet.
+	DIDConnectErrorCode
+
+	// ProposePresentationErrorCode for errors while proposing presentation.
+	ProposePresentationErrorCode
+
+	// PresentProofErrorCode for errors while presenting proof from wallet.
+	PresentProofErrorCode
 )
 
 // All command operations.
@@ -86,28 +96,34 @@ const (
 	CommandName = "vcwallet"
 
 	// command methods.
-	CreateProfileMethod = "CreateProfile"
-	UpdateProfileMethod = "UpdateProfile"
-	ProfileExistsMethod = "ProfileExists"
-	OpenMethod          = "Open"
-	CloseMethod         = "Close"
-	AddMethod           = "Add"
-	RemoveMethod        = "Remove"
-	GetMethod           = "Get"
-	GetAllMethod        = "GetAll"
-	QueryMethod         = "Query"
-	IssueMethod         = "Issue"
-	ProveMethod         = "Prove"
-	VerifyMethod        = "Verify"
-	DeriveMethod        = "Derive"
-	CreateKeyPairMethod = "CreateKeyPair"
+	CreateProfileMethod       = "CreateProfile"
+	UpdateProfileMethod       = "UpdateProfile"
+	ProfileExistsMethod       = "ProfileExists"
+	OpenMethod                = "Open"
+	CloseMethod               = "Close"
+	AddMethod                 = "Add"
+	RemoveMethod              = "Remove"
+	GetMethod                 = "Get"
+	GetAllMethod              = "GetAll"
+	QueryMethod               = "Query"
+	IssueMethod               = "Issue"
+	ProveMethod               = "Prove"
+	VerifyMethod              = "Verify"
+	DeriveMethod              = "Derive"
+	CreateKeyPairMethod       = "CreateKeyPair"
+	ConnectMethod             = "Connect"
+	ProposePresentationMethod = "ProposePresentation"
+	PresentProofMethod        = "PresentProof"
 )
 
 // miscellaneous constants for the vc wallet command controller.
 const (
 	// log constants.
-	logSuccess   = "success"
-	logUserIDKey = "userID"
+	logSuccess         = "success"
+	logUserIDKey       = "userID"
+	connectionIDString = "connectionID"
+	invitationIDString = "invitationID"
+	LabelString        = "label"
 
 	emptyRawLength = 4
 
@@ -153,6 +169,17 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
 	JSONLDDocumentLoader() ld.DocumentLoader
+	didCommProvider // to be used only if wallet needs to be participated in DIDComm.
+}
+
+// didCommProvider to be used only if wallet needs to be participated in DIDComm operation.
+// TODO: using wallet KMS instead of provider KMS.
+// TODO: reconcile Protocol storage with wallet store.
+type didCommProvider interface {
+	KMS() kms.KeyManager
+	ServiceEndpoint() string
+	ProtocolStateStorageProvider() storage.Provider
+	Service(id string) (interface{}, error)
 }
 
 // Command contains operations provided by verifiable credential wallet controller.
@@ -194,6 +221,9 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, VerifyMethod, o.Verify),
 		cmdutil.NewCommandHandler(CommandName, DeriveMethod, o.Derive),
 		cmdutil.NewCommandHandler(CommandName, CreateKeyPairMethod, o.CreateKeyPair),
+		cmdutil.NewCommandHandler(CommandName, ConnectMethod, o.Connect),
+		cmdutil.NewCommandHandler(CommandName, ProposePresentationMethod, o.ProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, PresentProofMethod, o.PresentProof),
 	}
 }
 
@@ -680,6 +710,118 @@ func (o *Command) CreateKeyPair(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &CreateKeyPairResponse{response}, logger)
 
 	logutil.LogDebug(logger, CommandName, CreateKeyPairMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// Connect accepts out-of-band invitations and performs DID exchange.
+func (o *Command) Connect(rw io.Writer, req io.Reader) command.Error {
+	request := &ConnectRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
+
+		return command.NewExecuteError(DIDConnectErrorCode, err)
+	}
+
+	connectionID, err := vcWallet.Connect(request.Auth, request.Invitation,
+		wallet.WithConnectTimeout(request.Timeout), wallet.WithReuseDID(request.ReuseConnection),
+		wallet.WithReuseAnyConnection(), wallet.WithMyLabel(request.MyLabel),
+		wallet.WithRouterConnections(request.RouterConnections))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
+
+		return command.NewExecuteError(DIDConnectErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ConnectResponse{ConnectionID: connectionID}, logger)
+
+	logutil.LogDebug(logger, CommandName, ConnectMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID),
+		logutil.CreateKeyValueString(invitationIDString, request.Invitation.ID),
+		logutil.CreateKeyValueString(LabelString, request.MyLabel),
+		logutil.CreateKeyValueString(connectionIDString, connectionID))
+
+	return nil
+}
+
+// ProposePresentation accepts out-of-band invitation and sends message proposing presentation
+// from wallet to relying party.
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error {
+	request := &ProposePresentationRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
+
+		return command.NewExecuteError(ProposePresentationErrorCode, err)
+	}
+
+	msg, err := vcWallet.ProposePresentation(request.Auth, request.Invitation,
+		wallet.WithFromDID(request.FromDID), wallet.WithPresentProofTimeout(request.Timeout))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
+
+		return command.NewExecuteError(ProposePresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ProposePresentationResponse{PresentationRequest: msg}, logger)
+
+	logutil.LogDebug(logger, CommandName, ProposePresentationMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// PresentProof sends message present proof message from wallet to relying party.
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+//
+func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
+	request := &PresentProofRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
+
+		return command.NewExecuteError(PresentProofErrorCode, err)
+	}
+
+	err = vcWallet.PresentProof(request.Auth, request.ThreadID, request.Presentation)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
+
+		return command.NewExecuteError(PresentProofErrorCode, err)
+	}
+
+	logutil.LogDebug(logger, CommandName, PresentProofMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil

@@ -456,6 +456,18 @@ const pkgs = {
             path: "/vcwallet/create-key-pair",
             method: "POST",
         },
+        Connect: {
+            path: "/vcwallet/connect",
+            method: "POST",
+        },
+        ProposePresentation: {
+            path: "/vcwallet/propose-presentation",
+            method: "POST",
+        },
+        PresentProof: {
+            path: "/vcwallet/present-proof",
+            method: "POST",
+        },
     },
     ld: {
         AddContexts: {

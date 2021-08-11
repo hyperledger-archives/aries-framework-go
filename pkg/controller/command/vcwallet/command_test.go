@@ -20,16 +20,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
+	mockoutofband "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/outofband"
+	mockpresentproof "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/presentproof"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -240,7 +250,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 15)
+		require.Len(t, cmd.GetHandlers(), 18)
 	})
 }
 
@@ -1817,6 +1827,347 @@ func TestCommand_CreateKeyPair(t *testing.T) {
 	})
 }
 
+func TestCommand_Connect(t *testing.T) {
+	const sampleDIDCommUser = "sample-didcomm-user01"
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully perform DID connect", func(t *testing.T) {
+		sampleConnID := uuid.New().String()
+
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return sampleConnID, nil
+			},
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:       service.PostState,
+					StateID:    didexchange.StateIDCompleted,
+					Properties: &mockdidexchange.MockEventProperties{ConnID: sampleConnID},
+				}
+
+				return nil
+			},
+		}
+
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
+				Invitation: &outofbandClient.Invitation{},
+				MyLabel:    "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.Connect(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ConnectResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Equal(t, sampleConnID, response.ConnectionID)
+	})
+
+	t.Run("did connect failure", func(t *testing.T) {
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return "", fmt.Errorf(sampleCommandError)
+			},
+		}
+
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
+				Invitation: &outofbandClient.Invitation{},
+				MyLabel:    "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.Connect(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, DIDConnectErrorCode, sampleCommandError)
+		validateError(t, cmdErr, command.ExecuteError, DIDConnectErrorCode, "failed to accept invitation")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("did connect failure - invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+		cmdErr := cmd.Connect(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("attempt to didconnect with invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
+			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
+				Invitation: &outofbandClient.Invitation{},
+				MyLabel:    "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.Connect(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, DIDConnectErrorCode, "failed to get VC wallet profile")
+		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_ProposePresentation(t *testing.T) {
+	const sampleDIDCommUser = "sample-didcomm-user02"
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully send propose presentation", func(t *testing.T) {
+		sampleConnID := uuid.New().String()
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return sampleConnID, nil
+			},
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:       service.PostState,
+					StateID:    didexchange.StateIDCompleted,
+					Properties: &mockdidexchange.MockEventProperties{ConnID: sampleConnID},
+				}
+
+				return nil
+			},
+		}
+
+		thID := uuid.New().String()
+		ppSvc := &mockpresentproof.MockPresentProofSvc{
+			ActionsFunc: func() ([]presentproofSvc.Action, error) {
+				return []presentproofSvc.Action{
+					{
+						PIID: thID,
+						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentation{
+							Comment: "mock msg",
+						}),
+					},
+				}, nil
+			},
+			HandleFunc: func(service.DIDCommMsg) (string, error) {
+				return thID, nil
+			},
+		}
+
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
+
+		store, err := mockctx.StorageProvider().OpenStore(connection.Namespace)
+		require.NoError(t, err)
+
+		record := &connection.Record{
+			ConnectionID: sampleConnID,
+			MyDID:        "did:mydid",
+			TheirDID:     "did:theirDID",
+		}
+		recordBytes, err := json.Marshal(record)
+		require.NoError(t, err)
+		require.NoError(t, store.Put(fmt.Sprintf("conn_%s", sampleConnID), recordBytes))
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ProposePresentationRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			Invitation: &outofbandClient.Invitation{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposePresentation(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ProposePresentationResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.PresentationRequest)
+	})
+
+	t.Run("failed to send propose presentation", func(t *testing.T) {
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return "", fmt.Errorf(sampleCommandError)
+			},
+		}
+
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
+				Invitation: &outofbandClient.Invitation{},
+				MyLabel:    "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposePresentation(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, ProposePresentationErrorCode, sampleCommandError)
+		validateError(t, cmdErr, command.ExecuteError, ProposePresentationErrorCode, "failed to accept invitation")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to send propose presentation - invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposePresentation(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to send propose presentation - invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
+			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
+				Invitation: &outofbandClient.Invitation{},
+				MyLabel:    "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposePresentation(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, ProposePresentationErrorCode, "failed to get VC wallet profile")
+		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_PresentProof(t *testing.T) {
+	const sampleDIDCommUser = "sample-didcomm-user03"
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully present proof", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &PresentProofRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: &verifiable.Presentation{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.PresentProof(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("failed to present proof", func(t *testing.T) {
+		ppSvc := &mockpresentproof.MockPresentProofSvc{
+			ActionContinueFunc: func(string, presentproofSvc.Opt) error {
+				return fmt.Errorf(sampleCommandError)
+			},
+		}
+
+		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &PresentProofRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: &verifiable.Presentation{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.PresentProof(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, PresentProofErrorCode, sampleCommandError)
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to present proof - invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+		cmdErr := cmd.PresentProof(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to present proof - invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &PresentProofRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUserID, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: &verifiable.Presentation{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.PresentProof(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, PresentProofErrorCode, "failed to get VC wallet profile")
+		require.Empty(t, b.Bytes())
+	})
+}
+
 func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *CreateOrUpdateProfileRequest) {
 	cmd := New(ctx, &Config{})
 	require.NotNil(t, cmd)
@@ -1884,9 +2235,16 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
+	serviceMap := map[string]interface{}{
+		presentproofSvc.Name: &mockpresentproof.MockPresentProofSvc{},
+		outofbandSvc.Name:    &mockoutofband.MockOobService{},
+	}
+
 	return &mockprovider.Provider{
-		StorageProviderValue: mockstorage.NewMockStoreProvider(),
-		DocumentLoaderValue:  loader,
+		StorageProviderValue:              mockstorage.NewMockStoreProvider(),
+		ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
+		DocumentLoaderValue:               loader,
+		ServiceMap:                        serviceMap,
 	}
 }
 
