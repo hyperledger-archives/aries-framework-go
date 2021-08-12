@@ -548,6 +548,96 @@ Params,
    
   ``` 
 
+#### [Connect](https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md)
+Performs out of band DID exchange from wallet by accepting out of band invitation.
+
+Params,
+* invitation - out of band invitation from inviter.
+* connect options - for out of band accept invitation.
+    * MyLabel - label to be shared with the other agent during the subsequent did-exchange.
+    * RouterConnections - option to provide for router connections to be used.
+    * ReuseConnection -  option to provide DID to be used when reusing a connection.
+    * ReuseAnyConnection - option to use any recognized DID in the services array for a reusable connection.
+    * Timeout - option to provide timeout to wait for connection status to be completed.
+
+Returns,
+* connectionID - ID of the connection established.
+* error - if operation fails.
+
+ > Aries Go SDK Sample for performing DID connect from wallet.
+ ```
+ // creating vcwallet instance.
+ myWallet, err := vcwallet.New(sampleUserID, ctx)
+ 
+ // open wallet.
+ err = myWallet.Open(...)
+ 
+ // accept an invitation from wallet, perform DID connect and return connection ID.
+ connectionID, err := myWallet.Connect(oobInvitation, wallet.WithConnectTimeout(30 * time.Second), wallet.WithMyLabel("alice wallet"))
+   
+ // close wallet.
+ ok = myWallet.Close()
+  
+ ``` 
+
+#### [ProposePresentation](https://identity.foundation/waci-presentation-exchange/#step-2-send-message-proposing-presentation)
+Proposing presentation from wallet to initiate WACI share flow.
+
+Params,
+* invitation - out of band invitation from inviter.
+* options - for sending propose presentation message.
+    * FromDID - option to provide customized from DID for sending propose presentation message.
+    * Timeout - option to provide timeout duration to wait for request presentation response from relying party.
+
+Returns,
+* DIDCommMsg - request presentation message from relying party.
+* error - if operation fails.
+
+ > Aries Go SDK Sample for sending propose presentation message from wallet to relying party.
+ ```
+ // creating vcwallet instance.
+ myWallet, err := vcwallet.New(sampleUserID, ctx)
+ 
+ // open wallet.
+ err = myWallet.Open(...)
+ 
+ // accept an invitation from wallet, perform DID connect, send propose presentation message, wait and 
+ // return request presentation message response from relying party.
+ connectionID, err := myWallet.ProposePresentation(oobInvitation, wallet.WithPresentProofTimeout(80 * time.Second), wallet.WithFromDID("did:example:wallet"))
+   
+ // close wallet.
+ ok = myWallet.Close()
+  
+ ``` 
+ 
+ #### [PresentProof](https://identity.foundation/waci-presentation-exchange/#step-4-present-proof)
+ Presenting proof to relying party from wallet for WACI share flow.
+ 
+ Params,
+ * threadID - thread ID of ongoing credential interaction with a relying party.
+ * presentation - presentation to be sent to relying party.
+ 
+ Returns,
+ * error - if operation fails.
+ 
+ ######TODO: support for ack message from relying party to be added for wallet redirects.
+ 
+  > Aries Go SDK Sample for sending present proof message from wallet to relying party.
+  ```
+  // creating vcwallet instance.
+  myWallet, err := vcwallet.New(sampleUserID, ctx)
+  
+  // open wallet.
+  err = myWallet.Open(...)
+  
+  // send presentation to relying party as present proof message attachment for ongoing credential interaction.
+  connectionID, err := myWallet.PresenProof(threadID, presentation)
+    
+  // close wallet.
+  ok = myWallet.Close()
+   
+  ``` 
+
 ## Controller Bindings
 Aries command controller supports all verifiable credential wallet features with many more customization options like Authorization Capabilities (ZCAP-LD) feature for wallet's EDV and WebKMS components.
 
@@ -632,6 +722,15 @@ let derived = await agent.vcwallet.derive({userID, auth, storedCredentialID, raw
 
 // create key pair
 let vc = await agent.vcwallet.createKeyPair({userID, auth, keyType})
+
+// accept invitation and connect
+let connection = await agent.vcwallet.connect({userID, auth, invitation})
+
+// send propose presentation message from wallet for WACI share flow.
+let requestPresentationMsg = await agent.vcwallet.proposePresentation({userID, auth, invitation, from})
+
+// send present proof message from wallet for WACI share flow.
+await agent.vcwallet.presentProof({userID, auth, threadID, presentation})
 
 // close wallet
 await agent.vcwallet.close({userID})
