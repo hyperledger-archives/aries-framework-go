@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	jsonld "github.com/piprate/json-gold/ld"
@@ -141,6 +142,10 @@ func (s *ContextStoreImpl) Delete(documents []ldcontext.Document) error {
 func computeContextHashes(store storage.Store) (map[string]string, error) {
 	iter, err := store.Query(ContextRecordTag)
 	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return map[string]string{}, nil
+		}
+
 		return nil, fmt.Errorf("query store: %w", err)
 	}
 
