@@ -178,6 +178,17 @@ func TestContextStoreImpl_Import(t *testing.T) {
 		assertContextInStore(t, store, sampleContextURL, "updated-context")
 	})
 
+	t.Run("Import successfully when querying store for computing hashes returns ErrDataNotFound", func(t *testing.T) {
+		storageProvider := mockstorage.NewMockStoreProvider()
+		storageProvider.Store.ErrQuery = storage.ErrDataNotFound
+
+		contextStore, err := ld.NewContextStore(storageProvider)
+		require.NoError(t, err)
+
+		err = contextStore.Import(embed.Contexts)
+		require.NoError(t, err)
+	})
+
 	t.Run("Fail to query store for contexts", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrQuery = errors.New("query error")

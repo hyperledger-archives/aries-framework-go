@@ -55,12 +55,12 @@ or by using SDK client:
 ld.NewClient(provider).AddContexts()
 ```
 
-Aries JS worker supports adding new contexts with `ld.addContexts()` method. Check [js-worker-add-contexts].
+Aries JS worker supports adding new contexts with `ld.addContexts()` method. Check [js-add-contexts].
 
 ## Remote context provider
 
 Contexts that are hosted on a remote server can be added to the Aries instance via remote context provider. Use
-`WithRemoteProvider()` option of the document loader or REST API to add a new remote provider to the agent.
+`WithRemoteProvider()` option of the document loader or REST/JS API to add a new remote provider to the agent.
 
 ```go
 ld.NewDocumentLoader(provider, ld.WithRemoteProvider())
@@ -89,16 +89,16 @@ to the endpoint passed to the constructor and expects response in the following 
 }
 ```
 
-Refer to BDD tests for examples of setting up file servers with JSON-LD contexts ([js-worker-bdd], [agent-rest-bdd]).
+Refer to BDD tests for examples of setting up file servers with JSON-LD contexts ([js-bdd], [rest-bdd]).
 
 ### Remote context provider API
 
 Remote context providers can be added, refreshed and deleted using REST API, SDK client (`pkg/client/ld`) or JS worker's
-`ld` methods. Check [OpenAPI specification](./rest/openapi_spec.md), section `ld`, for API details.
+`ld` methods. Check [OpenAPI specification](./rest/openapi_spec.md), section `ld`, for REST API details.
 
 ---
 [custom-document-loader]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/bdd/agent/agent_sdk_steps.go#L75
 [embedded]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/pkg/doc/ldcontext/embed/embed_contexts.go#L48
-[js-worker-add-contexts]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/aries-js-worker/test/ld/ld.js#L55
-[js-worker-bdd]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/aries-js-worker/fixtures/docker-compose.yml#L95
-[agent-rest-bdd]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/bdd/fixtures/agent-rest/docker-compose.yml#L313
+[js-add-contexts]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/aries-js-worker/test/ld/ld.js#L55
+[js-bdd]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/aries-js-worker/fixtures/docker-compose.yml#L95
+[rest-bdd]: https://github.com/hyperledger/aries-framework-go/blob/5e24fee3adbaf5a462c8951f0e92cada81cd288b/test/bdd/fixtures/agent-rest/docker-compose.yml#L313
