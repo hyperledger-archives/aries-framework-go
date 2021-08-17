@@ -64,7 +64,9 @@ async function proposalWithRequest(mode) {
     })
 
     after(async () => {
-        await destroy()
+        if (destroy) {
+            await destroy()
+        }
     })
 
     let alice_bob, alice_carol;

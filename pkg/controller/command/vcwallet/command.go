@@ -180,6 +180,8 @@ type didCommProvider interface {
 	ServiceEndpoint() string
 	ProtocolStateStorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Command contains operations provided by verifiable credential wallet controller.
@@ -735,8 +737,8 @@ func (o *Command) Connect(rw io.Writer, req io.Reader) command.Error {
 
 	connectionID, err := vcWallet.Connect(request.Auth, request.Invitation,
 		wallet.WithConnectTimeout(request.Timeout), wallet.WithReuseDID(request.ReuseConnection),
-		wallet.WithReuseAnyConnection(), wallet.WithMyLabel(request.MyLabel),
-		wallet.WithRouterConnections(request.RouterConnections))
+		wallet.WithReuseAnyConnection(request.ReuseAnyConnection), wallet.WithMyLabel(request.MyLabel),
+		wallet.WithRouterConnections(request.RouterConnections...))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
 
@@ -777,7 +779,12 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 	}
 
 	msg, err := vcWallet.ProposePresentation(request.Auth, request.Invitation,
-		wallet.WithFromDID(request.FromDID), wallet.WithPresentProofTimeout(request.Timeout))
+		wallet.WithFromDID(request.FromDID), wallet.WithPresentProofTimeout(request.Timeout),
+		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
+			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
+			wallet.WithReuseAnyConnection(request.ConnectionOpts.ReuseAnyConnection),
+			wallet.WithMyLabel(request.ConnectionOpts.MyLabel),
+			wallet.WithRouterConnections(request.ConnectionOpts.RouterConnections...)))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
 
@@ -792,7 +799,7 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 	return nil
 }
 
-// PresentProof sends message present proof message from wallet to relying party.
+// PresentProof sends present proof message from wallet to relying party.
 //
 // Currently Supporting
 // [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
@@ -814,7 +821,7 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
 
-	err = vcWallet.PresentProof(request.Auth, request.ThreadID, request.Presentation)
+	err = vcWallet.PresentProof(request.Auth, request.ThreadID, wallet.FromRawPresentation(request.Presentation))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
 

@@ -34,7 +34,9 @@ type MockDIDExchangeSvc struct {
 	AcceptFunc               func(string) bool
 	RegisterActionEventErr   error
 	UnregisterActionEventErr error
+	RegisterMsgEventHandle   func(chan<- service.StateMsg) error
 	RegisterMsgEventErr      error
+	UnregisterMsgEventHandle func(chan<- service.StateMsg) error
 	UnregisterMsgEventErr    error
 	AcceptError              error
 	ImplicitInvitationErr    error
@@ -103,6 +105,10 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- service.StateMsg) error 
 		return m.RegisterMsgEventErr
 	}
 
+	if m.RegisterMsgEventHandle != nil {
+		return m.RegisterMsgEventHandle(ch)
+	}
+
 	return nil
 }
 
@@ -110,6 +116,10 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- service.StateMsg) error 
 func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) error {
 	if m.UnregisterMsgEventErr != nil {
 		return m.UnregisterMsgEventErr
+	}
+
+	if m.UnregisterMsgEventHandle != nil {
+		return m.UnregisterMsgEventHandle(ch)
 	}
 
 	return nil

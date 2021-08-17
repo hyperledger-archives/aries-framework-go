@@ -66,6 +66,8 @@ type didCommProvider interface {
 	ServiceEndpoint() string
 	ProtocolStateStorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Operation contains REST operations provided by verifiable credential wallet.

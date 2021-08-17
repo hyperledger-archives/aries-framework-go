@@ -22,10 +22,10 @@ import (
 
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
+	mockmediator "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockoutofband "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/outofband"
 	mockpresentproof "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/presentproof"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -1851,6 +1852,10 @@ func TestCommand_Connect(t *testing.T) {
 			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
 				return sampleConnID, nil
 			},
+		}
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		didexSvc := &mockdidexchange.MockDIDExchangeSvc{
 			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
 				ch <- service.StateMsg{
 					Type:       service.PostState,
@@ -1861,16 +1866,15 @@ func TestCommand_Connect(t *testing.T) {
 				return nil
 			},
 		}
-
-		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+		mockctx.ServiceMap[didexchange.DIDExchange] = didexSvc
 
 		cmd := New(mockctx, &Config{})
 
 		request := &ConnectRequest{
 			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
-				Invitation: &outofbandClient.Invitation{},
-				MyLabel:    "sample-label",
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
 			},
 		}
 
@@ -1890,16 +1894,15 @@ func TestCommand_Connect(t *testing.T) {
 				return "", fmt.Errorf(sampleCommandError)
 			},
 		}
-
 		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
 
 		cmd := New(mockctx, &Config{})
 
 		request := &ConnectRequest{
 			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
-				Invitation: &outofbandClient.Invitation{},
-				MyLabel:    "sample-label",
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
 			},
 		}
 
@@ -1928,9 +1931,9 @@ func TestCommand_Connect(t *testing.T) {
 
 		request := &ConnectRequest{
 			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
-			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
-				Invitation: &outofbandClient.Invitation{},
-				MyLabel:    "sample-label",
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
 			},
 		}
 
@@ -1960,12 +1963,22 @@ func TestCommand_ProposePresentation(t *testing.T) {
 
 	defer lock()
 
+	const (
+		myDID    = "did:mydid:123"
+		theirDID = "did:theirdid:123"
+	)
+
 	t.Run("successfully send propose presentation", func(t *testing.T) {
 		sampleConnID := uuid.New().String()
+
 		oobSvc := &mockoutofband.MockOobService{
 			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
 				return sampleConnID, nil
 			},
+		}
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		didexSvc := &mockdidexchange.MockDIDExchangeSvc{
 			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
 				ch <- service.StateMsg{
 					Type:       service.PostState,
@@ -1976,6 +1989,7 @@ func TestCommand_ProposePresentation(t *testing.T) {
 				return nil
 			},
 		}
+		mockctx.ServiceMap[didexchange.DIDExchange] = didexSvc
 
 		thID := uuid.New().String()
 		ppSvc := &mockpresentproof.MockPresentProofSvc{
@@ -1986,6 +2000,8 @@ func TestCommand_ProposePresentation(t *testing.T) {
 						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentation{
 							Comment: "mock msg",
 						}),
+						MyDID:    myDID,
+						TheirDID: theirDID,
 					},
 				}, nil
 			},
@@ -1993,8 +2009,6 @@ func TestCommand_ProposePresentation(t *testing.T) {
 				return thID, nil
 			},
 		}
-
-		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
 		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
 
 		store, err := mockctx.StorageProvider().OpenStore(connection.Namespace)
@@ -2002,8 +2016,8 @@ func TestCommand_ProposePresentation(t *testing.T) {
 
 		record := &connection.Record{
 			ConnectionID: sampleConnID,
-			MyDID:        "did:mydid",
-			TheirDID:     "did:theirDID",
+			MyDID:        myDID,
+			TheirDID:     theirDID,
 		}
 		recordBytes, err := json.Marshal(record)
 		require.NoError(t, err)
@@ -2039,9 +2053,9 @@ func TestCommand_ProposePresentation(t *testing.T) {
 
 		request := &ConnectRequest{
 			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
-				Invitation: &outofbandClient.Invitation{},
-				MyLabel:    "sample-label",
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
 			},
 		}
 
@@ -2070,9 +2084,9 @@ func TestCommand_ProposePresentation(t *testing.T) {
 
 		request := &ConnectRequest{
 			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
-			AcceptInvitationArgs: outofband.AcceptInvitationArgs{
-				Invitation: &outofbandClient.Invitation{},
-				MyLabel:    "sample-label",
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
 			},
 		}
 
@@ -2108,7 +2122,7 @@ func TestCommand_PresentProof(t *testing.T) {
 		request := &PresentProofRequest{
 			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
-			Presentation: &verifiable.Presentation{},
+			Presentation: json.RawMessage{},
 		}
 
 		var b bytes.Buffer
@@ -2130,7 +2144,7 @@ func TestCommand_PresentProof(t *testing.T) {
 		request := &PresentProofRequest{
 			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
-			Presentation: &verifiable.Presentation{},
+			Presentation: json.RawMessage{},
 		}
 
 		var b bytes.Buffer
@@ -2156,7 +2170,7 @@ func TestCommand_PresentProof(t *testing.T) {
 		request := &PresentProofRequest{
 			WalletAuth:   WalletAuth{UserID: sampleUserID, Auth: token},
 			ThreadID:     uuid.New().String(),
-			Presentation: &verifiable.Presentation{},
+			Presentation: json.RawMessage{},
 		}
 
 		var b bytes.Buffer
@@ -2236,8 +2250,10 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 	require.NoError(t, err)
 
 	serviceMap := map[string]interface{}{
-		presentproofSvc.Name: &mockpresentproof.MockPresentProofSvc{},
-		outofbandSvc.Name:    &mockoutofband.MockOobService{},
+		presentproofSvc.Name:    &mockpresentproof.MockPresentProofSvc{},
+		outofbandSvc.Name:       &mockoutofband.MockOobService{},
+		didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
+		mediator.Coordination:   &mockmediator.MockMediatorSvc{},
 	}
 
 	return &mockprovider.Provider{

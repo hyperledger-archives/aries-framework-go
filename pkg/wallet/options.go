@@ -315,9 +315,9 @@ func WithMyLabel(label string) ConnectOptions {
 }
 
 // WithReuseAnyConnection option to use any recognized DID in the services array for a reusable connection.
-func WithReuseAnyConnection() ConnectOptions {
+func WithReuseAnyConnection(reuse bool) ConnectOptions {
 	return func(opts *connectOpts) {
-		opts.ReuseAny = true
+		opts.ReuseAny = reuse
 	}
 }
 
@@ -361,6 +361,8 @@ func getOobMessageOptions(opts *connectOpts) []outofband.MessageOption {
 type proposePresOpts struct {
 	// optional from DID option to customize message sender DID.
 	from string
+	// connect options.
+	connectOpts []ConnectOptions
 	// timeout duration to wait for request presentation response from relying party.
 	timeout time.Duration
 }
@@ -375,9 +377,42 @@ func WithFromDID(from string) ProposePresentationOption {
 	}
 }
 
+// WithConnectOptions for customizing options for accepting invitation.
+func WithConnectOptions(options ...ConnectOptions) ProposePresentationOption {
+	return func(opts *proposePresOpts) {
+		opts.connectOpts = options
+	}
+}
+
 // WithPresentProofTimeout to provide timeout duration to wait for request presentation response from relying party.
 func WithPresentProofTimeout(timeout time.Duration) ProposePresentationOption {
 	return func(opts *proposePresOpts) {
 		opts.timeout = timeout
+	}
+}
+
+// presentProofOpts contains options to send present proof from wallet.
+type presentProofOpts struct {
+	// presenting proof from raw credential.
+	rawPresentation json.RawMessage
+	// presenting proof verifiable presentation instance.
+	// this option takes precedence when provided with other options.
+	presentation *verifiable.Presentation
+}
+
+// PresentProofFrom is option to send present proof from wallet.
+type PresentProofFrom func(opts *presentProofOpts)
+
+// FromPresentation for sending aries verifiable presentation.
+func FromPresentation(presentation *verifiable.Presentation) PresentProofFrom {
+	return func(opts *presentProofOpts) {
+		opts.presentation = presentation
+	}
+}
+
+// FromRawPresentation for sending raw JSON as presentation.
+func FromRawPresentation(raw json.RawMessage) PresentProofFrom {
+	return func(opts *presentProofOpts) {
+		opts.rawPresentation = raw
 	}
 }

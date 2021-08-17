@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
-	outofbandCmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -314,9 +313,27 @@ type CreateKeyPairResponse struct {
 type ConnectRequest struct {
 	WalletAuth
 
-	outofbandCmd.AcceptInvitationArgs
+	// out-of-band invitation to establish connection.
+	Invitation *outofband.Invitation `json:"invitation"`
 
-	// Timeout (in milliseconds) waiting for connection status to be completed
+	ConnectOpts
+}
+
+// ConnectOpts is option for accepting out-of-band invitation and to perform DID exchange.
+type ConnectOpts struct {
+	// Label to be shared with the other agent during the subsequent DID exchange.
+	MyLabel string `json:"myLabel,omitempty"`
+
+	// router connections to be used to establish connection.
+	RouterConnections []string `json:"routerConnections,omitempty"`
+
+	// DID to be used when reusing a connection.
+	ReuseConnection string `json:"reuseConnection,omitempty"`
+
+	// To use any recognized DID in the services array for a reusable connection.
+	ReuseAnyConnection bool `json:"reuseAnyConnection,omitempty"`
+
+	// Timeout (in milliseconds) waiting for connection status to be completed.
 	Timeout time.Duration `json:"timeout,omitempty"`
 }
 
@@ -336,8 +353,11 @@ type ProposePresentationRequest struct {
 	// Optional From DID option to customize sender DID.
 	FromDID string `json:"from,omitempty"`
 
-	// Timeout (in milliseconds) waiting for connection status to be completed
+	// Timeout (in milliseconds) waiting for operation to be completed.
 	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// Options for accepting out-of-band invitation and to perform DID exchange (for DIDComm V1).
+	ConnectionOpts ConnectOpts `json:"connectOptions,omitempty"`
 }
 
 // ProposePresentationResponse is response model from wallet propose presentation operation.
@@ -355,5 +375,5 @@ type PresentProofRequest struct {
 	ThreadID string `json:"threadID,omitempty"`
 
 	// presentation to be sent as part of present proof message.
-	Presentation *verifiable.Presentation `json:"presentation,omitempty"`
+	Presentation json.RawMessage `json:"presentation,omitempty"`
 }

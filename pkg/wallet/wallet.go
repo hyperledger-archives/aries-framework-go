@@ -17,13 +17,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -92,6 +93,8 @@ type didCommProvider interface {
 	ServiceEndpoint() string
 	ProtocolStateStorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 type provable interface {
@@ -127,6 +130,9 @@ type Wallet struct {
 	// out of band client
 	oobClient *outofband.Client
 
+	// did-exchange client
+	didexchangeClient *didexchange.Client
+
 	// connection lookup
 	connectionLookup *connection.Lookup
 }
@@ -161,6 +167,11 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to initialize connection lookup: %w", err)
 	}
 
+	didexchangeClient, err := didexchange.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize didexchange client: %w", err)
+	}
+
 	return &Wallet{
 		userID:               userID,
 		profile:              profile,
@@ -171,6 +182,7 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
 		presentProofClient:   presentProofClient,
 		oobClient:            oobClient,
+		didexchangeClient:    didexchangeClient,
 		connectionLookup:     connectionLookup,
 	}, nil
 }
@@ -611,13 +623,13 @@ func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair,
 func (c *Wallet) Connect(authToken string, invitation *outofband.Invitation, options ...ConnectOptions) (string, error) { //nolint: lll
 	statusCh := make(chan service.StateMsg, msgEventBufferSize)
 
-	err := c.oobClient.RegisterMsgEvent(statusCh)
+	err := c.didexchangeClient.RegisterMsgEvent(statusCh)
 	if err != nil {
 		return "", fmt.Errorf("failed to register msg event : %w", err)
 	}
 
 	defer func() {
-		e := c.oobClient.UnregisterMsgEvent(statusCh)
+		e := c.didexchangeClient.UnregisterMsgEvent(statusCh)
 		if e != nil {
 			logger.Warnf("Failed to unregister msg event for connect: %w", e)
 		}
@@ -664,7 +676,12 @@ func (c *Wallet) Connect(authToken string, invitation *outofband.Invitation, opt
 // 		- error if operation fails.
 //
 func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Invitation, options ...ProposePresentationOption) (*service.DIDCommMsgMap, error) { //nolint: lll
-	connID, err := c.Connect(authToken, invitation)
+	opts := &proposePresOpts{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	connID, err := c.Connect(authToken, invitation, opts.connectOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform did connection : %w", err)
 	}
@@ -674,9 +691,9 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 		return nil, fmt.Errorf("failed to lookup connection for propose presentation : %w", err)
 	}
 
-	opts := preparePresentProofOpts(connRecord, options...)
+	opts = preparePresentProofOpts(connRecord, opts)
 
-	thID, err := c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord.MyDID,
+	_, err = c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord.MyDID,
 		opts.from)
 	if err != nil {
 		return nil, fmt.Errorf("failed to propose presentation from wallet: %w", err)
@@ -685,7 +702,7 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 	defer cancel()
 
-	return c.waitForRequestPresentation(ctx, thID)
+	return c.waitForRequestPresentation(ctx, connRecord)
 }
 
 // PresentProof sends message present proof message from wallet to relying party.
@@ -696,13 +713,23 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 // Args:
 // 		- authToken: authorization for performing operation.
 // 		- thID: thread ID (action ID) of request presentation.
-// 		- presentation: presentation to be sent.
+// 		- presentProofFrom: presentation to be sent.
 //
 // Returns:
 // 		- error if operation fails.
 //
 // TODO: wait for acknowledgement option to be added.
-func (c *Wallet) PresentProof(authToken, thID string, presentation *verifiable.Presentation) error {
+func (c *Wallet) PresentProof(authToken, thID string, presentProofFrom PresentProofFrom) error {
+	presFrom := &presentProofOpts{}
+	presentProofFrom(presFrom)
+
+	var presentation interface{}
+	if presFrom.presentation != nil {
+		presentation = presFrom.presentation
+	} else {
+		presentation = presFrom.rawPresentation
+	}
+
 	return c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
 		Type: presentproofSvc.PresentationMsgType,
 		PresentationsAttach: []decorator.Attachment{{
@@ -936,7 +963,8 @@ func (c *Wallet) validateVerificationMethod(didDoc *did.Doc, opts *ProofOptions,
 	return fmt.Errorf("unable to find '%s' for given verification method", supportedRelationships[relationship])
 }
 
-func (c *Wallet) waitForRequestPresentation(ctx context.Context, piid string) (*service.DIDCommMsgMap, error) {
+// currently correlating response action by connection due to limitation in current present proof V1 implementation.
+func (c *Wallet) waitForRequestPresentation(ctx context.Context, record *connection.Record) (*service.DIDCommMsgMap, error) { //nolint: lll
 	done := make(chan *service.DIDCommMsgMap)
 
 	go func() {
@@ -948,7 +976,7 @@ func (c *Wallet) waitForRequestPresentation(ctx context.Context, piid string) (*
 
 			if len(actions) > 0 {
 				for _, action := range actions {
-					if action.PIID == piid {
+					if action.MyDID == record.MyDID && action.TheirDID == record.TheirDID {
 						done <- &action.Msg
 						return
 					}
@@ -977,14 +1005,14 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 
 	go func() {
 		for msg := range didStateMsgs {
-			if msg.Type != service.PostState || msg.StateID != didexchange.StateIDCompleted {
+			if msg.Type != service.PostState || msg.StateID != didexchangeSvc.StateIDCompleted {
 				continue
 			}
 
-			var event didexchange.Event
+			var event didexchangeSvc.Event
 
 			switch p := msg.Properties.(type) {
-			case didexchange.Event:
+			case didexchangeSvc.Event:
 				event = p
 			default:
 				logger.Warnf("failed to cast didexchange event properties")
@@ -1046,12 +1074,7 @@ func updateProfile(auth string, profile *profile) error {
 	return nil
 }
 
-func preparePresentProofOpts(connRecord *connection.Record, options ...ProposePresentationOption) *proposePresOpts {
-	opts := &proposePresOpts{}
-	for _, opt := range options {
-		opt(opts)
-	}
-
+func preparePresentProofOpts(connRecord *connection.Record, opts *proposePresOpts) *proposePresOpts {
 	if opts.from == "" {
 		opts.from = connRecord.TheirDID
 	}
