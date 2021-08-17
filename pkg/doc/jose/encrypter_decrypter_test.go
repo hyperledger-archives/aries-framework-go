@@ -15,6 +15,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -34,7 +35,9 @@ import (
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -45,9 +48,13 @@ const (
 	EnvelopeEncodingType = "application/didcomm-encrypted+json"
 	// DIDCommContentEncodingType represent the JWE `Cty` protected type header for DIDComm V2 (example for tests).
 	DIDCommContentEncodingType = "application/didcomm-plain+json"
+
+	compactSerialization   = "Compact"
+	fullSerialization      = "Full"
+	flattenedSerialization = "Flattened"
 )
 
-//nolint:gocognit
+//nolint:gocognit,gocyclo
 func TestJWEEncryptRoundTrip(t *testing.T) {
 	_, err := ariesjose.NewJWEEncrypt("", "", "", "", nil, nil, nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
@@ -477,7 +484,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Log("creating recipients keys..")
-			recECKeys, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
+			recECKeys, recKHs, _, recDIDKeys := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 
 			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
 
@@ -527,7 +534,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 			}
 
 			var serializedJWE, jweStr string
-			serialization := "Full"
+			serialization := fullSerialization
 
 			if tc.useCompact {
 				testSerTime := time.Now()
@@ -537,7 +544,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				require.NotEmpty(t, serializedJWE)
 
 				jweStr = serializedJWE
-				serialization = "Compact"
+				serialization = compactSerialization
 			} else {
 				testSerTime := time.Now()
 				serializedJWE, err = jwe.FullSerialize(json.Marshal)
@@ -548,7 +555,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				jweStr, err = prettyPrint([]byte(serializedJWE))
 				require.NoError(t, err)
 				if tc.nbRec == 1 {
-					serialization = "Flattened"
+					serialization = flattenedSerialization
 				}
 			}
 
@@ -683,12 +690,96 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, pt, msg)
 			})
+
+			t.Run("ECDH-ES Encrypt and Decrypt JWE test success with kid as did:key", func(t *testing.T) {
+				recKeys := make([]*cryptoapi.PublicKey, 0)
+				for i, k := range recECKeys {
+					k.KID = recDIDKeys[i]
+					recKeys = append(recKeys, k)
+				}
+
+				jweEncrypter, err = ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType,
+					DIDCommContentEncodingType, "", nil, recKeys, cryptoSvc)
+				require.NoError(t, err)
+
+				testEncTime = time.Now()
+				jwe, err = jweEncrypter.EncryptWithAuthData(pt, aad)
+				t.Logf("ECDH-ES KW in EncryptWithAuthData with kid as did:key took %v", time.Since(testEncTime))
+				require.NoError(t, err)
+				require.Equal(t, len(recECKeys), len(jwe.Recipients))
+
+				if tc.useCompact {
+					testSerTime := time.Now()
+					serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+					t.Logf("CompactSerilize JWE with as did:key took %v", time.Since(testSerTime))
+					require.NoError(t, err)
+					require.NotEmpty(t, serializedJWE)
+
+					jweStr = serializedJWE
+					serialization = compactSerialization
+				} else {
+					testSerTime := time.Now()
+					serializedJWE, err = jwe.FullSerialize(json.Marshal)
+					t.Logf("JSON Serialize with kid as did:key took %v", time.Since(testSerTime))
+					require.NoError(t, err)
+					require.NotEmpty(t, serializedJWE)
+
+					jweStr, err = prettyPrint([]byte(serializedJWE))
+					require.NoError(t, err)
+					if tc.nbRec == 1 {
+						serialization = flattenedSerialization
+					}
+				}
+
+				t.Logf("* anoncrypt JWE (%s serialization) with kid as did:key: %s", serialization, jweStr)
+
+				// try to deserialize with go-jose (can't decrypt in go-jose since private key is protected by Tink)
+				joseJWE, err := jose.ParseEncrypted(serializedJWE)
+				require.NoError(t, err)
+				require.NotEmpty(t, joseJWE)
+
+				// try to deserialize with local package
+				testDeserTime := time.Now()
+				localJWE, err = ariesjose.Deserialize(serializedJWE)
+				t.Logf("JWE with kid as did:key Deserialize took %v", time.Since(testDeserTime))
+				require.NoError(t, err)
+
+				jweDecrypter := ariesjose.NewJWEDecrypt([]resolver.KIDResolver{&resolver.DIDKeyResolver{}}, cryptoSvc, kmsSvc)
+
+				var msg []byte
+
+				testDecTime := time.Now()
+				msg, err = jweDecrypter.Decrypt(localJWE)
+				t.Logf("JWE with kid as did:key Decrypt took %v", time.Since(testDecTime))
+				require.NoError(t, err)
+				require.EqualValues(t, pt, msg)
+
+				if tc.nbRec > 1 {
+					t.Run("decrypt with failing kid resolver", func(t *testing.T) {
+						failingResolver := &mockResolver{resolveError: fmt.Errorf("resolve kid failure")}
+						jweDecrypter := ariesjose.NewJWEDecrypt([]resolver.KIDResolver{failingResolver}, cryptoSvc, kmsSvc)
+
+						_, err = jweDecrypter.Decrypt(localJWE)
+						require.EqualError(t, err, "jwedecrypt: failed to unwrap cek: [resolveKID: "+
+							"[resolve kid failure] resolveKID: [resolve kid failure]]")
+					})
+				}
+			})
 		})
 	}
 }
 
+type mockResolver struct {
+	resolveValue *cryptoapi.PublicKey
+	resolveError error
+}
+
+func (m *mockResolver) Resolve(kid string) (*cryptoapi.PublicKey, error) {
+	return m.resolveValue, m.resolveError
+}
+
 func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *testing.T) {
-	recECKeys, recKHs, recKIDs := createRecipients(t, 1)
+	recECKeys, recKHs, recKIDs, _ := createRecipients(t, 1)
 	gjRecipients := convertToGoJoseRecipients(t, recECKeys, recKIDs)
 
 	c, k := createCryptoAndKMSServices(t, recKHs)
@@ -724,7 +815,7 @@ func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *tes
 }
 
 func TestInteropWithGoJoseEncryptAndLocalJoseDecrypt(t *testing.T) {
-	recECKeys, recKHs, recKIDs := createRecipients(t, 3)
+	recECKeys, recKHs, recKIDs, _ := createRecipients(t, 3)
 	gjRecipients := convertToGoJoseRecipients(t, recECKeys, recKIDs)
 
 	c, k := createCryptoAndKMSServices(t, recKHs)
@@ -764,7 +855,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	// get two generated recipient Tink keys
-	recECKeys, _, _ := createRecipients(t, 2)
+	recECKeys, _, _, _ := createRecipients(t, 2) //nolint:dogsled
 	// create a normal recipient key (not using Tink)
 	rec3PrivKey, err := ecdsa.GenerateKey(subtle.GetCurve(recECKeys[0].Curve), rand.Reader)
 	require.NoError(t, err)
@@ -865,21 +956,23 @@ func convertToGoJoseRecipients(t *testing.T, keys []*cryptoapi.PublicKey, kids [
 	return joseRecipients
 }
 
-func createRecipients(t *testing.T, nbOfEntities int) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
+func createRecipients(t *testing.T,
+	nbOfEntities int) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string, []string) {
 	return createRecipientsByKeyTemplate(t, nbOfEntities, ecdh.NISTP256ECDHKWKeyTemplate(), kms.NISTP256ECDHKWType)
 }
 
 // createRecipients and return their public key and keyset.Handle.
 func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.KeyTemplate,
-	keyType kms.KeyType) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string) {
+	keyType kms.KeyType) ([]*cryptoapi.PublicKey, map[string]*keyset.Handle, []string, []string) {
 	t.Helper()
 
 	r := make([]*cryptoapi.PublicKey, 0)
 	rKH := make(map[string]*keyset.Handle)
 	rKID := make([]string, 0)
+	rDIDKey := make([]string, 0)
 
 	for i := 0; i < nbOfEntities; i++ {
-		mrKey, kh, kid := createAndMarshalEntityKey(t, kt, keyType)
+		mrKey, kh, kid, didKey := createAndMarshalEntityKey(t, kt, keyType)
 
 		ecPubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
@@ -890,15 +983,16 @@ func createRecipientsByKeyTemplate(t *testing.T, nbOfEntities int, kt *tinkpb.Ke
 
 		r = append(r, ecPubKey)
 		rKID = append(rKID, kid)
+		rDIDKey = append(rDIDKey, didKey)
 	}
 
-	return r, rKH, rKID
+	return r, rKH, rKID, rDIDKey
 }
 
 // createAndMarshalEntityKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
 func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
-	keyType kms.KeyType) ([]byte, *keyset.Handle, string) {
+	keyType kms.KeyType) ([]byte, *keyset.Handle, string, string) {
 	t.Helper()
 
 	kh, err := keyset.NewHandle(kt)
@@ -914,12 +1008,17 @@ func createAndMarshalEntityKey(t *testing.T, kt *tinkpb.KeyTemplate,
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	require.NoError(t, err)
 
-	kid, err := jwkkid.CreateKID(buf.Bytes(), keyType)
+	mKeyBytes := buf.Bytes()
+
+	kid, err := jwkkid.CreateKID(mKeyBytes, keyType)
 	require.NoError(t, err)
 
-	printKey(t, buf.Bytes(), kid)
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(mKeyBytes, keyType)
+	require.NoError(t, err)
 
-	return buf.Bytes(), kh, kid
+	printKey(t, mKeyBytes, kid)
+
+	return mKeyBytes, kh, kid, didKey
 }
 
 func printKey(t *testing.T, mPubKey []byte, kid string) {
@@ -988,7 +1087,7 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 	c, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	recipients, recsKH, kids := createRecipients(t, 2)
+	recipients, recsKH, kids, _ := createRecipients(t, 2)
 
 	t.Run("test with missing skid", func(t *testing.T) {
 		_, err = ariesjose.NewJWEEncrypt(ariesjose.A256GCM, EnvelopeEncodingType, DIDCommContentEncodingType,
@@ -1003,6 +1102,7 @@ func TestFailNewJWEEncrypt(t *testing.T) {
 	})
 }
 
+//nolint:gocognit
 func TestECDH1PU(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -1146,21 +1246,21 @@ func TestECDH1PU(t *testing.T) {
 		},
 		{
 			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 2 recipients (Full serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.A192CBCHS384,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   2,
 		},
 		{
 			name:    "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Flattened serialization)",
-			kt:      ecdh.NISTP384ECDHKWKeyTemplate(),
+			kt:      ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:     ariesjose.A192CBCHS384,
 			keyType: kms.NISTP256ECDHKWType,
 			nbRec:   1,
 		},
 		{
 			name:       "P-256 ECDH KW and A192CBCHS384 encryption with 1 recipient (Compact serialization)",
-			kt:         ecdh.NISTP384ECDHKWKeyTemplate(),
+			kt:         ecdh.NISTP256ECDHKWKeyTemplate(),
 			enc:        ariesjose.A192CBCHS384,
 			keyType:    kms.NISTP256ECDHKWType,
 			nbRec:      1,
@@ -1236,21 +1336,21 @@ func TestECDH1PU(t *testing.T) {
 			name:    "P-521 ECDH KW and A256CBCHS512 encryption with 2 recipients (Full serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.NISTP256ECDHKWType,
+			keyType: kms.NISTP521ECDHKWType,
 			nbRec:   2,
 		},
 		{
 			name:    "P-521 ECDH KW and A256CBCHS512 encryption with 1 recipient (Flattened serialization)",
 			kt:      ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:     ariesjose.A256CBCHS512,
-			keyType: kms.NISTP256ECDHKWType,
+			keyType: kms.NISTP521ECDHKWType,
 			nbRec:   1,
 		},
 		{
 			name:       "P-521 ECDH KW and A256CBCHS512 encryption with 1 recipient (Compact serialization)",
 			kt:         ecdh.NISTP521ECDHKWKeyTemplate(),
 			enc:        ariesjose.A256CBCHS512,
-			keyType:    kms.NISTP256ECDHKWType,
+			keyType:    kms.NISTP521ECDHKWType,
 			nbRec:      1,
 			useCompact: true,
 		},
@@ -1282,24 +1382,26 @@ func TestECDH1PU(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Log("creating Sender key..")
-			senders, senderKHs, senderKIDs := createRecipientsByKeyTemplate(t, 1, tc.kt, tc.keyType)
+			senders, senderKHs, senderKIDs, senderDIDKeys := createRecipientsByKeyTemplate(t, 1, tc.kt, tc.keyType)
 			t.Log("creating recipients keys..")
-			recipients, recKHs, _ := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
+			recipientsKeys, recKHs, _, recDIDKeys := createRecipientsByKeyTemplate(t, tc.nbRec, tc.kt, tc.keyType)
 
-			c, k := createCryptoAndKMSServices(t, recKHs)
+			cryptoSvc, kmsSvc := createCryptoAndKMSServices(t, recKHs)
 
 			senderPubKey, err := json.Marshal(senders[0])
 			require.NoError(t, err)
 
-			jweEnc, err := ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType, DIDCommContentEncodingType,
-				senderKIDs[0], senderKHs[senderKIDs[0]], recipients, c)
+			jweEncrypter, err := ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType, DIDCommContentEncodingType,
+				senderKIDs[0], senderKHs[senderKIDs[0]], recipientsKeys, cryptoSvc)
 			require.NoError(t, err)
-			require.NotEmpty(t, jweEnc)
+			require.NotEmpty(t, jweEncrypter)
 
 			mockStoreMap := make(map[string]mockstorage.DBEntry)
 			mockStore := &mockstorage.MockStore{
 				Store: mockStoreMap,
 			}
+
+			storeResolver := []resolver.KIDResolver{&resolver.StoreResolver{Store: mockStore}}
 
 			pt := []byte("secret message")
 			aad := []byte("aad value")
@@ -1310,7 +1412,7 @@ func TestECDH1PU(t *testing.T) {
 
 			// test JWEEncrypt for ECDH1PU
 			testEncTime := time.Now()
-			jwe, err := jweEnc.EncryptWithAuthData(pt, aad)
+			jwe, err := jweEncrypter.EncryptWithAuthData(pt, aad)
 			t.Logf("ECDH-1PU KW in EncryptWithAuthData took %v", time.Since(testEncTime))
 			require.NoError(t, err)
 
@@ -1344,7 +1446,7 @@ func TestECDH1PU(t *testing.T) {
 			}
 
 			var serializedJWE, jweStr string
-			serialization := "Full"
+			serialization := fullSerialization
 
 			if tc.useCompact {
 				testSerTime := time.Now()
@@ -1354,7 +1456,7 @@ func TestECDH1PU(t *testing.T) {
 				require.NotEmpty(t, serializedJWE)
 
 				jweStr = serializedJWE
-				serialization = "Compact"
+				serialization = compactSerialization
 			} else {
 				testSerTime := time.Now()
 				serializedJWE, err = jwe.FullSerialize(json.Marshal)
@@ -1365,11 +1467,11 @@ func TestECDH1PU(t *testing.T) {
 				jweStr, err = prettyPrint([]byte(serializedJWE))
 				require.NoError(t, err)
 				if tc.nbRec == 1 {
-					serialization = "Flattened"
+					serialization = flattenedSerialization
 				}
 			}
 
-			t.Logf("* anoncrypt JWE (%s serialization): %s", serialization, jweStr)
+			t.Logf("* authcrypt JWE (%s serialization): %s", serialization, jweStr)
 
 			mPh, err := json.Marshal(jwe.ProtectedHeaders)
 			require.NoError(t, err)
@@ -1384,20 +1486,20 @@ func TestECDH1PU(t *testing.T) {
 			t.Logf("JWE deserialize took %v", time.Since(testDeserTime))
 			require.NoError(t, err)
 
-			t.Run("Decrypting JWE message without sender key in the third party store should fail", func(t *testing.T) {
-				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+			t.Run("ECDH-1PU JWE message without kid key in the KID storeResolver's store should fail", func(t *testing.T) {
+				jd := ariesjose.NewJWEDecrypt(storeResolver, cryptoSvc, kmsSvc)
 				require.NotEmpty(t, jd)
 
 				_, err = jd.Decrypt(localJWE)
 				require.EqualError(t, err, "jwedecrypt: failed to add sender public key for skid: fetchSenderPubKey: "+
-					"failed to get sender key from DB: data not found")
+					"resolveKID: [storeResolver: failed to resolve kid from store: data not found]")
 			})
 
 			// add sender pubkey into the recipient's mock store to prepare for a successful JWEDecrypt() for each recipient
 			mockStoreMap[senderKIDs[0]] = mockstorage.DBEntry{Value: senderPubKey}
 
 			t.Run("Decrypting JWE message test success", func(t *testing.T) {
-				jd := ariesjose.NewJWEDecrypt(mockStore, c, k)
+				jd := ariesjose.NewJWEDecrypt(storeResolver, cryptoSvc, kmsSvc)
 				require.NotEmpty(t, jd)
 
 				var msg []byte
@@ -1405,6 +1507,70 @@ func TestECDH1PU(t *testing.T) {
 				testDecTime := time.Now()
 				msg, err = jd.Decrypt(localJWE)
 				t.Logf("JWE deserialize took %v", time.Since(testDecTime))
+				require.NoError(t, err)
+				require.EqualValues(t, pt, msg)
+			})
+
+			t.Run("ECDH-1PU Encrypt and Decrypt JWE test success with skid/kid as did:key", func(t *testing.T) {
+				recKeys := make([]*cryptoapi.PublicKey, 0)
+				for i, k := range recipientsKeys {
+					k.KID = recDIDKeys[i]
+					recKeys = append(recKeys, k)
+				}
+
+				jweEncrypter, err = ariesjose.NewJWEEncrypt(tc.enc, EnvelopeEncodingType,
+					DIDCommContentEncodingType, senderDIDKeys[0], senderKHs[senderKIDs[0]], recKeys, cryptoSvc)
+				require.NoError(t, err)
+
+				testEncTime = time.Now()
+				jwe, err = jweEncrypter.EncryptWithAuthData(pt, aad)
+				t.Logf("ECDH-1PU KW in EncryptWithAuthData with kid as did:key took %v", time.Since(testEncTime))
+				require.NoError(t, err)
+				require.Equal(t, len(recipientsKeys), len(jwe.Recipients))
+
+				if tc.useCompact {
+					testSerTime := time.Now()
+					serializedJWE, err = jwe.CompactSerialize(json.Marshal)
+					t.Logf("CompactSerilize JWE with as did:key took %v", time.Since(testSerTime))
+					require.NoError(t, err)
+					require.NotEmpty(t, serializedJWE)
+
+					jweStr = serializedJWE
+					serialization = compactSerialization
+				} else {
+					testSerTime := time.Now()
+					serializedJWE, err = jwe.FullSerialize(json.Marshal)
+					t.Logf("JSON Serialize with kid as did:key took %v", time.Since(testSerTime))
+					require.NoError(t, err)
+					require.NotEmpty(t, serializedJWE)
+
+					jweStr, err = prettyPrint([]byte(serializedJWE))
+					require.NoError(t, err)
+					if tc.nbRec == 1 {
+						serialization = flattenedSerialization
+					}
+				}
+
+				t.Logf("* authcrypt JWE (%s serialization) with kid as did:key: %s", serialization, jweStr)
+
+				// try to deserialize with go-jose (can't decrypt in go-jose since private key is protected by Tink)
+				joseJWE, err := jose.ParseEncrypted(serializedJWE)
+				require.NoError(t, err)
+				require.NotEmpty(t, joseJWE)
+
+				// try to deserialize with local package
+				testDeserTime := time.Now()
+				localJWE, err = ariesjose.Deserialize(serializedJWE)
+				t.Logf("JWE with kid as did:key Deserialize took %v", time.Since(testDeserTime))
+				require.NoError(t, err)
+
+				jweDecrypter := ariesjose.NewJWEDecrypt([]resolver.KIDResolver{&resolver.DIDKeyResolver{}}, cryptoSvc, kmsSvc)
+
+				var msg []byte
+
+				testDecTime := time.Now()
+				msg, err = jweDecrypter.Decrypt(localJWE)
+				t.Logf("JWE with kid as did:key Decrypt took %v", time.Since(testDecTime))
 				require.NoError(t, err)
 				require.EqualValues(t, pt, msg)
 			})
@@ -1482,7 +1648,7 @@ func Test1PUDraft4ExampleBDecrypt(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, localJWE)
 
-	dec := ariesjose.NewJWEDecrypt(mockStore, c, k)
+	dec := ariesjose.NewJWEDecrypt([]resolver.KIDResolver{&resolver.StoreResolver{Store: mockStore}}, c, k)
 	require.NotEmpty(t, dec)
 
 	pt, err := dec.Decrypt(localJWE)

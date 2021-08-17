@@ -37,6 +37,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -198,9 +199,14 @@ func TestNewProvider(t *testing.T) {
 
 		connectionStore := didStoreMocks.NewMockConnectionStore(ctrl)
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
+		toDIDKey, _ := fingerprint.CreateDIDKey([]byte("toKey"))
+		connectionStore.EXPECT().GetDID(toDIDKey).Return("", did.ErrNotFound)
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("toKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(toDIDKey).Return("", did.ErrNotFound)
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", errors.New("error"))
+		fromDIDKey, _ := fingerprint.CreateDIDKey([]byte("fromKey"))
 		connectionStore.EXPECT().GetDID(base58.Encode([]byte("fromKey"))).Return("", did.ErrNotFound)
+		connectionStore.EXPECT().GetDID(fromDIDKey).Return("", did.ErrNotFound)
 
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",

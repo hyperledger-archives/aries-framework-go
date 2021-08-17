@@ -361,6 +361,8 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
+			// TODO why use hard coded key type and key creation here? pass ctx.Keytype to s *service and use it instead
+			// TODO of hard coded ED25519 type if new key is still required.
 			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if er != nil {
 				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
@@ -554,7 +556,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	// waits until the mediate-grant message is received or timeout was exceeded
 	grant, err := s.getGrant(req.ID, timeout)
 	if err != nil {
-		return fmt.Errorf("get grant: %w", err)
+		return fmt.Errorf("get grant for request ID '%s': %w", req.ID, err)
 	}
 
 	err = s.saveRouterConfig(record.ConnectionID, &config{

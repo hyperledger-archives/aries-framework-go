@@ -99,6 +99,7 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 			logger.Errorf("unmarshal transport decorator : %v", err)
 		}
 
+		// TODO check for KeyAgreement.ID for DIDComm V2 instead of did:key
 		didKey, _ := fingerprint.CreateDIDKey(unpackMsg.FromKey)
 
 		if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {

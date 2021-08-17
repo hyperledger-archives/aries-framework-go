@@ -38,6 +38,7 @@ type Provider struct {
 	DocumentLoaderValue               jsonld.DocumentLoader
 	KeyTypeValue                      kms.KeyType
 	KeyAgreementTypeValue             kms.KeyType
+	MediaTypeProfilesValue            []string
 }
 
 // Service return service.
@@ -116,6 +117,11 @@ func (p *Provider) JSONLDContextStore() ld.ContextStore {
 // JSONLDRemoteProviderStore returns remote JSON-LD context provider store.
 func (p *Provider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
 	return p.RemoteProviderStoreValue
+}
+
+// MediaTypeProfiles returns the media type profiles.
+func (p *Provider) MediaTypeProfiles() []string {
+	return p.MediaTypeProfilesValue
 }
 
 // JSONLDDocumentLoader returns JSON-LD document loader.

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -20,8 +21,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -30,19 +31,14 @@ import (
 // authenticated) to the recipient(s). The assumption of using this package is that public keys exchange has previously
 // occurred between the sender and the recipient(s).
 
-const (
-	// ThirdPartyKeysDB is a store name containing keys of third party agents.
-	ThirdPartyKeysDB = "thirdpartykeysdb"
-)
-
 var logger = log.New("aries-framework/pkg/didcomm/packer/authcrypt")
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
 	kms           kms.KeyManager
 	encAlg        jose.EncAlg
-	thirdPartyKS  storage.Store
 	cryptoService cryptoapi.Crypto
+	kidResolvers  []resolver.KIDResolver
 }
 
 // New will create a Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys using
@@ -67,26 +63,15 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		return nil, errors.New("authcrypt: failed to create packer because crypto service is empty")
 	}
 
-	sp := ctx.StorageProvider()
-	if sp == nil {
-		return nil, errors.New("authcrypt: failed to create packer because StorageProvider is empty")
-	}
+	var kidResolvers []resolver.KIDResolver
 
-	store, err := sp.OpenStore(ThirdPartyKeysDB)
-	if err != nil {
-		return nil, fmt.Errorf("authcrypt: %w", err)
-	}
-
-	store, err = prefix.NewPrefixStoreWrapper(store, prefix.StorageKIDPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("authcrypt: failed to wrap key store: %w", err)
-	}
+	kidResolvers = append(kidResolvers, &resolver.DIDKeyResolver{})
 
 	return &Packer{
 		kms:           k,
 		encAlg:        encAlg,
-		thirdPartyKS:  store,
 		cryptoService: c,
+		kidResolvers:  kidResolvers,
 	}, nil
 }
 
@@ -116,12 +101,20 @@ func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPu
 		return nil, fmt.Errorf("authcrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	kh, err := p.kms.Get(string(senderID))
-	if err != nil {
-		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
+	senderKID := string(senderID)
+	skid := senderKID
+
+	if idx := strings.Index(senderKID, "."); idx > 0 {
+		senderKID = senderKID[:idx] // senderKID is the kms kid
+		skid = skid[idx+1:]         // skid represented as did:key to be set as the `skid` header.
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, string(senderID),
+	kh, err := p.kms.Get(senderKID)
+	if err != nil {
+		return nil, fmt.Errorf("authcrypt Pack: failed to get kid key from KMS: %w", err)
+	}
+
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, skid,
 		kh.(*keyset.Handle), recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
@@ -174,7 +167,8 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 	return pubKeys, aad, nil
 }
 
-// Unpack will decode the envelope using a standard format.
+// Unpack will decode the envelope using a standard format. Using default did:key KID resolver. To use KeyAgreement.ID,
+// pass a resolver.DIDKeyResolver instance using packer.WithKIDResolver() option.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	// TODO validate `typ` and `cty` values
 	jwe, _, _, err := deserializeEnvelope(envelope)
@@ -189,7 +183,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			pt, ecdh1puPubKeyByes []byte
 		)
 
-		kid, err = getKID(i, jwe)
+		kid, err = p.getKID(i, jwe)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: %w", err)
 		}
@@ -216,14 +210,14 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("authcrypt Unpack: invalid keyset handle")
 		}
 
-		jweDecrypter := jose.NewJWEDecrypt(p.thirdPartyKS, p.cryptoService, p.kms)
+		jweDecrypter := jose.NewJWEDecrypt(p.kidResolvers, p.cryptoService, p.kms)
 
 		pt, err = jweDecrypter.Decrypt(jwe)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
-		ecdh1puPubKeyByes, err = exportPubKeyBytes(keyHandle)
+		ecdh1puPubKeyByes, err = exportPubKeyBytes(keyHandle, kid)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: failed to export public key bytes: %w", err)
 		}
@@ -249,8 +243,11 @@ func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, stri
 	return jwe, typ, cty, nil
 }
 
-func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
-	var kid string
+func (p *Packer) getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
+	var (
+		kid         string
+		kidResolver resolver.KIDResolver
+	)
 
 	if i == 0 && len(jwe.Recipients) == 1 { // compact serialization, recipient headers are in jwe.ProtectedHeaders
 		var ok bool
@@ -263,10 +260,20 @@ func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
 		kid = jwe.Recipients[i].Header.KID
 	}
 
-	return kid, nil
+	if strings.HasPrefix(kid, "did:key") {
+		kidResolver = p.kidResolvers[0]
+	}
+
+	// recipient kid header is the did:Key or KeyAgreement.ID, extract the public key and build a kms kid.
+	recKey, err := kidResolver.Resolve(kid)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve recipient key from did:key value: %w", err)
+	}
+
+	return recKey.KID, nil
 }
 
-func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
+func exportPubKeyBytes(keyHandle *keyset.Handle, kid string) ([]byte, error) {
 	pubKH, err := keyHandle.Public()
 	if err != nil {
 		return nil, err
@@ -280,7 +287,16 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	pubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(buf.Bytes(), pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey.KID = kid
+
+	return json.Marshal(pubKey)
 }
 
 // EncodingType for didcomm.

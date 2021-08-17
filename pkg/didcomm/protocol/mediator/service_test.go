@@ -988,7 +988,8 @@ func TestRegister(t *testing.T) {
 		})
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get grant: store: data not found")
+		require.Contains(t, err.Error(), "get grant for request ID '")
+		require.Contains(t, err.Error(), "': store: data not found")
 	})
 
 	t.Run("test register route - router connection not found", func(t *testing.T) {

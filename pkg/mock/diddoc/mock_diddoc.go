@@ -56,6 +56,32 @@ func GetMockDIDDoc(t *testing.T) *did.Doc {
 	}
 }
 
+// GetMockDIDDocWithKeyAgreements creates mock DID doc with KeyAgreements.
+func GetMockDIDDocWithKeyAgreements(t *testing.T) *did.Doc {
+	didDoc := GetMockDIDDoc(t)
+
+	didDoc.KeyAgreement = []did.Verification{
+		{
+			VerificationMethod: did.VerificationMethod{
+				ID:         "did:example:123456789abcdefghi#keys3",
+				Controller: "did:example:123456789abcdefghi",
+				Type:       "X25519KeyAgreementKey2019",
+				Value:      base58.Decode("JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr"),
+			},
+		},
+		{
+			VerificationMethod: did.VerificationMethod{
+				ID:         "#keys4",
+				Controller: "did:example:123456789abcdefghi",
+				Type:       "X25519KeyAgreementKey2019",
+				Value:      base58.Decode("JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr"),
+			},
+		},
+	}
+
+	return didDoc
+}
+
 // GetMockIndyDoc creates a mock DID Doc for testing.
 func GetMockIndyDoc(t *testing.T) *did.Doc {
 	t.Helper()

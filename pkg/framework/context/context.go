@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -247,12 +248,29 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 		myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
 		if errors.Is(err, did.ErrNotFound) {
 			notFound = true
+
+			// try did:key
+			// TODO CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode for DIDComm V2.
+			didKey, _ := fingerprint.CreateDIDKey(envelope.ToKey)
+			myDID, err = p.didConnectionStore.GetDID(didKey)
+			if errors.Is(err, did.ErrNotFound) {
+				notFound = true
+			} else if err != nil {
+				return fmt.Errorf("failed to get my did from didKey: %w", err)
+			}
 		} else if err != nil {
 			return fmt.Errorf("failed to get my did: %w", err)
 		}
 
 		theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
 		if notFound && errors.Is(err, did.ErrNotFound) {
+			// try did:key
+			// TODO CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode for DIDComm V2.
+			didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
+			theirDID, err = p.didConnectionStore.GetDID(didKey)
+			if err != nil && !errors.Is(err, did.ErrNotFound) {
+				return fmt.Errorf("failed to get their did from didKey: %w", err)
+			}
 		} else if err != nil {
 			return fmt.Errorf("failed to get their did: %w", err)
 		}

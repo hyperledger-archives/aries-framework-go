@@ -42,6 +42,7 @@ type MockProvider struct {
 	InboundDIDCommMsgHandlerFunc func() service.InboundHandler
 	KeyTypeValue                 kms.KeyType
 	KeyAgreementTypeValue        kms.KeyType
+	mediaTypeProfilesValue       []string
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -144,6 +145,11 @@ func (p *MockProvider) KeyType() kms.KeyType {
 // KeyAgreementType returns a mocked keyType value for KeyAgreement.
 func (p *MockProvider) KeyAgreementType() kms.KeyType {
 	return p.KeyAgreementTypeValue
+}
+
+// MediaTypeProfiles returns the media type profiles.
+func (p *MockProvider) MediaTypeProfiles() []string {
+	return p.mediaTypeProfilesValue
 }
 
 type mockConnectionStore struct{}

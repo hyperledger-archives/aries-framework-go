@@ -22,8 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Decrypter interface to Decrypt JWE messages.
@@ -34,19 +34,18 @@ type Decrypter interface {
 
 // JWEDecrypt is responsible for decrypting a JWE message and returns its protected plaintext.
 type JWEDecrypt struct {
-	// store is required for Authcrypt/ECDH1PU only (Anoncrypt doesn't need it as the sender is anonymous)
-	store  storage.Store
-	crypto cryptoapi.Crypto
-	kms    kms.KeyManager
+	kidResolvers []resolver.KIDResolver
+	crypto       cryptoapi.Crypto
+	kms          kms.KeyManager
 }
 
 // NewJWEDecrypt creates a new JWEDecrypt instance to parse and decrypt a JWE message for a given recipient
 // store is needed for Authcrypt only (to fetch sender's pre agreed upon public key), it is not needed for Anoncrypt.
-func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
+func NewJWEDecrypt(kidResolvers []resolver.KIDResolver, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
 	return &JWEDecrypt{
-		store:  store,
-		crypto: c,
-		kms:    k,
+		kidResolvers: kidResolvers,
+		crypto:       c,
+		kms:          k,
 	}
 }
 
@@ -140,6 +139,19 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	for _, rec := range recWK {
 		var unwrapOpts []cryptoapi.WrapKeyOpts
 
+		if strings.HasPrefix(rec.KID, "did:key") {
+			// resolve and use kms KID if did:key or KeyAgreement.ID.
+			resolvedRec, err := jd.resolveKID(rec.KID)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// Need to get the kms KID in order to do kms.Get() since original rec.KID is a did:key/KeyAgreement.ID.
+			// This is necessary to ensure recipient is the owner of the key.
+			rec.KID = resolvedRec.KID
+		}
+
 		recKH, err := jd.kms.Get(rec.KID)
 		if err != nil {
 			continue
@@ -173,6 +185,21 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	return cek, nil
 }
 
+func (jd *JWEDecrypt) resolveKID(kid string) (*cryptoapi.PublicKey, error) {
+	var errs []error
+
+	for _, resolver := range jd.kidResolvers {
+		rKID, err := resolver.Resolve(kid)
+		if err == nil {
+			return rKID, nil
+		}
+
+		errs = append(errs, err)
+	}
+
+	return nil, fmt.Errorf("resolveKID: %v", errs)
+}
+
 func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, error) {
 	encAlg, ok := jwe.ProtectedHeaders.Encryption()
 	if !ok {
@@ -200,16 +227,9 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 }
 
 func (jd *JWEDecrypt) fetchSenderPubKey(skid string, encAlg EncAlg) (*keyset.Handle, error) {
-	mKey, err := jd.store.Get(skid)
+	senderKey, err := jd.resolveKID(skid)
 	if err != nil {
-		return nil, fmt.Errorf("fetchSenderPubKey: failed to get sender key from DB: %w", err)
-	}
-
-	var senderKey *cryptoapi.PublicKey
-
-	err = json.Unmarshal(mKey, &senderKey)
-	if err != nil {
-		return nil, fmt.Errorf("fetchSenderPubKey: failed to unmarshal sender key from DB: %w", err)
+		return nil, fmt.Errorf("fetchSenderPubKey: %w", err)
 	}
 
 	ceAlg := aeadAlg[encAlg]

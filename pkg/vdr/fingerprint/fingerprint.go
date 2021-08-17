@@ -12,12 +12,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	didfingerprint "github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint/didfp"
 )
 
 const (
@@ -50,7 +49,8 @@ func CreateDIDKey(pubKey []byte) (string, string) {
 }
 
 // CreateDIDKeyByCode creates a did:key ID using the multicodec key fingerprint as per the did:key format spec found at:
-// https://w3c-ccg.github.io/did-method-key/#format.
+// https://w3c-ccg.github.io/did-method-key/#format. It does not parse the contents of 'pubKey'. Use
+// kmsdidkey.BuildDIDKeyByKeyType() for marshalled keys extracted from the KMS instead of this function.
 func CreateDIDKeyByCode(code uint64, pubKey []byte) (string, string) {
 	methodID := KeyFingerprint(code, pubKey)
 	didKey := fmt.Sprintf("did:key:%s", methodID)
@@ -155,21 +155,14 @@ func PubKeyFromFingerprint(fingerprint string) ([]byte, uint64, error) {
 // PubKeyFromDIDKey parses the did:key DID and returns the key's raw value.
 // note: for NIST P ECDSA keys, the raw value does not have the compression point.
 //	In order to use elliptic.Unmarshal() with the raw value, the uncompressed point ([]byte{4}) must be prepended.
-//	see https://github.com/golang/go/blob/master/src/crypto/elliptic/elliptic.go#L319.
+//	see https://github.com/golang/go/blob/master/src/crypto/elliptic/elliptic.go#L384.
 func PubKeyFromDIDKey(didKey string) ([]byte, error) {
-	id, err := did.Parse(didKey)
+	idMethodSpecificID, err := didfingerprint.MethodIDFromDIDKey(didKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse did:key [%s]: %w", didKey, err)
+		return nil, fmt.Errorf("pubKeyFromDIDKey: MethodIDFromDIDKey: %w", err)
 	}
 
-	// did:key is hard-coded to base58btc:
-	// - https://w3c-ccg.github.io/did-method-key/
-	// - https://github.com/multiformats/multibase#multibase-table
-	if !strings.HasPrefix(id.MethodSpecificID, "z") {
-		return nil, fmt.Errorf("not a valid did:key identifier (not a base58btc multicodec): %s", didKey)
-	}
-
-	pubKey, code, err := PubKeyFromFingerprint(id.MethodSpecificID)
+	pubKey, code, err := PubKeyFromFingerprint(idMethodSpecificID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +172,7 @@ func PubKeyFromDIDKey(didKey string) ([]byte, error) {
 		P256PubKeyMultiCodec, P384PubKeyMultiCodec, P521PubKeyMultiCodec:
 		break
 	default:
-		return nil, fmt.Errorf("unsupported key multicodec code [0x%x]", code)
+		return nil, fmt.Errorf("pubKeyFromDIDKey: unsupported key multicodec code [0x%x]", code)
 	}
 
 	return pubKey, nil

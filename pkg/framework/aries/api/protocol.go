@@ -47,6 +47,7 @@ type Provider interface {
 	JSONLDDocumentLoader() ld.DocumentLoader
 	KeyType() kms.KeyType
 	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // ProtocolSvcCreator method to create new protocol service.
