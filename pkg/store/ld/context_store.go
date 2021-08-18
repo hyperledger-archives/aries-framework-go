@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	jsonld "github.com/piprate/json-gold/ld"
@@ -48,6 +47,12 @@ func NewContextStore(storageProvider storage.Provider) (*ContextStoreImpl, error
 	store, err := storageProvider.OpenStore(ContextStoreName)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
+	}
+
+	err = storageProvider.SetStoreConfig(ContextStoreName,
+		storage.StoreConfiguration{TagNames: []string{ContextRecordTag}})
+	if err != nil {
+		return nil, fmt.Errorf("set store config: %w", err)
 	}
 
 	return &ContextStoreImpl{store: store}, nil
@@ -142,10 +147,6 @@ func (s *ContextStoreImpl) Delete(documents []ldcontext.Document) error {
 func computeContextHashes(store storage.Store) (map[string]string, error) {
 	iter, err := store.Query(ContextRecordTag)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			return map[string]string{}, nil
-		}
-
 		return nil, fmt.Errorf("query store: %w", err)
 	}
 

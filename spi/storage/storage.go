@@ -27,8 +27,9 @@ var ErrStoreNotFound = errors.New("store not found")
 var ErrDataNotFound = errors.New("data not found")
 
 // StoreConfiguration represents the configuration of a store.
+// Currently, it's only used for creating indexes in underlying storage databases.
 type StoreConfiguration struct {
-	// TagNames is a list of Tag names that key + value pairs in this store can be associated with.
+	// TagNames is a list of Tag names to create indexes on.
 	// Tag names cannot contain any ':' characters.
 	TagNames []string `json:"tagNames,omitempty"`
 }
@@ -98,12 +99,18 @@ func WithSortOrder(sortOptions *SortOptions) QueryOption {
 
 // Tag represents a Name + Value pair that can be associated with a key + value pair for querying later.
 type Tag struct {
-	// Name can be used to tag a given key + value pair as belonging to a group.
-	// Tag Names are static values that the store must be configured with (see TagNames in StoreConfiguration).
+	// Name can be used to tag a given key + value pair as belonging to some sort of common
+	// group. Example: Identifying a key+value pair as being a Verifiable Credential by storing it
+	// with a tag Name called "VC". When used with the optional Value (see below), tag Name + Value can be used to
+	// specify metadata for a given key + value pair. Example: Identifying a Verifiable Credential (stored as a
+	// key+value pair) as belonging to a user account by using a tag Name called "UserAccount" and a tag Value called
+	// "bob@example.com". Tag Names are intended to be static values that the store is configured with in order to build
+	// indexes for queries (see TagNames in StoreConfiguration).
 	// Tag Names cannot contain any ':' characters.
 	Name string `json:"name,omitempty"`
-	// Value can be used to indicate some optional metadata associated with a given key + value pair + tag name.
-	// Unlike Tag Names, Tag Values are dynamic and are not specified during store creation.
+	// Value can optionally be used to indicate some metadata associated with a tag name for a given key + value pair.
+	// See Name above for an example of how this can be used.
+	// Tag Values are dynamic and are not specified in a StoreConfiguration.
 	// Tag Values cannot contain any ':' characters.
 	Value string `json:"value,omitempty"`
 }
@@ -117,25 +124,33 @@ type Operation struct {
 
 // Provider represents a storage provider.
 type Provider interface {
-	// OpenStore opens a Store with the given name and returns a handle.
-	// If the underlying database for the given name has never been created before, then it is created.
+	// OpenStore opens a Store with the given name and returns it.
+	// Depending on the store implementation, this may or may not create an underlying database.
+	// The store implementation may defer creating the underlying database until SetStoreConfig is called or
+	// data is inserted using Store.Put or Store.Batch.
 	// Store names are not case-sensitive. If name is blank, then an error will be returned.
 	OpenStore(name string) (Store, error)
 
-	// SetStoreConfig sets the configuration on a Store. If the underlying database for the given name has never been
-	// created by a call to OpenStore at some point, then an error wrapping ErrStoreNotFound will be returned. This
-	// method will not open a Store in the Provider.
+	// SetStoreConfig sets the configuration on a Store. It's recommended calling this method at some point before
+	// calling Store.Query if your store contains a large amount of data. The underlying database will use this to
+	// create indexes to make querying via the Store.Query method faster. If you don't need to use Store.Query, then
+	// you don't need to call this method. OpenStore must be called first before calling this method. If not, then an
+	// error wrapping ErrStoreNotFound will be returned. This method will not open the store automatically.
 	// If name is blank, then an error will be returned.
 	SetStoreConfig(name string, config StoreConfiguration) error
 
 	// GetStoreConfig gets the current Store configuration.
-	// If the underlying database for the given name has never been
-	// created by a call to OpenStore at some point, then an error wrapping ErrStoreNotFound will be returned. This
-	// method will not open a store in the Provider.
+	// This method operates a bit differently in that it directly checks the underlying storage implementation to see
+	// if the underlying database exists for the given name, rather than checking the currently known list of
+	// open stores in memory. If no underlying database can be found, then an error wrapping ErrStoreNotFound will be
+	// returned. This means that this method can be used to determine whether an underlying database for a Store
+	// already exists or not. This method will not create the database automatically.
 	// If name is blank, then an error will be returned.
 	GetStoreConfig(name string) (StoreConfiguration, error)
 
-	// GetOpenStores returns all Stores currently open in the Provider.
+	// GetOpenStores returns all Stores that are currently open in memory from calling OpenStore.
+	// It does not check for all databases that have been created before. They have to have been opened in this Provider
+	// object's lifetime from a call to OpenStore.
 	GetOpenStores() []Store
 
 	// Close closes all open Stores in this Provider
@@ -169,6 +184,8 @@ type Store interface {
 	// If TagValue is not provided, then all data associated with the TagName will be returned.
 	// For now, expression can only be a single tag Name + Value pair.
 	// If no options are provided, then defaults will be used.
+	// If your store contains a large amount of data, then it's recommended calling Provider.SetStoreConfig at some
+	// point before calling this method in order to create indexes which will speed up queries.
 	Query(expression string, options ...QueryOption) (Iterator, error)
 
 	// Delete deletes the key + value pair (and all tags) associated with key.

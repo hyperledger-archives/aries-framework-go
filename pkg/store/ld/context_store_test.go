@@ -49,12 +49,24 @@ func TestNewContextStore(t *testing.T) {
 	t.Run("Fail to open store", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.ErrOpenStoreHandle = errors.New("open store error")
+		storageProvider.ErrSetStoreConfig = errors.New("set store config error")
 
 		store, err := ld.NewContextStore(storageProvider)
 
 		require.Nil(t, store)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "open store")
+	})
+
+	t.Run("Fail to set store config", func(t *testing.T) {
+		storageProvider := mockstorage.NewMockStoreProvider()
+		storageProvider.ErrSetStoreConfig = errors.New("set store config error")
+
+		store, err := ld.NewContextStore(storageProvider)
+
+		require.Nil(t, store)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "set store config")
 	})
 }
 
@@ -176,17 +188,6 @@ func TestContextStoreImpl_Import(t *testing.T) {
 
 		require.Equal(t, 1, store.BatchSize)
 		assertContextInStore(t, store, sampleContextURL, "updated-context")
-	})
-
-	t.Run("Import successfully when querying store for computing hashes returns ErrDataNotFound", func(t *testing.T) {
-		storageProvider := mockstorage.NewMockStoreProvider()
-		storageProvider.Store.ErrQuery = storage.ErrDataNotFound
-
-		contextStore, err := ld.NewContextStore(storageProvider)
-		require.NoError(t, err)
-
-		err = contextStore.Import(embed.Contexts)
-		require.NoError(t, err)
 	})
 
 	t.Run("Fail to query store for contexts", func(t *testing.T) {
