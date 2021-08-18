@@ -23,7 +23,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210807121559-b41545a4f1e8
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210807121559-b41545a4f1e8
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210807121559-b41545a4f1e8
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210818133831-4e22573c126d
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2

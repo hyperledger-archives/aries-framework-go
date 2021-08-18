@@ -13,7 +13,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210603182844-353ecb34cf4d
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210807121559-b41545a4f1e8
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210807121559-b41545a4f1e8
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210818133831-4e22573c126d
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
