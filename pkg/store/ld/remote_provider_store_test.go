@@ -37,6 +37,17 @@ func TestNewRemoteProviderStore(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "open store")
 	})
+
+	t.Run("Fail to set store config", func(t *testing.T) {
+		storageProvider := mockstorage.NewMockStoreProvider()
+		storageProvider.ErrSetStoreConfig = errors.New("set store config error")
+
+		store, err := ld.NewRemoteProviderStore(storageProvider)
+
+		require.Nil(t, store)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "set store config")
+	})
 }
 
 func TestRemoteProviderStoreImpl_Get(t *testing.T) {

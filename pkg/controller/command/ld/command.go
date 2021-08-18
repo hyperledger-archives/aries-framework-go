@@ -105,11 +105,11 @@ func (c *Command) AddContexts(w io.Writer, r io.Reader) command.Error {
 	var req AddContextsRequest
 
 	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
+		return commandError(AddContextsCommandMethod, InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
 	}
 
 	if err := c.service.AddContexts(req.Documents); err != nil {
-		return commandError(AddContextsErrorCode, fmt.Errorf("import contexts: %w", err))
+		return commandError(AddContextsCommandMethod, AddContextsErrorCode, fmt.Errorf("import contexts: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -124,12 +124,14 @@ func (c *Command) AddRemoteProvider(w io.Writer, r io.Reader) command.Error {
 	var req AddRemoteProviderRequest
 
 	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
+		return commandError(AddRemoteProviderCommandMethod, InvalidRequestErrorCode,
+			fmt.Errorf("decode request: %w", err))
 	}
 
 	providerID, err := c.service.AddRemoteProvider(req.Endpoint, remote.WithHTTPClient(c.httpClient))
 	if err != nil {
-		return commandError(AddRemoteProviderErrorCode, fmt.Errorf("add remote provider: %w", err))
+		return commandError(AddRemoteProviderCommandMethod, AddRemoteProviderErrorCode,
+			fmt.Errorf("add remote provider: %w", err))
 	}
 
 	command.WriteNillableResponse(w, &ProviderID{ID: providerID}, logger)
@@ -144,11 +146,13 @@ func (c *Command) RefreshRemoteProvider(w io.Writer, r io.Reader) command.Error 
 	var req ProviderID
 
 	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
+		return commandError(RefreshRemoteProviderCommandMethod, InvalidRequestErrorCode,
+			fmt.Errorf("decode request: %w", err))
 	}
 
 	if err := c.service.RefreshRemoteProvider(req.ID, remote.WithHTTPClient(c.httpClient)); err != nil {
-		return commandError(RefreshRemoteProviderErrorCode, fmt.Errorf("refresh remote provider: %w", err))
+		return commandError(RefreshRemoteProviderCommandMethod, RefreshRemoteProviderErrorCode,
+			fmt.Errorf("refresh remote provider: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -163,11 +167,13 @@ func (c *Command) DeleteRemoteProvider(w io.Writer, r io.Reader) command.Error {
 	var req ProviderID
 
 	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return commandError(InvalidRequestErrorCode, fmt.Errorf("decode request: %w", err))
+		return commandError(DeleteRemoteProviderCommandMethod, InvalidRequestErrorCode,
+			fmt.Errorf("decode request: %w", err))
 	}
 
 	if err := c.service.DeleteRemoteProvider(req.ID, remote.WithHTTPClient(c.httpClient)); err != nil {
-		return commandError(DeleteRemoteProviderErrorCode, fmt.Errorf("delete remote provider: %w", err))
+		return commandError(DeleteRemoteProviderCommandMethod, DeleteRemoteProviderErrorCode,
+			fmt.Errorf("delete remote provider: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -181,7 +187,8 @@ func (c *Command) DeleteRemoteProvider(w io.Writer, r io.Reader) command.Error {
 func (c *Command) GetAllRemoteProviders(w io.Writer, _ io.Reader) command.Error {
 	records, err := c.service.GetAllRemoteProviders()
 	if err != nil {
-		return commandError(GetAllRemoteProvidersErrorCode, fmt.Errorf("get remote providers: %w", err))
+		return commandError(GetAllRemoteProvidersCommandMethod, GetAllRemoteProvidersErrorCode,
+			fmt.Errorf("get remote providers: %w", err))
 	}
 
 	command.WriteNillableResponse(w, &GetAllRemoteProvidersResponse{Providers: records}, logger)
@@ -194,7 +201,8 @@ func (c *Command) GetAllRemoteProviders(w io.Writer, _ io.Reader) command.Error 
 // RefreshAllRemoteProviders command updates contexts from all remote providers.
 func (c *Command) RefreshAllRemoteProviders(w io.Writer, _ io.Reader) command.Error {
 	if err := c.service.RefreshAllRemoteProviders(remote.WithHTTPClient(c.httpClient)); err != nil {
-		return commandError(RefreshAllRemoteProvidersErrorCode, fmt.Errorf("refresh remote providers: %w", err))
+		return commandError(RefreshAllRemoteProvidersCommandMethod, RefreshAllRemoteProvidersErrorCode,
+			fmt.Errorf("refresh remote providers: %w", err))
 	}
 
 	command.WriteNillableResponse(w, nil, logger)
@@ -204,8 +212,8 @@ func (c *Command) RefreshAllRemoteProviders(w io.Writer, _ io.Reader) command.Er
 	return nil
 }
 
-func commandError(errorCode command.Code, err error) command.Error {
-	logutil.LogInfo(logger, CommandName, AddContextsCommandMethod, err.Error())
+func commandError(action string, errorCode command.Code, err error) command.Error {
+	logutil.LogInfo(logger, CommandName, action, err.Error())
 
 	return command.NewValidationError(errorCode, err)
 }

@@ -48,6 +48,12 @@ func NewRemoteProviderStore(storageProvider storage.Provider) (*RemoteProviderSt
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
+	err = storageProvider.SetStoreConfig(RemoteProviderStoreName,
+		storage.StoreConfiguration{TagNames: []string{RemoteProviderRecordTag}})
+	if err != nil {
+		return nil, fmt.Errorf("set store config: %w", err)
+	}
+
 	return &RemoteProviderStoreImpl{store: store}, nil
 }
 
