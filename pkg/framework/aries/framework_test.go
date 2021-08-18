@@ -114,7 +114,8 @@ func TestFramework(t *testing.T) {
 					return &didcomm.MockAuthCrypt{
 						EncryptValue: nil,
 					}, nil
-				}))
+				}),
+			WithMediaTypeProfiles([]string{"mockProfile"}))
 		require.NoError(t, err)
 
 		// context

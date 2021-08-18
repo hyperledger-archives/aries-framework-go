@@ -33,6 +33,7 @@ type provider interface {
 	TransportReturnRoute() string
 	VDRegistry() vdr.Registry
 	KMS() kms.KeyManager
+	KeyAgreementType() kms.KeyType
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	MediaTypeProfiles() []string
@@ -50,6 +51,7 @@ type OutboundDispatcher struct {
 	transportReturnRoute string
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
+	keyAgreementType     kms.KeyType
 	connections          connectionLookup
 	mediaTypeProfiles    []string
 }
@@ -64,6 +66,7 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRegistry(),
 		kms:                  prov.KMS(),
+		keyAgreementType:     prov.KeyAgreementType(),
 		mediaTypeProfiles:    prov.MediaTypeProfiles(),
 	}
 
@@ -119,7 +122,6 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 
 	// We get at least one recipient key, so we can use the first one
 	//  (right now, with only one key type used for sending)
-	// TODO: relies on hardcoded key type
 	key := src.RecipientKeys[0]
 
 	return o.Send(msg, key, dest)
@@ -157,7 +159,7 @@ func (o *OutboundDispatcher) mediaTypeProfilesFromConnection(mediaTypes []string
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-// nolint:gocyclo
+//nolint:gocyclo
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		// check if outbound accepts routing keys, else use recipient keys
@@ -180,18 +182,17 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		// update the outbound message with transport return route option [all or thread]
 		req, err = o.addTransportRouteOptions(req, des)
 		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options : %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
 		}
 
-		sender, err := fingerprint.PubKeyFromDIDKey(senderVerKey)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to extract pubKeyBytes from senderVerKey: %w", err)
+		if !strings.HasPrefix(senderVerKey, "did:key") {
+			return fmt.Errorf("outboundDispatcher.Send: sender key is not did:key (value:'%v')", senderVerKey)
 		}
 
 		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-			MediaTypeProfile: mediaTypeProfile(des),
+			MediaTypeProfile: o.mediaTypeProfile(des),
 			Message:          req,
-			FromKey:          sender,
+			FromKey:          []byte(senderVerKey),
 			ToKeys:           des.RecipientKeys,
 		})
 		if err != nil {
@@ -203,7 +204,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 
 		packedMsg, err = o.createForwardMessage(packedMsg, des)
 		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to create forward msg : %w", err)
+			return fmt.Errorf("outboundDispatcher.Send: failed to create forward msg: %w", err)
 		}
 
 		_, err = v.Send(packedMsg, des)
@@ -268,16 +269,19 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	}
 
 	// create key set
-	// TODO: why createForwardMessage require a new key on each call? It should be pulled from the DID doc instead.
+	// TODO: use anoncrypt packer (ie senderVerKey=nil) instead of creating a new key when using DIDComm V2.
 	_, senderVerKey, err := o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
-		return nil, fmt.Errorf("failed Create and export SigningKey: %w", err)
+		return nil, fmt.Errorf("failed Create and export Encryption Key: %w", err)
 	}
 
+	// TODO remove for DIDComm V2 (same as above comment).
+	senderDIDKey, _ := fingerprint.CreateDIDKey(senderVerKey)
+
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-		MediaTypeProfile: mediaTypeProfile(des),
+		MediaTypeProfile: o.mediaTypeProfile(des),
 		Message:          req,
-		FromKey:          senderVerKey,
+		FromKey:          []byte(senderDIDKey),
 		ToKeys:           des.RoutingKeys,
 	})
 	if err != nil {
@@ -314,7 +318,7 @@ func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.D
 	return req, nil
 }
 
-func mediaTypeProfile(des *service.Destination) string {
+func (o *OutboundDispatcher) mediaTypeProfile(des *service.Destination) string {
 	mt := ""
 
 	if len(des.MediaTypeProfiles) > 0 {
@@ -331,10 +335,14 @@ func mediaTypeProfile(des *service.Destination) string {
 				mt = mtp
 			case transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2PlaintextPayload,
 				transport.MediaTypeDIDCommV2Profile:
-				// V2 is highest priority, if found use it directly.
+				// V2 is the highest priority, if found use it directly.
 				return mtp
 			}
 		}
+	}
+
+	if mt == "" {
+		return o.defaultMediaTypeProfiles()[0]
 	}
 
 	return mt

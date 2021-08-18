@@ -90,6 +90,15 @@ func TestPrepareDestination(t *testing.T) {
 		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
 
+	t.Run("error with destination having recipientKeys not did:keys", func(t *testing.T) {
+		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc.Service[0].RecipientKeys = []string{"badKey"}
+		dest, err := CreateDestination(doc)
+
+		require.EqualError(t, err, "create destination: recipient key 1:[badKey] of didComm '' not a did:key")
+		require.Nil(t, dest)
+	})
+
 	t.Run("error while getting service", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service = nil

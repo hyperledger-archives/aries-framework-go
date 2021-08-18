@@ -586,9 +586,10 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}
 
 	return &service.Destination{
-		RecipientKeys:   invitation.RecipientKeys,
-		ServiceEndpoint: invitation.ServiceEndpoint,
-		RoutingKeys:     invitation.RoutingKeys,
+		RecipientKeys:     invitation.RecipientKeys,
+		ServiceEndpoint:   invitation.ServiceEndpoint,
+		RoutingKeys:       invitation.RoutingKeys,
+		MediaTypeProfiles: ctx.mediaTypeProfiles,
 	}, nil
 }
 
@@ -937,6 +938,7 @@ func (ctx *context) resolveVerKey(i *OOBInvitation) (string, error) {
 
 	logger.Debugf("extracted verkey=%s", svc.RecipientKeys[0])
 
+	// use RecipientKeys[0] (DIDComm V1)
 	return svc.RecipientKeys[0], nil
 }
 

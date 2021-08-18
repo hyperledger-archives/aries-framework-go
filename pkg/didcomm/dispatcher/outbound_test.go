@@ -39,6 +39,7 @@ func TestNewOutbound(t *testing.T) {
 			storageProvider: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: expected,
 			},
+			mediaTypeProfiles: []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.ErrorIs(t, err, expected)
 	})
@@ -51,6 +52,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeV1PlaintextPayload},
 		})
 		require.NoError(t, err)
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
@@ -62,6 +64,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
@@ -75,6 +78,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
@@ -90,6 +94,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
@@ -103,6 +108,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -122,6 +128,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -130,8 +137,8 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			RecipientKeys:   []string{"abc"},
 			RoutingKeys:     []string{"xyz"},
 		})
-		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg : failed Create "+
-			"and export SigningKey: create and export key error")
+		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg: failed Create "+
+			"and export Encryption Key: create and export key error")
 	})
 
 	t.Run("test send with forward message - packer error", func(t *testing.T) {
@@ -140,6 +147,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -158,6 +166,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -185,6 +194,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -207,6 +217,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -380,6 +391,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: transportReturnRoute,
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
 			storageProvider:      mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -413,6 +425,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: transportReturnRoute,
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -438,6 +451,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: "",
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -451,6 +465,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 			transportReturnRoute: transportReturnRoute,
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
@@ -469,6 +484,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		require.NoError(t, o.Forward("data", &service.Destination{ServiceEndpoint: "url"}))
@@ -480,6 +496,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}},
 			storageProvider:         mockstore.NewMockStoreProvider(),
 			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
@@ -495,6 +512,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
@@ -522,6 +540,7 @@ type mockProvider struct {
 	storageProvider         storage.Provider
 	protoStorageProvider    storage.Provider
 	mediaTypeProfiles       []string
+	keyAgreementType        kms.KeyType
 }
 
 func (p *mockProvider) Packager() transport.Packager {
@@ -558,6 +577,10 @@ func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
 
 func (p *mockProvider) MediaTypeProfiles() []string {
 	return p.mediaTypeProfiles
+}
+
+func (p *mockProvider) KeyAgreementType() kms.KeyType {
+	return p.keyAgreementType
 }
 
 // mockOutboundTransport mock outbound transport.

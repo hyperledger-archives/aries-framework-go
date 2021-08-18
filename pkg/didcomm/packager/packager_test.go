@@ -21,11 +21,13 @@ import (
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
@@ -49,12 +51,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
 			crypto:        cryptoSvc,
+			vdr:           &mockvdr.MockVDRegistry{},
 		}
+
 		testPacker, err := authcrypt.New(mockedProviders, jose.A128CBCHS256)
 		require.NoError(t, err)
 
@@ -78,6 +81,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			primaryPacker: nil,
 			packers:       nil,
 			crypto:        cryptoSvc,
+			vdr:           &mockvdr.MockVDRegistry{},
 		}
 		testPacker, err := authcrypt.New(mockedProviders, jose.A192CBCHS384)
 		require.NoError(t, err)
@@ -111,11 +115,6 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			Store: storeMap,
 		}
 
-		thirdPartyKeysStoreMap := make(map[string]mockstorage.DBEntry)
-		thirdPartyStore := &mockstorage.MockStore{
-			Store: thirdPartyKeysStoreMap,
-		}
-
 		// create a customKMS with a custom storage provider using the above store to access the store map.
 		customKMS, err := localkms.New(localKeyURI,
 			newMockKMSProvider(mockstorage.NewCustomMockStoreProvider(customStore)))
@@ -123,11 +122,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NotEmpty(t, customKMS)
 
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewCustomMockStoreProvider(thirdPartyStore),
 			kms:           customKMS,
 			crypto:        cryptoSvc,
 			primaryPacker: nil,
 			packers:       nil,
+			vdr:           &mockvdr.MockVDRegistry{},
 		}
 		testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
 		require.NoError(t, err)
@@ -138,28 +137,25 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// fromKey is stored in the KMS
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
+		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
-		// for authcrypt, sender key should be in third party store, must use base58 wrapped store to match kms store.
-		wThirdPartyStore, err := prefix.NewPrefixStoreWrapper(thirdPartyStore, prefix.StorageKIDPrefix)
-		require.NoError(t, err)
-
-		err = wThirdPartyStore.Put(fromKID, fromKey)
+		fromDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(fromKey, kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
-		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKW)
+		toKID, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 		require.NoError(t, err)
 
-		didKey, _ := fingerprint.CreateDIDKey(toKey)
+		toDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(toKey, kms.NISTP256ECDHKWType)
+		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to keys
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
 			Message:          []byte("msg1"),
-			FromKey:          []byte(fromKID), // authcrypt uses sender's KID as Fromkey value
-			ToKeys:           []string{didKey},
+			FromKey:          []byte(fromDIDKey),
+			ToKeys:           []string{toDIDKey},
 		})
 		require.NoError(t, err)
 
@@ -183,11 +179,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
 			crypto:        cryptoSvc,
+			vdr:           &mockvdr.MockVDRegistry{},
 		}
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
@@ -208,13 +204,17 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// use ECDH1PU type as we are using a sender key (ie: packer's FromKey is not empty aka authcrypt)
-		fromKID, _, err := customKMS.Create(kms.NISTP384ECDHKWType)
+		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKWType)
+		require.NoError(t, err)
+
+		fromDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(fromKey, kms.NISTP384ECDHKWType)
 		require.NoError(t, err)
 
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP384ECDHKWType)
 		require.NoError(t, err)
 
-		didKey, _ := fingerprint.CreateDIDKey(toKey)
+		toDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(toKey, kms.NISTP384ECDHKWType)
+		require.NoError(t, err)
 
 		// try pack with nil envelope - should fail
 		packMsg, err := packager.PackMessage(nil)
@@ -225,8 +225,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packMsg, err = packager.PackMessage(&transport.Envelope{
 			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
 			Message:          []byte("msg1"),
-			FromKey:          []byte(fromKID),
-			ToKeys:           []string{didKey},
+			FromKey:          []byte(fromDIDKey),
+			ToKeys:           []string{toDIDKey},
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, packMsg)
@@ -248,8 +248,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packMsg, err = packager.PackMessage(&transport.Envelope{
 			MediaTypeProfile: transport.MediaTypeV1EncryptedEnvelope,
 			Message:          []byte("msg1"),
-			FromKey:          []byte(fromKID),
-			ToKeys:           []string{didKey},
+			FromKey:          []byte(fromDIDKey),
+			ToKeys:           []string{toDIDKey},
 		})
 		require.Error(t, err)
 		require.Empty(t, packMsg)
@@ -257,18 +257,23 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
-		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
-		thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
-		customStore := &mockstorage.MockStore{
-			Store: thirdPartyKeyStore,
-		}
+		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
+		require.NoError(t, err)
+
+		fromDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(fromKey, kms.NISTP256ECDHKWType)
+		require.NoError(t, err)
+
+		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
+		require.NoError(t, err)
+
+		toDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(toKey, kms.NISTP256ECDHKWType)
+		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewCustomMockStoreProvider(customStore),
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
@@ -287,26 +292,21 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		fromKID, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		didKey, _ := fingerprint.CreateDIDKey(toKey)
-
 		// legacy packer uses ED25519 keys only
-		_, fromKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
+		_, fromKeyED25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
+
+		fromDIDKeyED25519, _ := fingerprint.CreateDIDKey(fromKeyED25519)
 
 		_, toKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
 		require.NoError(t, err)
 
-		legacyDIDKey, _ := fingerprint.CreateDIDKey(toKeyEd25519)
+		toLegacyDIDKey, _ := fingerprint.CreateDIDKey(toKeyEd25519)
 
 		tests := []struct {
-			name      string
-			mediaType string
+			name              string
+			mediaType         string
+			isKeyAgreementKey bool
 		}{
 			{
 				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeRFC0019EncryptedEnvelope),
@@ -344,6 +344,17 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeDIDCommV2Profile),
 				mediaType: transport.MediaTypeDIDCommV2Profile,
 			},
+			{
+				name: fmt.Sprintf("success using mediaType %s with KeyAgreement",
+					transport.MediaTypeAIP2RFC0587Profile),
+				mediaType:         transport.MediaTypeAIP2RFC0587Profile,
+				isKeyAgreementKey: true,
+			},
+			{
+				name:              fmt.Sprintf("success using mediaType %s with KeyAgreement", transport.MediaTypeDIDCommV2Profile),
+				mediaType:         transport.MediaTypeDIDCommV2Profile,
+				isKeyAgreementKey: true,
+			},
 		}
 
 		for _, tt := range tests {
@@ -352,19 +363,19 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				var (
 					fromKIDPack []byte
-					toKeysPack  []string
+					toKIDsPack  []string
 				)
 
 				switch tc.mediaType {
-				case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
-					transport.MediaTypeAIP2RFC0019Profile:
-					fromKIDPack = fromKeyEd25519
-					toKeysPack = []string{legacyDIDKey}
-				case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
-					transport.MediaTypeV2PlaintextPayload, transport.MediaTypeV2EncryptedEnvelope,
-					transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeDIDCommV2Profile:
-					fromKIDPack = []byte(fromKID)
-					toKeysPack = []string{didKey}
+				case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
+					fromKIDPack = []byte(fromDIDKeyED25519)
+					toKIDsPack = []string{toLegacyDIDKey}
+				case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
+					transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2PlaintextPayload,
+					transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeAIP2RFC0587Profile,
+					transport.MediaTypeDIDCommV2Profile:
+					fromKIDPack = []byte(fromDIDKey)
+					toKIDsPack = []string{toDIDKey}
 				}
 
 				// pack an non empty envelope using packer selected by mediaType - should pass
@@ -372,14 +383,9 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 					MediaTypeProfile: tc.mediaType,
 					Message:          []byte("msg"),
 					FromKey:          fromKIDPack,
-					ToKeys:           toKeysPack,
+					ToKeys:           toKIDsPack,
 				})
 				require.NoError(t, err)
-
-				// for unpacking authcrypt (ECDH1PU), the assumption is the recipient has received the sender's key
-				// adding the key in the thirdPartyKeyStore of the recipient, stored using StorePrefixWrapper
-				fromWrappedKID := prefix.StorageKIDPrefix + fromKID
-				thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: fromKey}
 
 				// unpack the packed message above - should pass and match the same payload (msg1)
 				unpackedMsg, err := packager.UnpackMessage(packMsg)
@@ -397,7 +403,6 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
-			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           customKMS,
 			primaryPacker: nil,
 			packers:       nil,
@@ -417,17 +422,19 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
+		fromDIDKey, _ := fingerprint.CreateDIDKey(fromKey)
+
 		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
 
-		didKey, _ := fingerprint.CreateDIDKey(toKey)
+		toDIDKey, _ := fingerprint.CreateDIDKey(toKey)
 
 		// pack an non empty envelope - should pass
 		packMsg, err := packager.PackMessage(&transport.Envelope{
 			// not passing CTY intentionally because packager.primaryPacker is legacyPacker (it ignores CTY).
 			Message: []byte("msg1"),
-			FromKey: fromKey,
-			ToKeys:  []string{didKey},
+			FromKey: []byte(fromDIDKey),
+			ToKeys:  []string{toDIDKey},
 		})
 		require.NoError(t, err)
 

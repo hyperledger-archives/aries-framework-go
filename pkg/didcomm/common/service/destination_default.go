@@ -10,6 +10,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
@@ -30,8 +31,12 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
 	}
 
-	// TODO ensure recipient keys are did:key's
-	//  https://github.com/hyperledger/aries-framework-go/issues/1604
+	for i, k := range didCommService.RecipientKeys {
+		if !strings.HasPrefix(k, "did:") {
+			return nil, fmt.Errorf("create destination: recipient key %d:[%v] of didComm '%s' not a did:key", i+1,
+				k, didCommService.ID)
+		}
+	}
 
 	return &Destination{
 		RecipientKeys:     didCommService.RecipientKeys,

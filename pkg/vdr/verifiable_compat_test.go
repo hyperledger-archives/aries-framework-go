@@ -180,7 +180,7 @@ func newKeyAgreementVM(t *testing.T, p *context.Provider, controller string) did
 	_, encPubKey, err := p.KMS().CreateAndExportPubKeyBytes(p.KeyAgreementType())
 	require.NoError(t, err)
 
-	encDIDKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(encPubKey, p.KeyAgreementType())
+	encDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(encPubKey, p.KeyAgreementType())
 	require.NoError(t, err)
 
 	const didPKID = "%s#keys-%d"
@@ -204,7 +204,7 @@ func getSigningKey(t *testing.T, a *context.Provider) did.VerificationMethod {
 	keyID, pubBytes, err := a.KMS().CreateAndExportPubKeyBytes(a.KeyType())
 	require.NoError(t, err)
 
-	didKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(pubBytes, a.KeyType())
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubBytes, a.KeyType())
 	require.NoError(t, err)
 
 	id := fmt.Sprintf(didFormat, method, didKey[:16])

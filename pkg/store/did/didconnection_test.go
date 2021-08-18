@@ -101,7 +101,7 @@ func TestBaseConnectionStore(t *testing.T) {
 		connStore, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
-		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDoc(t))
+		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDocWithKeyAgreements(t))
 		require.NoError(t, err)
 	})
 

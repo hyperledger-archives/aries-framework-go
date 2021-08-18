@@ -99,7 +99,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	}
 }
 
-// CreateDID reate did.
+// CreateDID create did.
 func (o *Command) CreateDID(rw io.Writer, req io.Reader) command.Error {
 	var request CreateDIDRequest
 
