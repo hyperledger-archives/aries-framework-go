@@ -8,6 +8,7 @@ package fingerprint
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"encoding/base64"
 	"math/big"
@@ -174,11 +175,26 @@ func TestCreateDIDKeyByJwk(t *testing.T) {
 		name     string
 		kty      string
 		curve    elliptic.Curve
+		valB58   string
 		x        string
 		y        string
 		DIDKey   string
 		DIDKeyID string
 	}{
+		{
+			name:     "test Ed25519",
+			kty:      "OKP",
+			valB58:   "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u",
+			DIDKey:   "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+			DIDKeyID: "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH", //nolint:lll
+		},
+		{
+			name:     "test X25519",
+			kty:      "OKP",
+			valB58:   "4Dy8E9UaZscuPUf2GLxV44RCNL7oxmEXXkgWXaug1WKV",
+			DIDKey:   "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F",
+			DIDKeyID: "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F", //nolint:lll
+		},
 		{
 			name:     "test P-256",
 			kty:      "EC",
@@ -219,25 +235,42 @@ func TestCreateDIDKeyByJwk(t *testing.T) {
 
 	for _, test := range tests {
 		tc := test
-		t.Run(tc.name+" CreateDIDKeyByJwk", func(t *testing.T) {
-			x := readBigInt(t, tc.x)
-			y := readBigInt(t, tc.y)
-			publicKey := ecdsa.PublicKey{
-				Curve: tc.curve,
-				X:     x,
-				Y:     y,
-			}
 
-			jwkKey, err := jwksupport.JWKFromKey(&publicKey)
-			if tc.name == "test EC with invalid curve" {
-				require.EqualError(t, err, "create JWK: square/go-jose: unsupported/unknown elliptic curve")
-				jwkKey = &jwk.JWK{
-					JSONWebKey: jose.JSONWebKey{},
-					Kty:        "EC",
-					Crv:        "invalid",
-				}
-			} else {
+		var (
+			jwkKey *jwk.JWK
+			err    error
+		)
+
+		t.Run(tc.name+" CreateDIDKeyByJwk", func(t *testing.T) {
+			switch tc.name {
+			case "test Ed25519":
+				edKey := ed25519.PublicKey(base58.Decode(tc.valB58))
+				jwkKey, err = jwksupport.JWKFromKey(edKey)
 				require.NoError(t, err)
+			case "test X25519":
+				jwkKey, err = jwksupport.JWKFromX25519Key(base58.Decode(tc.valB58))
+				require.NoError(t, err)
+			default:
+				x := readBigInt(t, tc.x)
+				y := readBigInt(t, tc.y)
+				publicKey := ecdsa.PublicKey{
+					Curve: tc.curve,
+					X:     x,
+					Y:     y,
+				}
+
+				jwkKey, err = jwksupport.JWKFromKey(&publicKey)
+
+				if tc.name == "test EC with invalid curve" {
+					require.EqualError(t, err, "create JWK: square/go-jose: unsupported/unknown elliptic curve")
+					jwkKey = &jwk.JWK{
+						JSONWebKey: jose.JSONWebKey{},
+						Kty:        "EC",
+						Crv:        "invalid",
+					}
+				} else {
+					require.NoError(t, err)
+				}
 			}
 
 			didKey, keyID, err := CreateDIDKeyByJwk(jwkKey)
@@ -285,6 +318,23 @@ func TestDIDKeyEd25519(t *testing.T) {
 	pubKey, err := PubKeyFromDIDKey(k1)
 	require.Equal(t, k1Base58, base58.Encode(pubKey))
 	require.NoError(t, err)
+}
+
+func TestDIDKeyX25519(t *testing.T) {
+	const (
+		x25519DIDKey = "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"
+		x25519Base58 = "4Dy8E9UaZscuPUf2GLxV44RCNL7oxmEXXkgWXaug1WKV"
+		keyIDX25519  = "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F" //nolint:lll
+	)
+
+	didKey, keyID := CreateDIDKeyByCode(X25519PubKeyMultiCodec, base58.Decode(x25519Base58))
+
+	require.Equal(t, x25519DIDKey, didKey)
+	require.Equal(t, keyID, keyIDX25519)
+
+	pubKey, err := PubKeyFromDIDKey(x25519DIDKey)
+	require.NoError(t, err)
+	require.Equal(t, x25519Base58, base58.Encode(pubKey))
 }
 
 func TestPubKeyFromDIDKeyFailure(t *testing.T) {

@@ -8,6 +8,7 @@ package fingerprint
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"encoding/binary"
 	"errors"
@@ -68,22 +69,9 @@ func CreateDIDKeyByJwk(jsonWebKey *jwk.JWK) (string, string, error) {
 
 	switch jsonWebKey.Kty {
 	case "EC":
-		var curve elliptic.Curve
-
-		var code uint64
-
-		switch jsonWebKey.Crv {
-		case elliptic.P256().Params().Name:
-			curve = elliptic.P256()
-			code = P256PubKeyMultiCodec
-		case elliptic.P384().Params().Name:
-			curve = elliptic.P384()
-			code = P384PubKeyMultiCodec
-		case elliptic.P521().Params().Name:
-			curve = elliptic.P521()
-			code = P521PubKeyMultiCodec
-		default:
-			return "", "", fmt.Errorf("unsupported crv %s", jsonWebKey.Crv)
+		code, curve, err := ecCodeAndCurve(jsonWebKey.Crv)
+		if err != nil {
+			return "", "", err
 		}
 
 		switch key := jsonWebKey.Key.(type) {
@@ -93,11 +81,56 @@ func CreateDIDKeyByJwk(jsonWebKey *jwk.JWK) (string, string, error) {
 
 			return didKey, keyID, nil
 		default:
-			return "", "", fmt.Errorf("unexpected key type")
+			return "", "", fmt.Errorf("unexpected EC key type %T", key)
+		}
+	case "OKP":
+		var code uint64
+
+		switch jsonWebKey.Crv {
+		case "X25519":
+			code = X25519PubKeyMultiCodec
+		case "Ed25519":
+			code = ED25519PubKeyMultiCodec
+		}
+
+		switch key := jsonWebKey.Key.(type) {
+		case ed25519.PublicKey:
+			didKey, keyID := CreateDIDKey(key)
+
+			return didKey, keyID, nil
+		case []byte:
+			didKey, keyID := CreateDIDKeyByCode(code, key)
+
+			return didKey, keyID, nil
+		default:
+			return "", "", fmt.Errorf("unexpected OKP key type %T", key)
 		}
 	default:
 		return "", "", fmt.Errorf("unsupported kty %s", jsonWebKey.Kty)
 	}
+}
+
+func ecCodeAndCurve(ecCurve string) (uint64, elliptic.Curve, error) {
+	var (
+		curve elliptic.Curve
+		code  uint64
+	)
+
+	switch ecCurve {
+	case elliptic.P256().Params().Name:
+		curve = elliptic.P256()
+		code = P256PubKeyMultiCodec
+	case elliptic.P384().Params().Name:
+		curve = elliptic.P384()
+		code = P384PubKeyMultiCodec
+	case elliptic.P521().Params().Name:
+		curve = elliptic.P521()
+		code = P521PubKeyMultiCodec
+	default:
+		return 0, nil, fmt.Errorf("unsupported crv %s", ecCurve)
+	}
+
+	return code, curve, nil
 }
 
 // KeyFingerprint generates a multicode fingerprint for pubKeyValue (raw key []byte).
