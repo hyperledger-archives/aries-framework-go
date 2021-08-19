@@ -22,13 +22,32 @@ import (
 type TestOption func(opts *testOptions)
 
 type testOptions struct {
-	checkIteratorTotalItemCounts bool
+	skipTotalItemTests                            bool
+	onlySkipTotalItemTestsThatDoNotSetStoreConfig bool
+	skipSortTests                                 bool
+	onlySkipSortTestsThatDoNotSetStoreConfig      bool
 }
 
-// WithIteratorTotalItemCountTests makes iterator tests check total item counts.
-func WithIteratorTotalItemCountTests() TestOption {
+// SkipIteratorTotalItemTests causes all checks of an iterator's TotalItems method to be skipped.
+// If onlySkipTestsThatDoNotSetStoreConfig is set to true, then instead of skipping all TotalItems tests,
+// only those that don't set a store configuration will be skipped. This option is designed to allow storage
+// implementations that don't have the TotalItems method implemented (or can only run it when a store config is set) to
+// disable specific tests while still running as many tests as possible from this test suite.
+func SkipIteratorTotalItemTests(onlySkipTestsThatDoNotSetStoreConfig bool) TestOption {
 	return func(opts *testOptions) {
-		opts.checkIteratorTotalItemCounts = true
+		opts.skipTotalItemTests = true
+		opts.onlySkipTotalItemTestsThatDoNotSetStoreConfig = onlySkipTestsThatDoNotSetStoreConfig
+	}
+}
+
+// SkipSortTests skips all tests that do queries with sort options. If onlySkipTestsThatDoNotSetStoreConfig is set to
+// true, then instead of skipping all sort tests, only those that don't set a store configuration will be skipped. This
+// option is designed to allow storage implementations that don't support query sort options (or can only sort when a
+// store config is set) to disable specific tests while still running as many tests as possible from this test suite.
+func SkipSortTests(onlySkipTestsThatDoNotSetStoreConfig bool) TestOption {
+	return func(opts *testOptions) {
+		opts.skipSortTests = true
+		opts.onlySkipSortTestsThatDoNotSetStoreConfig = onlySkipTestsThatDoNotSetStoreConfig
 	}
 }
 
@@ -46,9 +65,10 @@ func getOptions(opts []TestOption) testOptions {
 
 // TestAll tests common storage functionality.
 // These tests demonstrate behaviour that is expected to be consistent across store implementations.
-// The spi.Iterator interface has a TotalItems method, but some implementations may not have it implemented yet.
-// For those that do, pass in WithIteratorTotalItemCountTests to enable those tests.
+// Some tests can be skipped by passing in the appropriate TestOptions here.
 func TestAll(t *testing.T, provider spi.Provider, opts ...TestOption) {
+	options := getOptions(opts)
+
 	// Run this first so the store count is predictable.
 	t.Run("Provider: GetOpenStores", func(t *testing.T) {
 		TestProviderGetOpenStores(t, provider)
@@ -70,8 +90,10 @@ func TestAll(t *testing.T, provider spi.Provider, opts ...TestOption) {
 			TestStoreDelete(t, provider)
 		})
 		t.Run("Query", func(t *testing.T) {
-			TestStoreQuery(t, provider, opts...)
-			TestStoreQueryWithSortingAndInitialPageOptions(t, provider, opts...)
+			TestStoreQuery(t, provider, options)
+			if !options.skipSortTests {
+				TestStoreQueryWithSortingAndInitialPageOptions(t, provider, options)
+			}
 		})
 		t.Run("Batch", func(t *testing.T) {
 			TestStoreBatch(t, provider)
@@ -234,11 +256,22 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		require.Nil(t, store)
 	})
 	t.Run("Demonstrate that store names are not case-sensitive", func(t *testing.T) {
-		// Per the interface, store names are not supposed to be case sensitive in order to ensure consistency across
+		// Per the interface, store names are not supposed to be case-sensitive in order to ensure consistency across
 		// storage implementations - some of which don't support case sensitivity in their database names.
 
 		storeWithCapitalLetter, err := provider.OpenStore("Some-store-name")
 		require.NoError(t, err)
+
+		// Despite the different capitalization, this should still set the store config on the store opened above.
+		err = provider.SetStoreConfig("SoMe-stoRe-naMe", spi.StoreConfiguration{TagNames: []string{"TagName1"}})
+		require.NoError(t, err)
+
+		// Despite the different capitalization, this should still get the store config we set above.
+		storeConfig, err := provider.GetStoreConfig("sOME-sToRe-NamE")
+		require.NoError(t, err)
+
+		require.Len(t, storeConfig.TagNames, 1)
+		require.Equal(t, "TagName1", storeConfig.TagNames[0])
 
 		defer func() {
 			require.NoError(t, storeWithCapitalLetter.Close())
@@ -991,19 +1024,18 @@ func TestStoreDelete(t *testing.T, provider spi.Provider) {
 }
 
 // TestStoreQuery tests common Store Query functionality.
-func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) {
-	options := getOptions(opts)
-
+func TestStoreQuery(t *testing.T, provider spi.Provider, options testOptions) {
 	doStoreQueryTests(t, provider, false, options)
 	doStoreQueryTests(t, provider, true, options)
 }
 
 // TestStoreQueryWithSortingAndInitialPageOptions tests common Store Query functionality when the sorting and initial
 // page options are used.
-func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, provider spi.Provider, opts ...TestOption) {
-	options := getOptions(opts)
+func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, provider spi.Provider, options testOptions) {
+	if !options.onlySkipSortTestsThatDoNotSetStoreConfig {
+		doStoreQueryWithSortingAndInitialPageOptionsTests(t, provider, false, options)
+	}
 
-	doStoreQueryWithSortingAndInitialPageOptionsTests(t, provider, false, options)
 	doStoreQueryWithSortingAndInitialPageOptionsTests(t, provider, true, options)
 }
 
@@ -1676,7 +1708,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1702,7 +1734,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1727,7 +1759,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1753,7 +1785,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 	})
 	t.Run("Tag name only query - 0 values found", func(t *testing.T) {
@@ -1792,7 +1824,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1818,7 +1850,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil,
-				false, options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				false, determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1843,7 +1875,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1869,7 +1901,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, nil, nil, nil, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 	})
 	t.Run("Tag name and value query - 2 values found", func(t *testing.T) {
@@ -1912,7 +1944,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 2", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1938,7 +1970,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 1", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1963,7 +1995,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 		t.Run("Page size 100", func(t *testing.T) {
 			storeName := randomStoreName()
@@ -1989,7 +2021,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 			require.NoError(t, err)
 
 			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-				options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+				determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 		})
 	})
 	t.Run("Tag name and value query - only 1 value found "+
@@ -2033,7 +2065,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		require.NoError(t, err)
 
 		verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, false,
-			options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+			determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 	})
 	t.Run("Tag name and value query - 0 values found since the store is empty", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -2056,7 +2088,7 @@ func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test 
 		require.NoError(t, err)
 
 		verifyExpectedIterator(t, iterator, nil, nil, nil, false,
-			options.checkIteratorTotalItemCounts, 0)
+			determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), 0)
 	})
 	t.Run("Invalid expression formats", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -2189,7 +2221,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -2207,7 +2239,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2224,7 +2256,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2253,7 +2285,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2279,7 +2311,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page (but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -2293,7 +2325,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -2330,7 +2362,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -2362,7 +2394,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2394,7 +2426,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2423,7 +2455,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2449,7 +2481,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -2463,7 +2495,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -2522,7 +2554,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -2540,7 +2572,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2557,7 +2589,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2586,7 +2618,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2612,7 +2644,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -2626,7 +2658,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -2663,7 +2695,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -2696,7 +2728,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2728,7 +2760,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2757,7 +2789,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2783,7 +2815,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page"+
 						"(but there should only be four pages max, so iterator should have no results)", func(t *testing.T) {
@@ -2797,7 +2829,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -2902,7 +2934,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -2920,7 +2952,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2937,7 +2969,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2966,7 +2998,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -2992,7 +3024,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -3006,7 +3038,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -3043,7 +3075,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -3076,7 +3108,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3108,7 +3140,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3137,7 +3169,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3163,7 +3195,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -3177,7 +3209,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -3236,7 +3268,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -3254,7 +3286,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3271,7 +3303,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						expectedTags := tagsToPutAscendingOrder
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3300,7 +3332,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3326,7 +3358,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -3340,7 +3372,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
@@ -3377,7 +3409,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 				t.Run("Page size 3", func(t *testing.T) {
@@ -3410,7 +3442,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at first page (explicitly set)", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3442,7 +3474,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at second page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3471,7 +3503,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at third page", func(t *testing.T) {
 						iterator, err := store.Query(queryExpression,
@@ -3497,7 +3529,7 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						}
 
 						verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 					t.Run("Start at fifth page(but there should only be four pages max, "+
 						"so iterator should have no results)", func(t *testing.T) {
@@ -3511,12 +3543,24 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 						require.NoError(t, err)
 
 						verifyExpectedIterator(t, iterator, nil, nil, nil, true,
-							options.checkIteratorTotalItemCounts, expectedTotalItemsCount)
+							determineWhetherToCheckIteratorTotalItemCounts(options, setStoreConfig), expectedTotalItemsCount)
 					})
 				})
 			})
 		})
 	})
+}
+
+func determineWhetherToCheckIteratorTotalItemCounts(options testOptions, storeConfigWasSet bool) bool {
+	if options.skipTotalItemTests {
+		return false
+	}
+
+	if options.onlySkipTotalItemTestsThatDoNotSetStoreConfig && !storeConfigWasSet {
+		return false
+	}
+
+	return true
 }
 
 func randomStoreName() string {
