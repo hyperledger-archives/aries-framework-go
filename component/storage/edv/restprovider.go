@@ -150,6 +150,8 @@ func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration
 		}
 	}
 
+	name = strings.ToLower(name)
+
 	openStore, ok := r.openStores[name]
 	if !ok {
 		return spi.ErrStoreNotFound
@@ -162,6 +164,8 @@ func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration
 
 // GetStoreConfig returns the store configuration currently stored in memory.
 func (r *RESTProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
+	name = strings.ToLower(name)
+
 	openStore, ok := r.openStores[name]
 	if !ok {
 		return spi.StoreConfiguration{}, spi.ErrStoreNotFound

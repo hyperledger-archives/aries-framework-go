@@ -19,7 +19,7 @@ import (
 func TestCommon(t *testing.T) {
 	provider := mem.NewProvider()
 
-	runCommonTests(t, provider)
+	storagetest.TestAll(t, provider, storagetest.SkipSortTests(false))
 }
 
 func TestQueryNotSupportedOptions(t *testing.T) {
@@ -59,18 +59,4 @@ func TestMemIterator(t *testing.T) {
 	tags, err := iterator.Tags()
 	require.EqualError(t, err, "iterator is exhausted")
 	require.Nil(t, tags)
-}
-
-func runCommonTests(t *testing.T, provider spi.Provider) {
-	storagetest.TestProviderGetOpenStores(t, provider)
-	storagetest.TestProviderOpenStoreSetGetConfig(t, provider)
-	storagetest.TestPutGet(t, provider)
-	storagetest.TestStoreGetTags(t, provider)
-	storagetest.TestStoreGetBulk(t, provider)
-	storagetest.TestStoreDelete(t, provider)
-	storagetest.TestStoreQuery(t, provider, storagetest.WithIteratorTotalItemCountTests())
-	storagetest.TestStoreBatch(t, provider)
-	storagetest.TestStoreFlush(t, provider)
-	storagetest.TestStoreClose(t, provider)
-	storagetest.TestProviderClose(t, provider)
 }
