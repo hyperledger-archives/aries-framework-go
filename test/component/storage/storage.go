@@ -345,14 +345,18 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 	testValueJSON2 := `{"someKey1":"someStringValue2","someKey2":3,"someKey3":true}`
 	testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
 	testBinaryData2 := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f}
+	testValueJSONString := `"TestValue"`
 
 	t.Run("Put and get a value", func(t *testing.T) {
 		t.Run("Key is not a URL", func(t *testing.T) {
 			t.Run("Value is simple text", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
 			})
-			t.Run("Value is JSON-formatted text", func(t *testing.T) {
+			t.Run("Value is JSON-formatted object", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSON))
+			})
+			t.Run("Value is JSON-formatted string", func(t *testing.T) {
+				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSONString))
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, testBinaryData)
@@ -768,7 +772,7 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 			}...)
 		require.NoError(t, err)
 
-		err = store.Put("key2", []byte("value2"),
+		err = store.Put("key2", []byte(`"value2"`),
 			[]spi.Tag{
 				{Name: "tagName1", Value: "tagValue1"},
 				{Name: "tagName2", Value: "tagValue2"},
@@ -779,7 +783,7 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.NoError(t, err)
 		require.Len(t, values, 2)
 		require.Equal(t, "value1", string(values[0]))
-		require.Equal(t, "value2", string(values[1]))
+		require.Equal(t, `"value2"`, string(values[1]))
 	})
 	t.Run("Two values found, one not", func(t *testing.T) {
 		t.Run("Value not found was the second one", func(t *testing.T) {
@@ -1026,8 +1030,8 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 
 		operations := []spi.Operation{
 			{Key: "key1", Value: []byte("value1"), Tags: key1TagsToStore},
-			{Key: "key2", Value: []byte("value2"), Tags: key2TagsToStore},
-			{Key: "key3", Value: []byte("value3"), Tags: key3TagsToStore},
+			{Key: "key2", Value: []byte(`{"field":"value"}`), Tags: key2TagsToStore},
+			{Key: "key3", Value: []byte(`"value3"`), Tags: key3TagsToStore},
 		}
 
 		err = store.Batch(operations)
@@ -1044,14 +1048,14 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 
 		value, err = store.Get("key2")
 		require.NoError(t, err)
-		require.Equal(t, "value2", string(value))
+		require.Equal(t, `{"field":"value"}`, string(value))
 		retrievedTags, err = store.GetTags("key2")
 		require.True(t, equalTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
 
 		value, err = store.Get("key3")
 		require.NoError(t, err)
-		require.Equal(t, "value3", string(value))
+		require.Equal(t, `"value3"`, string(value))
 		retrievedTags, err = store.GetTags("key3")
 		require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
