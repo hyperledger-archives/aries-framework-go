@@ -133,8 +133,8 @@ export const didExchangeClient = class {
             await this.agent2.mediator.unregister({"connectionID": this.agent2RouterConnection})
         }
 
-        await this.agent1.destroy()
-        await this.agent2.destroy()
+        this.agent1 ? await this.agent1.destroy() : ''
+        this.agent2 ?  await this.agent2.destroy() : ''
     }
 
     static async createInvitationFromRouter(endpoint) {

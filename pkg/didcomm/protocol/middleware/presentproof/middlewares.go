@@ -164,7 +164,7 @@ func AddBBSProofFn(p Provider) func(presentation *verifiable.Presentation) error
 
 // PresentationDefinition the helper function for the present proof protocol that creates VP based on credentials that
 // were provided in the attachments according to the requested presentation definition.
-func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware { // nolint: funlen,gocyclo
+func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware { // nolint: funlen,gocyclo,gocognit
 	vdr := p.VDRegistry()
 	documentLoader := p.JSONLDDocumentLoader()
 
@@ -208,28 +208,30 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 				return fmt.Errorf("parse credentials: %w", err)
 			}
 
-			presentation, err := payload.PresentationDefinition.CreateVP(credentials, documentLoader,
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
-				verifiable.WithJSONLDDocumentLoader(documentLoader))
-			if err != nil {
-				return fmt.Errorf("create VP: %w", err)
-			}
+			if len(credentials) > 0 {
+				presentation, err := payload.PresentationDefinition.CreateVP(credentials, documentLoader,
+					verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
+					verifiable.WithJSONLDDocumentLoader(documentLoader))
+				if err != nil {
+					return fmt.Errorf("create VP: %w", err)
+				}
 
-			singFn := metadata.GetAddProofFn()
-			if singFn == nil {
-				singFn = options.addProof
-			}
+				singFn := metadata.GetAddProofFn()
+				if singFn == nil {
+					singFn = options.addProof
+				}
 
-			err = singFn(presentation)
-			if err != nil {
-				return fmt.Errorf("add proof: %w", err)
-			}
+				err = singFn(presentation)
+				if err != nil {
+					return fmt.Errorf("add proof: %w", err)
+				}
 
-			metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
-				ID:       uuid.New().String(),
-				MimeType: mimeTypeApplicationLdJSON,
-				Data:     decorator.AttachmentData{JSON: presentation},
-			}}
+				metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
+					ID:       uuid.New().String(),
+					MimeType: mimeTypeApplicationLdJSON,
+					Data:     decorator.AttachmentData{JSON: presentation},
+				}}
+			}
 
 			return next.Handle(metadata)
 		})

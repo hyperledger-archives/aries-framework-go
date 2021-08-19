@@ -47,6 +47,8 @@ type didCommProvider interface {
 	ServiceEndpoint() string
 	ProtocolStateStorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // walletAuth is auth function which returns wallet unlock token.
@@ -405,11 +407,11 @@ func (c *Client) ProposePresentation(invitation *outofband.Invitation, options .
 // 		- error if operation fails.
 //
 // TODO: wait for acknowledgement option to be added.
-func (c *Client) PresentProof(thID string, presentation *verifiable.Presentation) error {
+func (c *Client) PresentProof(thID string, presentProofFrom wallet.PresentProofFrom) error {
 	auth, err := c.auth()
 	if err != nil {
 		return err
 	}
 
-	return c.wallet.PresentProof(auth, thID, presentation)
+	return c.wallet.PresentProof(auth, thID, presentProofFrom)
 }
