@@ -55,25 +55,25 @@ func TestCommon(t *testing.T) {
 		t.Run("Without batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithFullDocumentsReturnedFromQueries())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 		})
 	})
@@ -82,13 +82,13 @@ func TestCommon(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithFullDocumentsReturnedFromQueries())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
@@ -96,14 +96,14 @@ func TestCommon(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				runCommonTests(t, edvRESTProvider)
+				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
 			})
 		})
 	})
@@ -631,18 +631,4 @@ func getVaultIDFromURL(vaultURL string) string {
 	vaultIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
 
 	return vaultIDToRetrieve
-}
-
-func runCommonTests(t *testing.T, provider spi.Provider) {
-	storagetest.TestProviderGetOpenStores(t, provider)
-	storagetest.TestProviderOpenStoreSetGetConfig(t, provider)
-	storagetest.TestPutGet(t, provider)
-	storagetest.TestStoreGetTags(t, provider)
-	storagetest.TestStoreGetBulk(t, provider)
-	storagetest.TestStoreDelete(t, provider)
-	storagetest.TestStoreQuery(t, provider, storagetest.WithIteratorTotalItemCountTests())
-	storagetest.TestStoreBatch(t, provider)
-	storagetest.TestStoreFlush(t, provider)
-	storagetest.TestStoreClose(t, provider)
-	storagetest.TestProviderClose(t, provider)
 }
