@@ -90,9 +90,9 @@ func TestAll(t *testing.T, provider spi.Provider, opts ...TestOption) {
 			TestStoreDelete(t, provider)
 		})
 		t.Run("Query", func(t *testing.T) {
-			TestStoreQuery(t, provider, options)
+			TestStoreQuery(t, provider, opts...)
 			if !options.skipSortTests {
-				TestStoreQueryWithSortingAndInitialPageOptions(t, provider, options)
+				TestStoreQueryWithSortingAndInitialPageOptions(t, provider, opts...)
 			}
 		})
 		t.Run("Batch", func(t *testing.T) {
@@ -1024,14 +1024,18 @@ func TestStoreDelete(t *testing.T, provider spi.Provider) {
 }
 
 // TestStoreQuery tests common Store Query functionality.
-func TestStoreQuery(t *testing.T, provider spi.Provider, options testOptions) {
+func TestStoreQuery(t *testing.T, provider spi.Provider, opts ...TestOption) {
+	options := getOptions(opts)
+
 	doStoreQueryTests(t, provider, false, options)
 	doStoreQueryTests(t, provider, true, options)
 }
 
 // TestStoreQueryWithSortingAndInitialPageOptions tests common Store Query functionality when the sorting and initial
 // page options are used.
-func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, provider spi.Provider, options testOptions) {
+func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, provider spi.Provider, opts ...TestOption) {
+	options := getOptions(opts)
+
 	if !options.onlySkipSortTestsThatDoNotSetStoreConfig {
 		doStoreQueryWithSortingAndInitialPageOptionsTests(t, provider, false, options)
 	}
