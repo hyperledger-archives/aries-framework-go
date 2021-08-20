@@ -46,10 +46,10 @@ const (
 
 // SortOptions sets the order that results from an Iterator will be returned in. Sorting is based on the tag values
 // associated with the TagName chosen below. The TagName you use below can be the same as the one you're querying on,
-// or it can be a different one. However, you must ensure that the TagName set below is in the
-// Store's StoreConfiguration before trying to use it for sorting, or unexpected behaviour may occur.
-// If tag value strings are decimal numbers, then the sorting will be based on their numerical value instead of
-// the string representations of those numbers (i.e. numerical sorting, not lexicographic).
+// or it can be a different one. Depending on the storage implementation, you may need to ensure that the TagName set
+// below is in the Store's StoreConfiguration before trying to use it for sorting (or it may be optional,
+// but recommended). If tag value strings are decimal numbers, then the sorting must be based on their numerical value
+// instead of the string representations of those numbers (i.e. numerical sorting, not lexicographic).
 // TagName cannot be blank.
 type SortOptions struct {
 	Order   SortOrder
@@ -91,6 +91,7 @@ func WithInitialPageNum(initialPageNum int) QueryOption {
 // WithSortOrder sets the sort order used by a Store.Query call. See SortOptions for more information.
 // If this option isn't used, then the result order from the Iterator will be determined (perhaps arbitrarily) by the
 // underlying database implementation.
+// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 func WithSortOrder(sortOptions *SortOptions) QueryOption {
 	return func(opts *QueryOptions) {
 		opts.SortOptions = sortOptions
@@ -146,11 +147,13 @@ type Provider interface {
 	// returned. This means that this method can be used to determine whether an underlying database for a Store
 	// already exists or not. This method will not create the database automatically.
 	// If name is blank, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetStoreConfig(name string) (StoreConfiguration, error)
 
 	// GetOpenStores returns all Stores that are currently open in memory from calling OpenStore.
 	// It does not check for all databases that have been created before. They have to have been opened in this Provider
 	// object's lifetime from a call to OpenStore.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetOpenStores() []Store
 
 	// Close closes all open Stores in this Provider
@@ -178,6 +181,7 @@ type Store interface {
 	// If no data exists under a given key, then a nil []byte is returned for that value. It is not considered an error.
 	// Depending on the implementation, this method may be faster than calling Get for each key individually.
 	// If any of the given keys are empty, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetBulk(keys ...string) ([][]byte, error)
 
 	// Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
@@ -199,6 +203,7 @@ type Store interface {
 
 	// Flush forces any queued up Put and/or Delete operations to execute.
 	// If the Store implementation doesn't queue up operations, then this method is a no-op.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	Flush() error
 
 	// Close closes this store object, freeing resources. For persistent store implementations, this does not delete
@@ -220,11 +225,15 @@ type Iterator interface {
 	Value() ([]byte, error)
 
 	// Tags returns the tags associated with the key of the current entry.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	Tags() ([]Tag, error)
 
 	// TotalItems returns a count of the number of entries (key + value + tags triplets) matched by the query
 	// that generated this Iterator. This count is not affected by the page settings used (i.e. the count is of all
 	// results as if you queried starting from the first page and with an unlimited page size).
+	// Depending on the storage implementation, you may need to ensure that the TagName used in the query is in the
+	// Store's StoreConfiguration before trying to call this method (or it may be optional, but recommended).
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	TotalItems() (int, error)
 
 	// Close closes this iterator object, freeing resources.
