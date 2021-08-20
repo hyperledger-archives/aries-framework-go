@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +30,36 @@ func TestGetDestinationFromDID(t *testing.T) {
 		destination, err := GetDestination(doc.ID, &vdr)
 		require.NoError(t, err)
 		require.NotNil(t, destination)
+	})
+
+	t.Run("successfully getting destination from public DID with DIDComm V2 service block", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.NoError(t, err)
+		require.NotNil(t, destination)
+	})
+
+	t.Run("successfully getting destination from public DID with DIDComm V2 service block using relative key "+
+		"Agreement ID", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		prefixID := strings.Index(doc2.KeyAgreement[0].VerificationMethod.ID, "#")
+		doc2.KeyAgreement[0].VerificationMethod.ID = doc2.KeyAgreement[0].VerificationMethod.ID[prefixID:]
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.NoError(t, err)
+		require.NotNil(t, destination)
+	})
+
+	t.Run("error getting destination from public DID with DIDComm V2 service block using empty key "+
+		"Agreements", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		doc2.KeyAgreement = nil
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.EqualError(t, err, fmt.Sprintf("create destination: no keyAgreements in diddoc for didcomm v2 "+
+			"service bloc. DIDDoc: %+v", doc2))
+		require.Nil(t, destination)
 	})
 
 	t.Run("test service not found", func(t *testing.T) {

@@ -9,6 +9,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
@@ -19,18 +20,20 @@ type Destination struct {
 	RoutingKeys          []string
 	TransportReturnRoute string
 	MediaTypeProfiles    []string
+	DIDDoc               *did.Doc
 }
 
 const (
-	didCommServiceType = "did-communication"
+	didCommServiceType   = "did-communication"
+	didCommV2ServiceType = "DIDCommMessaging"
 )
 
 // GetDestination constructs a Destination struct based on the given DID and parameters
 // It resolves the DID using the given VDR, and uses CreateDestination under the hood.
-func GetDestination(did string, vdr vdrapi.Registry) (*Destination, error) {
-	docResolution, err := vdr.Resolve(did)
+func GetDestination(didID string, vdr vdrapi.Registry) (*Destination, error) {
+	docResolution, err := vdr.Resolve(didID)
 	if err != nil {
-		return nil, fmt.Errorf("getDestination: failed to resolve did [%s] : %w", did, err)
+		return nil, fmt.Errorf("getDestination: failed to resolve did [%s] : %w", didID, err)
 	}
 
 	return CreateDestination(docResolution.DIDDocument)

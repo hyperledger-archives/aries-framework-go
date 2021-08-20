@@ -13,6 +13,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -104,6 +105,12 @@ func TestCreateKID(t *testing.T) {
 	_, err = CreateKID(ecKeyBytes, kms.ECDSAP256TypeIEEEP1363)
 	require.NoError(t, err)
 
+	ecKeyBytes, err = x509.MarshalPKIXPublicKey(&ecKey.PublicKey)
+	require.NoError(t, err)
+
+	_, err = CreateKID(ecKeyBytes, kms.ECDSAP256TypeDER)
+	require.NoError(t, err)
+
 	x25519 := make([]byte, cryptoutil.Curve25519KeySize)
 	_, err = rand.Read(x25519)
 	require.NoError(t, err)
@@ -172,6 +179,45 @@ func TestCreateX25519KID_Failure(t *testing.T) {
 
 	_, err = createX25519KID(mKey)
 	require.EqualError(t, err, "createX25519KID: buildX25519JWK: invalid ECDH X25519 key")
+}
+
+func TestBuildJWKX25519(t *testing.T) {
+	x25519 := make([]byte, cryptoutil.Curve25519KeySize)
+	_, err := rand.Read(x25519)
+	require.NoError(t, err)
+
+	ecdhKey := &cryptoapi.PublicKey{
+		Curve: "X25519",
+		X:     x25519,
+	}
+
+	ecdhKeyMarshalled, err := json.Marshal(ecdhKey)
+	require.NoError(t, err)
+
+	t.Run("success buildJWK for X25519", func(t *testing.T) {
+		_, err = BuildJWK(ecdhKeyMarshalled, kms.X25519ECDHKWType)
+		require.NoError(t, err)
+	})
+
+	t.Run("buildJWK for X25519 with invalid marshalled key", func(t *testing.T) {
+		_, err = BuildJWK([]byte("invalidKey"), kms.X25519ECDHKWType)
+		require.EqualError(t, err, "buildJWK: failed to unmarshal public key from X25519 key: unmarshalECDHKey:"+
+			" failed to unmarshal ECDH key: invalid character 'i' looking for beginning of value")
+	})
+
+	t.Run("buildJWK for X25519 with invalid key size properly marshalled", func(t *testing.T) {
+		ecdhKey = &cryptoapi.PublicKey{
+			Curve: "X25519",
+			X:     []byte("badKeyvalue"), // invalid key size
+		}
+
+		ecdhKeyMarshalled, err = json.Marshal(ecdhKey)
+		require.NoError(t, err)
+
+		_, err = BuildJWK(ecdhKeyMarshalled, kms.X25519ECDHKWType)
+		require.EqualError(t, err, "buildJWK: failed to build JWK from X25519 key: create JWK: marshalX25519: "+
+			"invalid key")
+	})
 }
 
 func TestCreateED25519KID_Failure(t *testing.T) {

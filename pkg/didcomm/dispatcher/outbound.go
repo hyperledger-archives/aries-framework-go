@@ -159,8 +159,7 @@ func (o *OutboundDispatcher) mediaTypeProfilesFromConnection(mediaTypes []string
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-//nolint:gocyclo
-func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
+func (o *OutboundDispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		// check if outbound accepts routing keys, else use recipient keys
 		keys := des.RecipientKeys
@@ -185,14 +184,10 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
 		}
 
-		if !strings.HasPrefix(senderVerKey, "did:key") {
-			return fmt.Errorf("outboundDispatcher.Send: sender key is not did:key (value:'%v')", senderVerKey)
-		}
-
 		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
 			MediaTypeProfile: o.mediaTypeProfile(des),
 			Message:          req,
-			FromKey:          []byte(senderVerKey),
+			FromKey:          []byte(senderKey),
 			ToKeys:           des.RecipientKeys,
 		})
 		if err != nil {
@@ -268,20 +263,30 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 		return nil, fmt.Errorf("failed marshal to bytes: %w", err)
 	}
 
-	// create key set
-	// TODO: use anoncrypt packer (ie senderVerKey=nil) instead of creating a new key when using DIDComm V2.
-	_, senderVerKey, err := o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
-	if err != nil {
-		return nil, fmt.Errorf("failed Create and export Encryption Key: %w", err)
+	mtProfile := o.mediaTypeProfile(des)
+
+	var senderKey []byte
+
+	switch mtProfile {
+	case transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2EncryptedEnvelope,
+		transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeV2PlaintextPayload, transport.MediaTypeDIDCommV2Profile:
+		break // for DIDComm V2, do not set senderKey to force Anoncrypt packing.
+	default: // default is DIDComm V1, create a dummy key as senderKey
+		// create key set
+		_, senderKey, err = o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed Create and export Encryption Key: %w", err)
+		}
+
+		senderDIDKey, _ := fingerprint.CreateDIDKey(senderKey)
+
+		senderKey = []byte(senderDIDKey)
 	}
 
-	// TODO remove for DIDComm V2 (same as above comment).
-	senderDIDKey, _ := fingerprint.CreateDIDKey(senderVerKey)
-
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-		MediaTypeProfile: o.mediaTypeProfile(des),
+		MediaTypeProfile: mtProfile,
 		Message:          req,
-		FromKey:          []byte(senderDIDKey),
+		FromKey:          senderKey,
 		ToKeys:           des.RoutingKeys,
 	})
 	if err != nil {

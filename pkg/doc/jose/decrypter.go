@@ -129,6 +129,7 @@ func fetchSKIDFromAPU(jwe *JSONWebEncryption) (string, bool) {
 	return "", false
 }
 
+//nolint:gocyclo
 func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	senderOpt ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	var (
@@ -139,7 +140,7 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 	for _, rec := range recWK {
 		var unwrapOpts []cryptoapi.WrapKeyOpts
 
-		if strings.HasPrefix(rec.KID, "did:key") {
+		if strings.HasPrefix(rec.KID, "did:key") || strings.Index(rec.KID, "#") > 0 {
 			// resolve and use kms KID if did:key or KeyAgreement.ID.
 			resolvedRec, err := jd.resolveKID(rec.KID)
 			if err != nil {
