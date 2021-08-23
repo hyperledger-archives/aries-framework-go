@@ -24,6 +24,8 @@ services:
       - ${E2E_ROUTER_WS_INBOUND_PORT}:${E2E_ROUTER_WS_INBOUND_PORT}
       - ${E2E_ROUTER_API_PORT}:${E2E_ROUTER_API_PORT}
     command: start
+    depends_on:
+      - file-server.js.example.com
 
   second.user.agent.aries.js.example.com:
     container_name: second.user.agent.aries.js.example.com
@@ -43,6 +45,8 @@ services:
       - ${E2E_SECOND_USER_INBOUND_PORT}:${E2E_SECOND_USER_INBOUND_PORT}
       - ${E2E_SECOND_USER_API_PORT}:${E2E_SECOND_USER_API_PORT}
     command: start
+    depends_on:
+      - file-server.js.example.com
 
   third.user.agent.aries.js.example.com:
     container_name: third.user.agent.aries.js.example.com
@@ -62,6 +66,8 @@ services:
       - ${E2E_THIRD_USER_INBOUND_PORT}:${E2E_THIRD_USER_INBOUND_PORT}
       - ${E2E_THIRD_USER_API_PORT}:${E2E_THIRD_USER_API_PORT}
     command: start
+    depends_on:
+      - file-server.js.example.com
 
   user.agent.aries.js.example.com:
     container_name: user.agent.aries.js.example.com
@@ -81,6 +87,8 @@ services:
       - ${E2E_USER_INBOUND_PORT}:${E2E_USER_INBOUND_PORT}
       - ${E2E_USER_API_PORT}:${E2E_USER_API_PORT}
     command: start
+    depends_on:
+      - file-server.js.example.com
 
   sidetree.aries.js.example.com:
     container_name: sidetree.aries.js.example.com
