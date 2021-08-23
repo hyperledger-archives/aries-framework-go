@@ -398,6 +398,11 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
 	logger.Debugf("handling request: %+v", request)
 
+	// Interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	if ctx.doACAPyInterop && !strings.HasPrefix(request.DID, "did") {
+		request.DID = "did:peer:" + request.DID
+	}
+
 	requestDidDoc, err := ctx.resolveDidDocFromMessage(request.DID, request.DocAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve did doc from exchange request: %w", err)
@@ -431,13 +436,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 		return nil, nil, fmt.Errorf("preparing response: %w", err)
 	}
 
-	// Interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
-	if ctx.doACAPyInterop && !strings.HasPrefix(request.DID, "did") {
-		connRec.TheirDID = "did:peer:" + request.DID
-	} else {
-		connRec.TheirDID = request.DID
-	}
-
+	connRec.TheirDID = request.DID
 	connRec.TheirLabel = request.Label
 
 	destination, err := service.CreateDestination(requestDidDoc)
@@ -718,6 +717,11 @@ func (ctx *context) resolveDidDocFromMessage(didValue string, attachment *decora
 		method = "peer"
 	}
 
+	// Interop: part of above issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	if ctx.doACAPyInterop {
+		didDoc.ID = didValue
+	}
+
 	// store provided did document
 	_, err = ctx.vdRegistry.Create(method, didDoc, vdrapi.WithOption("store", true))
 	if err != nil {
@@ -740,10 +744,10 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 
 	// Interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
 	if ctx.doACAPyInterop && !strings.HasPrefix(response.DID, "did") {
-		connRecord.TheirDID = "did:peer:" + response.DID
-	} else {
-		connRecord.TheirDID = response.DID
+		response.DID = "did:peer:" + response.DID
 	}
+
+	connRecord.TheirDID = response.DID
 
 	responseDidDoc, err := ctx.resolveDidDocFromMessage(response.DID, response.DocAttach)
 	if err != nil {

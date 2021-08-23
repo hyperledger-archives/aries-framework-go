@@ -130,7 +130,7 @@ func decodeCapabilityChain(proof map[string]interface{}) ([]interface{}, error) 
 
 func decodeBase64(s string) ([]byte, error) {
 	allEncodings := []*base64.Encoding{
-		base64.RawURLEncoding, base64.StdEncoding,
+		base64.RawURLEncoding, base64.StdEncoding, base64.RawStdEncoding,
 	}
 
 	for _, encoding := range allEncodings {

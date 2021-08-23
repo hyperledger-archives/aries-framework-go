@@ -987,8 +987,8 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
 		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
-		require.Equal(t, vp.Proofs[0]["verificationMethod"],
-			"did:peer:123456789abcdefghi#keys-1")
+		require.Equal(t, "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+			vp.Proofs[0]["verificationMethod"])
 	})
 
 	t.Run("test generate presentation with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
@@ -2125,8 +2125,8 @@ func TestCommand_SignCredential(t *testing.T) {
 		require.Equal(t, vp.Proofs[0]["domain"], req.Domain)
 		require.Equal(t, vp.Proofs[0]["proofPurpose"], "assertionMethod")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
-		require.Equal(t, vp.Proofs[0]["verificationMethod"],
-			"did:peer:123456789abcdefghi#keys-1")
+		require.Equal(t, "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+			vp.Proofs[0]["verificationMethod"])
 	})
 
 	t.Run("test sign credential with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {

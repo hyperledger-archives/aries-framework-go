@@ -985,6 +985,7 @@ func (o *Command) getCredentialOpts(disableProofCheck bool) []verifiable.Credent
 	}
 }
 
+// nolint:funlen,gocyclo
 func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
 	if opts == nil {
 		opts = &ProofOptions{}
@@ -995,6 +996,15 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 	opts.proofPurpose, err = getProofPurpose(method)
 	if err != nil {
 		return nil, err
+	}
+
+	vmType := ""
+
+	switch opts.SignatureType {
+	case "Ed25519Signature2018":
+		vmType = "Ed25519VerificationKey2018"
+	case "BbsBlsSignature2020":
+		vmType = "Bls12381G2Key2020"
 	}
 
 	vMs := didDoc.VerificationMethods(method)[method]
@@ -1013,6 +1023,12 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 			continue
 		} else {
 			// by default first authentication public key
+
+			// skip verification methods that don't match the type needed for the signature
+			if vmType != "" && vm.VerificationMethod.Type != vmType {
+				continue
+			}
+
 			opts.VerificationMethod = vm.VerificationMethod.ID
 
 			break
