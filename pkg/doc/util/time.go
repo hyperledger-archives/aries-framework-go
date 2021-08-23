@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package util
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -18,7 +19,12 @@ type TimeWithTrailingZeroMsec struct {
 	time.Time
 
 	trailingZerosMsecCount int
+	missingZ               bool
 }
+
+const (
+	rfc3339NanoWithoutZ = "2006-01-02T15:04:05.999999999"
+)
 
 // NewTime creates TimeWithTrailingZeroMsec without zero sub-second precision.
 // It functions as a normal time.Time object.
@@ -38,16 +44,18 @@ func NewTimeWithTrailingZeroMsec(t time.Time, trailingZerosMsecCount int) *TimeW
 // The time is a quoted string in RFC 3339 format, with sub-second precision added if present.
 // In case of zero sub-second precision presence, trailing zeros are included.
 func (tm TimeWithTrailingZeroMsec) MarshalJSON() ([]byte, error) {
-	timeBytes, err := tm.Time.MarshalJSON()
-	if err != nil {
+	if _, err := tm.Time.MarshalJSON(); err != nil {
 		return nil, err
 	}
 
-	if tm.trailingZerosMsecCount == 0 {
-		return timeBytes, nil
-	}
+	format := tm.GetFormat()
 
-	return tm.marshalJSONWithTrailingZeroMsec()
+	b := make([]byte, 0, len(format)+len(`""`))
+	b = append(b, '"')
+	b = tm.AppendFormat(b, format)
+	b = append(b, '"')
+
+	return b, nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -58,12 +66,37 @@ func (tm *TimeWithTrailingZeroMsec) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	err := (&tm.Time).UnmarshalJSON(data)
+	timeStr := ""
+
+	err := json.Unmarshal(data, &timeStr)
 	if err != nil {
 		return err
 	}
 
-	tm.keepTrailingZerosMsecFormat(string(data))
+	err = tm.parse(timeStr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (tm *TimeWithTrailingZeroMsec) parse(timeStr string) error {
+	missingZ := false
+
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, timeStr+"Z")
+		if err != nil {
+			return err
+		}
+
+		missingZ = true
+	}
+
+	tm.Time = t
+	tm.missingZ = missingZ
+	tm.keepTrailingZerosMsecFormat(timeStr)
 
 	return nil
 }
@@ -73,6 +106,8 @@ func (tm *TimeWithTrailingZeroMsec) UnmarshalJSON(data []byte) error {
 func (tm TimeWithTrailingZeroMsec) GetFormat() string {
 	if tm.trailingZerosMsecCount > 0 {
 		return tm.getTrailingZeroIncludedFormat()
+	} else if tm.missingZ {
+		return rfc3339NanoWithoutZ
 	}
 
 	return time.RFC3339Nano
@@ -81,26 +116,14 @@ func (tm TimeWithTrailingZeroMsec) GetFormat() string {
 // ParseTimeWithTrailingZeroMsec parses a formatted string and returns the time value it represents.
 // In case of zero sub-second precision, it's kept and applied when e.g. unmarshal the time to JSON.
 func ParseTimeWithTrailingZeroMsec(timeStr string) (*TimeWithTrailingZeroMsec, error) {
-	t, err := time.Parse(time.RFC3339, timeStr)
+	tm := TimeWithTrailingZeroMsec{}
+
+	err := tm.parse(timeStr)
 	if err != nil {
 		return nil, err
 	}
 
-	tWithTrailingZeroMsec := &TimeWithTrailingZeroMsec{Time: t}
-	tWithTrailingZeroMsec.keepTrailingZerosMsecFormat(timeStr)
-
-	return tWithTrailingZeroMsec, nil
-}
-
-func (tm TimeWithTrailingZeroMsec) marshalJSONWithTrailingZeroMsec() ([]byte, error) {
-	format := tm.getTrailingZeroIncludedFormat()
-
-	b := make([]byte, 0, len(format)+len(`""`))
-	b = append(b, '"')
-	b = tm.AppendFormat(b, format)
-	b = append(b, '"')
-
-	return b, nil
+	return &tm, nil
 }
 
 func (tm TimeWithTrailingZeroMsec) getTrailingZeroIncludedFormat() string {
@@ -110,7 +133,9 @@ func (tm TimeWithTrailingZeroMsec) getTrailingZeroIncludedFormat() string {
 		format += "0"
 	}
 
-	format += "Z07:00"
+	if !tm.missingZ {
+		format += "Z07:00"
+	}
 
 	return format
 }
@@ -119,7 +144,8 @@ func (tm *TimeWithTrailingZeroMsec) keepTrailingZerosMsecFormat(timeStr string) 
 	msecFraction := false
 	zerosCount := 0
 
-	for i := 0; i < len(timeStr); i++ {
+	i := 0
+	for ; i < len(timeStr); i++ {
 		c := int(timeStr[i])
 		if !msecFraction {
 			if c == '.' {
@@ -129,18 +155,23 @@ func (tm *TimeWithTrailingZeroMsec) keepTrailingZerosMsecFormat(timeStr string) 
 			continue
 		}
 
-		if c == 'Z' {
+		if c == 'Z' || c == 'z' {
 			if zerosCount > 0 {
 				tm.trailingZerosMsecCount = zerosCount
 			}
 
 			break
-		}
-
-		if c != '0' {
+		} else if c != '0' {
 			break
 		}
 
 		zerosCount++
+	}
+
+	// if we run off the end of the string, remember any trailing zeros
+	if i == len(timeStr) {
+		if zerosCount > 0 {
+			tm.trailingZerosMsecCount = zerosCount
+		}
 	}
 }

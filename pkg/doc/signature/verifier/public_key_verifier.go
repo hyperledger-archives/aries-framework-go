@@ -374,7 +374,13 @@ func NewECDSAES521SignatureVerifier() *ECDSASignatureVerifier {
 
 // NewBBSG2SignatureVerifier creates a new BBSG2SignatureVerifier.
 func NewBBSG2SignatureVerifier() *BBSG2SignatureVerifier {
-	return &BBSG2SignatureVerifier{}
+	return &BBSG2SignatureVerifier{
+		baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "BLS12381_G2",
+			algorithm: "",
+		},
+	}
 }
 
 // BBSG2SignatureVerifier is a signature verifier that verifies a BBS+ Signature

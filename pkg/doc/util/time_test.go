@@ -24,6 +24,11 @@ func TestTimeWithTrailingZeroMsec(t *testing.T) {
 		{"2018-03-15T00:00:00.000Z", "2018-03-15T00:00:00.000Z"},
 		{"2018-03-15T00:00:00.00000Z", "2018-03-15T00:00:00.00000Z"},
 		{"2018-03-15T00:00:00.0000100Z", "2018-03-15T00:00:00.00001Z"},
+		{"2018-03-15T00:00:00", "2018-03-15T00:00:00"},
+		{"2018-03-15T00:00:00.9724", "2018-03-15T00:00:00.9724"},
+		{"2018-03-15T00:00:00.000", "2018-03-15T00:00:00.000"},
+		{"2018-03-15T00:00:00.00000", "2018-03-15T00:00:00.00000"},
+		{"2018-03-15T00:00:00.0000100", "2018-03-15T00:00:00.00001"},
 	}
 
 	for _, tt := range timeTests {
@@ -52,6 +57,9 @@ func TestTimeWithTrailingZeroMsec(t *testing.T) {
 
 	err = newTimeMsec.UnmarshalJSON([]byte("null"))
 	require.NoError(t, err)
+
+	err = newTimeMsec.UnmarshalJSON([]byte("not string"))
+	require.Error(t, err)
 }
 
 func TestTimeWithTrailingZeroMsec_GetFormat(t *testing.T) {
