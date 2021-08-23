@@ -1,0 +1,39 @@
+{
+  "type":"https://didcomm.org/present-proof/3.0/presentation",
+  "attachments":[
+    {
+      "media_type":"application/ld+json",
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "data":{
+        "json":{
+          "@context":[
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3id.org/security/bbs/v1"
+          ],
+          "credentialSubject":{
+            "degree":{
+              "degree":"MIT",
+              "degreeSchool":"MIT school",
+              "type":"BachelorDegree"
+            },
+            "id":"did:example:b34ca6cd37bbf23",
+            "name":"Jayden Doe",
+            "spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"
+          },
+          "description":"Government of Example Permanent Resident Card.",
+          "expirationDate":"2022-03-11T15:27:29.531184921+02:00",
+          "id":"https://issuer.oidp.uscis.gov/credentials/83627465",
+          "identifier":"83627465",
+          "issuanceDate":"2021-03-11T15:27:29.531184811+02:00",
+          "issuer":"did:example:489398593",
+          "name":"Permanent Resident Card",
+          "type":[
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+          ]
+        }
+      }
+    }
+  ]
+}
