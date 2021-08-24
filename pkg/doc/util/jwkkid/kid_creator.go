@@ -115,6 +115,16 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdh key: %w", err)
 		}
+	case kms.X25519ECDHKWType:
+		pubKey, err := unmarshalECDHKey(keyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("buildJWK: failed to unmarshal public key from X25519 key: %w", err)
+		}
+
+		j, err = jwksupport.JWKFromX25519Key(pubKey.X)
+		if err != nil {
+			return nil, fmt.Errorf("buildJWK: failed to build JWK from X25519 key: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("buildJWK: %w: '%s'", errInvalidKeyType, kt)
 	}

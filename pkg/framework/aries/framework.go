@@ -677,6 +677,7 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithKMS(frameworkOpts.kms),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 	)
 	if err != nil {
 		return fmt.Errorf("create packer context failed: %w", err)

@@ -22,6 +22,7 @@ import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -123,6 +124,10 @@ func newWithKMSAndCrypto(t *testing.T, k kms.KeyManager) *Packer {
 
 func (p *provider) SecretLock() secretlock.Service {
 	return p.secretLock
+}
+
+func (p *provider) VDRegistry() vdrapi.Registry {
+	return nil
 }
 
 func createKey(t *testing.T, km kms.KeyManager) []byte {

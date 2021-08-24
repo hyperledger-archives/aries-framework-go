@@ -40,9 +40,11 @@ const (
 	// StateIDCompleted marks the completed phase of the did-exchange protocol.
 	StateIDCompleted = "completed"
 	// StateIDAbandoned marks the abandoned phase of the did-exchange protocol.
-	StateIDAbandoned           = "abandoned"
-	ackStatusOK                = "ok"
-	didCommServiceType         = "did-communication"
+	StateIDAbandoned   = "abandoned"
+	ackStatusOK        = "ok"
+	didCommServiceType = "did-communication"
+	// DIDComm V2 service type ref: https://identity.foundation/didcomm-messaging/spec/#did-document-service-endpoint
+	didCommV2ServiceType       = "DIDCommMessaging"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 	bls12381G2Key2020          = "Bls12381G2Key2020"
 	jsonWebKey2020             = "JsonWebKey2020"
@@ -592,7 +594,7 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}, nil
 }
 
-// nolint:gocyclo,funlen
+// nolint:gocyclo
 func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did.Doc, error) {
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
@@ -642,17 +644,9 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 	}
 
 	if len(routerConnections) != 0 {
-		svc, ok := did.LookupService(docResolution.DIDDocument, didCommServiceType)
-		if ok {
-			for _, recKey := range svc.RecipientKeys {
-				for _, connID := range routerConnections {
-					// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
-					//  recKeys to the Router
-					if err = mediator.AddKeyToRouter(ctx.routeSvc, connID, recKey); err != nil {
-						return nil, fmt.Errorf("did doc - add key to the router: %w", err)
-					}
-				}
-			}
+		err = ctx.addRouterKeys(docResolution.DIDDocument, routerConnections)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -662,6 +656,40 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 	}
 
 	return docResolution.DIDDocument, nil
+}
+
+func (ctx *context) addRouterKeys(doc *did.Doc, routerConnections []string) error {
+	// try DIDComm V2 and use it if found, else use default DIDComm v1 bloc.
+	_, ok := did.LookupService(doc, didCommV2ServiceType)
+	if ok {
+		// use KeyAgreement.ID as recKey for DIDComm V2
+		for _, ka := range doc.KeyAgreement {
+			for _, connID := range routerConnections {
+				// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+				//  recKeys to the Router
+				if err := mediator.AddKeyToRouter(ctx.routeSvc, connID, ka.VerificationMethod.ID); err != nil {
+					return fmt.Errorf("did doc - add key to the router: %w", err)
+				}
+			}
+		}
+
+		return nil
+	}
+
+	svc, ok := did.LookupService(doc, didCommServiceType)
+	if ok {
+		for _, recKey := range svc.RecipientKeys {
+			for _, connID := range routerConnections {
+				// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+				//  recKeys to the Router
+				if err := mediator.AddKeyToRouter(ctx.routeSvc, connID, recKey); err != nil {
+					return fmt.Errorf("did doc - add key to the router: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (ctx *context) isPrivateDIDMethod(method string) bool {
@@ -855,7 +883,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 	return pubKey, nil
 }
 
-// nolint:gocyclo
+// nolint:gocyclo,funlen
 func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 	logger.Debugf("extracting service block from oobinvitation=%+v", i)
 
@@ -868,7 +896,16 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 			return nil, fmt.Errorf("failed to resolve service=%s : %w", svc, err)
 		}
 
-		s, found := did.LookupService(docResolution.DIDDocument, didCommServiceType)
+		s, found := did.LookupService(docResolution.DIDDocument, didCommV2ServiceType)
+		if found {
+			// s.recipientKeys are keyAgreement[].VerificationMethod.ID for didComm V2. They are not officially part of
+			// the service bloc.
+			block = s
+
+			break
+		}
+
+		s, found = did.LookupService(docResolution.DIDDocument, didCommServiceType)
 		if !found {
 			if ctx.doACAPyInterop {
 				s, err = interopSovService(docResolution.DIDDocument)

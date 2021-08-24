@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -411,6 +412,32 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 }
 
+func exportPubKeyBytes(keyHandle *keyset.Handle, kid string) ([]byte, error) {
+	pubKH, err := keyHandle.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := keyio.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(buf.Bytes(), pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey.KID = kid
+
+	return json.Marshal(pubKey)
+}
+
 // createRecipients and return their public key, jwk kid, didKey and keyset.Handle.
 func createRecipients(t *testing.T, k *localkms.LocalKMS,
 	recipientsCount int) ([]string, []string, [][]byte, []*keyset.Handle) {
@@ -462,19 +489,6 @@ func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS,
 	key := &cryptoapi.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
-
-	/*
-		//keyTypeToMultiCodecMap := map[kms.KeyType]uint64{
-		//	kms.NISTP256ECDHKW: fingerprint.P256PubKeyMultiCodec,
-		//	kms.NISTP384ECDHKW: fingerprint.P384PubKeyMultiCodec,
-		//	kms.NISTP521ECDHKW: fingerprint.P521PubKeyMultiCodec,
-		//	kms.X25519ECDHKW:   fingerprint.X25519PubKeyMultiCodec,
-		//}
-
-		// used with raw key bytes for signing keys, it should not be used for encryption keys because it creates a
-		// did:key using 'pubKeyBytes' as is (without parsing 'pubKeyBytes').
-		// didKey, _ := fingerprint.CreateDIDKeyByCode(keyTypeToMultiCodecMap[kt], pubKeyBytes)
-	*/
 
 	// used with marshalled *crypto.PublicKey for encryption keys (it parses 'pubKeyBytes').
 	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, kt)

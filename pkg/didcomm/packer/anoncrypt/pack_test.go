@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -277,6 +278,18 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		require.EqualError(t, err, "anoncrypt: failed to create packer because KMS is empty")
 	})
 
+	t.Run("new Pack fail with nil vdr", func(t *testing.T) {
+		k := createKMS(t)
+		c, e := tinkcrypto.New()
+		require.NoError(t, e)
+
+		p := newMockProvider(k, c)
+		p.VDRegistryValue = nil
+
+		_, err = New(p, afgjose.A192CBCHS384)
+		require.EqualError(t, err, "anoncrypt: failed to create packer because vdr registry is empty")
+	})
+
 	k := createKMS(t)
 	_, _, recipientsKeys, _ := createRecipients(t, k, 10) //nolint:dogsled
 	origMsg := []byte("secret message")
@@ -354,6 +367,32 @@ func TestAnoncryptPackerFail(t *testing.T) {
 		_, err = validAnonPacker.Unpack(ct)
 		require.EqualError(t, err, "anoncrypt Unpack: no matching recipient in envelope")
 	})
+}
+
+func exportPubKeyBytes(keyHandle *keyset.Handle, kid string) ([]byte, error) {
+	pubKH, err := keyHandle.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := keyio.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(buf.Bytes(), pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey.KID = kid
+
+	return json.Marshal(pubKey)
 }
 
 // createRecipients and return their public key and keyset.Handle.

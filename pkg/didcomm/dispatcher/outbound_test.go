@@ -58,6 +58,26 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
 	})
 
+	t.Run("test success", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		fromDIDDoc := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alice")
+		toDIDDoc := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "bob")
+
+		require.NoError(t, o.Send("data", fromDIDDoc.KeyAgreement[0].VerificationMethod.ID, &service.Destination{
+			RecipientKeys:     []string{toDIDDoc.KeyAgreement[0].VerificationMethod.ID},
+			ServiceEndpoint:   "url",
+			MediaTypeProfiles: []string{transport.MediaTypeDIDCommV2Profile},
+		}))
+	})
+
 	t.Run("test no outbound transport found", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{},
@@ -128,7 +148,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
+			mediaTypeProfiles:    []string{transport.MediaTypeAIP2RFC0019Profile},
 		})
 		require.NoError(t, err)
 

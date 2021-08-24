@@ -20,12 +20,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -35,11 +38,38 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
-	localKeyURI := "local-lock://test/key-uri/"
+const localKeyURI = "local-lock://test/key-uri/"
 
+func TestNewPackagerMissingPrimaryPacker(t *testing.T) {
+	mockedProviders := &mockProvider{
+		primaryPacker: nil,
+		packers:       nil,
+	}
+
+	_, err := New(mockedProviders)
+	require.EqualError(t, err, "need primary packer to initialize packager")
+}
+
+func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
+
+	t.Run("test failed to create packer encMessage due to missing vdr in provider", func(t *testing.T) {
+		// create a custom KMS instance with this provider
+		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		require.NoError(t, err)
+		require.NotEmpty(t, customKMS)
+
+		mockedProviders := &mockProvider{
+			kms:           customKMS,
+			primaryPacker: nil,
+			packers:       nil,
+			crypto:        cryptoSvc,
+		}
+
+		_, err = authcrypt.New(mockedProviders, jose.A128CBCHS256)
+		require.EqualError(t, err, "authcrypt: failed to create packer because vdr registry is empty")
+	})
 
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
 		// create a custom KMS instance with this provider
@@ -261,136 +291,32 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
-		_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		fromDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(fromKey, kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		_, toKey, err := customKMS.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		toDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(toKey, kms.NISTP256ECDHKWType)
-		require.NoError(t, err)
-
-		mockedProviders := &mockProvider{
-			kms:           customKMS,
-			primaryPacker: nil,
-			packers:       nil,
-			crypto:        cryptoSvc,
-		}
-
-		// create a real testPacker (no mocking here)
-		testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
-		require.NoError(t, err)
-		mockedProviders.primaryPacker = testPacker
-
-		legacyPacker := legacy.New(mockedProviders)
-		mockedProviders.packers = []packer.Packer{testPacker, legacyPacker}
-
-		// now create a new packager with the above provider context
-		packager, err := New(mockedProviders)
-		require.NoError(t, err)
-
-		// legacy packer uses ED25519 keys only
-		_, fromKeyED25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
-		require.NoError(t, err)
-
-		fromDIDKeyED25519, _ := fingerprint.CreateDIDKey(fromKeyED25519)
-
-		_, toKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
-		require.NoError(t, err)
-
-		toLegacyDIDKey, _ := fingerprint.CreateDIDKey(toKeyEd25519)
-
 		tests := []struct {
-			name              string
-			mediaType         string
-			isKeyAgreementKey bool
+			name    string
+			keyType kms.KeyType
 		}{
 			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeRFC0019EncryptedEnvelope),
-				mediaType: transport.MediaTypeRFC0019EncryptedEnvelope,
+				name:    "Pack/Unpack success with P-256 ECDH KW keys",
+				keyType: kms.NISTP256ECDHKWType,
 			},
 			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1PlaintextPayload),
-				mediaType: transport.MediaTypeV1PlaintextPayload,
+				name:    "Pack/Unpack success with P-384 ECDH KW keys",
+				keyType: kms.NISTP384ECDHKWType,
 			},
 			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1EncryptedEnvelope),
-				mediaType: transport.MediaTypeV1EncryptedEnvelope,
+				name:    "Pack/Unpack success with P-521 ECDH KW keys",
+				keyType: kms.NISTP521ECDHKWType,
 			},
 			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload),
-				mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
-			},
-			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2PlaintextPayload),
-				mediaType: transport.MediaTypeV2PlaintextPayload,
-			},
-			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelope),
-				mediaType: transport.MediaTypeV2EncryptedEnvelope,
-			},
-			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0019Profile),
-				mediaType: transport.MediaTypeAIP2RFC0019Profile,
-			},
-			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0587Profile),
-				mediaType: transport.MediaTypeAIP2RFC0587Profile,
-			},
-			{
-				name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeDIDCommV2Profile),
-				mediaType: transport.MediaTypeDIDCommV2Profile,
-			},
-			{
-				name: fmt.Sprintf("success using mediaType %s with KeyAgreement",
-					transport.MediaTypeAIP2RFC0587Profile),
-				mediaType:         transport.MediaTypeAIP2RFC0587Profile,
-				isKeyAgreementKey: true,
-			},
-			{
-				name:              fmt.Sprintf("success using mediaType %s with KeyAgreement", transport.MediaTypeDIDCommV2Profile),
-				mediaType:         transport.MediaTypeDIDCommV2Profile,
-				isKeyAgreementKey: true,
+				name:    "Pack/Unpack success with X25519 ECDH KW keys",
+				keyType: kms.X25519ECDHKWType,
 			},
 		}
 
 		for _, tt := range tests {
 			tc := tt
-
 			t.Run(tc.name, func(t *testing.T) {
-				var (
-					fromKIDPack []byte
-					toKIDsPack  []string
-				)
-
-				switch tc.mediaType {
-				case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
-					fromKIDPack = []byte(fromDIDKeyED25519)
-					toKIDsPack = []string{toLegacyDIDKey}
-				case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
-					transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2PlaintextPayload,
-					transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeAIP2RFC0587Profile,
-					transport.MediaTypeDIDCommV2Profile:
-					fromKIDPack = []byte(fromDIDKey)
-					toKIDsPack = []string{toDIDKey}
-				}
-
-				// pack an non empty envelope using packer selected by mediaType - should pass
-				packMsg, err := packager.PackMessage(&transport.Envelope{
-					MediaTypeProfile: tc.mediaType,
-					Message:          []byte("msg"),
-					FromKey:          fromKIDPack,
-					ToKeys:           toKIDsPack,
-				})
-				require.NoError(t, err)
-
-				// unpack the packed message above - should pass and match the same payload (msg1)
-				unpackedMsg, err := packager.UnpackMessage(packMsg)
-				require.NoError(t, err)
-				require.Equal(t, unpackedMsg.Message, []byte("msg"))
+				packUnPackSuccess(tc.keyType, customKMS, cryptoSvc, t)
 			})
 		}
 	})
@@ -443,6 +369,355 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, unpackedMsg.Message, []byte("msg1"))
 	})
+}
+
+func packUnPackSuccess(keyType kms.KeyType, customKMS kms.KeyManager, cryptoSvc cryptoapi.Crypto, t *testing.T) {
+	resolveDIDFunc, fromDIDKey, toDIDKey, fromDID, toDID := newDIDsAndDIDDocResolverFunc(customKMS,
+		keyType, t)
+
+	mockedProviders := &mockProvider{
+		kms:           customKMS,
+		primaryPacker: nil,
+		packers:       nil,
+		crypto:        cryptoSvc,
+		// vdr context for DID doc resolution:
+		vdr: &mockvdr.MockVDRegistry{
+			ResolveFunc: resolveDIDFunc,
+		},
+	}
+
+	// create a real testPacker (no mocking here)
+	testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
+	require.NoError(t, err)
+
+	mockedProviders.primaryPacker = testPacker
+
+	legacyPacker := legacy.New(mockedProviders)
+	mockedProviders.packers = []packer.Packer{testPacker, legacyPacker}
+
+	// now create a new packager with the above provider context
+	packager, err := New(mockedProviders)
+	require.NoError(t, err)
+
+	// legacy packer uses ED25519 keys only
+	_, fromKeyED25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
+	require.NoError(t, err)
+
+	fromDIDKeyED25519, _ := fingerprint.CreateDIDKey(fromKeyED25519)
+
+	_, toKeyEd25519, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519)
+	require.NoError(t, err)
+
+	toLegacyDIDKey, _ := fingerprint.CreateDIDKey(toKeyEd25519)
+
+	tests := []struct {
+		name              string
+		mediaType         string
+		isKeyAgreementKey bool
+	}{
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeRFC0019EncryptedEnvelope),
+			mediaType: transport.MediaTypeRFC0019EncryptedEnvelope,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1PlaintextPayload),
+			mediaType: transport.MediaTypeV1PlaintextPayload,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV1EncryptedEnvelope),
+			mediaType: transport.MediaTypeV1EncryptedEnvelope,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload),
+			mediaType: transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2PlaintextPayload),
+			mediaType: transport.MediaTypeV2PlaintextPayload,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeV2EncryptedEnvelope),
+			mediaType: transport.MediaTypeV2EncryptedEnvelope,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0019Profile),
+			mediaType: transport.MediaTypeAIP2RFC0019Profile,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0587Profile),
+			mediaType: transport.MediaTypeAIP2RFC0587Profile,
+		},
+		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeDIDCommV2Profile),
+			mediaType: transport.MediaTypeDIDCommV2Profile,
+		},
+		{
+			name: fmt.Sprintf("success using mediaType %s with KeyAgreement",
+				transport.MediaTypeAIP2RFC0587Profile),
+			mediaType:         transport.MediaTypeAIP2RFC0587Profile,
+			isKeyAgreementKey: true,
+		},
+		{
+			name:              fmt.Sprintf("success using mediaType %s with KeyAgreement", transport.MediaTypeDIDCommV2Profile),
+			mediaType:         transport.MediaTypeDIDCommV2Profile,
+			isKeyAgreementKey: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				fromKIDPack []byte
+				toKIDsPack  []string
+			)
+
+			switch tc.mediaType {
+			case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
+				fromKIDPack = []byte(fromDIDKeyED25519)
+				toKIDsPack = []string{toLegacyDIDKey}
+			case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
+				transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2PlaintextPayload,
+				transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeAIP2RFC0587Profile,
+				transport.MediaTypeDIDCommV2Profile:
+				if tc.isKeyAgreementKey {
+					fromKIDPack = []byte(fromDID.KeyAgreement[0].VerificationMethod.ID)
+					toKIDsPack = []string{toDID.KeyAgreement[0].VerificationMethod.ID}
+				} else {
+					fromKIDPack = []byte(fromDIDKey)
+					toKIDsPack = []string{toDIDKey}
+				}
+			}
+
+			// pack an non empty envelope using packer selected by mediaType - should pass
+			packMsg, err := packager.PackMessage(&transport.Envelope{
+				MediaTypeProfile: tc.mediaType,
+				Message:          []byte("msg"),
+				FromKey:          fromKIDPack,
+				ToKeys:           toKIDsPack,
+			})
+			require.NoError(t, err)
+
+			// unpack the packed message above - should pass and match the same payload (msg1)
+			unpackedMsg, err := packager.UnpackMessage(packMsg)
+			require.NoError(t, err)
+			require.Equal(t, unpackedMsg.Message, []byte("msg"))
+		})
+	}
+}
+
+func TestPackager_PackMessage_DIDKey_Failures(t *testing.T) {
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+	require.NoError(t, err)
+
+	mockedProviders := &mockProvider{
+		kms:           customKMS,
+		primaryPacker: nil,
+		packers:       nil,
+		crypto:        cryptoSvc,
+		// vdr context for DID doc resolution:
+		vdr: &mockvdr.MockVDRegistry{},
+	}
+
+	// create a real testPacker (no mocking here)
+	testPacker, err := authcrypt.New(mockedProviders, jose.A256CBCHS512)
+	require.NoError(t, err)
+
+	mockedProviders.primaryPacker = testPacker
+
+	legacyPacker := legacy.New(mockedProviders)
+	mockedProviders.packers = []packer.Packer{testPacker, legacyPacker}
+
+	// now create a new packager with the above provider context
+	packager, err := New(mockedProviders)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		fromKey []byte
+		toKeys  []string
+		errMsg  string
+	}{
+		{
+			name:   "pack error with invalid recipient key as didKey",
+			toKeys: []string{"did:key:zInvalidKey"},
+			errMsg: "packMessage: prepareSenderAndRecipientKeys: failed to parse public key bytes " +
+				"from did:key verKey for recipient 1: encryptionPubKeyFromDIDKey: extractRawKey: " +
+				"PubKeyFromFingerprint failure: unknown key encoding",
+		},
+		{
+			name:    "pack error with invalid sender key as didKey",
+			fromKey: []byte("did:key:zInvalidKey"),
+			toKeys:  []string{"did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"},
+			errMsg: "packMessage: prepareSenderAndRecipientKeys: failed to extract pubKeyBytes from senderVerKey: " +
+				"encryptionPubKeyFromDIDKey: extractRawKey: PubKeyFromFingerprint " +
+				"failure: unknown key encoding",
+		},
+		{
+			name:    "pack error with invalid sender key not didKey nor keyAgreement",
+			fromKey: []byte("zInvalidKey"),
+			toKeys:  []string{"did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"},
+			errMsg: "packMessage: failed to pack: authcrypt Pack: failed to get sender key from KMS: getKeySet: " +
+				"failed to read json keyset from reader: cannot read data for keysetID zInvalidKey: data not found",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			_, err = packager.PackMessage(&transport.Envelope{
+				Message: []byte("msg1"),
+				FromKey: tc.fromKey,
+				ToKeys:  tc.toKeys,
+			})
+			require.EqualError(t, err, tc.errMsg)
+		})
+	}
+}
+
+func TestPackager_PackMessage_KeyAgreementID_Failures(t *testing.T) {
+	cryptoSvc, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+	require.NoError(t, err)
+
+	//nolint:dogsled
+	resolveDIDFunc, _, _, _, toDID := newDIDsAndDIDDocResolverFunc(customKMS, kms.X25519ECDHKWType, t)
+
+	mockedProviders := &mockProvider{
+		kms:           customKMS,
+		primaryPacker: nil,
+		packers:       nil,
+		crypto:        cryptoSvc,
+		// vdr context for DID doc resolution:
+		vdr: &mockvdr.MockVDRegistry{
+			ResolveFunc: resolveDIDFunc,
+		},
+	}
+
+	// create a real testPacker (no mocking here)
+	testPacker, err := authcrypt.New(mockedProviders, jose.XC20P)
+	require.NoError(t, err)
+
+	mockedProviders.primaryPacker = testPacker
+
+	legacyPacker := legacy.New(mockedProviders)
+	mockedProviders.packers = []packer.Packer{testPacker, legacyPacker}
+
+	// now create a new packager with the above provider context
+	packager, err := New(mockedProviders)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		fromKey []byte
+		toKeys  []string
+		errMsg  string
+	}{
+		{
+			name:   "pack error with invalid recipient key as keyAgreementID",
+			toKeys: []string{toDID.ID + "#invalidKey"},
+			errMsg: "packMessage: prepareSenderAndRecipientKeys: for recipient 1: resolveKeyAgreementFromDIDDoc: " +
+				"keyAgreement ID 'did:peer:bobdid#invalidKey' not found in DID 'did:peer:bobdid'",
+		},
+		{
+			name:    "pack error with invalid sender key as keyAgreementID",
+			fromKey: []byte(toDID.ID + "#invalidKey"),
+			toKeys:  []string{toDID.ID + "#key-4"},
+			errMsg: "packMessage: prepareSenderAndRecipientKeys: for sender: resolveKeyAgreementFromDIDDoc: " +
+				"keyAgreement ID 'did:peer:bobdid#invalidKey' not found in DID 'did:peer:bobdid'",
+		},
+		{
+			name:    "pack error with invalid sender key as keyAgreementID from a bad DID",
+			fromKey: []byte("did:peer:badDID#invalidKey"),
+			toKeys:  []string{toDID.ID + "#key-4"},
+			errMsg: "packMessage: prepareSenderAndRecipientKeys: for sender: resolveKeyAgreementFromDIDDoc: " +
+				"for recipient DID doc resolution did not found: did:peer:badDID",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			_, err = packager.PackMessage(&transport.Envelope{
+				Message: []byte("msg1"),
+				FromKey: tc.fromKey,
+				ToKeys:  tc.toKeys,
+			})
+			require.EqualError(t, err, tc.errMsg)
+		})
+	}
+}
+
+//nolint:lll
+func newDIDsAndDIDDocResolverFunc(customKMS kms.KeyManager, keyType kms.KeyType, t *testing.T) (func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error), string, string, *did.Doc, *did.Doc) {
+	_, fromKey, err := customKMS.CreateAndExportPubKeyBytes(keyType)
+	require.NoError(t, err)
+
+	fromDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(fromKey, keyType)
+	require.NoError(t, err)
+
+	fromJWK, err := jwkkid.BuildJWK(fromKey, keyType)
+	require.NoError(t, err)
+
+	vmKeyType := "JsonWebKey2020"
+
+	if keyType == kms.X25519ECDHKWType {
+		vmKeyType = "X25519KeyAgreementKey2019"
+	}
+
+	fromDID := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+	fromKA, err := did.NewVerificationMethodFromJWK(
+		fromDID.KeyAgreement[0].VerificationMethod.ID, vmKeyType, fromDID.ID, fromJWK)
+	require.NoError(t, err)
+
+	fromDID.KeyAgreement = []did.Verification{
+		{
+			VerificationMethod: *fromKA,
+		},
+	}
+
+	_, toKey, err := customKMS.CreateAndExportPubKeyBytes(keyType)
+	require.NoError(t, err)
+
+	toDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(toKey, keyType)
+	require.NoError(t, err)
+
+	toJWK, err := jwkkid.BuildJWK(toKey, keyType)
+	require.NoError(t, err)
+
+	toDID := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "bobdid")
+	toKA, err := did.NewVerificationMethodFromJWK(
+		toDID.KeyAgreement[0].VerificationMethod.ID, vmKeyType, toDID.ID, toJWK)
+	require.NoError(t, err)
+
+	toDID.KeyAgreement = []did.Verification{
+		{
+			VerificationMethod: *toKA,
+		},
+	}
+
+	resolveDID := func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+		switch didID {
+		case toDID.ID:
+			return &did.DocResolution{
+				DIDDocument: toDID,
+			}, nil
+		case fromDID.ID:
+			return &did.DocResolution{
+				DIDDocument: fromDID,
+			}, nil
+		default:
+			return nil, fmt.Errorf("did not found: %s", didID)
+		}
+	}
+
+	return resolveDID, fromDIDKey, toDIDKey, fromDID, toDID
 }
 
 func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
