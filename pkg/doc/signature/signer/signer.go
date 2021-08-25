@@ -105,7 +105,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Type:                    context.SignatureType,
 		SignatureRepresentation: context.SignatureRepresentation,
 		Creator:                 context.Creator,
-		Created:                 &util.TimeWithTrailingZeroMsec{Time: *created},
+		Created:                 &util.TimeWrapper{Time: *created},
 		Domain:                  context.Domain,
 		Nonce:                   context.Nonce,
 		VerificationMethod:      context.VerificationMethod,

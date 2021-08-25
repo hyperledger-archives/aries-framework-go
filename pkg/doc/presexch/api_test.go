@@ -379,7 +379,7 @@ func newVC(ctx []string) *verifiable.Credential {
 		Types:   []string{verifiable.VCType},
 		ID:      "http://test.credential.com/123",
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
-		Issued: &util.TimeWithTrailingZeroMsec{
+		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{

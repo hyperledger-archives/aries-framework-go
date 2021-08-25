@@ -61,7 +61,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -171,7 +171,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -188,7 +188,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -331,7 +331,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -348,7 +348,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -553,7 +553,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -571,7 +571,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -775,7 +775,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -793,7 +793,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -1032,7 +1032,7 @@ func fetchVC(ctx, types []string) *verifiable.Credential {
 		Types:   append([]string{verifiable.VCType}, types...),
 		ID:      "http://test.credential.com/123",
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
-		Issued: &util.TimeWithTrailingZeroMsec{
+		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{

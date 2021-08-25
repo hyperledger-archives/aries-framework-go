@@ -303,7 +303,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				Types:   []string{verifiable.VCType},
 				ID:      "http://example.edu/credentials/1872",
 				Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-				Issued: &util.TimeWithTrailingZeroMsec{
+				Issued: &util.TimeWrapper{
 					Time: time.Now(),
 				},
 				Issuer: verifiable.Issuer{
@@ -359,7 +359,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				Types:   []string{verifiable.VCType},
 				ID:      "http://example.edu/credentials/1872",
 				Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-				Issued: &util.TimeWithTrailingZeroMsec{
+				Issued: &util.TimeWrapper{
 					Time: time.Now(),
 				},
 				Issuer: verifiable.Issuer{
@@ -433,10 +433,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					},
 				},
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Now(),
 			},
-			Expired: &util.TimeWithTrailingZeroMsec{
+			Expired: &util.TimeWrapper{
 				Time: time.Now().AddDate(1, 0, 0),
 			},
 			Issuer: verifiable.Issuer{
@@ -550,10 +550,10 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"birthDate":              "1958-07-17",
 				},
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Now(),
 			},
-			Expired: &util.TimeWithTrailingZeroMsec{
+			Expired: &util.TimeWrapper{
 				Time: time.Now().AddDate(1, 0, 0),
 			},
 			Issuer: verifiable.Issuer{
@@ -811,7 +811,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				Types:   []string{"VerifiableCredential"},
 				Subject: []map[string]interface{}{{"id": issuerID}},
 				Issuer:  verifiable.Issuer{ID: issuerID},
-				Issued: &util.TimeWithTrailingZeroMsec{
+				Issued: &util.TimeWrapper{
 					Time: time.Now(),
 				},
 				CustomFields: map[string]interface{}{

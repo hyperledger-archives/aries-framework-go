@@ -436,7 +436,7 @@ func TestPresentationDefinition(t *testing.T) {
 						Context: []string{verifiable.ContextURI},
 						Types:   []string{verifiable.VCType},
 						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						Issued: &util.TimeWithTrailingZeroMsec{
+						Issued: &util.TimeWrapper{
 							Time: time.Now(),
 						},
 						Issuer: verifiable.Issuer{
@@ -507,7 +507,7 @@ func TestPresentationDefinition(t *testing.T) {
 						Context: []string{verifiable.ContextURI},
 						Types:   []string{verifiable.VCType},
 						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						Issued: &util.TimeWithTrailingZeroMsec{
+						Issued: &util.TimeWrapper{
 							Time: time.Now(),
 						},
 						Issuer: verifiable.Issuer{
