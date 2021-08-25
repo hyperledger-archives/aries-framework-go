@@ -580,7 +580,7 @@ Returns,
   
  ``` 
 
-#### [ProposePresentation](https://identity.foundation/waci-presentation-exchange/#step-2-send-message-proposing-presentation)
+#### [ProposePresentation](https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation)
 Proposing presentation from wallet to initiate WACI share flow.
 
 Params,
@@ -610,7 +610,7 @@ Returns,
   
  ``` 
  
- #### [PresentProof](https://identity.foundation/waci-presentation-exchange/#step-4-present-proof)
+ #### [PresentProof](https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof)
  Presenting proof to relying party from wallet for WACI share flow.
  
  Params,

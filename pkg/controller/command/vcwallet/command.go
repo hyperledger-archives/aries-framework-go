@@ -758,6 +758,7 @@ func (o *Command) Connect(rw io.Writer, req io.Reader) command.Error {
 
 // ProposePresentation accepts out-of-band invitation and sends message proposing presentation
 // from wallet to relying party.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
 //
 // Currently Supporting
 // [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
@@ -800,6 +801,7 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 }
 
 // PresentProof sends present proof message from wallet to relying party.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof
 //
 // Currently Supporting
 // [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
