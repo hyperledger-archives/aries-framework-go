@@ -330,6 +330,28 @@ func TestAnoncryptPackerFail(t *testing.T) {
 			"JWE: it must have five parts")
 	})
 
+	t.Run("pack success but unpack fails with invalid payload auth (iv) data", func(t *testing.T) {
+		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
+		require.NoError(t, err)
+
+		var s []byte
+
+		s, err = validAnonPacker.Pack(cty, origMsg, nil, recipientsKeys)
+		require.NoError(t, err)
+
+		ivStartIndex := bytes.Index(s, []byte("\"iv\""))
+		ivEndIndex := ivStartIndex + 6 + bytes.Index(s[ivStartIndex+6:], []byte("\""))
+		sTrail := make([]byte, len(s[ivEndIndex:]))
+		copy(sTrail, s[ivEndIndex:])
+		s = append(s[:ivStartIndex+6], []byte("K3ORqVx392nLcdJveUl_Jg")...) // invalid base64 iv causes decryption error
+		s = append(s, sTrail...)
+
+		_, err = validAnonPacker.Unpack(s)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "anoncrypt Unpack: failed to decrypt JWE envelope: ecdh_factory: "+
+			"decryption failed")
+	})
+
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
 		validAnonPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256GCM)
 		require.NoError(t, err)

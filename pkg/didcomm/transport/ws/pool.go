@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -99,12 +100,7 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 			logger.Errorf("unmarshal transport decorator : %v", err)
 		}
 
-		// TODO check for KeyAgreement.ID for DIDComm V2 instead of did:key
-		didKey, _ := fingerprint.CreateDIDKey(unpackMsg.FromKey)
-
-		if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
-			d.add(didKey, conn)
-		}
+		d.addKey(unpackMsg, trans, conn)
 
 		messageHandler := d.msgHandler
 
@@ -112,6 +108,22 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 		if err != nil {
 			logger.Errorf("incoming msg processing failed: %v", err)
 		}
+	}
+}
+
+func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transport, conn *websocket.Conn) {
+	var fromKey string
+
+	kaIdentifier := []byte("#")
+
+	if id := bytes.Index(unpackMsg.FromKey, kaIdentifier); id > 0 && bytes.HasPrefix(unpackMsg.FromKey, []byte("did:")) {
+		fromKey = string(unpackMsg.FromKey)
+	} else {
+		fromKey, _ = fingerprint.CreateDIDKey(unpackMsg.FromKey)
+	}
+
+	if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
+		d.add(fromKey, conn)
 	}
 }
 

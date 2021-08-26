@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package resolver
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -21,8 +23,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -144,7 +149,7 @@ func TestDIDDocResolverKey(t *testing.T) {
 			kmsKID := base64.RawURLEncoding.EncodeToString(tp)
 
 			vm, err := did.NewVerificationMethodFromJWK(
-				didDoc.KeyAgreement[0].VerificationMethod.ID, "JsonWebKey2020", didDoc.ID, jwkKey)
+				didDoc.KeyAgreement[0].VerificationMethod.ID, jsonWebKey2020, didDoc.ID, jwkKey)
 			require.NoError(t, err)
 
 			didDoc.KeyAgreement[0].VerificationMethod = *vm
@@ -175,7 +180,7 @@ func TestDIDDocResolverKey(t *testing.T) {
 		require.NoError(t, err)
 
 		vm, err := did.NewVerificationMethodFromJWK(
-			didDoc.KeyAgreement[0].VerificationMethod.ID, "JsonWebKey2020", didDoc.ID, jwkKey)
+			didDoc.KeyAgreement[0].VerificationMethod.ID, jsonWebKey2020, didDoc.ID, jwkKey)
 		require.NoError(t, err)
 
 		didDoc.KeyAgreement[0].VerificationMethod = *vm
@@ -190,5 +195,54 @@ func TestDIDDocResolverKey(t *testing.T) {
 		require.Equal(t, "X25519", pubKey.Curve)
 		require.Equal(t, "OKP", pubKey.Type)
 		require.EqualValues(t, x25519, pubKey.X)
+
+		t.Run("failure resolving with kid missing # key index", func(t *testing.T) {
+			_, err = docResolver.Resolve("did:peer:random")
+			require.EqualError(t, err, "didDocResolver: kid is not KeyAgreement.ID: 'did:peer:random'")
+		})
+
+		t.Run("failure resolving with invalid verification method type", func(t *testing.T) {
+			didDoc.KeyAgreement[0].VerificationMethod.Type = "invalid"
+
+			_, err = docResolver.Resolve("did:peer:random#key-4")
+			require.EqualError(t, err, "didDocResolver: can't build key from KayAgreement with type: 'invalid'")
+		})
+
+		t.Run("failure resolving with invalid JWK key in verification method", func(t *testing.T) {
+			var (
+				invalidKey  *bbs12381g2pub.PublicKey
+				mInvalidKey []byte
+				invalidJWK  *jwk.JWK
+			)
+
+			invalidKey, _, err = bbs12381g2pub.GenerateKeyPair(sha256.New, []byte{})
+			require.NoError(t, err)
+
+			mInvalidKey, err = invalidKey.Marshal()
+			require.NoError(t, err)
+
+			invalidJWK, err = jwksupport.PubKeyBytesToJWK(mInvalidKey, kms.BLS12381G2)
+			require.NoError(t, err)
+
+			vm, err = did.NewVerificationMethodFromJWK(
+				didDoc.KeyAgreement[0].VerificationMethod.ID, jsonWebKey2020, didDoc.ID, invalidJWK)
+			require.NoError(t, err)
+
+			didDoc.KeyAgreement[0].VerificationMethod = *vm
+
+			_, err = docResolver.Resolve("did:peer:random#key-4")
+			require.EqualError(t, err, "didDocResolver: buildJWKKey: unsupported JWK format: (*bbs12381g2pub.PublicKey)")
+		})
+
+		t.Run("failure resolving with invalid X25519 key in verification method", func(t *testing.T) {
+			vm = did.NewVerificationMethodFromBytes(didDoc.KeyAgreement[0].VerificationMethod.ID, x25519KeyAgreementKey2019,
+				didDoc.ID, bytes.Repeat([]byte{0}, 33)) // 33 is an invalid X25519 public key size.
+
+			didDoc.KeyAgreement[0].VerificationMethod = *vm
+
+			_, err = docResolver.Resolve("did:peer:random#key-4")
+			require.EqualError(t, err, "didDocResolver: buildX25519: createKID error:createKID: createX25519KID:"+
+				" buildX25519JWK: invalid ECDH X25519 key")
+		})
 	})
 }

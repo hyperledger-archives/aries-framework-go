@@ -23,6 +23,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+const (
+	jsonWebKey2020            = "JsonWebKey2020"
+	x25519KeyAgreementKey2019 = "X25519KeyAgreementKey2019"
+)
+
 // KIDResolver helps resolve the kid public key from a recipient 'kid' or a sender 'skid' during JWE decryption.
 // The JWEDecrypter should be able to load the public key using a resolution scheme for a key reference found in the
 // 'skid' JWE protected header/'kid' recipient header.
@@ -77,10 +82,8 @@ type DIDDocResolver struct {
 // registry with first key entry matching doc.keyAgreement[].VerificationMethod.ID.
 func (d *DIDDocResolver) Resolve(kid string) (*cryptoapi.PublicKey, error) {
 	var (
-		pubKey                    *cryptoapi.PublicKey
-		jsonWebKey2020            = "JsonWebKey2020"
-		x25519KeyAgreementKey2019 = "X25519KeyAgreementKey2019"
-		err                       error
+		pubKey *cryptoapi.PublicKey
+		err    error
 	)
 
 	if d.VDRRegistry == nil {
@@ -88,6 +91,10 @@ func (d *DIDDocResolver) Resolve(kid string) (*cryptoapi.PublicKey, error) {
 	}
 
 	i := strings.Index(kid, "#")
+
+	if i < 0 {
+		return nil, fmt.Errorf("didDocResolver: kid is not KeyAgreement.ID: '%v'", kid)
+	}
 
 	didDoc, err := d.VDRRegistry.Resolve(kid[:i])
 	if err != nil {
@@ -102,22 +109,36 @@ func (d *DIDDocResolver) Resolve(kid string) (*cryptoapi.PublicKey, error) {
 			keyAgreementID = didDoc.DIDDocument.ID + keyAgreementID
 		}
 
-		if strings.EqualFold(kid, keyAgreementID) {
-			switch ka.VerificationMethod.Type {
-			case x25519KeyAgreementKey2019:
-				pubKey, err = buildX25519Key(k)
-				if err != nil {
-					return nil, fmt.Errorf("didDocResolver: %w", err)
-				}
-			case jsonWebKey2020:
-				pubKey, err = buildJWKKey(k)
-				if err != nil {
-					return nil, fmt.Errorf("didDocResolver: %w", err)
-				}
-			default:
-				return nil, fmt.Errorf("didDocResolver: can't build key from KayAgreement with type: '%v'",
-					ka.VerificationMethod.Type)
+		pubKey, err = extractKey(kid, keyAgreementID, k)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return pubKey, nil
+}
+
+func extractKey(kid, keyAgreementID string, ka *did.Verification) (*cryptoapi.PublicKey, error) {
+	var (
+		pubKey *cryptoapi.PublicKey
+		err    error
+	)
+
+	if strings.EqualFold(kid, keyAgreementID) {
+		switch ka.VerificationMethod.Type {
+		case x25519KeyAgreementKey2019:
+			pubKey, err = buildX25519Key(ka)
+			if err != nil {
+				return nil, fmt.Errorf("didDocResolver: %w", err)
 			}
+		case jsonWebKey2020:
+			pubKey, err = buildJWKKey(ka)
+			if err != nil {
+				return nil, fmt.Errorf("didDocResolver: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("didDocResolver: can't build key from KayAgreement with type: '%v'",
+				ka.VerificationMethod.Type)
 		}
 	}
 
@@ -162,7 +183,7 @@ func buildJWKKey(ka *did.Verification) (*cryptoapi.PublicKey, error) {
 		x = make([]byte, len(k))
 		copy(x, k)
 	default:
-		return nil, fmt.Errorf("buildJWKKey: unsupported JWK format: %v(%T)", k, k)
+		return nil, fmt.Errorf("buildJWKKey: unsupported JWK format: (%T)", k)
 	}
 
 	pubKey := &cryptoapi.PublicKey{
