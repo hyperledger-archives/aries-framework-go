@@ -536,6 +536,7 @@ const Aries = function (opts) {
             },
             /**
              * Sends a propose presentation.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
              *
              * @param req - json document
              * @returns {Promise<Object>}
@@ -545,6 +546,7 @@ const Aries = function (opts) {
             },
             /**
              * Accepts a problem report.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof
              *
              * @param req - json document
              * @returns {Promise<Object>}

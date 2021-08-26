@@ -374,6 +374,8 @@ func (c *Client) Connect(invitation *outofband.Invitation, options ...wallet.Con
 // ProposePresentation accepts out-of-band invitation and sends message proposing presentation
 // from wallet to relying party.
 //
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
+//
 // Currently Supporting
 // [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
 //
@@ -395,6 +397,7 @@ func (c *Client) ProposePresentation(invitation *outofband.Invitation, options .
 }
 
 // PresentProof sends message present proof message from wallet to relying party.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof
 //
 // Currently Supporting
 // [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
