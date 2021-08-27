@@ -500,8 +500,8 @@ type Credential struct {
 	// Subject can be a string, map, slice of maps, struct (Subject or any custom), slice of structs.
 	Subject        interface{}
 	Issuer         Issuer
-	Issued         *util.TimeWithTrailingZeroMsec
-	Expired        *util.TimeWithTrailingZeroMsec
+	Issued         *util.TimeWrapper
+	Expired        *util.TimeWrapper
 	Proofs         []Proof
 	Status         *TypedID
 	Schemas        []TypedID
@@ -514,19 +514,19 @@ type Credential struct {
 
 // rawCredential is a basic verifiable credential.
 type rawCredential struct {
-	Context        interface{}                    `json:"@context,omitempty"`
-	ID             string                         `json:"id,omitempty"`
-	Type           interface{}                    `json:"type,omitempty"`
-	Subject        json.RawMessage                `json:"credentialSubject,omitempty"`
-	Issued         *util.TimeWithTrailingZeroMsec `json:"issuanceDate,omitempty"`
-	Expired        *util.TimeWithTrailingZeroMsec `json:"expirationDate,omitempty"`
-	Proof          json.RawMessage                `json:"proof,omitempty"`
-	Status         *TypedID                       `json:"credentialStatus,omitempty"`
-	Issuer         json.RawMessage                `json:"issuer,omitempty"`
-	Schema         interface{}                    `json:"credentialSchema,omitempty"`
-	Evidence       Evidence                       `json:"evidence,omitempty"`
-	TermsOfUse     json.RawMessage                `json:"termsOfUse,omitempty"`
-	RefreshService json.RawMessage                `json:"refreshService,omitempty"`
+	Context        interface{}       `json:"@context,omitempty"`
+	ID             string            `json:"id,omitempty"`
+	Type           interface{}       `json:"type,omitempty"`
+	Subject        json.RawMessage   `json:"credentialSubject,omitempty"`
+	Issued         *util.TimeWrapper `json:"issuanceDate,omitempty"`
+	Expired        *util.TimeWrapper `json:"expirationDate,omitempty"`
+	Proof          json.RawMessage   `json:"proof,omitempty"`
+	Status         *TypedID          `json:"credentialStatus,omitempty"`
+	Issuer         json.RawMessage   `json:"issuer,omitempty"`
+	Schema         interface{}       `json:"credentialSchema,omitempty"`
+	Evidence       Evidence          `json:"evidence,omitempty"`
+	TermsOfUse     json.RawMessage   `json:"termsOfUse,omitempty"`
+	RefreshService json.RawMessage   `json:"refreshService,omitempty"`
 
 	// All unmapped fields are put here.
 	CustomFields `json:"-"`

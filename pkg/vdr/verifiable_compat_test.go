@@ -241,7 +241,7 @@ func universityDegreeVC() *verifiable.Credential {
 				"name": "Transmute University",
 			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{Time: time.Now()},
+		Issued: &util.TimeWrapper{Time: time.Now()},
 		Subject: &verifiable.Subject{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: map[string]interface{}{

@@ -73,7 +73,7 @@ func TestProof(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	require.Equal(t, "2018-03-15T00:00:00.00000Z", p.Created.Format(p.Created.GetFormat()))
+	require.Equal(t, "2018-03-15T00:00:00.00000Z", p.Created.FormatToString())
 
 	t.Run("capabilityChain", func(t *testing.T) {
 		t.Run("parses capabilityChain", func(t *testing.T) {
@@ -208,7 +208,9 @@ func TestProof_JSONLdObject(t *testing.T) {
 	created, err = time.Parse(time.RFC3339Nano, "2018-03-15T00:00:00.000Z")
 	require.NoError(t, err)
 
-	p.Created = util.NewTimeWithTrailingZeroMsec(created, 3)
+	p.Created, err = util.ParseTimeWrapper("2018-03-15T00:00:00.000Z")
+	require.NoError(t, err)
+
 	pJSONLd = p.JSONLdObject()
 	r.Equal("2018-03-15T00:00:00.000Z", pJSONLd["created"])
 

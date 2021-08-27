@@ -41,7 +41,7 @@ const (
 // Proof is cryptographic proof of the integrity of the DID Document.
 type Proof struct {
 	Type                    string
-	Created                 *util.TimeWithTrailingZeroMsec
+	Created                 *util.TimeWrapper
 	Creator                 string
 	VerificationMethod      string
 	ProofValue              []byte
@@ -59,7 +59,7 @@ type Proof struct {
 func NewProof(emap map[string]interface{}) (*Proof, error) {
 	created := stringEntry(emap[jsonldCreated])
 
-	timeValue, err := util.ParseTimeWithTrailingZeroMsec(created)
+	timeValue, err := util.ParseTimeWrapper(created)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (p *Proof) JSONLdObject() map[string]interface{} { // nolint:gocyclo
 	}
 
 	if p.Created != nil {
-		emap[jsonldCreated] = p.Created.Format(p.Created.GetFormat())
+		emap[jsonldCreated] = p.Created.FormatToString()
 	}
 
 	if len(p.ProofValue) > 0 {

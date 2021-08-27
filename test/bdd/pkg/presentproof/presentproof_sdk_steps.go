@@ -380,10 +380,10 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 				},
 			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{
+		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
-		Expired: &util.TimeWithTrailingZeroMsec{
+		Expired: &util.TimeWrapper{
 			Time: time.Now().AddDate(1, 0, 0),
 		},
 		Issuer: verifiable.Issuer{
