@@ -181,8 +181,8 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 
 	for i := range jwe.Recipients {
 		var (
-			recKey                *cryptoapi.PublicKey
-			pt, ecdh1puPubKeyByes []byte
+			recKey                               *cryptoapi.PublicKey
+			pt, ecdh1puPubKeyByes, mSenderPubKey []byte
 		)
 
 		recKey, err = p.pubKey(i, jwe)
@@ -217,16 +217,63 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 
 		ecdh1puPubKeyByes, err = json.Marshal(recKey)
 		if err != nil {
-			return nil, fmt.Errorf("authcrypt Unpack: failed to marshal public key: %w", err)
+			return nil, fmt.Errorf("authcrypt Unpack: failed to marshal recipient public key: %w", err)
+		}
+
+		mSenderPubKey, err = p.extractSenderKey(jwe)
+		if err != nil {
+			return nil, err
 		}
 
 		return &transport.Envelope{
 			Message: pt,
+			FromKey: mSenderPubKey,
 			ToKey:   ecdh1puPubKeyByes,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("authcrypt Unpack: no matching recipient in envelope")
+}
+
+func (p *Packer) extractSenderKey(jwe *jose.JSONWebEncryption) ([]byte, error) {
+	var (
+		senderKey     *cryptoapi.PublicKey
+		mSenderPubKey []byte
+		err           error
+	)
+
+	skidHeader, ok := jwe.ProtectedHeaders["skid"]
+	if ok { //nolint:nestif
+		skid, ok := skidHeader.(string)
+		if ok {
+			for _, r := range p.kidResolvers {
+				senderKey, err = r.Resolve(skid)
+				if err != nil {
+					logger.Debugf("authcrypt Unpack: unpack successful, but resolving sender key failed [%v] "+
+						" using %T resolver, skipping it.", err.Error(), r)
+				}
+
+				if senderKey != nil {
+					break
+				}
+			}
+
+			if senderKey != nil {
+				// original senderKey.KID is a kms kid. The agent unpacking the envelope doesn't have this kid in kms.
+				// Set value as skid to keep trace of the origin of the key (didDoc.keyAgreement[].VerificationMehod.ID)
+				senderKey.KID = skid
+				mSenderPubKey, err = json.Marshal(senderKey)
+
+				if err != nil {
+					return nil, fmt.Errorf("authcrypt Unpack: failed to marshal sender public key: %w", err)
+				}
+			} else {
+				logger.Debugf("authcrypt Unpack: senderKey not resolved, skipping FromKey in envelope")
+			}
+		}
+	}
+
+	return mSenderPubKey, nil
 }
 
 func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, string, error) {

@@ -133,9 +133,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 		tc := tt
 		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
 			t.Logf("authcrypt packing - creating kid %s key...", tc.keyType)
-			skid, sDIDKey, _, _ := createAndMarshalKeyByKeyType(t, k, tc.keyType)
-
-			skid += "." + sDIDKey
+			skid, sDIDKey, mSenderPubKey, _ := createAndMarshalKeyByKeyType(t, k, tc.keyType)
 
 			t.Logf("authcrypt packing - creating recipient %s keys...", tc.keyType)
 			kids, _, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
@@ -149,7 +147,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			require.NoError(t, err)
 
 			origMsg := []byte("secret message")
-			ct, err := authPacker.Pack(tc.cty, origMsg, []byte(skid), recipientsKeys)
+			ct, err := authPacker.Pack(tc.cty, origMsg, []byte(skid+"."+sDIDKey), recipientsKeys)
 			require.NoError(t, err)
 
 			jweStr, err := prettyPrint(ct)
@@ -162,7 +160,17 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			recKey, err := exportPubKeyBytes(keyHandles[0], kids[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			senderPubKey := &cryptoapi.PublicKey{}
+
+			err = json.Unmarshal(mSenderPubKey, senderPubKey)
+			require.NoError(t, err)
+
+			senderPubKey.KID = sDIDKey // match packer value.
+
+			mSenderPubKey, err = json.Marshal(senderPubKey)
+			require.NoError(t, err)
+
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, FromKey: mSenderPubKey, ToKey: recKey}, msg)
 
 			jweJSON, err := afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
@@ -170,7 +178,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 
 			// try with only 1 recipient to force compact JWE serialization
-			ct, err = authPacker.Pack(tc.cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+			ct, err = authPacker.Pack(tc.cty, origMsg, []byte(skid+"."+sDIDKey), [][]byte{recipientsKeys[0]})
 			require.NoError(t, err)
 
 			t.Logf("* authcrypt JWE Compact serialization (using first recipient only): %s", ct)
@@ -185,7 +193,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			msg, err = authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, FromKey: mSenderPubKey, ToKey: recKey}, msg)
 
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
@@ -226,9 +234,7 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 
 	cty := transport.MediaTypeV1PlaintextPayload
 
-	skid, didKey, _, _ := createAndMarshalKey(t, k)
-
-	skid += "." + didKey
+	skid, sDIDKey, mSenderPubKey, _ := createAndMarshalKey(t, k)
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -237,7 +243,7 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	origMsg := []byte("secret message")
-	ct, err := authPacker.Pack(cty, origMsg, []byte(skid), recipientsKeys)
+	ct, err := authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), recipientsKeys)
 	require.NoError(t, err)
 
 	t.Logf("authcrypt JWE: %s", ct)
@@ -248,20 +254,42 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	recKey, err := exportPubKeyBytes(keyHandles1[0], kids[0])
 	require.NoError(t, err)
 
+	senderPubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(mSenderPubKey, senderPubKey)
+	require.NoError(t, err)
+
+	senderPubKey.KID = sDIDKey // match packer value.
+
+	mSenderPubKey, err = json.Marshal(senderPubKey)
+	require.NoError(t, err)
+
 	require.EqualValues(t, &transport.Envelope{
 		Message: origMsg,
+		FromKey: mSenderPubKey,
 		ToKey:   recKey,
 	}, msg)
 
 	// try with only 1 recipient
-	ct, err = authPacker.Pack(cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+	ct, err = authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), [][]byte{recipientsKeys[0]})
 	require.NoError(t, err)
 
 	msg, err = authPacker.Unpack(ct)
 	require.NoError(t, err)
 
+	senderPubKey = &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(mSenderPubKey, senderPubKey)
+	require.NoError(t, err)
+
+	senderPubKey.KID = sDIDKey // match packer value.
+
+	mSenderPubKey, err = json.Marshal(senderPubKey)
+	require.NoError(t, err)
+
 	require.EqualValues(t, &transport.Envelope{
 		Message: origMsg,
+		FromKey: mSenderPubKey,
 		ToKey:   recKey,
 	}, msg)
 
@@ -338,7 +366,7 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "bad fake key ID")
 	})
 
-	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
+	t.Run("pack success but unpack fails with invalid payload format", func(t *testing.T) {
 		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
 		require.NoError(t, err)
 
@@ -349,6 +377,28 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "authcrypt Unpack: failed to deserialize JWE message: invalid compact "+
 			"JWE: it must have five parts")
+	})
+
+	t.Run("pack success but unpack fails with invalid payload auth (iv) data", func(t *testing.T) {
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
+		require.NoError(t, err)
+
+		var s []byte
+
+		s, err = validAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
+		require.NoError(t, err)
+
+		ivStartIndex := bytes.Index(s, []byte("\"iv\""))
+		ivEndIndex := ivStartIndex + 6 + bytes.Index(s[ivStartIndex+6:], []byte("\""))
+		sTrail := make([]byte, len(s[ivEndIndex:]))
+		copy(sTrail, s[ivEndIndex:])
+		s = append(s[:ivStartIndex+6], []byte("K3ORqVx392nLcdJveUl_Jg")...) // invalid base64 iv causes decryption error
+		s = append(s, sTrail...)
+
+		_, err = validAuthPacker.Unpack(s)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "authcrypt Unpack: failed to decrypt JWE envelope: ecdh_factory: "+
+			"decryption failed")
 	})
 
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {

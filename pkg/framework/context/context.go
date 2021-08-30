@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"time"
@@ -236,6 +237,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
+//nolint:gocyclo,nestif
 func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
 	var (
 		myDID    string
@@ -245,36 +247,48 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 
 	return myDID, theirDID, backoff.Retry(func() error {
 		var notFound bool
-		myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
-		if errors.Is(err, did.ErrNotFound) {
-			notFound = true
 
-			// try did:key
-			// TODO CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode for DIDComm V2.
-			didKey, _ := fingerprint.CreateDIDKey(envelope.ToKey)
-			myDID, err = p.didConnectionStore.GetDID(didKey)
+		kaIdentifier := []byte("#")
+
+		if id := bytes.Index(envelope.ToKey, kaIdentifier); id > 0 && bytes.HasPrefix(envelope.ToKey, []byte("did:")) {
+			myDID = string(envelope.ToKey[:id])
+		} else {
+			myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
 			if errors.Is(err, did.ErrNotFound) {
 				notFound = true
+
+				// try did:key
+				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
+				// types will be used. Currently, did:key is for legacy packers only, so only support Ed25519 keys.
+				didKey, _ := fingerprint.CreateDIDKey(envelope.ToKey)
+				myDID, err = p.didConnectionStore.GetDID(didKey)
+				if errors.Is(err, did.ErrNotFound) {
+					notFound = true
+				} else if err != nil {
+					return fmt.Errorf("failed to get my did from didKey: %w", err)
+				}
 			} else if err != nil {
-				return fmt.Errorf("failed to get my did from didKey: %w", err)
+				return fmt.Errorf("failed to get my did: %w", err)
 			}
-		} else if err != nil {
-			return fmt.Errorf("failed to get my did: %w", err)
 		}
 
-		theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-		if notFound && errors.Is(err, did.ErrNotFound) {
-			// try did:key
-			// TODO CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode for DIDComm V2.
-			didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
-			theirDID, err = p.didConnectionStore.GetDID(didKey)
-			if err != nil && !errors.Is(err, did.ErrNotFound) {
-				return fmt.Errorf("failed to get their did from didKey: %w", err)
+		if id := bytes.Index(envelope.FromKey, kaIdentifier); id > 0 && bytes.HasPrefix(envelope.FromKey, []byte("did:")) {
+			myDID = string(envelope.FromKey[:id])
+		} else {
+			theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
+			if notFound && errors.Is(err, did.ErrNotFound) {
+				// try did:key
+				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
+				// types will be used. Currently, did:key is for legacy packers, so only support Ed25519 keys.
+				didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
+				theirDID, err = p.didConnectionStore.GetDID(didKey)
+				if err != nil && !errors.Is(err, did.ErrNotFound) {
+					return fmt.Errorf("failed to get their did from didKey: %w", err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("failed to get their did: %w", err)
 			}
-		} else if err != nil {
-			return fmt.Errorf("failed to get their did: %w", err)
 		}
-
 		return nil
 	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(p.getDIDsBackOffDuration), p.getDIDsMaxRetries))
 }
