@@ -164,6 +164,10 @@ type Provider interface {
 // Store represents a storage database.
 type Store interface {
 	// Put stores the key + value pair along with the (optional) tags.
+	// If value is a JSON-formatted object, then an underlying storage implementation may store it in a way that
+	// does not preserve the order of the fields. Therefore, you should avoid doing direct byte-for-byte comparisons
+	// with data put in and data retrieved, as the marshalled representation may be different - always unmarshal data
+	// first before comparing.
 	// If key is empty or value is nil, then an error will be returned.
 	Put(key string, value []byte, tags ...Tag) error
 
