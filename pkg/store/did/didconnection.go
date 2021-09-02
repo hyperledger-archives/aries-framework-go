@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -87,34 +86,14 @@ func (c *ConnectionStoreImpl) SaveDID(did string, keys ...string) error {
 func (c *ConnectionStoreImpl) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
 
-	for i := range doc.VerificationMethod {
-		keyID := doc.VerificationMethod[i].ID
-
-		if strings.HasPrefix(keyID, "#") {
-			keyID = doc.ID + keyID
-		}
-
-		keys = append(keys, keyID)
-	}
-
-	// assumption doc.KeyAgreement exists when separate encryption keys and verifications keys are used for this DID
-	// eg: used by Authcrypt/Anoncrypt Packer (not Legacy Packer)
-	for i := range doc.KeyAgreement {
-		// add proper crypto keys (as opposed to verification keys as doc.VerificationMethod above)
-		keyID := doc.KeyAgreement[i].VerificationMethod.ID
-
-		if strings.HasPrefix(keyID, "#") {
-			keyID = doc.ID + keyID
-		}
-
-		keys = append(keys, keyID)
-	}
-
 	// save recipientKeys from didcomm-enabled service entries
 	// an error is returned only if the doc does not have a valid didcomm service entry, so we ignore it
 	svc, err := service.CreateDestination(doc)
 	if err == nil {
 		keys = append(keys, svc.RecipientKeys...)
+	} else {
+		logger.Debugf("saveDIDFromDoc: CreateDestination of DID Document returned error [%v], no keys will be "+
+			"linked for this DID '%s' in the connection store", err, doc.ID)
 	}
 
 	return c.SaveDID(doc.ID, keys...)

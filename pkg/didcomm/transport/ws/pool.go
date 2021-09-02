@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"nhooyr.io/websocket"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -114,12 +114,15 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transport, conn *websocket.Conn) {
 	var fromKey string
 
-	kaIdentifier := []byte("#")
+	fromPubKey := &cryptoapi.PublicKey{}
 
-	if id := bytes.Index(unpackMsg.FromKey, kaIdentifier); id > 0 && bytes.HasPrefix(unpackMsg.FromKey, []byte("did:")) {
-		fromKey = string(unpackMsg.FromKey)
-	} else {
+	err := json.Unmarshal(unpackMsg.FromKey, fromPubKey)
+	if err != nil {
+		logger.Infof("addKey: unpackMsg.FromKey is not a public key [err: %s], convert it to did:key", err)
+
 		fromKey, _ = fingerprint.CreateDIDKey(unpackMsg.FromKey)
+	} else {
+		fromKey = fromPubKey.KID
 	}
 
 	if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {

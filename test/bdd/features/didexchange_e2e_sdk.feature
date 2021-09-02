@@ -8,7 +8,7 @@
 @all
 @didexchange_e2e_sdk
 Feature: Decentralized Identifier(DID) exchange between the agents using SDK
-
+  @localkms_didexchange_e2e_sdk
   Scenario: did exchange e2e flow
     Given "Alice" agent is running on "localhost" port "random" with "http" as the transport provider
       And   "Alice" creates did exchange client

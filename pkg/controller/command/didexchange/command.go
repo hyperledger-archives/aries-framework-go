@@ -93,6 +93,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	KeyType() kms.KeyType
 	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // New returns new DID Exchange controller command instance.

@@ -15,8 +15,13 @@ import (
 // ErrNotFound is returned when a DID resolver does not find the DID.
 var ErrNotFound = errors.New("DID not found")
 
-// DIDCommServiceType default DID Communication service endpoint type.
-const DIDCommServiceType = "did-communication"
+const (
+	// DIDCommServiceType default DID Communication service endpoint type.
+	DIDCommServiceType = "did-communication"
+
+	// DIDCommV2ServiceType is the DID Communications V2 service type.
+	DIDCommV2ServiceType = "DIDCommMessaging"
+)
 
 // Registry vdr registry.
 type Registry interface {
