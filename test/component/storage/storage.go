@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package storage
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -374,8 +375,6 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 
 	testValueSimpleString := "TestValue"
 	testValueSimpleString2 := "TestValue2"
-	testValueJSON := `{"someKey1":"someStringValue","someKey2":3,"someKey3":true}`
-	testValueJSON2 := `{"someKey1":"someStringValue2","someKey2":3,"someKey3":true}`
 	testBinaryData := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f, 0xe3, 0x81}
 	testBinaryData2 := []byte{0x5f, 0xcb, 0x5c, 0xe9, 0x7f}
 	testValueJSONString := `"TestValue"`
@@ -386,7 +385,7 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
 			})
 			t.Run("Value is JSON-formatted object", func(t *testing.T) {
-				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSON))
+				doPutThenGetTestWithJSONFormattedObject(t, provider, testKeyNonURL)
 			})
 			t.Run("Value is JSON-formatted string", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSONString))
@@ -399,8 +398,11 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 			t.Run("Value is simple text", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString))
 			})
-			t.Run("Value is JSON-formatted text", func(t *testing.T) {
-				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueJSON))
+			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+				doPutThenGetTestWithJSONFormattedObject(t, provider, testKeyURL)
+			})
+			t.Run("Value is JSON-formatted string", func(t *testing.T) {
+				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueJSONString))
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyURL, testBinaryData)
@@ -413,8 +415,8 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL,
 					[]byte(testValueSimpleString), []byte(testValueSimpleString2))
 			})
-			t.Run("Value is JSON-formatted text", func(t *testing.T) {
-				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSON), []byte(testValueJSON2))
+			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+				doPutThenUpdateThenGetTestWithJSONFormattedObject(t, provider, testKeyNonURL)
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL, testBinaryData, testBinaryData2)
@@ -425,8 +427,8 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 				doPutThenUpdateThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString),
 					[]byte(testValueSimpleString2))
 			})
-			t.Run("Value is JSON-formatted text", func(t *testing.T) {
-				doPutThenUpdateThenGetTest(t, provider, testKeyURL, []byte(testValueJSON), []byte(testValueJSON2))
+			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+				doPutThenUpdateThenGetTestWithJSONFormattedObject(t, provider, testKeyURL)
 			})
 			t.Run("Value is binary data", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyURL, testBinaryData, testBinaryData2)
@@ -1652,6 +1654,55 @@ func doPutThenGetTest(t *testing.T, provider spi.Provider, key string, value []b
 	require.Equal(t, value, retrievedValue)
 }
 
+type testStruct struct {
+	String string `json:"string"`
+
+	Test1Bool bool `json:"test1Bool"`
+	Test2Bool bool `json:"test2Bool"`
+
+	BigNegativeInt32   int32 `json:"bigNegativeInt32"`
+	SmallNegativeInt32 int32 `json:"smallNegativeInt32"`
+	ZeroInt32          int32 `json:"zeroInt32"`
+	SmallPositiveInt32 int32 `json:"smallPositiveInt32"`
+	BigPositiveInt32   int32 `json:"bigPositiveInt32"`
+
+	BigNegativeInt64   int64 `json:"bigNegativeInt64"`
+	SmallNegativeInt64 int64 `json:"smallNegativeInt64"`
+	ZeroInt64          int64 `json:"zeroInt64"`
+	SmallPositiveInt64 int64 `json:"smallPositiveInt64"`
+	BigPositiveInt64   int64 `json:"bigPositiveInt64"`
+
+	Test1Float32 float32 `json:"test1Float32"`
+	Test2Float32 float32 `json:"test2Float32"`
+	Test3Float32 float32 `json:"test3Float32"`
+	Test4Float32 float32 `json:"test4Float32"`
+	Test5Float32 float32 `json:"test5Float32"`
+	ZeroFloat32  float32 `json:"zeroFloat32"`
+
+	Test1Float64 float64 `json:"test1Float64"`
+	Test2Float64 float64 `json:"test2Float64"`
+	Test3Float64 float64 `json:"test3Float64"`
+	Test4Float64 float64 `json:"test4Float64"`
+	Test5Float64 float32 `json:"test5Float64"`
+	ZeroFloat64  float64 `json:"zeroFloat64"`
+}
+
+func doPutThenGetTestWithJSONFormattedObject(t *testing.T, provider spi.Provider, key string) {
+	store, err := provider.OpenStore(randomStoreName())
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
+
+	storedTestData := storeTestJSONData(t, store, key)
+
+	retrievedValue, err := store.Get(key)
+	require.NoError(t, err)
+
+	checkIfTestStructsMatch(t, retrievedValue, &storedTestData)
+}
+
 func doPutThenUpdateThenGetTest(t *testing.T, provider spi.Provider, key string, value, updatedValue []byte) {
 	store, err := provider.OpenStore(randomStoreName())
 	require.NoError(t, err)
@@ -1669,6 +1720,114 @@ func doPutThenUpdateThenGetTest(t *testing.T, provider spi.Provider, key string,
 	retrievedValue, err := store.Get(key)
 	require.NoError(t, err)
 	require.Equal(t, updatedValue, retrievedValue)
+}
+
+func doPutThenUpdateThenGetTestWithJSONFormattedObject(t *testing.T, provider spi.Provider, key string) {
+	store, err := provider.OpenStore(randomStoreName())
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
+
+	storedTestData := storeTestJSONData(t, store, key)
+
+	storedTestData.String = "Some new string here"
+	storedTestData.Test1Bool = true
+	storedTestData.BigNegativeInt32 = -12345 //nolint:gomnd // Test file
+	storedTestData.BigPositiveInt64 = 90000004
+	storedTestData.Test3Float32 = 7.42
+	storedTestData.Test3Float64 = -72.4208 //nolint:gomnd // Test file
+
+	testDataBytes, err := json.Marshal(storedTestData)
+	require.NoError(t, err)
+
+	err = store.Put(key, testDataBytes)
+	require.NoError(t, err)
+
+	retrievedValue, err := store.Get(key)
+	require.NoError(t, err)
+
+	checkIfTestStructsMatch(t, retrievedValue, &storedTestData)
+}
+
+func storeTestJSONData(t *testing.T, store spi.Store, key string) testStruct {
+	testData := testStruct{
+		String: "Some string here",
+
+		Test1Bool: false,
+		Test2Bool: true,
+
+		BigNegativeInt32:   -2147483648,
+		SmallNegativeInt32: -3,
+		ZeroInt32:          0,
+		SmallPositiveInt32: 3,          //nolint:gomnd // Test file
+		BigPositiveInt32:   2147483647, //nolint:gomnd // Test file
+
+		BigNegativeInt64:   -9223372036854775808,
+		SmallNegativeInt64: -3,
+		ZeroInt64:          0,
+		SmallPositiveInt64: 3,                   //nolint:gomnd // Test file
+		BigPositiveInt64:   9223372036854775807, //nolint:gomnd // Test file
+
+		Test1Float32: 1.3,
+		Test2Float32: 16, //nolint:gomnd // Test file
+		Test3Float32: 1.5869797,
+		Test4Float32: 239.902, //nolint:gomnd // Test file
+		Test5Float32: -239.902,
+		ZeroFloat32:  0.00, //nolint:gomnd // Test file
+
+		Test1Float64: 0.12345678912345678, //nolint:gomnd // Test file
+		Test2Float64: -478.875321,
+		Test3Float64: 123456789, //nolint:gomnd // Test file
+		Test4Float64: 1.00000004,
+		Test5Float64: -239.902,
+		ZeroFloat64:  0.0000, //nolint:gomnd // Test file
+	}
+
+	testDataBytes, err := json.Marshal(testData)
+	require.NoError(t, err)
+
+	err = store.Put(key, testDataBytes)
+	require.NoError(t, err)
+
+	return testData
+}
+
+func checkIfTestStructsMatch(t *testing.T, retrievedValue []byte, storedTestData *testStruct) {
+	var retrievedTestData testStruct
+
+	err := json.Unmarshal(retrievedValue, &retrievedTestData)
+	require.NoError(t, err)
+
+	require.Equal(t, storedTestData.String, retrievedTestData.String)
+
+	require.Equal(t, storedTestData.Test1Bool, retrievedTestData.Test1Bool)
+	require.Equal(t, storedTestData.Test2Bool, retrievedTestData.Test2Bool)
+
+	require.Equal(t, storedTestData.BigNegativeInt32, retrievedTestData.BigNegativeInt32)
+	require.Equal(t, storedTestData.SmallNegativeInt32, retrievedTestData.SmallNegativeInt32)
+	require.Equal(t, storedTestData.ZeroInt32, retrievedTestData.ZeroInt32)
+	require.Equal(t, storedTestData.SmallPositiveInt32, retrievedTestData.SmallPositiveInt32)
+	require.Equal(t, storedTestData.BigPositiveInt32, retrievedTestData.BigPositiveInt32)
+
+	require.Equal(t, storedTestData.BigNegativeInt64, retrievedTestData.BigNegativeInt64)
+	require.Equal(t, storedTestData.SmallNegativeInt64, retrievedTestData.SmallNegativeInt64)
+	require.Equal(t, storedTestData.ZeroInt64, retrievedTestData.ZeroInt64)
+	require.Equal(t, storedTestData.SmallPositiveInt64, retrievedTestData.SmallPositiveInt64)
+	require.Equal(t, storedTestData.BigPositiveInt64, retrievedTestData.BigPositiveInt64)
+
+	require.Equal(t, storedTestData.Test1Float32, retrievedTestData.Test1Float32)
+	require.Equal(t, storedTestData.Test2Float32, retrievedTestData.Test2Float32)
+	require.Equal(t, storedTestData.Test3Float32, retrievedTestData.Test3Float32)
+	require.Equal(t, storedTestData.Test4Float32, retrievedTestData.Test4Float32)
+	require.Equal(t, storedTestData.ZeroFloat32, retrievedTestData.ZeroFloat32)
+
+	require.Equal(t, storedTestData.Test1Float64, retrievedTestData.Test1Float64)
+	require.Equal(t, storedTestData.Test2Float64, retrievedTestData.Test2Float64)
+	require.Equal(t, storedTestData.Test3Float64, retrievedTestData.Test3Float64)
+	require.Equal(t, storedTestData.Test4Float64, retrievedTestData.Test4Float64)
+	require.Equal(t, storedTestData.ZeroFloat64, retrievedTestData.ZeroFloat64)
 }
 
 func doStoreQueryTests(t *testing.T, // nolint: funlen,gocognit,gocyclo // Test file
