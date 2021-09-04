@@ -22,5 +22,4 @@ replace (
 	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
 	github.com/hyperledger/aries-framework-go/spi => ../../spi
-	github.com/hyperledger/aries-framework-go/test/component => ../../test/component
 )

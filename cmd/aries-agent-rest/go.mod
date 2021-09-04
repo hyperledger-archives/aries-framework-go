@@ -26,5 +26,4 @@ replace (
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
 	github.com/hyperledger/aries-framework-go/spi => ../../spi
-	github.com/hyperledger/aries-framework-go/test/component => ../../test/component
 )
