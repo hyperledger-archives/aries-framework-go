@@ -294,15 +294,15 @@ func ExampleClient_SendProposePresentation() {
 				fmt.Println("empty piid")
 			}
 
-			if e.Message.Type() == presentproof.PresentationMsgType {
+			if e.Message.Type() == presentproof.PresentationMsgTypeV2 {
 				acceptErr = clientBob.AcceptPresentation(piid)
 			}
 
-			if e.Message.Type() == presentproof.ProposePresentationMsgType {
+			if e.Message.Type() == presentproof.ProposePresentationMsgTypeV2 {
 				acceptErr = clientBob.AcceptProposePresentation(piid, &RequestPresentation{WillConfirm: true})
 			}
 
-			if e.Message.Type() == presentproof.RequestPresentationMsgType {
+			if e.Message.Type() == presentproof.RequestPresentationMsgTypeV2 {
 				acceptErr = clientAlice.AcceptRequestPresentation(piid, &Presentation{}, nil)
 			}
 

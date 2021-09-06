@@ -734,7 +734,7 @@ func (c *Wallet) PresentProof(authToken, thID string, presentProofFrom PresentPr
 	}
 
 	return c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
-		Type: presentproofSvc.PresentationMsgType,
+		Type: presentproofSvc.PresentationMsgTypeV2,
 		PresentationsAttach: []decorator.Attachment{{
 			ID:       uuid.New().String(),
 			MimeType: presentProofMimeType,

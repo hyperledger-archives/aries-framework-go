@@ -155,13 +155,13 @@ func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 	piid, _ := s.actionPIID(verifier) // nolint: errcheck
 
 	switch mt {
-	case protocol.RequestPresentationMsgType:
+	case protocol.RequestPresentationMsgTypeV2:
 		if piid != "" {
 			return sendAcceptProposePresentation(url, piid, msg)
 		}
 
 		return sendRequestPresentationMsg(url, s.did[verifier], s.did[prover], msg)
-	case protocol.PresentationMsgType:
+	case protocol.PresentationMsgTypeV2:
 		return sendPresentationMsg(url, piid, msg)
 	default:
 		return errors.New("message type is not supported")

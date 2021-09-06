@@ -15,3 +15,15 @@ type Ack struct {
 	Status string            `json:"status,omitempty"`
 	Thread *decorator.Thread `json:"~thread,omitempty"`
 }
+
+// AckV2 acknowledgement struct.
+type AckV2 struct {
+	ID   string    `json:"id,omitempty"`
+	Type string    `json:"type,omitempty"`
+	Body AckV2Body `json:"body,omitempty"`
+}
+
+// AckV2Body represents body for AckV2.
+type AckV2Body struct {
+	Status string `json:"status,omitempty"`
+}

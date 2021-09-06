@@ -1076,7 +1076,15 @@ func (t *testDIDCommMsg) ID() string {
 	panic("implement me")
 }
 
-func (t *testDIDCommMsg) SetID(id string) error {
+func (t *testDIDCommMsg) SetID(id string, opts ...service.Opt) {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) SetThread(tid, pid string, opts ...service.Opt) {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) UnsetThread() {
 	panic("implement me")
 }
 

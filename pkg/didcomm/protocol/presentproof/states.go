@@ -37,7 +37,9 @@ const (
 	codeInternalError = "internal"
 	codeRejectedError = "rejected"
 
-	jsonThread = "~thread"
+	jsonThread         = "~thread"
+	jsonThreadID       = "thid"
+	jsonParentThreadID = "pthid"
 )
 
 // state action for network call.
@@ -83,6 +85,7 @@ func (s *start) Execute(_ *metaData) (state, stateAction, error) {
 
 // abandoned state.
 type abandoned struct {
+	V    string
 	Code string
 }
 
@@ -97,7 +100,7 @@ func (s *abandoned) CanTransitionTo(st state) bool {
 func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 	// if code is not provided it means we do not need to notify the another agent.
 	// if we received ProblemReport message no need to answer.
-	if s.Code == "" || md.Msg.Type() == ProblemReportMsgType {
+	if s.Code == "" || md.Msg.Type() == ProblemReportMsgTypeV2 || md.Msg.Type() == ProblemReportMsgTypeV3 {
 		return &noOp{}, zeroAction, nil
 	}
 
@@ -114,15 +117,24 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 	}
 
 	return &noOp{}, func(messenger service.Messenger) error {
+		if s.V == SpecV3 {
+			return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReportV2{
+				Type: ProblemReportMsgTypeV3,
+				Body: model.ProblemReportV2Body{Code: code.Code},
+			}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
+		}
+
 		return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReport{
-			Type:        ProblemReportMsgType,
+			Type:        ProblemReportMsgTypeV2,
 			Description: code,
-		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID})
+		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 	}, nil
 }
 
 // done state.
-type done struct{}
+type done struct {
+	V string
+}
 
 func (s *done) Name() string {
 	return stateNameDone
@@ -152,7 +164,9 @@ func (s *noOp) Execute(_ *metaData) (state, stateAction, error) {
 }
 
 // requestReceived the Prover's state.
-type requestReceived struct{}
+type requestReceived struct {
+	V string
+}
 
 func (s *requestReceived) Name() string {
 	return stateNameRequestReceived
@@ -165,8 +179,18 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
-	if md.presentation == nil {
-		return &proposalSent{}, zeroAction, nil
+	if md.presentation == nil && md.presentationV3 == nil {
+		return &proposalSent{V: s.V}, zeroAction, nil
+	}
+
+	if s.V == SpecV3 {
+		var req *RequestPresentationV3
+
+		if err := md.Msg.Decode(&req); err != nil {
+			return nil, nil, err
+		}
+
+		return &presentationSent{V: s.V, WillConfirm: req.Body.WillConfirm}, zeroAction, nil
 	}
 
 	var req *RequestPresentation
@@ -175,11 +199,13 @@ func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 		return nil, nil, err
 	}
 
-	return &presentationSent{WillConfirm: req.WillConfirm}, zeroAction, nil
+	return &presentationSent{V: s.V, WillConfirm: req.WillConfirm}, zeroAction, nil
 }
 
 // requestSent the Verifier's state.
-type requestSent struct{}
+type requestSent struct {
+	V string
+}
 
 func (s *requestSent) Name() string {
 	return stateNameRequestSent
@@ -191,14 +217,26 @@ func (s *requestSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoned
 }
 
-func forwardInitial(md *metaData) stateAction {
+func forwardInitial(md *metaData, v service.Version) stateAction {
 	return func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID, service.WithVersion(v))
 	}
 }
 
 func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 	if !canReplyTo(md.Msg) {
+		if s.V == SpecV3 {
+			var req *RequestPresentationV3
+
+			if err := md.Msg.Decode(&req); err != nil {
+				return nil, nil, err
+			}
+
+			md.AckRequired = req.Body.WillConfirm
+
+			return &noOp{}, forwardInitial(md, getDIDVersion(s.V)), nil
+		}
+
 		var req *RequestPresentation
 
 		if err := md.Msg.Decode(&req); err != nil {
@@ -207,23 +245,39 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 
 		md.AckRequired = req.WillConfirm
 
-		return &noOp{}, forwardInitial(md), nil
+		return &noOp{}, forwardInitial(md, getDIDVersion(s.V)), nil
 	}
 
-	if md.request == nil {
+	if md.request == nil && md.requestV3 == nil {
 		return nil, nil, errors.New("request was not provided")
 	}
 
-	md.AckRequired = md.request.WillConfirm
+	if s.V == SpecV3 {
+		md.AckRequired = md.requestV3.Body.WillConfirm
+	} else {
+		md.AckRequired = md.request.WillConfirm
+	}
 
 	return &noOp{}, func(messenger service.Messenger) error {
-		md.request.Type = RequestPresentationMsgType
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.request), md.MyDID, md.TheirDID)
+		if s.V == SpecV3 {
+			md.requestV3.Type = RequestPresentationMsgTypeV3
+
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.requestV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)),
+			)
+		}
+
+		md.request.Type = RequestPresentationMsgTypeV2
+
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.request), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)),
+		)
 	}, nil
 }
 
 // presentationSent the Prover's state.
 type presentationSent struct {
+	V           string
 	WillConfirm bool
 }
 
@@ -237,26 +291,40 @@ func (s *presentationSent) CanTransitionTo(st state) bool {
 }
 
 func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
-	if md.presentation == nil {
+	if md.presentation == nil && md.presentationV3 == nil {
 		return nil, nil, errors.New("presentation was not provided")
 	}
 
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
+		if s.V == SpecV3 {
+			// sets message type
+			md.presentationV3.Type = PresentationMsgTypeV3
+
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.presentationV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)),
+			)
+		}
+
 		// sets message type
-		md.presentation.Type = PresentationMsgType
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.presentation), md.MyDID, md.TheirDID)
+		md.presentation.Type = PresentationMsgTypeV2
+
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.presentation), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)),
+		)
 	}
 
 	if !s.WillConfirm {
-		return &done{}, action, nil
+		return &done{V: s.V}, action, nil
 	}
 
 	return &noOp{}, action, nil
 }
 
 // presentationReceived the Verifier's state.
-type presentationReceived struct{}
+type presentationReceived struct {
+	V string
+}
 
 func (s *presentationReceived) Name() string {
 	return stateNamePresentationReceived
@@ -269,21 +337,29 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
 	if !md.AckRequired {
-		return &done{}, zeroAction, nil
+		return &done{V: s.V}, zeroAction, nil
 	}
 
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
+		if s.V == SpecV3 {
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.AckV2{
+				Type: AckMsgTypeV3,
+			}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
+		}
+
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
-			Type: AckMsgType,
-		}), md.MyDID, md.TheirDID)
+			Type: AckMsgTypeV2,
+		}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
-	return &done{}, action, nil
+	return &done{V: s.V}, action, nil
 }
 
 // proposalSent the Prover's state.
-type proposalSent struct{}
+type proposalSent struct {
+	V string
+}
 
 func (s *proposalSent) Name() string {
 	return stateNameProposalSent
@@ -295,27 +371,43 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 }
 
 func canReplyTo(msg service.DIDCommMsgMap) bool {
-	_, ok := msg[jsonThread]
-	return ok
+	_, thread := msg[jsonThread]
+	_, threadID := msg[jsonThreadID]
+	_, parentThreadID := msg[jsonParentThreadID]
+
+	return thread || threadID || parentThreadID
 }
 
 func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
 	if !canReplyTo(md.Msg) {
-		return &noOp{}, forwardInitial(md), nil
+		return &noOp{}, forwardInitial(md, getDIDVersion(s.V)), nil
 	}
 
-	if md.proposePresentation == nil {
+	if md.proposePresentation == nil && md.proposePresentationV3 == nil {
 		return nil, nil, errors.New("propose-presentation was not provided")
 	}
 
 	return &noOp{}, func(messenger service.Messenger) error {
-		md.proposePresentation.Type = ProposePresentationMsgType
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposePresentation), md.MyDID, md.TheirDID)
+		if s.V == SpecV3 {
+			md.proposePresentationV3.Type = ProposePresentationMsgTypeV3
+
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposePresentationV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)),
+			)
+		}
+
+		md.proposePresentation.Type = ProposePresentationMsgTypeV2
+
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposePresentation), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)),
+		)
 	}, nil
 }
 
 // proposalReceived the Verifier's state.
-type proposalReceived struct{}
+type proposalReceived struct {
+	V string
+}
 
 func (s *proposalReceived) Name() string {
 	return stateNameProposalReceived
@@ -327,5 +419,5 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *proposalReceived) Execute(_ *metaData) (state, stateAction, error) {
-	return &requestSent{}, zeroAction, nil
+	return &requestSent{V: s.V}, zeroAction, nil
 }

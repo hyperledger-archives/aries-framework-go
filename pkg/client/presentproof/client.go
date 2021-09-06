@@ -92,7 +92,7 @@ func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirD
 		return "", errEmptyRequestPresentation
 	}
 
-	msg.Type = presentproof.RequestPresentationMsgType
+	msg.Type = presentproof.RequestPresentationMsgTypeV2
 
 	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
@@ -121,7 +121,7 @@ func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirD
 		return "", errEmptyProposePresentation
 	}
 
-	msg.Type = presentproof.ProposePresentationMsgType
+	msg.Type = presentproof.ProposePresentationMsgTypeV2
 
 	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
