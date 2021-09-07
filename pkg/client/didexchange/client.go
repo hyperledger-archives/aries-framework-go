@@ -16,7 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -84,18 +86,20 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	KeyType() kms.KeyType
 	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // Client enable access to didexchange api.
 type Client struct {
 	service.Event
-	didexchangeSvc   protocolService
-	routeSvc         mediator.ProtocolService
-	kms              kms.KeyManager
-	serviceEndpoint  string
-	connectionStore  *connection.Recorder
-	keyType          kms.KeyType
-	keyAgreementType kms.KeyType
+	didexchangeSvc    protocolService
+	routeSvc          mediator.ProtocolService
+	kms               kms.KeyManager
+	serviceEndpoint   string
+	connectionStore   *connection.Recorder
+	keyType           kms.KeyType
+	keyAgreementType  kms.KeyType
+	mediaTypeProfiles []string
 }
 
 // protocolService defines DID Exchange service.
@@ -155,21 +159,28 @@ func New(ctx provider) (*Client, error) {
 		keyAgreementType = kms.X25519ECDHKWType
 	}
 
+	mtp := ctx.MediaTypeProfiles()
+	if len(mtp) == 0 {
+		mtp = []string{transport.MediaTypeRFC0019EncryptedEnvelope}
+	}
+
 	return &Client{
-		Event:            didexchangeSvc,
-		didexchangeSvc:   didexchangeSvc,
-		routeSvc:         routeSvc,
-		kms:              ctx.KMS(),
-		serviceEndpoint:  ctx.ServiceEndpoint(),
-		connectionStore:  connectionStore,
-		keyType:          keyType,
-		keyAgreementType: keyAgreementType,
+		Event:             didexchangeSvc,
+		didexchangeSvc:    didexchangeSvc,
+		routeSvc:          routeSvc,
+		kms:               ctx.KMS(),
+		serviceEndpoint:   ctx.ServiceEndpoint(),
+		connectionStore:   connectionStore,
+		keyType:           keyType,
+		keyAgreementType:  keyAgreementType,
+		mediaTypeProfiles: mtp,
 	}, nil
 }
 
-// CreateInvitation creates an invitation. New key pair will be generated and base58 encoded public key will be
-// used as basis for invitation. This invitation will be stored so client can cross reference this invitation during
+// CreateInvitation creates an invitation. New key pair will be generated and did:key encoded public key will be
+// used as basis for invitation. This invitation will be stored so client can cross-reference this invitation during
 // did exchange protocol.
+//nolint:funlen,gocyclo
 func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, error) {
 	opts := &options{}
 
@@ -177,14 +188,34 @@ func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, er
 		args[i](opts)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
-	//  with connection record
-	_, sigPubKey, err := c.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
-	if err != nil {
-		return nil, fmt.Errorf("createInvitation: failed to extract public SigningKey bytes from handle:%w", err)
+	keyType := c.keyType
+
+	for _, mediaType := range c.mediaTypeProfiles {
+		if mediaType == transport.MediaTypeDIDCommV2Profile || mediaType == transport.MediaTypeAIP2RFC0587Profile {
+			keyType = c.keyAgreementType
+
+			break
+		}
 	}
 
-	didKey, _ := fingerprint.CreateDIDKey(sigPubKey)
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
+	//  with connection record
+	_, pubKey, err := c.kms.CreateAndExportPubKeyBytes(keyType)
+	if err != nil {
+		return nil, fmt.Errorf("createInvitation: failed to extract public SigningKey bytes from handle: %w", err)
+	}
+
+	var didKey string
+
+	switch keyType {
+	case kms.ED25519Type:
+		didKey, _ = fingerprint.CreateDIDKey(pubKey)
+	default:
+		didKey, err = kmsdidkey.BuildDIDKeyByKeyType(pubKey, keyType)
+		if err != nil {
+			return nil, fmt.Errorf("createInvitation: failed to build did:key by key type: %w", err)
+		}
+	}
 
 	var (
 		serviceEndpoint = c.serviceEndpoint

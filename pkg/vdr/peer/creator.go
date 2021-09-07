@@ -98,11 +98,8 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 			didDoc.Service[i].ServiceEndpoint = v
 		}
 
-		if didDoc.Service[i].Type == vdrapi.DIDCommServiceType {
-			didKey, _ := fingerprint.CreateDIDKey(didDoc.VerificationMethod[0].Value)
-			didDoc.Service[i].RecipientKeys = []string{didKey}
-			didDoc.Service[i].Priority = 0
-		}
+		applyDIDCommKeys(i, didDoc)
+		applyDIDCommV2Keys(i, didDoc)
 
 		service = append(service, didDoc.Service[i])
 	}
@@ -149,6 +146,27 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 	}
 
 	return &did.DocResolution{DIDDocument: didDoc}, nil
+}
+
+func applyDIDCommKeys(i int, didDoc *did.Doc) {
+	if didDoc.Service[i].Type == vdrapi.DIDCommServiceType {
+		didKey, _ := fingerprint.CreateDIDKey(didDoc.VerificationMethod[0].Value)
+		didDoc.Service[i].RecipientKeys = []string{didKey}
+		didDoc.Service[i].Priority = 0
+	}
+}
+
+func applyDIDCommV2Keys(i int, didDoc *did.Doc) {
+	if didDoc.Service[i].Type == vdrapi.DIDCommV2ServiceType {
+		didDoc.Service[i].RecipientKeys = []string{}
+		didDoc.Service[i].Priority = 0
+
+		for _, ka := range didDoc.KeyAgreement {
+			kaID := ka.VerificationMethod.ID
+
+			didDoc.Service[i].RecipientKeys = append(didDoc.Service[i].RecipientKeys, kaID)
+		}
+	}
 }
 
 func buildDIDVMs(didDoc *did.Doc) ([]did.VerificationMethod, []did.VerificationMethod, error) {

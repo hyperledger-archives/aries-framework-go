@@ -250,10 +250,12 @@ func (p *Packer) extractSenderKey(jwe *jose.JSONWebEncryption) ([]byte, error) {
 				senderKey, err = r.Resolve(skid)
 				if err != nil {
 					logger.Debugf("authcrypt Unpack: unpack successful, but resolving sender key failed [%v] "+
-						" using %T resolver, skipping it.", err.Error(), r)
+						"using %T resolver, skipping it.", err.Error(), r)
 				}
 
 				if senderKey != nil {
+					logger.Debugf("authcrypt Unpack: unpack successful with resolving sender key success "+
+						"using %T resolver, will be using resolved senderKey for skid: %v", r, skid)
 					break
 				}
 			}

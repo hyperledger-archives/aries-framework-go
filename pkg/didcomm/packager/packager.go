@@ -155,7 +155,9 @@ func (bp *Packager) prepareSenderAndRecipientKeys(cty string, envelope *transpor
 				"senderVerKey: %w", err)
 		}
 
-		senderKID = senderKey.X // for legacy, use the sender raw key (Ed25519 key)
+		if isLegacy {
+			senderKID = senderKey.X // for legacy, use the sender raw key (Ed25519 key)
+		}
 
 		if !isLegacy {
 			senderKID = buildSenderKID(senderKey, envelope)

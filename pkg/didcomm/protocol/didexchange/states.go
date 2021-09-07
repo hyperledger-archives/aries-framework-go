@@ -367,7 +367,7 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 
 	connRec.MyDID = myDIDDoc.ID
 
-	senderKey, err := recipientKey(myDIDDoc)
+	senderKey, err := recipientKeyAsDIDKey(myDIDDoc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting recipient key: %w", err)
 	}
@@ -395,7 +395,7 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 	}, connRec, nil
 }
 
-// nolint:gocyclo
+// nolint:gocyclo,funlen
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
 	logger.Debugf("handling request: %+v", request)
@@ -412,15 +412,25 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	// get did document that will be used in exchange response
 	// (my did doc)
-	responseDidDoc, err := ctx.getMyDIDDoc(
-		getPublicDID(options), getRouterConnections(options))
+	myDID := getPublicDID(options)
+
+	responseDidDoc, err := ctx.getMyDIDDoc(myDID, getRouterConnections(options))
 	if err != nil {
 		return nil, nil, fmt.Errorf("get response did doc and connection: %w", err)
 	}
 
-	senderVerKey, err := recipientKey(responseDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("handle inbound request: %w", err)
+	var senderVerKey string
+
+	if myDID != "" {
+		senderVerKey, err = recipientKey(responseDidDoc)
+		if err != nil {
+			return nil, nil, fmt.Errorf("handle inbound request: %w", err)
+		}
+	} else {
+		senderVerKey, err = recipientKeyAsDIDKey(responseDidDoc)
+		if err != nil {
+			return nil, nil, fmt.Errorf("handle inbound request: %w", err)
+		}
 	}
 
 	connRec.MyDID = responseDidDoc.ID
@@ -632,7 +642,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 
 	newDID := &did.Doc{Service: services}
 
-	err := createNewKeyAndVM(newDID, ctx.keyType, ctx.keyAgreementType, ctx.kms)
+	err := ctx.createNewKeyAndVM(newDID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create and export public key: %w", err)
 	}
@@ -996,4 +1006,35 @@ func recipientKey(doc *did.Doc) (string, error) {
 	}
 
 	return dest.RecipientKeys[0], nil
+}
+
+func recipientKeyAsDIDKey(doc *did.Doc) (string, error) {
+	var (
+		key string
+		err error
+	)
+
+	switch doc.Service[0].Type {
+	case vdrapi.DIDCommServiceType:
+		return recipientKey(doc)
+	case vdrapi.DIDCommV2ServiceType:
+		// DIDComm V2 recipientKeys are KeyAgreement.ID, convert corresponding verification material to did:key since
+		// recipient doesn't have the DID 'doc' yet.
+		switch doc.KeyAgreement[0].VerificationMethod.Type {
+		case x25519KeyAgreementKey2019:
+			key, _ = fingerprint.CreateDIDKeyByCode(fingerprint.X25519PubKeyMultiCodec,
+				doc.KeyAgreement[0].VerificationMethod.Value)
+		case jsonWebKey2020:
+			key, _, err = fingerprint.CreateDIDKeyByJwk(doc.KeyAgreement[0].VerificationMethod.JSONWebKey())
+			if err != nil {
+				return "", fmt.Errorf("recipientKeyAsDIDKey: unable to create did:key from JWK: %w", err)
+			}
+		default:
+			return "", fmt.Errorf("keyAgreement type '%v' not supported", doc.KeyAgreement[0].VerificationMethod.Type)
+		}
+
+		return key, nil
+	default:
+		return "", fmt.Errorf("recipientKeyAsDIDKey: invalid DID Doc service type: '%v'", doc.Service[0].Type)
+	}
 }

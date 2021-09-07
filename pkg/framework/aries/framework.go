@@ -461,9 +461,18 @@ func createVDR(frameworkOpts *Aries) error {
 		return fmt.Errorf("create new vdr peer failed: %w", err)
 	}
 
+	dst := vdrapi.DIDCommServiceType
+
+	for _, mediaType := range frameworkOpts.mediaTypeProfiles {
+		if mediaType == transport.MediaTypeDIDCommV2Profile || mediaType == transport.MediaTypeAIP2RFC0587Profile {
+			dst = vdrapi.DIDCommV2ServiceType
+			break
+		}
+	}
+
 	opts = append(opts,
 		vdr.WithVDR(p),
-		vdr.WithDefaultServiceType(vdrapi.DIDCommServiceType),
+		vdr.WithDefaultServiceType(dst),
 		vdr.WithDefaultServiceEndpoint(ctx.ServiceEndpoint()),
 	)
 

@@ -169,6 +169,7 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
 	JSONLDDocumentLoader() ld.DocumentLoader
+	MediaTypeProfiles() []string
 	didCommProvider // to be used only if wallet needs to be participated in DIDComm.
 }
 

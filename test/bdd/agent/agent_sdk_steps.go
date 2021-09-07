@@ -29,6 +29,7 @@ import (
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
@@ -65,6 +66,16 @@ func NewSDKSteps() *SDKSteps {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
+	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, false)
+}
+
+// createAgentByDIDCommV2 with the given parameters.
+func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
+	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, true)
+}
+
+// createAgentByDIDCommVer with the given parameters.
+func (a *SDKSteps) createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme string, useDIDCommV2 bool) error {
 	storeProv := a.getStoreProvider(agentID)
 
 	loader, err := createJSONLDDocumentLoader(storeProv)
@@ -73,6 +84,10 @@ func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string)
 	}
 
 	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader))
+
+	if useDIDCommV2 {
+		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+	}
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
@@ -223,6 +238,14 @@ func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 }
 
 func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
+	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, false)
+}
+
+func (a *SDKSteps) createEdgeAgentByDIDCommV2(agentID, scheme, routeOpt string) error {
+	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, true)
+}
+
+func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string, useDIDCommV2 bool) error {
 	var opts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
@@ -241,6 +264,10 @@ func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 		aries.WithTransportReturnRoute(routeOpt),
 		aries.WithJSONLDDocumentLoader(loader),
 	)
+
+	if useDIDCommV2 {
+		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+	}
 
 	sch := strings.Split(scheme, ",")
 
@@ -389,10 +416,15 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.CreateAgent)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" using DIDCommV2 as `+
+		`the transport provider$`,
+		a.createAgentByDIDCommV2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
 		`using webkms with key server at "([^"]*)" URL, using "([^"]*)" controller`, a.CreateAgentWithRemoteKMS)
 	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
+	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
+		`and "([^"]*)" using DIDCommV2 as the transport return route option`, a.createEdgeAgentByDIDCommV2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+

@@ -131,6 +131,19 @@ func TestFramework(t *testing.T) {
 	})
 
 	// framework new - success
+	t.Run("test vdr - with DIDComm V2", func(t *testing.T) {
+		vdr := &mockvdr.MockVDR{}
+		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}),
+			WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		require.Equal(t, len(aries.vdr), 1)
+		require.Equal(t, vdr, aries.vdr[0])
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
 	t.Run("test vdr - with user provided", func(t *testing.T) {
 		vdr := &mockvdr.MockVDR{}
 		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}))

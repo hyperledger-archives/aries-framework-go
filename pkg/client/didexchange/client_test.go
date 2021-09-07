@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -169,6 +170,70 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotEmpty(t, inviteReq.ID)
 		require.Nil(t, inviteReq.RoutingKeys)
 		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
+	})
+
+	t.Run("test success with DIDCommV2 media profile", func(t *testing.T) {
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		store := mockstore.NewMockStoreProvider()
+		km := newKMS(t, store)
+
+		c, err := New(&mockprovider.Provider{
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+			},
+			KMSValue:               km,
+			ServiceEndpointValue:   "endpoint",
+			KeyAgreementTypeValue:  kms.NISTP521ECDHKWType,
+			MediaTypeProfilesValue: []string{transport.MediaTypeDIDCommV2Profile},
+		})
+
+		require.NoError(t, err)
+		inviteReq, err := c.CreateInvitation("agent")
+		require.NoError(t, err)
+		require.NotNil(t, inviteReq)
+		require.NotEmpty(t, inviteReq.Label)
+		require.NotEmpty(t, inviteReq.ID)
+		require.Nil(t, inviteReq.RoutingKeys)
+		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
+	})
+
+	t.Run("test failure with DIDCommV2 media profile with empty kms key for calling "+
+		"kmsdidkey.BuildDIDKeyByKeyType()", func(t *testing.T) {
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		c, err := New(&mockprovider.Provider{
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+			},
+			KMSValue:               &mockkms.KeyManager{},
+			ServiceEndpointValue:   "endpoint",
+			KeyAgreementTypeValue:  kms.NISTP521ECDHKWType,
+			MediaTypeProfilesValue: []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		_, err = c.CreateInvitation("agent")
+		require.EqualError(t, err, "createInvitation: failed to build did:key by key type: buildDIDkeyByKMSKeyType"+
+			" failed to unmarshal key type NISTP521ECDHKW: unexpected end of JSON input")
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
