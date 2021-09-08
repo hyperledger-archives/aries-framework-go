@@ -23,6 +23,14 @@ type (
 	// presentation process, or in response to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentation presentproof.ProposePresentation
+	// RequestPresentationV3 describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentationV3 presentproof.RequestPresentationV3
+	// PresentationV3 is a response to a RequestPresentationV3 message and contains signed presentations.
+	PresentationV3 presentproof.PresentationV3
+	// ProposePresentationV3 is an optional message sent by the Prover to the verifier to initiate a proof
+	// presentation process, or in response to a request-presentation message when the Prover wants to
+	// propose using a different presentation format.
+	ProposePresentationV3 presentproof.ProposePresentationV3
 	// Action contains helpful information about action.
 	Action presentproof.Action
 )
@@ -97,6 +105,18 @@ func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirD
 	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
 
+// SendRequestPresentationV3 is used by the Verifier to send a request presentation.
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendRequestPresentationV3(msg *RequestPresentationV3, myDID, theirDID string) (string, error) {
+	if msg == nil {
+		return "", errEmptyRequestPresentation
+	}
+
+	msg.Type = presentproof.RequestPresentationMsgTypeV3
+
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+}
+
 type addProof func(presentation *verifiable.Presentation) error
 
 // AcceptRequestPresentation is used by the Prover is to accept a presentation request.
@@ -104,9 +124,19 @@ func (c *Client) AcceptRequestPresentation(piID string, msg *Presentation, sign 
 	return c.service.ActionContinue(piID, WithMultiOptions(WithPresentation(msg), WithAddProofFn(sign)))
 }
 
+// AcceptRequestPresentationV3 is used by the Prover is to accept a presentation request.
+func (c *Client) AcceptRequestPresentationV3(piID string, msg *PresentationV3, sign addProof) error {
+	return c.service.ActionContinue(piID, WithMultiOptions(WithPresentationV3(msg), WithAddProofFn(sign)))
+}
+
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
 func (c *Client) NegotiateRequestPresentation(piID string, msg *ProposePresentation) error {
 	return c.service.ActionContinue(piID, WithProposePresentation(msg))
+}
+
+// NegotiateRequestPresentationV3 is used by the Prover to counter a presentation request they received with a proposal.
+func (c *Client) NegotiateRequestPresentationV3(piID string, msg *ProposePresentationV3) error {
+	return c.service.ActionContinue(piID, WithProposePresentationV3(msg))
 }
 
 // DeclineRequestPresentation is used when the Prover does not want to accept the request presentation.
@@ -126,9 +156,26 @@ func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirD
 	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
 }
 
+// SendProposePresentationV3 is used by the Prover to send a propose presentation.
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendProposePresentationV3(msg *ProposePresentationV3, myDID, theirDID string) (string, error) {
+	if msg == nil {
+		return "", errEmptyProposePresentation
+	}
+
+	msg.Type = presentproof.ProposePresentationMsgTypeV3
+
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+}
+
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.
 func (c *Client) AcceptProposePresentation(piID string, msg *RequestPresentation) error {
 	return c.service.ActionContinue(piID, WithRequestPresentation(msg))
+}
+
+// AcceptProposePresentationV3 is used when the Verifier is willing to accept the propose presentation.
+func (c *Client) AcceptProposePresentationV3(piID string, msg *RequestPresentationV3) error {
+	return c.service.ActionContinue(piID, WithRequestPresentationV3(msg))
 }
 
 // DeclineProposePresentation is used when the Verifier does not want to accept the propose presentation.
@@ -159,6 +206,14 @@ func WithPresentation(msg *Presentation) presentproof.Opt {
 	return presentproof.WithPresentation(&origin)
 }
 
+// WithPresentationV3 allows providing PresentationV3 message
+// Use this option to respond to RequestPresentationV3.
+func WithPresentationV3(msg *PresentationV3) presentproof.Opt {
+	origin := presentproof.PresentationV3(*msg)
+
+	return presentproof.WithPresentationV3(&origin)
+}
+
 // WithMultiOptions allows combining several options into one.
 func WithMultiOptions(opts ...presentproof.Opt) presentproof.Opt {
 	return presentproof.WithMultiOptions(opts...)
@@ -178,12 +233,28 @@ func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 	return presentproof.WithProposePresentation(&origin)
 }
 
+// WithProposePresentationV3 allows providing ProposePresentationV3 message
+// Use this option to respond to RequestPresentation.
+func WithProposePresentationV3(msg *ProposePresentationV3) presentproof.Opt {
+	origin := presentproof.ProposePresentationV3(*msg)
+
+	return presentproof.WithProposePresentationV3(&origin)
+}
+
 // WithRequestPresentation allows providing RequestPresentation message
 // Use this option to respond to ProposePresentation.
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
 	origin := presentproof.RequestPresentation(*msg)
 
 	return presentproof.WithRequestPresentation(&origin)
+}
+
+// WithRequestPresentationV3 allows providing RequestPresentation message
+// Use this option to respond to ProposePresentation.
+func WithRequestPresentationV3(msg *RequestPresentationV3) presentproof.Opt {
+	origin := presentproof.RequestPresentationV3(*msg)
+
+	return presentproof.WithRequestPresentationV3(&origin)
 }
 
 // WithFriendlyNames allows providing names for the presentations.

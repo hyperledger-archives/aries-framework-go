@@ -226,7 +226,7 @@ func TestSavePresentation(t *testing.T) {
 		require.NotEmpty(t, props["names"].([]string)[0])
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success v2", func(t *testing.T) {
 		const vcName = "vc-name"
 
 		props := map[string]interface{}{
@@ -241,6 +241,45 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
 			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
+				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
+			},
+		}))
+
+		verifiableStore := mocksstore.NewMockStore(ctrl)
+		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		loader, err := ldtestutil.DocumentLoader()
+		require.NoError(t, err)
+
+		registry := mocksvdr.NewMockRegistry(ctrl)
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(
+			&did.DocResolution{DIDDocument: &did.Doc{VerificationMethod: []did.VerificationMethod{pubKey}}}, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().VDRegistry().Return(registry).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
+
+		require.NoError(t, SavePresentation(provider)(next).Handle(metadata))
+		require.Equal(t, props["names"], []string{vcName})
+	})
+
+	t.Run("Success v3", func(t *testing.T) {
+		const vcName = "vc-name"
+
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
+		metadata.EXPECT().PresentationNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(props)
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.PresentationV3{
+			Type: presentproof.PresentationMsgTypeV3,
+			Attachments: []decorator.AttachmentV2{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
 		}))
@@ -492,7 +531,7 @@ func TestPresentationDefinition(t *testing.T) {
 		require.EqualError(t, PresentationDefinition(provider)(next).Handle(metadata), "add proof: test")
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success v2", func(t *testing.T) {
 		ID := uuid.New().String()
 
 		metadata := mocks.NewMockMetadata(ctrl)
@@ -535,6 +574,74 @@ func TestPresentationDefinition(t *testing.T) {
 			Type: presentproof.RequestPresentationMsgTypeV2,
 			RequestPresentationsAttach: []decorator.Attachment{{
 				ID: ID,
+				Data: decorator.AttachmentData{
+					JSON: map[string]interface{}{
+						"presentation_definition": &presexch.PresentationDefinition{
+							ID: uuid.New().String(),
+							InputDescriptors: []*presexch.InputDescriptor{{
+								ID: uuid.New().String(),
+								Schema: []*presexch.Schema{{
+									URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+								}},
+								Constraints: &presexch.Constraints{
+									Fields: []*presexch.Field{{
+										Path:   []string{"$.first_name"},
+										Filter: &presexch.Filter{Type: &strFilterType},
+									}, {
+										Path:   []string{"$.last_name"},
+										Filter: &presexch.Filter{Type: &strFilterType},
+									}},
+								},
+							}},
+						},
+					},
+				},
+			}},
+		}))
+
+		require.Nil(t, PresentationDefinition(provider, WithAddProofFn(AddBBSProofFn(provider)))(next).Handle(metadata))
+	})
+
+	t.Run("Success v3", func(t *testing.T) {
+		ID := uuid.New().String()
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameRequestReceived)
+		metadata.EXPECT().GetAddProofFn().Return(nil)
+		metadata.EXPECT().PresentationV3().Return(&presentproof.PresentationV3{
+			Attachments: []decorator.AttachmentV2{{
+				MediaType: mimeTypeApplicationLdJSON,
+				Data: decorator.AttachmentData{
+					JSON: &verifiable.Credential{
+						ID:      "http://example.edu/credentials/1872",
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						Issued: &util.TimeWrapper{
+							Time: time.Now(),
+						},
+						Issuer: verifiable.Issuer{
+							ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						},
+						CustomFields: map[string]interface{}{
+							"first_name": "First name",
+							"last_name":  "Last name",
+							"info":       "Info",
+						},
+					},
+				},
+			}, {
+				MediaType: "application/json",
+				Data: decorator.AttachmentData{
+					JSON: map[string]struct{}{},
+				},
+			}},
+		}).AnyTimes()
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.RequestPresentationV3{
+			Type: presentproof.RequestPresentationMsgTypeV3,
+			Attachments: []decorator.AttachmentV2{{
+				ID:     ID,
+				Format: peDefinitionFormat,
 				Data: decorator.AttachmentData{
 					JSON: map[string]interface{}{
 						"presentation_definition": &presexch.PresentationDefinition{
