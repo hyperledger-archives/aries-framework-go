@@ -82,6 +82,43 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 	})
 }
 
+func TestClient_SendRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+		thid := uuid.New().String()
+
+		svc := mocks.NewMockProtocolService(ctrl)
+		svc.EXPECT().HandleInbound(gomock.Any(), service.NewDIDCommContext(Alice, Bob, nil)).
+			DoAndReturn(func(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+				require.Equal(t, msg.Type(), presentproof.RequestPresentationMsgTypeV3)
+
+				return thid, nil
+			})
+
+		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		result, err := client.SendRequestPresentationV3(&RequestPresentationV3{}, Alice, Bob)
+		require.NoError(t, err)
+		require.Equal(t, thid, result)
+	})
+
+	t.Run("Empty Invitation Presentation", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+
+		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		_, err = client.SendRequestPresentationV3(nil, Alice, Bob)
+		require.EqualError(t, err, errEmptyRequestPresentation.Error())
+	})
+}
+
 func TestClient_SendProposePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -119,6 +156,43 @@ func TestClient_SendProposePresentation(t *testing.T) {
 	})
 }
 
+func TestClient_SendProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+		thid := uuid.New().String()
+
+		svc := mocks.NewMockProtocolService(ctrl)
+		svc.EXPECT().HandleInbound(gomock.Any(), service.NewDIDCommContext(Alice, Bob, nil)).
+			DoAndReturn(func(msg service.DIDCommMsg, _ service.DIDCommContext) (string, error) {
+				require.Equal(t, msg.Type(), presentproof.ProposePresentationMsgTypeV3)
+
+				return thid, nil
+			})
+
+		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		result, err := client.SendProposePresentationV3(&ProposePresentationV3{}, Alice, Bob)
+		require.NoError(t, err)
+		require.Equal(t, thid, result)
+	})
+
+	t.Run("Empty Invitation Presentation", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+
+		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		_, err = client.SendProposePresentationV3(nil, Alice, Bob)
+		require.EqualError(t, err, errEmptyProposePresentation.Error())
+	})
+}
+
 func TestClient_AcceptRequestPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -133,6 +207,22 @@ func TestClient_AcceptRequestPresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.AcceptRequestPresentation("PIID", &Presentation{}, nil))
+}
+
+func TestClient_AcceptRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptRequestPresentationV3("PIID", &PresentationV3{}, nil))
 }
 
 func TestClient_DeclineRequestPresentation(t *testing.T) {
@@ -165,6 +255,22 @@ func TestClient_AcceptProposePresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.AcceptProposePresentation("PIID", &RequestPresentation{}))
+}
+
+func TestClient_AcceptProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptProposePresentationV3("PIID", &RequestPresentationV3{}))
 }
 
 func TestClient_DeclineProposePresentation(t *testing.T) {
@@ -231,7 +337,7 @@ func TestClient_AcceptProblemReport(t *testing.T) {
 	require.NoError(t, client.AcceptProblemReport("PIID"))
 }
 
-func TestClient_NegotiateProposePresentation(t *testing.T) {
+func TestClient_NegotiateRequestPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -245,4 +351,20 @@ func TestClient_NegotiateProposePresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.NegotiateRequestPresentation("PIID", &ProposePresentation{}))
+}
+
+func TestClient_NegotiateRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.NegotiateRequestPresentationV3("PIID", &ProposePresentationV3{}))
 }

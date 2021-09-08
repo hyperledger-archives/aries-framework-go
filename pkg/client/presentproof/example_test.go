@@ -173,6 +173,75 @@ func ExampleClient_SendRequestPresentation() {
 	// Alice received https://didcomm.org/present-proof/2.0/presentation from Bob
 }
 
+func ExampleClient_SendRequestPresentationV3() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+	}
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			var acceptErr error
+
+			select {
+			case e := <-actionsAlice:
+				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
+			case e := <-actionsBob:
+				acceptErr = clientBob.AcceptRequestPresentationV3(e.Properties.All()["piid"].(string), &PresentationV3{}, nil)
+			}
+
+			if acceptErr != nil {
+				fmt.Println(acceptErr)
+			}
+		}
+	}()
+
+	// Alice
+	waitForAlice := waitForFn(clientAlice)
+	// Bob
+	waitForBob := waitForFn(clientBob)
+
+	_, err = clientAlice.SendRequestPresentationV3(&RequestPresentationV3{}, Alice, Bob)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	waitForAlice()
+	waitForBob()
+
+	// Output:
+	// Bob received https://didcomm.org/present-proof/3.0/request-presentation from Alice
+	// Alice received https://didcomm.org/present-proof/3.0/presentation from Bob
+}
+
 func ExampleClient_SendRequestPresentation_second() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
@@ -241,6 +310,78 @@ func ExampleClient_SendRequestPresentation_second() {
 	// Bob received https://didcomm.org/present-proof/2.0/request-presentation from Alice
 	// Alice received https://didcomm.org/present-proof/2.0/presentation from Bob
 	// Bob received https://didcomm.org/present-proof/2.0/ack from Alice
+}
+
+func ExampleClient_SendRequestPresentationV3_second() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+	}
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			var acceptErr error
+
+			select {
+			case e := <-actionsAlice:
+				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
+			case e := <-actionsBob:
+				acceptErr = clientBob.AcceptRequestPresentationV3(e.Properties.All()["piid"].(string), &PresentationV3{}, nil)
+			}
+
+			if acceptErr != nil {
+				fmt.Println(acceptErr)
+			}
+		}
+	}()
+
+	// Alice
+	waitForAlice := waitForFn(clientAlice)
+	// Bob
+	waitForBob := waitForFn(clientBob)
+
+	_, err = clientAlice.SendRequestPresentationV3(&RequestPresentationV3{
+		Body: presentproof.RequestPresentationV3Body{WillConfirm: true},
+	}, Alice, Bob)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	waitForAlice()
+	waitForBob()
+
+	// Output:
+	// Bob received https://didcomm.org/present-proof/3.0/request-presentation from Alice
+	// Alice received https://didcomm.org/present-proof/3.0/presentation from Bob
+	// Bob received https://didcomm.org/present-proof/3.0/ack from Alice
 }
 
 // nolint: gocyclo
@@ -330,6 +471,98 @@ func ExampleClient_SendProposePresentation() {
 	// Alice received https://didcomm.org/present-proof/2.0/request-presentation from Bob
 	// Bob received https://didcomm.org/present-proof/2.0/presentation from Alice
 	// Alice received https://didcomm.org/present-proof/2.0/ack from Bob
+}
+
+// nolint: gocyclo
+func ExampleClient_SendProposePresentationV3() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+	}
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			var acceptErr error
+
+			var e service.DIDCommAction
+
+			select {
+			case e = <-actionsAlice:
+			case e = <-actionsBob:
+			}
+
+			piid, ok := e.Properties.All()["piid"].(string)
+			if !ok {
+				fmt.Println("empty piid")
+			}
+
+			if e.Message.Type() == presentproof.PresentationMsgTypeV3 {
+				acceptErr = clientBob.AcceptPresentation(piid)
+			}
+
+			if e.Message.Type() == presentproof.ProposePresentationMsgTypeV3 {
+				rp3 := &RequestPresentationV3{}
+				rp3.Body.WillConfirm = true
+
+				acceptErr = clientBob.AcceptProposePresentationV3(piid, rp3)
+			}
+
+			if e.Message.Type() == presentproof.RequestPresentationMsgTypeV3 {
+				acceptErr = clientAlice.AcceptRequestPresentationV3(piid, &PresentationV3{}, nil)
+			}
+
+			if acceptErr != nil {
+				fmt.Println(acceptErr)
+			}
+		}
+	}()
+
+	// Alice
+	waitForAlice := waitForFn(clientAlice)
+	// Bob
+	waitForBob := waitForFn(clientBob)
+
+	_, err = clientAlice.SendProposePresentationV3(&ProposePresentationV3{}, Alice, Bob)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	waitForAlice()
+	waitForBob()
+
+	// Output:
+	// Bob received https://didcomm.org/present-proof/3.0/propose-presentation from Alice
+	// Alice received https://didcomm.org/present-proof/3.0/request-presentation from Bob
+	// Bob received https://didcomm.org/present-proof/3.0/presentation from Alice
+	// Alice received https://didcomm.org/present-proof/3.0/ack from Bob
 }
 
 func waitForFn(c *Client) func() {

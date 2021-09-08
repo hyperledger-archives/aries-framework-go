@@ -37,6 +37,12 @@ type Metadata interface {
 	ProposePresentation() *ProposePresentation
 	// RequestPresentation is pointer to the message provided by the user through the Continue function.
 	RequestPresentation() *RequestPresentation
+	// PresentationV3 is pointer to the message provided by the user through the Continue function.
+	PresentationV3() *PresentationV3
+	// ProposePresentationV3 is pointer to the message provided by the user through the Continue function.
+	ProposePresentationV3() *ProposePresentationV3
+	// RequestPresentationV3 is pointer to the message provided by the user through the Continue function.
+	RequestPresentationV3() *RequestPresentationV3
 	// PresentationNames is a slice which contains presentation names provided by the user through the Continue function.
 	PresentationNames() []string
 	// StateName provides the state name

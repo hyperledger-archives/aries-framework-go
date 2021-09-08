@@ -107,12 +107,24 @@ func (md *metaData) Presentation() *Presentation {
 	return md.presentation
 }
 
+func (md *metaData) PresentationV3() *PresentationV3 {
+	return md.presentationV3
+}
+
 func (md *metaData) ProposePresentation() *ProposePresentation {
 	return md.proposePresentation
 }
 
+func (md *metaData) ProposePresentationV3() *ProposePresentationV3 {
+	return md.proposePresentationV3
+}
+
 func (md *metaData) RequestPresentation() *RequestPresentation {
 	return md.request
+}
+
+func (md *metaData) RequestPresentationV3() *RequestPresentationV3 {
+	return md.requestV3
 }
 
 func (md *metaData) PresentationNames() []string {
@@ -151,6 +163,14 @@ func WithPresentation(msg *Presentation) Opt {
 	}
 }
 
+// WithPresentationV3 allows providing PresentationV3 message
+// USAGE: This message can be provided after receiving a Invitation message.
+func WithPresentationV3(msg *PresentationV3) Opt {
+	return func(md *metaData) {
+		md.presentationV3 = msg
+	}
+}
+
 // WithAddProofFn allows providing function that will sign the Presentation.
 // USAGE: This fn can be provided after receiving a Invitation message.
 func WithAddProofFn(addProof func(presentation *verifiable.Presentation) error) Opt {
@@ -176,11 +196,27 @@ func WithProposePresentation(msg *ProposePresentation) Opt {
 	}
 }
 
+// WithProposePresentationV3 allows providing ProposePresentationV3 message
+// USAGE: This message can be provided after receiving a Invitation message.
+func WithProposePresentationV3(msg *ProposePresentationV3) Opt {
+	return func(md *metaData) {
+		md.proposePresentationV3 = msg
+	}
+}
+
 // WithRequestPresentation allows providing RequestPresentation message
 // USAGE: This message can be provided after receiving a propose message.
 func WithRequestPresentation(msg *RequestPresentation) Opt {
 	return func(md *metaData) {
 		md.request = msg
+	}
+}
+
+// WithRequestPresentationV3 allows providing RequestPresentation message
+// USAGE: This message can be provided after receiving a propose message.
+func WithRequestPresentationV3(msg *RequestPresentationV3) Opt {
+	return func(md *metaData) {
+		md.requestV3 = msg
 	}
 }
 
