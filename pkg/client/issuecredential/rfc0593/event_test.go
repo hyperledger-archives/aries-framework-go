@@ -112,8 +112,7 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 
 				ready := make(chan struct{})
 				msg := service.NewDIDCommMsgMap(tc.msg)
-				err = msg.SetID(uuid.New().String())
-				require.NoError(t, err)
+				msg.SetID(uuid.New().String())
 
 				go func() {
 					events <- service.DIDCommAction{
@@ -638,8 +637,7 @@ func TestVerifyCredential(t *testing.T) {
 				},
 			}},
 		})
-		err := msg.SetID(uuid.New().String())
-		require.NoError(t, err)
+		msg.SetID(uuid.New().String())
 
 		arg, err := rfc0593.VerifyCredential(agent, spec.Options, name, msg)
 		require.NoError(t, err)
@@ -672,10 +670,9 @@ func TestVerifyCredential(t *testing.T) {
 				},
 			}},
 		})
-		err := msg.SetID(uuid.New().String())
-		require.NoError(t, err)
+		msg.SetID(uuid.New().String())
 
-		_, err = rfc0593.VerifyCredential(agent, nil, uuid.New().String(), msg)
+		_, err := rfc0593.VerifyCredential(agent, nil, uuid.New().String(), msg)
 		require.NoError(t, err)
 	})
 }

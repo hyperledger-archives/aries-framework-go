@@ -9,7 +9,9 @@ package service
 // DIDCommMsg describes message interface.
 type DIDCommMsg interface {
 	ID() string
-	SetID(id string) error
+	SetID(id string, opts ...Opt)
+	SetThread(thid, pthid string, opts ...Opt)
+	UnsetThread()
 	Type() string
 	ThreadID() (string, error)
 	ParentThreadID() string
@@ -72,18 +74,18 @@ type Messenger interface {
 	// Using this function means that communication will be on the same thread.
 	//
 	// Deprecated: Please do not use it anymore. The function can be removed in future release.
-	ReplyTo(msgID string, msg DIDCommMsgMap) error
+	ReplyTo(msgID string, msg DIDCommMsgMap, opts ...Opt) error
 
 	// ReplyToMsg replies to the given message.
 	// Keeps threadID in the *decorator.Thread.
 	// Using this function means that communication will be on the same thread.
-	ReplyToMsg(in, out DIDCommMsgMap, myDID, theirDID string) error
+	ReplyToMsg(in, out DIDCommMsgMap, myDID, theirDID string, opts ...Opt) error
 
 	// Send sends the message by starting a new thread.
-	Send(msg DIDCommMsgMap, myDID, theirDID string) error
+	Send(msg DIDCommMsgMap, myDID, theirDID string, opts ...Opt) error
 
 	// SendToDestination sends the message to given destination by starting a new thread.
-	SendToDestination(msg DIDCommMsgMap, sender string, destination *Destination) error
+	SendToDestination(msg DIDCommMsgMap, sender string, destination *Destination, opts ...Opt) error
 
 	// ReplyToNested sends the message by starting a new thread.
 	// Keeps parent threadID in the *decorator.Thread
@@ -113,4 +115,5 @@ type NestedReplyOpts struct {
 	//
 	// Deprecated: Please do not use it anymore. The field can be removed in future release.
 	MsgID string
+	V     Version
 }

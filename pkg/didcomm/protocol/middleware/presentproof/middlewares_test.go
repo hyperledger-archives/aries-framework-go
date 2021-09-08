@@ -75,7 +75,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 		}))
 
 		err := SavePresentation(provider)(next).Handle(metadata)
@@ -86,7 +86,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
 			},
@@ -109,7 +109,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: &verifiable.Presentation{
 					Context: []string{"https://www.w3.org/2018/presentation/v1"},
@@ -135,7 +135,7 @@ func TestSavePresentation(t *testing.T) {
 			theirDIDKey: theirDIDKey,
 		})
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
@@ -165,7 +165,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Properties().Return(map[string]interface{}{})
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
@@ -199,7 +199,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().PresentationNames().Return(nil)
 		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWSNoID))}},
 			},
@@ -239,7 +239,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().PresentationNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
-			Type: presentproof.PresentationMsgType,
+			Type: presentproof.PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
@@ -304,7 +304,7 @@ func TestPresentationDefinition(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNameRequestReceived)
 		metadata.EXPECT().Presentation().Return(nil)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.RequestPresentation{
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 		}))
 
 		require.Nil(t, PresentationDefinition(provider)(next).Handle(metadata))
@@ -329,7 +329,7 @@ func TestPresentationDefinition(t *testing.T) {
 				AttachID: uuid.New().String(),
 				Format:   peDefinitionFormat,
 			}},
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 		}))
 
 		const errMsg = "get attachment by format: not found"
@@ -347,7 +347,7 @@ func TestPresentationDefinition(t *testing.T) {
 				AttachID: ID,
 				Format:   peDefinitionFormat,
 			}},
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 			RequestPresentationsAttach: []decorator.Attachment{{
 				ID: ID,
 				Data: decorator.AttachmentData{
@@ -388,7 +388,7 @@ func TestPresentationDefinition(t *testing.T) {
 				AttachID: ID,
 				Format:   peDefinitionFormat,
 			}},
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 			RequestPresentationsAttach: []decorator.Attachment{{
 				ID: ID,
 				Data: decorator.AttachmentData{
@@ -461,7 +461,7 @@ func TestPresentationDefinition(t *testing.T) {
 				AttachID: ID,
 				Format:   peDefinitionFormat,
 			}},
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 			RequestPresentationsAttach: []decorator.Attachment{{
 				ID: ID,
 				Data: decorator.AttachmentData{
@@ -532,7 +532,7 @@ func TestPresentationDefinition(t *testing.T) {
 				AttachID: ID,
 				Format:   peDefinitionFormat,
 			}},
-			Type: presentproof.RequestPresentationMsgType,
+			Type: presentproof.RequestPresentationMsgTypeV2,
 			RequestPresentationsAttach: []decorator.Attachment{{
 				ID: ID,
 				Data: decorator.AttachmentData{

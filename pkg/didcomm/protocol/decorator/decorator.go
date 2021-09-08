@@ -83,6 +83,35 @@ type Attachment struct {
 	Data AttachmentData `json:"data,omitempty"`
 }
 
+// AttachmentV2 is intended to provide the possibility to include files, links or even JSON payload to the message.
+// To find out more please visit https://identity.foundation/didcomm-messaging/spec/#attachments
+type AttachmentV2 struct {
+	// ID is a JSON-LD construct that uniquely identifies attached content within the scope of a given message.
+	// Recommended on appended attachment descriptors. Possible but generally unused on embedded attachment descriptors.
+	// Never required if no references to the attachment exist; if omitted, then there is no way
+	// to refer to the attachment later in the thread, in error messages, and so forth.
+	// Because @id is used to compose URIs, it is recommended that this name be brief and avoid spaces
+	// and other characters that require URI escaping.
+	ID string `json:"id,omitempty"`
+	// Description is an optional human-readable description of the content.
+	Description string `json:"description,omitempty"`
+	// FileName is a hint about the name that might be used if this attachment is persisted as a file.
+	// It is not required, and need not be unique. If this field is present and mime-type is not,
+	// the extension on the filename may be used to infer a MIME type.
+	FileName string `json:"filename,omitempty"`
+	// MediaType describes the MIME type of the attached content. Optional but recommended.
+	MediaType string `json:"media_type,omitempty"`
+	// LastModTime is a hint about when the content in this attachment was last modified.
+	LastModTime time.Time `json:"lastmod_time,omitempty"`
+	// ByteCount is an optional, and mostly relevant when content is included by reference instead of by value.
+	// Lets the receiver guess how expensive it will be, in time, bandwidth, and storage, to fully fetch the attachment.
+	ByteCount int64 `json:"byte_count,omitempty"`
+	// Data is a JSON object that gives access to the actual content of the attachment.
+	Data AttachmentData `json:"data,omitempty"`
+	// Format describes the format of the attachment if the media_type is not sufficient.
+	Format string `json:"format,omitempty"`
+}
+
 // AttachmentData contains attachment payload.
 type AttachmentData struct {
 	// Sha256 is a hash of the content. Optional. Used as an integrity check if content is inlined.

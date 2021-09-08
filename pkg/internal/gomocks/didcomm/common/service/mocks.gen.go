@@ -223,31 +223,41 @@ func (m *MockMessenger) EXPECT() *MockMessengerMockRecorder {
 }
 
 // ReplyTo mocks base method.
-func (m *MockMessenger) ReplyTo(arg0 string, arg1 service.DIDCommMsgMap) error {
+func (m *MockMessenger) ReplyTo(arg0 string, arg1 service.DIDCommMsgMap, arg2 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyTo", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReplyTo", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyTo indicates an expected call of ReplyTo.
-func (mr *MockMessengerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockMessengerMockRecorder) ReplyTo(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessenger)(nil).ReplyTo), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessenger)(nil).ReplyTo), varargs...)
 }
 
 // ReplyToMsg mocks base method.
-func (m *MockMessenger) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+func (m *MockMessenger) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string, arg4 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyToMsg", arg0, arg1, arg2, arg3)
+	varargs := []interface{}{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReplyToMsg", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyToMsg indicates an expected call of ReplyToMsg.
-func (mr *MockMessengerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMessengerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessenger)(nil).ReplyToMsg), arg0, arg1, arg2, arg3)
+	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessenger)(nil).ReplyToMsg), varargs...)
 }
 
 // ReplyToNested mocks base method.
@@ -265,31 +275,41 @@ func (mr *MockMessengerMockRecorder) ReplyToNested(arg0, arg1 interface{}) *gomo
 }
 
 // Send mocks base method.
-func (m *MockMessenger) Send(arg0 service.DIDCommMsgMap, arg1, arg2 string) error {
+func (m *MockMessenger) Send(arg0 service.DIDCommMsgMap, arg1, arg2 string, arg3 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Send", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockMessengerMockRecorder) Send(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockMessengerMockRecorder) Send(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessenger)(nil).Send), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessenger)(nil).Send), varargs...)
 }
 
 // SendToDestination mocks base method.
-func (m *MockMessenger) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination) error {
+func (m *MockMessenger) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination, arg3 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendToDestination", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendToDestination", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendToDestination indicates an expected call of SendToDestination.
-func (mr *MockMessengerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockMessengerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessenger)(nil).SendToDestination), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessenger)(nil).SendToDestination), varargs...)
 }
 
 // MockMessengerHandler is a mock of MessengerHandler interface.
@@ -330,31 +350,41 @@ func (mr *MockMessengerHandlerMockRecorder) HandleInbound(arg0, arg1 interface{}
 }
 
 // ReplyTo mocks base method.
-func (m *MockMessengerHandler) ReplyTo(arg0 string, arg1 service.DIDCommMsgMap) error {
+func (m *MockMessengerHandler) ReplyTo(arg0 string, arg1 service.DIDCommMsgMap, arg2 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyTo", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReplyTo", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyTo indicates an expected call of ReplyTo.
-func (mr *MockMessengerHandlerMockRecorder) ReplyTo(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockMessengerHandlerMockRecorder) ReplyTo(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyTo), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyTo", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyTo), varargs...)
 }
 
 // ReplyToMsg mocks base method.
-func (m *MockMessengerHandler) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string) error {
+func (m *MockMessengerHandler) ReplyToMsg(arg0, arg1 service.DIDCommMsgMap, arg2, arg3 string, arg4 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplyToMsg", arg0, arg1, arg2, arg3)
+	varargs := []interface{}{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReplyToMsg", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplyToMsg indicates an expected call of ReplyToMsg.
-func (mr *MockMessengerHandlerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMessengerHandlerMockRecorder) ReplyToMsg(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyToMsg), arg0, arg1, arg2, arg3)
+	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplyToMsg", reflect.TypeOf((*MockMessengerHandler)(nil).ReplyToMsg), varargs...)
 }
 
 // ReplyToNested mocks base method.
@@ -372,29 +402,39 @@ func (mr *MockMessengerHandlerMockRecorder) ReplyToNested(arg0, arg1 interface{}
 }
 
 // Send mocks base method.
-func (m *MockMessengerHandler) Send(arg0 service.DIDCommMsgMap, arg1, arg2 string) error {
+func (m *MockMessengerHandler) Send(arg0 service.DIDCommMsgMap, arg1, arg2 string, arg3 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Send", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockMessengerHandlerMockRecorder) Send(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockMessengerHandlerMockRecorder) Send(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessengerHandler)(nil).Send), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessengerHandler)(nil).Send), varargs...)
 }
 
 // SendToDestination mocks base method.
-func (m *MockMessengerHandler) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination) error {
+func (m *MockMessengerHandler) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination, arg3 ...service.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendToDestination", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendToDestination", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendToDestination indicates an expected call of SendToDestination.
-func (mr *MockMessengerHandlerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockMessengerHandlerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessengerHandler)(nil).SendToDestination), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessengerHandler)(nil).SendToDestination), varargs...)
 }

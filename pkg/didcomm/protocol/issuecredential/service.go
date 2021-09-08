@@ -294,9 +294,9 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
 	piID, err := getPIID(msg)
 	if errors.Is(err, service.ErrThreadIDNotFound) {
-		piID = uuid.New().String()
+		msg.SetID(uuid.New().String())
 
-		return piID, stateNameStart, msg.SetID(piID)
+		return msg.ID(), stateNameStart, nil
 	}
 
 	if err != nil {

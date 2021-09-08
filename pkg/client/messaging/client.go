@@ -340,8 +340,8 @@ func prepareMessage(msg json.RawMessage) (service.DIDCommMsgMap, error) {
 	}
 
 	if didCommMsg.ID() == "" {
-		err = didCommMsg.SetID(uuid.New().String())
+		didCommMsg.SetID(uuid.New().String())
 	}
 
-	return didCommMsg, err
+	return didCommMsg, nil
 }

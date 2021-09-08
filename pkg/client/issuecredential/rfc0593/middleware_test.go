@@ -45,8 +45,7 @@ func TestMiddleware(t *testing.T) {
 				},
 			}},
 		})
-		err = msg.SetID(thid)
-		require.NoError(t, err)
+		msg.SetID(thid)
 
 		nextCalled := false
 
@@ -172,8 +171,7 @@ func TestMiddleware(t *testing.T) {
 				},
 			}},
 		})
-		err = msg.SetID(uuid.New().String())
-		require.NoError(t, err)
+		msg.SetID(uuid.New().String())
 
 		err = mw(nil).Handle(&mockMetadata{
 			msg: msg,

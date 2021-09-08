@@ -157,10 +157,11 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	require.Equal(t, &noOp{}, followup)
 
 	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Action: Action{Msg: nil}},
+		saveMetadata:        func(msg service.DIDCommMsgMap, thID string) error { return errors.New("test error") },
+		transitionalPayload: transitionalPayload{Action: Action{Msg: service.DIDCommMsgMap{}}},
 	})
 	require.NoError(t, err)
-	require.Contains(t, fmt.Sprintf("%v", action()), "set ID: message is nil")
+	require.Contains(t, fmt.Sprintf("%v", action()), "test error")
 	require.Equal(t, &noOp{}, followup)
 }
 
@@ -409,7 +410,7 @@ func Test_sendProposals(t *testing.T) {
 	messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 	msg := service.NewDIDCommMsgMap(struct{}{})
-	require.NoError(t, msg.SetID(uuid.New().String()))
+	msg.SetID(uuid.New().String())
 
 	msg.Metadata()[metaRecipients] = map[string]int{}
 

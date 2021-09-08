@@ -19,15 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-const (
-	// MessengerStore is messenger store name.
-	MessengerStore = "messenger_store"
-
-	jsonID             = "@id"
-	jsonThread         = "~thread"
-	jsonThreadID       = "thid"
-	jsonParentThreadID = "pthid"
-)
+// MessengerStore is messenger store name.
+const MessengerStore = "messenger_store"
 
 // record is an internal structure and keeps payload about inbound message.
 type record struct {
@@ -91,13 +84,12 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, ctx service.DIDComm
 // Send sends the message by starting a new thread.
 // Do not provide a message with ~thread decorator. It will be removed.
 // Use ReplyTo function instead. It will keep ~thread decorator automatically.
-func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 	// fills missing fields
-	fillIfMissing(msg)
+	fillIfMissing(msg, opts...)
 
-	msg[jsonThread] = map[string]interface{}{
-		jsonThreadID: msg.ID(),
-	}
+	msg.UnsetThread()
+	msg.SetThread(msg.ID(), "", opts...)
 
 	return m.dispatcher.SendToDID(msg, myDID, theirDID)
 }
@@ -106,11 +98,11 @@ func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) erro
 // Do not provide a message with ~thread decorator. It will be removed.
 // Use ReplyTo function instead. It will keep ~thread decorator automatically.
 func (m *Messenger) SendToDestination(msg service.DIDCommMsgMap, sender string,
-	destination *service.Destination) error {
+	destination *service.Destination, opts ...service.Opt) error {
 	// fills missing fields
-	fillIfMissing(msg)
+	fillIfMissing(msg, opts...)
 
-	delete(msg, jsonThread)
+	msg.UnsetThread()
 
 	return m.dispatcher.Send(msg, sender, destination)
 }
@@ -118,26 +110,18 @@ func (m *Messenger) SendToDestination(msg service.DIDCommMsgMap, sender string,
 // ReplyTo replies to the message by given msgID.
 // The function adds ~thread decorator to the message according to the given msgID.
 // Do not provide a message with ~thread decorator. It will be rewritten.
-func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
+func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap, opts ...service.Opt) error {
 	// fills missing fields
-	fillIfMissing(msg)
+	fillIfMissing(msg, opts...)
 
 	rec, err := m.getRecord(msgID)
 	if err != nil {
 		return fmt.Errorf("get record: %w", err)
 	}
 
-	// sets threadID
-	thread := map[string]interface{}{
-		jsonThreadID: rec.ThreadID,
-	}
-
-	// sets parent threadID
-	if rec.ParentThreadID != "" {
-		thread[jsonParentThreadID] = rec.ParentThreadID
-	}
-
-	msg[jsonThread] = thread
+	msg.UnsetThread()
+	// sets thread
+	msg.SetThread(rec.ThreadID, rec.ParentThreadID, opts...)
 
 	return m.dispatcher.SendToDID(msg, rec.MyDID, rec.TheirDID)
 }
@@ -145,26 +129,18 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 // ReplyToMsg replies to the given message.
 // The function adds ~thread decorator to the message according to the given msgID.
 // Do not provide a message with ~thread decorator. It will be rewritten.
-func (m *Messenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *Messenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 	// fills missing fields
-	fillIfMissing(out)
+	fillIfMissing(out, opts...)
 
 	thID, err := in.ThreadID()
 	if err != nil {
 		return fmt.Errorf("get threadID: %w", err)
 	}
 
-	// sets threadID
-	thread := map[string]interface{}{
-		jsonThreadID: thID,
-	}
-
-	// sets parent threadID
-	if in.ParentThreadID() != "" {
-		thread[jsonParentThreadID] = in.ParentThreadID()
-	}
-
-	out[jsonThread] = thread
+	out.UnsetThread()
+	// sets thread
+	out.SetThread(thID, in.ParentThreadID(), opts...)
 
 	return m.dispatcher.SendToDID(out, myDID, theirDID)
 }
@@ -175,23 +151,24 @@ func (m *Messenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID st
 // NOTE: Given threadID (from opts or from message record) becomes parent threadID.
 func (m *Messenger) ReplyToNested(msg service.DIDCommMsgMap, opts *service.NestedReplyOpts) error {
 	// fills missing fields
-	fillIfMissing(msg)
+	fillIfMissing(msg, service.WithVersion(opts.V))
 
 	if err := m.fillNestedReplyOption(opts); err != nil {
 		return fmt.Errorf("failed to prepare nested reply options: %w", err)
 	}
 
-	// sets parent threadID
-	msg[jsonThread] = map[string]interface{}{jsonParentThreadID: opts.ThreadID}
+	msg.UnsetThread()
+	// sets parent thread id
+	msg.SetThread("", opts.ThreadID, service.WithVersion(opts.V))
 
 	return m.dispatcher.SendToDID(msg, opts.MyDID, opts.TheirDID)
 }
 
 // fillIfMissing populates message with common fields such as ID.
-func fillIfMissing(msg service.DIDCommMsgMap) {
+func fillIfMissing(msg service.DIDCommMsgMap, opts ...service.Opt) {
 	// if ID is empty we will create a new one
 	if msg.ID() == "" {
-		msg[jsonID] = uuid.New().String()
+		msg.SetID(uuid.New().String(), opts...)
 	}
 }
 

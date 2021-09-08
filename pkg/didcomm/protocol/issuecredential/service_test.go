@@ -202,7 +202,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(make(chan<- service.DIDCommAction)))
 
 		msg := service.NewDIDCommMsgMap(struct{}{})
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
 	})
@@ -219,7 +219,7 @@ func TestService_HandleInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(ProposeCredential{
 			Type: ProposeCredentialMsgType,
 		})
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err), "save transitional payload: "+errMsg)
 	})
@@ -269,7 +269,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -378,7 +378,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -541,7 +541,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -597,7 +597,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -656,7 +656,7 @@ func TestService_HandleInbound(t *testing.T) {
 			OffersAttach: attachment,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -714,7 +714,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: RequestCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -770,7 +770,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: RequestCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -817,7 +817,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProblemReportMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -864,7 +864,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProblemReportMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -945,7 +945,7 @@ func TestService_HandleInbound(t *testing.T) {
 			},
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -1002,7 +1002,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: IssueCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -1046,7 +1046,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: AckMsgType,
 		})
 
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
 		require.NoError(t, err)
@@ -1101,7 +1101,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := service.NewDIDCommMsgMap(struct{}{})
-		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg.SetID(uuid.New().String())
 
 		piid, err := svc.HandleOutbound(msg, "", "")
 		require.Empty(t, piid)

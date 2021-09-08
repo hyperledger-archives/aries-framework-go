@@ -97,7 +97,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
 
 		thID := uuid.New().String()
-		require.NoError(t, md.Msg.SetID(thID))
+		md.Msg.SetID(thID)
 
 		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
 		require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
 
 		thID := uuid.New().String()
-		require.NoError(t, md.Msg.SetID(thID))
+		md.Msg.SetID(thID)
 
 		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
 		require.NoError(t, err)
@@ -162,8 +162,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 	t.Run("Without code", func(t *testing.T) {
 		md := &MetaData{}
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
-
-		require.NoError(t, md.Msg.SetID(uuid.New().String()))
+		md.Msg.SetID(uuid.New().String())
 
 		followup, action, err := (&abandoning{}).ExecuteInbound(md)
 		require.NoError(t, err)

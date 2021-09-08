@@ -27,6 +27,11 @@ const (
 	theirDID = "theirDID"
 	msgID    = "msgID"
 	errMsg   = "test error"
+
+	jsonID             = "@id"
+	jsonThread         = "~thread"
+	jsonThreadID       = "thid"
+	jsonParentThreadID = "pthid"
 )
 
 // makes sure it satisfies the interface.

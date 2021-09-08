@@ -18,3 +18,18 @@ type ProblemReport struct {
 type Code struct {
 	Code string `json:"code"`
 }
+
+// ProblemReportV2 problem report definition.
+type ProblemReportV2 struct {
+	Type string              `json:"type,omitempty"`
+	ID   string              `json:"id,omitempty"`
+	Body ProblemReportV2Body `json:"body,omitempty"`
+}
+
+// ProblemReportV2Body represents body for ProblemReportV2.
+type ProblemReportV2Body struct {
+	Code       string   `json:"code,omitempty"`
+	Comment    string   `json:"comment,omitempty"`
+	Args       []string `json:"args,omitempty"`
+	EscalateTo string   `json:"escalate_to,omitempty"`
+}
