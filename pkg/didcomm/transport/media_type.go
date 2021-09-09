@@ -28,6 +28,10 @@ const (
 	// below are pre-defined profiles supported by the framework as per
 	// https://github.com/hyperledger/aries-rfcs/tree/master/features/0044-didcomm-file-and-mime-types#defined-profiles.
 
+	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
+	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
+	MediaTypeProfileDIDCommAIP1 = "didcomm/aip1"
+
 	// MediaTypeAIP2RFC0019Profile for AIP 2.0, circa 2021 using RFC0019 encryption envelope.
 	MediaTypeAIP2RFC0019Profile = "didcomm/aip2;env=rfc19"
 

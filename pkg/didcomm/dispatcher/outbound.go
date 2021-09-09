@@ -330,7 +330,7 @@ func (o *OutboundDispatcher) mediaTypeProfile(des *service.Destination) string {
 		for _, mtp := range des.MediaTypeProfiles {
 			switch mtp {
 			case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeRFC0019EncryptedEnvelope,
-				transport.MediaTypeAIP2RFC0019Profile:
+				transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:
 				// overridable with higher priority media type.
 				if mt == "" {
 					mt = mtp

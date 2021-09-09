@@ -139,6 +139,27 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		}))
 	})
 
+	t.Run("test send with forward message with multiple media type profiles- success", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles: []string{
+				transport.MediaTypeProfileDIDCommAIP1,
+				transport.MediaTypeAIP2RFC0019Profile,
+				transport.MediaTypeDIDCommV2Profile,
+			},
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+			ServiceEndpoint: "url",
+			RecipientKeys:   []string{"abc"},
+			RoutingKeys:     []string{"xyz"},
+		}))
+	})
+
 	t.Run("test send with forward message - create key failure", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},

@@ -33,6 +33,9 @@ type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
 	ServiceEndpoint() string
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // Operation contains basic common operations provided by controller REST API.

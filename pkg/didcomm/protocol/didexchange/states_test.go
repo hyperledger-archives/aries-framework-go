@@ -286,7 +286,11 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mtps := []string{transport.MediaTypeDIDCommV2Profile, transport.MediaTypeRFC0019EncryptedEnvelope}
+	mtps := []string{
+		transport.MediaTypeDIDCommV2Profile,
+		transport.MediaTypeRFC0019EncryptedEnvelope,
+		transport.MediaTypeProfileDIDCommAIP1,
+	}
 
 	for _, mtp := range mtps {
 		var didServiceType string
@@ -341,10 +345,10 @@ func TestRequestedState_Execute(t *testing.T) {
 			for _, tt := range tests {
 				tc := tt
 				t.Run(tc.name, func(t *testing.T) {
-					msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
-					require.NoError(t, err)
-					thid, err := msg.ThreadID()
-					require.NoError(t, err)
+					msg, e := service.ParseDIDCommMsgMap(invitationPayloadBytes)
+					require.NoError(t, e)
+					thid, e := msg.ThreadID()
+					require.NoError(t, e)
 					connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: msg,
 						connRecord: &connection.Record{},
@@ -384,7 +388,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			for _, tt := range tests {
 				tc := tt
 				t.Run(tc.name, func(t *testing.T) {
-					connRec, followup, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+					connRec, followup, action, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 							ID:         uuid.New().String(),
 							Type:       oobMsgType,
@@ -400,7 +404,7 @@ func TestRequestedState_Execute(t *testing.T) {
 						}),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
-					require.NoError(t, err)
+					require.NoError(t, e)
 					require.NotEmpty(t, connRec.MyDID)
 					require.Equal(t, &noOp{}, followup)
 					require.NotNil(t, action)
@@ -437,7 +441,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			for _, tt := range tests {
 				tc := tt
 				t.Run(tc.name, func(t *testing.T) {
-					connRec, followup, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+					connRec, followup, action, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 							ID:         uuid.New().String(),
 							Type:       oobMsgType,
@@ -453,7 +457,7 @@ func TestRequestedState_Execute(t *testing.T) {
 						}),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
-					require.NoError(t, err)
+					require.NoError(t, e)
 					require.NotEmpty(t, connRec.MyDID)
 					require.Equal(t, &noOp{}, followup)
 					require.NotNil(t, action)
@@ -504,13 +508,13 @@ func TestRequestedState_Execute(t *testing.T) {
 
 					_, encKey := newSigningAndEncryptionDIDKeys(t, tc.ctx)
 
-					inv := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))
+					inv := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))
 					inv.MyLabel = expected
-					_, _, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+					_, _, action, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: service.NewDIDCommMsgMap(inv),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
-					require.NoError(t, err)
+					require.NoError(t, e)
 					require.NotNil(t, action)
 					err = action()
 					require.NoError(t, err)
@@ -577,10 +581,10 @@ func TestRequestedState_Execute(t *testing.T) {
 							return nil
 						},
 					}
-					_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 						options: &options{routerConnections: []string{"xyz"}},
 						DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(
-							newServiceBlock([]string{encKey}, []string{encKey}))),
+							newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
 					require.NoError(t, err)
@@ -627,6 +631,8 @@ func TestRequestedState_Execute(t *testing.T) {
 						RouterEndpoint: expected.Endpoint(),
 						RoutingKeys:    expected.Keys(),
 					}
+
+					docResolution := createDIDDoc(t, tc.ctx)
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{
 						CreateFunc: func(_ string, didDoc *diddoc.Doc,
 							options ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
@@ -634,12 +640,25 @@ func TestRequestedState_Execute(t *testing.T) {
 
 							require.Equal(t, expected.Keys(), didDoc.Service[0].RoutingKeys)
 							require.Equal(t, expected.Endpoint(), didDoc.Service[0].ServiceEndpoint)
-							return &diddoc.DocResolution{DIDDocument: createDIDDoc(t, tc.ctx)}, nil
+							return &diddoc.DocResolution{DIDDocument: docResolution}, nil
 						},
+						ResolveValue: docResolution,
 					}
-					_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+
+					oobInvite := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))
+					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 						options:    &options{routerConnections: []string{"xyz"}},
-						DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))),
+						DIDCommMsg: service.NewDIDCommMsgMap(oobInvite),
+						connRecord: &connection.Record{},
+					}, "", tc.ctx)
+					require.NoError(t, err)
+					require.True(t, created)
+
+					// try with target as string
+					oobInvite.Target = docResolution.ID
+					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
+						options:    &options{routerConnections: []string{"xyz"}},
+						DIDCommMsg: service.NewDIDCommMsgMap(oobInvite),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
 					require.NoError(t, err)
@@ -648,8 +667,8 @@ func TestRequestedState_Execute(t *testing.T) {
 			}
 		})
 		t.Run("handling invitations fails if my diddoc does not have a valid didcomm service", func(t *testing.T) {
-			msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
-			require.NoError(t, err)
+			msg, e := service.ParseDIDCommMsgMap(invitationPayloadBytes)
+			require.NoError(t, e)
 			tests := []struct {
 				name string
 				ctx  *context
@@ -737,7 +756,7 @@ func TestRequestedState_Execute(t *testing.T) {
 						ServiceEndpoint: "",
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
-					_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 							ID:         uuid.New().String(),
 							Type:       oobMsgType,
@@ -745,7 +764,7 @@ func TestRequestedState_Execute(t *testing.T) {
 							TheirLabel: "test",
 							Target: &diddoc.Service{
 								ID:              uuid.New().String(),
-								Type:            "did-communication",
+								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
 								ServiceEndpoint: "http://test.com",
@@ -753,9 +772,21 @@ func TestRequestedState_Execute(t *testing.T) {
 						}),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
-					require.Error(t, err)
+					require.EqualError(t, err, "failed to handle inbound oob invitation : getting recipient key:"+
+						" recipientKeyAsDIDKey: invalid DID Doc service type: 'invalid'")
 				})
 			}
+		})
+		t.Run("inbound oob request error", func(t *testing.T) {
+			_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
+				DIDCommMsg: service.DIDCommMsgMap{
+					"@type": oobMsgType,
+					"@id":   map[int]int{},
+				},
+				connRecord: &connection.Record{},
+			}, "", &context{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "failed to decode oob invitation: 1 error(s) decoding")
 		})
 		t.Run("inbound request unmarshalling error", func(t *testing.T) {
 			_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -1768,7 +1799,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			connectionRecorder: connRec,
 			connectionStore:    didConnStore,
 		}
-		didDoc, err := ctx.getMyDIDDoc(doc.ID, nil)
+		didDoc, err := ctx.getMyDIDDoc(doc.ID, nil, "")
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 	})
@@ -1776,7 +1807,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		ctx := context{
 			vdRegistry: &mockvdr.MockVDRegistry{ResolveErr: errors.New("resolver error")},
 		}
-		didDoc, err := ctx.getMyDIDDoc("did-id", nil)
+		didDoc, err := ctx.getMyDIDDoc("did-id", nil, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 		require.Nil(t, didDoc)
@@ -1790,7 +1821,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", nil)
+		didDoc, err := ctx.getMyDIDDoc("", nil, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "creator error")
 		require.Nil(t, didDoc)
@@ -1810,7 +1841,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:            kms.ED25519Type,
 			keyAgreementType:   kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", nil)
+		didDoc, err := ctx.getMyDIDDoc("", nil, "")
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 	})
@@ -1829,7 +1860,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:            kms.ED25519Type,
 			keyAgreementType:   kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", []string{"did:peer:bob"})
+		didDoc, err := ctx.getMyDIDDoc("", []string{"did:peer:bob"}, didCommV2ServiceType)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 	})
@@ -1846,7 +1877,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 				ConfigErr:   errors.New("router config error"),
 			},
 		}
-		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"})
+		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"}, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - fetch router config")
 		require.Nil(t, didDoc)
@@ -1867,7 +1898,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"})
+		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"}, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)
@@ -1964,7 +1995,7 @@ func TestGetVerKey(t *testing.T) {
 	_, encKey := newSigningAndEncryptionDIDKeys(t, ctx)
 
 	t.Run("returns verkey from explicit oob invitation", func(t *testing.T) {
-		expected := newServiceBlock([]string{encKey}, []string{encKey})
+		expected := newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType)
 		invitation := newOOBInvite(expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
@@ -1972,6 +2003,17 @@ func TestGetVerKey(t *testing.T) {
 		require.NoError(t, err)
 
 		result, err := ctx.getVerKey(invitation.ThreadID)
+		require.NoError(t, err)
+		require.Equal(t, expected.RecipientKeys[0], result)
+
+		expected = newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType)
+		invitation = newOOBInvite(expected)
+		ctx.connectionRecorder = connRecorder(t, testProvider())
+
+		err = ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
+		require.NoError(t, err)
+
+		result, err = ctx.getVerKey(invitation.ThreadID)
 		require.NoError(t, err)
 		require.Equal(t, expected.RecipientKeys[0], result)
 	})
@@ -2012,7 +2054,7 @@ func TestGetVerKey(t *testing.T) {
 	})
 
 	t.Run("returns verkey from explicit didexchange invitation", func(t *testing.T) {
-		expected := newServiceBlock([]string{encKey}, []string{encKey})
+		expected := newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType)
 		invitation := newDidExchangeInvite("", expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
@@ -2020,6 +2062,17 @@ func TestGetVerKey(t *testing.T) {
 		require.NoError(t, err)
 
 		result, err := ctx.getVerKey(invitation.ID)
+		require.NoError(t, err)
+		require.Equal(t, expected.RecipientKeys[0], result)
+
+		expected = newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType)
+		invitation = newDidExchangeInvite("", expected)
+		ctx.connectionRecorder = connRecorder(t, testProvider())
+
+		err = ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
+		require.NoError(t, err)
+
+		result, err = ctx.getVerKey(invitation.ID)
 		require.NoError(t, err)
 		require.Equal(t, expected.RecipientKeys[0], result)
 	})
@@ -2061,8 +2114,12 @@ func TestGetVerKey(t *testing.T) {
 		}
 		ctx.connectionRecorder = connRecorder(t, pr)
 
-		invitation := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}))
+		invitation := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType))
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
+		require.NoError(t, err)
+
+		invitation = newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType))
+		err = ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
 		_, err = ctx.getVerKey(invitation.ID)
@@ -2327,10 +2384,10 @@ func newOOBInvite(target interface{}) *OOBInvitation {
 	}
 }
 
-func newServiceBlock(recKeys, routingKeys []string) *diddoc.Service {
+func newServiceBlock(recKeys, routingKeys []string, didCommServiceVType string) *diddoc.Service {
 	return &diddoc.Service{
 		ID:              uuid.New().String(),
-		Type:            didCommServiceType,
+		Type:            didCommServiceVType,
 		RecipientKeys:   recKeys,
 		RoutingKeys:     routingKeys,
 		ServiceEndpoint: "http://test.com",

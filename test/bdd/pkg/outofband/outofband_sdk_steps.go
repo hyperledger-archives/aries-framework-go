@@ -35,6 +35,7 @@ type SDKSteps struct {
 	bddIssueCredSDK    *bddIssueCred.SDKSteps
 	nextAction         map[string]chan interface{}
 	credName           string
+	accept             string
 }
 
 // NewOutOfBandSDKSteps returns the out-of-band protocol's BDD steps using the SDK binding.
@@ -57,9 +58,16 @@ func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 	sdk.bddIssueCredSDK.SetContext(ctx)
 }
 
+func (sdk *SDKSteps) scenario(accept string) error {
+	sdk.accept = accept
+
+	return nil
+}
+
 // RegisterSteps registers the BDD steps on the suite.
 func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" creates an out-of-band invitation$`, sdk.createOOBInvitation)
+	suite.Step(`^options ""([^"]*)""$`, sdk.scenario)
 	suite.Step(
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel$`, sdk.sendInvitationThruOOBChannel)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"$`, sdk.acceptInvitationAndConnect)
@@ -483,10 +491,18 @@ func (sdk *SDKSteps) newInvitation(agentID string, attachments ...interface{}) (
 		})
 	}
 
-	inv, err := agent.CreateInvitation(
-		nil,
+	opts := []outofband.MessageOption{
 		outofband.WithLabel(agentID),
 		outofband.WithAttachments(attachDecorators...),
+	}
+
+	if sdk.accept != "" {
+		opts = append(opts, outofband.WithAccept(sdk.accept))
+	}
+
+	inv, err := agent.CreateInvitation(
+		nil,
+		opts...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create invitation for %s : %w", agentID, err)
