@@ -17,6 +17,32 @@ Feature: Present Proof protocol
     Then "Bob" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
   @begin_with_request_presentation_v3
   Scenario: The Verifier begins with a request presentation v3
+    Given "Jonny" agent is running on "localhost" port "random" with "http" using DIDCommV2 as the transport provider
+    And   "Jonny" creates did exchange client
+    And   "Jonny" registers to receive notification for post state event "completed"
+
+    Given "Robert" agent is running on "localhost" port "random" with "http" using DIDCommV2 as the transport provider
+    And   "Robert" creates did exchange client
+
+    When   "Robert" registers to receive notification for post state event "completed"
+    And   "Jonny" creates invitation
+    And   "Robert" receives invitation from "Jonny"
+    And   "Robert" approves invitation request
+    And   "Jonny" approves did exchange request
+    And   "Jonny" waits for post state event "completed"
+    And   "Robert" waits for post state event "completed"
+
+    Then   "Jonny" retrieves connection record and validates that connection state is "completed"
+    And   "Robert" retrieves connection record and validates that connection state is "completed"
+
+    #Given "Jonny" exchange DIDs with "Robert"
+    Then "Jonny" sends a request presentation v3 to the "Robert"
+    And "Robert" accepts a request and sends a presentation v3 to the "Jonny"
+    And "Jonny" accepts a presentation with name "license"
+    And "Jonny" checks that presentation is being stored under "license" name
+    Then "Robert" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
+  @begin_with_request_presentation_v3
+  Scenario: The Verifier begins with a request presentation v3
     Given "Jonny" exchange DIDs with "Robert"
     Then "Jonny" sends a request presentation v3 to the "Robert"
     And "Robert" accepts a request and sends a presentation v3 to the "Jonny"
