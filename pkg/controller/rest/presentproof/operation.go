@@ -26,18 +26,24 @@ import (
 
 // constants for PresentProof operations.
 const (
-	OperationID                  = "/presentproof"
-	Actions                      = OperationID + "/actions"
-	SendRequestPresentation      = OperationID + "/send-request-presentation"
-	SendProposePresentation      = OperationID + "/send-propose-presentation"
-	AcceptRequestPresentation    = OperationID + "/{piid}/accept-request-presentation"
-	NegotiateRequestPresentation = OperationID + "/{piid}/negotiate-request-presentation"
-	DeclineRequestPresentation   = OperationID + "/{piid}/decline-request-presentation"
-	AcceptProposePresentation    = OperationID + "/{piid}/accept-propose-presentation"
-	DeclineProposePresentation   = OperationID + "/{piid}/decline-propose-presentation"
-	AcceptPresentation           = OperationID + "/{piid}/accept-presentation"
-	DeclinePresentation          = OperationID + "/{piid}/decline-presentation"
-	AcceptProblemReport          = OperationID + "/{piid}/accept-problem-report"
+	OperationID                    = "/presentproof"
+	OperationIDV3                  = OperationID + "/v3"
+	Actions                        = OperationID + "/actions"
+	SendRequestPresentation        = OperationID + "/send-request-presentation"
+	SendRequestPresentationV3      = OperationIDV3 + "/send-request-presentation"
+	SendProposePresentation        = OperationID + "/send-propose-presentation"
+	SendProposePresentationV3      = OperationIDV3 + "/send-propose-presentation"
+	AcceptRequestPresentation      = OperationID + "/{piid}/accept-request-presentation"
+	AcceptRequestPresentationV3    = OperationIDV3 + "/{piid}/accept-request-presentation"
+	NegotiateRequestPresentation   = OperationID + "/{piid}/negotiate-request-presentation"
+	NegotiateRequestPresentationV3 = OperationIDV3 + "/{piid}/negotiate-request-presentation"
+	DeclineRequestPresentation     = OperationID + "/{piid}/decline-request-presentation"
+	AcceptProposePresentation      = OperationID + "/{piid}/accept-propose-presentation"
+	AcceptProposePresentationV3    = OperationIDV3 + "/{piid}/accept-propose-presentation"
+	DeclineProposePresentation     = OperationID + "/{piid}/decline-propose-presentation"
+	AcceptPresentation             = OperationID + "/{piid}/accept-presentation"
+	DeclinePresentation            = OperationID + "/{piid}/decline-presentation"
+	AcceptProblemReport            = OperationID + "/{piid}/accept-problem-report"
 )
 
 // Operation is controller REST service controller for present proof.
@@ -70,11 +76,16 @@ func (c *Operation) registerHandler() {
 	c.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
 		cmdutil.NewHTTPHandler(SendRequestPresentation, http.MethodPost, c.SendRequestPresentation),
+		cmdutil.NewHTTPHandler(SendRequestPresentationV3, http.MethodPost, c.SendRequestPresentationV3),
 		cmdutil.NewHTTPHandler(SendProposePresentation, http.MethodPost, c.SendProposePresentation),
+		cmdutil.NewHTTPHandler(SendProposePresentationV3, http.MethodPost, c.SendProposePresentationV3),
 		cmdutil.NewHTTPHandler(AcceptRequestPresentation, http.MethodPost, c.AcceptRequestPresentation),
+		cmdutil.NewHTTPHandler(AcceptRequestPresentationV3, http.MethodPost, c.AcceptRequestPresentationV3),
 		cmdutil.NewHTTPHandler(NegotiateRequestPresentation, http.MethodPost, c.NegotiateRequestPresentation),
+		cmdutil.NewHTTPHandler(NegotiateRequestPresentationV3, http.MethodPost, c.NegotiateRequestPresentationV3),
 		cmdutil.NewHTTPHandler(DeclineRequestPresentation, http.MethodPost, c.DeclineRequestPresentation),
 		cmdutil.NewHTTPHandler(AcceptProposePresentation, http.MethodPost, c.AcceptProposePresentation),
+		cmdutil.NewHTTPHandler(AcceptProposePresentationV3, http.MethodPost, c.AcceptProposePresentationV3),
 		cmdutil.NewHTTPHandler(DeclineProposePresentation, http.MethodPost, c.DeclineProposePresentation),
 		cmdutil.NewHTTPHandler(AcceptPresentation, http.MethodPost, c.AcceptPresentation),
 		cmdutil.NewHTTPHandler(DeclinePresentation, http.MethodPost, c.DeclinePresentation),
@@ -104,6 +115,17 @@ func (c *Operation) SendRequestPresentation(rw http.ResponseWriter, req *http.Re
 	rest.Execute(c.command.SendRequestPresentation, rw, req.Body)
 }
 
+// SendRequestPresentationV3 swagger:route POST /presentproof/v3/send-request-presentation present-proof presentProofSendRequestPresentationV3
+//
+// Sends a request presentation.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofSendRequestPresentationResponse
+func (c *Operation) SendRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.SendRequestPresentationV3, rw, req.Body)
+}
+
 // SendProposePresentation swagger:route POST /presentproof/send-propose-presentation present-proof presentProofSendProposePresentation
 //
 // Sends a propose presentation.
@@ -113,6 +135,17 @@ func (c *Operation) SendRequestPresentation(rw http.ResponseWriter, req *http.Re
 //        200: presentProofSendProposePresentationResponse
 func (c *Operation) SendProposePresentation(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.SendProposePresentation, rw, req.Body)
+}
+
+// SendProposePresentationV3 swagger:route POST /presentproof/v3/send-propose-presentation present-proof presentProofSendProposePresentationV3
+//
+// Sends a propose presentation.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofSendProposePresentationResponse
+func (c *Operation) SendProposePresentationV3(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.SendProposePresentationV3, rw, req.Body)
 }
 
 // AcceptProblemReport swagger:route POST /presentproof/{piid}/accept-problem-report present-proof presentProofAcceptProblemReport
@@ -141,6 +174,19 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 	}
 }
 
+// AcceptRequestPresentationV3 swagger:route POST /presentproof/v3/{piid}/accept-request-presentation present-proof presentProofAcceptRequestPresentationV3
+//
+// Accepts a request presentation.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofAcceptRequestPresentationResponse
+func (c *Operation) AcceptRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptRequestPresentationV3, rw, r)
+	}
+}
+
 // AcceptProposePresentation swagger:route POST /presentproof/{piid}/accept-propose-presentation present-proof presentProofAcceptProposePresentation
 //
 // Accepts a propose presentation.
@@ -151,6 +197,19 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptProposePresentation, rw, r)
+	}
+}
+
+// AcceptProposePresentationV3 swagger:route POST /presentproof/v3/{piid}/accept-propose-presentation present-proof presentProofAcceptProposePresentationV3
+//
+// Accepts a propose presentation.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofAcceptProposePresentationResponse
+func (c *Operation) AcceptProposePresentationV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptProposePresentationV3, rw, r)
 	}
 }
 
@@ -177,6 +236,19 @@ func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request
 func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.NegotiateRequestPresentation, rw, r)
+	}
+}
+
+// NegotiateRequestPresentationV3 swagger:route POST /presentproof/v3/{piid}/negotiate-request-presentation present-proof presentProofNegotiateRequestPresentationV3
+//
+// Is used by the Prover to counter a presentation request they received with a proposal.
+//
+// Responses:
+//    default: genericError
+//        200: presentProofNegotiateRequestPresentationResponse
+func (c *Operation) NegotiateRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.NegotiateRequestPresentationV3, rw, r)
 	}
 }
 
