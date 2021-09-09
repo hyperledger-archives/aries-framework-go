@@ -55,17 +55,22 @@ const (
 	// command name.
 	CommandName = "presentproof"
 
-	Actions                      = "Actions"
-	SendRequestPresentation      = "SendRequestPresentation"
-	AcceptRequestPresentation    = "AcceptRequestPresentation"
-	NegotiateRequestPresentation = "NegotiateRequestPresentation"
-	AcceptProblemReport          = "AcceptProblemReport"
-	DeclineRequestPresentation   = "DeclineRequestPresentation"
-	SendProposePresentation      = "SendProposePresentation"
-	AcceptProposePresentation    = "AcceptProposePresentation"
-	DeclineProposePresentation   = "DeclineProposePresentation"
-	AcceptPresentation           = "AcceptPresentation"
-	DeclinePresentation          = "DeclinePresentation"
+	Actions                        = "Actions"
+	SendRequestPresentation        = "SendRequestPresentation"
+	SendRequestPresentationV3      = "SendRequestPresentationV3"
+	AcceptRequestPresentation      = "AcceptRequestPresentation"
+	AcceptRequestPresentationV3    = "AcceptRequestPresentationV3"
+	NegotiateRequestPresentation   = "NegotiateRequestPresentation"
+	NegotiateRequestPresentationV3 = "NegotiateRequestPresentationV3"
+	AcceptProblemReport            = "AcceptProblemReport"
+	DeclineRequestPresentation     = "DeclineRequestPresentation"
+	SendProposePresentation        = "SendProposePresentation"
+	SendProposePresentationV3      = "SendProposePresentationV3"
+	AcceptProposePresentation      = "AcceptProposePresentation"
+	AcceptProposePresentationV3    = "AcceptProposePresentationV3"
+	DeclineProposePresentation     = "DeclineProposePresentation"
+	AcceptPresentation             = "AcceptPresentation"
+	DeclinePresentation            = "DeclinePresentation"
 )
 
 const (
@@ -124,11 +129,16 @@ func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
 		cmdutil.NewCommandHandler(CommandName, SendRequestPresentation, c.SendRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, SendRequestPresentationV3, c.SendRequestPresentationV3),
 		cmdutil.NewCommandHandler(CommandName, AcceptRequestPresentation, c.AcceptRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequestPresentationV3, c.AcceptRequestPresentationV3),
 		cmdutil.NewCommandHandler(CommandName, NegotiateRequestPresentation, c.NegotiateRequestPresentation),
+		cmdutil.NewCommandHandler(CommandName, NegotiateRequestPresentationV3, c.NegotiateRequestPresentationV3),
 		cmdutil.NewCommandHandler(CommandName, DeclineRequestPresentation, c.DeclineRequestPresentation),
 		cmdutil.NewCommandHandler(CommandName, SendProposePresentation, c.SendProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, SendProposePresentationV3, c.SendProposePresentationV3),
 		cmdutil.NewCommandHandler(CommandName, AcceptProposePresentation, c.AcceptProposePresentation),
+		cmdutil.NewCommandHandler(CommandName, AcceptProposePresentationV3, c.AcceptProposePresentationV3),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposePresentation, c.DeclineProposePresentation),
 		cmdutil.NewCommandHandler(CommandName, AcceptPresentation, c.AcceptPresentation),
 		cmdutil.NewCommandHandler(CommandName, DeclinePresentation, c.DeclinePresentation),
@@ -192,6 +202,45 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 	return nil
 }
 
+// SendRequestPresentationV3 is used by the Verifier to send a request presentation.
+func (c *Command) SendRequestPresentationV3(rw io.Writer, req io.Reader) command.Error {
+	var args SendRequestPresentationV3Args
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, SendRequestPresentation, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.MyDID == "" {
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyMyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+	}
+
+	if args.TheirDID == "" {
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyTheirDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+	}
+
+	if args.RequestPresentation == nil {
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyRequestPresentation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
+	}
+
+	piid, err := c.client.SendRequestPresentationV3(args.RequestPresentation, args.MyDID, args.TheirDID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendRequestPresentation, err.Error())
+		return command.NewExecuteError(SendRequestPresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SendRequestPresentationResponse{
+		PIID: piid,
+	}, logger)
+
+	logutil.LogDebug(logger, CommandName, SendRequestPresentation, successString)
+
+	return nil
+}
+
 // SendProposePresentation is used by the Prover to send a propose presentation.
 func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.Error {
 	var args SendProposePresentationArgs
@@ -217,6 +266,45 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 	}
 
 	piid, err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendProposePresentation, err.Error())
+		return command.NewExecuteError(SendProposePresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SendProposePresentationResponse{
+		PIID: piid,
+	}, logger)
+
+	logutil.LogDebug(logger, CommandName, SendProposePresentation, successString)
+
+	return nil
+}
+
+// SendProposePresentationV3 is used by the Prover to send a propose presentation.
+func (c *Command) SendProposePresentationV3(rw io.Writer, req io.Reader) command.Error {
+	var args SendProposePresentationV3Args
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, SendProposePresentation, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.MyDID == "" {
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyMyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+	}
+
+	if args.TheirDID == "" {
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyTheirDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+	}
+
+	if args.ProposePresentation == nil {
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyProposePresentation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
+	}
+
+	piid, err := c.client.SendProposePresentationV3(args.ProposePresentation, args.MyDID, args.TheirDID)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendProposePresentation, err.Error())
 		return command.NewExecuteError(SendProposePresentationErrorCode, err)
@@ -262,6 +350,37 @@ func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command
 	return nil
 }
 
+// AcceptRequestPresentationV3 is used by the Prover is to accept a presentation request.
+func (c *Command) AcceptRequestPresentationV3(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptRequestPresentationV3Args
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptRequestPresentation, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if args.Presentation == nil {
+		logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, errEmptyPresentation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPresentation))
+	}
+
+	if err := c.client.AcceptRequestPresentationV3(args.PIID, args.Presentation, nil); err != nil {
+		logutil.LogError(logger, CommandName, AcceptRequestPresentation, err.Error())
+		return command.NewExecuteError(AcceptRequestPresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptRequestPresentationResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptRequestPresentation, successString)
+
+	return nil
+}
+
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
 func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) command.Error {
 	var args NegotiateRequestPresentationArgs
@@ -282,6 +401,37 @@ func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) comm
 	}
 
 	if err := c.client.NegotiateRequestPresentation(args.PIID, args.ProposePresentation); err != nil {
+		logutil.LogError(logger, CommandName, NegotiateRequestPresentation, err.Error())
+		return command.NewExecuteError(NegotiateRequestPresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &NegotiateRequestPresentationResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, successString)
+
+	return nil
+}
+
+// NegotiateRequestPresentationV3 is used by the Prover to counter a presentation request they received with a proposal.
+func (c *Command) NegotiateRequestPresentationV3(rw io.Writer, req io.Reader) command.Error {
+	var args NegotiateRequestPresentationV3Args
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, NegotiateRequestPresentation, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if args.ProposePresentation == nil {
+		logutil.LogDebug(logger, CommandName, NegotiateRequestPresentation, errEmptyProposePresentation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
+	}
+
+	if err := c.client.NegotiateRequestPresentationV3(args.PIID, args.ProposePresentation); err != nil {
 		logutil.LogError(logger, CommandName, NegotiateRequestPresentation, err.Error())
 		return command.NewExecuteError(NegotiateRequestPresentationErrorCode, err)
 	}
@@ -339,6 +489,37 @@ func (c *Command) AcceptProposePresentation(rw io.Writer, req io.Reader) command
 	}
 
 	if err := c.client.AcceptProposePresentation(args.PIID, args.RequestPresentation); err != nil {
+		logutil.LogError(logger, CommandName, AcceptProposePresentation, err.Error())
+		return command.NewExecuteError(AcceptProposePresentationErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProposePresentationResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptProposePresentation, successString)
+
+	return nil
+}
+
+// AcceptProposePresentationV3 is used when the Verifier is willing to accept the propose presentation.
+func (c *Command) AcceptProposePresentationV3(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProposePresentationV3Args
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptProposePresentation, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptProposePresentation, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if args.RequestPresentation == nil {
+		logutil.LogDebug(logger, CommandName, AcceptProposePresentation, errEmptyRequestPresentation)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
+	}
+
+	if err := c.client.AcceptProposePresentationV3(args.PIID, args.RequestPresentation); err != nil {
 		logutil.LogError(logger, CommandName, AcceptProposePresentation, err.Error())
 		return command.NewExecuteError(AcceptProposePresentationErrorCode, err)
 	}

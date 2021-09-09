@@ -30,11 +30,144 @@ func provider(ctrl *gomock.Controller) client.Provider {
 	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 	service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).AnyTimes()
 	service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).AnyTimes()
+	service.EXPECT().HandleInbound(gomock.Any(), gomock.Any()).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
 	return provider
+}
+
+func TestOperation_SendRequestPresentation(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No MyID", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestPresentation), bytes.NewBufferString(`{}`),
+			strings.Replace(SendRequestPresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "empty MyDID")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestPresentation),
+			bytes.NewBufferString(`{"my_did":"1", "their_did":"2","request_presentation":{}}`),
+			strings.Replace(SendRequestPresentation, `{piid}`, "1234", 1),
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No MyID", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestPresentationV3), bytes.NewBufferString(`{}`),
+			strings.Replace(SendRequestPresentationV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "empty MyDID")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestPresentationV3),
+			bytes.NewBufferString(`{"my_did":"1", "their_did":"2","request_presentation":{}}`),
+			strings.Replace(SendRequestPresentationV3, `{piid}`, "1234", 1),
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendProposePresentation(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No MyID", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendProposePresentation), bytes.NewBufferString(`{}`),
+			strings.Replace(SendProposePresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "empty MyDID")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendProposePresentation),
+			bytes.NewBufferString(`{"my_did":"1", "their_did":"2","propose_presentation":{}}`),
+			strings.Replace(SendProposePresentation, `{piid}`, "1234", 1),
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No MyID", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendProposePresentationV3), bytes.NewBufferString(`{}`),
+			strings.Replace(SendProposePresentationV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "empty MyDID")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendProposePresentationV3),
+			bytes.NewBufferString(`{"my_did":"1", "their_did":"2","propose_presentation":{}}`),
+			strings.Replace(SendProposePresentationV3, `{piid}`, "1234", 1),
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, code)
+	})
 }
 
 func TestOperation_AcceptRequestPresentation(t *testing.T) {
@@ -63,6 +196,39 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 			handlerLookup(t, operation, AcceptRequestPresentation),
 			bytes.NewBufferString(`{"presentation":{}}`),
 			strings.Replace(AcceptRequestPresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_AcceptRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptRequestPresentationV3), nil,
+			strings.Replace(AcceptRequestPresentationV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptRequestPresentationV3),
+			bytes.NewBufferString(`{"presentation":{}}`),
+			strings.Replace(AcceptRequestPresentationV3, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -134,6 +300,39 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 			handlerLookup(t, operation, AcceptProposePresentation),
 			bytes.NewBufferString(`{"request_presentation":{}}`),
 			strings.Replace(AcceptProposePresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_AcceptProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptProposePresentationV3), nil,
+			strings.Replace(AcceptProposePresentationV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptProposePresentationV3),
+			bytes.NewBufferString(`{"request_presentation":{}}`),
+			strings.Replace(AcceptProposePresentationV3, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
@@ -253,6 +452,39 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 			handlerLookup(t, operation, NegotiateRequestPresentation),
 			bytes.NewBufferString(`{"propose_presentation":{}}`),
 			strings.Replace(NegotiateRequestPresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_NegotiateRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, NegotiateRequestPresentationV3), nil,
+			strings.Replace(NegotiateRequestPresentationV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, NegotiateRequestPresentationV3),
+			bytes.NewBufferString(`{"propose_presentation":{}}`),
+			strings.Replace(NegotiateRequestPresentationV3, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)

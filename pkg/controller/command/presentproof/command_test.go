@@ -189,6 +189,116 @@ func TestCommand_SendRequestPresentation(t *testing.T) {
 	})
 }
 
+func TestCommand_SendRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendRequestPresentationV3(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty MyDID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendRequestPresentationV3(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyMyDID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty TheirDID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendRequestPresentationV3(&b, bytes.NewBufferString(`{"my_did":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyTheirDID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty RequestPresentation", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendRequestPresentationV3(&b, bytes.NewBufferString(`{"my_did":"id","their_did":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyRequestPresentation)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("SendRequestPresentationV3 (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleInbound(
+			gomock.Any(), gomock.Any(),
+		).Return("", errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"my_did":"id","their_did":"id","request_presentation":{}}`
+		cmdErr := cmd.SendRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, SendRequestPresentationErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"my_did":"id","their_did":"id","request_presentation":{}}`
+		require.NoError(t, cmd.SendRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
 func TestCommand_SendProposePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -299,6 +409,116 @@ func TestCommand_SendProposePresentation(t *testing.T) {
 	})
 }
 
+func TestCommand_SendProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendProposePresentationV3(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty MyDID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendProposePresentationV3(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyMyDID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty TheirDID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendProposePresentationV3(&b, bytes.NewBufferString(`{"my_did":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyTheirDID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty ProposePresentation", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SendProposePresentationV3(&b, bytes.NewBufferString(`{"my_did":"id","their_did":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyProposePresentation)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("SendProposePresentationV3 (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleInbound(
+			gomock.Any(), gomock.Any(),
+		).Return("", errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"my_did":"id","their_did":"id","propose_presentation":{}}`
+		cmdErr := cmd.SendProposePresentationV3(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, SendProposePresentationErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleInbound(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"my_did":"id","their_did":"id","propose_presentation":{}}`
+		require.NoError(t, cmd.SendProposePresentationV3(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
 func TestCommand_AcceptRequestPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -390,6 +610,100 @@ func TestCommand_AcceptRequestPresentation(t *testing.T) {
 		var b bytes.Buffer
 		const jsonPayload = `{"piid":"id","presentation":{}}`
 		require.NoError(t, cmd.AcceptRequestPresentation(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
+func TestCommand_AcceptRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptRequestPresentationV3(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty PIID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptRequestPresentationV3(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPIID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty Presentation", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptRequestPresentationV3(&b, bytes.NewBufferString(`{"piid":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPresentation)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("AcceptRequestPresentationV3 (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","presentation":{}}`
+		cmdErr := cmd.AcceptRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, AcceptRequestPresentationErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","presentation":{}}`
+		require.NoError(t, cmd.AcceptRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload)))
 	})
 }
 
@@ -487,6 +801,100 @@ func TestCommand_NegotiateRequestPresentation(t *testing.T) {
 	})
 }
 
+func TestCommand_NegotiateRequestPresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.NegotiateRequestPresentationV3(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty PIID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.NegotiateRequestPresentationV3(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPIID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty ProposePresentation", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.NegotiateRequestPresentationV3(&b, bytes.NewBufferString(`{"piid":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyProposePresentation)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("NegotiateRequestPresentationV3 (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","propose_presentation":{}}`
+		cmdErr := cmd.NegotiateRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, NegotiateRequestPresentationErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","propose_presentation":{}}`
+		require.NoError(t, cmd.NegotiateRequestPresentationV3(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
 func TestCommand_AcceptProposePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -578,6 +986,100 @@ func TestCommand_AcceptProposePresentation(t *testing.T) {
 		var b bytes.Buffer
 		const jsonPayload = `{"piid":"id","request_presentation":{}}`
 		require.NoError(t, cmd.AcceptProposePresentation(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
+func TestCommand_AcceptProposePresentationV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProposePresentationV3(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty PIID", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProposePresentationV3(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPIID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty RequestPresentation", func(t *testing.T) {
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProposePresentationV3(&b, bytes.NewBufferString(`{"piid":"id"}`))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyRequestPresentation)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("AcceptProposePresentationV3 (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","request_presentation":{}}`
+		cmdErr := cmd.AcceptProposePresentationV3(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "some error message")
+		require.Equal(t, AcceptProposePresentationErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"id","request_presentation":{}}`
+		require.NoError(t, cmd.AcceptProposePresentationV3(&b, bytes.NewBufferString(jsonPayload)))
 	})
 }
 
