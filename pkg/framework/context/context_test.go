@@ -199,20 +199,35 @@ func TestNewProvider(t *testing.T) {
 
 		inboundHandler := ctx.InboundMessageHandler()
 
-		// valid json and message type
+		// valid json and message type, ToKey and FromKey are marshalled crypto.PublicKey as per the packers.
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`), ToKey: []byte("did:peer:bob#key-1"), FromKey: []byte("did:peer:carol#key-1")})
+		}`), ToKey: []byte("{\"kid\":\"did:peer:bob#key-1\"}"), FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\"}")})
 		require.NoError(t, err)
+
+		err = inboundHandler(&transport.Envelope{
+			Message: []byte(`{"@type": "valid-message-type"}`),
+			ToKey:   []byte("{\"kid\":\"did:peer:bob#key-1\""),
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "envelope.ToKey as myDID")
+
+		err = inboundHandler(&transport.Envelope{
+			Message: []byte(`{"@type": "valid-message-type"}`),
+			ToKey:   []byte("{\"kid\":\"did:peer:bob#key-1\"}"),
+			FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\""),
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "envelope.FromKey as theirDID")
 
 		// valid json, message type but service handlers returns error
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"label": "Carol",
 			"@type": "valid-message-type"
-		}`), ToKey: []byte("did:peer:bob#key-1"), FromKey: []byte("did:peer:carol#key-1")})
+		}`), ToKey: []byte("{\"kid\":\"did:peer:bob#key-1\"}"), FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\"}")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})

@@ -7,15 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
-	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cenkalti/backoff/v4"
 	jsonld "github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -33,10 +35,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-const defaultGetDIDsMaxRetries = 3
+const (
+	defaultGetDIDsMaxRetries = 3
+	kaIdentifier             = "#"
+)
 
 // package context creates a framework Provider context to add optional (non default) framework services and provides
 // simple accessor methods to those same services.
+
+var logger = log.New("aries-framework/pkg/framework/context")
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
@@ -237,7 +244,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
-//nolint:gocyclo,nestif
+//nolint:nestif,gocognit,funlen,gocyclo
 func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
 	var (
 		myDID    string
@@ -248,10 +255,15 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 	return myDID, theirDID, backoff.Retry(func() error {
 		var notFound bool
 
-		kaIdentifier := []byte("#")
+		// nolint: gocritic
+		if id := strings.Index(string(envelope.ToKey), kaIdentifier); id > 0 &&
+			strings.Index(string(envelope.ToKey), "\"kid\":\"did:") > 0 {
+			myDID, err = pubKeyToDID(envelope.ToKey)
+			if err != nil {
+				return fmt.Errorf("getMyDID: envelope.ToKey as myDID: %w", err)
+			}
 
-		if id := bytes.Index(envelope.ToKey, kaIdentifier); id > 0 && bytes.HasPrefix(envelope.ToKey, []byte("did:")) {
-			myDID = string(envelope.ToKey[:id])
+			logger.Debugf("envelope.ToKey as myDID: %v", myDID)
 		} else {
 			myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
 			if errors.Is(err, did.ErrNotFound) {
@@ -262,9 +274,7 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 				// types will be used. Currently, did:key is for legacy packers only, so only support Ed25519 keys.
 				didKey, _ := fingerprint.CreateDIDKey(envelope.ToKey)
 				myDID, err = p.didConnectionStore.GetDID(didKey)
-				if errors.Is(err, did.ErrNotFound) {
-					notFound = true
-				} else if err != nil {
+				if err != nil && !errors.Is(err, did.ErrNotFound) {
 					return fmt.Errorf("failed to get my did from didKey: %w", err)
 				}
 			} else if err != nil {
@@ -272,8 +282,15 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 			}
 		}
 
-		if id := bytes.Index(envelope.FromKey, kaIdentifier); id > 0 && bytes.HasPrefix(envelope.FromKey, []byte("did:")) {
-			myDID = string(envelope.FromKey[:id])
+		// nolint: gocritic
+		if id := strings.Index(string(envelope.FromKey), kaIdentifier); id > 0 &&
+			strings.Index(string(envelope.FromKey), "\"kid\":\"did:") > 0 {
+			theirDID, err = pubKeyToDID(envelope.FromKey)
+			if err != nil {
+				return fmt.Errorf("getDIDs: envelope.FromKey as theirDID: %w", err)
+			}
+
+			logger.Debugf("envelope.FromKey as theirDID: %v", theirDID)
 		} else {
 			theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
 			if notFound && errors.Is(err, did.ErrNotFound) {
@@ -291,6 +308,17 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 		}
 		return nil
 	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(p.getDIDsBackOffDuration), p.getDIDsMaxRetries))
+}
+
+func pubKeyToDID(key []byte) (string, error) {
+	toKey := &crypto.PublicKey{}
+
+	err := json.Unmarshal(key, toKey)
+	if err != nil {
+		return "", fmt.Errorf("pubKeyToDID: unmarshal key: %w", err)
+	}
+
+	return toKey.KID[:strings.Index(toKey.KID, kaIdentifier)], nil
 }
 
 // InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.

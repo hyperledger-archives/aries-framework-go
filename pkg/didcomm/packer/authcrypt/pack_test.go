@@ -136,7 +136,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			skid, sDIDKey, mSenderPubKey, _ := createAndMarshalKeyByKeyType(t, k, tc.keyType)
 
 			t.Logf("authcrypt packing - creating recipient %s keys...", tc.keyType)
-			kids, _, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
+			_, recDIDKeys, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
 			log.SetLevel("aries-framework/pkg/didcomm/packer/authcrypt", spilog.DEBUG)
 
@@ -157,7 +157,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			msg, err := authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			recKey, err := exportPubKeyBytes(keyHandles[0], kids[0])
+			recKey, err := exportPubKeyBytes(keyHandles[0], recDIDKeys[0])
 			require.NoError(t, err)
 
 			senderPubKey := &cryptoapi.PublicKey{}
@@ -214,7 +214,7 @@ func verifyJWETypes(t *testing.T, cty string, jweHeader afgjose.Headers) {
 
 func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	k := createKMS(t)
-	kids, _, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	_, recDIDKeys, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
 	// since authcrypt does ECDH kw using the sender key, the recipient keys must be on the same curve (for NIST P keys)
 	// and the same key type (for NIST P / X25519 keys) as the sender's.
 	// this is why recipient keys with different curves/type are not supported for authcrypt.
@@ -251,7 +251,7 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	msg, err := authPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	recKey, err := exportPubKeyBytes(keyHandles1[0], kids[0])
+	recKey, err := exportPubKeyBytes(keyHandles1[0], recDIDKeys[0])
 	require.NoError(t, err)
 
 	senderPubKey := &cryptoapi.PublicKey{}
@@ -328,6 +328,16 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	origMsg := []byte("secret message")
 	authPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256CBCHS512)
 	require.NoError(t, err)
+
+	t.Run("unpack fail with bad recipient key", func(t *testing.T) {
+		_, _, keys, _ := createRecipients(t, k, 1)
+		keys[0] = []byte(strings.Replace(string(keys[0]), "did:key:", "invalid", 1))
+		var ct []byte
+		ct, err = authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), keys)
+		require.NoError(t, err)
+		_, err = authPacker.Unpack(ct)
+		require.Contains(t, err.Error(), "invalid kid format, must be a did:key")
+	})
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
 		_, err = authPacker.Pack(cty, origMsg, nil, nil)

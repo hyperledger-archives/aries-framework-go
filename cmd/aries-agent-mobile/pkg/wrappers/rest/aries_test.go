@@ -61,13 +61,11 @@ func TestAries_RegisterHandler(t *testing.T) {
 
 	done := make(chan struct{})
 
-	l, err := net.Listen("tcp", ":0") // nolint: gosec
-	require.NoError(t, err)
-
-	wsURL := strings.Replace(fmt.Sprintf("ws://%v", l.Addr()), "[::]", "localhost", 1)
-
 	s := &http.Server{Handler: wsFunc(func(w http.ResponseWriter, r *http.Request) {
-		var c *websocket.Conn
+		var (
+			c   *websocket.Conn
+			err error
+		)
 
 		c, err = websocket.Accept(w, r, &websocket.AcceptOptions{})
 		require.NoError(t, err)
@@ -88,6 +86,11 @@ func TestAries_RegisterHandler(t *testing.T) {
 	})}
 
 	closed := make(chan struct{})
+
+	l, err := net.Listen("tcp", ":0") // nolint: gosec
+	require.NoError(t, err)
+
+	wsURL := strings.Replace(fmt.Sprintf("ws://%v", l.Addr()), "[::]", "localhost", 1)
 
 	go func() {
 		require.EqualError(t, s.Serve(l), "http: Server closed")

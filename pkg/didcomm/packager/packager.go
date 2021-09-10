@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package packager
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -157,12 +156,11 @@ func (bp *Packager) prepareSenderAndRecipientKeys(cty string, envelope *transpor
 
 		if isLegacy {
 			senderKID = senderKey.X // for legacy, use the sender raw key (Ed25519 key)
-		}
-
-		if !isLegacy {
+		} else {
 			senderKID = buildSenderKID(senderKey, envelope)
 		}
-	case bytes.Index(envelope.FromKey, []byte("#")) > 0:
+	//nolint:gocritic // need to check with strings not bytes
+	case strings.Index(string(envelope.FromKey), "#") > 0:
 		marshalledSenderKey, err := bp.resolveKeyAgreementFromDIDDoc(string(envelope.FromKey))
 		if err != nil {
 			return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for sender: %w", err)

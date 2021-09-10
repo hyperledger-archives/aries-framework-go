@@ -181,11 +181,13 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 
 	for i := range jwe.Recipients {
 		var (
-			recKey                               *cryptoapi.PublicKey
-			pt, ecdh1puPubKeyByes, mSenderPubKey []byte
+			recKey *cryptoapi.PublicKey
+			pt     []byte
+			recKID string
+			env    *transport.Envelope
 		)
 
-		recKey, err = p.pubKey(i, jwe)
+		recKey, recKID, err = p.pubKey(i, jwe)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: %w", err)
 		}
@@ -215,24 +217,37 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("authcrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
-		ecdh1puPubKeyByes, err = json.Marshal(recKey)
+		env, err = p.buildEnvelope(recKey, recKID, pt, jwe)
 		if err != nil {
-			return nil, fmt.Errorf("authcrypt Unpack: failed to marshal recipient public key: %w", err)
+			return nil, fmt.Errorf("authcrypt Unpack: %w", err)
 		}
 
-		mSenderPubKey, err = p.extractSenderKey(jwe)
-		if err != nil {
-			return nil, err
-		}
-
-		return &transport.Envelope{
-			Message: pt,
-			FromKey: mSenderPubKey,
-			ToKey:   ecdh1puPubKeyByes,
-		}, nil
+		return env, nil
 	}
 
 	return nil, fmt.Errorf("authcrypt Unpack: no matching recipient in envelope")
+}
+
+func (p *Packer) buildEnvelope(recKey *cryptoapi.PublicKey, recKID string, message []byte,
+	jwe *jose.JSONWebEncryption) (*transport.Envelope, error) {
+	// set original recKID in recKey to keep original source of key (ie not the KMS kid)
+	recKey.KID = recKID
+
+	ecdh1puPubKeyByes, err := json.Marshal(recKey)
+	if err != nil {
+		return nil, fmt.Errorf("buildEnvelope: failed to marshal recipient public key: %w", err)
+	}
+
+	mSenderPubKey, err := p.extractSenderKey(jwe)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transport.Envelope{
+		Message: message,
+		FromKey: mSenderPubKey,
+		ToKey:   ecdh1puPubKeyByes,
+	}, nil
 }
 
 func (p *Packer) extractSenderKey(jwe *jose.JSONWebEncryption) ([]byte, error) {
@@ -291,7 +306,7 @@ func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, stri
 }
 
 // pubKey will resolve recipient kid at i and returns the corresponding full public key with KID as the kms KID value.
-func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, error) {
+func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, string, error) {
 	var (
 		kid         string
 		kidResolver resolver.KIDResolver
@@ -302,7 +317,7 @@ func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKe
 
 		kid, ok = jwe.ProtectedHeaders.KeyID()
 		if !ok {
-			return nil, fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
+			return nil, "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
 		}
 	} else {
 		kid = jwe.Recipients[i].Header.KID
@@ -317,16 +332,16 @@ func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKe
 		kidResolver = p.kidResolvers[1]
 		keySource = "didDoc.KeyAgreement[].VerificationMethod.ID"
 	default:
-		return nil, fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
+		return nil, "", fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
 	}
 
 	// recipient kid header is the did:Key or KeyAgreement.ID, extract the public key and build a kms kid.
 	recKey, err := kidResolver.Resolve(kid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
+		return nil, "", fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
 	}
 
-	return recKey, nil
+	return recKey, kid, nil
 }
 
 // EncodingType for didcomm.

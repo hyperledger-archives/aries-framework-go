@@ -133,7 +133,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 		tc := tt
 		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
 			t.Logf("anoncrypt packing - creating recipient %s keys...", tc.keyType)
-			kids, _, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
+			_, recDIDKeys, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
 			log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
 
@@ -154,7 +154,7 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 			msg, err := anonPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			recKey, err := exportPubKeyBytes(keyHandles[0], kids[0])
+			recKey, err := exportPubKeyBytes(keyHandles[0], recDIDKeys[0])
 			require.NoError(t, err)
 
 			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
@@ -203,7 +203,7 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	log.SetLevel("aries-framework/pkg/didcomm/packer/anoncrypt", spilog.DEBUG)
 
 	k := createKMS(t)
-	kids, _, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	_, recDIDKeys, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
 	_, _, recipientsKey2, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP384ECDHKW) //nolint:dogsled
 	_, _, recipientsKey3, _ := createRecipientsByKeyType(t, k, 1, kms.NISTP521ECDHKW) //nolint:dogsled
 	_, _, recipientsKey4, _ := createRecipientsByKeyType(t, k, 1, kms.X25519ECDHKW)   //nolint:dogsled
@@ -239,7 +239,7 @@ func TestAnoncryptPackerSuccessWithDifferentCurvesSuccess(t *testing.T) {
 	msg, err := anonPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	recKey, err := exportPubKeyBytes(keyHandles1[0], kids[0])
+	recKey, err := exportPubKeyBytes(keyHandles1[0], recDIDKeys[0])
 	require.NoError(t, err)
 
 	require.EqualValues(t, &transport.Envelope{
@@ -299,6 +299,16 @@ func TestAnoncryptPackerFail(t *testing.T) {
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
 		_, err = anonPacker.Pack(cty, origMsg, nil, nil)
 		require.EqualError(t, err, "anoncrypt Pack: empty recipientsPubKeys")
+	})
+
+	t.Run("unpack fail with bad recipient key", func(t *testing.T) {
+		_, _, keys, _ := createRecipients(t, k, 1)
+		keys[0] = []byte(strings.Replace(string(keys[0]), "did:key:", "invalid", 1))
+		var ct []byte
+		ct, err = anonPacker.Pack(cty, origMsg, nil, keys)
+		require.NoError(t, err)
+		_, err = anonPacker.Unpack(ct)
+		require.Contains(t, err.Error(), "invalid kid format, must be a did:key")
 	})
 
 	t.Run("pack fail with invalid recipients keys", func(t *testing.T) {
