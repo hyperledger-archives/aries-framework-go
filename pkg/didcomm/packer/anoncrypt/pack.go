@@ -141,7 +141,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	}
 
 	for i := range jwe.Recipients {
-		recKey, err := p.pubKey(i, jwe)
+		recKey, recKID, err := p.pubKey(i, jwe)
 		if err != nil {
 			return nil, fmt.Errorf("anoncrypt Unpack: %w", err)
 		}
@@ -171,6 +171,9 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
+		// set original recKID in recKey to keep original source of key (ie not the KMS kid)
+		recKey.KID = recKID
+
 		ecdhesPubKeyByes, err := json.Marshal(recKey)
 		if err != nil {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to marshal public key: %w", err)
@@ -198,7 +201,7 @@ func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, stri
 }
 
 // pubKey will resolve recipient kid at i and returns the corresponding full public key with KID as the kms KID value.
-func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, error) {
+func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, string, error) {
 	var (
 		kid         string
 		kidResolver resolver.KIDResolver
@@ -209,7 +212,7 @@ func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKe
 
 		kid, ok = jwe.ProtectedHeaders.KeyID()
 		if !ok {
-			return nil, fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
+			return nil, "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
 		}
 	} else {
 		kid = jwe.Recipients[i].Header.KID
@@ -224,16 +227,16 @@ func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKe
 		kidResolver = p.kidResolvers[1]
 		keySource = "didDoc.KeyAgreement[].VerificationMethod.ID"
 	default:
-		return nil, fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
+		return nil, "", fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
 	}
 
 	// recipient kid header is the did:Key or KeyAgreement.ID, extract the public key and build a kms kid
 	recKey, err := kidResolver.Resolve(kid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
+		return nil, "", fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
 	}
 
-	return recKey, nil
+	return recKey, kid, nil
 }
 
 // EncodingType for didcomm.

@@ -421,7 +421,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	var senderVerKey string
 
-	if myDID != "" {
+	if myDID != "" { // empty myDID means a new DID was just created and not exchanged yet, use did:key instead
 		senderVerKey, err = recipientKey(responseDidDoc)
 		if err != nil {
 			return nil, nil, fmt.Errorf("handle inbound request: %w", err)
