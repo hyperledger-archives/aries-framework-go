@@ -155,7 +155,7 @@ func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn)
 				continue
 			}
 
-			if strings.Contains(err.Error(), "WebSocket closed") {
+			if strings.Contains(err.Error(), "bddtests destroy context") {
 				return
 			}
 

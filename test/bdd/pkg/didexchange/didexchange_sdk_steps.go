@@ -47,14 +47,15 @@ func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) err
 		return fmt.Errorf("no connection for %s", router)
 	}
 
-	return d.createInvitation(inviterAgentID, connection)
+	return d.CreateInvitation(inviterAgentID, connection)
 }
 
 func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
-	return d.createInvitation(inviterAgentID, "")
+	return d.CreateInvitation(inviterAgentID, "")
 }
 
-func (d *SDKSteps) createInvitation(inviterAgentID, connection string) error {
+// CreateInvitation creates an invitation.
+func (d *SDKSteps) CreateInvitation(inviterAgentID, connection string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID,
 		didexchange.WithRouterConnectionID(connection))
 	if err != nil {

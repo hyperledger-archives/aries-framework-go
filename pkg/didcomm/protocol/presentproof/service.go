@@ -329,7 +329,7 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string, *internalData, error) {
 	piID, err := getPIID(msg)
 	if errors.Is(err, service.ErrThreadIDNotFound) {
-		msg.SetID(uuid.New().String())
+		msg.SetID(uuid.New().String(), service.WithVersion(getDIDVersion(getVersion(msg.Type()))))
 
 		return msg.ID(), &internalData{StateName: stateNameStart}, nil
 	}

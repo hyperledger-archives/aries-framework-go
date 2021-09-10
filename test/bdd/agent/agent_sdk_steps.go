@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	didexchangebdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
@@ -56,7 +57,8 @@ var logger = log.New("aries-framework/tests")
 
 // SDKSteps contains steps for agent from client SDK.
 type SDKSteps struct {
-	bddContext *context.BDDContext
+	bddContext      *context.BDDContext
+	didExchangeSDKS *didexchangebdd.SDKSteps
 }
 
 // NewSDKSteps returns new agent from client SDK.
@@ -72,6 +74,47 @@ func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string)
 // createAgentByDIDCommV2 with the given parameters.
 func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
 	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, true)
+}
+
+func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
+	err := a.createAgentByDIDCommVer(agent1, "localhost", "random", "http", true)
+	if err != nil {
+		return fmt.Errorf("create agent %q: %w", agent1, err)
+	}
+
+	err = a.createAgentByDIDCommVer(agent2, "localhost", "random", "http", true)
+	if err != nil {
+		return fmt.Errorf("create agent %q: %w", agent2, err)
+	}
+
+	err = a.didExchangeSDKS.CreateDIDExchangeClient(strings.Join([]string{agent1, agent2}, ","))
+	if err != nil {
+		return err
+	}
+
+	err = a.didExchangeSDKS.RegisterPostMsgEvent(strings.Join([]string{agent1, agent2}, ","), "completed")
+	if err != nil {
+		return fmt.Errorf("failed to register agents for didexchange post msg events : %w", err)
+	}
+
+	err = a.didExchangeSDKS.CreateInvitation(agent1, "")
+	if err != nil {
+		return fmt.Errorf("create invitation: %w", err)
+	}
+
+	if err := a.didExchangeSDKS.ReceiveInvitation(agent2, agent1); err != nil {
+		return fmt.Errorf("eeceive invitation: %w", err)
+	}
+
+	if err := a.didExchangeSDKS.ApproveRequest(agent2); err != nil {
+		return fmt.Errorf("approve request %q: %w", agent2, err)
+	}
+
+	if err := a.didExchangeSDKS.ApproveRequest(agent1); err != nil {
+		return fmt.Errorf("approve request %q: %w", agent1, err)
+	}
+
+	return a.didExchangeSDKS.WaitForPostEvent(strings.Join([]string{agent1, agent2}, ","), "completed")
 }
 
 // createAgentByDIDCommVer with the given parameters.
@@ -410,6 +453,9 @@ func createJSONLDDocumentLoader(storageProvider storage.Provider) (jsonld.Docume
 // SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
+
+	a.didExchangeSDKS = didexchangebdd.NewDIDExchangeSDKSteps()
+	a.didExchangeSDKS.SetContext(ctx)
 }
 
 // RegisterSteps registers agent steps.
@@ -419,6 +465,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" using DIDCommV2 as `+
 		`the transport provider$`,
 		a.createAgentByDIDCommV2)
+	s.Step(`^"([^"]*)" exchange DIDs V2 with "([^"]*)"$`, a.createConnectionV2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
 		`using webkms with key server at "([^"]*)" URL, using "([^"]*)" controller`, a.CreateAgentWithRemoteKMS)
 	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+

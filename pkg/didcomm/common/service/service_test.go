@@ -36,6 +36,10 @@ func TestParseDIDCommMsgMap(t *testing.T) {
 		name:    "Array payload",
 		payload: []byte(`[]`),
 		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type map[string]interface`,
+	}, {
+		name:    "Type",
+		payload: []byte(`{"@type":"type"}`),
+		err:     "",
 	}}
 
 	t.Parallel()

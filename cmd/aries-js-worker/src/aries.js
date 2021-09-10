@@ -535,6 +535,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendRequestPresentation", req, "timeout while sending a request presentation")
             },
             /**
+             * Sends a request presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequestPresentationV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequestPresentationV3", req, "timeout while sending a request presentation")
+            },
+            /**
              * Sends a propose presentation.
              * https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
              *
@@ -543,6 +552,16 @@ const Aries = function (opts) {
              */
             sendProposePresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "SendProposePresentation", req, "timeout while sending a propose presentation")
+            },
+            /**
+             * Sends a propose presentation v3.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposePresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposePresentationV3", req, "timeout while sending a propose presentation")
             },
             /**
              * Accepts a problem report.
@@ -564,6 +583,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "AcceptRequestPresentation", req, "timeout while accepting a request presentation")
             },
             /**
+             * Accepts a request presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestPresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestPresentationV3", req, "timeout while accepting a request presentation")
+            },
+            /**
              * Accepts a propose presentation.
              *
              * @param req - json document
@@ -571,6 +599,15 @@ const Aries = function (opts) {
              */
             acceptProposePresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptProposePresentation", req, "timeout while accepting a propose presentation")
+            },
+            /**
+             * Accepts a propose presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposePresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposePresentationV3", req, "timeout while accepting a propose presentation")
             },
             /**
              * Accepts a presentation.
@@ -589,6 +626,15 @@ const Aries = function (opts) {
              */
             negotiateRequestPresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "NegotiateRequestPresentation", req, "timeout while negotiating a request presentation")
+            },
+            /**
+             * Is used by the Prover to counter a presentation request v3 they received with a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            negotiateRequestPresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "NegotiateRequestPresentationV3", req, "timeout while negotiating a request presentation")
             },
             /**
              * Declines a request presentation.

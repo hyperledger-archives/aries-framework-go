@@ -339,8 +339,16 @@ const pkgs = {
             path: "/presentproof/send-request-presentation",
             method: "POST",
         },
+        SendRequestPresentationV3: {
+            path: "/presentproof/v3/send-request-presentation",
+            method: "POST",
+        },
         SendProposePresentation: {
             path: "/presentproof/send-propose-presentation",
+            method: "POST",
+        },
+        SendProposePresentationV3: {
+            path: "/presentproof/v3/send-propose-presentation",
             method: "POST",
         },
         AcceptProblemReport: {
@@ -353,8 +361,18 @@ const pkgs = {
             method: "POST",
             pathParam: "piid"
         },
+        AcceptRequestPresentationV3: {
+            path: "/presentproof/v3/{piid}/accept-request-presentation",
+            method: "POST",
+            pathParam: "piid"
+        },
         AcceptProposePresentation: {
             path: "/presentproof/{piid}/accept-propose-presentation",
+            method: "POST",
+            pathParam: "piid"
+        },
+        AcceptProposePresentationV3: {
+            path: "/presentproof/v3/{piid}/accept-propose-presentation",
             method: "POST",
             pathParam: "piid"
         },
@@ -365,6 +383,11 @@ const pkgs = {
         },
         NegotiateRequestPresentation: {
             path: "/presentproof/{piid}/negotiate-request-presentation",
+            method: "POST",
+            pathParam: "piid"
+        },
+        NegotiateRequestPresentationV3: {
+            path: "/presentproof/v3/{piid}/negotiate-request-presentation",
             method: "POST",
             pathParam: "piid"
         },
