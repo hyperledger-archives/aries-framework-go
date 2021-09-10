@@ -92,7 +92,8 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	}
 
 	// Interop: accept old PIURI when it's used, as we handle backwards-compatibility at a more fine-grained level.
-	if typ := msg.Type(); typ != "" {
+	_, ok := msg[jsonTypeV1]
+	if typ := msg.Type(); typ != "" && ok {
 		msg[jsonTypeV1] = strings.Replace(typ, oldPIURI, basePIURI, 1)
 	}
 

@@ -114,18 +114,27 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends a request presentation to the "([^"]*)"$`, a.sendRequestPresentation)
+	s.Step(`^"([^"]*)" sends a request presentation v3 to the "([^"]*)"$`, a.sendRequestPresentationV3)
 	s.Step(`^"([^"]*)" sends a request presentation with presentation definition to the "([^"]*)"$`,
 		a.sendRequestPresentationDefinition)
+	s.Step(`^"([^"]*)" sends a request presentation v3 with presentation definition to the "([^"]*)"$`,
+		a.sendRequestPresentationDefinitionV3)
 	s.Step(`^"([^"]*)" sends a propose presentation to the "([^"]*)"$`, a.sendProposePresentation)
+	s.Step(`^"([^"]*)" sends a propose presentation v3 to the "([^"]*)"$`, a.sendProposePresentationV3)
 	s.Step(`^"([^"]*)" negotiates about the request presentation with a proposal$`, a.negotiateRequestPresentation)
+	s.Step(`^"([^"]*)" negotiates about the request presentation v3 with a proposal$`, a.negotiateRequestPresentationV3)
 	s.Step(`^"([^"]*)" accepts a request and sends a presentation to the "([^"]*)"$`, a.acceptRequestPresentation)
+	s.Step(`^"([^"]*)" accepts a request and sends a presentation v3 to the "([^"]*)"$`, a.acceptRequestPresentationV3)
 	s.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the "([^"]*)" and proof "([^"]*)"$`,
 		a.acceptRequestPresentationBBS)
+	s.Step(`^"([^"]*)" accepts a request v3 and sends credentials with BBS to the "([^"]*)" and proof "([^"]*)"$`,
+		a.acceptRequestPresentationBBSV3)
 	s.Step(`^"([^"]*)" declines a request presentation$`, a.declineRequestPresentation)
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
 	s.Step(`^"([^"]*)" declines a propose presentation$`, a.declineProposePresentation)
 	s.Step(`^"([^"]*)" receives problem report message \(Present Proof\)$`, a.receiveProblemReport)
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover$`, a.acceptProposePresentation)
+	s.Step(`^"([^"]*)" accepts a proposal and sends a request v3 to the Prover$`, a.acceptProposePresentationV3)
 	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)"$`, a.acceptPresentation)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name$`, a.checkPresentation)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name and has "([^"]*)" proof$`,
@@ -211,6 +220,17 @@ func (a *SDKSteps) sendProposePresentation(prover, verifier string) error {
 	return err
 }
 
+func (a *SDKSteps) sendProposePresentationV3(prover, verifier string) error {
+	conn, err := a.getConnection(prover, verifier)
+	if err != nil {
+		return err
+	}
+
+	_, err = a.clients[prover].SendProposePresentationV3(&presentproof.ProposePresentationV3{}, conn.MyDID, conn.TheirDID)
+
+	return err
+}
+
 func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
@@ -219,6 +239,19 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 
 	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
 		WillConfirm: true,
+	}, conn.MyDID, conn.TheirDID)
+
+	return err
+}
+
+func (a *SDKSteps) sendRequestPresentationV3(agent1, agent2 string) error {
+	conn, err := a.getConnection(agent1, agent2)
+	if err != nil {
+		return err
+	}
+
+	_, err = a.clients[agent1].SendRequestPresentationV3(&presentproof.RequestPresentationV3{
+		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
 	}, conn.MyDID, conn.TheirDID)
 
 	return err
@@ -265,6 +298,47 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 			},
 		}},
 		WillConfirm: true,
+	}, conn.MyDID, conn.TheirDID)
+
+	return err
+}
+
+func (a *SDKSteps) sendRequestPresentationDefinitionV3(agent1, agent2 string) error {
+	limitDisclosure := presexch.Required
+
+	conn, err := a.getConnection(agent1, agent2)
+	if err != nil {
+		return err
+	}
+
+	ID := uuid.New().String()
+
+	_, err = a.clients[agent1].SendRequestPresentationV3(&presentproof.RequestPresentationV3{
+		Attachments: []decorator.AttachmentV2{{
+			ID:     ID,
+			Format: "dif/presentation-exchange/definitions@v1.0",
+			Data: decorator.AttachmentData{
+				JSON: map[string]interface{}{
+					"presentation_definition": &presexch.PresentationDefinition{
+						ID: uuid.New().String(),
+						InputDescriptors: []*presexch.InputDescriptor{{
+							Schema: []*presexch.Schema{{
+								URI: "https://example.org/examples#UniversityDegreeCredential",
+							}},
+							ID: uuid.New().String(),
+							Constraints: &presexch.Constraints{
+								LimitDisclosure: &limitDisclosure,
+								Fields: []*presexch.Field{{
+									Path:   []string{"$.credentialSubject.degree.degreeSchool"},
+									Filter: &presexch.Filter{Type: &strFilterType},
+								}},
+							},
+						}},
+					},
+				},
+			},
+		}},
+		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
 	}, conn.MyDID, conn.TheirDID)
 
 	return err
@@ -334,6 +408,63 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 
 	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
 		PresentationsAttach: []decorator.Attachment{{
+			Data: decorator.AttachmentData{
+				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
+			},
+		}},
+	}, nil)
+}
+
+func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
+	PIID, err := a.getActionID(prover)
+	if err != nil {
+		return err
+	}
+
+	conn, err := a.getConnection(prover, verifier)
+	if err != nil {
+		return err
+	}
+
+	loader, err := bddverifiable.CreateDocumentLoader()
+	if err != nil {
+		return err
+	}
+
+	vp, err := verifiable.ParsePresentation(
+		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
+		verifiable.WithPresDisabledProofCheck())
+	if err != nil {
+		return fmt.Errorf("failed to decode VP JSON: %w", err)
+	}
+
+	jwtClaims, err := vp.JWTClaims([]string{conn.MyDID}, true)
+	if err != nil {
+		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
+	}
+
+	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(conn.MyDID)
+	if err != nil {
+		return err
+	}
+
+	pubKey := doc.DIDDocument.VerificationMethod[0]
+	km := a.bddContext.AgentCtx[prover].KMS()
+	cr := a.bddContext.AgentCtx[prover].Crypto()
+
+	kid, err := localkms.CreateKID(pubKey.Value, kms.ED25519)
+	if err != nil {
+		return fmt.Errorf("failed to key kid for kms: %w", err)
+	}
+
+	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), pubKey.ID)
+	if err != nil {
+		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
+	}
+
+	return a.clients[prover].AcceptRequestPresentationV3(PIID, &presentproof.PresentationV3{
+		Attachments: []decorator.AttachmentV2{{
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
 			},
@@ -441,6 +572,106 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 	}, signFn)
 }
 
+func (a *SDKSteps) acceptRequestPresentationBBSV3(prover, _, proof string) error { // nolint: funlen
+	PIID, err := a.getActionID(prover)
+	if err != nil {
+		return err
+	}
+
+	km := a.bddContext.AgentCtx[prover].KMS()
+	cr := a.bddContext.AgentCtx[prover].Crypto()
+
+	kid, pubKey, err := km.CreateAndExportPubKeyBytes(kms.BLS12381G2Type)
+	if err != nil {
+		return err
+	}
+
+	_, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, pubKey)
+
+	vc := &verifiable.Credential{
+		ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://w3id.org/security/bbs/v1",
+		},
+		Types: []string{
+			"VerifiableCredential",
+			"UniversityDegreeCredential",
+		},
+		Subject: verifiable.Subject{
+			ID: "did:example:b34ca6cd37bbf23",
+			CustomFields: map[string]interface{}{
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"degree": map[string]interface{}{
+					"degree":       "MIT",
+					"degreeSchool": "MIT school",
+					"type":         "BachelorDegree",
+				},
+			},
+		},
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Expired: &util.TimeWrapper{
+			Time: time.Now().AddDate(1, 0, 0),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:489398593",
+		},
+		CustomFields: map[string]interface{}{
+			"identifier":  "83627465",
+			"name":        "Permanent Resident Card",
+			"description": "Government of Example Permanent Resident Card.",
+		},
+	}
+
+	loader, err := bddverifiable.CreateDocumentLoader()
+	if err != nil {
+		return err
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
+		VerificationMethod:      didKey,
+	}, jsonld.WithDocumentLoader(loader))
+
+	if err != nil {
+		return fmt.Errorf("failed to key kid for kms: %w", err)
+	}
+
+	var signFn func(presentation *verifiable.Presentation) error
+
+	if proof == "default" {
+		signFn = nil
+	}
+
+	if proof == "BbsBlsSignature2020" {
+		signFn = func(presentation *verifiable.Presentation) error {
+			presentation.Context = append(presentation.Context, "https://w3id.org/security/bbs/v1")
+
+			return presentation.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+				SignatureType:           "BbsBlsSignature2020",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+				Suite:                   bbsblssignature2020.New(suite.WithSigner(newBBSSigner(km, cr, kid))),
+				VerificationMethod:      didKey,
+			}, jsonld.WithDocumentLoader(loader))
+		}
+	}
+
+	return a.clients[prover].AcceptRequestPresentationV3(PIID, &presentproof.PresentationV3{
+		Attachments: []decorator.AttachmentV2{{
+			MediaType: "application/ld+json",
+			Data: decorator.AttachmentData{
+				JSON: vc,
+			},
+		}},
+	}, signFn)
+}
+
 func (a *SDKSteps) receiveProblemReport(agent string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
@@ -495,6 +726,15 @@ func (a *SDKSteps) negotiateRequestPresentation(agent string) error {
 	return a.clients[agent].NegotiateRequestPresentation(PIID, &presentproof.ProposePresentation{})
 }
 
+func (a *SDKSteps) negotiateRequestPresentationV3(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].NegotiateRequestPresentationV3(PIID, &presentproof.ProposePresentationV3{})
+}
+
 func (a *SDKSteps) acceptProposePresentation(verifier string) error {
 	PIID, err := a.getActionID(verifier)
 	if err != nil {
@@ -503,6 +743,17 @@ func (a *SDKSteps) acceptProposePresentation(verifier string) error {
 
 	return a.clients[verifier].AcceptProposePresentation(PIID, &presentproof.RequestPresentation{
 		WillConfirm: true,
+	})
+}
+
+func (a *SDKSteps) acceptProposePresentationV3(verifier string) error {
+	PIID, err := a.getActionID(verifier)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[verifier].AcceptProposePresentationV3(PIID, &presentproof.RequestPresentationV3{
+		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
 	})
 }
 
