@@ -119,7 +119,7 @@ type MethodMetadata struct {
 	// Published is published key.
 	Published bool `json:"published,omitempty"`
 	// AnchorOrigin is anchor origin.
-	AnchorOrigin bool `json:"anchorOrigin,omitempty"`
+	AnchorOrigin string `json:"anchorOrigin,omitempty"`
 }
 
 // DocumentMetadata document metadata.
