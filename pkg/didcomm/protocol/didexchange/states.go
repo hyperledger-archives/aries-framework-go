@@ -9,6 +9,7 @@ package didexchange
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -360,7 +362,8 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 	}
 
 	// get did document to use in exchange request
-	myDIDDoc, err := ctx.getMyDIDDoc(getPublicDID(options), getRouterConnections(options))
+	myDIDDoc, err := ctx.getMyDIDDoc(getPublicDID(options), getRouterConnections(options),
+		serviceTypeByMediaProfile(destination.MediaTypeProfiles))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -395,6 +398,29 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 	}, connRec, nil
 }
 
+func serviceTypeByMediaProfile(mediaTypeProfiles []string) string {
+	serviceType := didCommServiceType
+
+	for _, mtp := range mediaTypeProfiles {
+		var breakFor bool
+
+		switch mtp {
+		case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile,
+			transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			transport.MediaTypeV1EncryptedEnvelope:
+			serviceType = didCommV2ServiceType
+
+			breakFor = true
+		}
+
+		if breakFor {
+			break
+		}
+	}
+
+	return serviceType
+}
+
 // nolint:gocyclo,funlen
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
@@ -414,7 +440,19 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	// (my did doc)
 	myDID := getPublicDID(options)
 
-	responseDidDoc, err := ctx.getMyDIDDoc(myDID, getRouterConnections(options))
+	destination, err := service.CreateDestination(requestDidDoc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var serviceType string
+	if len(requestDidDoc.Service) > 0 {
+		serviceType = requestDidDoc.Service[0].Type
+	} else {
+		serviceType = serviceTypeByMediaProfile(destination.MediaTypeProfiles)
+	}
+
+	responseDidDoc, err := ctx.getMyDIDDoc(myDID, getRouterConnections(options), serviceType)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get response did doc and connection: %w", err)
 	}
@@ -450,11 +488,6 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	connRec.TheirDID = request.DID
 	connRec.TheirLabel = request.Label
-
-	destination, err := service.CreateDestination(requestDidDoc)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	if len(destination.MediaTypeProfiles) > 0 {
 		connRec.MediaTypeProfiles = destination.MediaTypeProfiles
@@ -604,8 +637,8 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}, nil
 }
 
-// nolint:gocyclo
-func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did.Doc, error) {
+// nolint:gocyclo,funlen
+func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, serviceType string) (*did.Doc, error) {
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
@@ -624,7 +657,10 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
-	var services []did.Service
+	var (
+		services   []did.Service
+		newService bool
+	)
 
 	for _, connID := range routerConnections {
 		// get the route configs (pass empty service endpoint, as default service endpoint added in VDR)
@@ -637,7 +673,9 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 	}
 
 	if len(services) == 0 {
-		services = append(services, did.Service{})
+		newService = true
+
+		services = append(services, did.Service{Type: serviceType})
 	}
 
 	newDID := &did.Doc{Service: services}
@@ -645,6 +683,22 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string) (*did
 	err := ctx.createNewKeyAndVM(newDID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create and export public key: %w", err)
+	}
+
+	if newService {
+		switch newDID.Service[0].Type {
+		case didCommServiceType:
+			recKey, _ := fingerprint.CreateDIDKey(newDID.VerificationMethod[0].Value)
+			newDID.Service[0].RecipientKeys = []string{recKey}
+		case didCommV2ServiceType:
+			var recKeys []string
+
+			for _, r := range newDID.KeyAgreement {
+				recKeys = append(recKeys, r.VerificationMethod.ID)
+			}
+
+			newDID.Service[0].RecipientKeys = recKeys
+		}
 	}
 
 	// by default use peer did
@@ -951,6 +1005,20 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 	}
 
 	if len(i.MediaTypeProfiles) > 0 {
+		// marshal/unmarshal to "clone" service block
+		blockBytes, err := json.Marshal(block)
+		if err != nil {
+			return nil, fmt.Errorf("service block marhsal error: %w", err)
+		}
+
+		block = &did.Service{}
+
+		err = json.Unmarshal(blockBytes, block)
+		if err != nil {
+			return nil, fmt.Errorf("service block unmarhsal error: %w", err)
+		}
+
+		// updating Accept header requires a cloned service block to avoid Data Race errors.
 		// RFC0587: In case the accept property is set in both the DID service block and the out-of-band message,
 		// the out-of-band property takes precedence.
 		block.Accept = i.MediaTypeProfiles

@@ -444,6 +444,10 @@ func packUnPackSuccess(keyType kms.KeyType, customKMS kms.KeyManager, cryptoSvc 
 			mediaType: transport.MediaTypeAIP2RFC0019Profile,
 		},
 		{
+			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeProfileDIDCommAIP1),
+			mediaType: transport.MediaTypeProfileDIDCommAIP1,
+		},
+		{
 			name:      fmt.Sprintf("success using mediaType %s", transport.MediaTypeAIP2RFC0587Profile),
 			mediaType: transport.MediaTypeAIP2RFC0587Profile,
 		},
@@ -474,7 +478,8 @@ func packUnPackSuccess(keyType kms.KeyType, customKMS kms.KeyManager, cryptoSvc 
 			)
 
 			switch tc.mediaType {
-			case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
+			case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile,
+				transport.MediaTypeProfileDIDCommAIP1:
 				fromKIDPack = []byte(fromDIDKeyED25519)
 				toKIDsPack = []string{toLegacyDIDKey}
 			case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,

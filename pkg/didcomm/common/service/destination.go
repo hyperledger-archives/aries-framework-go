@@ -24,8 +24,10 @@ type Destination struct {
 }
 
 const (
-	didCommServiceType   = "did-communication"
-	didCommV2ServiceType = "DIDCommMessaging"
+	didCommServiceType      = "did-communication"
+	didCommV2ServiceType    = "DIDCommMessaging"
+	defaultDIDCommProfile   = "didcomm/aip2;env=rfc19"
+	defaultDIDCommV2Profile = "didcomm/v2"
 )
 
 // GetDestination constructs a Destination struct based on the given DID and parameters

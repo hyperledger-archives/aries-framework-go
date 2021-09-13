@@ -235,7 +235,8 @@ func isMediaTypeForLegacyPacker(cty string) bool {
 	var isLegacy bool
 
 	switch cty {
-	case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
+	case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile,
+		transport.MediaTypeProfileDIDCommAIP1:
 		isLegacy = true
 	default:
 		isLegacy = false
@@ -329,7 +330,7 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 
 func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packer.Packer, error) {
 	switch envelope.MediaTypeProfile {
-	case transport.MediaTypeAIP2RFC0019Profile:
+	case transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:
 		return transport.MediaTypeRFC0019EncryptedEnvelope, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil
 	case transport.MediaTypeRFC0019EncryptedEnvelope:
 		return envelope.MediaTypeProfile, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil

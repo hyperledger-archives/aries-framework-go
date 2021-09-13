@@ -50,6 +50,48 @@ func (mr *MockProviderMockRecorder) KMS() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KMS", reflect.TypeOf((*MockProvider)(nil).KMS))
 }
 
+// KeyAgreementType mocks base method.
+func (m *MockProvider) KeyAgreementType() kms.KeyType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyAgreementType")
+	ret0, _ := ret[0].(kms.KeyType)
+	return ret0
+}
+
+// KeyAgreementType indicates an expected call of KeyAgreementType.
+func (mr *MockProviderMockRecorder) KeyAgreementType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyAgreementType", reflect.TypeOf((*MockProvider)(nil).KeyAgreementType))
+}
+
+// KeyType mocks base method.
+func (m *MockProvider) KeyType() kms.KeyType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyType")
+	ret0, _ := ret[0].(kms.KeyType)
+	return ret0
+}
+
+// KeyType indicates an expected call of KeyType.
+func (mr *MockProviderMockRecorder) KeyType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyType", reflect.TypeOf((*MockProvider)(nil).KeyType))
+}
+
+// MediaTypeProfiles mocks base method.
+func (m *MockProvider) MediaTypeProfiles() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MediaTypeProfiles")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// MediaTypeProfiles indicates an expected call of MediaTypeProfiles.
+func (mr *MockProviderMockRecorder) MediaTypeProfiles() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MediaTypeProfiles", reflect.TypeOf((*MockProvider)(nil).MediaTypeProfiles))
+}
+
 // Service mocks base method.
 func (m *MockProvider) Service(arg0 string) (interface{}, error) {
 	m.ctrl.T.Helper()
