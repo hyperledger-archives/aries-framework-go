@@ -118,6 +118,8 @@ type MethodMetadata struct {
 	RecoveryCommitment string `json:"recoveryCommitment,omitempty"`
 	// Published is published key.
 	Published bool `json:"published,omitempty"`
+	// AnchorOrigin is anchor origin.
+	AnchorOrigin bool `json:"anchorOrigin,omitempty"`
 }
 
 // DocumentMetadata document metadata.
