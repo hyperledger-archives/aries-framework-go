@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 
@@ -685,6 +686,132 @@ func TestStartAriesTLS(t *testing.T) {
 
 	err := startAgent(parameters)
 	require.EqualError(t, errors.Unwrap(err), "open invalid: no such file or directory")
+}
+
+func TestCreateAriesWithKeyType(t *testing.T) {
+	tests := []struct {
+		name string
+		kt   string
+	}{
+		{
+			name: "test ed25519 key type",
+			kt:   "ed25519",
+		},
+		{
+			name: "test ecdsap256ieee1363 key type",
+			kt:   "ecdsap256ieee1363",
+		},
+		{
+			name: "test ecdsap256der key type",
+			kt:   "ecdsap256der",
+		},
+		{
+			name: "test ecdsap384ieee1363 key type",
+			kt:   "ecdsap384ieee1363",
+		},
+		{
+			name: "test ecdsap384der key type",
+			kt:   "ecdsap384der",
+		},
+		{
+			name: "test ecdsap521ieee1363 key type",
+			kt:   "ecdsap521ieee1363",
+		},
+		{
+			name: "test ecdsap521der key type",
+			kt:   "ecdsap521der",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			parameters := &agentParameters{
+				dbParam: &dbParam{dbType: databaseTypeMemOption},
+				keyType: tc.kt,
+			}
+
+			ctx, err := createAriesAgent(parameters)
+			require.NoError(t, err)
+			require.EqualValues(t, ctx.KeyType(), keyTypes[tc.kt])
+		})
+	}
+}
+
+func TestCreateAriesWithKeyAgreementType(t *testing.T) {
+	tests := []struct {
+		name string
+		kt   string
+	}{
+		{
+			name: "test x25519kw key agreement type",
+			kt:   "x25519kw",
+		},
+		{
+			name: "test p256kw key agreement type",
+			kt:   "p256kw",
+		},
+		{
+			name: "test p384kw key agreement type",
+			kt:   "p384kw",
+		},
+		{
+			name: "test p521kw key agreement type",
+			kt:   "p521kw",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			parameters := &agentParameters{
+				dbParam:          &dbParam{dbType: databaseTypeMemOption},
+				keyAgreementType: tc.kt,
+			}
+
+			ctx, err := createAriesAgent(parameters)
+			require.NoError(t, err)
+			require.EqualValues(t, ctx.KeyAgreementType(), keyAgreementTypes[tc.kt])
+		})
+	}
+}
+
+func TestCreateAriesWithMediaTypeProfiles(t *testing.T) {
+	tests := []struct {
+		name string
+		mtp  []string
+	}{
+		{
+			name: "test didcomm/v2 media type profile",
+			mtp:  []string{transport.MediaTypeDIDCommV2Profile},
+		},
+		{
+			name: "test didcomm/aip2;env=rfc19 media type profile",
+			mtp:  []string{transport.MediaTypeAIP2RFC0019Profile},
+		},
+		{
+			name: "test didcomm/aip2;env=rfc587 media type profile",
+			mtp:  []string{transport.MediaTypeAIP2RFC0587Profile},
+		},
+		{
+			name: "test didcomm/v2 and didcomm/aip2;env=rfc19 media type profiles",
+			mtp:  []string{transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0019Profile},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			parameters := &agentParameters{
+				dbParam:           &dbParam{dbType: databaseTypeMemOption},
+				mediaTypeProfiles: tc.mtp,
+			}
+
+			ctx, err := createAriesAgent(parameters)
+			require.NoError(t, err)
+			require.EqualValues(t, ctx.MediaTypeProfiles(), tc.mtp)
+		})
+	}
 }
 
 func TestStartAriesWithAuthorization(t *testing.T) {
