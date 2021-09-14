@@ -1,3 +1,18 @@
+# 0.1.7
+
+## September 14, 2021
+
+- DIDCommV2 support for packing/unpacking
+- DIDComm service block now uses KeyAgreement.ID for DIDCommV2 and did:key for DIDCommV1
+- DID Connection store uses keyAgreement.ID for DIDCommV2 and did:key for DIDCommV1
+- Present Proof V3
+- Aries Framework Go wallet
+- JSON-LD Context API
+- Added a method to the storage iterator interface for getting total items
+- Added sort order query options that can be supported by storage implementations
+- Improved documentation for expected behaviours of various storage interface methods
+- New common storage tests that check for more scenarios and improve consistency among implementations
+
 # 0.1.6
 
 ## March 6, 2021
