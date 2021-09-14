@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -38,14 +39,20 @@ import (
 )
 
 const (
-	operationID                  = "/presentproof"
-	sendRequestPresentation      = operationID + "/send-request-presentation"
-	sendProposalPresentation     = operationID + "/send-propose-presentation"
-	acceptProposePresentation    = operationID + "/%s/accept-propose-presentation"
-	acceptRequestPresentation    = operationID + "/%s/accept-request-presentation"
-	negotiateRequestPresentation = operationID + "/%s/negotiate-request-presentation"
-	acceptPresentation           = operationID + "/%s/accept-presentation"
-	verifiablePresentations      = "/verifiable/presentations"
+	operationID                    = "/presentproof"
+	operationIDV3                  = operationID + "/v3"
+	sendRequestPresentation        = operationID + "/send-request-presentation"
+	sendRequestPresentationV3      = operationIDV3 + "/send-request-presentation"
+	sendProposalPresentation       = operationID + "/send-propose-presentation"
+	sendProposalPresentationV3     = operationIDV3 + "/send-propose-presentation"
+	acceptProposePresentation      = operationID + "/%s/accept-propose-presentation"
+	acceptProposePresentationV3    = operationIDV3 + "/%s/accept-propose-presentation"
+	acceptRequestPresentation      = operationID + "/%s/accept-request-presentation"
+	acceptRequestPresentationV3    = operationIDV3 + "/%s/accept-request-presentation"
+	negotiateRequestPresentation   = operationID + "/%s/negotiate-request-presentation"
+	negotiateRequestPresentationV3 = operationIDV3 + "/%s/negotiate-request-presentation"
+	acceptPresentation             = operationID + "/%s/accept-presentation"
+	verifiablePresentations        = "/verifiable/presentations"
 )
 
 // ControllerSteps supports steps for Present Proof controller.
@@ -73,7 +80,9 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through PresentProof controller$`, s.establishConnection)
 	gs.Step(`^"([^"]*)" sends a propose presentation to "([^"]*)" through PresentProof controller$`, s.sendProposePresentation)
+	gs.Step(`^"([^"]*)" sends a propose presentation v3 to "([^"]*)" through PresentProof controller$`, s.sendProposePresentationV3)
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
+	gs.Step(`^"([^"]*)" negotiates about the request presentation v3 with a proposal through PresentProof controller$`, s.negotiateRequestPresentationV3)
 	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name through PresentProof controller$`, s.acceptPresentation)
 	gs.Step(`^"([^"]*)" checks that presentation is being stored under the "([^"]*)" name$`, s.checkPresentation)
 	gs.Step(`^"([^"]*)" sends "([^"]*)" to "([^"]*)" through PresentProof controller$`, s.sendMessage)
@@ -105,10 +114,6 @@ func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
 	return nil
 }
 
-type msgType struct {
-	Type string `json:"@type"`
-}
-
 func getMsgBytes(msgFile string) (string, []byte, error) {
 	_, path, _, ok := runtime.Caller(0)
 	if !ok {
@@ -131,14 +136,12 @@ func getMsgBytes(msgFile string) (string, []byte, error) {
 		return "", nil, err
 	}
 
-	var mt *msgType
-
-	err = json.Unmarshal(buf.Bytes(), &mt)
+	msg, err := service.ParseDIDCommMsgMap(buf.Bytes())
 	if err != nil {
 		return "", nil, err
 	}
 
-	return mt.Type, buf.Bytes(), err
+	return msg.Type(), buf.Bytes(), err
 }
 
 func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
@@ -161,8 +164,16 @@ func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 		}
 
 		return sendRequestPresentationMsg(url, s.did[verifier], s.did[prover], msg)
+	case protocol.RequestPresentationMsgTypeV3:
+		if piid != "" {
+			return sendAcceptProposePresentationV3(url, piid, msg)
+		}
+
+		return sendRequestPresentationMsgV3(url, s.did[verifier], s.did[prover], msg)
 	case protocol.PresentationMsgTypeV2:
 		return sendPresentationMsg(url, piid, msg)
+	case protocol.PresentationMsgTypeV3:
+		return sendPresentationMsgV3(url, piid, msg)
 	default:
 		return errors.New("message type is not supported")
 	}
@@ -228,6 +239,66 @@ func sendPresentationMsg(url, piid string, msg []byte) error {
 	}, nil)
 }
 
+func sendPresentationMsgV3(url, piid string, msg []byte) error {
+	var presentation *presentproof.PresentationV3
+
+	err := json.Unmarshal(msg, &presentation)
+	if err != nil {
+		return err
+	}
+
+	res := &kms.CreateKeySetResponse{}
+
+	err = postToURL(url+"/kms/keyset", kms.CreateKeySetRequest{KeyType: arieskms.BLS12381G2}, res)
+	if err != nil {
+		return err
+	}
+
+	publicKey, err := base64.RawURLEncoding.DecodeString(res.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	didBBS, didKey := fingerprint.CreateDIDKeyByCode(fingerprint.BLS12381g2PubKeyMultiCodec, publicKey)
+
+	for i := range presentation.Attachments {
+		if presentation.Attachments[i].MediaType != "application/ld+json" {
+			continue
+		}
+
+		credential, err := presentation.Attachments[i].Data.Fetch()
+		if err != nil {
+			return err
+		}
+
+		vRes := &verifiable.SignCredentialResponse{}
+
+		signatureRepresentation := docverifiable.SignatureProofValue
+
+		err = postToURL(url+"/verifiable/signcredential", verifiable.SignCredentialRequest{
+			Credential: credential,
+			DID:        didBBS,
+			ProofOptions: &verifiable.ProofOptions{
+				KID:                     res.KeyID,
+				VerificationMethod:      didKey,
+				SignatureRepresentation: &signatureRepresentation,
+				SignatureType:           "BbsBlsSignature2020",
+			},
+		}, vRes)
+		if err != nil {
+			return err
+		}
+
+		presentation.Attachments[i].Data = decorator.AttachmentData{
+			Base64: base64.StdEncoding.EncodeToString(vRes.VerifiableCredential),
+		}
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptRequestPresentationV3, piid), presentproofcmd.AcceptRequestPresentationV3Args{
+		Presentation: presentation,
+	}, nil)
+}
+
 func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
 	var requestPresentation *presentproof.RequestPresentation
 
@@ -237,6 +308,21 @@ func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
 	}
 
 	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
+		MyDID:               myDID,
+		TheirDID:            theirDID,
+		RequestPresentation: requestPresentation,
+	}, nil)
+}
+
+func sendRequestPresentationMsgV3(url, myDID, theirDID string, msg []byte) error {
+	var requestPresentation *presentproof.RequestPresentationV3
+
+	err := json.Unmarshal(msg, &requestPresentation)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+sendRequestPresentationV3, presentproofcmd.SendRequestPresentationV3Args{
 		MyDID:               myDID,
 		TheirDID:            theirDID,
 		RequestPresentation: requestPresentation,
@@ -256,6 +342,19 @@ func sendAcceptProposePresentation(url, piid string, msg []byte) error {
 	}, nil)
 }
 
+func sendAcceptProposePresentationV3(url, piid string, msg []byte) error {
+	var requestPresentation *presentproof.RequestPresentationV3
+
+	err := json.Unmarshal(msg, &requestPresentation)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptProposePresentationV3, piid), presentproofcmd.AcceptProposePresentationV3Args{
+		RequestPresentation: requestPresentation,
+	}, nil)
+}
+
 func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error {
 	url, ok := s.bddContext.GetControllerURL(prover)
 	if !ok {
@@ -266,6 +365,19 @@ func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error
 		MyDID:               s.did[prover],
 		TheirDID:            s.did[verifier],
 		ProposePresentation: &presentproof.ProposePresentation{},
+	}, nil)
+}
+
+func (s *ControllerSteps) sendProposePresentationV3(prover, verifier string) error {
+	url, ok := s.bddContext.GetControllerURL(prover)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
+	}
+
+	return postToURL(url+sendProposalPresentationV3, presentproofcmd.SendProposePresentationV3Args{
+		MyDID:               s.did[prover],
+		TheirDID:            s.did[verifier],
+		ProposePresentation: &presentproof.ProposePresentationV3{},
 	}, nil)
 }
 
@@ -283,6 +395,23 @@ func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
 	return postToURL(url+fmt.Sprintf(negotiateRequestPresentation, piid), presentproofcmd.NegotiateRequestPresentationArgs{
 		ProposePresentation: &presentproof.ProposePresentation{},
 	}, nil)
+}
+
+func (s *ControllerSteps) negotiateRequestPresentationV3(agent string) error {
+	url, ok := s.bddContext.GetControllerURL(agent)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent)
+	}
+
+	piid, err := s.actionPIID(agent)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(negotiateRequestPresentationV3, piid),
+		presentproofcmd.NegotiateRequestPresentationV3Args{
+			ProposePresentation: &presentproof.ProposePresentationV3{},
+		}, nil)
 }
 
 func (s *ControllerSteps) acceptPresentation(verifier, name string) error {

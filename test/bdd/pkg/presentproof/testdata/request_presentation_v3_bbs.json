@@ -1,0 +1,41 @@
+{
+  "type":"https://didcomm.org/present-proof/3.0/request-presentation",
+  "body": { "will_confirm":true },
+  "attachments":[
+    {
+      "id":"6372a1e3-eb6a-46de-a02d-5ac22bf0fb23",
+      "format":"dif/presentation-exchange/definitions@v1.0",
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "data":{
+        "json":{
+          "presentation_definition":{
+            "id":"11bc72bf-b552-4032-8dcb-439f3b956623",
+            "input_descriptors":[
+              {
+                "id":"f5a19811-06b1-42ae-b9ae-56e95ef67bee",
+                "schema":[
+                  {
+                    "uri": "https://example.org/examples#UniversityDegreeCredential"
+                  }
+                ],
+                "constraints":{
+                  "limit_disclosure":"required",
+                  "fields":[
+                    {
+                      "path":[
+                        "$.credentialSubject.degree.degreeSchool"
+                      ],
+                      "filter":{
+                        "type":"string"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
