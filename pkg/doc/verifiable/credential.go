@@ -37,7 +37,7 @@ const DefaultSchema = `{
   ],
   "properties": {
     "@context": {
-      "oneOf": [
+      "anyOf": [
         {
           "type": "string",
           "const": "https://www.w3.org/2018/credentials/v1"
@@ -52,7 +52,7 @@ const DefaultSchema = `{
           ],
           "uniqueItems": true,
           "additionalItems": {
-            "oneOf": [
+            "anyOf": [
               {
                 "type": "object"
               },
