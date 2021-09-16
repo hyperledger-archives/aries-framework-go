@@ -30,6 +30,8 @@ var (
 	credentialExamples []byte
 	//go:embed contexts/third_party/trustbloc.github.io/trustbloc-examples_v1.jsonld
 	vcExamples []byte
+	//go:embed contexts/third_party/trustbloc.github.io/trustbloc-authorization-credential_v1.jsonld
+	authCred []byte
 )
 
 var testContexts = []ldcontext.Document{ //nolint:gochecknoglobals // embedded test contexts
@@ -49,6 +51,10 @@ var testContexts = []ldcontext.Document{ //nolint:gochecknoglobals // embedded t
 	{
 		URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 		Content: vcExamples,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/authorization-credential-v1.jsonld",
+		Content: authCred,
 	},
 }
 
