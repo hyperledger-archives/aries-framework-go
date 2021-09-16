@@ -101,6 +101,107 @@ const bbsVc = `{
    ]
 }`
 
+const authVC = `{
+	"@context": [
+		"https://www.w3.org/2018/credentials/v1", 
+		"https://trustbloc.github.io/context/vc/authorization-credential-v1.jsonld"
+	],
+	"credentialSubject": {
+		"id": "did:peer:1zQmXJMfYLECQagWsw57tTDtudqp8eT2FTFd4Wiy1YUxQvMw",
+		"issuerDIDDoc": {
+			"doc": {
+				"@context": ["https://www.w3.org/ns/did/v1"],
+				"assertionMethod": ["#key-1"],
+				"authentication": ["#key-1"],
+				"created": "2021-09-16T01:44:39.7337939Z",
+				"id": "did:peer:1zQmYEVm9usSN4UdR3bRH2GLzbbcdrzSMEXvgLweekn3yr66",
+				"keyAgreement": ["#key-2"],
+				"service": [{
+					"id": "038ecea0-06bd-495c-a2bd-df32f9a68aec",
+					"priority": 0,
+					"recipientKeys": ["did:key:z6Mkg3kFC6kLTZ9pqwzJrTpztq3FV7RsVVyXPrpJ8ZyAtYZJ"],
+					"routingKeys": [],
+					"serviceEndpoint": "http://mock-issuer-adapter.com:10010",
+					"type": "did-communication"
+				}],
+				"updated": "2021-09-16T01:44:39.7337939Z",
+				"verificationMethod": [{
+					"controller": "",
+					"id": "#key-1",
+					"publicKeyBase58": "2bVCbrVu81fMjT9cAtsA3jVFfYA25cjAhquNJJ19yKmv",
+					"type": "Ed25519VerificationKey2018"
+				}, {
+					"controller": "",
+					"id": "#key-2",
+					"publicKeyBase58": "4gj2K8KWyCQAxQyefUubHDSdakSNuLWatkHfcNtWuXa1",
+					"type": "X25519KeyAgreementKey2019"
+				}]
+			},
+			"id": "did:peer:1zQmYEVm9usSN4UdR3bRH2GLzbbcdrzSMEXvgLweekn3yr66"
+		},
+		"requestingPartyDIDDoc": {
+			"doc": {
+				"@context": ["https://www.w3.org/ns/did/v1"],
+				"assertionMethod": ["#oBCLqpUt8SaReCcRyTJVlBAEVQTTaOT7H1QfdFBKoDI"],
+				"authentication": ["#oBCLqpUt8SaReCcRyTJVlBAEVQTTaOT7H1QfdFBKoDI"],
+				"created": "2021-09-16T01:45:23.4119263Z",
+				"id": "did:peer:1zQmeiHBZ2ymS7S43X43hGhJth5Fxc3uSaRcQ3ECwz7MFQvD",
+				"service": [{
+					"id": "57c0c1e7-8171-43e4-8b2a-60a695cd452c",
+					"priority": 0,
+					"recipientKeys": ["did:key:z6Mkmjb9tNbRnL3vpR5Pt6qEtYE8MeL8BvSBAd7iD2p2wYDh"],
+					"routingKeys": [],
+					"serviceEndpoint": "http://rp.adapter.rest.example.com:8071",
+					"type": "did-communication"
+				}],
+				"updated": "2021-09-16T01:45:23.4119263Z",
+				"verificationMethod": [{
+					"controller": "",
+					"id": "#oBCLqpUt8SaReCcRyTJVlBAEVQTTaOT7H1QfdFBKoDI",
+					"publicKeyBase58": "8HL7J8LzSnZThvEhCXsQ3Sg8Y54Gn3BpUcCnNkr22KSK",
+					"type": "Ed25519VerificationKey2018"
+				}]
+			},
+			"id": "did:peer:1zQmeiHBZ2ymS7S43X43hGhJth5Fxc3uSaRcQ3ECwz7MFQvD"
+		},
+		"subjectDIDDoc": {
+			"doc": {
+				"@context": ["https://www.w3.org/ns/did/v1"],
+				"assertionMethod": ["#key-1"],
+				"authentication": ["#key-1"],
+				"created": "2021-09-16T01:44:39.7286951Z",
+				"id": "did:peer:1zQmXJMfYLECQagWsw57tTDtudqp8eT2FTFd4Wiy1YUxQvMw",
+				"keyAgreement": ["#key-2"],
+				"service": [{
+					"id": "ec900fc4-29c2-43a4-91df-3098d617a981",
+					"priority": 0,
+					"recipientKeys": ["did:key:z6MkibZkEZAGr3HZfbWNiSBR8dvNnpZmSXm5A9weBMrTKjk3"],
+					"routingKeys": [],
+					"serviceEndpoint": "http://mock-wallet.com:9081",
+					"type": "did-communication"
+				}],
+				"updated": "2021-09-16T01:44:39.7286951Z",
+				"verificationMethod": [{
+					"controller": "",
+					"id": "#key-1",
+					"publicKeyBase58": "59JheJuqWVo6Z6fg2sDaHYNNyFHv2eWiU92iM5tSQWxf",
+					"type": "Ed25519VerificationKey2018"
+				}, {
+					"controller": "",
+					"id": "#key-2",
+					"publicKeyBase58": "9MFKK9MeTCCD1irEWcLv4hYwM9v5APovXNzzLoZdFQ3L",
+					"type": "X25519KeyAgreementKey2019"
+				}]
+			},
+			"id": "did:peer:1zQmXJMfYLECQagWsw57tTDtudqp8eT2FTFd4Wiy1YUxQvMw"
+		}
+	},
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
+	"issuanceDate": "2020-03-16T22:37:26.544Z",
+	"issuer": "did:peer:1zQmXJMfYLECQagWsw57tTDtudqp8eT2FTFd4Wiy1YUxQvMw",
+	"type": ["VerifiableCredential", "AuthorizationCredential"]
+}`
+
 //nolint:lll
 const vcWithDIDNotAvailble = `{ 
    "@context":[ 
@@ -176,6 +277,35 @@ const doc = `{
     }
 
   ]
+}`
+
+const authDoc = `{
+	"@context": ["https://www.w3.org/ns/did/v1"],
+	"assertionMethod": ["#key-1"],
+	"authentication": ["#key-1"],
+	"created": "2021-09-16T01:44:39.7337939Z",
+	"id": "did:peer:1zQmYEVm9usSN4UdR3bRH2GLzbbcdrzSMEXvgLweekn3yr66",
+	"keyAgreement": ["#key-2"],
+	"service": [{
+		"id": "038ecea0-06bd-495c-a2bd-df32f9a68aec",
+		"priority": 0,
+		"recipientKeys": ["did:key:z6Mkg3kFC6kLTZ9pqwzJrTpztq3FV7RsVVyXPrpJ8ZyAtYZJ"],
+		"routingKeys": [],
+		"serviceEndpoint": "http://mock-issuer-adapter.com:10010",
+		"type": "did-communication"
+	}],
+	"updated": "2021-09-16T01:44:39.7337939Z",
+	"verificationMethod": [{
+		"controller": "",
+		"id": "#key-1",
+		"publicKeyBase58": "2bVCbrVu81fMjT9cAtsA3jVFfYA25cjAhquNJJ19yKmv",
+		"type": "Ed25519VerificationKey2018"
+	}, {
+		"controller": "",
+		"id": "#key-2",
+		"publicKeyBase58": "4gj2K8KWyCQAxQyefUubHDSdakSNuLWatkHfcNtWuXa1",
+		"type": "X25519KeyAgreementKey2019"
+	}]
 }`
 
 const invalidDoc = `{
@@ -411,6 +541,7 @@ const sampleFrame = `
 const (
 	invalidDID = "did:error:123"
 	jwsDID     = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
+	authDID    = "did:peer:1zQmYEVm9usSN4UdR3bRH2GLzbbcdrzSMEXvgLweekn3yr66"
 )
 
 func TestNew(t *testing.T) {
@@ -1989,6 +2120,14 @@ func TestCommand_SignCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: jwsDoc}, nil
 				}
 
+				if didID == authDID {
+					authDoc, err := did.ParseDocument([]byte(authDoc))
+					if err != nil {
+						return nil, errors.New("unmarshal failed ")
+					}
+					return &did.DocResolution{DIDDocument: authDoc}, nil
+				}
+
 				didDoc, err := did.ParseDocument([]byte(doc))
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
@@ -2008,6 +2147,27 @@ func TestCommand_SignCredential(t *testing.T) {
 		req := SignCredentialRequest{
 			Credential:   []byte(vc),
 			DID:          "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+	})
+
+	t.Run("test sign auth credential - success", func(t *testing.T) {
+		req := SignCredentialRequest{
+			Credential:   []byte(authVC),
+			DID:          "did:peer:1zQmYEVm9usSN4UdR3bRH2GLzbbcdrzSMEXvgLweekn3yr66",
 			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 		reqBytes, err := json.Marshal(req)
