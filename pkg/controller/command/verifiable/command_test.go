@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -2954,4 +2956,91 @@ func createTestDocumentLoader(t *testing.T) *ld.DocumentLoader {
 	require.NoError(t, err)
 
 	return loader
+}
+
+func TestBuildKIDOption(t *testing.T) {
+	opts := &ProofOptions{
+		VerificationMethod: "#key-1",
+	}
+
+	t.Run("test buildKIDOption() - get public key bytes from Ed25519", func(t *testing.T) {
+		vms := []did.VerificationMethod{
+			{
+				ID:    "#key-1",
+				Type:  "Ed25519VerificationKey2018",
+				Value: base58.Decode("59JheJuqWVo6Z6fg2sDaHYNNyFHv2eWiU92iM5tSQWxf"),
+			},
+		}
+
+		kid := "FqTYWwv_lRAdZcROZiNLYDey4bx4vHa-5dqExUE5PRE"
+
+		err := buildKIDOption(opts, vms)
+		require.NoError(t, err)
+		require.Equal(t, kid, opts.KID)
+	})
+
+	tests := []struct {
+		name        string
+		jwkJSON     string
+		expectedKID string
+	}{
+		{
+			name: "get public key bytes JWK with EC P-256 Key",
+			jwkJSON: `{
+							"kty": "EC",
+							"use": "enc",
+							"crv": "P-256",
+							"kid": "sample@sample.id",
+							"x": "JR7nhI47w7bxrNkp7Xt1nbmozNn-RB2Q-PWi7KHT8J0",
+							"y": "iXmKtH0caOgB1vV0CQwinwK999qdDvrssKhdbiAz9OI",
+							"alg": "ES256"
+						}`,
+			expectedKID: "mH-_W9uC7Kyl_7WerlU14mwSWwoUAKOnfDfl-c2UZc0",
+		},
+		{
+			name: "get public key bytes EC P-384 JWK",
+			jwkJSON: `{
+							"kty": "EC",
+							"use": "enc",
+							"crv": "P-384",
+							"kid": "sample@sample.id",
+							"x": "GGFw14WnABx5S__MLwjy7WPgmPzCNbygbJikSqwx1nQ7APAiIyLeiAeZnAFQSr8C",
+							"y": "Bjev4lkaRbd4Ery0vnO8Ox4QgIDGbuflmFq0HhL-QHIe3KhqxrqZqbQYGlDNudEv",
+							"alg": "ES384"
+						}`,
+			expectedKID: "ifJcCtk6M3ydFqfN7EB57U3HnWy2jazWcA9mAMD-WRw",
+		},
+		{
+			name: "get public key bytes EC P-521 JWK",
+			jwkJSON: `{
+							"kty": "EC",
+							"use": "enc",
+							"crv": "P-521",
+							"kid": "sample@sample.id",
+							"x": "AZi-AxJkB09qw8dBnNrz53xM-wER0Y5IYXSEWSTtzI5Sdv_5XijQn9z-vGz1pMdww-C75GdpAzp2ghejZJSxbAd6",
+							"y": "AZzRvW8NBytGNbF3dyNOMHB0DHCOzGp8oYBv_ZCyJbQUUnq-TYX7j8-PlKe9Ce5acxZzrcUKVtJ4I8JgI5x9oXIW",
+							"alg": "ES521"
+						}`,
+			expectedKID: "7icoqReWFlpF16dzZD3rBgK1cJ265WzfF9sJJXqOe0M",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+
+		t.Run("test buildKIDOption() - "+tc.name, func(t *testing.T) {
+			jwkKey := &jwk.JWK{}
+
+			err := json.Unmarshal([]byte(tc.jwkJSON), jwkKey)
+			require.NoError(t, err)
+
+			vm, err := did.NewVerificationMethodFromJWK("#key-1", "JsonWebKey2020", "", jwkKey)
+			require.NoError(t, err)
+
+			vms := []did.VerificationMethod{*vm}
+			err = buildKIDOption(opts, vms)
+			require.NoError(t, err)
+			require.EqualValuesf(t, tc.expectedKID, opts.KID, tc.name)
+		})
+	}
 }
