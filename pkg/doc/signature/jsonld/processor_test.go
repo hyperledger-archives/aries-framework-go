@@ -288,6 +288,10 @@ func TestProcessor_Frame(t *testing.T) {
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f2",
 		},
 	}
+
+	// clear the ID, to test empty-ID handling
+	doc["id"] = ""
+
 	framedView, err = processor.Frame(doc, frameDoc, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
