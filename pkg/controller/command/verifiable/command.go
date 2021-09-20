@@ -131,16 +131,16 @@ const (
 	BbsBlsSignature2020 = "BbsBlsSignature2020"
 
 	// Ed25519Curve ed25519 curve.
-	Ed25519Curve = "ed25519"
+	Ed25519Curve = "Ed25519"
 
 	// P256KeyCurve EC P-256 curve.
-	P256KeyCurve = "p-256"
+	P256KeyCurve = "P-256"
 
 	// P384KeyCurve EC P-384 curve.
-	P384KeyCurve = "p-384"
+	P384KeyCurve = "P-384"
 
 	// P521KeyCurve EC P-521 curve.
-	P521KeyCurve = "p-521"
+	P521KeyCurve = "P-521"
 
 	// Ed25519VerificationKey ED25519 verification key type.
 	Ed25519VerificationKey = "Ed25519VerificationKey"
