@@ -556,11 +556,19 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 		if constraints.LimitDisclosure.isRequired() || predicate {
 			template := credentialSrc
 
+			var contexts []interface{}
+
+			for _, ctx := range credential.Context {
+				contexts = append(contexts, ctx)
+			}
+
+			contexts = append(contexts, credential.CustomContext...)
+
 			if constraints.LimitDisclosure.isRequired() {
 				template, err = json.Marshal(map[string]interface{}{
 					"id":                credential.ID,
 					"type":              credential.Types,
-					"@context":          credential.Context,
+					"@context":          contexts,
 					"issuer":            credential.Issuer,
 					"credentialSubject": toSubject(credential.Subject),
 					"issuanceDate":      credential.Issued,

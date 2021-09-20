@@ -1,0 +1,37 @@
+{
+  "@type":"https://didcomm.org/present-proof/2.0/presentation",
+  "presentations~attach":[
+    {
+      "@id":"e78bbb0a-124e-11ec-8950-0242ac110003",
+      "mime-type":"application/ld+json",
+      "data":{
+        "json":{
+          "@context":[
+            "https://www.w3.org/2018/credentials/v1",
+            "https://w3id.org/security/bbs/v1",
+            {
+              "AATHDriversLicense":"dl:AATHDriversLicense",
+              "DL_number":"dl:DL_number",
+              "address":"dl:address",
+              "age":"dl:age",
+              "dl":"http://example.com/drivers-license#",
+              "expiry":"dl:expiry"
+            }
+          ],
+          "credentialSubject":{
+            "DL_number":"09385029529385",
+            "address":"947 this street, Kingston Ontario Canada, K9O 3R5",
+            "age":"30",
+            "expiry":"10/12/2022"
+          },
+          "issuanceDate":"2021-09-10T15:51:04Z",
+          "issuer":"did:example:489398593",
+          "type":[
+            "VerifiableCredential",
+            "AATHDriversLicense"
+          ]
+        }
+      }
+    }
+  ]
+}

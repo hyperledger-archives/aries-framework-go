@@ -45,6 +45,18 @@ Feature: Present Proof using controller API
     Then  "Jennifer" successfully accepts a presentation with "bbs-passport" name through PresentProof controller
     And "Jennifer" checks that presentation is being stored under the "bbs-passport" name
 
+  @present_proof_controller_bbs_dl
+  Scenario: The Verifier begins with a presentation request (BBS+ with embedded context and no ID)
+    Given "Jennifer" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Julia" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Jennifer" has established connection with "Julia" through PresentProof controller
+
+    When  "Jennifer" sends "request_presentation_bbs_dl.json" to "Julia" through PresentProof controller
+    When  "Julia" sends "presentation_bbs_dl.json" to "Jennifer" through PresentProof controller
+
+    Then  "Jennifer" successfully accepts a presentation with "bbs-drivers-license" name through PresentProof controller
+    And "Jennifer" checks that presentation is being stored under the "bbs-drivers-license" name
+
   @present_proof_controller_bbs_v3
   Scenario: The Verifier begins with a presentation request v3 (BBS+)
     Given "Harold" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
