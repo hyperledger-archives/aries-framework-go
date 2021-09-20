@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
@@ -336,4 +337,14 @@ func (a *Aries) GetLDController() (api.LDController, error) {
 	}
 
 	return &LD{handlers: handlers}, nil
+}
+
+// GetVCWalletController returns a VCWalletController instance.
+func (a *Aries) GetVCWalletController() (api.VCWalletController, error) {
+	handlers, ok := a.handlers[vcwallet.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", vcwallet.CommandName)
+	}
+
+	return &VCWallet{handlers: handlers}, nil
 }
