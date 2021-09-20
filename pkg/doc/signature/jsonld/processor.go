@@ -190,6 +190,13 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 
 	proc := ld.NewJsonLdProcessor()
 
+	hasBlankBaseID := false
+	if checkID, ok := inputDoc["id"]; !ok || checkID == "" {
+		hasBlankBaseID = true
+		inputDoc["id"] = fmt.Sprintf("urn:uuid:%s", uuid.New().String())
+		frameDoc["id"] = inputDoc["id"]
+	}
+
 	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
 	inputDocCopy, randomIds, err := removeDuplicateIDs(inputDoc, proc, ldOptions)
 	if err != nil {
@@ -207,6 +214,11 @@ func (p *Processor) Frame(inputDoc map[string]interface{}, frameDoc map[string]i
 	}
 
 	framedInputDoc["@context"] = frameDoc["@context"]
+
+	if hasBlankBaseID {
+		delete(framedInputDoc, "id")
+		delete(frameDoc, "id")
+	}
 
 	// TODO Drop replacing duplicated IDs as soon as https://github.com/piprate/json-gold/issues/44 will be fixed.
 	if len(randomIds) == 0 {
