@@ -56,3 +56,10 @@ func convertPeerToSov(doc *did.Doc) (*did.Doc, error) {
 
 	return doc, nil
 }
+
+func interopRecipientKey(doc *did.Doc) (string, error) {
+	if doc.Service[0].Type == "IndyAgent" {
+		return recipientKey(doc)
+	}
+	return "", fmt.Errorf("recipientKeyAsDIDKey: invalid DID Doc service type: '%v'", doc.Service[0].Type)
+}

@@ -56,6 +56,42 @@ func GetMockDIDDoc(t *testing.T) *did.Doc {
 	}
 }
 
+// GetLegacyInteropMockDIDDoc creates a mock did doc for testing legacy interop didcomm.
+func GetLegacyInteropMockDIDDoc(t *testing.T, id string, ed25519PubKey []byte) *did.Doc {
+	t.Helper()
+
+	peerDID := "did:peer:" + id
+
+	pubKeyBase58 := base58.Encode(ed25519PubKey)
+
+	return &did.Doc{
+		Context: []string{"https://w3id.org/did/v1"},
+		ID:      peerDID,
+		Service: []did.Service{
+			{
+				ServiceEndpoint: "https://localhost:8090",
+				Type:            "did-communication",
+				Priority:        0,
+				RecipientKeys:   []string{pubKeyBase58},
+			},
+			{
+				ServiceEndpoint: "https://localhost:8090",
+				Type:            "IndyAgent",
+				Priority:        0,
+				RecipientKeys:   []string{pubKeyBase58},
+			},
+		},
+		VerificationMethod: []did.VerificationMethod{
+			{
+				ID:         peerDID + "#keys-1",
+				Controller: peerDID,
+				Type:       "Ed25519VerificationKey2018",
+				Value:      ed25519PubKey,
+			},
+		},
+	}
+}
+
 // GetMockDIDDocWithKeyAgreements creates mock DID doc with KeyAgreements.
 func GetMockDIDDocWithKeyAgreements(t *testing.T) *did.Doc {
 	didDoc := GetMockDIDDoc(t)
