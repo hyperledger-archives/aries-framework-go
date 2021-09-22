@@ -54,7 +54,7 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 	if resp.StatusCode == http.StatusOK && strings.Contains(resp.Header.Get("Content-type"), didLDJson) {
 		return gotBody, nil
 	} else if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
+		return nil, vdrapi.ErrNotFound
 	}
 
 	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s] body [%s]",

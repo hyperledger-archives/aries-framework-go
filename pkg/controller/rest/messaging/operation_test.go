@@ -536,7 +536,7 @@ func TestOperation_Send(t *testing.T) {
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
-				errorMsg:    "DID not found",
+				errorMsg:    vdrapi.ErrNotFound.Error(),
 			},
 			{
 				name: "send message to destination",

@@ -208,7 +208,7 @@ func TestRead_DIDDocNotFound(t *testing.T) {
 	require.NoError(t, err)
 	_, err = resolver.Read("did:example:334455")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "DID does not exist")
+	require.Equal(t, vdrapi.ErrNotFound, err)
 }
 
 func TestRead_UnsupportedStatus(t *testing.T) {

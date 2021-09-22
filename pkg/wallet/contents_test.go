@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -728,7 +729,7 @@ func TestContentDIDResolver(t *testing.T) {
 
 		didDoc, err = contentVDR.Resolve("did:key:invalid")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "DID not found")
+		require.Equal(t, vdrapi.ErrNotFound, err)
 		require.Empty(t, didDoc)
 	})
 
@@ -752,7 +753,7 @@ func TestContentDIDResolver(t *testing.T) {
 		// DID not found
 		didDoc, err = contentVDR.Resolve("did:key:invalid")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "DID not found")
+		require.Equal(t, vdrapi.ErrNotFound, err)
 		require.Empty(t, didDoc)
 
 		// parse error
