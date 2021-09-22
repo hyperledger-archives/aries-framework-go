@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
@@ -117,30 +118,40 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 	return marshalledEnvelope, nil
 }
 
-//nolint:funlen,gocyclo
+//nolint:funlen,gocyclo,gocognit
 func (bp *Packager) prepareSenderAndRecipientKeys(cty string, envelope *transport.Envelope) ([]byte, [][]byte, error) {
 	var recipients [][]byte
 
 	isLegacy := isMediaTypeForLegacyPacker(cty)
 
-	for i, receiverKey := range envelope.ToKeys {
+	for i, receiverKeyID := range envelope.ToKeys {
 		switch {
-		case strings.HasPrefix(receiverKey, "did:key"):
-			marshalledKey, err := addDIDKeyToRecipients(i, receiverKey, isLegacy)
+		case strings.HasPrefix(receiverKeyID, "did:key"):
+			marshalledKey, err := addDIDKeyToRecipients(i, receiverKeyID, isLegacy)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			recipients = append(recipients, marshalledKey)
-		case strings.Index(receiverKey, "#") > 0:
-			marshalledKey, err := bp.resolveKeyAgreementFromDIDDoc(receiverKey)
+		case strings.Index(receiverKeyID, "#") > 0:
+			receiverKey, err := bp.resolveKeyAgreementFromDIDDoc(receiverKeyID)
 			if err != nil {
 				return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for recipient %d: %w", i+1, err)
 			}
 
-			recipients = append(recipients, marshalledKey)
+			if isLegacy {
+				recipients = append(recipients, receiverKey.X)
+			} else {
+				marshalledKey, err := json.Marshal(receiverKey)
+				if err != nil {
+					return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: marshal recipient key %d: %w", i+1, err)
+				}
+
+				recipients = append(recipients, marshalledKey)
+			}
+
 		default:
-			recipients = append(recipients, []byte(receiverKey))
+			recipients = append(recipients, []byte(receiverKeyID))
 		}
 	}
 
@@ -161,26 +172,28 @@ func (bp *Packager) prepareSenderAndRecipientKeys(cty string, envelope *transpor
 		}
 	//nolint:gocritic // need to check with strings not bytes
 	case strings.Index(string(envelope.FromKey), "#") > 0:
-		marshalledSenderKey, err := bp.resolveKeyAgreementFromDIDDoc(string(envelope.FromKey))
+		senderKey, err := bp.resolveKeyAgreementFromDIDDoc(string(envelope.FromKey))
 		if err != nil {
 			return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for sender: %w", err)
 		}
 
-		senderKey := &crypto.PublicKey{}
+		if isLegacy {
+			senderKID = senderKey.X
+		} else {
+			marshalledSenderKey, err := json.Marshal(senderKey)
+			if err != nil {
+				return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: marshal sender key: %w", err)
+			}
 
-		err = json.Unmarshal(marshalledSenderKey, senderKey)
-		if err != nil {
-			return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for sender: %w", err)
+			senderKMSKID, err := jwkkid.CreateKID(marshalledSenderKey, getKMSKeyType(senderKey.Type, senderKey.Curve))
+			if err != nil {
+				return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for sender KMS KID: %w", err)
+			}
+
+			senderKey.KID = senderKMSKID
+
+			senderKID = buildSenderKID(senderKey, envelope)
 		}
-
-		senderKMSKID, err := jwkkid.CreateKID(marshalledSenderKey, getKMSKeyType(senderKey.Type, senderKey.Curve))
-		if err != nil {
-			return nil, nil, fmt.Errorf("prepareSenderAndRecipientKeys: for sender KMS KID: %w", err)
-		}
-
-		senderKey.KID = senderKMSKID
-
-		senderKID = buildSenderKID(senderKey, envelope)
 	default:
 		senderKID = envelope.FromKey
 	}
@@ -361,58 +374,77 @@ func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packe
 	return "", nil, fmt.Errorf("no packer found for mediatype profile: '%v'", envelope.MediaTypeProfile)
 }
 
-func (bp *Packager) resolveKeyAgreementFromDIDDoc(keyAgrID string) ([]byte, error) {
+func (bp *Packager) resolveKeyAgreementFromDIDDoc(keyAgrID string) (*crypto.PublicKey, error) {
 	i := strings.Index(keyAgrID, "#")
 
-	docResolution, err := bp.vdrRegistry.Resolve(keyAgrID[:i])
+	keyAgrDID := keyAgrID[:i]
+	keyAgrFragment := keyAgrID[i+1:]
+
+	docResolution, err := bp.vdrRegistry.Resolve(keyAgrDID)
 	if err != nil {
 		return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: for recipient DID doc resolution %w", err)
 	}
 
-	for _, ka := range docResolution.DIDDocument.KeyAgreement {
+	for j, ka := range docResolution.DIDDocument.KeyAgreement {
 		kaID := ka.VerificationMethod.ID[strings.Index(ka.VerificationMethod.ID, "#")+1:]
-		if strings.EqualFold(kaID, keyAgrID[i+1:]) {
-			var (
-				marshalledKey []byte
-				recKey        *crypto.PublicKey
-			)
-
-			switch ka.VerificationMethod.Type {
-			case jsonWebKey2020:
-				jwkKey := ka.VerificationMethod.JSONWebKey()
-
-				recKey, err = jwksupport.PublicKeyFromJWK(jwkKey)
-				if err != nil {
-					return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: for recipient JWK to PubKey %d: %w", i+1, err)
-				}
-
-				// for packing purposes, recipient kid header is the keyAgreement.ID value, the packers must resolve it and extract
-				// the kms kid value during unpack.
-				recKey.KID = keyAgrID
-			case x25519KeyAgreementKey2019:
-				recKey = &crypto.PublicKey{
-					KID:   keyAgrID,
-					X:     ka.VerificationMethod.Value,
-					Curve: "X25519",
-					Type:  "OKP",
-				}
-			default:
-				return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: invalid KeyAgreement type %d: %T", i+1,
-					ka.VerificationMethod.Type)
-			}
-
-			marshalledKey, err = json.Marshal(recKey)
-			if err != nil {
-				return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: for recipient DID keyAgreement key marshal %d: %w",
-					i+1, err)
-			}
-
-			return marshalledKey, nil
+		if strings.EqualFold(kaID, keyAgrFragment) {
+			return marshalKeyFromVerificationMethod(keyAgrID, &ka.VerificationMethod, j)
 		}
 
-		logger.Debugf("skipping keyID %s since it's not found in didDoc.KeyAgreement of did %s", kaID, keyAgrID[:i])
+		logger.Debugf("skipping keyID %s since it's not found in didDoc.KeyAgreement of did %s", kaID, keyAgrDID)
+	}
+
+	for j := range docResolution.DIDDocument.VerificationMethod {
+		vm := &docResolution.DIDDocument.VerificationMethod[j]
+
+		vmID := vm.ID[strings.Index(vm.ID, "#")+1:]
+		logger.Infof("vm: %#v", vm)
+
+		if strings.EqualFold(vmID, keyAgrFragment) {
+			return marshalKeyFromVerificationMethod(keyAgrID, vm, j)
+		}
 	}
 
 	return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: keyAgreement ID '%s' not found in DID '%s'", keyAgrID,
 		docResolution.DIDDocument.ID)
+}
+
+func marshalKeyFromVerificationMethod(keyAgrID string, vm *did.VerificationMethod, i int) (*crypto.PublicKey, error) {
+	var (
+		recKey *crypto.PublicKey
+		err    error
+	)
+
+	switch vm.Type {
+	case jsonWebKey2020:
+		jwkKey := vm.JSONWebKey()
+
+		recKey, err = jwksupport.PublicKeyFromJWK(jwkKey)
+		if err != nil {
+			return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: for recipient JWK to PubKey %d: %w", i+1, err)
+		}
+
+		// for packing purposes, recipient kid header is the keyAgreement.ID value, the packers must resolve it and extract
+		// the kms kid value during unpack.
+		recKey.KID = keyAgrID
+	case x25519KeyAgreementKey2019:
+		recKey = &crypto.PublicKey{
+			KID:   keyAgrID,
+			X:     vm.Value,
+			Curve: "X25519",
+			Type:  "OKP",
+		}
+	case "Ed25519VerificationKey2018":
+		recKey = &crypto.PublicKey{
+			KID:   keyAgrID,
+			X:     vm.Value,
+			Curve: "Ed25519",
+			Type:  "OKP",
+		}
+	default:
+		return nil, fmt.Errorf("resolveKeyAgreementFromDIDDoc: invalid KeyAgreement type %d: %s", i+1,
+			vm.Type)
+	}
+
+	return recKey, nil
 }
