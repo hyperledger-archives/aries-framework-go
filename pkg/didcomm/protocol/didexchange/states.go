@@ -687,7 +687,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 
 	if newService {
 		switch newDID.Service[0].Type {
-		case didCommServiceType:
+		case didCommServiceType, "IndyAgent":
 			recKey, _ := fingerprint.CreateDIDKey(newDID.VerificationMethod[0].Value)
 			newDID.Service[0].RecipientKeys = []string{recKey}
 		case didCommV2ServiceType:
@@ -1103,6 +1103,6 @@ func recipientKeyAsDIDKey(doc *did.Doc) (string, error) {
 
 		return key, nil
 	default:
-		return "", fmt.Errorf("recipientKeyAsDIDKey: invalid DID Doc service type: '%v'", doc.Service[0].Type)
+		return interopRecipientKey(doc)
 	}
 }
