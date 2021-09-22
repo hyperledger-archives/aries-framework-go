@@ -387,7 +387,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 					State:        "completed", MyDID: "mydid", TheirDID: "theirDID-z",
 				},
 				option:   SendByTheirDID("theirDID-001"),
-				errorMsg: "DID not found",
+				errorMsg: vdrapi.ErrNotFound.Error(),
 			},
 			{
 				name: "send message to destination - failure 1",

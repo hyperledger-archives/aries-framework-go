@@ -8,6 +8,7 @@ package didresolver
 
 import (
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -129,7 +130,7 @@ func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, err
 	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = vdr.Resolve(did)
-		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
+		if err == nil || !errors.Is(err, vdrapi.ErrNotFound) {
 			return doc.DIDDocument, err
 		}
 
