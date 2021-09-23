@@ -16,6 +16,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -55,11 +56,24 @@ func CreateDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 	return createDIDDocument(ctx, agents, keyType)
 }
 
+//nolint:funlen,gocognit,gocyclo
 func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 	for _, agentID := range strings.Split(agents, ",") {
+		signingKT := ctx.AgentCtx[agentID].KeyType()
+
+		if string(signingKT) == "" {
+			signingKT = kms.ED25519Type
+		}
+
+		encKT := ctx.AgentCtx[agentID].KeyAgreementType()
+
+		if string(signingKT) == "" {
+			encKT = kms.X25519ECDHKWType
+		}
+
 		pubKeyJWK, ok := ctx.PublicKeys[agentID]
 		if !ok {
-			_, pubKeyBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+			_, pubKeyBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(signingKT)
 			if err != nil {
 				return err
 			}
@@ -70,7 +84,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			}
 		}
 
-		_, pubKeyUpdateBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+		_, pubKeyUpdateBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(signingKT)
 		if err != nil {
 			return err
 		}
@@ -80,7 +94,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
-		_, pubKeyRecoveryBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+		_, pubKeyRecoveryBytes, err := ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(signingKT)
 		if err != nil {
 			return err
 		}
@@ -90,6 +104,31 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			return err
 		}
 
+		encKey, ok := ctx.PublicEncKeys[agentID]
+		if !ok {
+			_, encKey, err = ctx.AgentCtx[agentID].KMS().CreateAndExportPubKeyBytes(encKT)
+			if err != nil {
+				return err
+			}
+		}
+
+		serviceType := vdrapi.DIDCommServiceType
+		mtps := ctx.AgentCtx[agentID].MediaTypeProfiles()
+
+		for _, mtp := range mtps {
+			var found bool
+
+			switch mtp {
+			case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+				found = true
+				serviceType = vdrapi.DIDCommV2ServiceType
+			}
+
+			if found {
+				break
+			}
+		}
+
 		doc, err := sidetree.CreateDID(
 			&sidetree.CreateDIDParams{
 				URL:             ctx.Args[sideTreeURL] + "operations",
@@ -97,8 +136,11 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 				JWK:             pubKeyJWK,
 				UpdateJWK:       updateJWK,
 				RecoveryJWK:     recoveryJWK,
+				EncryptionKey:   encKey,
 				KeyType:         keyType,
+				EncKeyType:      encKT,
 				ServiceEndpoint: ctx.AgentCtx[agentID].ServiceEndpoint(),
+				ServiceType:     serviceType,
 			})
 		if err != nil {
 			return err

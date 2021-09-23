@@ -162,7 +162,7 @@ func New(prov provider) (*Service, error) {
 
 	mediaTypeProfiles := prov.MediaTypeProfiles()
 	if len(mediaTypeProfiles) == 0 {
-		mediaTypeProfiles = []string{transport.MediaTypeRFC0019EncryptedEnvelope}
+		mediaTypeProfiles = []string{transport.MediaTypeAIP2RFC0019Profile}
 	}
 
 	svc := &Service{

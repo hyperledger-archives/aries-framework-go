@@ -64,9 +64,11 @@ func (ctx *context) createSigningVM() (*did.VerificationMethod, error) {
 }
 
 func (ctx *context) createEncryptionVM() (*did.VerificationMethod, error) {
-	vmType := getVerMethodType(ctx.keyAgreementType)
+	encKeyType := ctx.keyAgreementType
 
-	_, kaPubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(ctx.keyAgreementType)
+	vmType := getVerMethodType(encKeyType)
+
+	_, kaPubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(encKeyType)
 	if err != nil {
 		return nil, fmt.Errorf("createEncryptionVM: %w", err)
 	}

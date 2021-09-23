@@ -117,13 +117,13 @@ func ecCodeAndCurve(ecCurve string) (uint64, elliptic.Curve, error) {
 	)
 
 	switch ecCurve {
-	case elliptic.P256().Params().Name:
+	case elliptic.P256().Params().Name, "NIST_P256":
 		curve = elliptic.P256()
 		code = P256PubKeyMultiCodec
-	case elliptic.P384().Params().Name:
+	case elliptic.P384().Params().Name, "NIST_P384":
 		curve = elliptic.P384()
 		code = P384PubKeyMultiCodec
-	case elliptic.P521().Params().Name:
+	case elliptic.P521().Params().Name, "NIST_P521":
 		curve = elliptic.P521()
 		code = P521PubKeyMultiCodec
 	default:
