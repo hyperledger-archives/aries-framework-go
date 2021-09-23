@@ -207,6 +207,7 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 				msg         = metadata.Message()
 				attachments []decorator.AttachmentData
 				src         []byte
+				fmtIdx      int
 				err         error
 			)
 
@@ -238,7 +239,7 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 					return next.Handle(metadata)
 				}
 
-				src, err = getAttachmentByFormat(request.Formats,
+				src, fmtIdx, err = getAttachmentByFormat(request.Formats,
 					request.RequestPresentationsAttach, peDefinitionFormat)
 				attachments = filterByMimeType(metadata.Presentation().PresentationsAttach, mimeTypeApplicationLdJSON)
 			}
@@ -266,12 +267,12 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 					return fmt.Errorf("create VP: %w", err)
 				}
 
-				singFn := metadata.GetAddProofFn()
-				if singFn == nil {
-					singFn = options.addProof
+				signFn := metadata.GetAddProofFn()
+				if signFn == nil {
+					signFn = options.addProof
 				}
 
-				err = singFn(presentation)
+				err = signFn(presentation)
 				if err != nil {
 					return fmt.Errorf("add proof: %w", err)
 				}
@@ -283,8 +284,15 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 						Data:      decorator.AttachmentData{JSON: presentation},
 					}}
 				} else {
+					newID := uuid.New().String()
+
+					formats := metadata.Presentation().Formats
+					if len(formats) > fmtIdx {
+						formats[fmtIdx].AttachID = newID
+					}
+
 					metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
-						ID:       uuid.New().String(),
+						ID:       newID,
 						MimeType: mimeTypeApplicationLdJSON,
 						Data:     decorator.AttachmentData{JSON: presentation},
 					}}
@@ -386,18 +394,20 @@ func parseCredentials(vdr vdrapi.Registry, attachments []decorator.AttachmentDat
 	return credentials, nil
 }
 
-func getAttachmentByFormat(fms []presentproof.Format, attachments []decorator.Attachment, name string) ([]byte, error) {
-	for _, format := range fms {
+func getAttachmentByFormat(fms []presentproof.Format, attachments []decorator.Attachment, name string,
+) ([]byte, int, error) {
+	for fmtIdx, format := range fms {
 		if format.Format == name {
 			for i := range attachments {
 				if attachments[i].ID == format.AttachID {
-					return attachments[i].Data.Fetch()
+					data, err := attachments[i].Data.Fetch()
+					return data, fmtIdx, err
 				}
 			}
 		}
 	}
 
-	return nil, errors.New("not found")
+	return nil, 0, errors.New("not found")
 }
 
 func getAttachmentByFormatV2(fms []presentproof.Format, attachs []decorator.AttachmentV2, name string) ([]byte, error) {
@@ -405,7 +415,8 @@ func getAttachmentByFormatV2(fms []presentproof.Format, attachs []decorator.Atta
 		if format.Format == name {
 			for i := range attachs {
 				if attachs[i].ID == format.AttachID {
-					return attachs[i].Data.Fetch()
+					data, err := attachs[i].Data.Fetch()
+					return data, err
 				}
 			}
 		}

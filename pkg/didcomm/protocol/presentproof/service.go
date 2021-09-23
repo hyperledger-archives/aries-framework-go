@@ -76,7 +76,15 @@ type transitionalPayload struct {
 	Action
 	StateName   string
 	AckRequired bool
+	Direction   messageDirection
 }
+
+type messageDirection string
+
+const (
+	inboundMessage  = messageDirection("InboundMessage")
+	outboundMessage = messageDirection("OutboundMessage")
+)
 
 // metaData type to store data for internal usage.
 type metaData struct {
@@ -286,14 +294,12 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 
 	aEvent := s.ActionEvent()
 
-	canReply := canReplyTo(msgMap)
-
-	if canReply && aEvent == nil {
+	if aEvent == nil {
 		// throw error if there is no action event registered for inbound messages
 		return "", errors.New("no clients are registered to handle the message")
 	}
 
-	md, err := s.doHandle(msgMap)
+	md, err := s.doHandle(msgMap, inboundMessage)
 	if err != nil {
 		return "", fmt.Errorf("doHandle: %w", err)
 	}
@@ -302,8 +308,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 	md.TheirDID = ctx.TheirDID()
 
 	// trigger action event based on message type for inbound messages
-	if canReply && canTriggerActionEvents(msgMap) {
-		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
+	if canTriggerActionEvents(msgMap) {
+		err = s.saveTransitionalPayload(md.PIID, &(md.transitionalPayload))
 		if err != nil {
 			return "", fmt.Errorf("save transitional payload: %w", err)
 		}
@@ -322,8 +328,26 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 }
 
 // HandleOutbound handles outbound message (presentproof protocol).
-func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
-	return "", errors.New("not implemented")
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	logger.Debugf("service.HandleOutbound() input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+
+	msgMap := msg.Clone()
+
+	md, err := s.doHandle(msgMap, outboundMessage)
+	if err != nil {
+		return "", fmt.Errorf("doHandle: %w", err)
+	}
+
+	md.MyDID = myDID
+	md.TheirDID = theirDID
+
+	thid, err := msgMap.ThreadID()
+	if err != nil {
+		return "", fmt.Errorf("failed to obtain the message's threadID : %w", err)
+	}
+
+	// if no action event is triggered, continue the execution
+	return thid, s.handle(md)
 }
 
 func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string, *internalData, error) {
@@ -346,7 +370,7 @@ func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string,
 	return piID, data, nil
 }
 
-func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
+func (s *Service) doHandle(msg service.DIDCommMsgMap, direction messageDirection) (*metaData, error) {
 	piID, data, err := s.getCurrentInternalDataAndPIID(msg)
 	if err != nil {
 		return nil, fmt.Errorf("current internal data and PIID: %w", err)
@@ -354,7 +378,7 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 
 	current := stateFromName(data.StateName, getVersion(msg.Type()))
 
-	next, err := nextState(msg)
+	next, err := nextState(msg, direction)
 	if err != nil {
 		return nil, fmt.Errorf("nextState: %w", err)
 	}
@@ -371,6 +395,7 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 				Msg:  msg,
 				PIID: piID,
 			},
+			Direction: direction,
 		},
 		properties: map[string]interface{}{},
 		state:      next,
@@ -501,31 +526,31 @@ func stateFromName(name, v string) state {
 	}
 }
 
-func nextState(msg service.DIDCommMsgMap) (state, error) {
-	canReply := canReplyTo(msg)
-
+func nextState(msg service.DIDCommMsgMap, direction messageDirection) (state, error) {
 	switch msg.Type() {
 	case RequestPresentationMsgTypeV2, RequestPresentationMsgTypeV3:
-		if canReply {
+		switch direction {
+		case inboundMessage:
 			return &requestReceived{V: getVersion(msg.Type())}, nil
+		case outboundMessage:
+			return &requestSent{V: getVersion(msg.Type())}, nil
 		}
-
-		return &requestSent{V: getVersion(msg.Type())}, nil
 	case ProposePresentationMsgTypeV2, ProposePresentationMsgTypeV3:
-		if canReply {
+		switch direction {
+		case inboundMessage:
 			return &proposalReceived{V: getVersion(msg.Type())}, nil
+		case outboundMessage:
+			return &proposalSent{V: getVersion(msg.Type())}, nil
 		}
-
-		return &proposalSent{V: getVersion(msg.Type())}, nil
 	case PresentationMsgTypeV2, PresentationMsgTypeV3:
 		return &presentationReceived{V: getVersion(msg.Type())}, nil
 	case ProblemReportMsgTypeV2, ProblemReportMsgTypeV3:
 		return &abandoned{V: getVersion(msg.Type())}, nil
 	case AckMsgTypeV2, AckMsgTypeV3:
 		return &done{V: getVersion(msg.Type())}, nil
-	default:
-		return nil, fmt.Errorf("unrecognized msgType: %s", msg.Type())
 	}
+
+	return nil, fmt.Errorf("unrecognized msgType: %s", msg.Type())
 }
 
 func getVersion(t string) string {
@@ -544,8 +569,8 @@ func getDIDVersion(v string) service.Version {
 	return service.V1
 }
 
-func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) error {
-	src, err := json.Marshal(data)
+func (s *Service) saveTransitionalPayload(id string, data *transitionalPayload) error {
+	src, err := json.Marshal(*data)
 	if err != nil {
 		return fmt.Errorf("marshal transitional payload: %w", err)
 	}

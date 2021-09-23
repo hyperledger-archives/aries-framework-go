@@ -102,7 +102,7 @@ func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirD
 
 	msg.Type = presentproof.RequestPresentationMsgTypeV2
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // SendRequestPresentationV3 is used by the Verifier to send a request presentation.
@@ -114,7 +114,7 @@ func (c *Client) SendRequestPresentationV3(msg *RequestPresentationV3, myDID, th
 
 	msg.Type = presentproof.RequestPresentationMsgTypeV3
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 type addProof func(presentation *verifiable.Presentation) error
@@ -153,7 +153,7 @@ func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirD
 
 	msg.Type = presentproof.ProposePresentationMsgTypeV2
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // SendProposePresentationV3 is used by the Prover to send a propose presentation.
@@ -165,7 +165,7 @@ func (c *Client) SendProposePresentationV3(msg *ProposePresentationV3, myDID, th
 
 	msg.Type = presentproof.ProposePresentationMsgTypeV3
 
-	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), service.NewDIDCommContext(myDID, theirDID, nil))
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.

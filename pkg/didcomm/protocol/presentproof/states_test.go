@@ -323,6 +323,7 @@ func TestRequestSent_Execute(t *testing.T) {
 			Action: Action{Msg: service.NewDIDCommMsgMap(struct {
 				WillConfirm bool `json:"will_confirm"`
 			}{WillConfirm: true})},
+			Direction: outboundMessage,
 		}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
@@ -502,7 +503,9 @@ func TestProposePresentationSent_Execute(t *testing.T) {
 	})
 
 	t.Run("Success (outbound)", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).Execute(&metaData{})
+		followup, action, err := (&proposalSent{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{Direction: outboundMessage},
+		})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)

@@ -36,10 +36,6 @@ const (
 	// error codes.
 	codeInternalError = "internal"
 	codeRejectedError = "rejected"
-
-	jsonThread         = "~thread"
-	jsonThreadID       = "thid"
-	jsonParentThreadID = "pthid"
 )
 
 // state action for network call.
@@ -224,7 +220,7 @@ func forwardInitial(md *metaData, v service.Version) stateAction {
 }
 
 func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
-	if !canReplyTo(md.Msg) {
+	if md.Direction == outboundMessage {
 		if s.V == SpecV3 {
 			var req *RequestPresentationV3
 
@@ -349,7 +345,8 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 		}
 
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
-			Type: AckMsgTypeV2,
+			Type:   AckMsgTypeV2,
+			Status: "OK",
 		}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
@@ -370,16 +367,8 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoned
 }
 
-func canReplyTo(msg service.DIDCommMsgMap) bool {
-	_, thread := msg[jsonThread]
-	_, threadID := msg[jsonThreadID]
-	_, parentThreadID := msg[jsonParentThreadID]
-
-	return thread || threadID || parentThreadID
-}
-
 func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
-	if !canReplyTo(md.Msg) {
+	if md.Direction == outboundMessage {
 		return &noOp{}, forwardInitial(md, getDIDVersion(s.V)), nil
 	}
 
