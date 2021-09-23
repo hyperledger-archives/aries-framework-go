@@ -57,13 +57,24 @@ var logger = log.New("aries-framework/tests")
 
 // SDKSteps contains steps for agent from client SDK.
 type SDKSteps struct {
-	bddContext      *context.BDDContext
-	didExchangeSDKS *didexchangebdd.SDKSteps
+	bddContext           *context.BDDContext
+	didExchangeSDKS      *didexchangebdd.SDKSteps
+	newKeyType           kms.KeyType
+	newKeyAgreementType  kms.KeyType
+	newMediaTypeProfiles []string
 }
 
 // NewSDKSteps returns new agent from client SDK.
 func NewSDKSteps() *SDKSteps {
 	return &SDKSteps{}
+}
+
+func (a *SDKSteps) scenario(keyType, keyAgreementType, mediaTypeProfile string) error {
+	a.newKeyType = kms.KeyType(keyType)
+	a.newKeyAgreementType = kms.KeyType(keyAgreementType)
+	a.newMediaTypeProfiles = []string{mediaTypeProfile}
+
+	return nil
 }
 
 // CreateAgent with the given parameters.
@@ -241,6 +252,7 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 }
 
 // CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver.
+//nolint:gocyclo
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
@@ -266,6 +278,29 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 
 		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv),
 			aries.WithJSONLDDocumentLoader(loader))
+
+		//nolint:nestif
+		if g, ok := a.bddContext.Agents[agentID]; ok {
+			ctx, err := g.Context()
+			if err != nil {
+				return fmt.Errorf("get agentID context: %w", err)
+			}
+
+			opts = append(opts, aries.WithKeyType(ctx.KeyType()), aries.WithKeyAgreementType(ctx.KeyAgreementType()),
+				aries.WithMediaTypeProfiles(ctx.MediaTypeProfiles()))
+		} else {
+			if string(a.newKeyType) != "" {
+				opts = append(opts, aries.WithKeyType(a.newKeyType))
+			}
+
+			if string(a.newKeyAgreementType) != "" {
+				opts = append(opts, aries.WithKeyAgreementType(a.newKeyAgreementType))
+			}
+
+			if len(a.newMediaTypeProfiles) > 0 {
+				opts = append(opts, aries.WithMediaTypeProfiles(a.newMediaTypeProfiles))
+			}
+		}
 
 		if err := a.create(agentID, inboundHost, inboundPort, "http", opts...); err != nil {
 			return err
@@ -479,6 +514,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" with "([^"]*)" `+
 		`as the transport provider and http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithRegistrarAndHTTPDIDResolver)
+	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`, a.scenario)
 }
 
 func mustGetRandomPort(n int) int {

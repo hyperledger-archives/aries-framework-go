@@ -36,6 +36,7 @@ type BDDContext struct {
 	RouteCallbacks     map[string]chan interface{}
 	PublicDIDDocs      map[string]*did.Doc
 	PublicKeys         map[string]*jwk.JWK
+	PublicEncKeys      map[string][]byte
 	KeyHandles         map[string]interface{}
 	PublicDIDs         map[string]string
 	Agents             map[string]*aries.Aries

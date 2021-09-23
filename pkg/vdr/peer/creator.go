@@ -177,10 +177,10 @@ func buildDIDVMs(didDoc *did.Doc) ([]did.VerificationMethod, []did.VerificationM
 		switch vm.Type {
 		case ed25519VerificationKey2018:
 			mainVM = append(mainVM, *did.NewVerificationMethodFromBytes(vm.ID, ed25519VerificationKey2018,
-				"#id", didDoc.VerificationMethod[0].Value))
+				"#id", vm.Value))
 		case jsonWebKey2020:
 			publicKey1, err := did.NewVerificationMethodFromJWK(vm.ID, jsonWebKey2020, "#id",
-				didDoc.VerificationMethod[0].JSONWebKey())
+				vm.JSONWebKey())
 			if err != nil {
 				return nil, nil, err
 			}
@@ -192,21 +192,21 @@ func buildDIDVMs(didDoc *did.Doc) ([]did.VerificationMethod, []did.VerificationM
 		}
 	}
 
-	for _, vm := range didDoc.KeyAgreement {
-		switch vm.VerificationMethod.Type {
+	for _, ka := range didDoc.KeyAgreement {
+		switch ka.VerificationMethod.Type {
 		case x25519KeyAgreementKey2019:
 			keyAgreementVM = append(keyAgreementVM, *did.NewVerificationMethodFromBytes(
-				didDoc.KeyAgreement[0].VerificationMethod.ID, x25519KeyAgreementKey2019, "",
-				didDoc.KeyAgreement[0].VerificationMethod.Value))
+				ka.VerificationMethod.ID, x25519KeyAgreementKey2019, "",
+				ka.VerificationMethod.Value))
 
 		case jsonWebKey2020:
-			ka, err := did.NewVerificationMethodFromJWK(didDoc.KeyAgreement[0].VerificationMethod.ID, jsonWebKey2020, "",
-				didDoc.VerificationMethod[0].JSONWebKey())
+			kaVM, err := did.NewVerificationMethodFromJWK(ka.VerificationMethod.ID, jsonWebKey2020, "",
+				ka.VerificationMethod.JSONWebKey())
 			if err != nil {
 				return nil, nil, err
 			}
 
-			keyAgreementVM = append(keyAgreementVM, *ka)
+			keyAgreementVM = append(keyAgreementVM, *kaVM)
 		default:
 			return nil, nil, fmt.Errorf("not supported KeyAgreement public key type: %s", didDoc.VerificationMethod[0].Type)
 		}

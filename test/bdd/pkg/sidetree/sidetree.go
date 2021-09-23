@@ -18,6 +18,10 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
@@ -29,12 +33,12 @@ const docTemplate = `{
      "type": "%s",
      "purposes": ["authentication"],
      "publicKeyJwk": %s
-   }
+   }%s
   ],
   "service": [
 	{
 	   "id": "hub",
-	   "type": "did-communication",
+	   "type": "%s",
 	   "serviceEndpoint": "%s",
        "recipientKeys" : [ "%s" ]
 	}
@@ -61,8 +65,11 @@ type CreateDIDParams struct {
 	JWK             *jwk.JWK
 	UpdateJWK       *jwk.JWK
 	RecoveryJWK     *jwk.JWK
+	EncryptionKey   []byte
 	KeyType         string
+	EncKeyType      kms.KeyType
 	ServiceEndpoint string
+	ServiceType     string
 }
 
 // CreateDID in sidetree.
@@ -92,6 +99,7 @@ func CreateDID(params *CreateDIDParams) (*diddoc.Doc, error) {
 	return doc, nil
 }
 
+//nolint:funlen,gocyclo
 func getOpaqueDocument(params *CreateDIDParams) ([]byte, error) {
 	opsPubKey, err := getPubKey(params.JWK)
 	if err != nil {
@@ -104,13 +112,57 @@ func getOpaqueDocument(params *CreateDIDParams) ([]byte, error) {
 	}
 
 	didKey, _ := fingerprint.CreateDIDKey(keyBytes)
+	ka := ""
 
 	keyType := params.KeyType
 	if keyType == "" {
 		keyType = defaultKeyType
 	}
 
-	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, params.ServiceEndpoint, didKey)
+	serviceType := params.ServiceType
+	if serviceType == "" {
+		serviceType = vdr.DIDCommServiceType
+	}
+
+	if serviceType == vdr.DIDCommV2ServiceType {
+		didKey, err = kmsdidkey.BuildDIDKeyByKeyType(params.EncryptionKey, params.EncKeyType)
+		if err != nil {
+			return nil, err
+		}
+
+		var (
+			encJWK           *jwk.JWK
+			encJWKMarshalled []byte
+		)
+
+		encJWK, err = jwkkid.BuildJWK(params.EncryptionKey, params.EncKeyType)
+		if err != nil {
+			return nil, err
+		}
+
+		encJWKMarshalled, err = encJWK.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		ka = `,{
+     "id": "%s",
+     "type": "%s",
+     "purposes": ["keyAgreement"],
+     "publicKeyJwk": %s
+   }`
+
+		kaType := "X25519KeyAgreementKey2019"
+
+		switch params.EncKeyType {
+		case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+			kaType = "JsonWebKey2020"
+		}
+
+		ka = fmt.Sprintf(ka, "key-2", kaType, encJWKMarshalled)
+	}
+
+	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, ka, serviceType, params.ServiceEndpoint, didKey)
 
 	doc, err := document.FromBytes([]byte(data))
 	if err != nil {
