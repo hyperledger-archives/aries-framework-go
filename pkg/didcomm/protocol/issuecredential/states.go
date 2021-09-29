@@ -393,7 +393,8 @@ func (s *credentialReceived) ExecuteInbound(md *MetaData) (state, stateAction, e
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
-			Type: AckMsgType,
+			Type:   AckMsgType,
+			Status: "OK",
 		}), md.MyDID, md.TheirDID)
 	}
 
