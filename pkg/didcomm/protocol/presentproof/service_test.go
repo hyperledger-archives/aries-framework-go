@@ -267,7 +267,7 @@ func TestService_ActionStop(t *testing.T) {
 }
 
 // nolint: gocyclo,gocognit
-func TestService_HandleInbound(t *testing.T) {
+func TestService_HandleInboundOutbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1060,7 +1060,7 @@ func TestService_HandleInbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		select {
@@ -1083,7 +1083,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(gomock.Any(), Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
-		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 
@@ -1115,7 +1115,7 @@ func TestService_HandleInbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		select {
@@ -1138,7 +1138,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(gomock.Any(), Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
-		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)
 	})
 }
@@ -1212,37 +1212,37 @@ func Test_getTransitionalPayload(t *testing.T) {
 func Test_nextState(t *testing.T) {
 	next, err := nextState(service.NewDIDCommMsgMap(RequestPresentation{
 		Type: RequestPresentationMsgTypeV2,
-	}))
+	}), outboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &requestSent{V: SpecV2})
 
-	next, err = nextState(randomInboundMessage(RequestPresentationMsgTypeV2))
+	next, err = nextState(randomInboundMessage(RequestPresentationMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &requestReceived{V: SpecV2})
 
 	next, err = nextState(service.NewDIDCommMsgMap(ProposePresentation{
 		Type: ProposePresentationMsgTypeV2,
-	}))
+	}), outboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &proposalSent{V: SpecV2})
 
-	next, err = nextState(randomInboundMessage(ProposePresentationMsgTypeV2))
+	next, err = nextState(randomInboundMessage(ProposePresentationMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &proposalReceived{V: SpecV2})
 
-	next, err = nextState(randomInboundMessage(PresentationMsgTypeV2))
+	next, err = nextState(randomInboundMessage(PresentationMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &presentationReceived{V: SpecV2})
 
-	next, err = nextState(randomInboundMessage(AckMsgTypeV2))
+	next, err = nextState(randomInboundMessage(AckMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &done{V: SpecV2})
 
-	next, err = nextState(randomInboundMessage(ProblemReportMsgTypeV2))
+	next, err = nextState(randomInboundMessage(ProblemReportMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
 	require.Equal(t, next, &abandoned{V: SpecV2})
 
-	next, err = nextState(service.NewDIDCommMsgMap(struct{}{}))
+	next, err = nextState(service.NewDIDCommMsgMap(struct{}{}), outboundMessage)
 	require.Error(t, err)
 	require.Nil(t, next)
 }

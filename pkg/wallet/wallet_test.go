@@ -2877,6 +2877,9 @@ func TestWallet_ProposePresentation(t *testing.T) {
 			HandleFunc: func(service.DIDCommMsg) (string, error) {
 				return "", fmt.Errorf(sampleWalletErr)
 			},
+			HandleOutboundFunc: func(service.DIDCommMsg, string, string) (string, error) {
+				return "", fmt.Errorf(sampleWalletErr)
+			},
 		}
 		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
 
