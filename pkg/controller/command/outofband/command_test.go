@@ -40,6 +40,7 @@ func TestNew(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
@@ -62,6 +63,7 @@ func TestNew(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.EqualError(t, err, "register action event: error")
@@ -75,6 +77,7 @@ func TestNew(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.EqualError(t, err, "register msg event: error")
@@ -92,6 +95,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
@@ -114,6 +118,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -135,6 +140,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -172,6 +178,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
@@ -223,6 +230,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -245,6 +253,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -267,6 +276,7 @@ func TestCommand_Actions(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	t.Run("Success", func(t *testing.T) {
 		expected := ActionsResponse{Actions: []outofband.Action{{
@@ -314,6 +324,7 @@ func TestCommand_ActionStop(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
@@ -350,6 +361,7 @@ func TestCommand_ActionStop(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
@@ -372,6 +384,7 @@ func TestCommand_ActionStop(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
@@ -392,6 +405,7 @@ func TestCommand_ActionContinue(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
@@ -430,6 +444,7 @@ func TestCommand_ActionContinue(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
@@ -454,6 +469,7 @@ func TestCommand_ActionContinue(t *testing.T) {
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().Return(nil)
 
 		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
@@ -474,6 +490,8 @@ func TestCommand_GetHandlers(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
+
 	cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 	require.Equal(t, 5, len(cmd.GetHandlers()))

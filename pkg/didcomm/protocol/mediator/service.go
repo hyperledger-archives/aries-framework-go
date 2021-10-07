@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -98,6 +100,8 @@ type provider interface {
 	KMS() kms.KeyManager
 	VDRegistry() vdr.Registry
 	Service(id string) (interface{}, error)
+	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // ClientOption configures the route client.
@@ -142,6 +146,8 @@ type Service struct {
 	keylistUpdateMapLock sync.RWMutex
 	callbacks            chan *callback
 	messagePickupSvc     messagepickup.ProtocolService
+	keyAgreementType     kms.KeyType
+	mediaTypeProfiles    []string
 }
 
 // New return route coordination service.
@@ -173,15 +179,17 @@ func New(prov provider) (*Service, error) {
 	}
 
 	s := &Service{
-		routeStore:       store,
-		outbound:         prov.OutboundDispatcher(),
-		endpoint:         prov.RouterEndpoint(),
-		kms:              prov.KMS(),
-		vdRegistry:       prov.VDRegistry(),
-		connectionLookup: connectionLookup,
-		keylistUpdateMap: make(map[string]chan *KeylistUpdateResponse),
-		callbacks:        make(chan *callback),
-		messagePickupSvc: messagePickupSvc,
+		routeStore:        store,
+		outbound:          prov.OutboundDispatcher(),
+		endpoint:          prov.RouterEndpoint(),
+		kms:               prov.KMS(),
+		vdRegistry:        prov.VDRegistry(),
+		connectionLookup:  connectionLookup,
+		keylistUpdateMap:  make(map[string]chan *KeylistUpdateResponse),
+		callbacks:         make(chan *callback),
+		messagePickupSvc:  messagePickupSvc,
+		keyAgreementType:  prov.KeyAgreementType(),
+		mediaTypeProfiles: prov.MediaTypeProfiles(),
 	}
 
 	logger.Debugf("default endpoint: %s", s.endpoint)
@@ -361,8 +369,19 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
-			// TODO why use hard coded key type and key creation here? pass ctx.Keytype to s *service and use it instead
-			// TODO of hard coded ED25519 type if new key is still required.
+			for _, mtp := range s.mediaTypeProfiles {
+				switch mtp {
+				case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+					_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
+					if e != nil {
+						return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
+							"and export %v key: %w", s.keyAgreementType, e)
+					}
+
+					return kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
+				}
+			}
+
 			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if er != nil {
 				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
@@ -426,7 +445,9 @@ func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID st
 			val := theirDID
 			result := success
 
-			err = s.routeStore.Put(dataKey(v.RecipientKey), []byte(val))
+			toKey := dataKey(v.RecipientKey)
+
+			err = s.routeStore.Put(toKey, []byte(val))
 			if err != nil {
 				logger.Errorf("failed to add the route key to store : %s", err)
 
@@ -491,8 +512,11 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 	}
 
 	// TODO Open question - https://github.com/hyperledger/aries-framework-go/issues/965 Mismatch between Route
-	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key.
-	theirDID, err := s.routeStore.Get(dataKey(forward.To))
+	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key (DIDComm V2 uses
+	//  keyAgreement.ID, double check if this to do comment is still needed).
+	toKey := dataKey(forward.To)
+
+	theirDID, err := s.routeStore.Get(toKey)
 	if err != nil {
 		return fmt.Errorf("route key fetch : %w", err)
 	}

@@ -102,6 +102,11 @@ jobs:
         timeout-minutes: 45
         run: |
           make bdd-test
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: logs
+          path: test/bdd/docker-compose.log
 
   repoLint:
     name: repolint

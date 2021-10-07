@@ -47,7 +47,11 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 		a.checkAgentWithHTTPResolverIsRunning)
 	s.Step(`^"([^"]*)" agent is running with controller "([^"]*)" and "([^"]*)" `+
 		`as the transport return route option$`, a.checkEdgeAgent)
+	s.Step(`^""([^"]*)"" agent is running with controller ""([^"]*)"" and "([^"]*)" `+
+		`as the transport return route option$`, a.checkEdgeAgent) // for scenario outline as in mediator_e2e_controller
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" with controller "([^"]*)"$`, a.checkAgentWithMultipleInbound)
+	s.Step(`^""([^"]*)"" agent is running on ""([^"]*)"" with controller`+
+		` ""([^"]*)""$`, a.checkAgentWithMultipleInbound)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with webhook "([^"]*)" and controller "([^"]*)"$`,
 		a.checkAgentIsRunningWithHTTPInboundAndWebhook)
 }

@@ -292,18 +292,20 @@ func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error)
 
 			logger.Debugf("envelope.FromKey as theirDID: %v", theirDID)
 		} else {
-			theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-			if notFound && errors.Is(err, did.ErrNotFound) {
-				// try did:key
-				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
-				// types will be used. Currently, did:key is for legacy packers, so only support Ed25519 keys.
-				didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
-				theirDID, err = p.didConnectionStore.GetDID(didKey)
-				if err != nil && !errors.Is(err, did.ErrNotFound) {
-					return fmt.Errorf("failed to get their did from didKey: %w", err)
+			if envelope.FromKey != nil {
+				theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
+				if notFound && errors.Is(err, did.ErrNotFound) {
+					// try did:key
+					// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
+					// types will be used. Currently, did:key is for legacy packers, so only support Ed25519 keys.
+					didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
+					theirDID, err = p.didConnectionStore.GetDID(didKey)
+					if err != nil && !errors.Is(err, did.ErrNotFound) {
+						return fmt.Errorf("failed to get their did from didKey: %w", err)
+					}
+				} else if err != nil {
+					return fmt.Errorf("failed to get their did: %w", err)
 				}
-			} else if err != nil {
-				return fmt.Errorf("failed to get their did: %w", err)
 			}
 		}
 		return nil

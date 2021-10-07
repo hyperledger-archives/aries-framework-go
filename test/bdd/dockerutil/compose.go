@@ -154,7 +154,8 @@ func (c *Composition) GenerateLogs(dir, logName string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(logName, outputBytes, 0o600)
+	err = ioutil.WriteFile("docker-compose.log", outputBytes, 0o775)
+	return err
 }
 
 // GetAPIContainerForComposeService return the docker.APIContainers with the supplied composeService name.

@@ -73,18 +73,40 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
+	s.Step(`^""([^"]*)"" creates invitation through controller with label "([^"]*)"$`,
+		a.createInvitation) // for scenario outline as in mediator_e2e_controller
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)" and router "([^"]*)"$`,
 		a.createInvitationWithRouter)
+	s.Step(`^""([^"]*)"" creates invitation through controller with label "([^"]*)" and router ""([^"]*)""$`,
+		a.createInvitationWithRouter)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
+	s.Step(`^"([^"]*)" receives invitation from ""([^"]*)"" through controller$`, a.receiveInvitation)
+	s.Step(`^""([^"]*)"" receives invitation from ""([^"]*)"" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation through controller$`, a.approveInvitation)
+	s.Step(`^""([^"]*)"" approves exchange invitation through controller$`, a.approveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation with router "([^"]*)" through controller$`,
 		a.approveInvitationWithRouter)
+	s.Step(`^""([^"]*)"" approves exchange invitation with router ""([^"]*)"" through controller$`,
+		a.approveInvitationWithRouter)
 	s.Step(`^"([^"]*)" approves exchange request through controller`, a.ApproveRequest)
+	s.Step(`^""([^"]*)"" approves exchange request through controller`, a.ApproveRequest)
 	s.Step(`^"([^"]*)" approves exchange request with router "([^"]*)" through controller$`,
 		a.ApproveRequestWithRouter)
+	s.Step(`^""([^"]*)"" approves exchange request with router ""([^"]*)"" through controller$`,
+		a.ApproveRequestWithRouter)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to web notifier`, a.WaitForPostEvent)
+	s.Step(`^""([^"]*)"" and ""([^"]*)"" wait for post state event "([^"]*)" to web notifier`,
+		a.TwoAgentsWaitForPostEvent)
+	s.Step(`^""([^"]*)"" and "([^"]*)" wait for post state event "([^"]*)" to web notifier`, a.TwoAgentsWaitForPostEvent)
+	s.Step(`^"([^"]*)" and "([^"]*)" wait for post state event "([^"]*)" to web notifier`, a.TwoAgentsWaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
 		a.validateConnections)
+	s.Step(`^""([^"]*)"" and ""([^"]*)"" retrieve connection record through controller and validate that connection`+
+		` state is "([^"]*)"$`, a.twoAgentsValidateConnections)
+	s.Step(`^""([^"]*)"" and "([^"]*)" retrieve connection record through controller and validate that connection `+
+		`state is "([^"]*)"$`, a.twoAgentsValidateConnections)
+	s.Step(`^"([^"]*)" and "([^"]*)" retrieve connection record through controller and validate that connection `+
+		`state is "([^"]*)"$`, a.twoAgentsValidateConnections)
 	// public DID steps
 	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.createPublicDID)
 	s.Step(`^"([^"]*)" creates invitation through controller using public DID and label "([^"]*)"$`,
@@ -100,6 +122,7 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange using controller$`,
 		a.performDIDExchange)
 	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
+	s.Step(`^""([^"]*)"" saves the connectionID to variable ""([^"]*)""$`, a.saveConnectionID)
 }
 
 // EstablishConnection establishes connection between two agents through did exchange protocol.
@@ -430,7 +453,8 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) error {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
-		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
+		return fmt.Errorf("failed to get connection ID for agent: '%v', router: '%v' from webhook, %w",
+			agentID, routerID, err)
 	}
 
 	// inviter connectionID
@@ -463,11 +487,38 @@ func (a *ControllerSteps) WaitForPostEvent(agents, statesValue string) error {
 	return nil
 }
 
+// TwoAgentsWaitForPostEvent waits for the specific post event state for agent1 and agent2.
+func (a *ControllerSteps) TwoAgentsWaitForPostEvent(agent1, agent2, statesValue string) error {
+	_, err := a.pullEventsFromWebSocket(agent1, statesValue)
+	if err != nil {
+		return fmt.Errorf("failed to get notification from webhook, %w for agent: %v", err, agent1)
+	}
+
+	_, err = a.pullEventsFromWebSocket(agent2, statesValue)
+	if err != nil {
+		return fmt.Errorf("failed to get notification from webhook, %w for agent: %v", err, agent2)
+	}
+
+	return nil
+}
+
 func (a *ControllerSteps) validateConnections(agents, stateValue string) error {
 	for _, agent := range strings.Split(agents, ",") {
 		if err := a.validateConnection(agent, stateValue); err != nil {
 			return fmt.Errorf("validate connections: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (a *ControllerSteps) twoAgentsValidateConnections(agent1, agent2, stateValue string) error {
+	if err := a.validateConnection(agent1, stateValue); err != nil {
+		return fmt.Errorf("validate connections: %w for agent: %v", err, agent1)
+	}
+
+	if err := a.validateConnection(agent2, stateValue); err != nil {
+		return fmt.Errorf("validate connections: %w for agent: %v", err, agent2)
 	}
 
 	return nil

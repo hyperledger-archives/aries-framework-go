@@ -9,9 +9,10 @@
 Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
-  Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
+  Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
     # DID Exchange between Alice and her Router
-    Given "Alice-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
+    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
+      And "Alice-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
@@ -69,10 +70,17 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice,Bob" waits for post state event "completed"
 
     Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
+    Examples:
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
-  Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
+  Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
     # DID Exchange between Alice and her Router
-    Given "Alice-Router" agent is running on "localhost" port "random" with "http" as the transport provider
+    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
+      And "Alice-Router" agent is running on "localhost" port "random" with "http" as the transport provider
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
@@ -130,11 +138,18 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice,Bob" waits for post state event "completed"
 
     Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
+    Examples:
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
-  Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
+  Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
     # DID Exchange between Alice and her Router
-    Given "Alice-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
+    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
+      And "Alice-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
@@ -238,3 +253,9 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
     And   "Alice,Bob" waits for post state event "completed"
 
     Then   "Alice,Bob" retrieves connection record and validates that connection state is "completed"
+    Examples:
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
+      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |

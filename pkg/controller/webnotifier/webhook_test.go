@@ -179,12 +179,6 @@ func TestWebhookNotificationMalformedURL(t *testing.T) {
 	require.Contains(t, err.Error(), `invalid URL escape "%"`)
 }
 
-func TestWebhookNotificationNoResponse(t *testing.T) {
-	err := notifyWH(localhost8080URL, nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "connection refused")
-}
-
 func TestNotifyEmptyTopic(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
 

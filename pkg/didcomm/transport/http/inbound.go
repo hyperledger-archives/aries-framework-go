@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/internal"
 )
 
 var logger = log.New("aries-framework/http")
@@ -59,9 +60,9 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.P
 		return
 	}
 
-	unpackMsg, err := prov.Packager().UnpackMessage(body)
+	unpackMsg, err := internal.UnpackMessage(body, prov.Packager(), "http")
 	if err != nil {
-		logger.Errorf("failed to unpack msg: %s - returning Code: %d", err, http.StatusInternalServerError)
+		logger.Errorf("%w - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "failed to unpack msg", http.StatusInternalServerError)
 
 		return

@@ -25,7 +25,13 @@ DNS.5 = bob.aries.example.com
 DNS.6 = bob.agent.example.com
 DNS.7 = erin.aries.example.com
 DNS.8 = kms.example.com
-DNS.9 = file-server.example.com" >> "$tmp"
+DNS.9 = file-server.example.com
+DNS.10 = carl.one.router.aries.example.com
+DNS.11 = carl.v2.router.aries.example.com
+DNS.12 = carl.one.v2.router.aries.example.com
+DNS.13 = dave.one.router.aries.example.com
+DNS.14 = dave.v2.router.aries.example.com
+DNS.15 = dave.one.v2.router.aries.example.com" >> "$tmp"
 
 #create CA
 openssl ecparam -name prime256v1 -genkey -noout -out test/bdd/fixtures/keys/tls/ec-cakey.pem

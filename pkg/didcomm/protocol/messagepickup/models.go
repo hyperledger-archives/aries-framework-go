@@ -9,7 +9,6 @@ package messagepickup
 import (
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
@@ -55,9 +54,9 @@ type Batch struct {
 
 // Message messagepickup wrapper.
 type Message struct {
-	ID        string          `json:"id"`
-	AddedTime time.Time       `json:"added_time"`
-	Message   *model.Envelope `json:"msg,omitempty"`
+	ID        string    `json:"id"`
+	AddedTime time.Time `json:"added_time"`
+	Message   []byte    `json:"msg,omitempty"`
 }
 
 // Noop message

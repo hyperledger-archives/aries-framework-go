@@ -22,9 +22,9 @@ async function kms(mode) {
 
     before(async () => {
         if (mode === restMode){
-            aries = await newAriesREST(agentControllerApiUrl)
+            aries = await newAriesREST(agentControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
         }else {
-            aries = await newAries()
+            aries = await newAries(null, null, null, null, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
         }
     })
 

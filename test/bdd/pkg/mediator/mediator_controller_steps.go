@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
@@ -28,12 +29,38 @@ type registerRouteReq struct {
 
 // RESTSteps is steps for route using REST APIs.
 type RESTSteps struct {
-	bddContext *context.BDDContext
+	bddContext           *context.BDDContext
+	newKeyType           kms.KeyType
+	newKeyAgreementType  kms.KeyType
+	newMediaTypeProfiles []string
+	agent                string
+	agentRouter          string
+	transports           string
+	agentControllerURL   string
+	routerControllerURL  string
+	routerConnID         string
+	secondRouterConnID   string
 }
 
 // NewRouteRESTSteps return steps for route using REST APIs.
 func NewRouteRESTSteps() *RESTSteps {
 	return &RESTSteps{}
+}
+
+func (d *RESTSteps) scenario(keyType, keyAgreementType, mediaTypeProfile, agent, agentRouter, transports,
+	agentControllerURL, routerControllerURL, routerConnID, secondRouterConnID string) error {
+	d.newKeyType = kms.KeyType(keyType)
+	d.newKeyAgreementType = kms.KeyType(keyAgreementType)
+	d.newMediaTypeProfiles = []string{mediaTypeProfile}
+	d.agent = agent
+	d.agentRouter = agentRouter
+	d.transports = transports
+	d.agentControllerURL = agentControllerURL
+	d.routerControllerURL = routerControllerURL
+	d.routerConnID = routerConnID
+	d.secondRouterConnID = secondRouterConnID
+
+	return nil
 }
 
 // RegisterRoute registers the router for the agent.
@@ -51,6 +78,11 @@ func (d *RESTSteps) RegisterRoute(agentID, varNames string) error {
 	}
 
 	return nil
+}
+
+// RegisterRouteForTwoConnections registers the router for the agent using conn1 and conn2 connections.
+func (d *RESTSteps) RegisterRouteForTwoConnections(agentID, conn1, conn2 string) error {
+	return d.RegisterRoute(agentID, fmt.Sprintf("%s,%s", conn1, conn2))
 }
 
 func postToURL(url string, payload interface{}) error {
@@ -91,6 +123,11 @@ func (d *RESTSteps) UnregisterRoute(agentID, varNames string) error {
 	return nil
 }
 
+// UnregisterRouteForTwoConnections unregisters the router for agentID using conn1 and conn2 connections.
+func (d *RESTSteps) UnregisterRouteForTwoConnections(agentID, conn1, conn2 string) error {
+	return d.UnregisterRoute(agentID, fmt.Sprintf("%s,%s", conn1, conn2))
+}
+
 // VerifyConnections verifies the router connections id has been set to the provided connections id.
 func (d *RESTSteps) VerifyConnections(agentID, varNames string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)
@@ -119,6 +156,11 @@ func (d *RESTSteps) VerifyConnections(agentID, varNames string) error {
 	return nil
 }
 
+// VerifyConnectionsForTwoConnections verifies the router connections id has been set to conn1 and conn2 connection IDs.
+func (d *RESTSteps) VerifyConnectionsForTwoConnections(agentID, conn1, conn2 string) error {
+	return d.VerifyConnections(agentID, fmt.Sprintf("%s,%s", conn1, conn2))
+}
+
 // SetContext is called before every scenario is run with a fresh new context.
 func (d *RESTSteps) SetContext(ctx *context.BDDContext) {
 	d.bddContext = ctx
@@ -127,6 +169,15 @@ func (d *RESTSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers router steps.
 func (d *RESTSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sets connection "([^"]*)" as the router$`, d.RegisterRoute)
+	s.Step(`^""([^"]*)"" sets connection ""([^"]*)"" and ""([^"]*)"" as the router$`,
+		d.RegisterRouteForTwoConnections)
 	s.Step(`^"([^"]*)" unregisters the router with connection "([^"]*)"$`, d.UnregisterRoute)
+	s.Step(`^""([^"]*)"" unregisters the router with connection ""([^"]*)"" and ""([^"]*)""$`,
+		d.UnregisterRouteForTwoConnections)
 	s.Step(`^"([^"]*)" verifies that the router connection is set to "([^"]*)"$`, d.VerifyConnections)
+	s.Step(`^""([^"]*)"" verifies that the router connection is set to ""([^"]*)"" and ""([^"]*)""$`,
+		d.VerifyConnectionsForTwoConnections)
+	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)""`+
+		` ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`,
+		d.scenario)
 }

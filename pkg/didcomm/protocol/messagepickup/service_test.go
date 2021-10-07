@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -461,13 +460,13 @@ func TestAddMessage(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{
+		message := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		err = svc.AddMessage(message, THEIRDID)
 		require.NoError(t, err)
@@ -493,13 +492,13 @@ func TestAddMessage(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{
+		message := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		tyme, err := time.Parse(time.RFC3339, "2019-05-01T12:00:00Z")
 		require.NoError(t, err)
@@ -553,7 +552,7 @@ func TestAddMessage(t *testing.T) {
 
 		mockStore.Store.ErrPut = errors.New("error put")
 
-		message := &model.Envelope{}
+		message := []byte("")
 
 		err = svc.AddMessage(message, THEIRDID)
 		require.Error(t, err)
@@ -571,7 +570,7 @@ func TestAddMessage(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{}
+		message := []byte("")
 
 		mockStore.Store.ErrGet = errors.New("error get")
 
@@ -745,13 +744,13 @@ func TestBatchPickup(t *testing.T) {
 			require.NotNil(t, id)
 
 			s := Batch{
-				Messages: []*Message{{Message: &model.Envelope{
+				Messages: []*Message{{Message: []byte(`{
 					Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 						"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 					IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 					CipherText: "qQyzvajdvCDJbwxM",
 					Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-				}}},
+				}`)}},
 			}
 
 			// outbound has been handled, simulate a callback to finish the trip

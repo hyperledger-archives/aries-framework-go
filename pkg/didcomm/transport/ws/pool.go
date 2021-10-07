@@ -8,6 +8,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,13 +16,19 @@ import (
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/internal"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const (
 	// TODO configure ping request frequency.
 	pingFrequency = 30 * time.Second
+
+	// legacyKeyLen key length.
+	legacyKeyLen = 32
 )
 
 type connPool struct {
@@ -86,9 +93,9 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 			break
 		}
 
-		unpackMsg, err := d.packager.UnpackMessage(message)
+		unpackMsg, err := internal.UnpackMessage(message, d.packager, "ws")
 		if err != nil {
-			logger.Errorf("failed to unpack msg: %v", err)
+			logger.Errorf("%w", err)
 
 			continue
 		}
@@ -114,19 +121,34 @@ func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transport, conn *websocket.Conn) {
 	var fromKey string
 
-	fromPubKey := &cryptoapi.PublicKey{}
-
-	err := json.Unmarshal(unpackMsg.FromKey, fromPubKey)
-	if err != nil {
-		logger.Infof("addKey: unpackMsg.FromKey is not a public key [err: %s], convert it to did:key", err)
-
+	if len(unpackMsg.FromKey) == legacyKeyLen {
 		fromKey, _ = fingerprint.CreateDIDKey(unpackMsg.FromKey)
 	} else {
-		fromKey = fromPubKey.KID
+		fromPubKey := &cryptoapi.PublicKey{}
+
+		err := json.Unmarshal(unpackMsg.FromKey, fromPubKey)
+		if err != nil {
+			logger.Infof("addKey: unpackMsg.FromKey is not a public key [err: %s]. "+
+				"It will not be added to the ws connection.", err)
+		} else {
+			fromKey = fromPubKey.KID
+		}
 	}
 
 	if trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
-		d.add(fromKey, conn)
+		if fromKey != "" {
+			d.add(fromKey, conn)
+		}
+
+		keyAgreementIDs := d.checkKeyAgreementIDs(unpackMsg.Message)
+
+		for _, kaID := range keyAgreementIDs {
+			d.add(kaID, conn)
+		}
+
+		if fromKey == "" && len(keyAgreementIDs) == 0 {
+			logger.Warnf("addKey: no key is linked to ws connection.")
+		}
 	}
 }
 
@@ -139,4 +161,50 @@ func (d *connPool) close(conn *websocket.Conn, verKeys []string) {
 	for _, v := range verKeys {
 		d.remove(v)
 	}
+}
+
+func (d *connPool) checkKeyAgreementIDs(message []byte) []string {
+	req := &didexchange.Request{}
+
+	err := json.Unmarshal(message, req)
+	if err != nil {
+		logger.Debugf("unmarshal request message failed, ignoring keyAgreementID, err: %v", err)
+
+		return nil
+	}
+
+	if req.DocAttach == nil {
+		logger.Debugf("fetch message attachment/attachmentData is empty. Skipping adding KeyAgreementID to the pool.")
+
+		return nil
+	}
+
+	data, err := req.DocAttach.Data.Fetch()
+	if err != nil {
+		logger.Debugf("fetch message attachment data failed, ignoring keyAgreementID, err: %v", err)
+
+		return nil
+	}
+
+	doc := &did.Doc{}
+
+	err = json.Unmarshal(data, doc)
+	if err != nil {
+		logger.Debugf("unmarshal DID doc from attachment data failed, ignoring keyAgreementID, err: %v", err)
+
+		return nil
+	}
+
+	var keyAgreementIDs []string
+
+	for _, ka := range doc.KeyAgreement {
+		kaID := ka.VerificationMethod.ID
+		if strings.HasPrefix(kaID, "#") {
+			kaID = doc.ID + kaID
+		}
+
+		keyAgreementIDs = append(keyAgreementIDs, kaID)
+	}
+
+	return keyAgreementIDs
 }

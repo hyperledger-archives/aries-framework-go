@@ -32,7 +32,7 @@ async function waitUntil(f, timeoutMs) {
     });
 }
 
-export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = [], contextProviders = []) {
+export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = [], contextProviders = [], mediaTypeProfiles = ["didcomm/aip2;env=rfc19"]) {
     await waitUntil(() => AriesWeb !== null, 5000);
 
     return new AriesWeb({
@@ -44,17 +44,19 @@ export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = 
         "transport-return-route": "all",
         "log-level": environment.LOG_LEVEL,
         "db-namespace": dbNS,
-        "context-provider-url": contextProviders
+        "context-provider-url": contextProviders,
+        "media-type-profiles": mediaTypeProfiles
     })
 }
 
-export async function newAriesREST(controllerUrl) {
+export async function newAriesREST(controllerUrl, mediaTypeProfiles = ["didcomm/v2"]) {
     await waitUntil(() => AriesREST !== null, 5000);
 
     return new AriesREST({
         assetsPath: "/base/public/aries-framework-go/assets",
         "agent-rest-url": controllerUrl,
         "agent-rest-wshook": controllerUrl.replace("http://", "ws://") + "/ws",
+        "media-type-profiles": mediaTypeProfiles
     })
 }
 

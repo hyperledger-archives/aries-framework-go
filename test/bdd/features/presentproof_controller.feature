@@ -5,7 +5,6 @@
 #
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0037-present-proof
 
-@all
 @controller
 @present_proof_controller
 Feature: Present Proof using controller API

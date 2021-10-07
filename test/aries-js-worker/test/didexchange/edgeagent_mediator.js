@@ -66,7 +66,7 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
 
     before(async () => {
         return new Promise((resolve, reject) => {
-            newAries().then(
+            newAries(null, null, null, null, [`${environment.USER_MEDIA_TYPE_PROFILES}`]).then(
                 a => {
                     aries = a;
                     resolve()

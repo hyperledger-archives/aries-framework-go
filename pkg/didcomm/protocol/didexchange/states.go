@@ -730,8 +730,14 @@ func (ctx *context) addRouterKeys(doc *did.Doc, routerConnections []string) erro
 		for _, ka := range doc.KeyAgreement {
 			for _, connID := range routerConnections {
 				// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
-				//  recKeys to the Router
-				if err := mediator.AddKeyToRouter(ctx.routeSvc, connID, ka.VerificationMethod.ID); err != nil {
+				//  recKeys to the Router. (DIDComm V2 uses list of keyAgreements as router keys here, double check
+				//  if this issue can be closed).
+				kaID := ka.VerificationMethod.ID
+				if strings.HasPrefix(kaID, "#") {
+					kaID = doc.ID + kaID
+				}
+
+				if err := mediator.AddKeyToRouter(ctx.routeSvc, connID, kaID); err != nil {
 					return fmt.Errorf("did doc - add key to the router: %w", err)
 				}
 			}
