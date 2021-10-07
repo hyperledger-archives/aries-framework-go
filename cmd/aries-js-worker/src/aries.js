@@ -13,7 +13,7 @@ const inBrowser = typeof window !== 'undefined' && typeof window.document !== 'u
 const notifierWait = 10000
 
 // time out for command operations
-const commandTimeout = 20000
+const commandTimeout = 25000
 
 // base path to load assets from at runtime
 const __publicPath = _ => {
@@ -102,6 +102,7 @@ function newMsg(pkg, fn, payload) {
  *      "agent-rest-url": "http://controller.api.example.com",
  *      "agent-rest-wshook": "ws://controller.api.example.com",
  *      "context-provider-url": ["https://context-provider.example.com/ld_contexts.json"]
+ *      "media-type-profiles": ["didcomm/v2"]
  * }
  *
  * @param opts framework initialization options.

@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-@all
 @presentproof
 Feature: Present Proof protocol
   @begin_with_request_presentation

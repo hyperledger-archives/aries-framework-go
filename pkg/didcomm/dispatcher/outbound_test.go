@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -199,25 +198,6 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack forward msg")
-	})
-
-	t.Run("test send with forward message - envelop unmarshal error", func(t *testing.T) {
-		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{},
-			outboundTransportsValue: []transport.OutboundTransport{},
-			storageProvider:         mockstore.NewMockStoreProvider(),
-			protoStorageProvider:    mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
-		})
-		require.NoError(t, err)
-
-		_, err = o.createForwardMessage([]byte("invalid json"), &service.Destination{
-			ServiceEndpoint: "url",
-			RecipientKeys:   []string{"abc"},
-			RoutingKeys:     []string{"xyz"},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal envelope ")
 	})
 }
 
@@ -562,13 +542,8 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 	})
 }
 
-func createPackedMsgForForward(t *testing.T) []byte {
-	packedMsg := &model.Envelope{}
-
-	msg, err := json.Marshal(packedMsg)
-	require.NoError(t, err)
-
-	return msg
+func createPackedMsgForForward(_ *testing.T) []byte {
+	return []byte("")
 }
 
 // mockProvider mock provider.

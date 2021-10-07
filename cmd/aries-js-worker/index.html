@@ -106,9 +106,9 @@ This is a test page for developers to test WASM integration.
             document.getElementById("mode-label").innerHTML = `Running in ${mode} mode`
 
             if (src == "rest"){
-                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-rest-url": "http://localhost:8082", "agent-rest-wshook":"ws://localhost:8082/ws", "agent-rest-token":"arjswrkr001"}`
+                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-rest-url": "http://localhost:8082", "agent-rest-wshook":"ws://localhost:8082/ws", "agent-rest-token":"arjswrkr001", "media-type-profiles": ["didcomm/aip2;env=rfc19"]}`
             } else {
-                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-namespace":"demoagent"}`
+                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-namespace":"demoagent", "media-type-profiles": ["didcomm/aip2;env=rfc19"]}`
             }
         }
 
@@ -133,7 +133,7 @@ This is a test page for developers to test WASM integration.
                         <tr>
                             <td colspan="2">
                                 <div>Start Options :</div>
-                                <textarea id="opts" rows="5" cols="100">{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-namespace":"demoagent"}
+                                <textarea id="opts" rows="5" cols="100">{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-namespace":"demoagent", "media-type-profiles": ["didcomm/aip2;env=rfc19"]}
                     </textarea>
                             </td>
                         </tr>

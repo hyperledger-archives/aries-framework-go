@@ -81,6 +81,7 @@ type ariesStartOpts struct {
 	LogLevel             string   `json:"log-level"`
 	DBNamespace          string   `json:"db-namespace"`
 	ContextProviderURLs  []string `json:"context-provider-url"`
+	MediaTypeProfiles    []string `json:"media-type-profiles"`
 }
 
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
@@ -404,6 +405,10 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 
 	if len(opts.ContextProviderURLs) > 0 {
 		options = append(options, aries.WithJSONLDContextProviderURL(opts.ContextProviderURLs...))
+	}
+
+	if len(opts.MediaTypeProfiles) > 0 {
+		options = append(options, aries.WithMediaTypeProfiles(opts.MediaTypeProfiles))
 	}
 
 	return options, nil

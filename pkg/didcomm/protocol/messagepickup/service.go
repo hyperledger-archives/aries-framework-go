@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -329,7 +328,7 @@ func (r *inbox) EncodeMessages(msg []*Message) error {
 }
 
 // AddMessage add message to inbox.
-func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
+func (s *Service) AddMessage(message []byte, theirDID string) error {
 	s.inboxLock.Lock()
 	defer s.inboxLock.Unlock()
 
@@ -573,12 +572,7 @@ func (s *Service) setStatusCh(msgID string, statusCh chan Status) {
 }
 
 func (s *Service) handle(msg *Message) error {
-	d, err := json.Marshal(msg.Message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal msg: %w", err)
-	}
-
-	unpackMsg, err := s.packager.UnpackMessage(d)
+	unpackMsg, err := s.packager.UnpackMessage(msg.Message)
 	if err != nil {
 		return fmt.Errorf("failed to unpack msg: %w", err)
 	}

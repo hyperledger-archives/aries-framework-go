@@ -13,7 +13,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 )
@@ -26,7 +25,6 @@ func TestDefaultFramework(t *testing.T) {
 		aries := &Aries{}
 		err := defFrameworkOpts(aries)
 		require.NoError(t, err)
-		require.EqualValues(t, []string{transport.MediaTypeAIP2RFC0019Profile}, aries.mediaTypeProfiles)
 	})
 
 	t.Run("test with provided store - success", func(t *testing.T) {

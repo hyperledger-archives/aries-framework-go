@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package packager
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -277,16 +278,52 @@ type headerStub struct {
 	SKID string `json:"skid,omitempty"`
 }
 
-func getEncodingType(encMessage []byte) (string, error) {
+//nolint:funlen, gocyclo
+func getEncodingType(encMessage []byte) (string, []byte, error) {
+	var b64DecodedMessage []byte
+
 	env := &envelopeStub{}
 
+	//nolint:nestif
 	if strings.HasPrefix(string(encMessage), "{") { // full serialized
 		err := json.Unmarshal(encMessage, env)
 		if err != nil {
-			return "", fmt.Errorf("parse envelope: %w", err)
+			return "", nil, fmt.Errorf("parse envelope: %w", err)
 		}
-	} else { // compact serialized
-		env.Protected = strings.Split(string(encMessage), ".")[0]
+	} else {
+		doubleQuote := []byte("\"")
+
+		// packed message is base64 encoded and double-quoted.
+		if bytes.HasPrefix(encMessage, doubleQuote) && bytes.HasSuffix(encMessage, doubleQuote) {
+			msg := string(encMessage[1 : len(encMessage)-1])
+			var encodedEnvelope []byte
+
+			protBytes1, err1 := base64.URLEncoding.DecodeString(msg)
+			protBytes2, err2 := base64.RawURLEncoding.DecodeString(msg)
+
+			switch {
+			case err1 == nil:
+				encodedEnvelope = protBytes1
+			case err2 == nil:
+				encodedEnvelope = protBytes2
+			default:
+				return "", nil, fmt.Errorf("decode wrapped header: URLEncoding error: %w, RawURLEncoding error: %v",
+					err1, err2)
+			}
+
+			if bytes.HasPrefix(encodedEnvelope, []byte("{")) {
+				err := json.Unmarshal(encodedEnvelope, env)
+				if err != nil {
+					return "", nil, fmt.Errorf("parse wrapped envelope: %w", err)
+				}
+			} else { // compact serialized
+				env.Protected = strings.Split(string(encodedEnvelope), ".")[0]
+			}
+
+			b64DecodedMessage = encodedEnvelope
+		} else { // compact serialized
+			env.Protected = strings.Split(string(encMessage), ".")[0]
+		}
 	}
 
 	var protBytes []byte
@@ -300,14 +337,14 @@ func getEncodingType(encMessage []byte) (string, error) {
 	case err2 == nil:
 		protBytes = protBytes2
 	default:
-		return "", fmt.Errorf("decode header: %w", err1)
+		return "", nil, fmt.Errorf("decode header: URLEncoding error: %w, RawURLEncoding error: %v", err1, err2)
 	}
 
 	prot := &headerStub{}
 
 	err := json.Unmarshal(protBytes, prot)
 	if err != nil {
-		return "", fmt.Errorf("parse header: %w", err)
+		return "", nil, fmt.Errorf("parse header: %w", err)
 	}
 
 	packerID := prot.Type
@@ -318,12 +355,12 @@ func getEncodingType(encMessage []byte) (string, error) {
 		packerID += authSuffix
 	}
 
-	return packerID, nil
+	return packerID, b64DecodedMessage, nil
 }
 
 // UnpackMessage Unpack a message.
 func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error) {
-	encType, err := getEncodingType(encMessage)
+	encType, b64DecodedMessage, err := getEncodingType(encMessage)
 	if err != nil {
 		return nil, fmt.Errorf("getEncodingType: %w", err)
 	}
@@ -331,6 +368,10 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 	p, ok := bp.packers[encType]
 	if !ok {
 		return nil, fmt.Errorf("message Type not recognized")
+	}
+
+	if len(b64DecodedMessage) > 0 {
+		encMessage = b64DecodedMessage
 	}
 
 	envelope, err := p.Unpack(encMessage)

@@ -16,8 +16,7 @@ import (
 	"nhooyr.io/websocket"
 )
 
-// Accept accepts a WebSocket handshake from a client and upgrades the
-// the connection to a WebSocket.
+// Accept accepts a WebSocket handshake from a client and upgrades the connection to a WebSocket.
 func Accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	// TODO Allow user to enable InsecureSkipVerify https://github.com/hyperledger/aries-framework-go/issues/928
 	return websocket.Accept(w, r, &websocket.AcceptOptions{
@@ -35,7 +34,7 @@ func acceptRecipient(pool *connPool, keys []string) bool {
 				// remove from the pool
 				pool.remove(v)
 
-				logger.Infof("failed to ping to the connection for key=%s err=%v", err)
+				logger.Infof("failed to ping to the connection for key=%s err=%v. Connection removed from pool.", v, err)
 
 				return false
 			}

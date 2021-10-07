@@ -24,7 +24,6 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     Then   "Carl-Router,Carl" waits for post state event "completed" to web notifier
     And   "Carl-Router,Carl" retrieves connection record through controller and validates that connection state is "completed"
     And   "Carl" saves the connectionID to variable "carl-router-connID"
-
     # DID Exchange between Carl and his Router (second connection)
     When   "Carl-Router" creates invitation through controller with label "carl-second-router-agent"
     And   "Carl" receives invitation from "Carl-Router" through controller
@@ -37,8 +36,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     And   "Carl" saves the connectionID to variable "carl-second-router-connID"
 
      # DID Exchange between Dave and his Router
-    Given "Dave" agent is running with controller "https://localhost:10061" and "all" as the transport return route option
-    And   "Dave-Router" agent is running on "https://localhost:10071,wss://localhost:10072" with controller "https://localhost:10073"
+    Given "Dave" agent is running with controller "https://localhost:10041" and "all" as the transport return route option
+    And   "Dave-Router" agent is running on "https://localhost:10051,wss://localhost:10052" with controller "https://localhost:10053"
 
     When   "Dave-Router" creates invitation through controller with label "Dave-router-agent"
     And   "Dave" receives invitation from "Dave-Router" through controller

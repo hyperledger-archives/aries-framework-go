@@ -243,18 +243,12 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 		return msg, nil
 	}
 
-	env := &model.Envelope{}
-
-	err := json.Unmarshal(msg, env)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal envelope : %w", err)
-	}
 	// create forward message
 	forward := &model.Forward{
 		Type: service.ForwardMsgType,
 		ID:   uuid.New().String(),
 		To:   des.RecipientKeys[0],
-		Msg:  env,
+		Msg:  msg,
 	}
 
 	// convert forward message to bytes
