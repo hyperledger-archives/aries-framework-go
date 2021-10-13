@@ -596,7 +596,7 @@ func (a *SDKSteps) newOOBInvitation(agentID string, requests ...interface{}) (*o
 		}
 	}
 
-	if !didCommV2 {
+	if !didCommV2 && len(mtps) == 0 {
 		mtps = []string{transport.MediaTypeAIP2RFC0019Profile}
 	}
 

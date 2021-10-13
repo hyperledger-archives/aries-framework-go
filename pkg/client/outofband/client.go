@@ -130,6 +130,7 @@ type Client struct {
 	service.Event
 	didDocSvcFunc func(routerConnID string, accept []string) (*did.Service, error)
 	oobService    OobService
+	defaultAccept string
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
@@ -150,6 +151,13 @@ func New(p Provider) (*Client, error) {
 	}
 
 	client.didDocSvcFunc = client.didServiceBlockFunc(p)
+
+	profiles := p.MediaTypeProfiles()
+	if len(profiles) > 0 {
+		client.defaultAccept = profiles[0]
+	} else {
+		client.defaultAccept = transport.MediaTypeAIP2RFC0019Profile
+	}
 
 	return client, nil
 }
@@ -178,7 +186,7 @@ func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption)
 	}
 
 	if len(inv.Accept) == 0 {
-		inv.Accept = []string{transport.MediaTypeAIP2RFC0019Profile}
+		inv.Accept = []string{c.defaultAccept}
 	}
 
 	if len(inv.Services) == 0 {

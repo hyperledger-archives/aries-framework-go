@@ -44,6 +44,7 @@ func provider(ctrl *gomock.Controller) client.Provider {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+	provider.EXPECT().MediaTypeProfiles().AnyTimes()
 
 	return provider
 }

@@ -119,7 +119,7 @@ func runBddTests(tags, format string) int {
 		s.AfterSuite(func() {
 			for _, c := range composition {
 				if c != nil {
-					if err := c.GenerateLogs(c.Dir, c.ProjectName+".log"); err != nil {
+					if err := c.GenerateLogs(c.Dir, c.Dir+"-"+c.ProjectName+".log"); err != nil {
 						panic(err)
 					}
 					if _, err := c.Decompose(c.Dir); err != nil {

@@ -77,6 +77,12 @@ func (a *SDKSteps) scenario(keyType, keyAgreementType, mediaTypeProfile string) 
 	return nil
 }
 
+func (a *SDKSteps) useMediaTypeProfiles(mediaTypeProfiles string) error {
+	a.newMediaTypeProfiles = strings.Split(mediaTypeProfiles, ",")
+
+	return nil
+}
+
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
 	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, false)
@@ -258,6 +264,8 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	var opts []aries.Option
 
 	for _, agentID := range strings.Split(agents, ",") {
+		opts = nil
+
 		url := a.bddContext.Args[endpointURL]
 		if endpointURL == sideTreeURL {
 			url += "identifiers"
@@ -515,6 +523,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		`as the transport provider and http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithRegistrarAndHTTPDIDResolver)
 	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`, a.scenario)
+	s.Step(`^all agents are using Media Type Profiles "([^"]*)"$`, a.useMediaTypeProfiles)
 }
 
 func mustGetRandomPort(n int) int {

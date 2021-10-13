@@ -102,6 +102,7 @@ type Service struct {
 	extractDIDCommMsgBytesFunc func(*decorator.Attachment) ([]byte, error)
 	listenerFunc               func()
 	messenger                  service.Messenger
+	myMediaTypeProfiles        []string
 }
 
 type callback struct {
@@ -150,6 +151,7 @@ type Provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	InboundDIDCommMessageHandler() func() service.InboundHandler
 	Messenger() service.Messenger
+	MediaTypeProfiles() []string
 }
 
 // New creates a new instance of the out-of-band service.
@@ -190,6 +192,7 @@ func New(p Provider) (*Service, error) {
 		chooseAttachmentFunc:       chooseAttachment,
 		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
 		messenger:                  p.Messenger(),
+		myMediaTypeProfiles:        p.MediaTypeProfiles(),
 	}
 
 	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleCallback, s.handleDIDEvent)
@@ -437,7 +440,7 @@ func (s *Service) ActionContinue(piID string, opts Options) error {
 	ctx.ReuseAnyConnection = opts.ReuseAnyConnection()
 	ctx.MyLabel = opts.MyLabel()
 
-	err = validateInvitationAcceptance(ctx.Msg, opts)
+	err = validateInvitationAcceptance(ctx.Msg, s.myMediaTypeProfiles, opts)
 	if err != nil {
 		return fmt.Errorf("unable to accept invitation: %w", err)
 	}
@@ -558,7 +561,7 @@ func (s *Service) currentContext(msg service.DIDCommMsg, ctx service.DIDCommCont
 func (s *Service) AcceptInvitation(i *Invitation, options Options) (string, error) {
 	msg := service.NewDIDCommMsgMap(i)
 
-	err := validateInvitationAcceptance(msg, options)
+	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles, options)
 	if err != nil {
 		return "", fmt.Errorf("unable to accept invitation: %w", err)
 	}
@@ -662,7 +665,7 @@ func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 	logger.Debugf("input: %+v", c)
 	logger.Debugf("context: %+v", c.ctx)
 
-	err := validateInvitationAcceptance(c.msg, &userOptions{
+	err := validateInvitationAcceptance(c.msg, s.myMediaTypeProfiles, &userOptions{
 		myLabel:           c.ctx.MyLabel,
 		routerConnections: c.ctx.RouterConnections,
 		reuseAnyConn:      c.ctx.ReuseAnyConnection,
@@ -817,7 +820,7 @@ func (s *Service) extractDIDCommMsg(state *attachmentHandlingState) (service.DID
 	return msg, nil
 }
 
-func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error { // nolint:gocyclo
+func validateInvitationAcceptance(msg service.DIDCommMsg, myProfiles []string, opts Options) error { // nolint:gocyclo
 	if msg.Type() != InvitationMsgType {
 		return nil
 	}
@@ -854,20 +857,51 @@ func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error { 
 		}
 	}
 
-	profiles := map[string]int{
-		MediaTypeProfileDIDCommAIP2RFC19: 0,
-		MediaTypeProfileDIDCommV2:        0,
-		MediaTypeProfileAIP2RFC587:       0,
-		MediaTypeProfileDIDCommAIP1:      0,
-	}
-
-	for i := range inv.Accept {
-		if _, valid := profiles[inv.Accept[i]]; !valid {
-			return fmt.Errorf("invalid media type profile: %s", inv.Accept[i])
-		}
+	if !matchMediaTypeProfiles(inv.Accept, myProfiles) {
+		return fmt.Errorf("no acceptable media type profile found in invitation")
 	}
 
 	return nil
+}
+
+func matchMediaTypeProfiles(theirProfiles, myProfiles []string) bool {
+	if theirProfiles == nil {
+		// we use our preferred media type profile instead of confirming an overlap exists
+		return true
+	}
+
+	if myProfiles == nil {
+		myProfiles = defaultAcceptMediaTypeProfiles()
+	}
+
+	profiles := list2set(myProfiles)
+
+	for _, a := range theirProfiles {
+		if _, valid := profiles[a]; valid {
+			return true
+		}
+	}
+
+	return false
+}
+
+func defaultAcceptMediaTypeProfiles() []string {
+	return []string{
+		MediaTypeProfileDIDCommAIP2RFC19,
+		MediaTypeProfileDIDCommV2,
+		MediaTypeProfileAIP2RFC587,
+		MediaTypeProfileDIDCommAIP1,
+	}
+}
+
+func list2set(list []string) map[string]struct{} {
+	set := map[string]struct{}{}
+
+	for _, e := range list {
+		set[e] = struct{}{}
+	}
+
+	return set
 }
 
 func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitation, *Invitation, error) {

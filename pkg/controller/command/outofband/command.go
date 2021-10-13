@@ -122,6 +122,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		outofband.WithLabel(args.Label),
 		outofband.WithHandshakeProtocols(args.Protocols...),
 		outofband.WithRouterConnections(args.RouterConnectionID),
+		outofband.WithAccept(args.Accept...),
 	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
