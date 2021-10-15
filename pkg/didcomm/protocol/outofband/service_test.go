@@ -854,7 +854,7 @@ func TestAcceptInvitation(t *testing.T) {
 		inv.Accept = []string{"INVALID"}
 		_, err := s.AcceptInvitation(inv, &userOptions{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid media type profile")
+		require.Contains(t, err.Error(), "no acceptable media type profile found in invitation")
 	})
 }
 
