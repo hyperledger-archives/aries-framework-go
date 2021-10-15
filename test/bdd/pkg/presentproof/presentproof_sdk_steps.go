@@ -37,7 +37,7 @@ import (
 	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
-const timeout = time.Second * 15
+const timeout = time.Second * 25
 
 // nolint: gochecknoglobals
 var (

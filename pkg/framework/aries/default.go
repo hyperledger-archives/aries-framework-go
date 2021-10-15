@@ -229,10 +229,11 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.mediaTypeProfiles == nil {
-		// for now only set legacy media type profile to match default key type and primary packer above.
+		// For now only set legacy media type profile to match default key type and primary packer above.
+		// Using media type profile, not just a media type, in order to align with OOB invitations' Accept header.
 		// TODO once keyAgreement is added in the packers, this can be switched to DIDcomm V2 media type as well as
 		// 		switching legacyPacker with authcrtypt as primary packer and using an ECDH-1PU key as default key above.
-		frameworkOpts.mediaTypeProfiles = []string{transport.MediaTypeRFC0019EncryptedEnvelope}
+		frameworkOpts.mediaTypeProfiles = []string{transport.MediaTypeAIP2RFC0019Profile}
 	}
 
 	return nil

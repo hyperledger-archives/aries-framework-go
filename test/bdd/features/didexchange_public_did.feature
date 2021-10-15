@@ -35,7 +35,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then   "Maria" retrieves connection record and validates that connection state is "completed"
       And   "Lisa" retrieves connection record and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -64,7 +64,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then   "Julia" retrieves connection record and validates that connection state is "completed"
       And   "Kate" retrieves connection record and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -91,7 +91,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then   "Maja" retrieves connection record and validates that connection state is "completed"
       And   "Filip" retrieves connection record and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -121,7 +121,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then   "Uma" retrieves connection record and validates that connection state is "completed"
       And   "John" retrieves connection record and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -148,7 +148,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
     And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -173,7 +173,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
@@ -196,7 +196,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
     Examples:
-      | keyType  | keyAgreementType | mediaTypeProfile          |
+      | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |

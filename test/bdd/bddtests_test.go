@@ -87,7 +87,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-//nolint:gocognit,forbidigo
+//nolint:gocognit,forbidigo,gocyclo
 func runBddTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		s.BeforeSuite(func() {
@@ -117,6 +117,11 @@ func runBddTests(tags, format string) int {
 			}
 		})
 		s.AfterSuite(func() {
+			err := os.Remove("docker-compose.log")
+			if err != nil {
+				fmt.Printf("unable to delete docker-compose.log: %v, proceeding with docker decompose..", err)
+			}
+
 			for _, c := range composition {
 				if c != nil {
 					if err := c.GenerateLogs(c.Dir, c.Dir+"-"+c.ProjectName+".log"); err != nil {

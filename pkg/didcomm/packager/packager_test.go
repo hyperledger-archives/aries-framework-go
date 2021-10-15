@@ -509,6 +509,19 @@ func packUnPackSuccess(keyType kms.KeyType, customKMS kms.KeyManager, cryptoSvc 
 			unpackedMsg, err := packager.UnpackMessage(packMsg)
 			require.NoError(t, err)
 			require.Equal(t, unpackedMsg.Message, []byte("msg"))
+
+			switch tc.mediaType {
+			case transport.MediaTypeV1EncryptedEnvelope, transport.MediaTypeV1PlaintextPayload,
+				transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2PlaintextPayload,
+				transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeAIP2RFC0587Profile,
+				transport.MediaTypeDIDCommV2Profile:
+				// try to unpack with packedMsg base64 encoded and wrapped with double quotes.
+				wrappedMsg := append([]byte("\""), []byte(base64.RawURLEncoding.EncodeToString(packMsg))...)
+				wrappedMsg = append(wrappedMsg, []byte("\"")...)
+				unpackedMsg, err = packager.UnpackMessage(wrappedMsg)
+				require.NoError(t, err)
+				require.Equal(t, unpackedMsg.Message, []byte("msg"))
+			}
 		})
 	}
 }

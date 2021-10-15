@@ -128,9 +128,9 @@ type Provider interface {
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
 	service.Event
-	didDocSvcFunc func(routerConnID string, accept []string) (*did.Service, error)
-	oobService    OobService
-	defaultAccept string
+	didDocSvcFunc     func(routerConnID string, accept []string) (*did.Service, error)
+	oobService        OobService
+	mediaTypeProfiles []string
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
@@ -145,19 +145,19 @@ func New(p Provider) (*Client, error) {
 		return nil, fmt.Errorf("failed to cast service %s as a dependency", outofband.Name)
 	}
 
+	mtp := p.MediaTypeProfiles()
+
+	if len(mtp) == 0 {
+		mtp = []string{transport.MediaTypeAIP2RFC0019Profile}
+	}
+
 	client := &Client{
-		Event:      oobSvc,
-		oobService: oobSvc,
+		Event:             oobSvc,
+		oobService:        oobSvc,
+		mediaTypeProfiles: mtp,
 	}
 
 	client.didDocSvcFunc = client.didServiceBlockFunc(p)
-
-	profiles := p.MediaTypeProfiles()
-	if len(profiles) > 0 {
-		client.defaultAccept = profiles[0]
-	} else {
-		client.defaultAccept = transport.MediaTypeAIP2RFC0019Profile
-	}
 
 	return client, nil
 }
@@ -186,7 +186,7 @@ func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption)
 	}
 
 	if len(inv.Accept) == 0 {
-		inv.Accept = []string{c.defaultAccept}
+		inv.Accept = c.mediaTypeProfiles
 	}
 
 	if len(inv.Services) == 0 {

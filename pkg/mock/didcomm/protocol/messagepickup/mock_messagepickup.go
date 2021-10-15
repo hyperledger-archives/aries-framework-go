@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package messagepickup
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 )
@@ -22,7 +21,7 @@ type MockMessagePickupSvc struct {
 	BatchPickupFunc    func(connectionID string, size int) (int, error)
 	HandleInboundFunc  func(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error)
 	HandleOutboundFunc func(_ service.DIDCommMsg, _, _ string) (string, error)
-	AddMessageFunc     func(message *model.Envelope, theirDID string) error
+	AddMessageFunc     func(message []byte, theirDID string) error
 	AddMessageErr      error
 	AcceptFunc         func(msgType string) bool
 	NoopErr            error
@@ -83,7 +82,7 @@ func (m *MockMessagePickupSvc) Accept(msgType string) bool {
 }
 
 // AddMessage perform AddMessage.
-func (m *MockMessagePickupSvc) AddMessage(message *model.Envelope, theirDID string) error {
+func (m *MockMessagePickupSvc) AddMessage(message []byte, theirDID string) error {
 	if m.AddMessageErr != nil {
 		return m.AddMessageErr
 	}

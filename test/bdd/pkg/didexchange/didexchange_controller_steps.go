@@ -430,7 +430,8 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) error {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
-		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
+		return fmt.Errorf("failed to get connection ID for agent: '%v', router: '%v' from webhook, %w",
+			agentID, routerID, err)
 	}
 
 	// inviter connectionID

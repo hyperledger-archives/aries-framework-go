@@ -773,13 +773,13 @@ func TestServiceForwardMsg(t *testing.T) {
 		msgID := randomID()
 		invalidDID := "did:error:123"
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		msg := generateForwardMsgPayload(t, msgID, to, content)
 
@@ -827,19 +827,19 @@ func TestMessagePickup(t *testing.T) {
 	t.Run("test service handle inbound message pick up - success", func(t *testing.T) {
 		to := randomID()
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
-						AddMessageFunc: func(message *model.Envelope, theirDID string) error {
+						AddMessageFunc: func(message []byte, theirDID string) error {
 							require.Equal(t, content, message)
 							return nil
 						},
@@ -874,13 +874,13 @@ func TestMessagePickup(t *testing.T) {
 	t.Run("test service handle inbound message pick up - add message error", func(t *testing.T) {
 		to := randomID()
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
@@ -1485,7 +1485,7 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	return didMsg
 }
 
-func generateForwardMsgPayload(t *testing.T, id, to string, msg *model.Envelope) service.DIDCommMsg {
+func generateForwardMsgPayload(t *testing.T, id, to string, msg []byte) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&model.Forward{
 		Type: service.ForwardMsgType,
 		ID:   id,

@@ -55,6 +55,7 @@ func TestNew(t *testing.T) {
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(nil, errors.New("error"))
+	provider.EXPECT().MediaTypeProfiles().Return(nil).AnyTimes()
 
 	const errMsg = "outofband command : cannot create a client: failed to look up service out-of-band : error"
 
