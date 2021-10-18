@@ -22,7 +22,7 @@ type MockPresentProofSvc struct {
 	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) (string, error)
 	AcceptFunc         func(string) bool
 	ActionsFunc        func() ([]presentproof.Action, error)
-	ActionContinueFunc func(string, presentproof.Opt) error
+	ActionContinueFunc func(string, ...presentproof.Opt) error
 }
 
 // HandleInbound msg.
@@ -71,15 +71,15 @@ func (m *MockPresentProofSvc) Actions() ([]presentproof.Action, error) {
 }
 
 // ActionContinue mock implementation of present proof service action continue interface.
-func (m *MockPresentProofSvc) ActionContinue(piID string, opt presentproof.Opt) error {
+func (m *MockPresentProofSvc) ActionContinue(piID string, opt ...presentproof.Opt) error {
 	if m.ActionContinueFunc != nil {
-		return m.ActionContinueFunc(piID, opt)
+		return m.ActionContinueFunc(piID, opt...)
 	}
 
 	return nil
 }
 
 // ActionStop mock implementation of present proof service action stop interface.
-func (m *MockPresentProofSvc) ActionStop(piID string, err error) error {
+func (m *MockPresentProofSvc) ActionStop(piID string, err error, opt ...presentproof.Opt) error {
 	return nil
 }

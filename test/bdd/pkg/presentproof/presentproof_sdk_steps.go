@@ -89,6 +89,11 @@ const vpStrFromWallet = `
 }
 `
 
+const (
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+)
+
 // SDKSteps is steps for the presentproof using client SDK.
 type SDKSteps struct {
 	bddContext *context.BDDContext
@@ -131,11 +136,18 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		a.acceptRequestPresentationBBSV3)
 	s.Step(`^"([^"]*)" declines a request presentation$`, a.declineRequestPresentation)
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
+	s.Step(`^"([^"]*)" declines presentation and requests redirect to "([^"]*)"$`, a.declinePresentationWithRedirect)
 	s.Step(`^"([^"]*)" declines a propose presentation$`, a.declineProposePresentation)
+	s.Step(`^"([^"]*)" declines a propose presentation and requests redirect to "([^"]*)"$`,
+		a.declineProposePresentationWithRedirect)
 	s.Step(`^"([^"]*)" receives problem report message \(Present Proof\)$`, a.receiveProblemReport)
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover$`, a.acceptProposePresentation)
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request v3 to the Prover$`, a.acceptProposePresentationV3)
 	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)"$`, a.acceptPresentation)
+	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)" and requests redirect to "([^"]*)"$`,
+		a.acceptPresentationWithRedirect)
+	s.Step(`^"([^"]*)" receives present proof event "([^"]*)" with status "([^"]*)" and redirect "([^"]*)"$`,
+		a.validatePresentProofStatus)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name$`, a.checkPresentation)
 	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name and has "([^"]*)" proof$`,
 		a.checkPresentationAndProof)
@@ -201,6 +213,7 @@ func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
 			if stateID != e.StateID {
 				return fmt.Errorf("history of events doesn't meet the expectation %q != %q", stateID, e.StateID)
 			}
+
 		case <-time.After(timeout):
 			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
 		}
@@ -691,30 +704,72 @@ func (a *SDKSteps) declineRequestPresentation(agent string) error {
 }
 
 func (a *SDKSteps) declineProposePresentation(agent string) error {
+	return a.declineProposePresentationWithRedirect(agent, "")
+}
+
+func (a *SDKSteps) declineProposePresentationWithRedirect(agent, redirect string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
 	}
 
-	return a.clients[agent].DeclineProposePresentation(PIID, "rejected")
+	return a.clients[agent].DeclineProposePresentation(PIID, presentproof.DeclineReason("rejected"),
+		presentproof.DeclineRedirect(redirect))
 }
 
 func (a *SDKSteps) declinePresentation(agent string) error {
+	return a.declinePresentationWithRedirect(agent, "")
+}
+
+func (a *SDKSteps) declinePresentationWithRedirect(agent, redirect string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
 	}
 
-	return a.clients[agent].DeclinePresentation(PIID, "rejected")
+	return a.clients[agent].DeclinePresentation(PIID, presentproof.DeclineReason("rejected"),
+		presentproof.DeclineRedirect(redirect))
 }
 
 func (a *SDKSteps) acceptPresentation(agent, name string) error {
+	return a.acceptPresentationWithRedirect(agent, name, "")
+}
+
+func (a *SDKSteps) acceptPresentationWithRedirect(agent, name, redirect string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
 	}
 
-	return a.clients[agent].AcceptPresentation(PIID, name)
+	return a.clients[agent].AcceptPresentation(PIID,
+		presentproof.AcceptByRequestingRedirect(redirect), presentproof.AcceptByFriendlyNames(name))
+}
+
+func (a *SDKSteps) validatePresentProofStatus(agent, stateID, status, redirect string) error {
+	for {
+		select {
+		case e := <-a.events[agent]:
+			if stateID != e.StateID {
+				continue
+			}
+
+			properties := e.Properties.All()
+
+			redirectStatus, ok := properties[webRedirectStatusKey]
+			if !ok || redirectStatus != status {
+				return fmt.Errorf("expected redirect status [%s], but found [%s] ", status, redirectStatus)
+			}
+
+			redirectURL, ok := properties[webRedirectURLKey]
+			if !ok || redirectURL != redirect {
+				return fmt.Errorf("expected redirect url [%s], but found [%s] ", redirect, redirectURL)
+			}
+
+			return nil
+		case <-time.After(timeout):
+			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
+		}
+	}
 }
 
 func (a *SDKSteps) negotiateRequestPresentation(agent string) error {

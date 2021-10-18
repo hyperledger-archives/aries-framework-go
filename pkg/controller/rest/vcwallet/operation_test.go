@@ -1630,7 +1630,7 @@ func TestOperation_PresentProof(t *testing.T) {
 
 	t.Run("wallet present proof failure", func(t *testing.T) {
 		ppSvc := &mockpresentproof.MockPresentProofSvc{
-			ActionContinueFunc: func(string, presentproofSvc.Opt) error {
+			ActionContinueFunc: func(string, ...presentproofSvc.Opt) error {
 				return fmt.Errorf(sampleCommandError)
 			},
 		}

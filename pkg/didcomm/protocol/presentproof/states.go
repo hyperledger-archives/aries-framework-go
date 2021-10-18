@@ -36,6 +36,7 @@ const (
 	// error codes.
 	codeInternalError = "internal"
 	codeRejectedError = "rejected"
+	webRedirect       = "~web-redirect"
 )
 
 // state action for network call.
@@ -50,6 +51,8 @@ type state interface {
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
 	Execute(msg *metaData) (state, stateAction, error)
+	// Message properties required for further steps or next state transition.
+	Properties() map[string]interface{}
 }
 
 // represents zero state's action.
@@ -79,10 +82,15 @@ func (s *start) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: is not implemented yet", s.Name())
 }
 
+func (s *start) Properties() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // abandoned state.
 type abandoned struct {
-	V    string
-	Code string
+	V          string
+	Code       string
+	properties map[string]interface{}
 }
 
 func (s *abandoned) Name() string {
@@ -116,20 +124,26 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 		if s.V == SpecV3 {
 			return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReportV2{
 				Type: ProblemReportMsgTypeV3,
-				Body: model.ProblemReportV2Body{Code: code.Code},
+				Body: model.ProblemReportV2Body{Code: code.Code, WebRedirect: md.properties[webRedirect]},
 			}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 		}
 
 		return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReport{
 			Type:        ProblemReportMsgTypeV2,
 			Description: code,
+			WebRedirect: md.properties[webRedirect],
 		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 	}, nil
 }
 
+func (s *abandoned) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // done state.
 type done struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *done) Name() string {
@@ -142,6 +156,10 @@ func (s *done) CanTransitionTo(_ state) bool {
 
 func (s *done) Execute(_ *metaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
+}
+
+func (s *done) Properties() map[string]interface{} {
+	return s.properties
 }
 
 // noOp state.
@@ -157,6 +175,10 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 
 func (s *noOp) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
+}
+
+func (s *noOp) Properties() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 // requestReceived the Prover's state.
@@ -196,6 +218,10 @@ func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 	}
 
 	return &presentationSent{V: s.V, WillConfirm: req.WillConfirm}, zeroAction, nil
+}
+
+func (s *requestReceived) Properties() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 // requestSent the Verifier's state.
@@ -271,6 +297,10 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
+func (s *requestSent) Properties() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // presentationSent the Prover's state.
 type presentationSent struct {
 	V           string
@@ -317,6 +347,10 @@ func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
 	return &noOp{}, action, nil
 }
 
+func (s *presentationSent) Properties() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // presentationReceived the Verifier's state.
 type presentationReceived struct {
 	V string
@@ -341,16 +375,22 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 		if s.V == SpecV3 {
 			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.AckV2{
 				Type: AckMsgTypeV3,
+				Body: model.AckV2Body{WebRedirect: md.properties[webRedirect]},
 			}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 		}
 
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
-			Type:   AckMsgTypeV2,
-			Status: "OK",
+			Type:        AckMsgTypeV2,
+			Status:      "OK",
+			WebRedirect: md.properties[webRedirect],
 		}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &done{V: s.V}, action, nil
+}
+
+func (s *presentationReceived) Properties() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 // proposalSent the Prover's state.
@@ -393,6 +433,10 @@ func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
+func (s *proposalSent) Properties() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // proposalReceived the Verifier's state.
 type proposalReceived struct {
 	V string
@@ -409,4 +453,8 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 
 func (s *proposalReceived) Execute(_ *metaData) (state, stateAction, error) {
 	return &requestSent{V: s.V}, zeroAction, nil
+}
+
+func (s *proposalReceived) Properties() map[string]interface{} {
+	return map[string]interface{}{}
 }

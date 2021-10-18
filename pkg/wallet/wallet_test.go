@@ -3055,7 +3055,7 @@ func TestWallet_PresentProof(t *testing.T) {
 
 	t.Run("test present proof failure", func(t *testing.T) {
 		ppSvc := &mockpresentproof.MockPresentProofSvc{
-			ActionContinueFunc: func(string, presentproofSvc.Opt) error {
+			ActionContinueFunc: func(string, ...presentproofSvc.Opt) error {
 				return fmt.Errorf(sampleWalletErr)
 			},
 		}

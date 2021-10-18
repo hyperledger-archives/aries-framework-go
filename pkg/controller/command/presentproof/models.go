@@ -17,6 +17,9 @@ type DeclinePresentationArgs struct {
 	PIID string `json:"piid"`
 	// Reason why presentation is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect once presentation is declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclinePresentationResponse model
@@ -34,6 +37,9 @@ type DeclineProposePresentationArgs struct {
 	PIID string `json:"piid"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect after its proposal gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclineProposePresentationResponse model
@@ -76,6 +82,9 @@ type AcceptPresentationArgs struct {
 	PIID string `json:"piid"`
 	// Names represent the names of how presentations will be stored
 	Names []string `json:"names"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect once protocol is over.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // AcceptPresentationResponse model

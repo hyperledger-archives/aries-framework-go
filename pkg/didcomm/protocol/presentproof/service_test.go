@@ -210,7 +210,7 @@ func TestService_ActionContinue(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		err = svc.ActionContinue("piID", nil)
+		err = svc.ActionContinue("piID")
 		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
 	})
 }
@@ -1236,11 +1236,11 @@ func Test_nextState(t *testing.T) {
 
 	next, err = nextState(randomInboundMessage(AckMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
-	require.Equal(t, next, &done{V: SpecV2})
+	require.Equal(t, next, &done{V: SpecV2, properties: map[string]interface{}{}})
 
 	next, err = nextState(randomInboundMessage(ProblemReportMsgTypeV2), inboundMessage)
 	require.NoError(t, err)
-	require.Equal(t, next, &abandoned{V: SpecV2})
+	require.Equal(t, next, &abandoned{V: SpecV2, properties: map[string]interface{}{}})
 
 	next, err = nextState(service.NewDIDCommMsgMap(struct{}{}), outboundMessage)
 	require.Error(t, err)

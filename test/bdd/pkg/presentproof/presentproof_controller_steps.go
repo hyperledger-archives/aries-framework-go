@@ -84,8 +84,10 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
 	gs.Step(`^"([^"]*)" negotiates about the request presentation v3 with a proposal through PresentProof controller$`, s.negotiateRequestPresentationV3)
 	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name through PresentProof controller$`, s.acceptPresentation)
+	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name and "([^"]*)" redirect through PresentProof controller$`, s.acceptPresentationWithRedirect)
 	gs.Step(`^"([^"]*)" checks that presentation is being stored under the "([^"]*)" name$`, s.checkPresentation)
 	gs.Step(`^"([^"]*)" sends "([^"]*)" to "([^"]*)" through PresentProof controller$`, s.sendMessage)
+	gs.Step(`^"([^"]*)" validates present proof state "([^"]*)" and redirect "([^"]*)" through PresentProof controller$`, s.validateState)
 }
 
 func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
@@ -415,6 +417,10 @@ func (s *ControllerSteps) negotiateRequestPresentationV3(agent string) error {
 }
 
 func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
+	return s.acceptPresentationWithRedirect(verifier, name, "")
+}
+
+func (s *ControllerSteps) acceptPresentationWithRedirect(verifier, name, redirect string) error {
 	url, ok := s.bddContext.GetControllerURL(verifier)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
@@ -428,7 +434,8 @@ func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 	s.nameToPIID[name] = piid
 
 	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), presentproofcmd.AcceptPresentationArgs{
-		Names: []string{name},
+		Names:       []string{name},
+		RedirectURL: redirect,
 	}, nil)
 }
 
@@ -473,6 +480,22 @@ func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 	}
 
 	return errors.New("presentation not found")
+}
+
+func (s *ControllerSteps) validateState(agent, state, redirect string) error {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agent,
+		util.FilterTopic("present-proof_states"),
+		util.FilterStateID("done"),
+	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
+	if redirect != msg.Message.Properties["url"] {
+		return fmt.Errorf("failed redirect URL validation, expected[%s]: found[%s]", redirect, msg.Message.Properties["url"])
+	}
+
+	return nil
 }
 
 func (s *ControllerSteps) agentDID(ds *didexsteps.ControllerSteps, agent string) (string, error) {
