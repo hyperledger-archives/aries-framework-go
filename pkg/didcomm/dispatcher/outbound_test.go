@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
@@ -251,37 +252,35 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		require.Contains(t, err.Error(), "resolve error")
 	})
 
-	t.Run("error if cannot fetch connection id", func(t *testing.T) {
+	t.Run("resolve err 2", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
 			vdr: &mockvdr.MockVDRegistry{
-				ResolveErr: fmt.Errorf("resolve error"),
+				ResolveFunc: countDownMockResolveFunc(mockDoc, 1, fmt.Errorf("resolve error")),
 			},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
-		expected := errors.New("test")
-
 		o.connections = &mockConnectionLookup{
-			getConnectionByDIDsErr: expected,
+			getConnectionRecordVal: &connection.Record{},
 		}
 
 		err = o.SendToDID("data", "", "")
-		require.ErrorIs(t, err, expected)
-		require.Contains(t, err.Error(), "failed to fetch connection ID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "resolve error")
 	})
 
 	t.Run("error if cannot fetch connection record", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{},
 			vdr: &mockvdr.MockVDRegistry{
-				ResolveErr: fmt.Errorf("resolve error"),
+				ResolveValue: mockDoc,
 			},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
@@ -304,28 +303,54 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to fetch connection record")
 	})
 
-	t.Run("success event with nil connection, using default media type profile", func(t *testing.T) {
+	t.Run("create destination err", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			vdr: &mockvdr.MockVDRegistry{
-				ResolveValue: mockDoc,
+				ResolveValue: &did.Doc{},
 			},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
 			},
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
 
-		expected := storage.ErrDataNotFound
-
 		o.connections = &mockConnectionLookup{
-			getConnectionByDIDsErr: expected,
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordVal: &connection.Record{},
 		}
 
-		require.NoError(t, o.SendToDID("data", "", ""))
+		err = o.SendToDID("data", "abc", "def")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get didcomm destination")
+	})
+
+	t.Run("create destination err 2", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveFunc: countDownMockResolveFunc(&did.Doc{}, 1, mockDoc),
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordVal: &connection.Record{},
+		}
+
+		err = o.SendToDID("data", "abc", "def")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to get didcomm destination")
 	})
 
 	t.Run("success event with nil connection record, using default media type profile", func(t *testing.T) {
@@ -346,11 +371,37 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		expected := storage.ErrDataNotFound
 
 		o.connections = &mockConnectionLookup{
-			getConnectionByDIDsVal: "mock1",
 			getConnectionRecordErr: expected,
 		}
 
 		require.NoError(t, o.SendToDID("data", "", ""))
+	})
+
+	t.Run("fail with nil connection record, unable to save new record", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeV1EncryptedEnvelope},
+		})
+		require.NoError(t, err)
+
+		expected := fmt.Errorf("store error")
+
+		o.connections = &mockConnectionLookup{
+			getConnectionRecordErr: storage.ErrDataNotFound,
+			saveConnectionErr:      expected,
+		}
+
+		err = o.SendToDID("data", "", "")
+		require.ErrorIs(t, err, expected)
+		require.Contains(t, err.Error(), "failed to save new connection")
 	})
 
 	t.Run("success event with nil connection record, using default media type profile with "+
@@ -641,6 +692,7 @@ type mockConnectionLookup struct {
 	getConnectionByDIDsErr error
 	getConnectionRecordVal *connection.Record
 	getConnectionRecordErr error
+	saveConnectionErr      error
 }
 
 func (m *mockConnectionLookup) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
@@ -649,4 +701,50 @@ func (m *mockConnectionLookup) GetConnectionIDByDIDs(myDID, theirDID string) (st
 
 func (m *mockConnectionLookup) GetConnectionRecord(s string) (*connection.Record, error) {
 	return m.getConnectionRecordVal, m.getConnectionRecordErr
+}
+
+func (m *mockConnectionLookup) GetConnectionRecordByDIDs(myDID, theirDID string) (*connection.Record, error) {
+	if m.getConnectionByDIDsErr != nil {
+		return nil, m.getConnectionByDIDsErr
+	}
+
+	return m.getConnectionRecordVal, m.getConnectionRecordErr
+}
+
+func (m *mockConnectionLookup) SaveConnectionRecord(record *connection.Record) error {
+	return m.saveConnectionErr
+}
+
+func countDownMockResolveFunc(first interface{}, countFirst int, rest interface{},
+) func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	var (
+		firstDoc *did.Doc
+		restDoc  *did.Doc
+		firstErr error
+		restErr  error
+	)
+
+	switch f := first.(type) {
+	case *did.Doc:
+		firstDoc = f
+	case error:
+		firstErr = f
+	}
+
+	switch r := rest.(type) {
+	case *did.Doc:
+		restDoc = r
+	case error:
+		restErr = r
+	}
+
+	return func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+		if countFirst <= 0 {
+			return &did.DocResolution{DIDDocument: restDoc}, restErr
+		}
+
+		countFirst--
+
+		return &did.DocResolution{DIDDocument: firstDoc}, firstErr
+	}
 }

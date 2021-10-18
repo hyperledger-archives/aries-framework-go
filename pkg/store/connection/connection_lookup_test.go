@@ -43,8 +43,22 @@ func TestNewConnectionReader(t *testing.T) {
 		require.Nil(t, lookup)
 	})
 
+	t.Run("create new connection reader failure due to protocol state store config error", func(t *testing.T) {
+		lookup, err := NewLookup(&mockProvider{protocolStoreConfError: fmt.Errorf(sampleErrMsg)})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleErrMsg)
+		require.Nil(t, lookup)
+	})
+
 	t.Run("create new connection reader failure due to store error", func(t *testing.T) {
 		lookup, err := NewLookup(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleErrMsg)
+		require.Nil(t, lookup)
+	})
+
+	t.Run("create new connection reader failure due to store config error", func(t *testing.T) {
+		lookup, err := NewLookup(&mockProvider{storeConfError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
@@ -349,6 +363,21 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		require.Error(t, err)
 		require.Empty(t, result)
 	})
+
+	t.Run("test query connection record failure - protocol state store read", func(t *testing.T) {
+		expected := fmt.Errorf("query error")
+
+		recorder, err := NewRecorder(&mockProvider{
+			protocolStateStore: &mockstorage.MockStore{ErrQuery: expected},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		result, err := recorder.QueryConnectionRecords()
+		require.Error(t, err)
+		require.Empty(t, result)
+		require.ErrorIs(t, err, expected)
+	})
 }
 
 func TestGetConnectionIDByDIDs(t *testing.T) {
@@ -374,16 +403,43 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 		connectionID, err := recorder.GetConnectionIDByDIDs(myDID, theirDID)
 		require.NoError(t, err)
 		require.Equal(t, sampleConnID, connectionID)
+
+		connectionRecord, err := recorder.GetConnectionRecordByDIDs(myDID, theirDID)
+		require.NoError(t, err)
+		require.Equal(t, sampleConnID, connectionRecord.ConnectionID)
+
+		connectionRecord, err = recorder.GetConnectionRecordByTheirDID(theirDID)
+		require.NoError(t, err)
+		require.Equal(t, sampleConnID, connectionRecord.ConnectionID)
 	})
 
-	t.Run("get connection record by did - no mapping found", func(t *testing.T) {
+	t.Run("get connection record by did - not found", func(t *testing.T) {
 		recorder, err := NewRecorder(&mockProvider{})
 		require.NoError(t, err)
 
 		connectionID, err := recorder.GetConnectionIDByDIDs(myDID, theirDID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get did-connection map")
+		require.Contains(t, err.Error(), "get connection record by DIDs")
 		require.Empty(t, connectionID)
+
+		connectionRecord, err := recorder.GetConnectionRecordByDIDs(myDID, theirDID)
+		require.Error(t, err)
+		require.ErrorIs(t, err, storage.ErrDataNotFound)
+		require.Nil(t, connectionRecord)
+	})
+
+	t.Run("get connection record by did - store query error", func(t *testing.T) {
+		expected := fmt.Errorf("query error")
+
+		recorder, err := NewRecorder(&mockProvider{
+			store: &mockstorage.MockStore{ErrQuery: expected},
+		})
+		require.NoError(t, err)
+
+		connectionRecord, err := recorder.GetConnectionRecordByDIDs(myDID, theirDID)
+		require.Error(t, err)
+		require.ErrorIs(t, err, expected)
+		require.Nil(t, connectionRecord)
 	})
 }
 
@@ -391,32 +447,36 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 type mockProvider struct {
 	protocolStateStoreError error
 	storeError              error
+	protocolStoreConfError  error
+	storeConfError          error
 	store                   storage.Store
 	protocolStateStore      storage.Store
 }
 
 // ProtocolStateStorageProvider is mock protocol state storage provider for connection recorder.
 func (p *mockProvider) ProtocolStateStorageProvider() storage.Provider {
-	if p.protocolStateStoreError != nil {
-		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.protocolStateStoreError}
-	}
-
-	if p.protocolStateStore != nil {
-		return mockstorage.NewCustomMockStoreProvider(p.protocolStateStore)
-	}
-
-	return mockstorage.NewMockStoreProvider()
+	return mockStorageProvider(p.protocolStateStore, p.protocolStateStoreError, p.protocolStoreConfError)
 }
 
 // StorageProvider is mock storage provider for connection recorder.
 func (p *mockProvider) StorageProvider() storage.Provider {
-	if p.storeError != nil {
-		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: p.storeError}
+	return mockStorageProvider(p.store, p.storeError, p.storeConfError)
+}
+
+func mockStorageProvider(store storage.Store, errOpen, errConfig error) storage.Provider {
+	if errOpen != nil {
+		return &mockstorage.MockStoreProvider{ErrOpenStoreHandle: errOpen}
 	}
 
-	if p.store != nil {
-		return mockstorage.NewCustomMockStoreProvider(p.store)
+	var m *mockstorage.MockStoreProvider
+
+	if store != nil {
+		m = mockstorage.NewCustomMockStoreProvider(store)
+	} else {
+		m = mockstorage.NewMockStoreProvider()
 	}
 
-	return mockstorage.NewMockStoreProvider()
+	m.ErrSetStoreConfig = errConfig
+
+	return m
 }

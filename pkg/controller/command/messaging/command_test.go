@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -447,6 +448,15 @@ func TestCommand_Send(t *testing.T) {
 			},
 		}
 
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		t.Parallel()
 
 		for _, test := range tests {
@@ -461,7 +471,10 @@ func TestCommand_Send(t *testing.T) {
 					connBytes, errMarshal := json.Marshal(tc.testConnection)
 					require.NoError(t, errMarshal)
 					require.NoError(t, store.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes,
-						spi.Tag{Name: "conn_"}))
+						spi.Tag{Name: "conn_"},
+						spi.Tag{Name: "bothDIDs", Value: mockDIDTagFunc(tc.testConnection.MyDID, tc.testConnection.TheirDID)},
+						spi.Tag{Name: "theirDID", Value: mockDIDTagFunc(tc.testConnection.TheirDID)},
+					))
 				}
 
 				cmd, err := New(&protocol.MockProvider{

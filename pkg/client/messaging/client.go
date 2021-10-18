@@ -9,6 +9,7 @@ package messaging
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -24,9 +25,6 @@ import (
 )
 
 const (
-	// states.
-	stateNameCompleted = "completed"
-
 	// errors.
 	errMsgDestinationMissing = "missing message destination"
 )
@@ -230,24 +228,13 @@ func (c *Client) sendToConnection(msg service.DIDCommMsgMap, connectionID string
 }
 
 func (c *Client) sendToTheirDID(msg service.DIDCommMsgMap, theirDID string) (messageDispatcher, error) {
-	records, err := c.connectionLookup.QueryConnectionRecords()
-	if err != nil {
-		return nil, err
-	}
-
-	var conn *connection.Record
-
-	for _, record := range records {
-		if record.State == stateNameCompleted && record.TheirDID == theirDID {
-			conn = record
-			break
-		}
-	}
-
-	if conn != nil {
+	conn, err := c.connectionLookup.GetConnectionRecordByTheirDID(theirDID)
+	if err == nil {
 		return func() error {
 			return c.ctx.Messenger().Send(msg, conn.MyDID, conn.TheirDID)
 		}, nil
+	} else if !errors.Is(err, storage.ErrDataNotFound) {
+		return nil, err
 	}
 
 	dest, err := service.GetDestination(theirDID, c.ctx.VDRegistry())

@@ -258,14 +258,14 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 }
 
 func (a *SDKSteps) sendRequestPresentationV3(agent1, agent2 string) error {
-	conn, err := a.getConnection(agent1, agent2)
+	did1, did2, err := a.getDIDs(agent1, agent2)
 	if err != nil {
 		return err
 	}
 
 	_, err = a.clients[agent1].SendRequestPresentationV3(&presentproof.RequestPresentationV3{
 		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
-	}, conn.MyDID, conn.TheirDID)
+	}, did1, did2)
 
 	return err
 }
@@ -434,7 +434,7 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 		return err
 	}
 
-	conn, err := a.getConnection(prover, verifier)
+	proverDID, _, err := a.getDIDs(prover, verifier)
 	if err != nil {
 		return err
 	}
@@ -445,19 +445,19 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 	}
 
 	vp, err := verifiable.ParsePresentation(
-		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
+		[]byte(fmt.Sprintf(vpStrFromWallet, proverDID, proverDID)),
 		verifiable.WithPresJSONLDDocumentLoader(loader),
 		verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		return fmt.Errorf("failed to decode VP JSON: %w", err)
 	}
 
-	jwtClaims, err := vp.JWTClaims([]string{conn.MyDID}, true)
+	jwtClaims, err := vp.JWTClaims([]string{proverDID}, true)
 	if err != nil {
 		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
 	}
 
-	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(conn.MyDID)
+	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(proverDID)
 	if err != nil {
 		return err
 	}
@@ -833,6 +833,30 @@ func (a *SDKSteps) createClient(agentID string) error {
 	}
 
 	return client.RegisterActionEvent(a.actions[agentID])
+}
+
+func (a *SDKSteps) getDIDs(agent1, agent2 string) (string, string, error) {
+	if err := a.createClient(agent1); err != nil {
+		return "", "", err
+	}
+
+	if err := a.createClient(agent2); err != nil {
+		return "", "", err
+	}
+
+	doc1, ok1 := a.bddContext.PublicDIDDocs[agent1]
+	doc2, ok2 := a.bddContext.PublicDIDDocs[agent2]
+
+	if ok1 && ok2 {
+		return doc1.ID, doc2.ID, nil
+	}
+
+	conn, err := a.getConnection(agent1, agent2)
+	if err != nil {
+		return "", "", err
+	}
+
+	return conn.MyDID, conn.TheirDID, nil
 }
 
 func (a *SDKSteps) getConnection(agent1, agent2 string) (*didexchange.Connection, error) {

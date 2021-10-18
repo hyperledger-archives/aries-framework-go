@@ -1509,6 +1509,15 @@ type connectionsStub struct {
 	getConnRecord   func(string) (*connection.Record, error)
 }
 
+func (c *connectionsStub) GetConnectionRecordByDIDs(myDID, theirDID string) (*connection.Record, error) {
+	connID, err := c.GetConnectionIDByDIDs(myDID, theirDID)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.GetConnectionRecord(connID)
+}
+
 func (c *connectionsStub) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
 	if c.getConnIDByDIDs != nil {
 		return c.getConnIDByDIDs(myDID, theirDID)
