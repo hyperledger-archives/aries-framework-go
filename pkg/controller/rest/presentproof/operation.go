@@ -276,8 +276,9 @@ func (c *Operation) DeclineRequestPresentation(rw http.ResponseWriter, req *http
 func (c *Operation) DeclineProposePresentation(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.DeclineProposePresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
 		"piid":%q,
-		"reason":%q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
+		"reason":%q,
+		"redirectURL":%q
+	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"), req.URL.Query().Get("redirectURL"))))
 }
 
 // DeclinePresentation swagger:route POST /presentproof/{piid}/decline-presentation present-proof presentProofDeclinePresentation
@@ -290,8 +291,9 @@ func (c *Operation) DeclineProposePresentation(rw http.ResponseWriter, req *http
 func (c *Operation) DeclinePresentation(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(c.command.DeclinePresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
 		"piid":%q,
-		"reason":%q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
+		"reason":%q,
+		"redirectURL":%q
+	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"), req.URL.Query().Get("redirectURL"))))
 }
 
 func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reader) {

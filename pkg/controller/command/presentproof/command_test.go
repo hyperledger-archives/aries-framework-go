@@ -1406,7 +1406,7 @@ func TestCommand_DeclineProposePresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1428,7 +1428,7 @@ func TestCommand_DeclineProposePresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1484,7 +1484,7 @@ func TestCommand_DeclinePresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1506,7 +1506,7 @@ func TestCommand_DeclinePresentation(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)

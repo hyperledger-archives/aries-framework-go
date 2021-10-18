@@ -159,6 +159,16 @@ func (d *AttachmentData) Fetch() ([]byte, error) {
 	return nil, errors.New("no contents in this attachment")
 }
 
+// WebRedirect decorator for passing web redirect info to ask recipient of the message
+// to redirect after completion of flow.
+type WebRedirect struct {
+	// Status of the operation,
+	// Refer https://github.com/hyperledger/aries-rfcs/blob/main/features/0015-acks/README.md#ack-status.
+	Status string `json:"status,omitempty"`
+	// URL to which recipient of this message is being requested to redirect.
+	URL string `json:"url,omitempty"`
+}
+
 type rawSig struct {
 	Header    rawSigHeader `json:"header,omitempty"`
 	Signature string       `json:"signature,omitempty"`

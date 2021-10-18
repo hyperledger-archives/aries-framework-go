@@ -545,7 +545,8 @@ func (c *Command) DeclineProposePresentation(rw io.Writer, req io.Reader) comman
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclineProposePresentation(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclineProposePresentation(args.PIID,
+		presentproof.DeclineReason(args.Reason), presentproof.DeclineRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclineProposePresentation, err.Error())
 		return command.NewExecuteError(DeclineProposePresentationErrorCode, err)
 	}
@@ -571,7 +572,8 @@ func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error 
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.AcceptPresentation(args.PIID, args.Names...); err != nil {
+	if err := c.client.AcceptPresentation(args.PIID, presentproof.AcceptByRequestingRedirect(args.RedirectURL),
+		presentproof.AcceptByFriendlyNames(args.Names...)); err != nil {
 		logutil.LogError(logger, CommandName, AcceptPresentation, err.Error())
 		return command.NewExecuteError(AcceptPresentationErrorCode, err)
 	}
@@ -623,7 +625,8 @@ func (c *Command) DeclinePresentation(rw io.Writer, req io.Reader) command.Error
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclinePresentation(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclinePresentation(args.PIID,
+		presentproof.DeclineReason(args.Reason), presentproof.DeclineRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclinePresentation, err.Error())
 		return command.NewExecuteError(DeclinePresentationErrorCode, err)
 	}

@@ -232,7 +232,7 @@ func TestClient_DeclineRequestPresentation(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 
 	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionStop("PIID", errors.New("declined")).Return(nil)
+	svc.EXPECT().ActionStop("PIID", errors.New("declined"), gomock.Any()).Return(nil)
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 	client, err := New(provider)
@@ -280,13 +280,13 @@ func TestClient_DeclineProposePresentation(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 
 	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionStop("PIID", errors.New("declined")).Return(nil)
+	svc.EXPECT().ActionStop("PIID", errors.New("declined"), gomock.Any()).Return(nil)
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeclineProposePresentation("PIID", "declined"))
+	require.NoError(t, client.DeclineProposePresentation("PIID", DeclineReason("declined")))
 }
 
 func TestClient_AcceptPresentation(t *testing.T) {
@@ -305,6 +305,23 @@ func TestClient_AcceptPresentation(t *testing.T) {
 	require.NoError(t, client.AcceptPresentation("PIID"))
 }
 
+func TestClient_AcceptPresentationByRedirect(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptPresentation("PIID",
+		AcceptByRequestingRedirect("https://example.com/success"), AcceptByFriendlyNames("test1")))
+}
+
 func TestClient_DeclinePresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -312,13 +329,14 @@ func TestClient_DeclinePresentation(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 
 	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionStop("PIID", errors.New("declined")).Return(nil)
+	svc.EXPECT().ActionStop("PIID", errors.New("declined"), gomock.Any()).Return(nil)
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeclinePresentation("PIID", "declined"))
+	require.NoError(t, client.DeclinePresentation("PIID", DeclineReason("declined"),
+		DeclineRedirect("http://example.com")))
 }
 
 func TestClient_AcceptProblemReport(t *testing.T) {

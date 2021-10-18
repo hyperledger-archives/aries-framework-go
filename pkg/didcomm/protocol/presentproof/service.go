@@ -77,6 +77,7 @@ type transitionalPayload struct {
 	StateName   string
 	AckRequired bool
 	Direction   messageDirection
+	Properties  map[string]interface{}
 }
 
 type messageDirection string
@@ -232,6 +233,21 @@ func WithRequestPresentationV3(msg *RequestPresentationV3) Opt {
 func WithFriendlyNames(names ...string) Opt {
 	return func(md *metaData) {
 		md.presentationNames = names
+	}
+}
+
+// WithProperties allows providing custom properties.
+func WithProperties(props map[string]interface{}) Opt {
+	return func(md *metaData) {
+		if len(md.properties) == 0 {
+			md.properties = props
+
+			return
+		}
+
+		for k, v := range props {
+			md.properties[k] = v
+		}
 	}
 }
 
@@ -395,9 +411,10 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap, direction messageDirection
 				Msg:  msg,
 				PIID: piID,
 			},
-			Direction: direction,
+			Direction:  direction,
+			Properties: next.Properties(),
 		},
-		properties: map[string]interface{}{},
+		properties: next.Properties(),
 		state:      next,
 		msgClone:   msg.Clone(),
 	}, nil
@@ -545,9 +562,9 @@ func nextState(msg service.DIDCommMsgMap, direction messageDirection) (state, er
 	case PresentationMsgTypeV2, PresentationMsgTypeV3:
 		return &presentationReceived{V: getVersion(msg.Type())}, nil
 	case ProblemReportMsgTypeV2, ProblemReportMsgTypeV3:
-		return &abandoned{V: getVersion(msg.Type())}, nil
+		return &abandoned{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	case AckMsgTypeV2, AckMsgTypeV3:
-		return &done{V: getVersion(msg.Type())}, nil
+		return &done{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	}
 
 	return nil, fmt.Errorf("unrecognized msgType: %s", msg.Type())
@@ -559,6 +576,14 @@ func getVersion(t string) string {
 	}
 
 	return SpecV3
+}
+
+func redirectInfo(msg service.DIDCommMsgMap) map[string]interface{} {
+	if redirectInfo, ok := msg[webRedirect].(map[string]interface{}); ok {
+		return redirectInfo
+	}
+
+	return map[string]interface{}{}
 }
 
 func getDIDVersion(v string) service.Version {
@@ -649,7 +674,7 @@ func (s *Service) Actions() ([]Action, error) {
 }
 
 // ActionContinue allows proceeding with the action by the piID.
-func (s *Service) ActionContinue(piID string, opt Opt) error {
+func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -659,10 +684,10 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName, getVersion(tPayload.Msg.Type())),
 		msgClone:            tPayload.Msg.Clone(),
-		properties:          map[string]interface{}{},
+		properties:          tPayload.Properties,
 	}
 
-	if opt != nil {
+	for _, opt := range opts {
 		opt(md)
 	}
 
@@ -676,7 +701,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 }
 
 // ActionStop allows stopping the action by the piID.
-func (s *Service) ActionStop(piID string, cErr error) error {
+func (s *Service) ActionStop(piID string, cErr error, opts ...Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -686,7 +711,11 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName, tPayload.Msg.Type()),
 		msgClone:            tPayload.Msg.Clone(),
-		properties:          map[string]interface{}{},
+		properties:          tPayload.Properties,
+	}
+
+	for _, opt := range opts {
+		opt(md)
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {

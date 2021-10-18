@@ -164,3 +164,26 @@ Feature: Present Proof protocol
     And "Logan" accepts a presentation with name "bachelors degree"
     And "Logan" checks that presentation is being stored under "bachelors degree" name
     Then "Arthur" checks the history of events "proposal-sent,proposal-sent,request-received,request-received,proposal-sent,proposal-sent,request-received,request-received,presentation-sent,presentation-sent,done,done"
+  @share_redirect_presentation_ack
+  Scenario: The Verifier begins with a request presentation (Web Redirect)
+    Given "Dan" exchange DIDs with "Tracy"
+    Then "Dan" sends a request presentation to the "Tracy"
+    And "Tracy" accepts a request and sends a presentation to the "Dan"
+    And "Dan" accepts a presentation with name "license" and requests redirect to "http://example.com/success"
+    And "Dan" checks that presentation is being stored under "license" name
+    Then "Tracy" receives present proof event "done" with status "OK" and redirect "http://example.com/success"
+  @share_redirect_presentation_problem_report_1
+  Scenario: The Verifier declines presentation (Web Redirect)
+    Given "Tim" exchange DIDs with "Wendy"
+    Then "Tim" sends a request presentation to the "Wendy"
+    And "Wendy" accepts a request and sends a presentation to the "Tim"
+    And "Tim" declines presentation and requests redirect to "http://example.com/error"
+    Then "Wendy" receives problem report message (Present Proof)
+    Then "Wendy" receives present proof event "abandoned" with status "FAIL" and redirect "http://example.com/error"
+  @share_redirect_presentation_problem_report_2
+  Scenario: The Verifier declines presentation (Web Redirect)
+    Given "Tiana" exchange DIDs with "Gracia"
+    Then "Gracia" sends a propose presentation to the "Tiana"
+    And "Tiana" declines a propose presentation and requests redirect to "http://example.com/error"
+    Then "Gracia" receives problem report message (Present Proof)
+    Then "Gracia" receives present proof event "abandoned" with status "FAIL" and redirect "http://example.com/error"

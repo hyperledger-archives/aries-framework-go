@@ -9,6 +9,7 @@
 @present_proof_controller
 Feature: Present Proof using controller API
 
+  @present_proof_presentation_request
   Scenario: The Verifier begins with a presentation request
     Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
       And "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
@@ -141,3 +142,16 @@ Feature: Present Proof using controller API
 
     Then  "Johnny" successfully accepts a presentation with "custom-vp-v3" name through PresentProof controller
     And "Johnny" checks that presentation is being stored under the "custom-vp-v3" name
+
+  @present_proof_redirect_ack
+  Scenario: The Verifier begins with a presentation request (redirect)
+    Given "Ginger" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Leo" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Ginger" has established connection with "Leo" through PresentProof controller
+
+    When  "Ginger" sends "request_presentation_default.json" to "Leo" through PresentProof controller
+    And "Leo" sends "presentation_default.json" to "Ginger" through PresentProof controller
+
+    Then  "Ginger" successfully accepts a presentation with "passport" name and "https://example.com/success" redirect through PresentProof controller
+    And "Ginger" checks that presentation is being stored under the "passport" name
+    And "Leo" validates present proof state "done" and redirect "https://example.com/success" through PresentProof controller

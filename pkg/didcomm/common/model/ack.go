@@ -10,10 +10,11 @@ import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator
 
 // Ack acknowledgement struct.
 type Ack struct {
-	Type   string            `json:"@type,omitempty"`
-	ID     string            `json:"@id,omitempty"`
-	Status string            `json:"status,omitempty"`
-	Thread *decorator.Thread `json:"~thread,omitempty"`
+	Type        string            `json:"@type,omitempty"`
+	ID          string            `json:"@id,omitempty"`
+	Status      string            `json:"status,omitempty"`
+	Thread      *decorator.Thread `json:"~thread,omitempty"`
+	WebRedirect interface{}       `json:"~web-redirect,omitempty"`
 }
 
 // AckV2 acknowledgement struct.
@@ -25,5 +26,6 @@ type AckV2 struct {
 
 // AckV2Body represents body for AckV2.
 type AckV2Body struct {
-	Status string `json:"status,omitempty"`
+	Status      string      `json:"status,omitempty"`
+	WebRedirect interface{} `json:"~web-redirect,omitempty"`
 }
