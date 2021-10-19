@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // createProfileRequest is request model for creating a new wallet profile.
@@ -310,6 +311,16 @@ type presentProofRequest struct { // nolint: unused,deadcode
 	//
 	// in: body
 	Params *vcwallet.PresentProofRequest
+}
+
+// presentProofResponse is response model from wallet present proof operation.
+//
+// swagger:response presentProofRes
+type presentProofResponse struct {
+	// response containing status of present proof operation.
+	//
+	// in: body
+	Response *wallet.PresentProofStatus `json:"response"`
 }
 
 // emptyRes model

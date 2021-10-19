@@ -376,4 +376,19 @@ type PresentProofRequest struct {
 
 	// presentation to be sent as part of present proof message.
 	Presentation json.RawMessage `json:"presentation,omitempty"`
+
+	// If true then wallet will wait for present proof protocol status to be
+	// done or abandoned till given Timeout.
+	// Also, will return web redirect info if found in acknowledgment message or problem-report.
+	WaitForDone bool `json:"waitForDone,omitempty"`
+
+	// Optional timeout (in milliseconds) waiting for present proof operation to be done.
+	// will be taken into account only when WaitForDone is enabled.
+	// If not provided then wallet will use its default timeout.
+	Timeout time.Duration `json:"WaitForDoneTimeout,omitempty"`
+}
+
+// PresentProofResponse is response model from wallet present proof operation.
+type PresentProofResponse struct {
+	wallet.PresentProofStatus
 }

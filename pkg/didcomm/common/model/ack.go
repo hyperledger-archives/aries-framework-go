@@ -8,6 +8,14 @@ package model
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
+// acknowledgement status constants.
+// Refer https://github.com/hyperledger/aries-rfcs/blob/main/features/0015-acks/README.md#ack-status.
+const (
+	AckStatusOK      = "OK"
+	AckStatusFAIL    = "FAIL"
+	AckStatusPENDING = "PENDING"
+)
+
 // Ack acknowledgement struct.
 type Ack struct {
 	Type        string            `json:"@type,omitempty"`

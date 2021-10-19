@@ -398,21 +398,41 @@ type presentProofOpts struct {
 	// presenting proof verifiable presentation instance.
 	// this option takes precedence when provided with other options.
 	presentation *verifiable.Presentation
+	// if provided then wallet will wait till it gets acknowledgement or problem report from verifier.
+	waitForDone bool
+	// time duration to wait for present proof done.
+	timeout time.Duration
 }
 
-// PresentProofFrom is option to send present proof from wallet.
-type PresentProofFrom func(opts *presentProofOpts)
+// PresentProofOptions is option to send present proof from wallet.
+type PresentProofOptions func(opts *presentProofOpts)
 
 // FromPresentation for sending aries verifiable presentation.
-func FromPresentation(presentation *verifiable.Presentation) PresentProofFrom {
+func FromPresentation(presentation *verifiable.Presentation) PresentProofOptions {
 	return func(opts *presentProofOpts) {
 		opts.presentation = presentation
 	}
 }
 
 // FromRawPresentation for sending raw JSON as presentation.
-func FromRawPresentation(raw json.RawMessage) PresentProofFrom {
+func FromRawPresentation(raw json.RawMessage) PresentProofOptions {
 	return func(opts *presentProofOpts) {
 		opts.rawPresentation = raw
+	}
+}
+
+// WaitForDone if provided then wallet will wait for present proof protocol status to be
+// done or abandoned till given timeout. If used then wallet will wait for acknowledgement or problem report
+// from verifier and also will return web redirect info if found in incoming message.
+// If timeout is zero then wallet will use its default timeout.
+func WaitForDone(timeout time.Duration) PresentProofOptions {
+	return func(opts *presentProofOpts) {
+		opts.waitForDone = true
+
+		if timeout <= 0 {
+			opts.timeout = defaultWaitForPresentProofDone
+		} else {
+			opts.timeout = timeout
+		}
 	}
 }

@@ -408,14 +408,14 @@ func (c *Client) ProposePresentation(invitation *outofband.Invitation, options .
 // 		- presentation: presentation to be sent.
 //
 // Returns:
+// 		- present proof status including web redirect info.
 // 		- error if operation fails.
 //
-// TODO: wait for acknowledgement option to be added.
-func (c *Client) PresentProof(thID string, presentProofFrom wallet.PresentProofFrom) error {
+func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.PresentProofOptions) (*wallet.PresentProofStatus, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.wallet.PresentProof(auth, thID, presentProofFrom)
+	return c.wallet.PresentProof(auth, thID, presentProofFrom...)
 }

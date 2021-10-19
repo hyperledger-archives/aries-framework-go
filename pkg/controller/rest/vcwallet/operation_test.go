@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -24,6 +25,7 @@ import (
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -244,6 +246,9 @@ const (
             ]
         }
     }`
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+	exampleWebRedirect   = "http://example.com/sample"
 )
 
 func TestNew(t *testing.T) {
@@ -1614,6 +1619,50 @@ func TestOperation_PresentProof(t *testing.T) {
 	defer lock()
 
 	t.Run("wallet present proof success", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: presentproofSvc.StateNameDone,
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							webRedirectStatusKey: model.AckStatusOK,
+							webRedirectURLKey:    exampleWebRedirect,
+						},
+					},
+					Msg: &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		request := &vcwallet.PresentProofRequest{
+			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     thID,
+			Presentation: json.RawMessage{},
+			WaitForDone:  true,
+			Timeout:      1 * time.Millisecond,
+		}
+
+		rq := httptest.NewRequest(http.MethodPost, PresentProofPath, getReader(t, request))
+		rw := httptest.NewRecorder()
+
+		cmd := New(mockctx, &vcwallet.Config{})
+		cmd.PresentProof(rw, rq)
+		require.Equal(t, rw.Code, http.StatusOK)
+
+		var r presentProofResponse
+		require.NoError(t, json.NewDecoder(rw.Body).Decode(&r.Response))
+		require.NotEmpty(t, r)
+		require.NotEmpty(t, r.Response)
+		require.Equal(t, model.AckStatusOK, r.Response.Status)
+		require.NotEmpty(t, exampleWebRedirect, r.Response.RedirectURL)
+	})
+
+	t.Run("wallet present proof success - wait for done", func(t *testing.T) {
 		request := &vcwallet.PresentProofRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
@@ -1775,4 +1824,14 @@ func parsePresentation(t *testing.T, b *bytes.Buffer) *verifiable.Presentation {
 	require.NoError(t, err)
 
 	return vp
+}
+
+// mockMsg containing custom parent thread ID.
+type mockMsg struct {
+	*service.DIDCommMsgMap
+	thID string
+}
+
+func (m *mockMsg) ParentThreadID() string {
+	return m.thID
 }
