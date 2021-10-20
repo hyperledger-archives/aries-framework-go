@@ -824,12 +824,14 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
 
-	err = vcWallet.PresentProof(request.Auth, request.ThreadID, wallet.FromRawPresentation(request.Presentation))
+	status, err := vcWallet.PresentProof(request.Auth, request.ThreadID, preparePresentProofOpts(request)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
 
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
+
+	command.WriteNillableResponse(rw, status, logger)
 
 	logutil.LogDebug(logger, CommandName, PresentProofMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
@@ -985,4 +987,14 @@ func prepareDeriveOption(rqst *DeriveRequest) wallet.CredentialToDerive {
 	}
 
 	return wallet.FromRawCredential(rqst.RawCredential)
+}
+
+func preparePresentProofOpts(rqst *PresentProofRequest) []wallet.PresentProofOptions {
+	var options []wallet.PresentProofOptions
+
+	if rqst.WaitForDone {
+		options = append(options, wallet.WaitForDone(rqst.Timeout))
+	}
+
+	return append(options, wallet.FromRawPresentation(rqst.Presentation))
 }

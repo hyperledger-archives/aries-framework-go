@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -57,9 +58,14 @@ const (
 	msgEventBufferSize   = 10
 	presentProofMimeType = "application/ld+json"
 
+	// web redirect constants.
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+
 	// timeout constants.
 	defaultDIDExchangeTimeOut                = 120 * time.Second
 	defaultWaitForRequestPresentationTimeOut = 120 * time.Second
+	defaultWaitForPresentProofDone           = 120 * time.Second
 	retryDelay                               = 500 * time.Millisecond
 )
 
@@ -721,19 +727,21 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 // Returns:
 // 		- error if operation fails.
 //
-// TODO: wait for acknowledgement option to be added.
-func (c *Wallet) PresentProof(authToken, thID string, presentProofFrom PresentProofFrom) error {
-	presFrom := &presentProofOpts{}
-	presentProofFrom(presFrom)
+func (c *Wallet) PresentProof(authToken, thID string, options ...PresentProofOptions) (*PresentProofStatus, error) {
+	opts := &presentProofOpts{}
 
-	var presentation interface{}
-	if presFrom.presentation != nil {
-		presentation = presFrom.presentation
-	} else {
-		presentation = presFrom.rawPresentation
+	for _, option := range options {
+		option(opts)
 	}
 
-	return c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
+	var presentation interface{}
+	if opts.presentation != nil {
+		presentation = opts.presentation
+	} else {
+		presentation = opts.rawPresentation
+	}
+
+	err := c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
 		Type: presentproofSvc.PresentationMsgTypeV2,
 		PresentationsAttach: []decorator.Attachment{{
 			ID:       uuid.New().String(),
@@ -743,6 +751,33 @@ func (c *Wallet) PresentProof(authToken, thID string, presentProofFrom PresentPr
 			},
 		}},
 	}, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// wait for ack or problem-report.
+	if opts.waitForDone {
+		statusCh := make(chan service.StateMsg, msgEventBufferSize)
+
+		err = c.presentProofClient.RegisterMsgEvent(statusCh)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register present proof msg event : %w", err)
+		}
+
+		defer func() {
+			e := c.presentProofClient.UnregisterMsgEvent(statusCh)
+			if e != nil {
+				logger.Warnf("Failed to unregister msg event for present proof: %w", e)
+			}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+		defer cancel()
+
+		return waitForPresentProof(ctx, statusCh, thID)
+	}
+
+	return &PresentProofStatus{Status: model.AckStatusPENDING}, nil
 }
 
 //nolint: funlen,gocyclo
@@ -1040,6 +1075,67 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("time out waiting for did exchange state 'completed'")
+	}
+}
+
+// wait for present proof status to be completed (done or abandoned) from prover side.
+func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll
+	done := make(chan *PresentProofStatus)
+
+	go func() {
+		for msg := range didStateMsgs {
+			// match post state.
+			if msg.Type != service.PostState {
+				continue
+			}
+
+			// invalid state msg.
+			if msg.Msg == nil {
+				continue
+			}
+
+			// match parent thread ID.
+			if msg.Msg.ParentThreadID() != thID {
+				continue
+			}
+
+			// match protocol state.
+			if msg.StateID != presentproofSvc.StateNameDone && msg.StateID != presentproofSvc.StateNameAbandoned {
+				continue
+			}
+
+			properties := msg.Properties.All()
+
+			response := &PresentProofStatus{}
+
+			if redirect, ok := properties[webRedirectURLKey]; ok {
+				response.RedirectURL = redirect.(string) //nolint: errcheck, forcetypeassert
+			}
+
+			if redirectStatus, ok := properties[webRedirectStatusKey]; ok {
+				response.Status = redirectStatus.(string) //nolint: errcheck, forcetypeassert
+			}
+
+			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
+			if response.Status == "" {
+				if msg.StateID == presentproofSvc.StateNameAbandoned {
+					response.Status = model.AckStatusFAIL
+				} else {
+					response.Status = model.AckStatusOK
+				}
+			}
+
+			done <- response
+
+			return
+		}
+	}()
+
+	select {
+	case status := <-done:
+		return status, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
 	}
 }
 

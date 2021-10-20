@@ -522,9 +522,9 @@ func stateFromName(name, v string) state {
 	switch name {
 	case stateNameStart:
 		return &start{}
-	case stateNameAbandoned:
+	case StateNameAbandoned:
 		return &abandoned{V: v}
-	case stateNameDone:
+	case StateNameDone:
 		return &done{V: v}
 	case stateNameRequestSent:
 		return &requestSent{V: v}

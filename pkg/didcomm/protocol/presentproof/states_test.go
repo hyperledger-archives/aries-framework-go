@@ -48,7 +48,7 @@ func TestStart_Execute(t *testing.T) {
 
 func TestAbandoning_CanTransitionTo(t *testing.T) {
 	st := &abandoned{}
-	require.Equal(t, stateNameAbandoned, st.Name())
+	require.Equal(t, StateNameAbandoned, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.False(t, st.CanTransitionTo(&abandoned{}))
@@ -172,7 +172,7 @@ func TestAbandoning_Execute(t *testing.T) {
 
 func TestDone_CanTransitionTo(t *testing.T) {
 	st := &done{}
-	require.Equal(t, stateNameDone, st.Name())
+	require.Equal(t, StateNameDone, st.Name())
 	notTransition(t, st)
 }
 

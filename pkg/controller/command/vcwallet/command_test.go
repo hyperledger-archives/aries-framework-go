@@ -23,6 +23,7 @@ import (
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -244,6 +245,9 @@ const (
             ]
         }
     }`
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+	exampleWebRedirect   = "http://example.com/sample"
 )
 
 func TestNew(t *testing.T) {
@@ -2130,6 +2134,48 @@ func TestCommand_PresentProof(t *testing.T) {
 		require.NoError(t, cmdErr)
 	})
 
+	t.Run("successfully present proof - wait for done", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: presentproofSvc.StateNameDone,
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							webRedirectStatusKey: model.AckStatusOK,
+							webRedirectURLKey:    exampleWebRedirect,
+						},
+					},
+					Msg: &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &PresentProofRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     thID,
+			Presentation: json.RawMessage{},
+			WaitForDone:  true,
+			Timeout:      1 * time.Millisecond,
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.PresentProof(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response wallet.PresentProofStatus
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Equal(t, exampleWebRedirect, response.RedirectURL)
+		require.Equal(t, model.AckStatusOK, response.Status)
+	})
+
 	t.Run("failed to present proof", func(t *testing.T) {
 		ppSvc := &mockpresentproof.MockPresentProofSvc{
 			ActionContinueFunc: func(string, ...presentproofSvc.Opt) error {
@@ -2331,4 +2377,14 @@ type mockHeaderSigner struct{}
 // SignHeader mock implementation.
 func (s *mockHeaderSigner) SignHeader(req *http.Request, capabilityBytes []byte) (*http.Header, error) {
 	return &http.Header{}, nil
+}
+
+// mockMsg containing custom parent thread ID.
+type mockMsg struct {
+	*service.DIDCommMsgMap
+	thID string
+}
+
+func (m *mockMsg) ParentThreadID() string {
+	return m.thID
 }

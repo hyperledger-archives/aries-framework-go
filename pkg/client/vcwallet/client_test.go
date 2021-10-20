@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -342,6 +343,9 @@ const (
                     ],
                     "required": true
                 }`
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+	exampleWebRedirect   = "http://example.com/sample"
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -1744,8 +1748,47 @@ func TestClient_PresentProof(t *testing.T) {
 		require.NoError(t, err)
 		defer vcWallet.Close()
 
-		err = vcWallet.PresentProof(uuid.New().String(), wallet.FromPresentation(&verifiable.Presentation{}))
+		response, err := vcWallet.PresentProof(uuid.New().String(), wallet.FromPresentation(&verifiable.Presentation{}))
 		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusPENDING, response.Status)
+	})
+
+	t.Run("test present proof success - wait for done", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: presentproofSvc.StateNameDone,
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							webRedirectStatusKey: model.AckStatusOK,
+							webRedirectURLKey:    exampleWebRedirect,
+						},
+					},
+					Msg: &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		vcWallet, err := New(sampleUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, vcWallet)
+
+		err = vcWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		defer vcWallet.Close()
+
+		response, err := vcWallet.PresentProof(thID, wallet.FromPresentation(&verifiable.Presentation{}),
+			wallet.WaitForDone(1*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusOK, response.Status)
+		require.Equal(t, exampleWebRedirect, response.RedirectURL)
 	})
 
 	t.Run("test present proof failure - auth error", func(t *testing.T) {
@@ -1753,8 +1796,9 @@ func TestClient_PresentProof(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, vcWallet)
 
-		err = vcWallet.PresentProof(uuid.New().String(), wallet.FromPresentation(&verifiable.Presentation{}))
+		response, err := vcWallet.PresentProof(uuid.New().String(), wallet.FromPresentation(&verifiable.Presentation{}))
 		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, response)
 	})
 }
 
@@ -1804,4 +1848,14 @@ func (s *mockStorageProvider) SetStoreConfig(name string, config storage.StoreCo
 
 func (s *mockStorageProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
 	return s.config, nil
+}
+
+// mockMsg containing custom parent thread ID.
+type mockMsg struct {
+	*service.DIDCommMsgMap
+	thID string
+}
+
+func (m *mockMsg) ParentThreadID() string {
+	return m.thID
 }

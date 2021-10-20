@@ -1145,8 +1145,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 
 func Test_stateFromName(t *testing.T) {
 	require.Equal(t, stateFromName(stateNameStart, SpecV2), &start{})
-	require.Equal(t, stateFromName(stateNameAbandoned, SpecV2), &abandoned{V: SpecV2})
-	require.Equal(t, stateFromName(stateNameDone, SpecV2), &done{V: SpecV2})
+	require.Equal(t, stateFromName(StateNameAbandoned, SpecV2), &abandoned{V: SpecV2})
+	require.Equal(t, stateFromName(StateNameDone, SpecV2), &done{V: SpecV2})
 	require.Equal(t, stateFromName(stateNameRequestSent, SpecV2), &requestSent{V: SpecV2})
 	require.Equal(t, stateFromName(stateNamePresentationReceived, SpecV2), &presentationReceived{V: SpecV2})
 	require.Equal(t, stateFromName(stateNameProposalReceived, SpecV2), &proposalReceived{V: SpecV2})

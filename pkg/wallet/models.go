@@ -100,3 +100,13 @@ type KeyPair struct {
 	// base64 encoded public key of the key pair created.
 	PublicKey string `json:"publicKey,omitempty"`
 }
+
+// PresentProofStatus holds the status of present proof action from wallet.
+// Typically holds web redirect info of present proof acknowledgement or problem-report.
+type PresentProofStatus struct {
+	// One of the status present proof interaction
+	// Refer https://github.com/hyperledger/aries-rfcs/blob/main/features/0015-acks/README.md#ack-status.
+	Status string `json:"status"`
+	// Optional web redirect URL info sent by verifier.
+	RedirectURL string `json:"url,omitempty"`
+}
