@@ -16,10 +16,13 @@ import (
 
 const (
 	// common states.
-	stateNameStart     = "start"
-	stateNameAbandoned = "abandoned"
-	stateNameDone      = "done"
-	stateNameNoop      = "noop"
+	stateNameStart = "start"
+	stateNameNoop  = "noop"
+
+	// StateNameAbandoned is present proof protocol state 'abandoned'.
+	StateNameAbandoned = "abandoned"
+	// StateNameDone is present proof protocol state 'done'.
+	StateNameDone = "done"
 
 	// states for Verifier.
 	stateNameRequestSent          = "request-sent"
@@ -94,7 +97,7 @@ type abandoned struct {
 }
 
 func (s *abandoned) Name() string {
-	return stateNameAbandoned
+	return StateNameAbandoned
 }
 
 func (s *abandoned) CanTransitionTo(st state) bool {
@@ -147,7 +150,7 @@ type done struct {
 }
 
 func (s *done) Name() string {
-	return stateNameDone
+	return StateNameDone
 }
 
 func (s *done) CanTransitionTo(_ state) bool {
@@ -193,7 +196,7 @@ func (s *requestReceived) Name() string {
 func (s *requestReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationSent ||
 		st.Name() == stateNameProposalSent ||
-		st.Name() == stateNameAbandoned
+		st.Name() == StateNameAbandoned
 }
 
 func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
@@ -236,7 +239,7 @@ func (s *requestSent) Name() string {
 func (s *requestSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationReceived ||
 		st.Name() == stateNameProposalReceived ||
-		st.Name() == stateNameAbandoned
+		st.Name() == StateNameAbandoned
 }
 
 func forwardInitial(md *metaData, v service.Version) stateAction {
@@ -312,8 +315,8 @@ func (s *presentationSent) Name() string {
 }
 
 func (s *presentationSent) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameAbandoned ||
-		st.Name() == stateNameDone
+	return st.Name() == StateNameAbandoned ||
+		st.Name() == StateNameDone
 }
 
 func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
@@ -361,8 +364,8 @@ func (s *presentationReceived) Name() string {
 }
 
 func (s *presentationReceived) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameAbandoned ||
-		st.Name() == stateNameDone
+	return st.Name() == StateNameAbandoned ||
+		st.Name() == StateNameDone
 }
 
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
@@ -404,7 +407,7 @@ func (s *proposalSent) Name() string {
 
 func (s *proposalSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestReceived ||
-		st.Name() == stateNameAbandoned
+		st.Name() == StateNameAbandoned
 }
 
 func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
@@ -448,7 +451,7 @@ func (s *proposalReceived) Name() string {
 
 func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestSent ||
-		st.Name() == stateNameAbandoned
+		st.Name() == StateNameAbandoned
 }
 
 func (s *proposalReceived) Execute(_ *metaData) (state, stateAction, error) {

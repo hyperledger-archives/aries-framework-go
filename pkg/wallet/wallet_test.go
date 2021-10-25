@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -187,6 +188,7 @@ const (
 	sampleEDVVaultID         = "sample-edv-vault-id"
 	sampleEDVEncryptionKID   = "sample-edv-encryption-kid"
 	sampleEDVMacKID          = "sample-edv-mac-kid"
+	exampleWebRedirect       = "http://example.com/sample"
 )
 
 func TestCreate(t *testing.T) {
@@ -3049,8 +3051,156 @@ func TestWallet_PresentProof(t *testing.T) {
 
 		defer wallet.Close()
 
-		err = wallet.PresentProof(token, uuid.New().String(), FromPresentation(&verifiable.Presentation{}))
+		response, err := wallet.PresentProof(token, uuid.New().String(), FromPresentation(&verifiable.Presentation{}))
 		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusPENDING, response.Status)
+	})
+
+	t.Run("test present proof success - wait for done with redirect", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: presentproofSvc.StateNameDone,
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							webRedirectStatusKey: model.AckStatusOK,
+							webRedirectURLKey:    exampleWebRedirect,
+						},
+					},
+					Msg: &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusOK, response.Status)
+		require.Equal(t, exampleWebRedirect, response.RedirectURL)
+	})
+
+	t.Run("test present proof success - wait for abandoned with redirect", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: presentproofSvc.StateNameAbandoned,
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							webRedirectStatusKey: model.AckStatusFAIL,
+							webRedirectURLKey:    exampleWebRedirect,
+						},
+					},
+					Msg: &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusFAIL, response.Status)
+		require.Equal(t, exampleWebRedirect, response.RedirectURL)
+	})
+
+	t.Run("test present proof success - wait for done no redirect", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:       service.PostState,
+					StateID:    presentproofSvc.StateNameDone,
+					Properties: &mockdidexchange.MockEventProperties{},
+					Msg:        &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusOK, response.Status)
+		require.Empty(t, response.RedirectURL)
+	})
+
+	t.Run("test present proof failure - wait for abandoned no redirect", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:       service.PostState,
+					StateID:    presentproofSvc.StateNameAbandoned,
+					Properties: &mockdidexchange.MockEventProperties{},
+					Msg:        &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, model.AckStatusFAIL, response.Status)
+		require.Empty(t, response.RedirectURL)
 	})
 
 	t.Run("test present proof failure", func(t *testing.T) {
@@ -3072,9 +3222,80 @@ func TestWallet_PresentProof(t *testing.T) {
 
 		defer wallet.Close()
 
-		err = wallet.PresentProof(token, uuid.New().String(), FromRawPresentation([]byte("{}")))
+		response, err := wallet.PresentProof(token, uuid.New().String(), FromRawPresentation([]byte("{}")))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
+		require.Empty(t, response)
+	})
+
+	t.Run("test present proof failure - failed to register message event", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventErr: errors.New(sampleWalletErr),
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleWalletErr)
+		require.Empty(t, response)
+	})
+
+	t.Run("test present proof success - wait for done timeout", func(t *testing.T) {
+		thID := uuid.New().String()
+		mockPresentProofSvc := &mockpresentproof.MockPresentProofSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type: service.PreState,
+				}
+
+				ch <- service.StateMsg{
+					Type: service.PostState,
+				}
+
+				ch <- service.StateMsg{
+					Type: service.PostState,
+					Msg:  &mockMsg{thID: "invalid"},
+				}
+
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: "invalid",
+					Msg:     &mockMsg{thID: thID},
+				}
+
+				return nil
+			},
+			UnregisterMsgEventErr: errors.New(sampleWalletErr),
+		}
+		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		response, err := wallet.PresentProof(token, thID, FromPresentation(&verifiable.Presentation{}),
+			WaitForDone(1*time.Millisecond))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "time out waiting for present proof protocol to get completed")
+		require.Empty(t, response)
 	})
 }
 
@@ -3126,4 +3347,14 @@ func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, auth string, v
 			}
 		}
 	}
+}
+
+// mockMsg containing custom parent thread ID.
+type mockMsg struct {
+	*service.DIDCommMsgMap
+	thID string
+}
+
+func (m *mockMsg) ParentThreadID() string {
+	return m.thID
 }

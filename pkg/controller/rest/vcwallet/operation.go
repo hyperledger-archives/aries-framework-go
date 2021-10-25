@@ -379,7 +379,7 @@ func (o *Operation) ProposePresentation(rw http.ResponseWriter, req *http.Reques
 //
 // Responses:
 //    default: genericError
-//        200: emptyRes
+//        200: presentProofRes
 func (o *Operation) PresentProof(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.PresentProof, rw, req.Body)
 }
