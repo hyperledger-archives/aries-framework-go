@@ -3272,6 +3272,12 @@ func TestWallet_PresentProof(t *testing.T) {
 				ch <- service.StateMsg{
 					Type:    service.PostState,
 					StateID: "invalid",
+					Msg:     &mockMsg{thID: thID, fail: errors.New(sampleWalletErr)},
+				}
+
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: "invalid",
 					Msg:     &mockMsg{thID: thID},
 				}
 
@@ -3353,8 +3359,13 @@ func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, auth string, v
 type mockMsg struct {
 	*service.DIDCommMsgMap
 	thID string
+	fail error
 }
 
 func (m *mockMsg) ParentThreadID() string {
 	return m.thID
+}
+
+func (m *mockMsg) ThreadID() (string, error) {
+	return m.thID, m.fail
 }
