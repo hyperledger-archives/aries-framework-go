@@ -129,6 +129,7 @@ type callback struct {
 type connections interface {
 	GetConnectionIDByDIDs(string, string) (string, error)
 	GetConnectionRecord(string) (*connection.Record, error)
+	GetConnectionRecordByDIDs(myDID string, theirDID string) (*connection.Record, error)
 }
 
 // Service for Route Coordination protocol.
@@ -841,14 +842,10 @@ func (s *Service) handleOutboundRequest(msg service.DIDCommMsg, myDID, theirDID 
 		return fmt.Errorf("failed to decode request : %w", err)
 	}
 
-	connID, err := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+	record, err := s.connectionLookup.GetConnectionRecordByDIDs(myDID, theirDID)
 	if err != nil {
-		return fmt.Errorf("failed to lookup connection ID for myDID=%s theirDID=%s : %w", myDID, theirDID, err)
-	}
-
-	record, err := s.connectionLookup.GetConnectionRecord(connID)
-	if err != nil {
-		return fmt.Errorf("failed to lookup connection record with id=%s : %w", connID, err)
+		return fmt.Errorf("failed to lookup connection record with myDID=%s theirDID=%s : %w",
+			myDID, theirDID, err)
 	}
 
 	return s.doRegistration(record, req, updateTimeout)

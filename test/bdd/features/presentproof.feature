@@ -187,3 +187,16 @@ Feature: Present Proof protocol
     And "Tiana" declines a propose presentation and requests redirect to "http://example.com/error"
     Then "Gracia" receives problem report message (Present Proof)
     Then "Gracia" receives present proof event "abandoned" with status "FAIL" and redirect "http://example.com/error"
+  @ppv3_no_didex
+  Scenario: The Verifier begins with a request presentation v3 without didexchange
+    Given "Clarence" agent is running on "localhost" port "random" with "http" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
+     And "Florence" agent is running on "localhost" port "random" with "http" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
+    Given "Clarence" creates public DID for did method "sidetree"
+     And "Florence" creates public DID for did method "sidetree"
+    Then "Clarence" waits for public did to become available in sidetree for up to 10 seconds
+    And "Florence" waits for public did to become available in sidetree for up to 10 seconds
+    Then "Clarence" sends a request presentation v3 to the "Florence"
+    And "Florence" accepts a request and sends a presentation v3 to the "Clarence"
+    And "Clarence" accepts a presentation with name "license"
+    And "Clarence" checks that presentation is being stored under "license" name
+    Then "Florence" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"

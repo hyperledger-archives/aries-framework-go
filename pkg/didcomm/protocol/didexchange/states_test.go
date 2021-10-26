@@ -882,11 +882,9 @@ func TestRespondedState_Execute(t *testing.T) {
 						State:        (&responded{}).Name(),
 						ThreadID:     request.ID,
 						ConnectionID: "123",
+						Namespace:    findNamespace(ResponseMsgType),
 					}
-					err = tc.ctx.connectionRecorder.SaveConnectionRecord(connRec)
-					require.NoError(t, err)
-					err = tc.ctx.connectionRecorder.SaveNamespaceThreadID(request.ID, findNamespace(ResponseMsgType),
-						connRec.ConnectionID)
+					err = tc.ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
 					require.NoError(t, err)
 					connRec, followup, _, e := (&responded{}).ExecuteInbound(
 						&stateMachineMsg{
@@ -1008,12 +1006,10 @@ func TestCompletedState_Execute(t *testing.T) {
 			State:         (&responded{}).Name(),
 			ThreadID:      response.Thread.ID,
 			ConnectionID:  "123",
+			Namespace:     findNamespace(AckMsgType),
 			RecipientKeys: []string{pubKey},
 		}
-		err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
-		require.NoError(t, err)
-		err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType),
-			connRec.ConnectionID)
+		err = ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 		ack := &model.Ack{
 			Type:   AckMsgType,
@@ -1036,12 +1032,10 @@ func TestCompletedState_Execute(t *testing.T) {
 			State:         (&responded{}).Name(),
 			ThreadID:      response.Thread.ID,
 			ConnectionID:  "123",
+			Namespace:     findNamespace(AckMsgType),
 			RecipientKeys: []string{pubKey},
 		}
-		err = ctx.connectionRecorder.SaveConnectionRecord(connRec)
-		require.NoError(t, err)
-		err = ctx.connectionRecorder.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType),
-			connRec.ConnectionID)
+		err = ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 		complete := &Complete{
 			Type: CompleteMsgType,

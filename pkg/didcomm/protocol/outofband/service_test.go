@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -242,6 +243,16 @@ func TestService_ActionContinue(t *testing.T) {
 		})
 		provider := testProvider()
 		connID := uuid.New().String()
+
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		provider.StoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
 				Store: map[string]mockstore.DBEntry{
@@ -249,7 +260,16 @@ func TestService_ActionContinue(t *testing.T) {
 						Value: []byte(connID),
 					},
 					fmt.Sprintf("conn_%s", connID): {
-						Value: marshal(t, &connection.Record{State: "completed"}),
+						Value: marshal(t, &connection.Record{
+							ConnectionID: connID,
+							State:        "completed",
+						}),
+						Tags: []storage.Tag{
+							{
+								Name:  "bothDIDs",
+								Value: mockDIDTagFunc(myDID, theirDID),
+							},
+						},
 					},
 				},
 			},

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,6 +178,15 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 			},
 		}
 
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		t.Parallel()
 
 		for _, test := range tests {
@@ -192,7 +202,10 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 					require.NoError(t, errMarshal)
 					require.NoError(t,
 						memStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes,
-							spi.Tag{Name: "conn_"}))
+							spi.Tag{Name: "conn_"},
+							spi.Tag{Name: "bothDIDs", Value: mockDIDTagFunc(tc.testConnection.MyDID, tc.testConnection.TheirDID)},
+							spi.Tag{Name: "theirDID", Value: mockDIDTagFunc(tc.testConnection.TheirDID)},
+						))
 				}
 
 				cmd, err := New(&protocol.MockProvider{
@@ -262,6 +275,15 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 			},
 		}
 
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		t.Parallel()
 
 		for _, test := range tests {
@@ -277,7 +299,10 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 					require.NoError(t, errMarshal)
 					require.NoError(t,
 						memStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID), connBytes,
-							spi.Tag{Name: "conn_"}))
+							spi.Tag{Name: "conn_"},
+							spi.Tag{Name: "bothDIDs", Value: mockDIDTagFunc(tc.testConnection.MyDID, tc.testConnection.TheirDID)},
+							spi.Tag{Name: "theirDID", Value: mockDIDTagFunc(tc.testConnection.TheirDID)},
+						))
 				}
 
 				registrar := msghandler.NewMockMsgServiceProvider()

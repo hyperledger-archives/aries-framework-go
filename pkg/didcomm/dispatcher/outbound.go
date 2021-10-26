@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -42,6 +43,12 @@ type provider interface {
 type connectionLookup interface {
 	GetConnectionIDByDIDs(myDID, theirDID string) (string, error)
 	GetConnectionRecord(string) (*connection.Record, error)
+	GetConnectionRecordByDIDs(myDID, theirDID string) (*connection.Record, error)
+}
+
+type connectionRecorder interface {
+	connectionLookup
+	SaveConnectionRecord(record *connection.Record) error
 }
 
 // OutboundDispatcher dispatch msgs to destination.
@@ -52,7 +59,7 @@ type OutboundDispatcher struct {
 	vdRegistry           vdr.Registry
 	kms                  kms.KeyManager
 	keyAgreementType     kms.KeyType
-	connections          connectionLookup
+	connections          connectionRecorder
 	mediaTypeProfiles    []string
 }
 
@@ -72,9 +79,9 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 
 	var err error
 
-	o.connections, err = connection.NewLookup(prov)
+	o.connections, err = connection.NewRecorder(prov)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init connections lookup: %w", err)
+		return nil, fmt.Errorf("failed to init connection recorder: %w", err)
 	}
 
 	return o, nil
@@ -82,30 +89,28 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
-	var mediaTypes []string
-
-	connID, err := o.connections.GetConnectionIDByDIDs(myDID, theirDID)
+	myDocResolution, err := o.vdRegistry.Resolve(myDID)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			// myDID and theirDID never had a connection, use default agent media type.
-			logger.Debugf("SendToDID: will go connectionless since failed to fetch connection ID for myDID=%s "+
-				"theirDID=%s: %w", myDID, theirDID, err)
-
-			mediaTypes = o.defaultMediaTypeProfiles()
-		} else {
-			return fmt.Errorf("SendToDID: failed to fetch connection ID for myDID=%s "+
-				"theirDID=%s: %w", myDID, theirDID, err)
-		}
+		return fmt.Errorf("failed to resolve my DID: %w", err)
 	}
 
-	if connID != "" {
-		mediaTypes, err = o.mediaTypeProfilesFromConnection(mediaTypes, connID)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.SendToDID: %w", err)
-		}
+	theirDocResolution, err := o.vdRegistry.Resolve(theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to resolve their DID: %w", err)
 	}
 
-	dest, err := service.GetDestination(theirDID, o.vdRegistry)
+	myDoc := myDocResolution.DIDDocument
+	theirDoc := theirDocResolution.DIDDocument
+
+	connRec, err := o.getOrCreateConnection(myDoc, theirDoc)
+	if err != nil {
+		return fmt.Errorf("failed to fetch connection record: %w", err)
+	}
+
+	mediaTypes := make([]string, len(connRec.MediaTypeProfiles))
+	copy(mediaTypes, connRec.MediaTypeProfiles)
+
+	dest, err := service.CreateDestination(theirDoc)
 	if err != nil {
 		return fmt.Errorf(
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
@@ -115,7 +120,7 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 		dest.MediaTypeProfiles = mediaTypes
 	}
 
-	src, err := service.GetDestination(myDID, o.vdRegistry)
+	src, err := service.CreateDestination(myDoc)
 	if err != nil {
 		return fmt.Errorf("outboundDispatcher.SendToDID failed to get didcomm destination for myDID [%s]: %w", myDID, err)
 	}
@@ -134,28 +139,32 @@ func (o *OutboundDispatcher) defaultMediaTypeProfiles() []string {
 	return mediaTypes
 }
 
-func (o *OutboundDispatcher) mediaTypeProfilesFromConnection(mediaTypes []string, connID string) ([]string, error) {
-	record, err := o.connections.GetConnectionRecord(connID)
+func (o *OutboundDispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connection.Record, error) {
+	record, err := o.connections.GetConnectionRecordByDIDs(myDoc.ID, theirDoc.ID)
+	if err == nil {
+		return record, nil
+	} else if !errors.Is(err, storage.ErrDataNotFound) {
+		return nil, fmt.Errorf("failed to check if connection exists: %w", err)
+	}
+
+	// myDID and theirDID never had a connection, create a default connection for OOBless communication.
+	logger.Debugf("no connection record found for myDID=%s theirDID=%s, will create", myDoc.ID, theirDoc.ID)
+
+	newRecord := connection.Record{
+		ConnectionID:      uuid.New().String(),
+		MyDID:             myDoc.ID,
+		TheirDID:          theirDoc.ID,
+		State:             connection.StateNameCompleted,
+		Namespace:         connection.MyNSPrefix,
+		MediaTypeProfiles: o.defaultMediaTypeProfiles(),
+	}
+
+	err = o.connections.SaveConnectionRecord(&newRecord)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			if len(mediaTypes) == 0 {
-				// myDID and theirDID don't have a connection record but do have a connID, use default agent media type.
-				logger.Debugf("SendToDID: will go connectionless since failed to fetch connection record for "+
-					"connID:%s: %w", connID, err)
-
-				mediaTypes = o.defaultMediaTypeProfiles()
-			}
-		} else {
-			return nil, fmt.Errorf("failed to fetch connection record for connID=%s: %w", connID, err)
-		}
+		return nil, fmt.Errorf("failed to save new connection: %w", err)
 	}
 
-	if record != nil {
-		mediaTypes = make([]string, len(record.MediaTypeProfiles))
-		copy(mediaTypes, record.MediaTypeProfiles)
-	}
-
-	return mediaTypes, nil
+	return &newRecord, nil
 }
 
 // Send sends the message after packing with the sender key and recipient keys.

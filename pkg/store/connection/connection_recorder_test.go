@@ -503,8 +503,7 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 			t.Errorf("protocol state store still has connection state records: key=%s", key)
 		}
 
-		var r3 Record
-		err = getAndUnmarshal(getDIDConnMapKeyPrefix()(record.MyDID, record.TheirDID), &r3, recorder.store)
+		_, err = recorder.GetConnectionRecordByDIDs(record.MyDID, record.TheirDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 	})

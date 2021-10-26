@@ -85,21 +85,21 @@ func (a *SDKSteps) useMediaTypeProfiles(mediaTypeProfiles string) error {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, false)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme)
 }
 
 // createAgentByDIDCommV2 with the given parameters.
 func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme, true)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withDIDCommV2())
 }
 
 func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
-	err := a.createAgentByDIDCommVer(agent1, "localhost", "random", "http", true)
+	err := a.createAgentByDIDCommV2(agent1, "localhost", "random", "http")
 	if err != nil {
 		return fmt.Errorf("create agent %q: %w", agent1, err)
 	}
 
-	err = a.createAgentByDIDCommVer(agent2, "localhost", "random", "http", true)
+	err = a.createAgentByDIDCommV2(agent2, "localhost", "random", "http")
 	if err != nil {
 		return fmt.Errorf("create agent %q: %w", agent2, err)
 	}
@@ -134,62 +134,10 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 	return a.didExchangeSDKS.WaitForPostEvent(strings.Join([]string{agent1, agent2}, ","), "completed")
 }
 
-// createAgentByDIDCommVer with the given parameters.
-func (a *SDKSteps) createAgentByDIDCommVer(agentID, inboundHost, inboundPort, scheme string, useDIDCommV2 bool) error {
-	storeProv := a.getStoreProvider(agentID)
-
-	loader, err := createJSONLDDocumentLoader(storeProv)
-	if err != nil {
-		return fmt.Errorf("create document loader: %w", err)
-	}
-
-	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader))
-
-	if useDIDCommV2 {
-		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
-	}
-
-	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
-}
-
 // CreateAgentWithRemoteKMS with the given parameters with a remote kms.
-func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme, ksURL, controller string) error {
-	storeProv := a.getStoreProvider(agentID)
-
-	loader, err := createJSONLDDocumentLoader(storeProv)
-	if err != nil {
-		return fmt.Errorf("create document loader: %w", err)
-	}
-
-	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader))
-
-	cp, err := loadCertPool()
-	if err != nil {
-		return err
-	}
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: cp}, //nolint:gosec
-		},
-	}
-
-	keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, ksURL, controller, "")
-	if err != nil {
-		return fmt.Errorf("error calling CreateKeystore: %w", err)
-	}
-
-	rKMS := webkms.New(keyStoreURL, httpClient)
-
-	opts = append(opts, aries.WithKMS(func(provider kms.Provider) (kms.KeyManager, error) {
-		return rKMS, nil
-	}))
-
-	rCrypto := remotecrypto.New(keyStoreURL, httpClient)
-
-	opts = append(opts, aries.WithCrypto(rCrypto))
-
-	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme,
+	kmsURL, controller string) error {
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRemoteKMSCrypto(kmsURL, controller))
 }
 
 func loadCertPool() (*x509.CertPool, error) {
@@ -212,38 +160,74 @@ func loadCertPool() (*x509.CertPool, error) {
 }
 
 func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
-	msgRegistrar := msghandler.NewRegistrar()
-	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
-
-	storeProv := a.getStoreProvider(agentID)
-
-	loader, err := createJSONLDDocumentLoader(storeProv)
-	if err != nil {
-		return fmt.Errorf("create document loader: %w", err)
-	}
-
-	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv),
-		aries.WithMessageServiceProvider(msgRegistrar), aries.WithJSONLDDocumentLoader(loader))
-
-	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRegistrar())
 }
 
 func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHost, inboundPort,
 	scheme, endpointURL, acceptDidMethod string) error {
-	msgRegistrar := msghandler.NewRegistrar()
-	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme,
+		withRegistrar(), withHTTPResolver(endpointURL, acceptDidMethod))
+}
 
-	url := a.bddContext.Args[endpointURL]
-	if endpointURL == sideTreeURL {
-		url += "identifiers"
+// CreateAgentWithHTTPDIDResolver creates one or more agents with HTTP DID resolver.
+func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
+	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		err := a.createAgentWithOptions(agentID, inboundHost, inboundPort, "http",
+			withHTTPResolver(endpointURL, acceptDidMethod),
+			withDynamicEnvelopeParams(),
+		)
+		if err != nil {
+			return err
+		}
 	}
 
-	httpVDR, err := httpbinding.New(url,
-		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
-	if err != nil {
-		return fmt.Errorf("failed from httpbinding new ")
+	return nil
+}
+
+// CreateAgentWithFlags takes a set of comma-separated flags or key-value pairs:
+//  - sidetree=[endpoint url]: use http binding VDR accepting sidetree DID method, with the given http binding url.
+//  - DIDCommV2: use DIDComm V2 only.
+//  - UseRegistrar: use message registrar.
+func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, scheme, flags string) error {
+	var opts []createAgentOption
+
+	flagList := strings.Split(flags, ",")
+
+	flagMap := make(map[string]string)
+
+	for _, flag := range flagList {
+		flagSplit := strings.Split(flag, "=")
+
+		switch len(flagSplit) {
+		case 1:
+			flagMap[flagSplit[0]] = ""
+		case 2: // nolint:gomnd // 2 parts means a flag with value
+			flagMap[flagSplit[0]] = flagSplit[1]
+		default:
+			return fmt.Errorf("failed to parse flag: %s", flag)
+		}
 	}
 
+	if endpointURL, ok := flagMap["sidetree"]; ok {
+		opts = append(opts, withHTTPResolver(endpointURL, "sidetree"))
+	}
+
+	if _, ok := flagMap["UseRegistrar"]; ok {
+		opts = append(opts, withRegistrar())
+	}
+
+	if _, ok := flagMap["DIDCommV2"]; ok {
+		opts = append(opts, withDIDCommV2())
+	}
+
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, opts...)
+}
+
+type createAgentOption func(steps *SDKSteps, agentID string) ([]aries.Option, error)
+
+func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort,
+	scheme string, opts ...createAgentOption) error {
 	storeProv := a.getStoreProvider(agentID)
 
 	loader, err := createJSONLDDocumentLoader(storeProv)
@@ -251,22 +235,24 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 		return fmt.Errorf("create document loader: %w", err)
 	}
 
-	opts := append([]aries.Option{}, aries.WithStoreProvider(storeProv),
-		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDR(httpVDR), aries.WithJSONLDDocumentLoader(loader))
+	ariesOpts := []aries.Option{aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader)}
 
-	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+	for _, opt := range opts {
+		newOpts, err := opt(a, agentID)
+		if err != nil {
+			return fmt.Errorf("agent sdk option: %w", err)
+		}
+
+		ariesOpts = append(ariesOpts, newOpts...)
+	}
+
+	return a.create(agentID, inboundHost, inboundPort, scheme, ariesOpts...)
 }
 
-// CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver.
-//nolint:gocyclo
-func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
-	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
-	var opts []aries.Option
+func withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
+	return func(steps *SDKSteps, _ string) ([]aries.Option, error) {
+		url := steps.bddContext.Args[endpointURL]
 
-	for _, agentID := range strings.Split(agents, ",") {
-		opts = nil
-
-		url := a.bddContext.Args[endpointURL]
 		if endpointURL == sideTreeURL {
 			url += "identifiers"
 		}
@@ -274,48 +260,89 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 		httpVDR, err := httpbinding.New(url,
 			httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 		if err != nil {
-			return fmt.Errorf("failed from httpbinding new ")
+			return nil, fmt.Errorf("failed from httpbinding new ")
 		}
 
-		storeProv := a.getStoreProvider(agentID)
+		return []aries.Option{aries.WithVDR(httpVDR)}, nil
+	}
+}
 
-		loader, err := createJSONLDDocumentLoader(storeProv)
+func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
+	return func(a *SDKSteps, agentID string) ([]aries.Option, error) {
+		cp, err := loadCertPool()
 		if err != nil {
-			return fmt.Errorf("create document loader: %w", err)
+			return nil, err
 		}
 
-		opts = append(opts, aries.WithVDR(httpVDR), aries.WithStoreProvider(storeProv),
-			aries.WithJSONLDDocumentLoader(loader))
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{RootCAs: cp}, //nolint:gosec
+			},
+		}
+
+		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "")
+		if err != nil {
+			return nil, fmt.Errorf("error calling CreateKeystore: %w", err)
+		}
+
+		rKMS := webkms.New(keyStoreURL, httpClient)
+		rCrypto := remotecrypto.New(keyStoreURL, httpClient)
+
+		opts := []aries.Option{
+			aries.WithKMS(func(provider kms.Provider) (kms.KeyManager, error) {
+				return rKMS, nil
+			}),
+			aries.WithCrypto(rCrypto),
+		}
+
+		return opts, nil
+	}
+}
+
+func withRegistrar() createAgentOption {
+	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+		msgRegistrar := msghandler.NewRegistrar()
+		steps.bddContext.MessageRegistrar[agentID] = msgRegistrar
+
+		return []aries.Option{aries.WithMessageServiceProvider(msgRegistrar)}, nil
+	}
+}
+
+func withDIDCommV2() createAgentOption {
+	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+		return []aries.Option{aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile})}, nil
+	}
+}
+
+func withDynamicEnvelopeParams() createAgentOption {
+	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+		var opts []aries.Option
 
 		//nolint:nestif
-		if g, ok := a.bddContext.Agents[agentID]; ok {
+		if g, ok := steps.bddContext.Agents[agentID]; ok {
 			ctx, err := g.Context()
 			if err != nil {
-				return fmt.Errorf("get agentID context: %w", err)
+				return nil, fmt.Errorf("get agentID context: %w", err)
 			}
 
 			opts = append(opts, aries.WithKeyType(ctx.KeyType()), aries.WithKeyAgreementType(ctx.KeyAgreementType()),
 				aries.WithMediaTypeProfiles(ctx.MediaTypeProfiles()))
 		} else {
-			if string(a.newKeyType) != "" {
-				opts = append(opts, aries.WithKeyType(a.newKeyType))
+			if string(steps.newKeyType) != "" {
+				opts = append(opts, aries.WithKeyType(steps.newKeyType))
 			}
 
-			if string(a.newKeyAgreementType) != "" {
-				opts = append(opts, aries.WithKeyAgreementType(a.newKeyAgreementType))
+			if string(steps.newKeyAgreementType) != "" {
+				opts = append(opts, aries.WithKeyAgreementType(steps.newKeyAgreementType))
 			}
 
-			if len(a.newMediaTypeProfiles) > 0 {
-				opts = append(opts, aries.WithMediaTypeProfiles(a.newMediaTypeProfiles))
+			if len(steps.newMediaTypeProfiles) > 0 {
+				opts = append(opts, aries.WithMediaTypeProfiles(steps.newMediaTypeProfiles))
 			}
 		}
 
-		if err := a.create(agentID, inboundHost, inboundPort, "http", opts...); err != nil {
-			return err
-		}
+		return opts, nil
 	}
-
-	return nil
 }
 
 func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
@@ -517,6 +544,8 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		`and "([^"]*)" using DIDCommV2 as the transport return route option`, a.createEdgeAgentByDIDCommV2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
+		`and "([^"]*)" flags$`, a.CreateAgentWithFlags)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+
 		`with "([^"]*)" as the transport provider$`, a.createAgentWithRegistrar)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" with "([^"]*)" `+
