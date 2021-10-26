@@ -1835,3 +1835,7 @@ type mockMsg struct {
 func (m *mockMsg) ParentThreadID() string {
 	return m.thID
 }
+
+func (m *mockMsg) ThreadID() (string, error) {
+	return m.thID, nil
+}

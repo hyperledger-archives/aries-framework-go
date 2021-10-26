@@ -1079,7 +1079,7 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 }
 
 // wait for present proof status to be completed (done or abandoned) from prover side.
-func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll
+func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll,funlen
 	done := make(chan *PresentProofStatus)
 
 	go func() {
@@ -1094,8 +1094,13 @@ func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg
 				continue
 			}
 
+			msgThID, err := msg.Msg.ThreadID()
+			if err != nil {
+				continue
+			}
+
 			// match parent thread ID.
-			if msg.Msg.ParentThreadID() != thID {
+			if msg.Msg.ParentThreadID() != thID && msgThID != thID {
 				continue
 			}
 
