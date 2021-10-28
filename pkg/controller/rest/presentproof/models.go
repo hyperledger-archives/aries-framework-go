@@ -394,6 +394,10 @@ type presentProofDeclinePresentationRequest struct { // nolint: unused,deadcode
 
 	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
+
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect once presentation is declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // presentProofDeclinePresentationResponse model

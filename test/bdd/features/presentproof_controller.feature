@@ -154,4 +154,16 @@ Feature: Present Proof using controller API
 
     Then  "Ginger" successfully accepts a presentation with "passport" name and "https://example.com/success" redirect through PresentProof controller
     And "Ginger" checks that presentation is being stored under the "passport" name
-    And "Leo" validates present proof state "done" and redirect "https://example.com/success" through PresentProof controller
+    And "Leo" validates present proof state "done" and redirect "https://example.com/success" with status "OK" through PresentProof controller
+
+  @present_proof_redirect_problem_report
+  Scenario: The Verifier begins with a presentation request (redirect abandoned)
+    Given "Ginger" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Leo" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    And "Ginger" has established connection with "Leo" through PresentProof controller
+
+    When  "Ginger" sends "request_presentation_default.json" to "Leo" through PresentProof controller
+    And "Leo" sends "presentation_default.json" to "Ginger" through PresentProof controller
+
+    Then  "Ginger" declines presentation "passport" from "Leo" and redirects prover to "https://example.com/error" through PresentProof controller
+    And "Leo" validates present proof state "abandoned" and redirect "https://example.com/error" with status "FAIL" through PresentProof controller

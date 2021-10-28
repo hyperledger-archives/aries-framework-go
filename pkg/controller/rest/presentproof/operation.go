@@ -169,7 +169,7 @@ func (c *Operation) AcceptProblemReport(rw http.ResponseWriter, req *http.Reques
 //    default: genericError
 //        200: presentProofAcceptRequestPresentationResponse
 func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.AcceptRequestPresentation, rw, r)
 	}
 }
@@ -182,7 +182,7 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 //    default: genericError
 //        200: presentProofAcceptRequestPresentationResponse
 func (c *Operation) AcceptRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.AcceptRequestPresentationV3, rw, r)
 	}
 }
@@ -195,7 +195,7 @@ func (c *Operation) AcceptRequestPresentationV3(rw http.ResponseWriter, req *htt
 //    default: genericError
 //        200: presentProofAcceptProposePresentationResponse
 func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.AcceptProposePresentation, rw, r)
 	}
 }
@@ -208,7 +208,7 @@ func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.
 //    default: genericError
 //        200: presentProofAcceptProposePresentationResponse
 func (c *Operation) AcceptProposePresentationV3(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.AcceptProposePresentationV3, rw, r)
 	}
 }
@@ -221,7 +221,7 @@ func (c *Operation) AcceptProposePresentationV3(rw http.ResponseWriter, req *htt
 //    default: genericError
 //        200: presentProofAcceptPresentationResponse
 func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, false); ok {
 		rest.Execute(c.command.AcceptPresentation, rw, r)
 	}
 }
@@ -234,7 +234,7 @@ func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request
 //    default: genericError
 //        200: presentProofNegotiateRequestPresentationResponse
 func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.NegotiateRequestPresentation, rw, r)
 	}
 }
@@ -247,7 +247,7 @@ func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *ht
 //    default: genericError
 //        200: presentProofNegotiateRequestPresentationResponse
 func (c *Operation) NegotiateRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
-	if ok, r := toCommandRequest(rw, req); ok {
+	if ok, r := toCommandRequest(rw, req, true); ok {
 		rest.Execute(c.command.NegotiateRequestPresentationV3, rw, r)
 	}
 }
@@ -260,10 +260,9 @@ func (c *Operation) NegotiateRequestPresentationV3(rw http.ResponseWriter, req *
 //    default: genericError
 //        200: presentProofDeclineRequestPresentationResponse
 func (c *Operation) DeclineRequestPresentation(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.DeclineRequestPresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"reason":%q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
+	if ok, r := toCommandRequest(rw, req, false); ok {
+		rest.Execute(c.command.DeclineRequestPresentation, rw, r)
+	}
 }
 
 // DeclineProposePresentation swagger:route POST /presentproof/{piid}/decline-propose-presentation present-proof presentProofDeclineProposePresentation
@@ -274,11 +273,9 @@ func (c *Operation) DeclineRequestPresentation(rw http.ResponseWriter, req *http
 //    default: genericError
 //        200: presentProofDeclineProposePresentationResponse
 func (c *Operation) DeclineProposePresentation(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.DeclineProposePresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"reason":%q,
-		"redirectURL":%q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"), req.URL.Query().Get("redirectURL"))))
+	if ok, r := toCommandRequest(rw, req, false); ok {
+		rest.Execute(c.command.DeclineProposePresentation, rw, r)
+	}
 }
 
 // DeclinePresentation swagger:route POST /presentproof/{piid}/decline-presentation present-proof presentProofDeclinePresentation
@@ -289,14 +286,12 @@ func (c *Operation) DeclineProposePresentation(rw http.ResponseWriter, req *http
 //    default: genericError
 //        200: presentProofDeclinePresentationResponse
 func (c *Operation) DeclinePresentation(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.DeclinePresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"reason":%q,
-		"redirectURL":%q
-	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"), req.URL.Query().Get("redirectURL"))))
+	if ok, r := toCommandRequest(rw, req, false); ok {
+		rest.Execute(c.command.DeclinePresentation, rw, r)
+	}
 }
 
-func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reader) {
+func toCommandRequest(rw http.ResponseWriter, req *http.Request, payloadRequired bool) (bool, io.Reader) {
 	var buf bytes.Buffer
 
 	if req.Body != nil {
@@ -304,7 +299,7 @@ func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reade
 		_, _ = io.Copy(&buf, req.Body)
 	}
 
-	if !isJSONMap(buf.Bytes()) {
+	if payloadRequired && !isJSONMap(buf.Bytes()) {
 		rest.SendHTTPStatusError(rw,
 			http.StatusBadRequest,
 			presentproof.InvalidRequestErrorCode,
@@ -316,10 +311,12 @@ func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reade
 
 	ending := fmt.Sprintf(`"piid":%q}`, mux.Vars(req)["piid"])
 
-	payload := strings.TrimSpace(buf.String())
-	if payload == "{}" {
+	var payload string
+
+	switch strings.TrimSpace(buf.String()) {
+	case "", "{}":
 		payload = "{" + ending
-	} else {
+	default:
 		payload = buf.String()[:buf.Len()-1] + "," + ending
 	}
 
