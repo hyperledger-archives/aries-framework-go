@@ -131,18 +131,21 @@ func (t *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, err
 		return nil, fmt.Errorf("create new aead: %w", err)
 	}
 
-	// since Tink expects the key prefix + nonce as the ciphertext prefix, prepend them prior to calling its Decrypt()
-	ct := make([]byte, 0, len(ps.Primary.Prefix)+len(nonce)+len(cipher))
-	ct = append(ct, ps.Primary.Prefix...)
-	ct = append(ct, nonce...)
-	ct = append(ct, cipher...)
+	for prefix := range ps.Entries {
+		// since Tink expects the key prefix + nonce as the ciphertext prefix, prepend them prior to calling its Decrypt()
+		ct := make([]byte, 0, len(prefix)+len(nonce)+len(cipher))
+		ct = append(ct, prefix...)
+		ct = append(ct, nonce...)
+		ct = append(ct, cipher...)
 
-	pt, err := a.Decrypt(ct, aad)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt cipher: %w", err)
+		pt, e := a.Decrypt(ct, aad)
+
+		if e == nil {
+			return pt, nil
+		}
 	}
 
-	return pt, nil
+	return nil, fmt.Errorf("decrypt cipher: decryption failed")
 }
 
 // Sign will sign msg using the implementation's corresponding signing key referenced by kh of a private key.

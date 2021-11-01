@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
@@ -230,6 +231,55 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 			"exportPubKeyBytes: failed to export marshalled key: exportPubKeyBytes: failed to get public keyset "+
 			"handle: keyset.Handle: keyset.Handle: keyset contains a non-private key")
 	})
+}
+
+func TestEncryptRotateDecrypt_Success(t *testing.T) {
+	// create a real (not mocked) master key and secret lock to test the KMS end to end
+	sl := createMasterKeyAndSecretLock(t)
+
+	storeDB := make(map[string]mockstorage.DBEntry)
+	// test New()
+	kmsService, err := New(testMasterKeyURI, &mockProvider{
+		storage: mockstorage.NewCustomMockStoreProvider(
+			&mockstorage.MockStore{
+				Store: storeDB,
+			}),
+		secretLock: sl,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, kmsService)
+
+	keyTemplates := []kms.KeyType{
+		kms.AES128GCMType,
+		kms.AES256GCMNoPrefixType,
+		kms.AES256GCMType,
+		kms.ChaCha20Poly1305,
+		kms.XChaCha20Poly1305,
+	}
+
+	for _, v := range keyTemplates {
+		// test Create() a new key
+		keyID, keyHandle, e := kmsService.Create(v)
+		require.NoError(t, e, "failed on template %v", v)
+		require.NotEmpty(t, keyHandle)
+		require.NotEmpty(t, keyID)
+
+		c := tinkcrypto.Crypto{}
+		msg := []byte("Test Rotation Message")
+		aad := []byte("some additional data")
+
+		cipherText, nonce, e := c.Encrypt(msg, aad, keyHandle)
+		require.NoError(t, e)
+
+		newKeyID, rotatedKeyHandle, e := kmsService.Rotate(v, keyID)
+		require.NoError(t, e)
+		require.NotEmpty(t, rotatedKeyHandle)
+		require.NotEqual(t, newKeyID, keyID)
+
+		decryptedMsg, e := c.Decrypt(cipherText, aad, nonce, rotatedKeyHandle)
+		require.NoError(t, e)
+		require.Equal(t, msg, decryptedMsg)
+	}
 }
 
 func TestLocalKMS_Success(t *testing.T) {
