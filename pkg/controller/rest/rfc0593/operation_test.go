@@ -46,7 +46,7 @@ func TestOperation_GetCredentialSpec(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		expected := randomCredSpec(t)
 		msg := service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
-			Type: issuecredential.OfferCredentialMsgType,
+			Type: issuecredential.OfferCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
 				Format:   client.ProofVCDetailFormat,

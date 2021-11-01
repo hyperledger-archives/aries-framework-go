@@ -114,7 +114,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeInternalError, r.Description.Code)
-				require.Equal(t, ProblemReportMsgType, r.Type)
+				require.Equal(t, ProblemReportMsgTypeV2, r.Type)
 
 				return nil
 			})
@@ -151,7 +151,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeRejectedError, r.Description.Code)
-				require.Equal(t, ProblemReportMsgType, r.Type)
+				require.Equal(t, ProblemReportMsgTypeV2, r.Type)
 
 				return nil
 			})

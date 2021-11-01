@@ -98,17 +98,17 @@ func (c *Command) GetCredentialSpec(w io.Writer, r io.Reader) command.Error { //
 	}
 
 	switch msgType.Type {
-	case issuecredential.ProposeCredentialMsgType:
+	case issuecredential.ProposeCredentialMsgTypeV2:
 		proposal := &issuecredential.ProposeCredential{}
 		err = json.Unmarshal(args.Message, proposal)
 		formats = proposal.Formats
 		attachments = proposal.FiltersAttach
-	case issuecredential.OfferCredentialMsgType:
+	case issuecredential.OfferCredentialMsgTypeV2:
 		offer := &issuecredential.OfferCredential{}
 		err = json.Unmarshal(args.Message, offer)
 		formats = offer.Formats
 		attachments = offer.OffersAttach
-	case issuecredential.RequestCredentialMsgType:
+	case issuecredential.RequestCredentialMsgTypeV2:
 		request := &issuecredential.RequestCredential{}
 		err = json.Unmarshal(args.Message, request)
 		formats = request.Formats
