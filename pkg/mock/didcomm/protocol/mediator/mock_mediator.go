@@ -32,6 +32,11 @@ type MockMediatorSvc struct {
 	AddKeyFunc         func(string) error
 }
 
+// Initialize service.
+func (m *MockMediatorSvc) Initialize(interface{}) error {
+	return nil
+}
+
 // HandleInbound msg.
 func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleFunc != nil {

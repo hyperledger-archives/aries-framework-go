@@ -45,6 +45,11 @@ type MockDIDExchangeSvc struct {
 	CreateConnRecordFunc     func(*connection.Record, *did.Doc) error
 }
 
+// Initialize service.
+func (m *MockDIDExchangeSvc) Initialize(interface{}) error {
+	return nil
+}
+
 // HandleInbound msg.
 func (m *MockDIDExchangeSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleFunc != nil {

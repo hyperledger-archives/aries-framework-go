@@ -261,35 +261,57 @@ type Provider interface {
 type Service struct {
 	service.Action
 	service.Message
-	store      storage.Store
-	callbacks  chan *metaData
-	messenger  service.Messenger
-	middleware Handler
+	store       storage.Store
+	callbacks   chan *metaData
+	messenger   service.Messenger
+	middleware  Handler
+	initialized bool
 }
 
 // New returns the presentproof service.
 func New(p Provider) (*Service, error) {
-	store, err := p.StorageProvider().OpenStore(Name)
+	svc := Service{}
+
+	err := svc.Initialize(p)
 	if err != nil {
 		return nil, err
 	}
 
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(prov interface{}) error {
+	if s.initialized {
+		return nil
+	}
+
+	p, ok := prov.(Provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", Provider(nil), p)
+	}
+
+	store, err := p.StorageProvider().OpenStore(Name)
+	if err != nil {
+		return err
+	}
+
 	err = p.StorageProvider().SetStoreConfig(Name, storage.StoreConfiguration{TagNames: []string{transitionalPayloadKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set store configuration: %w", err)
+		return fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
-	svc := &Service{
-		messenger:  p.Messenger(),
-		store:      store,
-		callbacks:  make(chan *metaData),
-		middleware: initialHandler,
-	}
+	s.messenger = p.Messenger()
+	s.store = store
+	s.callbacks = make(chan *metaData)
+	s.middleware = initialHandler
 
 	// start the listener
-	go svc.startInternalListener()
+	go s.startInternalListener()
 
-	return svc, nil
+	s.initialized = true
+
+	return nil
 }
 
 // Use allows providing middlewares.

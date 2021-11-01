@@ -68,6 +68,34 @@ func TestServiceNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		prov := &mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
+			StorageProviderValue:              mem.NewProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
+		}
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(prov)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 func TestServiceAccept(t *testing.T) {
 	s := &Service{}
 

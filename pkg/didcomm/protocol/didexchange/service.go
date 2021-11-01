@@ -103,6 +103,7 @@ type Service struct {
 	callbackChannel    chan *message
 	connectionRecorder *connection.Recorder
 	connectionStore    didstore.ConnectionStore
+	initialized        bool
 }
 
 type context struct {
@@ -133,19 +134,40 @@ type opts interface {
 
 // New return didexchange service.
 func New(prov provider) (*Service, error) {
-	connRecorder, err := connection.NewRecorder(prov)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize connection recorder: %w", err)
-	}
+	svc := Service{}
 
-	s, err := prov.Service(mediator.Coordination)
+	err := svc.Initialize(prov)
 	if err != nil {
 		return nil, err
 	}
 
-	routeSvc, ok := s.(mediator.ProtocolService)
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(p interface{}) error { // nolint: funlen
+	if s.initialized {
+		return nil
+	}
+
+	prov, ok := p.(provider)
 	if !ok {
-		return nil, errors.New("cast service to Route Service failed")
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", provider(nil), p)
+	}
+
+	connRecorder, err := connection.NewRecorder(prov)
+	if err != nil {
+		return fmt.Errorf("failed to initialize connection recorder: %w", err)
+	}
+
+	routeSvcBase, err := prov.Service(mediator.Coordination)
+	if err != nil {
+		return err
+	}
+
+	routeSvc, ok := routeSvcBase.(mediator.ProtocolService)
+	if !ok {
+		return errors.New("cast service to Route Service failed")
 	}
 
 	const callbackChannelSize = 10
@@ -165,30 +187,31 @@ func New(prov provider) (*Service, error) {
 		mediaTypeProfiles = []string{transport.MediaTypeAIP2RFC0019Profile}
 	}
 
-	svc := &Service{
-		ctx: &context{
-			outboundDispatcher: prov.OutboundDispatcher(),
-			crypto:             prov.Crypto(),
-			kms:                prov.KMS(),
-			vdRegistry:         prov.VDRegistry(),
-			connectionRecorder: connRecorder,
-			connectionStore:    prov.DIDConnectionStore(),
-			routeSvc:           routeSvc,
-			doACAPyInterop:     doACAPyInterop,
-			keyType:            keyType,
-			keyAgreementType:   keyAgreementType,
-			mediaTypeProfiles:  mediaTypeProfiles,
-		},
-		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		callbackChannel:    make(chan *message, callbackChannelSize),
+	s.ctx = &context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		crypto:             prov.Crypto(),
+		kms:                prov.KMS(),
+		vdRegistry:         prov.VDRegistry(),
 		connectionRecorder: connRecorder,
 		connectionStore:    prov.DIDConnectionStore(),
+		routeSvc:           routeSvc,
+		doACAPyInterop:     doACAPyInterop,
+		keyType:            keyType,
+		keyAgreementType:   keyAgreementType,
+		mediaTypeProfiles:  mediaTypeProfiles,
 	}
 
-	// start the listener
-	go svc.startInternalListener()
+	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
+	s.callbackChannel = make(chan *message, callbackChannelSize)
+	s.connectionRecorder = connRecorder
+	s.connectionStore = prov.DIDConnectionStore()
 
-	return svc, nil
+	// start the listener
+	go s.startInternalListener()
+
+	s.initialized = true
+
+	return nil
 }
 
 func retrievingRouterConnections(msg service.DIDCommMsg) []string {

@@ -103,6 +103,7 @@ type Service struct {
 	listenerFunc               func()
 	messenger                  service.Messenger
 	myMediaTypeProfiles        []string
+	initialized                bool
 }
 
 type callback struct {
@@ -156,59 +157,80 @@ type Provider interface {
 
 // New creates a new instance of the out-of-band service.
 func New(p Provider) (*Service, error) {
+	svc := Service{}
+
+	err := svc.Initialize(p)
+	if err != nil {
+		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(prov interface{}) error { // nolint:funlen
+	if s.initialized {
+		return nil
+	}
+
+	p, ok := prov.(Provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", Provider(nil), p)
+	}
+
 	svc, err := p.Service(didexchange.DIDExchange)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize outofband service : %w", err)
+		return fmt.Errorf("failed to initialize outofband service : %w", err)
 	}
 
 	didSvc, ok := svc.(didExchSvc)
 	if !ok {
-		return nil, errors.New("failed to cast the didexchange service to satisfy our dependency")
+		return errors.New("failed to cast the didexchange service to satisfy our dependency")
 	}
 
 	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open the transientStore : %w", err)
+		return fmt.Errorf("failed to open the transientStore : %w", err)
 	}
 
 	err = p.ProtocolStateStorageProvider().SetStoreConfig(Name,
 		storage.StoreConfiguration{TagNames: []string{contextKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set transientStore config in protocol state transientStore: %w", err)
+		return fmt.Errorf("failed to set transientStore config in protocol state transientStore: %w", err)
 	}
 
 	connectionRecorder, err := connection.NewRecorder(p)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a connection.Lookup : %w", err)
+		return fmt.Errorf("failed to open a connection.Lookup : %w", err)
 	}
 
-	s := &Service{
-		callbackChannel:            make(chan *callback, callbackChannelSize),
-		didSvc:                     didSvc,
-		didEvents:                  make(chan service.StateMsg, callbackChannelSize),
-		transientStore:             store,
-		connections:                connectionRecorder,
-		inboundHandler:             p.InboundDIDCommMessageHandler(),
-		chooseAttachmentFunc:       chooseAttachment,
-		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
-		messenger:                  p.Messenger(),
-		myMediaTypeProfiles:        p.MediaTypeProfiles(),
-	}
+	s.callbackChannel = make(chan *callback, callbackChannelSize)
+	s.didSvc = didSvc
+	s.didEvents = make(chan service.StateMsg, callbackChannelSize)
+	s.transientStore = store
+	s.connections = connectionRecorder
+	s.inboundHandler = p.InboundDIDCommMessageHandler()
+	s.chooseAttachmentFunc = chooseAttachment
+	s.extractDIDCommMsgBytesFunc = extractDIDCommMsgBytes
+	s.messenger = p.Messenger()
+	s.myMediaTypeProfiles = p.MediaTypeProfiles()
 
 	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleCallback, s.handleDIDEvent)
 
 	didEventsSvc, ok := didSvc.(service.Event)
 	if !ok {
-		return nil, errors.New("failed to cast didexchange service to service.Event")
+		return errors.New("failed to cast didexchange service to service.Event")
 	}
 
 	if err = didEventsSvc.RegisterMsgEvent(s.didEvents); err != nil {
-		return nil, fmt.Errorf("failed to register for didexchange protocol msgs : %w", err)
+		return fmt.Errorf("failed to register for didexchange protocol msgs : %w", err)
 	}
 
 	go s.listenerFunc()
 
-	return s, nil
+	s.initialized = true
+
+	return nil
 }
 
 // Name is this service's name.

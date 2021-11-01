@@ -29,6 +29,7 @@ import (
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -40,6 +41,30 @@ const (
 	// Bob always plays introducee (second) role.
 	Carol = "Carol"
 )
+
+func TestService_Initialize(t *testing.T) {
+	t.Run("success: already initialized", func(t *testing.T) {
+		prov := &protocol.MockProvider{}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		svc := agentSetup(t, "agent", ctrl, map[string]chan payload{})
+
+		require.NoError(t, svc.Initialize(prov))
+	})
+
+	t.Run("fail: provider of wrong type", func(t *testing.T) {
+		prov := "this is not a provider"
+
+		svc := introduce.Service{}
+
+		err := svc.Initialize(prov)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
 
 type props interface {
 	PIID() string

@@ -29,6 +29,11 @@ type MockPresentProofSvc struct {
 	UnregisterMsgEventErr    error
 }
 
+// Initialize service.
+func (m *MockPresentProofSvc) Initialize(interface{}) error {
+	return nil
+}
+
 // HandleInbound msg.
 func (m *MockPresentProofSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleFunc != nil {

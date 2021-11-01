@@ -66,6 +66,38 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("success", func(t *testing.T) {
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil)
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
+
+		svc := Service{}
+
+		err := svc.Initialize(provider)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(provider)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 func TestService_Use(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
