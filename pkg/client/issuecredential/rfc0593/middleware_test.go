@@ -33,7 +33,7 @@ func TestMiddleware(t *testing.T) {
 
 		thid := uuid.New().String()
 		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
-			Type: issuecredential.RequestCredentialMsgType,
+			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: attachID,
 				Format:   rfc0593.ProofVCDetailFormat,
@@ -78,7 +78,7 @@ func TestMiddleware(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
-			Type: issuecredential.ProposeCredentialMsgType,
+			Type: issuecredential.ProposeCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
 				Format:   rfc0593.ProofVCDetailFormat,
@@ -114,7 +114,7 @@ func TestMiddleware(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
-			Type: issuecredential.RequestCredentialMsgType,
+			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
 				Format:   "SOME_OTHER_FORMAT",
@@ -159,7 +159,7 @@ func TestMiddleware(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
-			Type: issuecredential.RequestCredentialMsgType,
+			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
 				Format:   rfc0593.ProofVCDetailFormat,

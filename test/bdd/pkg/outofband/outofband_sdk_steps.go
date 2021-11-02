@@ -133,7 +133,7 @@ func (sdk *SDKSteps) createOOBInvitationWithOfferCredential(agent string) error 
 	}
 
 	inv, err := sdk.newInvitation(agent, &issuecredential.OfferCredential{
-		Type:    issuecredential.OfferCredentialMsgType,
+		Type:    issuecredential.OfferCredentialMsgTypeV2,
 		Comment: "test",
 	})
 	if err != nil {
@@ -169,7 +169,7 @@ func (sdk *SDKSteps) createOOBInvitationReusePubDIDAndOfferCredential(agent stri
 			MimeType: "application/json",
 			Data: decorator.AttachmentData{
 				JSON: &issuecredential.OfferCredential{
-					Type:    issuecredential.OfferCredentialMsgType,
+					Type:    issuecredential.OfferCredentialMsgTypeV2,
 					Comment: "test",
 				},
 			},

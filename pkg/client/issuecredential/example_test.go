@@ -225,19 +225,19 @@ func ExampleClient_SendProposal() {
 				fmt.Println("empty piid")
 			}
 
-			if e.Message.Type() == issuecredential.ProposeCredentialMsgType {
+			if e.Message.Type() == issuecredential.ProposeCredentialMsgTypeV2 {
 				acceptErr = clientAlice.AcceptProposal(piid, &OfferCredential{})
 			}
 
-			if e.Message.Type() == issuecredential.RequestCredentialMsgType {
+			if e.Message.Type() == issuecredential.RequestCredentialMsgTypeV2 {
 				acceptErr = clientAlice.AcceptRequest(piid, &IssueCredential{})
 			}
 
-			if e.Message.Type() == issuecredential.OfferCredentialMsgType {
+			if e.Message.Type() == issuecredential.OfferCredentialMsgTypeV2 {
 				acceptErr = clientBob.AcceptOffer(piid)
 			}
 
-			if e.Message.Type() == issuecredential.IssueCredentialMsgType {
+			if e.Message.Type() == issuecredential.IssueCredentialMsgTypeV2 {
 				acceptErr = clientBob.AcceptCredential(piid)
 			}
 

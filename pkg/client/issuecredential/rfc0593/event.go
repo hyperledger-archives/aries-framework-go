@@ -108,16 +108,16 @@ func AutoExecute(p Provider, next chan service.DIDCommAction) func(chan service.
 			)
 
 			switch event.Message.Type() {
-			case issuecredential.ProposeCredentialMsgType:
+			case issuecredential.ProposeCredentialMsgTypeV2:
 				arg, options, err = ReplayProposal(p, event.Message)
 				err = saveOptionsIfNoError(err, db, event.Message, options)
-			case issuecredential.OfferCredentialMsgType:
+			case issuecredential.OfferCredentialMsgTypeV2:
 				arg, options, err = ReplayOffer(p, event.Message)
 				err = saveOptionsIfNoError(err, db, event.Message, options)
-			case issuecredential.RequestCredentialMsgType:
+			case issuecredential.RequestCredentialMsgTypeV2:
 				arg, options, err = IssueCredential(p, event.Message)
 				err = saveOptionsIfNoError(err, db, event.Message, options)
-			case issuecredential.IssueCredentialMsgType:
+			case issuecredential.IssueCredentialMsgTypeV2:
 				// TODO credential issued to us. We have middleware that automatically saves the credentials.
 				//  Should this package ensure it's saved?
 				//  Should we ensure issued VC is up to spec?
@@ -198,7 +198,7 @@ func ReplayProposal(p JSONLDDocumentLoaderProvider,
 	attachID := uuid.New().String()
 
 	return issuecredential.WithOfferCredential(&issuecredential.OfferCredential{
-		Type:    issuecredential.OfferCredentialMsgType,
+		Type:    issuecredential.OfferCredentialMsgTypeV2,
 		Comment: fmt.Sprintf("response to msg id: %s", msg.ID()),
 		Formats: []issuecredential.Format{{
 			AttachID: attachID,
@@ -258,7 +258,7 @@ func ReplayOffer(p JSONLDDocumentLoaderProvider, msg service.DIDCommMsg) (interf
 	attachID := uuid.New().String()
 
 	return issuecredential.WithRequestCredential(&issuecredential.RequestCredential{
-		Type:    issuecredential.RequestCredentialMsgType,
+		Type:    issuecredential.RequestCredentialMsgTypeV2,
 		Comment: fmt.Sprintf("response to msg id: %s", msg.ID()),
 		Formats: []issuecredential.Format{{
 			AttachID: attachID,
@@ -349,7 +349,7 @@ func CreateIssueCredentialMsg(p Provider, spec *CredentialSpec) (*issuecredentia
 	attachID := uuid.New().String()
 
 	return &issuecredential.IssueCredential{
-		Type: issuecredential.IssueCredentialMsgType,
+		Type: issuecredential.IssueCredentialMsgTypeV2,
 		Formats: []issuecredential.Format{{
 			AttachID: attachID,
 			Format:   ProofVCFormat,
