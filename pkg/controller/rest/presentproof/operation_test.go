@@ -363,21 +363,6 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
-		require.NoError(t, err)
-
-		buf, code, err := sendRequestToHandler(
-			handlerLookup(t, operation, AcceptPresentation),
-			nil,
-			strings.Replace(AcceptPresentation, `{piid}`, "1234", 1),
-		)
-
-		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "payload was not provided")
-	})
-
 	t.Run("Empty payload (success)", func(t *testing.T) {
 		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)

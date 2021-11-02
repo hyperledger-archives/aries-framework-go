@@ -52,7 +52,10 @@ const (
 	negotiateRequestPresentation   = operationID + "/%s/negotiate-request-presentation"
 	negotiateRequestPresentationV3 = operationIDV3 + "/%s/negotiate-request-presentation"
 	acceptPresentation             = operationID + "/%s/accept-presentation"
-	verifiablePresentations        = "/verifiable/presentations"
+	declinePresentation            = operationID + "/%s/decline-presentation"
+	acceptProblemReport            = operationID + "/%s/accept-problem-report"
+
+	verifiablePresentations = "/verifiable/presentations"
 )
 
 // ControllerSteps supports steps for Present Proof controller.
@@ -87,7 +90,8 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name and "([^"]*)" redirect through PresentProof controller$`, s.acceptPresentationWithRedirect)
 	gs.Step(`^"([^"]*)" checks that presentation is being stored under the "([^"]*)" name$`, s.checkPresentation)
 	gs.Step(`^"([^"]*)" sends "([^"]*)" to "([^"]*)" through PresentProof controller$`, s.sendMessage)
-	gs.Step(`^"([^"]*)" validates present proof state "([^"]*)" and redirect "([^"]*)" through PresentProof controller$`, s.validateState)
+	gs.Step(`^"([^"]*)" declines presentation "([^"]*)" from "([^"]*)" and redirects prover to "([^"]*)" through PresentProof controller$`, s.declinePresentationWithRedirect)
+	gs.Step(`^"([^"]*)" validates present proof state "([^"]*)" and redirect "([^"]*)" with status "([^"]*)" through PresentProof controller$`, s.validateState)
 }
 
 func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
@@ -439,6 +443,29 @@ func (s *ControllerSteps) acceptPresentationWithRedirect(verifier, name, redirec
 	}, nil)
 }
 
+func (s *ControllerSteps) declinePresentationWithRedirect(verifier, name, prover, redirect string) error {
+	url, ok := s.bddContext.GetControllerURL(verifier)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
+	}
+
+	piid, err := s.actionPIID(verifier)
+	if err != nil {
+		return err
+	}
+
+	s.nameToPIID[name] = piid
+
+	err = postToURL(url+fmt.Sprintf(declinePresentation, piid), presentproofcmd.DeclinePresentationArgs{
+		RedirectURL: redirect,
+	}, nil)
+	if err != nil {
+		return err
+	}
+
+	return s.acceptProblemReport(prover, piid)
+}
+
 func (s *ControllerSteps) actionPIID(agentID string) (string, error) {
 	msg, err := util.PullEventsFromWebSocket(s.bddContext, agentID, util.FilterTopic("present-proof_actions"))
 	if err != nil {
@@ -482,10 +509,27 @@ func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 	return errors.New("presentation not found")
 }
 
-func (s *ControllerSteps) validateState(agent, state, redirect string) error {
+func (s *ControllerSteps) acceptProblemReport(agent, piid string) error {
+	_, err := util.PullEventsFromWebSocket(s.bddContext, agent,
+		util.FilterTopic("present-proof_actions"),
+		util.FilterPIID(piid),
+	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
+	url, ok := s.bddContext.GetControllerURL(agent)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent)
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptProblemReport, piid), presentproofcmd.AcceptProblemReportArgs{}, nil)
+}
+
+func (s *ControllerSteps) validateState(agent, state, redirect, status string) error {
 	msg, err := util.PullEventsFromWebSocket(s.bddContext, agent,
 		util.FilterTopic("present-proof_states"),
-		util.FilterStateID("done"),
+		util.FilterStateID(state),
 	)
 	if err != nil {
 		return fmt.Errorf("pull events from WebSocket: %w", err)
