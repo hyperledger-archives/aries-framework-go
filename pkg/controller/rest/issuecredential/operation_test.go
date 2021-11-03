@@ -72,6 +72,171 @@ func TestOperation_AcceptProposal(t *testing.T) {
 	})
 }
 
+func TestOperation_SendRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequest), nil,
+			strings.Replace(SendRequest, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequest),
+			bytes.NewBufferString(`{"my_did":"id","their_did":"id","request_credential":{}}`),
+			strings.Replace(SendRequest, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendRequestV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestV3), nil,
+			strings.Replace(SendRequestV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendRequestV3),
+			bytes.NewBufferString(`{"my_did":"id","their_did":"id","request_credential":{}}`),
+			strings.Replace(SendRequestV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendOffer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendOffer), nil,
+			strings.Replace(SendOffer, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendOffer),
+			bytes.NewBufferString(`{"my_did":"id","their_did":"id","offer_credential":{}}`),
+			strings.Replace(SendOffer, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_SendOfferV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendOfferV3), nil,
+			strings.Replace(SendOfferV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, SendOfferV3),
+			bytes.NewBufferString(`{"my_did":"id","their_did":"id","offer_credential":{}}`),
+			strings.Replace(SendOfferV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_AcceptProposalV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptProposalV3), nil,
+			strings.Replace(AcceptProposalV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptProposalV3),
+			bytes.NewBufferString(`{"offer_credential":{}}`),
+			strings.Replace(AcceptProposalV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
 func TestOperation_AcceptOffer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -143,6 +308,39 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	})
 }
 
+func TestOperation_AcceptRequestV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptRequestV3), nil,
+			strings.Replace(AcceptRequestV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptRequestV3),
+			bytes.NewBufferString(`{"issue_credential":{}}`),
+			strings.Replace(AcceptRequestV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
 func TestOperation_NegotiateProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -169,6 +367,39 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 			handlerLookup(t, operation, NegotiateProposal),
 			bytes.NewBufferString(`{"propose_credential":{}}`),
 			strings.Replace(NegotiateProposal, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
+func TestOperation_NegotiateProposalV3(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("No payload", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, NegotiateProposalV3), nil,
+			strings.Replace(NegotiateProposalV3, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, NegotiateProposalV3),
+			bytes.NewBufferString(`{"propose_credential":{}}`),
+			strings.Replace(NegotiateProposalV3, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
