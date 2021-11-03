@@ -20,6 +20,18 @@ type AcceptProposalArgs struct {
 	OfferCredential *issuecredential.OfferCredential `json:"offer_credential"`
 }
 
+// AcceptProposalArgsV3 model
+//
+// This is used for accepting proposal.
+//
+type AcceptProposalArgsV3 struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// OfferCredential is a message describing the credential intend to offer and
+	// possibly the price they expect to be paid.
+	OfferCredential *issuecredential.OfferCredentialV3 `json:"offer_credential"`
+}
+
 // AcceptProposalResponse model
 //
 // Represents a AcceptProposal response message.
@@ -50,6 +62,17 @@ type AcceptRequestArgs struct {
 	PIID string `json:"piid"`
 	// IssueCredential contains as attached payload the credentials being issued
 	IssueCredential *issuecredential.IssueCredential `json:"issue_credential"`
+}
+
+// AcceptRequestArgsV3 model
+//
+// This is used for accepting a request.
+//
+type AcceptRequestArgsV3 struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// IssueCredential contains as attached payload the credentials being issued
+	IssueCredential *issuecredential.IssueCredentialV3 `json:"issue_credential"`
 }
 
 // AcceptRequestResponse model
@@ -85,6 +108,18 @@ type NegotiateProposalArgs struct {
 	// ProposeCredential is a message sent in response to a offer-credential message when the Holder
 	// wants some adjustments made to the credential data offered by Issuer.
 	ProposeCredential *issuecredential.ProposeCredential `json:"propose_credential"`
+}
+
+// NegotiateProposalArgsV3 model
+//
+// This is used when the Holder wants to negotiate about an offer he received.
+//
+type NegotiateProposalArgsV3 struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// ProposeCredential is a message sent in response to a offer-credential message when the Holder
+	// wants some adjustments made to the credential data offered by Issuer.
+	ProposeCredential *issuecredential.ProposeCredentialV3 `json:"propose_credential"`
 }
 
 // NegotiateProposalResponse model
@@ -174,6 +209,19 @@ type SendProposalArgs struct {
 	ProposeCredential *issuecredential.ProposeCredential `json:"propose_credential"`
 }
 
+// SendProposalArgsV3 model
+//
+// This is used for sending a proposal to initiate the protocol.
+//
+type SendProposalArgsV3 struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
+	ProposeCredential *issuecredential.ProposeCredentialV3 `json:"propose_credential"`
+}
+
 // SendProposalResponse model
 //
 // Represents a SendProposal response message.
@@ -197,6 +245,20 @@ type SendOfferArgs struct {
 	OfferCredential *issuecredential.OfferCredential `json:"offer_credential"`
 }
 
+// SendOfferArgsV3 model
+//
+// This is used for sending an offer.
+//
+type SendOfferArgsV3 struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// OfferCredential is a message describing the credential intend to offer and
+	// possibly the price they expect to be paid.
+	OfferCredential *issuecredential.OfferCredentialV3 `json:"offer_credential"`
+}
+
 // SendOfferResponse model
 //
 // Represents a SendOffer response message.
@@ -218,6 +280,20 @@ type SendRequestArgs struct {
 	// RequestCredential is a message sent by the potential Holder to the Issuer,
 	// to request the issuance of a credential.
 	RequestCredential *issuecredential.RequestCredential `json:"request_credential"`
+}
+
+// SendRequestArgsV3 model
+//
+// This is used for sending a request.
+//
+type SendRequestArgsV3 struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// RequestCredential is a message sent by the potential Holder to the Issuer,
+	// to request the issuance of a credential.
+	RequestCredential *issuecredential.RequestCredentialV3 `json:"request_credential"`
 }
 
 // SendRequestResponse model

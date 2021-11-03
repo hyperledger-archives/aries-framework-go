@@ -403,6 +403,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendOffer", req, "timeout while sending an offer")
             },
             /**
+             * Sends an offer V3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendOfferV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendOfferV3", req, "timeout while sending an offer")
+            },
+            /**
              * Sends a proposal.
              *
              * @param req - json document
@@ -410,6 +419,15 @@ const Aries = function (opts) {
              */
             sendProposal: function (req) {
                 return invoke(aw, pending, this.pkgname, "SendProposal", req, "timeout while sending a proposal")
+            },
+            /**
+             * Sends a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposalV3", req, "timeout while sending a proposal")
             },
             /**
              * Sends a request.
@@ -421,6 +439,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendRequest", req, "timeout while sending a request")
             },
             /**
+             * Sends a request v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequestV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequestV3", req, "timeout while sending a request")
+            },
+            /**
              * Accepts a proposal.
              *
              * @param req - json document
@@ -428,6 +455,15 @@ const Aries = function (opts) {
              */
             acceptProposal: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptProposal", req, "timeout while accepting a proposal")
+            },
+            /**
+             * Accepts a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposalV3", req, "timeout while accepting a proposal")
             },
             /**
              * Declines a proposal.
@@ -475,6 +511,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "NegotiateProposal", req, "timeout while negotiating proposal")
             },
             /**
+             * Is used when the Holder wants to negotiate about an offer he received.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            negotiateProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "NegotiateProposalV3", req, "timeout while negotiating proposal")
+            },
+            /**
              * Accepts a request.
              *
              * @param req - json document
@@ -482,6 +527,15 @@ const Aries = function (opts) {
              */
             acceptRequest: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptRequest", req, "timeout while accepting a request")
+            },
+            /**
+             * Accepts a request v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestV3", req, "timeout while accepting a request")
             },
             /**
              * Declines a request.

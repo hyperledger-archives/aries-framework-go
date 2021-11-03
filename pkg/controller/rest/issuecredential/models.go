@@ -27,6 +27,25 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 	}
 }
 
+// issueCredentialAcceptProposalRequestV3 model
+//
+// This is used for operation to accept proposal
+//
+// swagger:parameters issueCredentialAcceptProposalV3
+type issueCredentialAcceptProposalRequestV3 struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+
+	// in: body
+	Body struct {
+		// required: true
+		OfferCredential struct{ *protocol.OfferCredentialV3 } `json:"offer_credential"`
+	}
+}
+
 // issueCredentialAcceptProposalResponse model
 //
 // Represents a AcceptProposal response message
@@ -76,6 +95,25 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 	Body struct {
 		// required: true
 		IssueCredential struct{ *protocol.IssueCredential } `json:"issue_credential"`
+	}
+}
+
+// issueCredentialAcceptRequestRequestV3 model
+//
+// This is used for operation to accept a request
+//
+// swagger:parameters issueCredentialAcceptRequestV3
+type issueCredentialAcceptRequestRequestV3 struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+
+	// in: body
+	Body struct {
+		// required: true
+		IssueCredential struct{ *protocol.IssueCredentialV3 } `json:"issue_credential"`
 	}
 }
 
@@ -241,6 +279,25 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 	}
 }
 
+// issueCredentialNegotiateProposalRequestV3 model
+//
+// This is used for operation when the Holder wants to negotiate about an offer he received.
+//
+// swagger:parameters issueCredentialNegotiateProposalV3
+type issueCredentialNegotiateProposalRequestV3 struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+
+	// in: body
+	Body struct {
+		// required: true
+		ProposeCredential struct{ *protocol.ProposeCredentialV3 } `json:"propose_credential"`
+	}
+}
+
 // issueCredentialNegotiateProposalResponse model
 //
 // Represents a NegotiateProposal response message
@@ -291,6 +348,27 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 	}
 }
 
+// issueCredentialSendOfferRequestV3 model
+//
+// This is used for operation to send an offer.
+//
+// swagger:parameters issueCredentialSendOfferV3
+type issueCredentialSendOfferRequestV3 struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		// MyDID sender's did
+		// required: true
+		MyDID string `json:"my_did"`
+		// TheirDID receiver's did
+		// required: true
+		TheirDID string `json:"their_did"`
+		// OfferCredential is a message describing the credential intend to offer and
+		// possibly the price they expect to be paid.
+		// required: true
+		OfferCredential struct{ *protocol.OfferCredentialV3 } `json:"offer_credential"`
+	}
+}
+
 // issueCredentialSendOfferResponse model
 //
 // Represents a SendOffer response message
@@ -321,6 +399,26 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 		// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
 		// required: true
 		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
+	}
+}
+
+// issueCredentialSendProposalRequestV3 model
+//
+// This is used for operation to send a proposal
+//
+// swagger:parameters issueCredentialSendProposalV3
+type issueCredentialSendProposalRequestV3 struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		// MyDID sender's did
+		// required: true
+		MyDID string `json:"my_did"`
+		// TheirDID receiver's did
+		// required: true
+		TheirDID string `json:"their_did"`
+		// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
+		// required: true
+		ProposeCredential struct{ *protocol.ProposeCredentialV3 } `json:"propose_credential"`
 	}
 }
 
@@ -355,6 +453,27 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 		// to request the issuance of a credential.
 		// required: true
 		RequestCredential struct{ *protocol.RequestCredential } `json:"request_credential"`
+	}
+}
+
+// issueCredentialSendRequestRequestV3 model
+//
+// This is used for operation to send a request
+//
+// swagger:parameters issueCredentialSendRequestV3
+type issueCredentialSendRequestRequestV3 struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		// MyDID sender's did
+		// required: true
+		MyDID string `json:"my_did"`
+		// TheirDID receiver's did
+		// required: true
+		TheirDID string `json:"their_did"`
+		// RequestCredential is a message sent by the potential Holder to the Issuer,
+		// to request the issuance of a credential.
+		// required: true
+		RequestCredential struct{ *protocol.RequestCredentialV3 } `json:"request_credential"`
 	}
 }
 

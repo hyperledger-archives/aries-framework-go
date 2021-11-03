@@ -28,16 +28,23 @@ import (
 // constants for issue credential endpoints.
 const (
 	OperationID         = "/issuecredential"
+	OperationIDV3       = OperationID + "/v3"
 	Actions             = OperationID + "/actions"
 	SendOffer           = OperationID + "/send-offer"
+	SendOfferV3         = OperationIDV3 + "/send-offer"
 	SendProposal        = OperationID + "/send-proposal"
+	SendProposalV3      = OperationIDV3 + "/send-proposal"
 	SendRequest         = OperationID + "/send-request"
+	SendRequestV3       = OperationIDV3 + "/send-request"
 	AcceptProposal      = OperationID + "/{piid}/accept-proposal"
+	AcceptProposalV3    = OperationIDV3 + "/{piid}/accept-proposal"
 	DeclineProposal     = OperationID + "/{piid}/decline-proposal"
 	AcceptOffer         = OperationID + "/{piid}/accept-offer"
 	DeclineOffer        = OperationID + "/{piid}/decline-offer"
 	NegotiateProposal   = OperationID + "/{piid}/negotiate-proposal"
+	NegotiateProposalV3 = OperationIDV3 + "/{piid}/negotiate-proposal"
 	AcceptRequest       = OperationID + "/{piid}/accept-request"
+	AcceptRequestV3     = OperationIDV3 + "/{piid}/accept-request"
 	DeclineRequest      = OperationID + "/{piid}/decline-request"
 	AcceptCredential    = OperationID + "/{piid}/accept-credential"
 	DeclineCredential   = OperationID + "/{piid}/decline-credential"
@@ -80,14 +87,20 @@ func (c *Operation) registerHandler() {
 	c.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(Actions, http.MethodGet, c.Actions),
 		cmdutil.NewHTTPHandler(SendOffer, http.MethodPost, c.SendOffer),
+		cmdutil.NewHTTPHandler(SendOfferV3, http.MethodPost, c.SendOfferV3),
 		cmdutil.NewHTTPHandler(SendProposal, http.MethodPost, c.SendProposal),
+		cmdutil.NewHTTPHandler(SendProposalV3, http.MethodPost, c.SendProposalV3),
 		cmdutil.NewHTTPHandler(SendRequest, http.MethodPost, c.SendRequest),
+		cmdutil.NewHTTPHandler(SendRequestV3, http.MethodPost, c.SendRequestV3),
 		cmdutil.NewHTTPHandler(AcceptProposal, http.MethodPost, c.AcceptProposal),
+		cmdutil.NewHTTPHandler(AcceptProposalV3, http.MethodPost, c.AcceptProposalV3),
 		cmdutil.NewHTTPHandler(DeclineProposal, http.MethodPost, c.DeclineProposal),
 		cmdutil.NewHTTPHandler(AcceptOffer, http.MethodPost, c.AcceptOffer),
 		cmdutil.NewHTTPHandler(DeclineOffer, http.MethodPost, c.DeclineOffer),
 		cmdutil.NewHTTPHandler(NegotiateProposal, http.MethodPost, c.NegotiateProposal),
+		cmdutil.NewHTTPHandler(NegotiateProposalV3, http.MethodPost, c.NegotiateProposalV3),
 		cmdutil.NewHTTPHandler(AcceptRequest, http.MethodPost, c.AcceptRequest),
+		cmdutil.NewHTTPHandler(AcceptRequestV3, http.MethodPost, c.AcceptRequestV3),
 		cmdutil.NewHTTPHandler(DeclineRequest, http.MethodPost, c.DeclineRequest),
 		cmdutil.NewHTTPHandler(AcceptCredential, http.MethodPost, c.AcceptCredential),
 		cmdutil.NewHTTPHandler(DeclineCredential, http.MethodPost, c.DeclineCredential),
@@ -114,7 +127,22 @@ func (c *Operation) Actions(rw http.ResponseWriter, _ *http.Request) {
 //    default: genericError
 //        200: issueCredentialSendOfferResponse
 func (c *Operation) SendOffer(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendOffer, rw, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendOffer, rw, r)
+	}
+}
+
+// SendOfferV3 swagger:route POST /issuecredential/v3/send-offer issue-credential issueCredentialSendOfferV3
+//
+// Sends an offer.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialSendOfferResponse
+func (c *Operation) SendOfferV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendOfferV3, rw, r)
+	}
 }
 
 // SendProposal swagger:route POST /issuecredential/send-proposal issue-credential issueCredentialSendProposal
@@ -125,7 +153,22 @@ func (c *Operation) SendOffer(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialSendProposalResponse
 func (c *Operation) SendProposal(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendProposal, rw, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendProposal, rw, r)
+	}
+}
+
+// SendProposalV3 swagger:route POST /issuecredential/v3/send-proposal issue-credential issueCredentialSendProposalV3
+//
+// Sends a proposal.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialSendProposalResponse
+func (c *Operation) SendProposalV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendProposalV3, rw, r)
+	}
 }
 
 // SendRequest swagger:route POST /issuecredential/send-request issue-credential issueCredentialSendRequest
@@ -136,7 +179,22 @@ func (c *Operation) SendProposal(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialSendRequestResponse
 func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendRequest, rw, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendRequest, rw, r)
+	}
+}
+
+// SendRequestV3 swagger:route POST /issuecredential/v3/send-request issue-credential issueCredentialSendRequestV3
+//
+// Sends a request.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialSendRequestResponse
+func (c *Operation) SendRequestV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.SendRequestV3, rw, r)
+	}
 }
 
 // AcceptProposal swagger:route POST /issuecredential/{piid}/accept-proposal issue-credential issueCredentialAcceptProposal
@@ -149,6 +207,19 @@ func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
 func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptProposal, rw, r)
+	}
+}
+
+// AcceptProposalV3 swagger:route POST /issuecredential/v3/{piid}/accept-proposal issue-credential issueCredentialAcceptProposalV3
+//
+// Accepts a proposal.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialAcceptProposalResponse
+func (c *Operation) AcceptProposalV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptProposalV3, rw, r)
 	}
 }
 
@@ -219,6 +290,19 @@ func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
+// NegotiateProposalV3 swagger:route POST /issuecredential/v3/{piid}/negotiate-proposal issue-credential issueCredentialNegotiateProposalV3
+//
+// Is used when the Holder wants to negotiate about an offer he received.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialNegotiateProposalResponse
+func (c *Operation) NegotiateProposalV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.NegotiateProposalV3, rw, r)
+	}
+}
+
 // AcceptRequest swagger:route POST /issuecredential/{piid}/accept-request issue-credential issueCredentialAcceptRequest
 //
 // Accepts a request.
@@ -229,6 +313,19 @@ func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request)
 func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptRequest, rw, r)
+	}
+}
+
+// AcceptRequestV3 swagger:route POST /issuecredential/v3/{piid}/accept-request issue-credential issueCredentialAcceptRequestV3
+//
+// Accepts a request.
+//
+// Responses:
+//    default: genericError
+//        200: issueCredentialAcceptRequestResponse
+func (c *Operation) AcceptRequestV3(rw http.ResponseWriter, req *http.Request) {
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptRequestV3, rw, r)
 	}
 }
 
