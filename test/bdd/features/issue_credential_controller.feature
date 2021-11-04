@@ -5,22 +5,35 @@
 #
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0036-issue-credential
 
-@all
 @controller
 @issue_credential_controller
 Feature: Issue Credential using controller API
 
+  @issue_credential_controller_begin_with_request
   Scenario: The Holder begins with a request
     Given "Driver" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
-      And "Institution" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
-      And "Driver" has established connection with "Institution" through IssueCredential controller
+    And "Institution" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "Driver" has established connection with "Institution" through IssueCredential controller
 
     When  "Driver" requests credential from "Institution" through IssueCredential controller
-      And "Institution" accepts request and sends credential to the Holder through IssueCredential controller
-      And "Driver" accepts credential with name "license" through IssueCredential controller
+    And "Institution" accepts request and sends credential to the Holder through IssueCredential controller
+    And "Driver" accepts credential with name "license" through IssueCredential controller
 
     Then  "Driver" checks that issued credential is being stored under "license" name
 
+  @issue_credential_controller_begin_with_request_V3
+  Scenario: The Holder begins with a request v3
+    Given "DriverV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "InstitutionV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "DriverV3" has established connection with "InstitutionV3" through IssueCredential controller
+
+    When "DriverV3" requests credential V3 from "InstitutionV3" through IssueCredential controller
+    And "InstitutionV3" accepts request V3 and sends credential to the Holder through IssueCredential controller
+    And "DriverV3" accepts credential with name "licenseV3" through IssueCredential controller
+
+    Then  "DriverV3" checks that issued credential is being stored under "licenseV3" name
+
+  @issue_credential_controller_begin_with_offer
   Scenario: The Issuer begins with an offer
     Given "Citizen" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
       And "Government" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
@@ -33,6 +46,20 @@ Feature: Issue Credential using controller API
 
     Then  "Citizen" checks that issued credential is being stored under "passport" name
 
+  @issue_credential_controller_begin_with_offer_V3
+  Scenario: The Issuer begins with an offer v3
+    Given "CitizenV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "GovernmentV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "CitizenV3" has established connection with "GovernmentV3" through IssueCredential controller
+
+    When  "GovernmentV3" sends an offer V3 to the "CitizenV3" through IssueCredential controller
+    And "CitizenV3" accepts an offer and sends a request to the Issuer through IssueCredential controller
+    And "GovernmentV3" accepts request V3 and sends credential to the Holder through IssueCredential controller
+    And "CitizenV3" accepts credential with name "passportV3" through IssueCredential controller
+
+    Then  "CitizenV3" checks that issued credential is being stored under "passportV3" name
+
+  @issue_credential_controller_begin_with_proposal
   Scenario: The Holder begins with a proposal
     Given "Student" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
       And "University" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
@@ -46,6 +73,22 @@ Feature: Issue Credential using controller API
 
     Then  "Student" checks that issued credential is being stored under "degree" name
 
+  @issue_credential_controller_begin_with_proposal_V3
+  Scenario: The Holder begins with a proposal v3
+    Given "StudentV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "UniversityV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "StudentV3" has established connection with "UniversityV3" through IssueCredential controller
+
+    When  "StudentV3" sends proposal credential V3 to the "UniversityV3" through IssueCredential controller
+    And "UniversityV3" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller
+    And "StudentV3" accepts an offer and sends a request to the Issuer through IssueCredential controller
+    And "UniversityV3" accepts request V3 and sends credential to the Holder through IssueCredential controller
+    And "StudentV3" accepts credential with name "degreeV3" through IssueCredential controller
+
+    Then  "StudentV3" checks that issued credential is being stored under "degreeV3" name
+
+
+  @issue_credential_controller_negotiation
   Scenario: The Holder begins with a proposal (negotiation)
     Given "Graduate" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
       And "Stanford University" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
@@ -60,3 +103,19 @@ Feature: Issue Credential using controller API
       And "Graduate" accepts credential with name "bachelors degree" through IssueCredential controller
 
     Then  "Graduate" checks that issued credential is being stored under "bachelors degree" name
+
+  @issue_credential_controller_negotiation_V3
+  Scenario: The Holder begins with a proposal v3 (negotiation)
+    Given "GraduateV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "Stanford UniversityV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "GraduateV3" has established connection with "Stanford UniversityV3" through IssueCredential controller
+
+    When  "GraduateV3" sends proposal credential V3 to the "Stanford UniversityV3" through IssueCredential controller
+    And "Stanford UniversityV3" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller
+    And "GraduateV3" does not like the offer V3 and sends a new proposal to the Issuer through IssueCredential controller
+    And "Stanford UniversityV3" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller
+    And "GraduateV3" accepts an offer and sends a request to the Issuer through IssueCredential controller
+    And "Stanford UniversityV3" accepts request V3 and sends credential to the Holder through IssueCredential controller
+    And "GraduateV3" accepts credential with name "bachelors degreeV3" through IssueCredential controller
+
+    Then  "GraduateV3" checks that issued credential is being stored under "bachelors degreeV3" name

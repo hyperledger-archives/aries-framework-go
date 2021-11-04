@@ -215,6 +215,41 @@ func TestSaveCredentials(t *testing.T) {
 		require.Equal(t, props["names"], []string{vcName})
 	})
 
+	t.Run("Success V3", func(t *testing.T) {
+		const vcName = "vc-name"
+
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
+		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(props)
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV3{
+			Type: issuecredential.IssueCredentialMsgTypeV3,
+			Attachments: []decorator.AttachmentV2{
+				{Data: decorator.AttachmentData{JSON: getCredential()}},
+			},
+		}))
+
+		verifiableStore := mockstore.NewMockStore(ctrl)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		loader, err := ldtestutil.DocumentLoader()
+		require.NoError(t, err)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
+
+		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
+		require.Equal(t, props["names"], []string{vcName})
+	})
+
 	t.Run("Success (no ID)", func(t *testing.T) {
 		props := map[string]interface{}{
 			myDIDKey:    myDIDKey,
