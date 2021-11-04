@@ -23,6 +23,11 @@ type MockOobService struct {
 	UnregisterMsgEventHandle    func(chan<- service.StateMsg) error
 }
 
+// Initialize service.
+func (m *MockOobService) Initialize(interface{}) error {
+	return nil
+}
+
 // AcceptInvitation mock implementation.
 func (m *MockOobService) AcceptInvitation(arg0 *outofband.Invitation, arg1 outofband.Options) (string, error) {
 	if m.AcceptInvitationHandle != nil {

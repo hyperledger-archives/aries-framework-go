@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
@@ -119,9 +120,14 @@ func TestNewProvider(t *testing.T) {
 			},
 		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
 			WithMessengerHandler(messengerHandler),
-			WithDIDConnectionStore(connectionStore))
+			WithDIDConnectionStore(connectionStore),
+			WithInboundEnvelopeHandler(nil))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
+
+		envHandler := &inbound.MessageHandler{}
+		envHandler.Initialize(ctx)
+		ctx.inboundEnvelopeHandler = envHandler
 
 		inboundHandler := ctx.InboundMessageHandler()
 
@@ -129,14 +135,10 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id":"12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.NoError(t, err)
-
-		// invalid json
-		err = inboundHandler(&transport.Envelope{Message: []byte("invalid json")})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// invalid json
 		err = inboundHandler(&transport.Envelope{Message: []byte("invalid json")})
@@ -147,6 +149,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@type": "invalid-message-type",
+			"@id":"12345",
 			"label": "Bob"
 		}`)})
 		require.Error(t, err)
@@ -156,6 +159,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"label": "Carol",
+			"@id":"12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.Error(t, err)
@@ -203,29 +207,31 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("{\"kid\":\"did:peer:bob#key-1\"}"), FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\"}")})
 		require.NoError(t, err)
 
 		err = inboundHandler(&transport.Envelope{
-			Message: []byte(`{"@type": "valid-message-type"}`),
+			Message: []byte(`{"@type": "valid-message-type", "@id": "12345"}`),
 			ToKey:   []byte("{\"kid\":\"did:peer:bob#key-1\""),
 		})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "envelope.ToKey as myDID")
+		require.Contains(t, err.Error(), "pubKeyToDID")
 
 		err = inboundHandler(&transport.Envelope{
-			Message: []byte(`{"@type": "valid-message-type"}`),
+			Message: []byte(`{"@type": "valid-message-type", "@id": "12345"}`),
 			ToKey:   []byte("{\"kid\":\"did:peer:bob#key-1\"}"),
 			FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\""),
 		})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "envelope.FromKey as theirDID")
+		require.Contains(t, err.Error(), "pubKeyToDID")
 
 		// valid json, message type but service handlers returns error
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"label": "Carol",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("{\"kid\":\"did:peer:bob#key-1\"}"), FromKey: []byte("{\"kid\":\"did:peer:carol#key-1\"}")})
 		require.Error(t, err)
@@ -257,6 +263,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.NoError(t, err)
@@ -297,6 +304,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.NoError(t, err)
@@ -335,6 +343,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.Error(t, err)
@@ -382,6 +391,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.Error(t, err)
@@ -421,6 +431,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.Error(t, err)
@@ -472,6 +483,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.Error(t, err)
@@ -507,6 +519,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 
@@ -545,6 +558,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "valid-message-type"
 		}`), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 
@@ -629,6 +643,7 @@ func TestNewProvider(t *testing.T) {
 		err = inboundHandler(&transport.Envelope{Message: []byte(fmt.Sprintf(`
 		{
 			"@frameworkID": "5678876542345",
+			"@id": "12345",
 			"@type": "%s"
 		}`, sampleMsgType)), ToKey: []byte("toKey"), FromKey: []byte("fromKey")})
 		require.NoError(t, err)

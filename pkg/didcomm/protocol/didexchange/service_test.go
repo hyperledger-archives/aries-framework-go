@@ -102,6 +102,32 @@ func TestServiceNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	t.Run("success: already initialized", func(t *testing.T) {
+		prov := &protocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		}
+
+		svc, err := New(prov)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.Initialize(prov))
+	})
+
+	t.Run("fail: provider of wrong type", func(t *testing.T) {
+		prov := "this is not a provider"
+
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 // did-exchange flow with role Inviter.
 func TestService_Handle_Inviter(t *testing.T) {
 	mockStore := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}

@@ -220,10 +220,12 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return &mockdidexchange.MockDIDExchangeSvc{
-				ProtocolName: "mockProtocolSvc",
-			}, nil
+		newMockSvc := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
 		}
 		// with custom protocol
 		aries, err := New(WithProtocols(newMockSvc), WithInboundTransport(&mockInboundTransport{}))
@@ -244,10 +246,12 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		mockSvcCreator := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return &mockdidexchange.MockDIDExchangeSvc{
-				ProtocolName: "mockProtocolSvc",
-			}, nil
+		mockSvcCreator := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
 		}
 		aries, err := New(WithProtocols(mockSvcCreator), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
@@ -263,12 +267,40 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test error from protocol service", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return nil, errors.New("error creating the protocol")
+		newMockSvc := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return nil, errors.New("error creating the protocol")
+			},
 		}
 		_, err := New(WithProtocols(newMockSvc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the protocol")
+
+		newMockSvc = api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
+
+			Init: func(srv dispatcher.ProtocolService, prv api.Provider) error {
+				return errors.New("error initializing the protocol")
+			},
+		}
+
+		_, err = New(WithProtocols(newMockSvc))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error initializing the protocol")
+
+		newMockSvc = api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockProtocolService{}, nil
+			},
+		}
+
+		_, err = New(WithProtocols(newMockSvc))
+		require.Error(t, err)
+		require.ErrorIs(t, err, errMockProtocolInit)
 	})
 
 	t.Run("test Inbound transport - with options", func(t *testing.T) {
@@ -760,4 +792,28 @@ func (m *mockInboundTransport) Stop() error {
 
 func (m *mockInboundTransport) Endpoint() string {
 	return ""
+}
+
+type mockProtocolService struct{}
+
+func (m mockProtocolService) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	panic("implement me")
+}
+
+func (m mockProtocolService) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	panic("implement me")
+}
+
+func (m mockProtocolService) Accept(msgType string) bool {
+	panic("implement me")
+}
+
+func (m mockProtocolService) Name() string {
+	panic("implement me")
+}
+
+var errMockProtocolInit = errors.New("mock protocol init error")
+
+func (m mockProtocolService) Initialize(i interface{}) error {
+	return errMockProtocolInit
 }
