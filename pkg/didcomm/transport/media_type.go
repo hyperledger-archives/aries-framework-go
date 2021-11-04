@@ -41,3 +41,13 @@ const (
 	// MediaTypeDIDCommV2Profile is the official DIDComm V2 profile.
 	MediaTypeDIDCommV2Profile = "didcomm/v2"
 )
+
+// MediaTypeProfiles returns the list of accepted mediatype profiles.
+func MediaTypeProfiles() []string {
+	return []string{
+		MediaTypeDIDCommV2Profile,
+		MediaTypeAIP2RFC0587Profile,
+		MediaTypeAIP2RFC0019Profile,
+		MediaTypeProfileDIDCommAIP1,
+	}
+}

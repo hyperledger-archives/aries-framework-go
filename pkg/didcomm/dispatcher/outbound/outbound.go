@@ -193,8 +193,10 @@ func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destin
 			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
 		}
 
+		mtp := o.mediaTypeProfile(des)
+
 		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-			MediaTypeProfile: o.mediaTypeProfile(des),
+			MediaTypeProfile: mtp,
 			Message:          req,
 			FromKey:          []byte(senderKey),
 			ToKeys:           des.RecipientKeys,
@@ -248,32 +250,20 @@ func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 }
 
 func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
-	if len(des.RoutingKeys) == 0 {
-		return msg, nil
-	}
-
-	// create forward message
-	forward := &model.Forward{
-		Type: service.ForwardMsgType,
-		ID:   uuid.New().String(),
-		To:   des.RecipientKeys[0],
-		Msg:  msg,
-	}
-
-	// convert forward message to bytes
-	req, err := json.Marshal(forward)
-	if err != nil {
-		return nil, fmt.Errorf("failed marshal to bytes: %w", err)
-	}
+	forwardMsgType := service.ForwardMsgType
 
 	mtProfile := o.mediaTypeProfile(des)
 
-	var senderKey []byte
+	var (
+		senderKey []byte
+		err       error
+	)
 
 	switch mtProfile {
 	case transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV2EncryptedEnvelope,
 		transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeV2PlaintextPayload, transport.MediaTypeDIDCommV2Profile:
-		break // for DIDComm V2, do not set senderKey to force Anoncrypt packing.
+		// for DIDComm V2, do not set senderKey to force Anoncrypt packing. Only set the V2 forwardMsgType.
+		forwardMsgType = service.ForwardMsgTypeV2
 	default: // default is DIDComm V1, create a dummy key as senderKey
 		// create key set
 		_, senderKey, err = o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
@@ -284,6 +274,24 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		senderDIDKey, _ := fingerprint.CreateDIDKey(senderKey)
 
 		senderKey = []byte(senderDIDKey)
+	}
+
+	if len(des.RoutingKeys) == 0 {
+		return msg, nil
+	}
+
+	// create forward message
+	forward := &model.Forward{
+		Type: forwardMsgType,
+		ID:   uuid.New().String(),
+		To:   des.RecipientKeys[0],
+		Msg:  msg,
+	}
+
+	// convert forward message to bytes
+	req, err := json.Marshal(forward)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshal to bytes: %w", err)
 	}
 
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
