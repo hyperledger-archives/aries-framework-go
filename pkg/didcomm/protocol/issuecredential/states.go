@@ -148,7 +148,7 @@ func (s *abandoning) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 		return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReport{
 			Type:        ProblemReportMsgTypeV2,
 			Description: code,
-		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID})
+		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 	}, nil
 }
 
@@ -224,13 +224,15 @@ func (s *offerSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 			// sets message type
 			md.offerCredentialV3.Type = OfferCredentialMsgTypeV3
 
-			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredentialV3), md.MyDID, md.TheirDID)
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredentialV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)))
 		}
 
 		// sets message type.
 		md.offerCredential.Type = OfferCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredential), md.MyDID, md.TheirDID)
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredential), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &noOp{}, action, nil
@@ -239,7 +241,7 @@ func (s *offerSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 func (s *offerSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action.
 	action := func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &noOp{}, action, nil
@@ -269,13 +271,15 @@ func (s *requestReceived) ExecuteInbound(md *MetaData) (state, stateAction, erro
 			// sets message type
 			md.issueCredentialV3.Type = IssueCredentialMsgTypeV3
 
-			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredentialV3), md.MyDID, md.TheirDID)
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredentialV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)))
 		}
 
 		// sets message type
 		md.issueCredential.Type = IssueCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredential), md.MyDID, md.TheirDID)
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredential), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &credentialIssued{}, action, nil
@@ -330,13 +334,15 @@ func (s *proposalSent) ExecuteInbound(md *MetaData) (state, stateAction, error) 
 			// sets message type
 			md.proposeCredentialV3.Type = ProposeCredentialMsgTypeV3
 
-			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredentialV3), md.MyDID, md.TheirDID)
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredentialV3), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)))
 		}
 
 		// sets message type
 		md.proposeCredential.Type = ProposeCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredential), md.MyDID, md.TheirDID)
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredential), md.MyDID, md.TheirDID,
+			service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &noOp{}, action, nil
@@ -345,7 +351,7 @@ func (s *proposalSent) ExecuteInbound(md *MetaData) (state, stateAction, error) 
 func (s *proposalSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &noOp{}, action, nil
@@ -397,7 +403,8 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 
 		// creates the state's action
 		action = func(messenger service.Messenger) error {
-			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID)
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)))
 		}
 	} else {
 		offer := OfferCredential{}
@@ -418,7 +425,8 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 
 		// creates the state's action
 		action = func(messenger service.Messenger) error {
-			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID)
+			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(response), md.MyDID, md.TheirDID,
+				service.WithVersion(getDIDVersion(s.V)))
 		}
 	}
 
@@ -449,7 +457,7 @@ func (s *requestSent) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 func (s *requestSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &noOp{}, action, nil
@@ -481,7 +489,7 @@ func (s *credentialReceived) ExecuteInbound(md *MetaData) (state, stateAction, e
 		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.Ack{
 			Type:   AckMsgTypeV2,
 			Status: "OK",
-		}), md.MyDID, md.TheirDID)
+		}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
 	return &done{}, action, nil
