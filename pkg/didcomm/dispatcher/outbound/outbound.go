@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package dispatcher
+package outbound
 
 import (
 	"encoding/json"
@@ -51,8 +51,8 @@ type connectionRecorder interface {
 	SaveConnectionRecord(record *connection.Record) error
 }
 
-// OutboundDispatcher dispatch msgs to destination.
-type OutboundDispatcher struct {
+// Dispatcher dispatch msgs to destination.
+type Dispatcher struct {
 	outboundTransports   []transport.OutboundTransport
 	packager             transport.Packager
 	transportReturnRoute string
@@ -66,8 +66,8 @@ type OutboundDispatcher struct {
 var logger = log.New("aries-framework/didcomm/dispatcher")
 
 // NewOutbound return new dispatcher outbound instance.
-func NewOutbound(prov provider) (*OutboundDispatcher, error) {
-	o := &OutboundDispatcher{
+func NewOutbound(prov provider) (*Dispatcher, error) {
+	o := &Dispatcher{
 		outboundTransports:   prov.OutboundTransports(),
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
@@ -88,7 +88,7 @@ func NewOutbound(prov provider) (*OutboundDispatcher, error) {
 }
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
-func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
+func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
 	myDocResolution, err := o.vdRegistry.Resolve(myDID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve my DID: %w", err)
@@ -132,14 +132,14 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 	return o.Send(msg, key, dest)
 }
 
-func (o *OutboundDispatcher) defaultMediaTypeProfiles() []string {
+func (o *Dispatcher) defaultMediaTypeProfiles() []string {
 	mediaTypes := make([]string, len(o.mediaTypeProfiles))
 	copy(mediaTypes, o.mediaTypeProfiles)
 
 	return mediaTypes
 }
 
-func (o *OutboundDispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connection.Record, error) {
+func (o *Dispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connection.Record, error) {
 	record, err := o.connections.GetConnectionRecordByDIDs(myDoc.ID, theirDoc.ID)
 	if err == nil {
 		return record, nil
@@ -168,7 +168,7 @@ func (o *OutboundDispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) 
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-func (o *OutboundDispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error {
+func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		// check if outbound accepts routing keys, else use recipient keys
 		keys := des.RecipientKeys
@@ -223,7 +223,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderKey string, des *servic
 }
 
 // Forward forwards the message without packing to the destination.
-func (o *OutboundDispatcher) Forward(msg interface{}, des *service.Destination) error {
+func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		if !v.AcceptRecipient(des.RecipientKeys) {
 			if !v.Accept(des.ServiceEndpoint) {
@@ -247,7 +247,7 @@ func (o *OutboundDispatcher) Forward(msg interface{}, des *service.Destination) 
 	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", des.ServiceEndpoint)
 }
 
-func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
+func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
 	if len(des.RoutingKeys) == 0 {
 		return msg, nil
 	}
@@ -299,7 +299,7 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	return packedMsg, nil
 }
 
-func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.Destination) ([]byte, error) {
+func (o *Dispatcher) addTransportRouteOptions(req []byte, des *service.Destination) ([]byte, error) {
 	// dont add transport route options for forward messages
 	if len(des.RoutingKeys) != 0 {
 		return req, nil
@@ -326,7 +326,7 @@ func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.D
 	return req, nil
 }
 
-func (o *OutboundDispatcher) mediaTypeProfile(des *service.Destination) string {
+func (o *Dispatcher) mediaTypeProfile(des *service.Destination) string {
 	mt := ""
 
 	if len(des.MediaTypeProfiles) > 0 {

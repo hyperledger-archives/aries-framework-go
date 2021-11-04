@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -95,70 +94,95 @@ func defFrameworkOpts(frameworkOpts *Aries) error { //nolint:gocyclo
 }
 
 func newExchangeSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return didexchange.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &didexchange.Service{}, nil
+		},
 	}
 }
 
 func newIntroduceSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return introduce.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &introduce.Service{}, nil
+		},
 	}
 }
 
 func newIssueCredentialSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		service, err := issuecredential.New(prv)
-		if err != nil {
-			return nil, err
-		}
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &issuecredential.Service{}, nil
+		},
+		Init: func(svc dispatcher.ProtocolService, prv api.Provider) error {
+			icsvc, ok := svc.(*issuecredential.Service)
+			if !ok {
+				return fmt.Errorf("expected issue credential ProtocolService to be a %T", issuecredential.Service{})
+			}
 
-		// sets default middleware to the service
-		service.Use(mdissuecredential.SaveCredentials(prv))
+			err := icsvc.Initialize(prv)
+			if err != nil {
+				return err
+			}
 
-		return service, nil
+			// sets default middleware to the service
+			icsvc.Use(mdissuecredential.SaveCredentials(prv))
+
+			return nil
+		},
 	}
 }
 
 func newPresentProofSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		service, err := presentproof.New(prv)
-		if err != nil {
-			return nil, err
-		}
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &presentproof.Service{}, nil
+		},
+		Init: func(svc dispatcher.ProtocolService, prv api.Provider) error {
+			ppsvc, ok := svc.(*presentproof.Service)
+			if !ok {
+				return fmt.Errorf("expected present proof ProtocolService to be a %T", presentproof.Service{})
+			}
 
-		// sets default middleware to the service
-		service.Use(
-			mdpresentproof.SavePresentation(prv),
-			mdpresentproof.PresentationDefinition(prv,
-				mdpresentproof.WithAddProofFn(mdpresentproof.AddBBSProofFn(prv)),
-			),
-		)
+			err := ppsvc.Initialize(prv)
+			if err != nil {
+				return err
+			}
 
-		return service, nil
+			// sets default middleware to the service
+			ppsvc.Use(
+				mdpresentproof.SavePresentation(prv),
+				mdpresentproof.PresentationDefinition(prv,
+					mdpresentproof.WithAddProofFn(mdpresentproof.AddBBSProofFn(prv)),
+				),
+			)
+
+			return nil
+		},
 	}
 }
 
 func newRouteSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return mediator.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &mediator.Service{}, nil
+		},
 	}
 }
 
 func newMessagePickupSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		tp, ok := prv.(transport.Provider)
-		if !ok {
-			return nil, errors.New("failed to cast transport provider")
-		}
-
-		return messagepickup.New(prv, tp)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &messagepickup.Service{}, nil
+		},
 	}
 }
 
 func newOutOfBandSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return outofband.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &outofband.Service{}, nil
+		},
 	}
 }
 

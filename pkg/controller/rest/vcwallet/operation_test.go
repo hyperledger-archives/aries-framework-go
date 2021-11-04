@@ -1652,7 +1652,7 @@ func TestOperation_PresentProof(t *testing.T) {
 
 		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.PresentProof(rw, rq)
-		require.Equal(t, rw.Code, http.StatusOK)
+		require.Equal(t, http.StatusOK, rw.Code)
 
 		var r presentProofResponse
 		require.NoError(t, json.NewDecoder(rw.Body).Decode(&r.Response))

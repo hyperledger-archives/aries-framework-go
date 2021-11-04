@@ -16,6 +16,7 @@ type ProtocolService interface {
 	service.Handler
 	Accept(msgType string) bool
 	Name() string
+	Initialize(interface{}) error
 }
 
 // MessageService is service for handling generic messages

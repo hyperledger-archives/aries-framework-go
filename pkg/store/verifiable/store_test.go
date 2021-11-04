@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package verifiable
+package verifiable_test
 
 import (
 	"encoding/json"
@@ -18,6 +18,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	. "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable/internal"
 )
 
 const (
@@ -409,7 +411,7 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 		require.NoError(t, err)
 
 		store := make(map[string]mockstore.DBEntry)
-		store[credentialNameDataKey(sampleCredentialName)] = mockstore.DBEntry{Value: rbytes}
+		store[internal.CredentialNameDataKey(sampleCredentialName)] = mockstore.DBEntry{Value: rbytes}
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -660,7 +662,7 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 		require.NoError(t, err)
 
 		store := make(map[string]mockstore.DBEntry)
-		store[presentationNameDataKey(samplePresentationName)] = mockstore.DBEntry{Value: rbytes}
+		store[internal.PresentationNameDataKey(samplePresentationName)] = mockstore.DBEntry{Value: rbytes}
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},

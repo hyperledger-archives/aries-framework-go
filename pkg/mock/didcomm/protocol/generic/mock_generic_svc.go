@@ -35,6 +35,11 @@ type MockMessageSvc struct {
 	NameVal    string
 }
 
+// Initialize service.
+func (m *MockMessageSvc) Initialize(interface{}) error {
+	return nil
+}
+
 // HandleInbound msg.
 func (m *MockMessageSvc) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	if m.HandleFunc != nil {

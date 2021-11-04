@@ -28,6 +28,11 @@ type MockMessagePickupSvc struct {
 	NoopFunc           func(connectionID string) error
 }
 
+// Initialize service.
+func (m *MockMessagePickupSvc) Initialize(interface{}) error {
+	return nil
+}
+
 // Name return service name.
 func (m *MockMessagePickupSvc) Name() string {
 	if m.ProtocolName != "" {

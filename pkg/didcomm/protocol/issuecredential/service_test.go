@@ -218,6 +218,36 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		storeProvider := mem.NewProvider()
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
+		svc := Service{}
+
+		err := svc.Initialize(provider)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(provider)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 // nolint: gocyclo,gocognit
 func TestService_HandleInboundV2(t *testing.T) {
 	ctrl := gomock.NewController(t)

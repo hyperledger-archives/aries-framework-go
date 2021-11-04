@@ -4,25 +4,21 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package context creates a framework Provider context to add optional (non default) framework services and provides
+// simple accessor methods to those same services.
 package context
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/cenkalti/backoff/v4"
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -31,19 +27,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
 	defaultGetDIDsMaxRetries = 3
-	kaIdentifier             = "#"
 )
-
-// package context creates a framework Provider context to add optional (non default) framework services and provides
-// simple accessor methods to those same services.
-
-var logger = log.New("aries-framework/pkg/framework/context")
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
@@ -75,6 +64,14 @@ type Provider struct {
 	mediaTypeProfiles          []string
 	getDIDsMaxRetries          uint64
 	getDIDsBackOffDuration     time.Duration
+	inboundEnvelopeHandler     InboundEnvelopeHandler
+}
+
+// InboundEnvelopeHandler handles inbound envelopes, processing then dispatching to a protocol service based on the
+// message type.
+type InboundEnvelopeHandler interface {
+	// HandleInboundEnvelope handles an inbound envelope.
+	HandleInboundEnvelope(envelope *transport.Envelope) error
 }
 
 type inboundHandler struct {
@@ -129,6 +126,17 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
+// AllServices returns a copy of the Provider's list of ProtocolServices.
+func (p *Provider) AllServices() []dispatcher.ProtocolService {
+	ret := make([]dispatcher.ProtocolService, len(p.services))
+
+	for i, s := range p.services {
+		ret[i] = s
+	}
+
+	return ret
+}
+
 // KMS returns a Key Management Service.
 func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
@@ -178,149 +186,18 @@ func (p *Provider) RouterEndpoint() string {
 	return p.routerEndpoint
 }
 
-func (p *Provider) tryToHandle(
-	svc service.InboundHandler, msg service.DIDCommMsgMap, ctx service.DIDCommContext) error {
-	if err := p.messenger.HandleInbound(msg, ctx); err != nil {
-		return fmt.Errorf("messenger HandleInbound: %w", err)
-	}
-
-	_, err := svc.HandleInbound(msg, ctx)
-
-	return err
+// MessageServiceProvider returns a provider of message services.
+func (p *Provider) MessageServiceProvider() api.MessageServiceProvider {
+	return p.msgSvcProvider
 }
 
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(envelope *transport.Envelope) error {
-		msg, err := service.ParseDIDCommMsgMap(envelope.Message)
-		if err != nil {
-			return err
-		}
-
-		// find the service which accepts the message type
-		for _, svc := range p.services {
-			if svc.Accept(msg.Type()) {
-				var myDID, theirDID string
-
-				switch svc.Name() {
-				// perf: DID exchange doesn't require myDID and theirDID
-				case didexchange.DIDExchange:
-				default:
-					myDID, theirDID, err = p.getDIDs(envelope)
-					if err != nil {
-						return fmt.Errorf("inbound message handler: %w", err)
-					}
-				}
-
-				_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
-
-				return err
-			}
-		}
-
-		// in case of no services are registered for given message type,
-		// find generic inbound services registered for given message header
-		for _, svc := range p.msgSvcProvider.Services() {
-			h := struct {
-				Purpose []string `json:"~purpose"`
-			}{}
-			err = msg.Decode(&h)
-
-			if err != nil {
-				return err
-			}
-
-			if svc.Accept(msg.Type(), h.Purpose) {
-				myDID, theirDID, err := p.getDIDs(envelope)
-				if err != nil {
-					return fmt.Errorf("inbound message handler: %w", err)
-				}
-
-				return p.tryToHandle(svc, msg, service.NewDIDCommContext(myDID, theirDID, nil))
-			}
-		}
-
-		return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
-	}
-}
-
-//nolint:nestif,gocognit,funlen,gocyclo
-func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
-	var (
-		myDID    string
-		theirDID string
-		err      error
-	)
-
-	return myDID, theirDID, backoff.Retry(func() error {
-		var notFound bool
-
-		// nolint: gocritic
-		if id := strings.Index(string(envelope.ToKey), kaIdentifier); id > 0 &&
-			strings.Index(string(envelope.ToKey), "\"kid\":\"did:") > 0 {
-			myDID, err = pubKeyToDID(envelope.ToKey)
-			if err != nil {
-				return fmt.Errorf("getMyDID: envelope.ToKey as myDID: %w", err)
-			}
-
-			logger.Debugf("envelope.ToKey as myDID: %v", myDID)
-		} else {
-			myDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
-			if errors.Is(err, did.ErrNotFound) {
-				notFound = true
-
-				// try did:key
-				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
-				// types will be used. Currently, did:key is for legacy packers only, so only support Ed25519 keys.
-				didKey, _ := fingerprint.CreateDIDKey(envelope.ToKey)
-				myDID, err = p.didConnectionStore.GetDID(didKey)
-				if err != nil && !errors.Is(err, did.ErrNotFound) {
-					return fmt.Errorf("failed to get my did from didKey: %w", err)
-				}
-			} else if err != nil {
-				return fmt.Errorf("failed to get my did: %w", err)
-			}
-		}
-
-		// nolint: gocritic
-		if id := strings.Index(string(envelope.FromKey), kaIdentifier); id > 0 &&
-			strings.Index(string(envelope.FromKey), "\"kid\":\"did:") > 0 {
-			theirDID, err = pubKeyToDID(envelope.FromKey)
-			if err != nil {
-				return fmt.Errorf("getDIDs: envelope.FromKey as theirDID: %w", err)
-			}
-
-			logger.Debugf("envelope.FromKey as theirDID: %v", theirDID)
-		} else {
-			if envelope.FromKey != nil {
-				theirDID, err = p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-				if notFound && errors.Is(err, did.ErrNotFound) {
-					// try did:key
-					// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
-					// types will be used. Currently, did:key is for legacy packers, so only support Ed25519 keys.
-					didKey, _ := fingerprint.CreateDIDKey(envelope.FromKey)
-					theirDID, err = p.didConnectionStore.GetDID(didKey)
-					if err != nil && !errors.Is(err, did.ErrNotFound) {
-						return fmt.Errorf("failed to get their did from didKey: %w", err)
-					}
-				} else if err != nil {
-					return fmt.Errorf("failed to get their did: %w", err)
-				}
-			}
-		}
-		return nil
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(p.getDIDsBackOffDuration), p.getDIDsMaxRetries))
-}
-
-func pubKeyToDID(key []byte) (string, error) {
-	toKey := &crypto.PublicKey{}
-
-	err := json.Unmarshal(key, toKey)
-	if err != nil {
-		return "", fmt.Errorf("pubKeyToDID: unmarshal key: %w", err)
+	if p.inboundEnvelopeHandler == nil {
+		p.inboundEnvelopeHandler = inbound.NewInboundMessageHandler(p)
 	}
 
-	return toKey.KID[:strings.Index(toKey.KID, kaIdentifier)], nil
+	return p.inboundEnvelopeHandler.HandleInboundEnvelope
 }
 
 // InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.
@@ -396,6 +273,21 @@ func (p *Provider) KeyAgreementType() kms.KeyType {
 // MediaTypeProfiles returns the default media types profile.
 func (p *Provider) MediaTypeProfiles() []string {
 	return p.mediaTypeProfiles
+}
+
+// GetDIDsMaxRetries returns get DIDs max retries.
+func (p *Provider) GetDIDsMaxRetries() uint64 {
+	return p.getDIDsMaxRetries
+}
+
+// GetDIDsBackOffDuration returns get DIDs backoff duration.
+func (p *Provider) GetDIDsBackOffDuration() time.Duration {
+	return p.getDIDsBackOffDuration
+}
+
+// InboundMessenger returns inbound messenger.
+func (p *Provider) InboundMessenger() service.InboundMessenger {
+	return p.messenger
 }
 
 // ProviderOption configures the framework.
@@ -632,6 +524,14 @@ func WithMediaTypeProfiles(mediaTypeProfiles []string) ProviderOption {
 		opts.mediaTypeProfiles = make([]string, len(mediaTypeProfiles))
 		copy(opts.mediaTypeProfiles, mediaTypeProfiles)
 
+		return nil
+	}
+}
+
+// WithInboundEnvelopeHandler injects a handler for inbound message envelopes.
+func WithInboundEnvelopeHandler(handler InboundEnvelopeHandler) ProviderOption {
+	return func(opts *Provider) error {
+		opts.inboundEnvelopeHandler = handler
 		return nil
 	}
 }

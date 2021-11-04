@@ -149,55 +149,77 @@ type Service struct {
 	messagePickupSvc     messagepickup.ProtocolService
 	keyAgreementType     kms.KeyType
 	mediaTypeProfiles    []string
+	initialized          bool
 }
 
 // New return route coordination service.
 func New(prov provider) (*Service, error) {
+	svc := Service{}
+
+	err := svc.Initialize(prov)
+	if err != nil {
+		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(p interface{}) error {
+	if s.initialized {
+		return nil
+	}
+
+	prov, ok := p.(provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", provider(nil), p)
+	}
+
 	store, err := prov.StorageProvider().OpenStore(Coordination)
 	if err != nil {
-		return nil, fmt.Errorf("open route coordination store : %w", err)
+		return fmt.Errorf("open route coordination store : %w", err)
 	}
 
 	err = prov.StorageProvider().SetStoreConfig(Coordination,
 		storage.StoreConfiguration{TagNames: []string{routeConnIDDataKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set store configuration: %w", err)
+		return fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	connectionLookup, err := connection.NewLookup(prov)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	mp, err := prov.Service(messagepickup.MessagePickup)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	messagePickupSvc, ok := mp.(messagepickup.ProtocolService)
 	if !ok {
-		return nil, errors.New("cast service to message pickup service failed")
+		return errors.New("cast service to message pickup service failed")
 	}
 
-	s := &Service{
-		routeStore:        store,
-		outbound:          prov.OutboundDispatcher(),
-		endpoint:          prov.RouterEndpoint(),
-		kms:               prov.KMS(),
-		vdRegistry:        prov.VDRegistry(),
-		connectionLookup:  connectionLookup,
-		keylistUpdateMap:  make(map[string]chan *KeylistUpdateResponse),
-		callbacks:         make(chan *callback),
-		messagePickupSvc:  messagePickupSvc,
-		keyAgreementType:  prov.KeyAgreementType(),
-		mediaTypeProfiles: prov.MediaTypeProfiles(),
-	}
+	s.routeStore = store
+	s.outbound = prov.OutboundDispatcher()
+	s.endpoint = prov.RouterEndpoint()
+	s.kms = prov.KMS()
+	s.vdRegistry = prov.VDRegistry()
+	s.connectionLookup = connectionLookup
+	s.keylistUpdateMap = make(map[string]chan *KeylistUpdateResponse)
+	s.callbacks = make(chan *callback)
+	s.messagePickupSvc = messagePickupSvc
+	s.keyAgreementType = prov.KeyAgreementType()
+	s.mediaTypeProfiles = prov.MediaTypeProfiles()
 
 	logger.Debugf("default endpoint: %s", s.endpoint)
 
 	go s.listenForCallbacks()
 
-	return s, nil
+	s.initialized = true
+
+	return nil
 }
 
 func (s *Service) listenForCallbacks() {

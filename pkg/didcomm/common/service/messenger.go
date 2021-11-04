@@ -95,6 +95,11 @@ type Messenger interface {
 // MessengerHandler includes Messenger interface and Handle function to handle inbound messages.
 type MessengerHandler interface {
 	Messenger
+	InboundMessenger
+}
+
+// InboundMessenger contains Handle function to handle inbound messages.
+type InboundMessenger interface {
 	// HandleInbound handles all inbound messages
 	HandleInbound(msg DIDCommMsgMap, ctx DIDCommContext) error
 }

@@ -58,6 +58,8 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
+	InboundMessageHandler() transport.InboundMessageHandler
+	Packager() transport.Packager
 }
 
 type connections interface {
@@ -78,31 +80,53 @@ type Service struct {
 	statusMap        map[string]chan Status
 	statusMapLock    sync.RWMutex
 	inboxLock        sync.Mutex
+	initialized      bool
 }
 
 // New returns the messagepickup service.
-func New(prov provider, tp transport.Provider) (*Service, error) {
-	store, err := prov.StorageProvider().OpenStore(Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("open mailbox store : %w", err)
-	}
+func New(prov provider) (*Service, error) {
+	svc := Service{}
 
-	connectionLookup, err := connection.NewLookup(prov)
+	err := svc.Initialize(prov)
 	if err != nil {
 		return nil, err
 	}
 
-	svc := &Service{
-		outbound:         prov.OutboundDispatcher(),
-		msgStore:         store,
-		connectionLookup: connectionLookup,
-		packager:         tp.Packager(),
-		msgHandler:       tp.InboundMessageHandler(),
-		batchMap:         make(map[string]chan Batch),
-		statusMap:        make(map[string]chan Status),
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(p interface{}) error {
+	if s.initialized {
+		return nil
 	}
 
-	return svc, nil
+	prov, ok := p.(provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", provider(nil), p)
+	}
+
+	store, err := prov.StorageProvider().OpenStore(Namespace)
+	if err != nil {
+		return fmt.Errorf("open mailbox store : %w", err)
+	}
+
+	connectionLookup, err := connection.NewLookup(prov)
+	if err != nil {
+		return err
+	}
+
+	s.outbound = prov.OutboundDispatcher()
+	s.msgStore = store
+	s.connectionLookup = connectionLookup
+	s.packager = prov.Packager()
+	s.msgHandler = prov.InboundMessageHandler()
+	s.batchMap = make(map[string]chan Batch)
+	s.statusMap = make(map[string]chan Status)
+
+	s.initialized = true
+
+	return nil
 }
 
 // HandleInbound handles inbound message pick up messages.

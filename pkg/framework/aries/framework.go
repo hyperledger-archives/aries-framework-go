@@ -16,6 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/outbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -76,6 +78,7 @@ type Aries struct {
 	keyType                    kms.KeyType
 	keyAgreementType           kms.KeyType
 	mediaTypeProfiles          []string
+	inboundEnvelopeHandler     inbound.MessageHandler
 }
 
 // Option configures the framework.
@@ -107,7 +110,7 @@ func New(opts ...Option) (*Aries, error) {
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/212
 	//  Define clear relationship between framework and context.
 	//  Details - The code creates context without protocolServices. The protocolServicesCreators are dependent
-	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which in-turn depends on
+	//  on the context. The inbound transports require ctx.MessageHandler(), which in-turn depends on
 	//  protocolServices. At the moment, there is a looping issue among these.
 
 	return initializeServices(frameworkOpts)
@@ -519,7 +522,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	frameworkOpts.outboundDispatcher, err = dispatcher.NewOutbound(ctx)
+	frameworkOpts.outboundDispatcher, err = outbound.NewOutbound(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to init outbound dispatcher: %w", err)
 	}
@@ -618,6 +621,7 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithKeyType(frameworkOpts.keyType),
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
+		context.WithInboundEnvelopeHandler(&frameworkOpts.inboundEnvelopeHandler),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -641,6 +645,9 @@ func startTransports(frameworkOpts *Aries) error {
 }
 
 func loadServices(frameworkOpts *Aries) error {
+	// uninitialized
+	frameworkOpts.inboundEnvelopeHandler = inbound.MessageHandler{}
+
 	ctx, err := context.New(
 		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithMessengerHandler(frameworkOpts.messenger),
@@ -659,13 +666,14 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithKeyType(frameworkOpts.keyType),
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
+		context.WithInboundEnvelopeHandler(&frameworkOpts.inboundEnvelopeHandler),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
 
-	for _, v := range frameworkOpts.protocolSvcCreators {
-		svc, svcErr := v(ctx)
+	for i, v := range frameworkOpts.protocolSvcCreators {
+		svc, svcErr := v.Create(ctx)
 		if svcErr != nil {
 			return fmt.Errorf("new protocol service failed: %w", svcErr)
 		}
@@ -673,8 +681,25 @@ func loadServices(frameworkOpts *Aries) error {
 		frameworkOpts.services = append(frameworkOpts.services, svc)
 		// after service was successfully created we need to add it to the context
 		// since the introduce protocol depends on did-exchange
-		if err := context.WithProtocolServices(frameworkOpts.services...)(ctx); err != nil {
-			return err
+		if e := context.WithProtocolServices(frameworkOpts.services...)(ctx); e != nil {
+			return e
+		}
+
+		frameworkOpts.protocolSvcCreators[i].ServicePointer = svc
+	}
+
+	// after adding all protocol services to the context, we can initialize the handler properly.
+	frameworkOpts.inboundEnvelopeHandler.Initialize(ctx)
+
+	for _, v := range frameworkOpts.protocolSvcCreators {
+		if init := v.Init; init != nil {
+			if e := init(v.ServicePointer, ctx); e != nil {
+				return e
+			}
+		} else {
+			if e := v.ServicePointer.Initialize(ctx); e != nil {
+				return e
+			}
 		}
 	}
 
