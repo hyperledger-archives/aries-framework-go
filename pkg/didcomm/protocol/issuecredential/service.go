@@ -390,7 +390,7 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
 	piID, err := getPIID(msg)
 	if errors.Is(err, service.ErrThreadIDNotFound) {
-		msg.SetID(uuid.New().String())
+		msg.SetID(uuid.New().String(), service.WithVersion(getDIDVersion(getVersion(msg.Type()))))
 
 		return msg.ID(), stateNameStart, nil
 	}

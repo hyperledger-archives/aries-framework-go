@@ -18,8 +18,8 @@ Feature: Present Proof using controller API
     When  "Alice" sends "request_presentation_default.json" to "Bob" through PresentProof controller
       And "Bob" sends "presentation_default.json" to "Alice" through PresentProof controller
 
-    Then  "Alice" successfully accepts a presentation with "passport" name through PresentProof controller
-      And "Alice" checks that presentation is being stored under the "passport" name
+    Then  "Alice" successfully accepts a presentation with "passport_v2" name through PresentProof controller
+      And "Alice" checks that presentation is being stored under the "passport_v2" name
 
   @present_proof_begins_with_presentation_request_v3
   Scenario: The Verifier begins with a presentation request v3
@@ -152,8 +152,8 @@ Feature: Present Proof using controller API
     When  "Ginger" sends "request_presentation_default.json" to "Leo" through PresentProof controller
     And "Leo" sends "presentation_default.json" to "Ginger" through PresentProof controller
 
-    Then  "Ginger" successfully accepts a presentation with "passport" name and "https://example.com/success" redirect through PresentProof controller
-    And "Ginger" checks that presentation is being stored under the "passport" name
+    Then  "Ginger" successfully accepts a presentation with "passport_redirect" name and "https://example.com/success" redirect through PresentProof controller
+    And "Ginger" checks that presentation is being stored under the "passport_redirect" name
     And "Leo" validates present proof state "done" and redirect "https://example.com/success" with status "OK" through PresentProof controller
 
   @present_proof_redirect_problem_report
@@ -165,5 +165,5 @@ Feature: Present Proof using controller API
     When  "Ginger" sends "request_presentation_default.json" to "Leo" through PresentProof controller
     And "Leo" sends "presentation_default.json" to "Ginger" through PresentProof controller
 
-    Then  "Ginger" declines presentation "passport" from "Leo" and redirects prover to "https://example.com/error" through PresentProof controller
+    Then  "Ginger" declines presentation "passport_redirect_problem" from "Leo" and redirects prover to "https://example.com/error" through PresentProof controller
     And "Leo" validates present proof state "abandoned" and redirect "https://example.com/error" with status "FAIL" through PresentProof controller

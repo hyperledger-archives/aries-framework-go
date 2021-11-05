@@ -379,8 +379,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &OfferCredential{}
@@ -439,8 +439,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &OfferCredential{}
@@ -593,8 +593,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Proposal", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &ProposeCredential{}
@@ -649,8 +649,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Invitation", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &RequestCredential{}
@@ -706,8 +706,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 		done := make(chan struct{})
 		attachment := []decorator.Attachment{{ID: "ID1"}, {ID: "ID2"}}
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &RequestCredential{}
@@ -822,8 +822,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 	t.Run("Receive Invitation Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &IssueCredential{}
@@ -972,8 +972,8 @@ func TestService_HandleInboundV2(t *testing.T) {
 	t.Run("Receive Issue Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &model.Ack{}
@@ -1257,8 +1257,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &OfferCredentialV3{}
@@ -1317,8 +1317,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &OfferCredentialV3{}
@@ -1471,8 +1471,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Proposal", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &ProposeCredentialV3{}
@@ -1527,8 +1527,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	t.Run("Receive Offer Credential Continue with Invitation", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &RequestCredentialV3{}
@@ -1584,8 +1584,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 		done := make(chan struct{})
 		attachment := []decorator.AttachmentV2{{ID: "ID1"}, {ID: "ID2"}}
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &RequestCredentialV3{}
@@ -1700,8 +1700,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	t.Run("Receive Invitation Credential Continue", func(t *testing.T) {
 		done := make(chan struct{})
 
-		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(func(_, msg service.DIDCommMsgMap, _, _ string) error {
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
 				r := &IssueCredentialV3{}
@@ -2095,8 +2095,8 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: ProposeCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2124,7 +2124,7 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: ProposeCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
@@ -2147,8 +2147,8 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: OfferCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2176,7 +2176,7 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: OfferCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
@@ -2199,8 +2199,8 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: RequestCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2228,7 +2228,7 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: RequestCredentialMsgTypeV2,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
@@ -2270,8 +2270,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: ProposeCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2299,7 +2299,7 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: ProposeCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
@@ -2322,8 +2322,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: OfferCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2351,7 +2351,7 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: OfferCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
@@ -2374,8 +2374,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: RequestCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
-			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 				defer close(done)
 
 				return nil
@@ -2403,7 +2403,7 @@ func TestService_HandleOutboundV3(t *testing.T) {
 			Type: RequestCredentialMsgTypeV3,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(msg, Alice, Bob, gomock.Any()).Return(errors.New(errMsg))
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
 		require.Empty(t, piid)
