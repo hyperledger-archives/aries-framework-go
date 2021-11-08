@@ -43,6 +43,7 @@ type MockProvider struct {
 	KeyTypeValue                 kms.KeyType
 	KeyAgreementTypeValue        kms.KeyType
 	mediaTypeProfilesValue       []string
+	MsgTypeServicesTargets       []dispatcher.MessageTypeTarget
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -150,6 +151,11 @@ func (p *MockProvider) KeyAgreementType() kms.KeyType {
 // MediaTypeProfiles returns the media type profiles.
 func (p *MockProvider) MediaTypeProfiles() []string {
 	return p.mediaTypeProfilesValue
+}
+
+// ServiceMsgTypeTargets are the target service types used by OOB/v2 for subsequent event triggering.
+func (p *MockProvider) ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget {
+	return p.MsgTypeServicesTargets
 }
 
 type mockConnectionStore struct{}

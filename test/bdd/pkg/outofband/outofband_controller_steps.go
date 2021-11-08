@@ -39,6 +39,7 @@ type ControllerSteps struct {
 	pendingInvitations map[string]*outofband.Invitation
 	connections        map[string]string
 	didexchange        *didexsteps.ControllerSteps
+	accept             string
 }
 
 // NewOutofbandControllerSteps creates steps for outofband with controller.
@@ -56,14 +57,21 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.didexchange.SetContext(s.bddContext)
 }
 
-// RegisterSteps registers agent steps
-// nolint:lll
+// RegisterSteps registers agent steps.
 func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
+	suite.Step(`^accept option ""([^"]*)""$`, s.scenario)
 	suite.Step(`^"([^"]*)" constructs an out-of-band invitation \(controller\)$`, s.constructOOBInvitation)
-	suite.Step(
-		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel \(controller\)$`, s.sendInvitationThruOOBChannel)
-	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)" \(controller\)$`, s.acceptInvitationAndConnect)
+	suite.Step(`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel \(controller\)$`,
+		s.sendInvitationThruOOBChannel)
+	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)" \(controller\)$`,
+		s.acceptInvitationAndConnect)
 	suite.Step(`^"([^"]*)" and "([^"]*)" have a connection \(controller\)$`, s.CheckConnection)
+}
+
+func (s *ControllerSteps) scenario(accept string) error {
+	s.accept = accept
+
+	return nil
 }
 
 // CheckConnection checks a connection between agents.
@@ -150,9 +158,16 @@ func (s *ControllerSteps) newInvitation(agentID string) (*outofband.Invitation, 
 		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	req, err := json.Marshal(outofbandcmd.CreateInvitationArgs{
+	createOOBInv := outofbandcmd.CreateInvitationArgs{
 		Label: agentID,
-	})
+	}
+
+	if len(s.accept) > 0 {
+		accepts := strings.Split(s.accept, ",")
+		createOOBInv.Accept = accepts
+	}
+
+	req, err := json.Marshal(createOOBInv)
 	if err != nil {
 		return nil, fmt.Errorf("marshal create invitation: %w", err)
 	}

@@ -312,14 +312,14 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 			err = s.handleKeylistUpdate(msg, ctx.MyDID(), ctx.TheirDID())
 		case KeylistUpdateResponseMsgType:
 			err = s.handleKeylistUpdateResponse(msg)
-		case service.ForwardMsgType:
+		case service.ForwardMsgType, service.ForwardMsgTypeV2:
 			err = s.handleForward(msg)
 		}
 
 		connectionIDLog := ""
 
 		// mediator forward messages don't have connection established with the sender; hence skip the lookup
-		if msg.Type() != service.ForwardMsgType {
+		if msg.Type() != service.ForwardMsgType && msg.Type() != service.ForwardMsgTypeV2 {
 			connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(ctx.MyDID(), ctx.TheirDID())
 			if connErr != nil {
 				logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
@@ -363,7 +363,8 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, service.ForwardMsgType:
+	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, service.ForwardMsgType,
+		service.ForwardMsgTypeV2:
 		return true
 	}
 
