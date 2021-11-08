@@ -59,7 +59,7 @@ unit-test-mobile:
 	@cd ${ARIES_AGENT_MOBILE_PATH} && $(MAKE) unit-test
 
 .PHONY: bdd-test
-bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker sidetree-cli bdd-test-go
+bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker sidetree-cli bdd-test-js bdd-test-go
 
 .PHONY: bdd-test-go
 bdd-test-go:
