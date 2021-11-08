@@ -37,6 +37,7 @@ const (
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	services                   []dispatcher.ProtocolService
+	servicesMsgTypeTargets     []dispatcher.MessageTypeTarget
 	msgSvcProvider             api.MessageServiceProvider
 	storeProvider              storage.Provider
 	protocolStateStoreProvider storage.Provider
@@ -135,6 +136,12 @@ func (p *Provider) AllServices() []dispatcher.ProtocolService {
 	}
 
 	return ret
+}
+
+// ServiceMsgTypeTargets returns list of service message types of context protocol services based mapping for
+// the given targets.
+func (p *Provider) ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget {
+	return p.servicesMsgTypeTargets
 }
 
 // KMS returns a Key Management Service.
@@ -345,6 +352,14 @@ func WithTransportReturnRoute(transportReturnRoute string) ProviderOption {
 func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
+		return nil
+	}
+}
+
+// WithServiceMsgTypeTargets injects service msg type to target mappings in the context.
+func WithServiceMsgTypeTargets(msgTypeTargets ...dispatcher.MessageTypeTarget) ProviderOption {
+	return func(opts *Provider) error {
+		opts.servicesMsgTypeTargets = msgTypeTargets
 		return nil
 	}
 }

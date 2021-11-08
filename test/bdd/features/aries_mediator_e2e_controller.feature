@@ -7,7 +7,7 @@
 @all
 @controller
 @aries_router_controller
-Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Binding]
+Feature: DIDComm V1 Transport between two Agents through DIDComm Routers [REST Binding]
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers

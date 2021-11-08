@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -44,23 +45,6 @@ const (
 	callbackChannelSize = 10
 
 	contextKey = "context_%s"
-)
-
-const (
-	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP1 = "didcomm/aip1"
-	// MediaTypeProfileDIDCommAIP2RFC19 is the signing mechanism, plaintext conventions, and routing
-	// algorithms embodied in Aries AIP 2.0, circa 2021 -- with the old-style encryption envelope from
-	// Aries RFC 0019. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP2RFC19 = "didcomm/aip2;env=rfc19"
-	// MediaTypeProfileAIP2RFC587 is the signing mechanism, plaintext conventions, and routing algorithms
-	// embodied in Aries AIP 2.0, circa 2021 -- with the new-style encryption envelope from Aries RFC 0587.
-	// Defined in RFC 0044.
-	MediaTypeProfileAIP2RFC587 = "didcomm/aip2;env=rfc587"
-	// MediaTypeProfileDIDCommV2 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in the DIDComm messaging spec. Defined in RFC 0044.
-	MediaTypeProfileDIDCommV2 = "didcomm/v2"
 )
 
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
@@ -880,7 +864,8 @@ func validateInvitationAcceptance(msg service.DIDCommMsg, myProfiles []string, o
 	}
 
 	if !matchMediaTypeProfiles(inv.Accept, myProfiles) {
-		return fmt.Errorf("no acceptable media type profile found in invitation")
+		return fmt.Errorf("no acceptable media type profile found in invitation, invitation Accept property: [%v], "+
+			"agent mediatypeprofiles: [%v]", inv.Accept, myProfiles)
 	}
 
 	return nil
@@ -893,7 +878,7 @@ func matchMediaTypeProfiles(theirProfiles, myProfiles []string) bool {
 	}
 
 	if myProfiles == nil {
-		myProfiles = defaultAcceptMediaTypeProfiles()
+		myProfiles = transport.MediaTypeProfiles()
 	}
 
 	profiles := list2set(myProfiles)
@@ -905,15 +890,6 @@ func matchMediaTypeProfiles(theirProfiles, myProfiles []string) bool {
 	}
 
 	return false
-}
-
-func defaultAcceptMediaTypeProfiles() []string {
-	return []string{
-		MediaTypeProfileDIDCommAIP2RFC19,
-		MediaTypeProfileDIDCommV2,
-		MediaTypeProfileAIP2RFC587,
-		MediaTypeProfileDIDCommAIP1,
-	}
 }
 
 func list2set(list []string) map[string]struct{} {
