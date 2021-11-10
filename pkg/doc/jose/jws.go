@@ -46,6 +46,20 @@ func (s SignatureVerifierFunc) Verify(joseHeaders Headers, payload, signingInput
 	return s(joseHeaders, payload, signingInput, signature)
 }
 
+// DefaultSigningInputVerifier is a SignatureVerifier that generates the signing input
+// from the given headers and payload, instead of using the signing input parameter.
+type DefaultSigningInputVerifier func(joseHeaders Headers, payload, signingInput, signature []byte) error
+
+// Verify verifies JWS signature.
+func (s DefaultSigningInputVerifier) Verify(joseHeaders Headers, payload, _, signature []byte) error {
+	signingInputData, err := signingInput(joseHeaders, payload)
+	if err != nil {
+		return err
+	}
+
+	return s(joseHeaders, payload, signingInputData, signature)
+}
+
 // CompositeAlgSigVerifier defines composite signature verifier based on the algorithm
 // taken from JOSE header alg.
 type CompositeAlgSigVerifier struct {
