@@ -23,6 +23,15 @@ import (
 )
 
 func TestPubKeyExportAndRead(t *testing.T) {
+	p256DERTemplate, err := getKeyTemplate(kms.ECDSAP256TypeDER)
+	require.NoError(t, err)
+
+	p384DERTemplate, err := getKeyTemplate(kms.ECDSAP384TypeDER)
+	require.NoError(t, err)
+
+	p521DERTemplate, err := getKeyTemplate(kms.ECDSAP521TypeDER)
+	require.NoError(t, err)
+
 	flagTests := []struct {
 		tcName      string
 		keyType     kms.KeyType
@@ -32,19 +41,19 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		{
 			tcName:      "export then read ECDSAP256DER public key",
 			keyType:     kms.ECDSAP256TypeDER,
-			keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate(),
+			keyTemplate: p256DERTemplate,
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP384DER public key",
 			keyType:     kms.ECDSAP384TypeDER,
-			keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate(),
+			keyTemplate: p384DERTemplate,
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP521DER public key",
 			keyType:     kms.ECDSAP521TypeDER,
-			keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate(),
+			keyTemplate: p521DERTemplate,
 			doSign:      true,
 		},
 		{
@@ -56,7 +65,7 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		{
 			tcName:      "export then read ECDSAP384IEEEP1363 public key",
 			keyType:     kms.ECDSAP384TypeIEEEP1363,
-			keyTemplate: createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P384),
+			keyTemplate: createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA384, commonpb.EllipticCurveType_NIST_P384),
 			doSign:      true,
 		},
 		{

@@ -94,7 +94,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 			pubKey,
 			"NIST_P384",
 			commonpb.EllipticCurveType_NIST_P384,
-			commonpb.HashType_SHA512)
+			commonpb.HashType_SHA384)
 		if err != nil {
 			return nil, "", err
 		}
@@ -127,7 +127,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 			pubKey,
 			"NIST_P384",
 			commonpb.EllipticCurveType_NIST_P384,
-			commonpb.HashType_SHA512)
+			commonpb.HashType_SHA384)
 		if err != nil {
 			return nil, "", err
 		}

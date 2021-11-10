@@ -209,6 +209,35 @@ func TestCrypto_SignVerify(t *testing.T) {
 		err = c.Verify(s, msg, badKH)
 		require.Error(t, err)
 	})
+
+	t.Run("test with P-384 signature", func(t *testing.T) {
+		kh, err := keyset.NewHandle(signature.ECDSAP384KeyTemplate())
+		require.NoError(t, err)
+
+		badKH, err := keyset.NewHandle(tinkaead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		require.NoError(t, err)
+
+		c := Crypto{}
+		msg := []byte(testMessage)
+		s, err := c.Sign(msg, kh)
+		require.NoError(t, err)
+
+		// get corresponding public key handle to verify
+		pubKH, err := kh.Public()
+		require.NoError(t, err)
+
+		err = c.Verify(s, msg, pubKH)
+		require.NoError(t, err)
+
+		// verify with nil key handle - should fail
+		err = c.Verify(s, msg, nil)
+		require.Error(t, err)
+		require.Equal(t, errBadKeyHandleFormat, err)
+
+		// verify with bad key handle - should fail
+		err = c.Verify(s, msg, badKH)
+		require.Error(t, err)
+	})
 }
 
 func TestCrypto_ComputeMAC(t *testing.T) {
