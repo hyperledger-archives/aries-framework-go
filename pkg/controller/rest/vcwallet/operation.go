@@ -30,7 +30,7 @@ const (
 	// command Paths.
 	CreateProfilePath       = OperationID + "/create-profile"
 	UpdateProfilePath       = OperationID + "/update-profile"
-	ProfileExistsPath       = OperationID + "profile/{id}"
+	ProfileExistsPath       = OperationID + "/profile/{id}"
 	OpenPath                = OperationID + "/open"
 	ClosePath               = OperationID + "/close"
 	AddPath                 = OperationID + "/add"
