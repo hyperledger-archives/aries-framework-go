@@ -42,6 +42,8 @@ Information about Verifiable Credential Wallet framework based on [Universal Wal
 
 Key concepts about the Hyperledger Aries Project can be found [here](/docs/concepts).
 
+Details of the standards followed and specifications implemented by Hyperledger Aries Project can be found [here](docs/concepts/02_standards.md).
+
 ## Controller Bindings
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
