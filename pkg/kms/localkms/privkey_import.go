@@ -50,7 +50,7 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 		params = &ecdsapb.EcdsaParams{
 			Curve:    commonpb.EllipticCurveType_NIST_P384,
 			Encoding: ecdsapb.EcdsaSignatureEncoding_DER,
-			HashType: commonpb.HashType_SHA512,
+			HashType: commonpb.HashType_SHA384,
 		}
 	case kms.ECDSAP521TypeDER:
 		params = &ecdsapb.EcdsaParams{
@@ -68,7 +68,7 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 		params = &ecdsapb.EcdsaParams{
 			Curve:    commonpb.EllipticCurveType_NIST_P384,
 			Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
-			HashType: commonpb.HashType_SHA512,
+			HashType: commonpb.HashType_SHA384,
 		}
 	case kms.ECDSAP521TypeIEEEP1363:
 		params = &ecdsapb.EcdsaParams{

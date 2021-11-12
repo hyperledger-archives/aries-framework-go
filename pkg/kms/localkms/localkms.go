@@ -192,7 +192,11 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 	case kms.ECDSAP256TypeDER:
 		return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP384TypeDER:
-		return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
+		// Since Tink's signature.ECDSAP384KeyWithoutPrefixTemplate() uses SHA_512 as the hashing function during
+		// signature/verification, the kms type must explicitly use SHA_384 just as IEEEP384 key template below.
+		// For this reason, the KMS cannot use Tink's `signature.ECDSAP384KeyWithoutPrefixTemplate()` template here.
+		return createECDSAKeyTemplate(ecdsapb.EcdsaSignatureEncoding_DER, commonpb.HashType_SHA384,
+			commonpb.EllipticCurveType_NIST_P384), nil
 	case kms.ECDSAP521TypeDER:
 		return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP256TypeIEEEP1363:
@@ -222,10 +226,15 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 }
 
 func createECDSAIEEE1363KeyTemplate(hashType commonpb.HashType, curve commonpb.EllipticCurveType) *tinkpb.KeyTemplate {
+	return createECDSAKeyTemplate(ecdsapb.EcdsaSignatureEncoding_IEEE_P1363, hashType, curve)
+}
+
+func createECDSAKeyTemplate(sigEncoding ecdsapb.EcdsaSignatureEncoding, hashType commonpb.HashType,
+	curve commonpb.EllipticCurveType) *tinkpb.KeyTemplate {
 	params := &ecdsapb.EcdsaParams{
 		HashType: hashType,
 		Curve:    curve,
-		Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
+		Encoding: sigEncoding,
 	}
 	format := &ecdsapb.EcdsaKeyFormat{Params: params}
 	serializedFormat, _ := proto.Marshal(format) //nolint:errcheck
