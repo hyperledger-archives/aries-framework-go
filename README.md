@@ -40,6 +40,8 @@ The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediato
 
 Key concepts about the Hyperledger Aries Project can be found [here](/docs/concepts).
 
+Details of the standards followed and specifications implemented by Hyperledger Aries Project can be found [here](docs/concepts/02_standards.md).
+
 ## Controller Bindings
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
