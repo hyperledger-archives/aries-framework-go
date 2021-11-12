@@ -177,7 +177,18 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("resolve did doc: %w", err))
 	}
 
-	command.WriteNillableResponse(rw, doc, logger)
+	docBytes, err := doc.JSONBytes()
+	if err != nil {
+		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "unmarshal did resolution response: "+err.Error(),
+			logutil.CreateKeyValueString(didID, request.ID))
+
+		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("unmarshal did resolution response: %w", err))
+	}
+
+	_, err = rw.Write(docBytes)
+	if err != nil {
+		logger.Errorf("Unable to send error response, %s", err)
+	}
 
 	logutil.LogDebug(logger, CommandName, ResolveDIDCommandMethod, "success",
 		logutil.CreateKeyValueString(didID, request.ID))

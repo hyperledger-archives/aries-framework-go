@@ -233,8 +233,7 @@ func TestResolveDID(t *testing.T) {
 			vdrDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
 		require.NoError(t, err)
 
-		response := did.DocResolution{}
-		err = json.Unmarshal(buf.Bytes(), &response)
+		response, err := did.ParseDocumentResolution(buf.Bytes())
 		require.NoError(t, err)
 
 		// verify response

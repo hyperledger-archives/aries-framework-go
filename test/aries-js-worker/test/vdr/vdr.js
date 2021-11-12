@@ -66,7 +66,7 @@ describe("VDR", function () {
             }
             await agents[i].vdr.saveDID({
                 name: didName,
-                did: resp.DIDDocument
+                did: resp.didDocument
             })
         }
     })

@@ -282,8 +282,7 @@ func TestResolveDID(t *testing.T) {
 		cmdErr := cmd.ResolveDID(&getRW, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		response := did.DocResolution{}
-		err = json.NewDecoder(&getRW).Decode(&response)
+		response, err := did.ParseDocumentResolution(getRW.Bytes())
 		require.NoError(t, err)
 
 		// verify response
