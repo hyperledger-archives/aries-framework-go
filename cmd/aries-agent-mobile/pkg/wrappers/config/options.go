@@ -8,6 +8,7 @@ package config
 
 import (
 	"github.com/piprate/json-gold/ld"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 )
@@ -45,4 +46,9 @@ func (o *Options) AddHTTPResolver(resolverURL string) {
 // AddOutboundTransport appends a transport type to the options e.g. http or ws.
 func (o *Options) AddOutboundTransport(transportType string) {
 	o.OutboundTransport = append(o.OutboundTransport, transportType)
+}
+
+// EnableRemoteLdDocumentLoading enables the by default disabled remote document loader.
+func (o *Options) EnableRemoteLdDocumentLoading() {
+	o.DocumentLoader = ld.NewDefaultDocumentLoader(http.DefaultClient)
 }
