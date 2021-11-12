@@ -219,6 +219,9 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 			return fmt.Errorf("failed to read key contents: %w", err)
 		}
 
+		// clear key ID because the user won't be able to access the key via the id
+		key.ID = ""
+
 		return saveKey(auth, &key)
 	default:
 		return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
@@ -272,14 +275,14 @@ func (cs *contentStore) mapCollection(auth, key, collectionID string, ct Content
 
 func saveKey(auth string, key *keyContent) error {
 	if len(key.PrivateKeyJwk) > 0 {
-		err := importKeyJWK(auth, key)
+		_, err := importKeyJWK(auth, key)
 		if err != nil {
 			return fmt.Errorf("failed to import private key jwk: %w", err)
 		}
 	}
 
 	if key.PrivateKeyBase58 != "" {
-		err := importKeyBase58(auth, key)
+		_, err := importKeyBase58(auth, key)
 		if err != nil {
 			return fmt.Errorf("failed to import private key base58: %w", err)
 		}

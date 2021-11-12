@@ -142,8 +142,14 @@ const (
 	// P521KeyCurve EC P-521 curve.
 	P521KeyCurve = "P-521"
 
-	// Ed25519VerificationKey ED25519 verification key type.
-	Ed25519VerificationKey = "Ed25519VerificationKey"
+	// Ed25519VerificationKeyPrefix ED25519 verification key type.
+	Ed25519VerificationKeyPrefix = "Ed25519VerificationKey"
+
+	// Ed25519VerificationKey2018 ED25519 2018 verification key type.
+	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+
+	// Bls12381G2Key2020 BLS12-381 signature key type.
+	Bls12381G2Key2020 = "Bls12381G2Key2020"
 
 	// JSONWebKey2020 verification key type.
 	JSONWebKey2020 = "JsonWebKey2020"
@@ -1082,9 +1088,11 @@ func buildKIDOption(opts *ProofOptions, vms []did.VerificationMethod) error {
 				kt := kms.ED25519Type
 
 				switch vm.Type {
-				case Ed25519VerificationKey:
+				case Ed25519VerificationKey2018:
+				case Bls12381G2Key2020:
+					kt = kms.BLS12381G2Type
 				case JSONWebKey2020:
-					kt = kmsKeyTypeByJWKCurve(vm.JSONWebKey().Crv)
+					kt = KmsKeyTypeByJWKCurve(vm.JSONWebKey().Crv)
 				}
 
 				kid, err := localkms.CreateKID(vm.Value, kt)
@@ -1100,7 +1108,8 @@ func buildKIDOption(opts *ProofOptions, vms []did.VerificationMethod) error {
 	return nil
 }
 
-func kmsKeyTypeByJWKCurve(crv string) kms.KeyType {
+// KmsKeyTypeByJWKCurve returns key type for the JWK curve's name.
+func KmsKeyTypeByJWKCurve(crv string) kms.KeyType {
 	kt := kms.ED25519Type
 
 	switch crv {
@@ -1123,7 +1132,7 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 		var publicKeyID string
 
 		for _, k := range didDoc.VerificationMethod {
-			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
+			if strings.HasPrefix(k.Type, Ed25519VerificationKeyPrefix) {
 				publicKeyID = k.ID
 
 				break

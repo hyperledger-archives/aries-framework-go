@@ -97,7 +97,7 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 	//		return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
 	//	}
 	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
-		c := getCurveByKMSKeyType(kt)
+		c := GetCurveByKMSKeyType(kt)
 		x, y := elliptic.Unmarshal(c, keyBytes)
 
 		pubKey := &ecdsa.PublicKey{
@@ -161,7 +161,8 @@ func generateJWKFromECDH(keyBytes []byte) (*jwk.JWK, error) {
 	return jwksupport.JWKFromKey(pubKey)
 }
 
-func getCurveByKMSKeyType(kt kms.KeyType) elliptic.Curve {
+// GetCurveByKMSKeyType get curve for KeyType.
+func GetCurveByKMSKeyType(kt kms.KeyType) elliptic.Curve {
 	switch kt {
 	case kms.ECDSAP256TypeIEEEP1363:
 		return elliptic.P256()

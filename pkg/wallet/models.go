@@ -30,6 +30,7 @@ type QueryParams struct {
 // To be used as options for issue/prove wallet features.
 //
 type ProofOptions struct {
+	KID string `json:"kid,omitempty"`
 	// Controller is a DID to be for signing. This option is required for issue/prove wallet features.
 	Controller string `json:"controller,omitempty"`
 	// VerificationMethod is the URI of the verificationMethod used for the proof.

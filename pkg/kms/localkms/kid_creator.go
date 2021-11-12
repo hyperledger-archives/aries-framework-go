@@ -12,7 +12,7 @@ import (
 )
 
 // CreateKID creates a KID value based on the marshalled keyBytes of type kt. This function should be called for
-// asymmetric public keys only (ECDSA DER or IEEE1363, ED25519).
+// asymmetric public keys only (ECDSA DER or IEEE1363, ED25519, BLS12-381).
 // returns:
 //  - base64 raw (no padding) URL encoded KID
 //  - error in case of error
