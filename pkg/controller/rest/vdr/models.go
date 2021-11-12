@@ -75,6 +75,17 @@ type documentRes struct {
 	DID json.RawMessage `json:"did,omitempty"`
 }
 
+// resolveDIDRes model
+//
+// This is used for returning DID resolution response.
+//
+// swagger:response resolveDIDRes
+type resolveDIDRes struct { // nolint: unused,deadcode
+
+	// in: body
+	Result json.RawMessage `json:"result,omitempty"`
+}
+
 // docResolutionResponse model
 //
 // This is used for returning DID document resolution response.
