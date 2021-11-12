@@ -10,10 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -52,6 +54,7 @@ type Service struct {
 	messenger              service.Messenger
 	myMediaTypeProfiles    []string
 	msgTypeServicesTargets map[string]string
+	allServices            []dispatcher.ProtocolService
 }
 
 type callback struct {
@@ -97,6 +100,7 @@ type Provider interface {
 	Messenger() service.Messenger
 	MediaTypeProfiles() []string
 	ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget
+	AllServices() []dispatcher.ProtocolService
 }
 
 // New creates a new instance of the out-of-band service.
@@ -125,6 +129,7 @@ func New(p Provider) (*Service, error) {
 		messenger:              p.Messenger(),
 		myMediaTypeProfiles:    p.MediaTypeProfiles(),
 		msgTypeServicesTargets: msgTypeServicesTargets,
+		allServices:            p.AllServices(),
 	}
 
 	s.listenerFunc = listener(s.callbackChannel, s.handleCallback)
@@ -363,7 +368,7 @@ func (s *Service) currentContext(msg service.DIDCommMsg, ctx service.DIDCommCont
 		return myContext, s.saveContext(msg.ID(), myContext)
 	}
 
-	return nil, fmt.Errorf("oob/2.0 invalid message type %v", msg.Type())
+	return nil, fmt.Errorf("invalid message type %v", msg.Type())
 }
 
 // AcceptInvitation from another agent.
@@ -386,11 +391,69 @@ func (s *Service) AcceptInvitation(i *Invitation, options Options) error {
 
 	err = s.handleCallback(clbk)
 	if err != nil {
-		return fmt.Errorf("failed to accept invitation : %w", err)
+		return fmt.Errorf("oob/2.0 failed to accept invitation : %w", err)
 	}
 
-	// TODO handle oob embedded message's protocol service call according to target here.
+	if i.Body != nil && i.Body.GoalCode != "" {
+		serviceURL := s.msgTypeServicesTargets[i.Body.GoalCode]
+		for _, srvc := range s.allServices {
+			if strings.Contains(serviceURL, srvc.Name()) {
+				isHandled := handleInboundService(serviceURL, srvc, i.Requests)
+
+				if isHandled {
+					logger.Debugf("oob/2.0 matching target service found for url '%v' and executed, "+
+						"oobv2.AcceptInvitation() is done.", serviceURL)
+					return nil
+				}
+			}
+		}
+
+		logger.Debugf("oob/2.0 no matching target service found for url '%v', oobv2.AcceptInvitation() is done but"+
+			" no target service triggered", serviceURL)
+	}
+
+	logger.Debugf("oob/2.0 request body or Goal code is empty, oobv2.AcceptInvitation() is done but no" +
+		"target service triggered")
+
 	return nil
+}
+
+func handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
+	attachments []*decorator.AttachmentV2) bool {
+	for _, atchmnt := range attachments {
+		serviceRequest, err := atchmnt.Data.Fetch()
+		if err != nil {
+			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' attachment request failed:"+
+				" %v, skipping attachment entry..", srvc.Name(), serviceURL, err)
+
+			continue
+		}
+
+		didCommMsgRequest := service.DIDCommMsgMap{}
+
+		err = didCommMsgRequest.UnmarshalJSON(serviceRequest)
+		if err != nil {
+			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' attachment request failed:"+
+				" %v, skipping attachment entry..", srvc.Name(), serviceURL, err)
+
+			continue
+		}
+
+		id, err := srvc.HandleInbound(didCommMsgRequest, service.EmptyDIDCommContext())
+		if err != nil {
+			logger.Debugf("oob/2.0 executing target service '%v' for url '%v' failed: %v, skipping "+
+				"attachment entry..", srvc.Name(), serviceURL, err)
+
+			continue
+		}
+
+		logger.Debugf("oob/2.0 successfully executed target service '%v' for target url: '%v', returned id: %v",
+			srvc.Name(), serviceURL, id)
+
+		return true
+	}
+
+	return false
 }
 
 func listener(
@@ -422,7 +485,7 @@ func (s *Service) handleCallback(c *callback) error {
 	case InvitationMsgType:
 		return s.handleInvitationCallback(c)
 	default:
-		return fmt.Errorf("oob/2.0 unsupported message type: %s", c.msg.Type())
+		return fmt.Errorf("unsupported message type: %s", c.msg.Type())
 	}
 }
 
