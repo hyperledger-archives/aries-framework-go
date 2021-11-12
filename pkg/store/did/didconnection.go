@@ -11,8 +11,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -41,8 +39,6 @@ type ConnectionStoreImpl struct {
 
 type didRecord struct {
 	DID string `json:"did,omitempty"`
-	// TODO add type below to distinguish Legacy vs new Packer
-	// envelopeType string
 }
 
 type connectionProvider interface {
@@ -89,24 +85,15 @@ func (c *ConnectionStoreImpl) SaveDID(did string, keys ...string) error {
 // SaveDIDFromDoc saves a map from a did doc's keys to the did.
 func (c *ConnectionStoreImpl) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
-	for i := range doc.VerificationMethod {
-		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
-		// keeping these keys base58 encoded as long as legacyPacker exists
-		keys = append(keys, base58.Encode(doc.VerificationMethod[i].Value))
-	}
-
-	// assumption doc.KeyAgreement exists when separate encryption keys and verifications keys are used for this DID
-	// eg: used by Authcrypt/Anoncrypt Packer (not Legacy Packer)
-	for i := range doc.KeyAgreement {
-		// add proper crypto keys (as opposed to verification keys as doc.VerificationMethod above)
-		keys = append(keys, doc.KeyAgreement[i].VerificationMethod.ID[1:])
-	}
 
 	// save recipientKeys from didcomm-enabled service entries
 	// an error is returned only if the doc does not have a valid didcomm service entry, so we ignore it
 	svc, err := service.CreateDestination(doc)
 	if err == nil {
 		keys = append(keys, svc.RecipientKeys...)
+	} else {
+		logger.Debugf("saveDIDFromDoc: CreateDestination of DID Document returned error [%v], no keys will be "+
+			"linked for this DID '%s' in the connection store", err, doc.ID)
 	}
 
 	return c.SaveDID(doc.ID, keys...)

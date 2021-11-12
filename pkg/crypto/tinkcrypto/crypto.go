@@ -23,13 +23,18 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 )
 
 const (
 	// ECDHESA256KWAlg is the ECDH-ES with AES-GCM 256 key wrapping algorithm.
 	ECDHESA256KWAlg = "ECDH-ES+A256KW"
-	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-GCM 256 key wrapping algorithm.
+	// ECDH1PUA128KWAlg is the ECDH-1PU with AES-CBC 128+HMAC-SHA 256 key wrapping algorithm.
+	ECDH1PUA128KWAlg = "ECDH-1PU+A128KW"
+	// ECDH1PUA192KWAlg is the ECDH-1PU with AES-CBC 192+HMAC-SHA 384 key wrapping algorithm.
+	ECDH1PUA192KWAlg = "ECDH-1PU+A192KW"
+	// ECDH1PUA256KWAlg is the ECDH-1PU with AES-CBC 256+HMAC-SHA 512 key wrapping algorithm.
 	ECDH1PUA256KWAlg = "ECDH-1PU+A256KW"
 	// ECDHESXC20PKWAlg is the ECDH-ES with XChacha20Poly1305 key wrapping algorithm.
 	ECDHESXC20PKWAlg = "ECDH-ES+XC20PKW"
@@ -97,6 +102,10 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 		ivSize = chacha20poly1305.NonceSizeX
 	case *aeadsubtle.AESGCM:
 		ivSize = aeadsubtle.AESGCMIVSize
+	case *aeadsubtle.EncryptThenAuthenticate:
+		// AESCBC+HMACSHA Tink keys use Tink's EncryptThenAuthenticate AEAD primitive as per the CBC hmac key manager's
+		// Primitive() call.
+		ivSize = subtle.AES128Size
 	default:
 		ivSize = aeadsubtle.AESGCMIVSize
 	}
@@ -122,18 +131,21 @@ func (t *Crypto) Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, err
 		return nil, fmt.Errorf("create new aead: %w", err)
 	}
 
-	// since Tink expects the key prefix + nonce as the ciphertext prefix, prepend them prior to calling its Decrypt()
-	ct := make([]byte, 0, len(ps.Primary.Prefix)+len(nonce)+len(cipher))
-	ct = append(ct, ps.Primary.Prefix...)
-	ct = append(ct, nonce...)
-	ct = append(ct, cipher...)
+	for prefix := range ps.Entries {
+		// since Tink expects the key prefix + nonce as the ciphertext prefix, prepend them prior to calling its Decrypt()
+		ct := make([]byte, 0, len(prefix)+len(nonce)+len(cipher))
+		ct = append(ct, prefix...)
+		ct = append(ct, nonce...)
+		ct = append(ct, cipher...)
 
-	pt, err := a.Decrypt(ct, aad)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt cipher: %w", err)
+		pt, e := a.Decrypt(ct, aad)
+
+		if e == nil {
+			return pt, nil
+		}
 	}
 
-	return pt, nil
+	return nil, fmt.Errorf("decrypt cipher: decryption failed")
 }
 
 // Sign will sign msg using the implementation's corresponding signing key referenced by kh of a private key.
@@ -211,9 +223,16 @@ func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
 
 // WrapKey will do ECDH (ES or 1PU) key wrapping of cek using apu, apv and recipient public key 'recPubKey'.
 // This function is used with the following parameters:
-//  - Key Wrapping: `ECDH-ES` (no options) or `ECDH-1PU` (using crypto.WithSender() option in wrapKeyOpts) over either
-//    `A256KW` alg (AES256-GCM, default with no options) as per https://tools.ietf.org/html/rfc7518#appendix-A.2 or
-//    `XC20PKW` alg (XChacha20Poly1305, using crypto.WithXC20PKW() option in wrapKeyOpts).
+//  - Key Wrapping: `ECDH-ES` (no options) or `ECDH-1PU` (using crypto.WithSender() option in wrapKeyOpts) over either:
+//    * `ECDH-ES+A256KW` alg (AES256-GCM, default anoncrypt KW with no options) as per
+//   	https://tools.ietf.org/html/rfc7518#appendix-A.2
+//    * `ECDH-ES+XC20PKW` alg (XChacha20Poly1305, anoncrypt using crypto.WithXC20PKW() option in wrapKeyOpts).
+//	  The following ECDH-1PU algs are triggered using the crypto.WithSender() and crypto.WithTag() options in
+//	  wrapKeyOpts:
+//	  * `ECDH-1PU+A128KW` alg (AES128-GCM, authcrypt KW using cek size=32).
+//	  * `ECDH-1PU+A192KW` alg (AES192-GCM, authcrypt KW using cek size=48).
+//	  * `ECDH-1PU+A256KW` alg (AES256-GCM, authcrypt KW using cek size=64).
+//    * `ECDH-1PU+XC20PKW` alg (XChacha20Poly1305, authcrypt using crypto.WithXC20PKW() with cek size=32).
 //  - KDF (based on recPubKey.Curve): `Concat KDF` as per https://tools.ietf.org/html/rfc7518#section-4.6 (for recPubKey
 //    with NIST P curves) or `Curve25519`+`Concat KDF` as per https://tools.ietf.org/html/rfc7748#section-6.1 (for
 //    recPubKey with X25519 curve).
@@ -230,7 +249,8 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 		opt(pOpts)
 	}
 
-	wk, err := t.deriveKEKAndWrap(cek, apu, apv, pOpts.SenderKey(), recPubKey, pOpts.UseXC20PKW())
+	wk, err := t.deriveKEKAndWrap(cek, apu, apv, pOpts.Tag(), pOpts.SenderKey(), recPubKey, pOpts.EPK(),
+		pOpts.UseXC20PKW())
 	if err != nil {
 		return nil, fmt.Errorf("wrapKey: %w", err)
 	}
@@ -241,9 +261,15 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 // UnwrapKey unwraps a key in recWK using ECDH (ES or 1PU) with recipient private key kh.
 // This function is used with the following parameters:
 //  - Key Unwrapping: `ECDH-ES` (no options) or `ECDH-1PU` (using crypto.WithSender() option in wrapKeyOpts) over either
-//    `A256KW` alg (AES256-GCM, when recWK.alg is either ECDH-ES+A256KW or ECDH-1PU+A256KW) as per
-//     https://tools.ietf.org/html/rfc7518#appendix-A.2 or
-//    `XC20PKW` alg (XChacha20Poly1305, when recWK.alg is either ECDH-ES+XC20PKW or ECDH-1PU+XC20PKW).
+//    * `ECDH-ES+A256KW` alg (AES256-GCM, default anoncrypt KW with no options) as per
+//   	https://tools.ietf.org/html/rfc7518#appendix-A.2
+//    * `ECDH-ES+XC20PKW` alg (XChacha20Poly1305, anoncrypt using crypto.WithXC20PKW() option in wrapKeyOpts).
+//	  The following ECDH-1PU algs are triggered using the crypto.WithSender() and crypto.WithTag() options in
+//	  wrapKeyOpts:
+//	  * `ECDH-1PU+A128KW` alg (AES128-GCM, authcrypt KW using cek size=32).
+//	  * `ECDH-1PU+A192KW` alg (AES192-GCM, authcrypt KW using cek size=48).
+//	  * `ECDH-1PU+A256KW` alg (AES256-GCM, authcrypt KW using cek size=64).
+//    * `ECDH-1PU+XC20PKW` alg (XChacha20Poly1305, authcrypt using crypto.WithXC20PKW() with cek size=32).
 //  - KDF (based on recWk.EPK.KeyType): `Concat KDF` as per https://tools.ietf.org/html/rfc7518#section-4.6 (for type
 //    value as EC) or `Curve25519`+`Concat KDF` as per https://tools.ietf.org/html/rfc7748#section-6.1 (for type value
 //    as OKP, ie X25519 key).
@@ -252,8 +278,9 @@ func (t *Crypto) WrapKey(cek, apu, apv []byte, recPubKey *cryptoapi.PublicKey,
 // Notes:
 // 1- if the crypto.WithSender() option was used in WrapKey(), then it must be set here as well for successful key
 //    unwrapping.
-// 2- unwrapping a key with recWK.alg value set as either `ECDH-1PU+A256KW` or `ECDH-1PU+XC20PKW` requires the use of
-//    crypto.WithSender() option (containing the sender public key) in order to execute ECDH-1PU derivation.
+// 2- unwrapping a key with recWK.alg value set as either `ECDH-1PU+A128KW`, `ECDH-1PU+A192KW`, `ECDH-1PU+A256KW` or
+//    `ECDH-1PU+XC20PKW` requires the use of crypto.WithSender() option (containing the sender public key) in order to
+//    execute ECDH-1PU derivation.
 // 3- the ephemeral key in recWK.EPK must have the same KeyType as the recipientKH and the same Curve for NIST P
 //    curved keys. Unwrapping a key with non matching types/curves will result in unwrapping failure.
 // 4- recipientKH must contain the private key since unwrapping is usually done on the recipient side.
@@ -269,8 +296,8 @@ func (t *Crypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, recipientKH int
 		opt(pOpts)
 	}
 
-	key, err := t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, &recWK.EPK, pOpts.SenderKey(),
-		recipientKH)
+	key, err := t.deriveKEKAndUnwrap(recWK.Alg, recWK.EncryptedCEK, recWK.APU, recWK.APV, pOpts.Tag(), &recWK.EPK,
+		pOpts.SenderKey(), recipientKH)
 	if err != nil {
 		return nil, fmt.Errorf("unwrapKey: %w", err)
 	}

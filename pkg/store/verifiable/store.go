@@ -16,18 +16,12 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable/internal"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-const (
-	// NameSpace for vc store.
-	NameSpace = "verifiable"
-
-	credentialNameKey              = "vcname_"
-	presentationNameKey            = "vpname_"
-	credentialNameDataKeyPattern   = credentialNameKey + "%s"
-	presentationNameDataKeyPattern = presentationNameKey + "%s"
-)
+// NameSpace for vc store.
+const NameSpace = "verifiable"
 
 var logger = log.New("aries-framework/store/verifiable")
 
@@ -86,7 +80,7 @@ func New(ctx provider) (*StoreImplementation, error) {
 	}
 
 	err = ctx.StorageProvider().SetStoreConfig(NameSpace,
-		storage.StoreConfiguration{TagNames: []string{credentialNameKey, presentationNameKey}})
+		storage.StoreConfiguration{TagNames: []string{internal.CredentialNameKey, internal.PresentationNameKey}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set store configuration: %w", err)
 	}
@@ -146,7 +140,7 @@ func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credent
 		return fmt.Errorf("failed to marshal record: %w", err)
 	}
 
-	return s.store.Put(credentialNameDataKey(name), recordBytes, storage.Tag{Name: credentialNameKey})
+	return s.store.Put(internal.CredentialNameDataKey(name), recordBytes, storage.Tag{Name: internal.CredentialNameKey})
 }
 
 // SavePresentation saves a verifiable presentation.
@@ -198,7 +192,8 @@ func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Prese
 		return fmt.Errorf("failed to put vp: %w", err)
 	}
 
-	return s.store.Put(presentationNameDataKey(name), recordBytes, storage.Tag{Name: presentationNameKey})
+	return s.store.Put(internal.PresentationNameDataKey(name), recordBytes,
+		storage.Tag{Name: internal.PresentationNameKey})
 }
 
 // GetCredential retrieves a verifiable credential based on ID.
@@ -237,7 +232,7 @@ func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentati
 
 // GetCredentialIDByName retrieves verifiable credential id based on name.
 func (s *StoreImplementation) GetCredentialIDByName(name string) (string, error) {
-	recordBytes, err := s.store.Get(credentialNameDataKey(name))
+	recordBytes, err := s.store.Get(internal.CredentialNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch credential id based on name : %w", err)
 	}
@@ -254,7 +249,7 @@ func (s *StoreImplementation) GetCredentialIDByName(name string) (string, error)
 
 // GetPresentationIDByName retrieves verifiable presentation id based on name.
 func (s *StoreImplementation) GetPresentationIDByName(name string) (string, error) {
-	recordBytes, err := s.store.Get(presentationNameDataKey(name))
+	recordBytes, err := s.store.Get(internal.PresentationNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch presentation id based on name : %w", err)
 	}
@@ -271,12 +266,12 @@ func (s *StoreImplementation) GetPresentationIDByName(name string) (string, erro
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
 func (s *StoreImplementation) GetCredentials() ([]*Record, error) {
-	return s.getAllRecords(credentialNameDataKey(""))
+	return s.getAllRecords(internal.CredentialNameDataKey(""))
 }
 
 // GetPresentations retrieves the verifiable presentations records containing name and fields of interest.
 func (s *StoreImplementation) GetPresentations() ([]*Record, error) {
-	return s.getAllRecords(presentationNameDataKey(""))
+	return s.getAllRecords(internal.PresentationNameDataKey(""))
 }
 
 // RemoveCredentialByName removes the verifiable credential and its records containing given name.
@@ -290,7 +285,7 @@ func (s *StoreImplementation) RemoveCredentialByName(name string) error {
 		return fmt.Errorf("get credential id using name : %w", err)
 	}
 
-	err = s.remove(id, credentialNameDataKey(name))
+	err = s.remove(id, internal.CredentialNameDataKey(name))
 	if err != nil {
 		return fmt.Errorf("unable to delete credential : %w", err)
 	}
@@ -309,7 +304,7 @@ func (s *StoreImplementation) RemovePresentationByName(name string) error {
 		return fmt.Errorf("get presentation id using name : %w", err)
 	}
 
-	err = s.remove(id, presentationNameDataKey(name))
+	err = s.remove(id, internal.PresentationNameDataKey(name))
 	if err != nil {
 		return fmt.Errorf("unable to delete presentation : %w", err)
 	}
@@ -381,12 +376,4 @@ func getVCSubjectID(vc *verifiable.Credential) string {
 	}
 
 	return ""
-}
-
-func credentialNameDataKey(name string) string {
-	return fmt.Sprintf(credentialNameDataKeyPattern, name)
-}
-
-func presentationNameDataKey(name string) string {
-	return fmt.Sprintf(presentationNameDataKeyPattern, name)
 }

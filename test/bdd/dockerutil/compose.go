@@ -11,8 +11,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -154,7 +154,18 @@ func (c *Composition) GenerateLogs(dir, logName string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(logName, outputBytes, 0o600)
+	// must use O_APPEND to append data; ioutil.WriteFile() overwrites data in the file.
+	f, err := os.OpenFile("docker-compose.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(outputBytes)
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+
+	return err
 }
 
 // GetAPIContainerForComposeService return the docker.APIContainers with the supplied composeService name.

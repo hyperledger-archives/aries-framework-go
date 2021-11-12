@@ -99,7 +99,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	}
 }
 
-// CreateDID reate did.
+// CreateDID create did.
 func (o *Command) CreateDID(rw io.Writer, req io.Reader) command.Error {
 	var request CreateDIDRequest
 
@@ -177,17 +177,7 @@ func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("resolve did doc: %w", err))
 	}
 
-	docBytes, err := doc.DIDDocument.JSONBytes()
-	if err != nil {
-		logutil.LogError(logger, CommandName, ResolveDIDCommandMethod, "unmarshal did doc: "+err.Error(),
-			logutil.CreateKeyValueString(didID, request.ID))
-
-		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("unmarshal did doc: %w", err))
-	}
-
-	command.WriteNillableResponse(rw, &Document{
-		DID: json.RawMessage(docBytes),
-	}, logger)
+	command.WriteNillableResponse(rw, doc, logger)
 
 	logutil.LogDebug(logger, CommandName, ResolveDIDCommandMethod, "success",
 		logutil.CreateKeyValueString(didID, request.ID))

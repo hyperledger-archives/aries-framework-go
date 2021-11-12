@@ -98,6 +98,8 @@ func (p *Provider) SetStoreConfig(name string, config storage.StoreConfiguration
 }
 
 // GetStoreConfig returns the current store configuration.
+// TODO (#2948) When checking for the store, look for the underlying database instead of the stores open in memory
+//              in order to comply with the interface docs.
 func (p *Provider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
 	name = strings.ToLower(name)
 
@@ -186,17 +188,6 @@ func (p *Provider) newLeveldbStore(name string) (*store, error) {
 	store := &store{db: db, name: name, close: p.removeStore}
 	p.dbs[name] = store
 
-	// Create the tag map if it doesn't exist already.
-	_, err = store.Get(tagMapKey)
-	if errors.Is(err, storage.ErrDataNotFound) {
-		err = store.Put(tagMapKey, []byte("{}"))
-		if err != nil {
-			return nil, fmt.Errorf(`failed to create tag map for "%s": %w`, name, err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("unexpected failure while getting tag data bytes: %w", err)
-	}
-
 	return store, nil
 }
 
@@ -214,9 +205,15 @@ type store struct {
 	db    *leveldb.DB
 	name  string
 	close closer
+	lock  sync.RWMutex
 }
 
 // Put stores the key and the record.
+// WARNING: When storing tags, a race condition can occur if this is called from two different store objects
+// that point to the same underlying database at the same time, causing the tag map to be incorrect. You will need
+// to add locks.
+// TODO (#2947) This current implementation doesn't update the tag map if tags is empty, but this isn't correct.
+//              An empty tags slice should remove any stored tags for this key-value pair.
 func (s *store) Put(key string, value []byte, tags ...storage.Tag) error {
 	if key == "" {
 		return errors.New("key cannot be blank")
@@ -315,36 +312,34 @@ func (s *store) Query(expression string, options ...storage.QueryOption) (storag
 		return nil, fmt.Errorf(invalidQueryExpressionFormat, expression)
 	}
 
-	tagMap, err := s.getTagMap()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get tag map: %w", err)
-	}
-
 	expressionSplit := strings.Split(expression, ":")
+
+	var expressionTagName string
+
+	var expressionTagValue string
+
 	switch len(expressionSplit) {
 	case expressionTagNameOnlyLength:
-		expressionTagName := expressionSplit[0]
-
-		matchingDatabaseKeys := getDatabaseKeysMatchingTagName(tagMap, expressionTagName)
-
-		return &iterator{keys: matchingDatabaseKeys, store: s}, nil
+		expressionTagName = expressionSplit[0]
 	case expressionTagNameAndValueLength:
-		expressionTagName := expressionSplit[0]
-		expressionTagValue := expressionSplit[1]
-
-		matchingDatabaseKeys, err :=
-			s.getDatabaseKeysMatchingTagNameAndValue(tagMap, expressionTagName, expressionTagValue)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get database keys matching tag name and value: %w", err)
-		}
-
-		return &iterator{keys: matchingDatabaseKeys, store: s}, nil
+		expressionTagName = expressionSplit[0]
+		expressionTagValue = expressionSplit[1]
 	default:
 		return nil, fmt.Errorf(invalidQueryExpressionFormat, expression)
 	}
+
+	matchingDatabaseKeys, err := s.getDatabaseKeysMatchingQuery(expressionTagName, expressionTagValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database keys matching query: %w", err)
+	}
+
+	return &iterator{keys: matchingDatabaseKeys, store: s}, nil
 }
 
 // Delete will delete record with k key.
+// WARNING: If this store has any tags, a race condition can occur if this is called from two different store objects
+// that point to the same underlying database at the same time, causing the tag map to be incorrect. You will need
+// to add locks.
 func (s *store) Delete(key string) error {
 	if key == "" {
 		return errors.New("key cannot be blank")
@@ -367,6 +362,10 @@ func (s *store) Delete(key string) error {
 //  can at least perform the operations as expected without failing. It doesn't take advantage of LevelDB features that
 //  may allow for faster batch operations.
 func (s *store) Batch(operations []storage.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	for _, operation := range operations {
 		if operation.Value == nil {
 			err := s.Delete(operation.Key)
@@ -389,15 +388,24 @@ func (s *store) Flush() error {
 	return nil
 }
 
-// Nothing to close, so this always returns nil.
 func (s *store) Close() error {
 	s.close(s.name)
 
-	return s.db.Close()
+	err := s.db.Close()
+	if err != nil {
+		if err.Error() != "leveldb: closed" {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *store) updateTagMap(key string, tags []storage.Tag) error {
-	tagMap, err := s.getTagMap()
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	tagMap, err := s.getTagMap(true)
 	if err != nil {
 		return fmt.Errorf("failed to get tag map: %w", err)
 	}
@@ -421,22 +429,6 @@ func (s *store) updateTagMap(key string, tags []storage.Tag) error {
 	}
 
 	return nil
-}
-
-func (s *store) getTagMap() (tagMapping, error) {
-	tagMapBytes, err := s.Get(tagMapKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get tag map: %w", err)
-	}
-
-	var tagMap tagMapping
-
-	err = json.Unmarshal(tagMapBytes, &tagMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
-	}
-
-	return tagMap, nil
 }
 
 func (s *store) getDBEntry(key string) (dbEntry, error) {
@@ -464,8 +456,17 @@ func (s *store) getDBEntry(key string) (dbEntry, error) {
 }
 
 func (s *store) removeFromTagMap(keyToRemove string) error {
-	tagMap, err := s.getTagMap()
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	tagMap, err := s.getTagMap(false)
 	if err != nil {
+		// If there's no tag map, then this means that tags have never been used. This means that there's no tag map
+		// to update. This isn't a problem.
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil
+		}
+
 		return fmt.Errorf("failed to get tag map: %w", err)
 	}
 
@@ -484,6 +485,29 @@ func (s *store) removeFromTagMap(keyToRemove string) error {
 	}
 
 	return nil
+}
+
+func (s *store) getDatabaseKeysMatchingQuery(expressionTagName, expressionTagValue string) ([]string, error) {
+	tagMap, err := s.getTagMap(false)
+	if err != nil {
+		// If there's no tag map, then this means that tags have never been used, and therefore no matching results.
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("failed to get tag map: %w", err)
+	}
+
+	if expressionTagValue == "" {
+		return getDatabaseKeysMatchingTagName(tagMap, expressionTagName), nil
+	}
+
+	matchingDatabaseKeys, err := s.getDatabaseKeysMatchingTagNameAndValue(tagMap, expressionTagName, expressionTagValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database keys matching tag name and value: %w", err)
+	}
+
+	return matchingDatabaseKeys, nil
 }
 
 func (s *store) getDatabaseKeysMatchingTagNameAndValue(tagMap tagMapping,
@@ -514,20 +538,30 @@ func (s *store) getDatabaseKeysMatchingTagNameAndValue(tagMap tagMapping,
 	return matchingDatabaseKeys, nil
 }
 
-func getDatabaseKeysMatchingTagName(tagMap tagMapping, expressionTagName string) []string {
-	var matchingDatabaseKeys []string
-
-	for tagName, databaseKeysSet := range tagMap {
-		if tagName == expressionTagName {
-			for databaseKey := range databaseKeysSet {
-				matchingDatabaseKeys = append(matchingDatabaseKeys, databaseKey)
+func (s *store) getTagMap(createIfDoesNotExist bool) (tagMapping, error) {
+	tagMapBytes, err := s.Get(tagMapKey)
+	if err != nil {
+		if createIfDoesNotExist && errors.Is(err, storage.ErrDataNotFound) {
+			// Create the tag map if it has never been created before.
+			err = s.Put(tagMapKey, []byte("{}"))
+			if err != nil {
+				return nil, fmt.Errorf(`failed to create tag map for "%s": %w`, s.name, err)
 			}
 
-			break
+			tagMapBytes = []byte("{}")
+		} else {
+			return nil, fmt.Errorf("failed to get tag map: %w", err)
 		}
 	}
 
-	return matchingDatabaseKeys
+	var tagMap tagMapping
+
+	err = json.Unmarshal(tagMapBytes, &tagMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tag map bytes: %w", err)
+	}
+
+	return tagMap, nil
 }
 
 type iterator struct {
@@ -573,6 +607,10 @@ func (i *iterator) Tags() ([]storage.Tag, error) {
 	return tags, nil
 }
 
+func (i *iterator) TotalItems() (int, error) {
+	return len(i.keys), nil
+}
+
 func (i *iterator) Close() error {
 	return nil
 }
@@ -600,4 +638,20 @@ func checkForUnsupportedQueryOptions(options []storage.QueryOption) error {
 	}
 
 	return nil
+}
+
+func getDatabaseKeysMatchingTagName(tagMap tagMapping, expressionTagName string) []string {
+	var matchingDatabaseKeys []string
+
+	for tagName, databaseKeysSet := range tagMap {
+		if tagName == expressionTagName {
+			for databaseKey := range databaseKeysSet {
+				matchingDatabaseKeys = append(matchingDatabaseKeys, databaseKey)
+			}
+
+			break
+		}
+	}
+
+	return matchingDatabaseKeys
 }

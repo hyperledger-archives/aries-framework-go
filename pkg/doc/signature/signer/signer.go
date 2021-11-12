@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 const defaultProofPurpose = "assertionMethod"
@@ -105,7 +104,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Type:                    context.SignatureType,
 		SignatureRepresentation: context.SignatureRepresentation,
 		Creator:                 context.Creator,
-		Created:                 &util.TimeWithTrailingZeroMsec{Time: *created},
+		Created:                 wrapTime(*created),
 		Domain:                  context.Domain,
 		Nonce:                   context.Nonce,
 		VerificationMethod:      context.VerificationMethod,

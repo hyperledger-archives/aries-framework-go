@@ -30,6 +30,7 @@ type MockStoreProvider struct {
 	Store              *MockStore
 	Custom             storage.Store
 	ErrOpenStoreHandle error
+	ErrSetStoreConfig  error
 	ErrClose           error
 	ErrCloseStore      error
 	FailNamespace      string
@@ -63,7 +64,7 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 
 // SetStoreConfig always return a nil error.
 func (s *MockStoreProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
-	return nil
+	return s.ErrSetStoreConfig
 }
 
 // GetStoreConfig is not implemented.
@@ -312,6 +313,10 @@ func (m *iterator) Tags() ([]storage.Tag, error) {
 	}
 
 	return m.currentDBEntry.Tags, nil
+}
+
+func (m *iterator) TotalItems() (int, error) {
+	return -1, errors.New("not implemented")
 }
 
 func (m *iterator) Close() error {

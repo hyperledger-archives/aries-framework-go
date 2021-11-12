@@ -109,6 +109,11 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Easy")
 
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read ciphertext response for Easy failed [%s, %w]", destination, err)
@@ -126,7 +131,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 		return nil, err
 	}
 
-	logger.Infof("overall Easy duration: %s", time.Since(easyStart))
+	logger.Debugf("overall Easy duration: %s", time.Since(easyStart))
 
 	return ciphertext, nil
 }
@@ -157,6 +162,11 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "EasyOpen")
 
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read plaintext response for EasyOpen failed [%s, %w]", destination, err)
@@ -174,7 +184,7 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 		return nil, err
 	}
 
-	logger.Infof("overall easyOpen duration: %s", time.Since(easyOpenStart))
+	logger.Debugf("overall easyOpen duration: %s", time.Since(easyOpenStart))
 
 	return plainText, nil
 }
@@ -204,7 +214,7 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 	// now seal the msg with the ephemeral key, nonce and recPub (which is recipient's publicKey)
 	ret := box.Seal(epk[:], payload, nonce, &recPubBytes, esk)
 
-	logger.Infof("overall Seal (non remote call) duration: %s", time.Since(sealStart))
+	logger.Debugf("overall Seal (non remote call) duration: %s", time.Since(sealStart))
 
 	return ret, nil
 }
@@ -235,6 +245,11 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "SealOpen")
 
+	err = checkError(resp)
+	if err != nil {
+		return nil, err
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read plaintext response for SealOpen failed [%s, %w]", destination, err)
@@ -252,7 +267,7 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	logger.Infof("overall SealOpen duration: %s", time.Since(sealOpenStart))
+	logger.Debugf("overall SealOpen duration: %s", time.Since(sealOpenStart))
 
 	return plaintext, nil
 }

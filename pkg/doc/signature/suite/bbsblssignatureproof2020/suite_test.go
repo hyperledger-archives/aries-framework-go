@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 //nolint:gochecknoglobals
@@ -47,7 +47,7 @@ func TestSuite(t *testing.T) {
 	}, blsSuite)
 	require.NoError(t, err)
 
-	err = v.Verify([]byte(vcDoc), jsonldtest.WithDocumentLoader(t))
+	err = v.Verify([]byte(vcDoc), ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
 	require.Equal(t, expectedDoc, blsVerifier.doc)

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -201,7 +202,7 @@ func TestContentStores(t *testing.T) {
 			[]string{"collection", "credential", "connection", "didResolutionResponse", "connection", "key"})
 
 		// close store
-		contentStore.Close()
+		require.True(t, contentStore.Close())
 		store, err := contentStore.open(token)
 		require.Empty(t, store)
 		require.True(t, errors.Is(err, ErrWalletLocked))
@@ -231,9 +232,15 @@ func TestContentStores(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
-		ok, err := profileInfo.setupEDVKeys(tkn, "", "")
+		kmgr, err := keyManager().getKeyManger(tkn)
 		require.NoError(t, err)
-		require.True(t, ok)
+		require.NotEmpty(t, kmgr)
+
+		err = profileInfo.setupEDVEncryptionKey(kmgr)
+		require.NoError(t, err)
+
+		err = profileInfo.setupEDVMacKey(kmgr)
+		require.NoError(t, err)
 
 		// create new store
 		contentStore := newContentStore(sp, profileInfo)
@@ -249,7 +256,7 @@ func TestContentStores(t *testing.T) {
 		}))
 
 		// close store
-		contentStore.Close()
+		require.True(t, contentStore.Close())
 		store, err := contentStore.open(tkn)
 		require.Empty(t, store)
 		require.True(t, errors.Is(err, ErrWalletLocked))
@@ -281,7 +288,7 @@ func TestContentStores(t *testing.T) {
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
 
-		contentStore.Close()
+		require.True(t, contentStore.Close())
 	})
 
 	t.Run("save to store - success", func(t *testing.T) {
@@ -290,7 +297,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, nil))
+		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
 
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
@@ -310,7 +317,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, nil))
+		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
 
 		err := contentStore.Save(token, Collection, []byte(sampleContentNoID))
 		require.NoError(t, err)
@@ -560,7 +567,7 @@ func TestContentStores(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
 
-		contentStore.Close()
+		require.True(t, contentStore.Close())
 		err = contentStore.Remove(token, "did:example:123456789abcdefghi", Collection)
 		require.True(t, errors.Is(err, ErrWalletLocked))
 	})
@@ -722,7 +729,7 @@ func TestContentDIDResolver(t *testing.T) {
 
 		didDoc, err = contentVDR.Resolve("did:key:invalid")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "DID not found")
+		require.Equal(t, vdrapi.ErrNotFound, err)
 		require.Empty(t, didDoc)
 	})
 
@@ -746,7 +753,7 @@ func TestContentDIDResolver(t *testing.T) {
 		// DID not found
 		didDoc, err = contentVDR.Resolve("did:key:invalid")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "DID not found")
+		require.Equal(t, vdrapi.ErrNotFound, err)
 		require.Empty(t, didDoc)
 
 		// parse error
@@ -967,7 +974,7 @@ func TestContentStore_Collections(t *testing.T) {
 		require.Empty(t, allVcs)
 
 		// wallet locked error
-		contentStore.Close()
+		require.True(t, contentStore.Close())
 		allVcs, err = contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, allVcs)

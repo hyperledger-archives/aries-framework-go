@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 func TestGetDestinationFromDID(t *testing.T) {
@@ -30,6 +30,36 @@ func TestGetDestinationFromDID(t *testing.T) {
 		destination, err := GetDestination(doc.ID, &vdr)
 		require.NoError(t, err)
 		require.NotNil(t, destination)
+	})
+
+	t.Run("successfully getting destination from public DID with DIDComm V2 service block", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.NoError(t, err)
+		require.NotNil(t, destination)
+	})
+
+	t.Run("successfully getting destination from public DID with DIDComm V2 service block using relative key "+
+		"Agreement ID", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		prefixID := strings.Index(doc2.KeyAgreement[0].VerificationMethod.ID, "#")
+		doc2.KeyAgreement[0].VerificationMethod.ID = doc2.KeyAgreement[0].VerificationMethod.ID[prefixID:]
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.NoError(t, err)
+		require.NotNil(t, destination)
+	})
+
+	t.Run("error getting destination from public DID with DIDComm V2 service block using empty key "+
+		"Agreements", func(t *testing.T) {
+		doc2 := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "alicedid")
+		doc2.KeyAgreement = nil
+		vdr := mockvdr.MockVDRegistry{ResolveValue: doc2}
+		destination, err := GetDestination(doc.ID, &vdr)
+		require.EqualError(t, err, fmt.Sprintf("create destination: no keyAgreements in diddoc for didcomm v2 "+
+			"service bloc. DIDDoc: %+v", doc2))
+		require.Nil(t, destination)
 	})
 
 	t.Run("test service not found", func(t *testing.T) {
@@ -91,6 +121,15 @@ func TestPrepareDestination(t *testing.T) {
 		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
 
+	t.Run("error with destination having recipientKeys not did:keys", func(t *testing.T) {
+		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc.Service[0].RecipientKeys = []string{"badKey"}
+		dest, err := CreateDestination(doc)
+
+		require.EqualError(t, err, "create destination: recipient key 1:[badKey] of didComm '' not a did:key")
+		require.Nil(t, dest)
+	})
+
 	t.Run("error while getting service", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc(t)
 		didDoc.Service = nil
@@ -108,91 +147,6 @@ func TestPrepareDestination(t *testing.T) {
 		recipientKeys, ok := did.LookupDIDCommRecipientKeys(didDoc)
 		require.False(t, ok)
 		require.Nil(t, recipientKeys)
-	})
-}
-
-func TestCreateDestinationFromLegacyDoc(t *testing.T) {
-	t.Run("successfully prepared destination", func(t *testing.T) {
-		doc := mockdiddoc.GetMockIndyDoc(t)
-		dest, err := CreateDestination(doc)
-		require.NoError(t, err)
-		require.NotNil(t, dest)
-		require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
-		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
-	})
-
-	t.Run("error while getting service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = nil
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing DID doc service")
-		require.Nil(t, dest)
-	})
-
-	t.Run("missing service endpoint", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = []did.Service{{
-			Type: legacyDIDCommServiceType,
-		}}
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no service endpoint")
-		require.Nil(t, dest)
-	})
-
-	t.Run("missing recipient keys", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-		didDoc.Service = []did.Service{{
-			Type:            legacyDIDCommServiceType,
-			ServiceEndpoint: "localhost:8080",
-		}}
-
-		dest, err := createDestinationFromIndy(didDoc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no recipient keys")
-		require.Nil(t, dest)
-	})
-}
-
-func TestLookupIndyKeys(t *testing.T) {
-	t.Run("lookup recipient keys", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
-		require.NotNil(t, recipientKeys)
-		require.Len(t, recipientKeys, 1)
-
-		pk, err := fingerprint.PubKeyFromDIDKey(recipientKeys[0])
-		require.NoError(t, err)
-		require.ElementsMatch(t, didDoc.VerificationMethod[0].Value, pk)
-	})
-
-	t.Run("no keys to lookup", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-
-		recipientKeys := lookupIndyRecipientKeys(didDoc, nil)
-		require.Nil(t, recipientKeys)
-	})
-
-	t.Run("skip key that isn't found in verificationmethod list", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-
-		didDoc.Service[0].RecipientKeys = []string{"bad key"}
-
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
-		require.Len(t, recipientKeys, 0)
-	})
-
-	t.Run("skip keys that aren't of handled type", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockIndyDoc(t)
-
-		didDoc.VerificationMethod[0].Type = "bad type"
-
-		recipientKeys := lookupIndyRecipientKeys(didDoc, didDoc.Service[0].RecipientKeys)
-		require.Len(t, recipientKeys, 0)
 	})
 }
 

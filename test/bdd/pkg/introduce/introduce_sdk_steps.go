@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexchangebdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
@@ -542,6 +543,7 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 	return err
 }
 
+//nolint:funlen,gocyclo
 func (a *SDKSteps) newOOBInvitation(agentID string, requests ...interface{}) (*outofband.Invitation, error) {
 	client, err := outofband.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
@@ -579,6 +581,26 @@ func (a *SDKSteps) newOOBInvitation(agentID string, requests ...interface{}) (*o
 
 		opts = append(opts, outofband.WithAttachments(attachments...))
 	}
+
+	mtps := a.bddContext.AgentCtx[agentID].MediaTypeProfiles()
+	didCommV2 := false
+
+	for _, mtp := range mtps {
+		switch mtp {
+		case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+			didCommV2 = true
+		}
+
+		if didCommV2 {
+			break
+		}
+	}
+
+	if !didCommV2 && len(mtps) == 0 {
+		mtps = []string{transport.MediaTypeAIP2RFC0019Profile}
+	}
+
+	opts = append(opts, outofband.WithAccept(mtps...))
 
 	inv, err := client.CreateInvitation(
 		nil,

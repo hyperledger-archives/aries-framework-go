@@ -1,0 +1,22 @@
+{
+  "type":"https://didcomm.org/present-proof/3.0/request-presentation",
+  "body": { "will_confirm":true },
+  "attachments":[
+    {
+      "@id":"6372a1e3-eb6a-46de-a02d-5ac22bf0fb23",
+      "format":"dif/presentation-exchange/definitions@v1.0",
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "data":{
+        "json":{
+          "presentation_definition":{
+            "id": "22c77155-edf2-4ec5-8d44-b393b4e4fa38",
+            "input_descriptors": [{
+              "id": "20b073bb-cede-4912-9e9d-334e5702077b",
+              "schema": [{"uri": "https://www.w3.org/2018/credentials#VerifiableCredential"}]
+            }]
+          }
+        }
+      }
+    }
+  ]
+}

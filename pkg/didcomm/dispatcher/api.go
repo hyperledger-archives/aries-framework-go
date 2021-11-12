@@ -16,6 +16,7 @@ type ProtocolService interface {
 	service.Handler
 	Accept(msgType string) bool
 	Name() string
+	Initialize(interface{}) error
 }
 
 // MessageService is service for handling generic messages
@@ -36,4 +37,10 @@ type Outbound interface {
 
 	// Forward forwards the message without packing to the destination.
 	Forward(interface{}, *service.Destination) error
+}
+
+// MessageTypeTarget represents a service message type mapping value to an OOB target action.
+type MessageTypeTarget struct {
+	MsgType string
+	Target  string
 }

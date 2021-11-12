@@ -31,7 +31,7 @@ func NewECDHAEADCompositeEncrypt(encHelper composite.EncrypterHelper, cek []byte
 	}
 }
 
-// Encrypt using composite ECDH-ES with a Concat KDF key wrap and AEAD content encryption.
+// Encrypt using composite ECDH with a Concat KDF key wrap and CBC+HMAC content encryption.
 func (e *ECDHAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, error) {
 	if e.cek == nil {
 		return nil, fmt.Errorf("ecdhAEADCompositeEncrypt: missing cek")

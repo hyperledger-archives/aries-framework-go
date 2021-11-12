@@ -10,15 +10,15 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -142,7 +142,7 @@ func TestParsePresentation(t *testing.T) {
 			require.Len(t, descrMap, 2)
 		}
 
-		loader := createTestDocumentLoader(t, jld.ContextDocument{
+		loader := createTestDocumentLoader(t, ldcontext.Document{
 			URL:     "https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
 			Content: presentationSubmissionV1,
 		})
@@ -211,7 +211,7 @@ func TestParsePresentation(t *testing.T) {
 			VerificationMethod:      "did:example:123456#key1",
 		}
 
-		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+		err = vp.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		require.NoError(t, err)
 
 		proof := vp.Proofs[0]
@@ -509,7 +509,7 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 }
 
 func TestWithPresJSONLDDocumentLoader(t *testing.T) {
-	documentLoader := ld.NewDefaultDocumentLoader(nil)
+	documentLoader := jsonld.NewDefaultDocumentLoader(nil)
 	presentationOpt := WithPresJSONLDDocumentLoader(documentLoader)
 	require.NotNil(t, presentationOpt)
 
@@ -519,7 +519,7 @@ func TestWithPresJSONLDDocumentLoader(t *testing.T) {
 }
 
 func TestParseUnverifiedPresentation(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	// happy path

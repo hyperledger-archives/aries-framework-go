@@ -59,3 +59,58 @@ type Format struct {
 	AttachID string `json:"attach_id,omitempty"`
 	Format   string `json:"format,omitempty"`
 }
+
+// ProposePresentationV3 is an optional message sent by the prover to the verifier to initiate a proof presentation
+// process, or in response to a request-presentation message when the prover wants to propose
+// using a different presentation format or request.
+type ProposePresentationV3 struct {
+	Type string                    `json:"type,omitempty"`
+	Body ProposePresentationV3Body `json:"body,omitempty"`
+	// Attachments is an array of attachments that further define the presentation request being proposed.
+	// This might be used to clarify which formats or format versions are wanted.
+	Attachments []decorator.AttachmentV2 `json:"attachments,omitempty"`
+}
+
+// ProposePresentationV3Body represents body for ProposePresentationV3.
+type ProposePresentationV3Body struct {
+	GoalCode string `json:"goal_code,omitempty"`
+	// Comment is a field that provides some human readable information about the proposed presentation.
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	Comment string `json:"comment,omitempty"`
+}
+
+// RequestPresentationV3 describes values that need to be revealed and predicates that need to be fulfilled.
+type RequestPresentationV3 struct {
+	Type string                    `json:"type,omitempty"`
+	Body RequestPresentationV3Body `json:"body,omitempty"`
+	// Attachments is an array of attachments containing the acceptable verifiable presentation requests.
+	Attachments []decorator.AttachmentV2 `json:"attachments,omitempty"`
+}
+
+// RequestPresentationV3Body represents body for RequestPresentationV3.
+type RequestPresentationV3Body struct {
+	GoalCode string `json:"goal_code,omitempty"`
+	// Comment is a field that provides some human readable information about the proposed presentation.
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	Comment string `json:"comment,omitempty"`
+	// WillConfirm is a field that defaults to "false" to indicate that the verifier will or will not
+	// send a post-presentation confirmation ack message.
+	WillConfirm bool `json:"will_confirm,omitempty"`
+}
+
+// PresentationV3 is a response to a RequestPresentation message and contains signed presentations.
+type PresentationV3 struct {
+	Type string             `json:"type,omitempty"`
+	Body PresentationV3Body `json:"body,omitempty"`
+	// Attachments is an array of attachments that further define the presentation request being proposed.
+	// This might be used to clarify which formats or format versions are wanted.
+	Attachments []decorator.AttachmentV2 `json:"attachments,omitempty"`
+}
+
+// PresentationV3Body represents body for PresentationV3.
+type PresentationV3Body struct {
+	GoalCode string `json:"goal_code,omitempty"`
+	// Comment is a field that provides some human readable information about the proposed presentation.
+	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
+	Comment string `json:"comment,omitempty"`
+}

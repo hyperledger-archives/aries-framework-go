@@ -39,6 +39,12 @@ type AriesController interface {
 	// GetKMSController returns an implementation of KMSController
 	GetKMSController() (KMSController, error)
 
+	// GetLDController returns an implementation of LDController
+	GetLDController() (LDController, error)
+
+	// GetVCWalletController returns an implementation of VCWalletController
+	GetVCWalletController() (VCWalletController, error)
+
 	// RegisterHandler registers handler for handling notifications
 	RegisterHandler(h Handler, topics string) string
 

@@ -35,7 +35,7 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	didStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/did"
 	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -45,6 +45,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -113,7 +114,8 @@ func TestFramework(t *testing.T) {
 					return &didcomm.MockAuthCrypt{
 						EncryptValue: nil,
 					}, nil
-				}))
+				}),
+			WithMediaTypeProfiles([]string{"mockProfile"}))
 		require.NoError(t, err)
 
 		// context
@@ -129,6 +131,19 @@ func TestFramework(t *testing.T) {
 	})
 
 	// framework new - success
+	t.Run("test vdr - with DIDComm V2", func(t *testing.T) {
+		vdr := &mockvdr.MockVDR{}
+		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}),
+			WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		require.Equal(t, len(aries.vdr), 1)
+		require.Equal(t, vdr, aries.vdr[0])
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
 	t.Run("test vdr - with user provided", func(t *testing.T) {
 		vdr := &mockvdr.MockVDR{}
 		aries, err := New(WithVDR(vdr), WithInboundTransport(&mockInboundTransport{}))
@@ -205,10 +220,12 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return &mockdidexchange.MockDIDExchangeSvc{
-				ProtocolName: "mockProtocolSvc",
-			}, nil
+		newMockSvc := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
 		}
 		// with custom protocol
 		aries, err := New(WithProtocols(newMockSvc), WithInboundTransport(&mockInboundTransport{}))
@@ -229,10 +246,12 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		mockSvcCreator := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return &mockdidexchange.MockDIDExchangeSvc{
-				ProtocolName: "mockProtocolSvc",
-			}, nil
+		mockSvcCreator := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
 		}
 		aries, err := New(WithProtocols(mockSvcCreator), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
@@ -248,12 +267,40 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test error from protocol service", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
-			return nil, errors.New("error creating the protocol")
+		newMockSvc := api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return nil, errors.New("error creating the protocol")
+			},
 		}
 		_, err := New(WithProtocols(newMockSvc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the protocol")
+
+		newMockSvc = api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockdidexchange.MockDIDExchangeSvc{
+					ProtocolName: "mockProtocolSvc",
+				}, nil
+			},
+
+			Init: func(srv dispatcher.ProtocolService, prv api.Provider) error {
+				return errors.New("error initializing the protocol")
+			},
+		}
+
+		_, err = New(WithProtocols(newMockSvc))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error initializing the protocol")
+
+		newMockSvc = api.ProtocolSvcCreator{
+			Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+				return &mockProtocolService{}, nil
+			},
+		}
+
+		_, err = New(WithProtocols(newMockSvc))
+		require.Error(t, err)
+		require.ErrorIs(t, err, errMockProtocolInit)
 	})
 
 	t.Run("test Inbound transport - with options", func(t *testing.T) {
@@ -614,21 +661,29 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, mockStore, aries.didConnectionStore)
 	})
 
+	t.Run("test JSON-LD context store option", func(t *testing.T) {
+		store := mockldstore.NewMockContextStore()
+
+		aries, err := New(WithJSONLDContextStore(store))
+		require.NoError(t, err)
+		require.Equal(t, store, aries.contextStore)
+	})
+
+	t.Run("test JSON-LD remote provider store option", func(t *testing.T) {
+		store := mockldstore.NewMockRemoteProviderStore()
+
+		aries, err := New(WithJSONLDRemoteProviderStore(store))
+		require.NoError(t, err)
+		require.Equal(t, store, aries.remoteProviderStore)
+	})
+
 	t.Run("test JSON-LD document loader option", func(t *testing.T) {
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		aries, err := New(WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
-		require.Equal(t, loader, aries.jsonldDocumentLoader)
-	})
-
-	t.Run("test JSON-LD document loader creation error", func(t *testing.T) {
-		_, err := New(
-			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: "jsonldContexts"}),
-		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "document loader creation failed")
+		require.Equal(t, loader, aries.documentLoader)
 	})
 
 	t.Run("test KeyType and KeyAgreement option", func(t *testing.T) {
@@ -636,6 +691,17 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, kms.BLS12381G2Type, aries.keyType)
 		require.Equal(t, kms.NISTP384ECDHKWType, aries.keyAgreementType)
+	})
+
+	t.Run("test new with mediaTypeProfiles", func(t *testing.T) {
+		aries, err := New(WithMediaTypeProfiles([]string{
+			transport.MediaTypeV2EncryptedEnvelope,
+			transport.MediaTypeV1EncryptedEnvelope,
+		}))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(aries.mediaTypeProfiles))
+		require.Equal(t, transport.MediaTypeV2EncryptedEnvelope, aries.mediaTypeProfiles[0])
+		require.Equal(t, transport.MediaTypeV1EncryptedEnvelope, aries.mediaTypeProfiles[1])
 	})
 }
 
@@ -726,4 +792,28 @@ func (m *mockInboundTransport) Stop() error {
 
 func (m *mockInboundTransport) Endpoint() string {
 	return ""
+}
+
+type mockProtocolService struct{}
+
+func (m mockProtocolService) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
+	panic("implement me")
+}
+
+func (m mockProtocolService) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	panic("implement me")
+}
+
+func (m mockProtocolService) Accept(msgType string) bool {
+	panic("implement me")
+}
+
+func (m mockProtocolService) Name() string {
+	panic("implement me")
+}
+
+var errMockProtocolInit = errors.New("mock protocol init error")
+
+func (m mockProtocolService) Initialize(i interface{}) error {
+	return errMockProtocolInit
 }

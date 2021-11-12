@@ -8,16 +8,19 @@ package controller
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	ldcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	vcwalletcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -25,22 +28,35 @@ import (
 	introducerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/rfc0593"
+	vcwalletrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
 	vdrrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 )
 
+// HTTPClient represents an HTTP client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type allOpts struct {
-	webhookURLs  []string
-	defaultLabel string
-	autoAccept   bool
-	msgHandler   command.MessageHandler
-	notifier     command.Notifier
+	webhookURLs        []string
+	defaultLabel       string
+	autoAccept         bool
+	autoExecuteRFC0593 bool
+	msgHandler         command.MessageHandler
+	notifier           command.Notifier
+	walletConf         *vcwalletcmd.Config
+	httpClient         HTTPClient
+	ldService          ldsvc.Service
 }
 
 const wsPath = "/ws"
@@ -76,6 +92,13 @@ func WithAutoAccept(autoAccept bool) Opt {
 	}
 }
 
+// WithAutoExecuteRFC0593 enables RFC0593.
+func WithAutoExecuteRFC0593(autoExecute bool) Opt {
+	return func(opts *allOpts) {
+		opts.autoExecuteRFC0593 = autoExecute
+	}
+}
+
 // WithMessageHandler is an option allowing for the message handler to be set.
 func WithMessageHandler(handler command.MessageHandler) Opt {
 	return func(opts *allOpts) {
@@ -83,9 +106,34 @@ func WithMessageHandler(handler command.MessageHandler) Opt {
 	}
 }
 
+// WithWalletConfiguration is an option for customizing vcwallet controller.
+func WithWalletConfiguration(conf *vcwalletcmd.Config) Opt {
+	return func(opts *allOpts) {
+		opts.walletConf = conf
+	}
+}
+
+// WithHTTPClient is an option for setting up a custom HTTP client.
+func WithHTTPClient(client HTTPClient) Opt {
+	return func(opts *allOpts) {
+		opts.httpClient = client
+	}
+}
+
+// WithLDService is an option for setting up a custom JSON-LD service.
+func WithLDService(svc ldsvc.Service) Opt {
+	return func(opts *allOpts) {
+		opts.ldService = svc
+	}
+}
+
 // GetRESTHandlers returns all REST handlers provided by controller.
 func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen,gocyclo
-	restAPIOpts := &allOpts{}
+	restAPIOpts := &allOpts{
+		httpClient: http.DefaultClient,
+		ldService:  ldsvc.New(ctx),
+	}
+
 	// Apply options
 	for _, opt := range opts {
 		opt(restAPIOpts)
@@ -127,11 +175,19 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create verifiable rest command : %w", err)
 	}
 
+	var issuecredentialOp *issuecredentialrest.Operation
+
+	if restAPIOpts.autoExecuteRFC0593 {
+		issuecredentialOp, err = issuecredentialrest.New(ctx, notifier, ctx)
+	} else {
+		issuecredentialOp, err = issuecredentialrest.New(ctx, notifier, nil)
+	}
 	// issuecredential REST operation
-	issuecredentialOp, err := issuecredentialrest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create issue-credential rest command : %w", err)
 	}
+
+	rfc0593Op := rfc0593.New(ctx)
 
 	// presentproof REST operation
 	presentproofOp, err := presentproofrest.New(ctx, notifier)
@@ -154,6 +210,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
+	// vc wallet command controller
+	wallet := vcwalletrest.New(ctx, restAPIOpts.walletConf)
+
+	// JSON-LD REST operation
+	ldOp := ldrest.New(restAPIOpts.ldService, ldrest.WithHTTPClient(restAPIOpts.httpClient))
+
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
@@ -162,10 +224,13 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, rfc0593Op.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, wallet.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, ldOp.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -181,7 +246,11 @@ type handlerProvider interface {
 
 // GetCommandHandlers returns all command handlers provided by controller.
 func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen,gocyclo
-	cmdOpts := &allOpts{}
+	cmdOpts := &allOpts{
+		httpClient: http.DefaultClient,
+		ldService:  ldsvc.New(ctx),
+	}
+
 	// Apply options
 	for _, opt := range opts {
 		opt(cmdOpts)
@@ -250,6 +319,12 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
+	// vc wallet command controller
+	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
+
+	// JSON-LD command operation
+	ldCmd := ldcmd.New(cmdOpts.ldService, ldcmd.WithHTTPClient(cmdOpts.httpClient))
+
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, vcmd.GetHandlers()...)
@@ -261,6 +336,8 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
+	allHandlers = append(allHandlers, wallet.GetHandlers()...)
+	allHandlers = append(allHandlers, ldCmd.GetHandlers()...)
 
 	return allHandlers, nil
 }

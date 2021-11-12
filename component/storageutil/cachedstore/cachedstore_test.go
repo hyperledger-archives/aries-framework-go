@@ -20,7 +20,9 @@ import (
 )
 
 func Test_Common(t *testing.T) {
-	runCommonTests(t, cachedstore.NewProvider(mem.NewProvider(), mem.NewProvider()))
+	commonstoragetest.TestAll(t,
+		cachedstore.NewProvider(mem.NewProvider(), mem.NewProvider()),
+		commonstoragetest.SkipSortTests(false))
 }
 
 func TestCachedProvider_OpenStore(t *testing.T) {
@@ -136,18 +138,4 @@ func TestStore_Close(t *testing.T) {
 		err = store.Close()
 		require.EqualError(t, err, "failed to close the cache store: close failure")
 	})
-}
-
-func runCommonTests(t *testing.T, provider spi.Provider) {
-	commonstoragetest.TestProviderGetOpenStores(t, provider)
-	commonstoragetest.TestProviderOpenStoreSetGetConfig(t, provider)
-	commonstoragetest.TestPutGet(t, provider)
-	commonstoragetest.TestStoreGetTags(t, provider)
-	commonstoragetest.TestStoreGetBulk(t, provider)
-	commonstoragetest.TestStoreDelete(t, provider)
-	commonstoragetest.TestStoreQuery(t, provider)
-	commonstoragetest.TestStoreBatch(t, provider)
-	commonstoragetest.TestStoreFlush(t, provider)
-	commonstoragetest.TestStoreClose(t, provider)
-	commonstoragetest.TestProviderClose(t, provider)
 }

@@ -13,7 +13,7 @@ const inBrowser = typeof window !== 'undefined' && typeof window.document !== 'u
 const notifierWait = 10000
 
 // time out for command operations
-const commandTimeout = 20000
+const commandTimeout = 25000
 
 // base path to load assets from at runtime
 const __publicPath = _ => {
@@ -100,7 +100,9 @@ function newMsg(pkg, fn, payload) {
  *      "transport-return-route": "all",
  *      "log-level": "debug",
  *      "agent-rest-url": "http://controller.api.example.com",
- *      "agent-rest-wshook": "ws://controller.api.example.com"
+ *      "agent-rest-wshook": "ws://controller.api.example.com",
+ *      "context-provider-url": ["https://context-provider.example.com/ld_contexts.json"]
+ *      "media-type-profiles": ["didcomm/v2"]
  * }
  *
  * @param opts framework initialization options.
@@ -207,7 +209,7 @@ const Aries = function (opts) {
          * Introduce methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */
-        introduce:{
+        introduce: {
             pkgname: "introduce",
             /**
              * Actions returns pending actions that have not yet to be executed or canceled.
@@ -401,6 +403,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendOffer", req, "timeout while sending an offer")
             },
             /**
+             * Sends an offer V3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendOfferV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendOfferV3", req, "timeout while sending an offer")
+            },
+            /**
              * Sends a proposal.
              *
              * @param req - json document
@@ -408,6 +419,15 @@ const Aries = function (opts) {
              */
             sendProposal: function (req) {
                 return invoke(aw, pending, this.pkgname, "SendProposal", req, "timeout while sending a proposal")
+            },
+            /**
+             * Sends a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposalV3", req, "timeout while sending a proposal")
             },
             /**
              * Sends a request.
@@ -419,6 +439,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendRequest", req, "timeout while sending a request")
             },
             /**
+             * Sends a request v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequestV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequestV3", req, "timeout while sending a request")
+            },
+            /**
              * Accepts a proposal.
              *
              * @param req - json document
@@ -426,6 +455,15 @@ const Aries = function (opts) {
              */
             acceptProposal: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptProposal", req, "timeout while accepting a proposal")
+            },
+            /**
+             * Accepts a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposalV3", req, "timeout while accepting a proposal")
             },
             /**
              * Declines a proposal.
@@ -473,6 +511,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "NegotiateProposal", req, "timeout while negotiating proposal")
             },
             /**
+             * Is used when the Holder wants to negotiate about an offer he received.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            negotiateProposalV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "NegotiateProposalV3", req, "timeout while negotiating proposal")
+            },
+            /**
              * Accepts a request.
              *
              * @param req - json document
@@ -480,6 +527,15 @@ const Aries = function (opts) {
              */
             acceptRequest: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptRequest", req, "timeout while accepting a request")
+            },
+            /**
+             * Accepts a request v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestV3", req, "timeout while accepting a request")
             },
             /**
              * Declines a request.
@@ -534,7 +590,17 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendRequestPresentation", req, "timeout while sending a request presentation")
             },
             /**
+             * Sends a request presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequestPresentationV3: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequestPresentationV3", req, "timeout while sending a request presentation")
+            },
+            /**
              * Sends a propose presentation.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
              *
              * @param req - json document
              * @returns {Promise<Object>}
@@ -543,7 +609,18 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "SendProposePresentation", req, "timeout while sending a propose presentation")
             },
             /**
+             * Sends a propose presentation v3.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposePresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposePresentationV3", req, "timeout while sending a propose presentation")
+            },
+            /**
              * Accepts a problem report.
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof
              *
              * @param req - json document
              * @returns {Promise<Object>}
@@ -561,6 +638,15 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "AcceptRequestPresentation", req, "timeout while accepting a request presentation")
             },
             /**
+             * Accepts a request presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestPresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestPresentationV3", req, "timeout while accepting a request presentation")
+            },
+            /**
              * Accepts a propose presentation.
              *
              * @param req - json document
@@ -568,6 +654,15 @@ const Aries = function (opts) {
              */
             acceptProposePresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "AcceptProposePresentation", req, "timeout while accepting a propose presentation")
+            },
+            /**
+             * Accepts a propose presentation v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposePresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposePresentationV3", req, "timeout while accepting a propose presentation")
             },
             /**
              * Accepts a presentation.
@@ -586,6 +681,15 @@ const Aries = function (opts) {
              */
             negotiateRequestPresentation: function (req) {
                 return invoke(aw, pending, this.pkgname, "NegotiateRequestPresentation", req, "timeout while negotiating a request presentation")
+            },
+            /**
+             * Is used by the Prover to counter a presentation request v3 they received with a proposal v3.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            negotiateRequestPresentationV3: function (req) {
+                return invoke(aw, pending, this.pkgname, "NegotiateRequestPresentationV3", req, "timeout while negotiating a request presentation")
             },
             /**
              * Declines a request presentation.
@@ -983,7 +1087,7 @@ const Aries = function (opts) {
              * @returns {Promise<Object>}
              */
             signCredential: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "SignCredential", req, "timeout while adding proof to credential")
+                return invoke(aw, pending, this.pkgname, "SignCredential", req, "timeout while adding proof to credential")
             },
 
             /**
@@ -993,7 +1097,7 @@ const Aries = function (opts) {
              * @returns {Promise<Object>}
              */
             deriveCredential: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "DeriveCredential", req, "timeout while deriving credential")
+                return invoke(aw, pending, this.pkgname, "DeriveCredential", req, "timeout while deriving credential")
             },
 
             /**
@@ -1003,7 +1107,7 @@ const Aries = function (opts) {
              * @returns {Promise<Object>}
              */
             generatePresentation: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "GeneratePresentation", req, "timeout while generating verifiable presentation")
+                return invoke(aw, pending, this.pkgname, "GeneratePresentation", req, "timeout while generating verifiable presentation")
             },
 
             /**
@@ -1013,7 +1117,7 @@ const Aries = function (opts) {
              * @returns {Promise<Object>}
              */
             generatePresentationByID: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "GeneratePresentationByID", req, "timeout while generating verifiable presentation by id")
+                return invoke(aw, pending, this.pkgname, "GeneratePresentationByID", req, "timeout while generating verifiable presentation by id")
             },
 
             /**
@@ -1069,6 +1173,301 @@ const Aries = function (opts) {
              */
             importKey: async function (req) {
                 return invoke(aw, pending, this.pkgname, "ImportKey", req, "timeout while importing key")
+            },
+        },
+        /**
+         * Verifiable Credential Wallet based on Universal Wallet 2020 https://w3c-ccg.github.io/universal-wallet-interop-spec/#interface
+         *
+         * Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        vcwallet: {
+            pkgname: "vcwallet",
+
+            /**
+             * Creates new wallet profile and returns error if wallet profile is already created.
+             *
+             * @returns {Promise<Object>}
+             */
+            createProfile: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateProfile", req, "timeout while creating wallet profile")
+            },
+
+            /**
+             * Updates an existing wallet profile and returns error if profile doesn't exists.
+             *
+             * @returns {Promise<Object>}
+             */
+            updateProfile: async function (req) {
+                return invoke(aw, pending, this.pkgname, "UpdateProfile", req, "timeout while updating wallet profile")
+            },
+
+            /**
+             * Checks if profile exists for given wallet user.
+             *
+             * @returns {Promise<Object>} - empty promise if found or error if not not found.
+             */
+            profileExists: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ProfileExists", req, "timeout while checking if profile exists")
+            },
+
+            /**
+             * Unlocks given wallet's key manager instance & content store and
+             * returns a authorization token to be used for performing wallet operations.
+             *
+             * @returns {Promise<Object>}
+             */
+            open: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Open", req, "timeout while opening wallet")
+            },
+
+            /**
+             * Expires token issued to this VC wallet, removes wallet's key manager instance and closes wallet content store.
+             *
+             * returns response containing bool flag false if token is not found or already expired for this wallet user.
+             *
+             * @returns {Promise<Object>}
+             */
+            close: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Close", req, "timeout while closing wallet")
+            },
+
+            /**
+             * adds given data model to wallet content store.
+             *
+             * Supported data models:
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
+             *
+             * @returns {Promise<Object>}
+             */
+            add: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Add", req, "timeout while adding content to wallet")
+            },
+
+            /**
+             * removes given content from wallet content store.
+             *
+             * Supported data models:
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            remove: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Remove", req, "timeout while removing content from wallet")
+            },
+
+            /**
+             * gets content from wallet content store.
+             *
+             * Supported data models:
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            get: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Get", req, "timeout while getting content from wallet")
+            },
+
+            /**
+             * gets all contents from wallet content store for given content type.
+             *
+             * Supported data models:
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+             *    - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+             *
+             * @returns {Promise<Object>}
+             */
+            getAll: async function (req) {
+                return invoke(aw, pending, this.pkgname, "GetAll", req, "timeout getting all contents wallet")
+            },
+
+            /**
+             *
+             * runs query against wallet credential contents and returns presentation containing credential results.
+             *
+             * This function may return multiple presentations as a result based on combination of query types used.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#query
+             *
+             * Supported Query Types:
+             *    - https://www.w3.org/TR/json-ld11-framing
+             *    - https://identity.foundation/presentation-exchange
+             *    - https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+             *    - https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
+             *
+             * @returns {Promise<Object>}
+             */
+            query: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Query", req, "timeout while querying wallet")
+            },
+
+            /**
+             *
+             * adds proof to a Verifiable Credential.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#issue
+             *
+             * @returns {Promise<Object>}
+             */
+            issue: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Issue", req, "timeout while issuing from wallet")
+            },
+
+            /**
+             *
+             * produces a Verifiable Presentation.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#prove
+             *
+             * @returns {Promise<Object>}
+             */
+            prove: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Prove", req, "timeout while proving from wallet")
+            },
+
+            /**
+             *
+             * verifies a Verifiable Credential or a Verifiable Presentation.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#prove
+             *
+             * @returns {Promise<Object>}
+             */
+            verify: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Verify", req, "timeout while verifying from wallet")
+            },
+
+            /**
+             *
+             * derives a Verifiable Credential.
+             *
+             * https://w3c-ccg.github.io/universal-wallet-interop-spec/#derive
+             *
+             * @returns {Promise<Object>}
+             */
+            derive: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Derive", req, "timeout while deriving from wallet")
+            },
+
+            /**
+             *
+             * creates a key pair from wallet.
+             *
+             * @returns {Promise<Object>}
+             */
+            createKeyPair: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateKeyPair", req, "timeout while creating key pair from wallet")
+            },
+
+            /**
+             *
+             * accepts out-of-band invitation and performs DID exchange from wallet.
+             *
+             * @returns {Promise<Object>}
+             */
+            connect: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Connect", req, "timeout while performing DID connect from wallet")
+            },
+
+            /**
+             *
+             * accepts out-of-band invitation and sends propose presentation message to sender.
+             *
+             *  Returns request presentation message response.
+             *
+             * @returns {Promise<Object>}
+             */
+            proposePresentation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ProposePresentation", req, "timeout while proposing presentation from wallet")
+            },
+
+            /**
+             *
+             * sends presentation as present proof message.
+             *
+             * @returns {Promise<Object>}
+             */
+            presentProof: async function (req) {
+                return invoke(aw, pending, this.pkgname, "PresentProof", req, "timeout while performing present proof from wallet")
+            },
+        },
+        /**
+         * JSON-LD management API.
+         *
+         * Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        ld: {
+            pkgname: "ld",
+
+            /**
+             * Adds JSON-LD contexts to the underlying storage.
+             *
+             * @returns {Promise<Object>}
+             */
+            addContexts: async function (req) {
+                return invoke(aw, pending, this.pkgname, "AddContexts", req, "timeout while adding contexts")
+            },
+
+            /**
+             * Adds remote provider and JSON-LD contexts from that provider to the underlying storage.
+             *
+             * @returns {Promise<Object>}
+             */
+            addRemoteProvider: async function (req) {
+                return invoke(aw, pending, this.pkgname, "AddRemoteProvider", req, "timeout while adding remote provider")
+            },
+
+            /**
+             * Updates contexts from the remote provider.
+             *
+             * @returns {Promise<Object>}
+             */
+            refreshRemoteProvider: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RefreshRemoteProvider", req, "timeout while refreshing remote provider")
+            },
+
+            /**
+             * Deletes remote provider and JSON-LD contexts from that provider from the underlying storage.
+             *
+             * @returns {Promise<Object>}
+             */
+            deleteRemoteProvider: async function (req) {
+                return invoke(aw, pending, this.pkgname, "DeleteRemoteProvider", req, "timeout while removing remote provider")
+            },
+
+            /**
+             * Gets all remote providers from the underlying storage.
+             *
+             * @returns {Promise<Object>}
+             */
+            getAllRemoteProviders: async function () {
+                return invoke(aw, pending, this.pkgname, "GetAllRemoteProviders", {}, "timeout while getting remote providers")
+            },
+
+            /**
+             * Updates contexts from all remote providers in the underlying storage.
+             *
+             * @returns {Promise<Object>}
+             */
+            refreshAllRemoteProviders: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RefreshAllRemoteProviders", req, "timeout while refreshing remote providers")
             },
         },
     }

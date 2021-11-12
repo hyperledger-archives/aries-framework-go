@@ -10,8 +10,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210421203733-b5dfd703a8fc
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210421203733-b5dfd703a8fc
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210820175050-dcc7a225178d
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210820175050-dcc7a225178d
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0

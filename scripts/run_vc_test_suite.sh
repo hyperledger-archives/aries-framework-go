@@ -23,6 +23,7 @@ cd $GENERATOR_DIR
 rm -rf tmp
 mkdir tmp
 cp verifiable_suite_test.go tmp/vc_test_suite_app.go
+cp -R contexts tmp/
 cd tmp
 go build -tags testsuite -o "${BUILD_DIR}/${VC_TEST_SUITE}/${GENERATOR_NAME}"
 cd ..

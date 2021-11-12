@@ -7,23 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package anoncrypt
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
-
-	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -39,6 +33,7 @@ type Packer struct {
 	kms           kms.KeyManager
 	encAlg        jose.EncAlg
 	cryptoService cryptoapi.Crypto
+	kidResolvers  []resolver.KIDResolver
 }
 
 // New will create an Packer instance to 'AnonCrypt' payloads for a given list of recipients.
@@ -54,10 +49,20 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		return nil, errors.New("anoncrypt: failed to create packer because crypto service is empty")
 	}
 
+	vdrReg := ctx.VDRegistry()
+	if vdrReg == nil {
+		return nil, errors.New("anoncrypt: failed to create packer because vdr registry is empty")
+	}
+
+	var kidResolvers []resolver.KIDResolver
+
+	kidResolvers = append(kidResolvers, &resolver.DIDKeyResolver{}, &resolver.DIDDocResolver{VDRRegistry: vdrReg})
+
 	return &Packer{
 		kms:           k,
 		encAlg:        encAlg,
 		cryptoService: c,
+		kidResolvers:  kidResolvers,
 	}, nil
 }
 
@@ -110,7 +115,6 @@ func (p *Packer) Pack(contentType string, payload, _ []byte, recipientsPubKeys [
 func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, error) {
 	var (
 		pubKeys []*cryptoapi.PublicKey
-		kids    []string
 		aad     []byte
 	)
 
@@ -122,20 +126,7 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 			return nil, nil, err
 		}
 
-		kids = append(kids, ecKey.KID)
 		pubKeys = append(pubKeys, ecKey)
-	}
-
-	if len(keys) > 1 {
-		sort.Strings(kids)
-
-		kidsStr := strings.Join(kids, ".")
-		logger.Debugf("Anoncrypt Pack KIDs for AAD: %s", kidsStr)
-
-		aad32 := sha256.Sum256([]byte(kidsStr))
-		aad = make([]byte, 32)
-		copy(aad, aad32[:])
-		logger.Debugf("Anoncrypt Pack AAD: %s", base64.RawURLEncoding.EncodeToString(aad))
 	}
 
 	return pubKeys, aad, nil
@@ -150,12 +141,13 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	}
 
 	for i := range jwe.Recipients {
-		kid, err := getKID(i, jwe)
+		recKey, recKID, err := p.pubKey(i, jwe)
 		if err != nil {
 			return nil, fmt.Errorf("anoncrypt Unpack: %w", err)
 		}
 
-		kh, err := p.kms.Get(kid)
+		// verify recKey.KID is found in kms to prove ownership of key.
+		_, err = p.kms.Get(recKey.KID)
 		if err != nil {
 			if errors.Is(err, storage.ErrDataNotFound) {
 				retriesMsg := ""
@@ -164,7 +156,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 					retriesMsg = ", will try another recipient"
 				}
 
-				logger.Debugf("anoncrypt Unpack: recipient keyID not found in KMS: %v%s", kid, retriesMsg)
+				logger.Debugf("anoncrypt Unpack: recipient keyID not found in KMS: %v%s", recKey.KID, retriesMsg)
 
 				continue
 			}
@@ -172,22 +164,19 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to get key from kms: %w", err)
 		}
 
-		keyHandle, ok := kh.(*keyset.Handle)
-		if !ok {
-			return nil, fmt.Errorf("anoncrypt Unpack: invalid keyset handle")
-		}
-
-		jweDecrypter := jose.NewJWEDecrypt(nil, p.cryptoService, p.kms)
+		jweDecrypter := jose.NewJWEDecrypt(p.kidResolvers, p.cryptoService, p.kms)
 
 		pt, err := jweDecrypter.Decrypt(jwe)
 		if err != nil {
 			return nil, fmt.Errorf("anoncrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
-		// TODO get mapped verKey for the recipient encryption key (kid)
-		ecdhesPubKeyByes, err := exportPubKeyBytes(keyHandle)
+		// set original recKID in recKey to keep original source of key (ie not the KMS kid)
+		recKey.KID = recKID
+
+		ecdhesPubKeyByes, err := json.Marshal(recKey)
 		if err != nil {
-			return nil, fmt.Errorf("anoncrypt Unpack: failed to export public key bytes: %w", err)
+			return nil, fmt.Errorf("anoncrypt Unpack: failed to marshal public key: %w", err)
 		}
 
 		return &transport.Envelope{
@@ -211,38 +200,43 @@ func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, stri
 	return jwe, typ, cty, nil
 }
 
-func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
-	var kid string
+// pubKey will resolve recipient kid at i and returns the corresponding full public key with KID as the kms KID value.
+func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, string, error) {
+	var (
+		kid         string
+		kidResolver resolver.KIDResolver
+	)
 
 	if i == 0 && len(jwe.Recipients) == 1 { // compact serialization, recipient headers are in jwe.ProtectedHeaders
 		var ok bool
 
 		kid, ok = jwe.ProtectedHeaders.KeyID()
 		if !ok {
-			return "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
+			return nil, "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
 		}
 	} else {
 		kid = jwe.Recipients[i].Header.KID
 	}
 
-	return kid, nil
-}
+	keySource := "did:key"
 
-func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
-	pubKH, err := keyHandle.Public()
-	if err != nil {
-		return nil, err
+	switch {
+	case strings.HasPrefix(kid, keySource):
+		kidResolver = p.kidResolvers[0]
+	case strings.Index(kid, "#") > 0:
+		kidResolver = p.kidResolvers[1]
+		keySource = "didDoc.KeyAgreement[].VerificationMethod.ID"
+	default:
+		return nil, "", fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
 	}
 
-	buf := new(bytes.Buffer)
-	pubKeyWriter := keyio.NewWriter(buf)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	// recipient kid header is the did:Key or KeyAgreement.ID, extract the public key and build a kms kid
+	recKey, err := kidResolver.Resolve(kid)
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
 	}
 
-	return buf.Bytes(), nil
+	return recKey, kid, nil
 }
 
 // EncodingType for didcomm.

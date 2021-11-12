@@ -101,8 +101,22 @@ func TestBaseConnectionStore(t *testing.T) {
 		connStore, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
-		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDoc(t))
+		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDocWithKeyAgreements(t))
 		require.NoError(t, err)
+	})
+
+	t.Run("SaveDIDFromDoc with invalid DIDCommService type does not link keys to the DID", func(t *testing.T) {
+		connStore, err := NewConnectionStore(&prov)
+		require.NoError(t, err)
+
+		mDIDDoc := mockdiddoc.GetMockDIDDocWithKeyAgreements(t)
+		mDIDDoc.Service[0].Type = "invalid"
+
+		err = connStore.SaveDIDFromDoc(mDIDDoc)
+		require.NoError(t, err)
+
+		_, err = connStore.GetDID(mDIDDoc.KeyAgreement[0].VerificationMethod.ID)
+		require.EqualError(t, err, "did not found under given key")
 	})
 
 	t.Run("SaveDIDByResolving success", func(t *testing.T) {

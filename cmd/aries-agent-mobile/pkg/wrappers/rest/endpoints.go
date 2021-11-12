@@ -13,20 +13,24 @@ import (
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	cmdld "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	cmdmediator "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	cmdmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	cmdoob "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	cmdpresproof "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	cmdvcwallet "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	cmdvdr "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	cmdverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	opdidexch "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	opintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	opisscred "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	opkms "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	opld "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	opmediator "github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	opmessaging "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	opoob "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	oppresproof "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	opvcwallet "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
 	opvdr "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	opverifiable "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
@@ -50,6 +54,8 @@ func getControllerEndpoints() map[string]map[string]*endpoint {
 	allEndpoints[opmessaging.MsgServiceOperationID] = getMessagingEndpoints()
 	allEndpoints[opoob.OperationID] = getOutOfBandEndpoints()
 	allEndpoints[opkms.KmsOperationID] = getKMSEndpoints()
+	allEndpoints[opld.OperationID] = getLDEndpoints()
+	allEndpoints[opvcwallet.OperationID] = getVCWalletEndpoints()
 
 	return allEndpoints
 }
@@ -432,6 +438,94 @@ func getKMSEndpoints() map[string]*endpoint {
 		cmdkms.ImportKeyCommandMethod: {
 			Path:   opkms.ImportKeyPath,
 			Method: http.MethodPost,
+		},
+	}
+}
+
+func getLDEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdld.AddContextsCommandMethod: {
+			Path:   opld.AddContextsPath,
+			Method: http.MethodPost,
+		},
+		cmdld.AddRemoteProviderCommandMethod: {
+			Path:   opld.AddRemoteProviderPath,
+			Method: http.MethodPost,
+		},
+		cmdld.RefreshRemoteProviderCommandMethod: {
+			Path:   opld.RefreshRemoteProviderPath,
+			Method: http.MethodPost,
+		},
+		cmdld.DeleteRemoteProviderCommandMethod: {
+			Path:   opld.DeleteRemoteProviderPath,
+			Method: http.MethodDelete,
+		},
+		cmdld.GetAllRemoteProvidersCommandMethod: {
+			Path:   opld.GetAllRemoteProvidersPath,
+			Method: http.MethodGet,
+		},
+		cmdld.RefreshAllRemoteProvidersCommandMethod: {
+			Path:   opld.RefreshAllRemoteProvidersPath,
+			Method: http.MethodPost,
+		},
+	}
+}
+
+func getVCWalletEndpoints() map[string]*endpoint {
+	return map[string]*endpoint{
+		cmdvcwallet.CreateProfileMethod: {
+			Path: opvcwallet.CreateProfilePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.UpdateProfileMethod: {
+			Path: opvcwallet.UpdateProfilePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.ProfileExistsMethod: {
+			Path: opvcwallet.ProfileExistsPath, Method: http.MethodGet,
+		},
+		cmdvcwallet.OpenMethod: {
+			Path: opvcwallet.OpenPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.CloseMethod: {
+			Path: opvcwallet.ClosePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.AddMethod: {
+			Path: opvcwallet.AddPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.RemoveMethod: {
+			Path: opvcwallet.RemovePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.GetMethod: {
+			Path: opvcwallet.GetPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.GetAllMethod: {
+			Path: opvcwallet.GetAllPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.QueryMethod: {
+			Path: opvcwallet.QueryPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.IssueMethod: {
+			Path: opvcwallet.IssuePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.ProveMethod: {
+			Path: opvcwallet.ProvePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.VerifyMethod: {
+			Path: opvcwallet.VerifyPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.DeriveMethod: {
+			Path: opvcwallet.DerivePath, Method: http.MethodPost,
+		},
+		cmdvcwallet.CreateKeyPairMethod: {
+			Path: opvcwallet.CreateKeyPairPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.ConnectMethod: {
+			Path: opvcwallet.ConnectPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.ProposePresentationMethod: {
+			Path: opvcwallet.ProposePresentationPath, Method: http.MethodPost,
+		},
+		cmdvcwallet.PresentProofMethod: {
+			Path: opvcwallet.PresentProofPath, Method: http.MethodPost,
 		},
 	}
 }

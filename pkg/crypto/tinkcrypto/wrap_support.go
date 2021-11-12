@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package tinkcrypto
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -21,6 +22,7 @@ import (
 	josecipher "github.com/square/go-jose/v3/cipher"
 	"golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -30,9 +32,9 @@ type keyWrapper interface {
 	createPrimitive(key []byte) (interface{}, error)
 	wrap(blockPrimitive interface{}, cek []byte) ([]byte, error)
 	unwrap(blockPrimitive interface{}, encryptedKey []byte) ([]byte, error)
-	deriveSender1Pu(kwAlg string, apu, apv []byte, ephemeralPriv, senderPrivKey, recPubKey interface{},
+	deriveSender1Pu(kwAlg string, apu, apv, tag []byte, ephemeralPriv, senderPrivKey, recPubKey interface{},
 		keySize int) ([]byte, error)
-	deriveRecipient1Pu(kwAlg string, apu, apv []byte, ephemeralPub, senderPubKey, recPrivKey interface{},
+	deriveRecipient1Pu(kwAlg string, apu, apv, tag []byte, ephemeralPub, senderPubKey, recPrivKey interface{},
 		keySize int) ([]byte, error)
 }
 
@@ -68,7 +70,7 @@ func (w *ecKWSupport) unwrap(block interface{}, encryptedKey []byte) ([]byte, er
 	return josecipher.KeyUnwrap(blockCipher, encryptedKey)
 }
 
-func (w *ecKWSupport) deriveSender1Pu(alg string, apu, apv []byte, ephemeralPriv, senderPrivKey interface{},
+func (w *ecKWSupport) deriveSender1Pu(alg string, apu, apv, tag []byte, ephemeralPriv, senderPrivKey interface{},
 	recPubKey interface{}, keySize int) ([]byte, error) {
 	ephemeralPrivEC, ok := ephemeralPriv.(*ecdsa.PrivateKey)
 	if !ok {
@@ -89,13 +91,13 @@ func (w *ecKWSupport) deriveSender1Pu(alg string, apu, apv []byte, ephemeralPriv
 		return nil, errors.New("deriveSender1Pu: recipient, sender and ephemeral key are not on the same curve")
 	}
 
-	ze := josecipher.DeriveECDHES(alg, apu, apv, ephemeralPrivEC, recPubKeyEC, keySize)
-	zs := josecipher.DeriveECDHES(alg, apu, apv, senderPrivKeyEC, recPubKeyEC, keySize)
+	ze := deriveECDH(ephemeralPrivEC, recPubKeyEC, keySize)
+	zs := deriveECDH(senderPrivKeyEC, recPubKeyEC, keySize)
 
-	return derive1Pu(alg, ze, zs, apu, apv, keySize), nil
+	return derive1Pu(alg, ze, zs, apu, apv, tag, keySize), nil
 }
 
-func (w *ecKWSupport) deriveRecipient1Pu(alg string, apu, apv []byte, ephemeralPub, senderPubKey interface{},
+func (w *ecKWSupport) deriveRecipient1Pu(alg string, apu, apv, tag []byte, ephemeralPub, senderPubKey interface{},
 	recPrivKey interface{}, keySize int) ([]byte, error) {
 	ephemeralPubEC, ok := ephemeralPub.(*ecdsa.PublicKey)
 	if !ok {
@@ -117,10 +119,53 @@ func (w *ecKWSupport) deriveRecipient1Pu(alg string, apu, apv []byte, ephemeralP
 	}
 
 	// DeriveECDHES checks if keys are on the same curve
-	ze := josecipher.DeriveECDHES(alg, apu, apv, recPrivKeyEC, ephemeralPubEC, keySize)
-	zs := josecipher.DeriveECDHES(alg, apu, apv, recPrivKeyEC, senderPubKeyEC, keySize)
+	ze := deriveECDH(recPrivKeyEC, ephemeralPubEC, keySize)
+	zs := deriveECDH(recPrivKeyEC, senderPubKeyEC, keySize)
 
-	return derive1Pu(alg, ze, zs, apu, apv, keySize), nil
+	return derive1Pu(alg, ze, zs, apu, apv, tag, keySize), nil
+}
+
+const byteSize = 8
+
+// deriveECDH does key derivation using ECDH only (without KDF).
+func deriveECDH(priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, size int) []byte {
+	if size > 1<<16 {
+		panic("ECDH-ES output size too large, must be less than or equal to 1<<16")
+	}
+
+	// suppPubInfo is the encoded length of the output size in bits
+	supPubInfo := make([]byte, 4)
+	binary.BigEndian.PutUint32(supPubInfo, uint32(size)*byteSize)
+
+	if !priv.PublicKey.Curve.IsOnCurve(pub.X, pub.Y) {
+		panic("public key not on same curve as private key")
+	}
+
+	z, _ := priv.Curve.ScalarMult(pub.X, pub.Y, priv.D.Bytes())
+	zBytes := z.Bytes()
+
+	// Note that calling z.Bytes() on a big.Int may strip leading zero bytes from
+	// the returned byte array. This can lead to a problem where zBytes will be
+	// shorter than expected which breaks the key derivation. Therefore we must pad
+	// to the full length of the expected coordinate here before calling the KDF.
+	octSize := dSize(priv.Curve)
+	if len(zBytes) != octSize {
+		zBytes = append(bytes.Repeat([]byte{0}, octSize-len(zBytes)), zBytes...)
+	}
+
+	return zBytes
+}
+
+func dSize(curve elliptic.Curve) int {
+	order := curve.Params().P
+	bitLen := order.BitLen()
+	size := bitLen / byteSize
+
+	if bitLen%byteSize != 0 {
+		size++
+	}
+
+	return size
 }
 
 type okpKWSupport struct{}
@@ -188,7 +233,7 @@ func (o *okpKWSupport) unwrap(aead interface{}, encryptedKey []byte) ([]byte, er
 	return cek, nil
 }
 
-func (o *okpKWSupport) deriveSender1Pu(kwAlg string, apu, apv []byte, ephemeralPriv, senderPrivKey interface{},
+func (o *okpKWSupport) deriveSender1Pu(kwAlg string, apu, apv, tag []byte, ephemeralPriv, senderPrivKey interface{},
 	recPubKey interface{}, _ int) ([]byte, error) {
 	ephemeralPrivOKP, ok := ephemeralPriv.([]byte)
 	if !ok {
@@ -214,20 +259,20 @@ func (o *okpKWSupport) deriveSender1Pu(kwAlg string, apu, apv []byte, ephemeralP
 	recPubKeyOKPChacha := new([chacha20poly1305.KeySize]byte)
 	copy(recPubKeyOKPChacha[:], recPubKeyOKP)
 
-	ze, err := cryptoutil.Derive25519KEK([]byte(kwAlg), apu, apv, ephemeralPrivOKPChacha, recPubKeyOKPChacha)
+	ze, err := cryptoutil.DeriveECDHX25519(ephemeralPrivOKPChacha, recPubKeyOKPChacha)
 	if err != nil {
-		return nil, fmt.Errorf("deriveSender1Pu: derive25519KEK with ephemeral key failed: %w", err)
+		return nil, fmt.Errorf("deriveSender1Pu: %w", err)
 	}
 
-	zs, err := cryptoutil.Derive25519KEK([]byte(kwAlg), apu, apv, senderPrivKeyOKPChacha, recPubKeyOKPChacha)
+	zs, err := cryptoutil.DeriveECDHX25519(senderPrivKeyOKPChacha, recPubKeyOKPChacha)
 	if err != nil {
-		return nil, fmt.Errorf("deriveSender1Pu: derive25519KEK with sender key failed: %w", err)
+		return nil, fmt.Errorf("deriveSender1Pu: %w", err)
 	}
 
-	return derive1Pu(kwAlg, ze, zs, apu, apv, chacha20poly1305.KeySize), nil
+	return derive1Pu(kwAlg, ze, zs, apu, apv, tag, chacha20poly1305.KeySize), nil
 }
 
-func (o *okpKWSupport) deriveRecipient1Pu(kwAlg string, apu, apv []byte, ephemeralPub, senderPubKey interface{},
+func (o *okpKWSupport) deriveRecipient1Pu(kwAlg string, apu, apv, tag []byte, ephemeralPub, senderPubKey interface{},
 	recPrivKey interface{}, _ int) ([]byte, error) {
 	ephemeralPubOKP, ok := ephemeralPub.([]byte)
 	if !ok {
@@ -253,27 +298,31 @@ func (o *okpKWSupport) deriveRecipient1Pu(kwAlg string, apu, apv []byte, ephemer
 	recPrivKeyOKPChacha := new([chacha20poly1305.KeySize]byte)
 	copy(recPrivKeyOKPChacha[:], recPrivKeyOKP)
 
-	ze, err := cryptoutil.Derive25519KEK([]byte(kwAlg), apu, apv, recPrivKeyOKPChacha, ephemeralPubOKPChacha)
+	ze, err := cryptoutil.DeriveECDHX25519(recPrivKeyOKPChacha, ephemeralPubOKPChacha)
 	if err != nil {
-		return nil, fmt.Errorf("deriveRecipient1Pu: derive25519KEK with ephemeral key failed: %w", err)
+		return nil, fmt.Errorf("deriveRecipient1Pu: %w", err)
 	}
 
-	zs, err := cryptoutil.Derive25519KEK([]byte(kwAlg), apu, apv, recPrivKeyOKPChacha, senderPubKeyOKPChacha)
+	zs, err := cryptoutil.DeriveECDHX25519(recPrivKeyOKPChacha, senderPubKeyOKPChacha)
 	if err != nil {
-		return nil, fmt.Errorf("deriveRecipient1Pu: derive25519KEK with sender key failed: %w", err)
+		return nil, fmt.Errorf("deriveRecipient1Pu: %w", err)
 	}
 
-	return derive1Pu(kwAlg, ze, zs, apu, apv, chacha20poly1305.KeySize), nil
+	return derive1Pu(kwAlg, ze, zs, apu, apv, tag, chacha20poly1305.KeySize), nil
 }
 
-func derive1Pu(kwAlg string, ze, zs, apu, apv []byte, keySize int) []byte {
-	round1 := make([]byte, 4)
-	binary.BigEndian.PutUint32(round1, uint32(1))
-
-	// 1PU requires round one number (0001) to be prefixed to the Z concatenation
-	z := append(round1, ze...)
+func derive1Pu(kwAlg string, ze, zs, apu, apv, tag []byte, keySize int) []byte {
+	z := append([]byte{}, ze...)
 	z = append(z, zs...)
 
+	return kdfWithTag(kwAlg, z, apu, apv, tag, keySize, true)
+}
+
+func kdf(kwAlg string, z, apu, apv []byte, keySize int) []byte {
+	return kdfWithTag(kwAlg, z, apu, apv, nil, keySize, false)
+}
+
+func kdfWithTag(kwAlg string, z, apu, apv, tag []byte, keySize int, useTag bool) []byte {
 	algID := cryptoutil.LengthPrefix([]byte(kwAlg))
 	ptyUInfo := cryptoutil.LengthPrefix(apu)
 	ptyVInfo := cryptoutil.LengthPrefix(apv)
@@ -282,11 +331,29 @@ func derive1Pu(kwAlg string, ze, zs, apu, apv []byte, keySize int) []byte {
 	supPubInfo := make([]byte, supPubLen)
 
 	byteLen := 8
-	binary.BigEndian.PutUint32(supPubInfo, uint32(keySize)*uint32(byteLen))
+	kdfKeySize := keySize
+
+	switch kwAlg {
+	case ECDH1PUA128KWAlg:
+		kdfKeySize = subtle.AES128Size
+	case ECDH1PUA192KWAlg:
+		kdfKeySize = subtle.AES192Size
+	case ECDH1PUA256KWAlg:
+		kdfKeySize = subtle.AES256Size
+	}
+
+	binary.BigEndian.PutUint32(supPubInfo, uint32(kdfKeySize)*uint32(byteLen))
+
+	if useTag {
+		// append Tag to SuppPubInfo as described here:
+		// https://datatracker.ietf.org/doc/html/draft-madden-jose-ecdh-1pu-04#section-2.3
+		tagInfo := cryptoutil.LengthPrefix(tag)
+		supPubInfo = append(supPubInfo, tagInfo...)
+	}
 
 	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algID, ptyUInfo, ptyVInfo, supPubInfo, []byte{})
 
-	kek := make([]byte, keySize)
+	kek := make([]byte, kdfKeySize)
 
 	_, _ = reader.Read(kek) // nolint:errcheck // ConcatKDF's Read() never returns an error
 

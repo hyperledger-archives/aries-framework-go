@@ -45,10 +45,10 @@ const didID = `${environment.DID_ID}`
 
 describe("Verifiable Store Test", function () {
     describe(restMode, function () {
-        verifiableStore(newAriesREST(agentControllerApiUrl), restMode)
+        verifiableStore(newAriesREST(agentControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`]), restMode)
     })
     describe(wasmMode, function () {
-        verifiableStore(newAries('demo', 'demo-agent', [`${environment.HTTP_LOCAL_DID_RESOLVER}`]))
+        verifiableStore(newAries('demo', 'demo-agent', [`${environment.HTTP_LOCAL_DID_RESOLVER}`], null, [`${environment.USER_MEDIA_TYPE_PROFILES}`]))
     })
 })
 
@@ -152,7 +152,7 @@ async function verifiableStore(newAries, mode = wasmMode) {
                 console.warn(e.message)
             }
         }
-        did=resp.did
+        did=resp.DIDDocument
 
         try {
             await aries.kms.importKey({

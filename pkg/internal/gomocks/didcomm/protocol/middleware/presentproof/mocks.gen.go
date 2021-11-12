@@ -190,6 +190,20 @@ func (mr *MockMetadataMockRecorder) PresentationNames() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentationNames", reflect.TypeOf((*MockMetadata)(nil).PresentationNames))
 }
 
+// PresentationV3 mocks base method.
+func (m *MockMetadata) PresentationV3() *presentproof.PresentationV3 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PresentationV3")
+	ret0, _ := ret[0].(*presentproof.PresentationV3)
+	return ret0
+}
+
+// PresentationV3 indicates an expected call of PresentationV3.
+func (mr *MockMetadataMockRecorder) PresentationV3() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentationV3", reflect.TypeOf((*MockMetadata)(nil).PresentationV3))
+}
+
 // Properties mocks base method.
 func (m *MockMetadata) Properties() map[string]interface{} {
 	m.ctrl.T.Helper()
@@ -218,6 +232,20 @@ func (mr *MockMetadataMockRecorder) ProposePresentation() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposePresentation", reflect.TypeOf((*MockMetadata)(nil).ProposePresentation))
 }
 
+// ProposePresentationV3 mocks base method.
+func (m *MockMetadata) ProposePresentationV3() *presentproof.ProposePresentationV3 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProposePresentationV3")
+	ret0, _ := ret[0].(*presentproof.ProposePresentationV3)
+	return ret0
+}
+
+// ProposePresentationV3 indicates an expected call of ProposePresentationV3.
+func (mr *MockMetadataMockRecorder) ProposePresentationV3() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposePresentationV3", reflect.TypeOf((*MockMetadata)(nil).ProposePresentationV3))
+}
+
 // RequestPresentation mocks base method.
 func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentation {
 	m.ctrl.T.Helper()
@@ -230,6 +258,20 @@ func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentation {
 func (mr *MockMetadataMockRecorder) RequestPresentation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestPresentation", reflect.TypeOf((*MockMetadata)(nil).RequestPresentation))
+}
+
+// RequestPresentationV3 mocks base method.
+func (m *MockMetadata) RequestPresentationV3() *presentproof.RequestPresentationV3 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequestPresentationV3")
+	ret0, _ := ret[0].(*presentproof.RequestPresentationV3)
+	return ret0
+}
+
+// RequestPresentationV3 indicates an expected call of RequestPresentationV3.
+func (mr *MockMetadataMockRecorder) RequestPresentationV3() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestPresentationV3", reflect.TypeOf((*MockMetadata)(nil).RequestPresentationV3))
 }
 
 // StateName mocks base method.

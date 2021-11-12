@@ -35,6 +35,8 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 		req.Header.Add("Authorization", v.resolveAuthToken)
 	}
 
+	req.Close = true
+
 	resp, err := v.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
@@ -52,7 +54,7 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 	if resp.StatusCode == http.StatusOK && strings.Contains(resp.Header.Get("Content-type"), didLDJson) {
 		return gotBody, nil
 	} else if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
+		return nil, vdrapi.ErrNotFound
 	}
 
 	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s] body [%s]",
@@ -92,6 +94,8 @@ func (v *VDR) Read(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolutio
 	if err != nil {
 		return nil, err
 	}
+
+	didDoc = interopPreprocess(didDoc)
 
 	return &did.DocResolution{DIDDocument: didDoc}, nil
 }

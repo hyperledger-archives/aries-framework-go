@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -44,23 +45,6 @@ const (
 	callbackChannelSize = 10
 
 	contextKey = "context_%s"
-)
-
-const (
-	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP1 = "didcomm/aip1"
-	// MediaTypeProfileDIDCommAIP2RFC19 is the signing mechanism, plaintext conventions, and routing
-	// algorithms embodied in Aries AIP 2.0, circa 2021 -- with the old-style encryption envelope from
-	// Aries RFC 0019. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP2RFC19 = "didcomm/aip2;env=rfc19"
-	// MediaTypeProfileAIP2RFC587 is the signing mechanism, plaintext conventions, and routing algorithms
-	// embodied in Aries AIP 2.0, circa 2021 -- with the new-style encryption envelope from Aries RFC 0587.
-	// Defined in RFC 0044.
-	MediaTypeProfileAIP2RFC587 = "didcomm/aip2;env=rfc587"
-	// MediaTypeProfileDIDCommV2 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in the DIDComm messaging spec. Defined in RFC 0044.
-	MediaTypeProfileDIDCommV2 = "didcomm/v2"
 )
 
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
@@ -102,6 +86,8 @@ type Service struct {
 	extractDIDCommMsgBytesFunc func(*decorator.Attachment) ([]byte, error)
 	listenerFunc               func()
 	messenger                  service.Messenger
+	myMediaTypeProfiles        []string
+	initialized                bool
 }
 
 type callback struct {
@@ -150,62 +136,85 @@ type Provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	InboundDIDCommMessageHandler() func() service.InboundHandler
 	Messenger() service.Messenger
+	MediaTypeProfiles() []string
 }
 
 // New creates a new instance of the out-of-band service.
 func New(p Provider) (*Service, error) {
+	svc := Service{}
+
+	err := svc.Initialize(p)
+	if err != nil {
+		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(prov interface{}) error { // nolint:funlen
+	if s.initialized {
+		return nil
+	}
+
+	p, ok := prov.(Provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", Provider(nil), p)
+	}
+
 	svc, err := p.Service(didexchange.DIDExchange)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize outofband service : %w", err)
+		return fmt.Errorf("failed to initialize outofband service : %w", err)
 	}
 
 	didSvc, ok := svc.(didExchSvc)
 	if !ok {
-		return nil, errors.New("failed to cast the didexchange service to satisfy our dependency")
+		return errors.New("failed to cast the didexchange service to satisfy our dependency")
 	}
 
 	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open the transientStore : %w", err)
+		return fmt.Errorf("failed to open the transientStore : %w", err)
 	}
 
 	err = p.ProtocolStateStorageProvider().SetStoreConfig(Name,
 		storage.StoreConfiguration{TagNames: []string{contextKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set transientStore config in protocol state transientStore: %w", err)
+		return fmt.Errorf("failed to set transientStore config in protocol state transientStore: %w", err)
 	}
 
 	connectionRecorder, err := connection.NewRecorder(p)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a connection.Lookup : %w", err)
+		return fmt.Errorf("failed to open a connection.Lookup : %w", err)
 	}
 
-	s := &Service{
-		callbackChannel:            make(chan *callback, callbackChannelSize),
-		didSvc:                     didSvc,
-		didEvents:                  make(chan service.StateMsg, callbackChannelSize),
-		transientStore:             store,
-		connections:                connectionRecorder,
-		inboundHandler:             p.InboundDIDCommMessageHandler(),
-		chooseAttachmentFunc:       chooseAttachment,
-		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
-		messenger:                  p.Messenger(),
-	}
+	s.callbackChannel = make(chan *callback, callbackChannelSize)
+	s.didSvc = didSvc
+	s.didEvents = make(chan service.StateMsg, callbackChannelSize)
+	s.transientStore = store
+	s.connections = connectionRecorder
+	s.inboundHandler = p.InboundDIDCommMessageHandler()
+	s.chooseAttachmentFunc = chooseAttachment
+	s.extractDIDCommMsgBytesFunc = extractDIDCommMsgBytes
+	s.messenger = p.Messenger()
+	s.myMediaTypeProfiles = p.MediaTypeProfiles()
 
 	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleCallback, s.handleDIDEvent)
 
 	didEventsSvc, ok := didSvc.(service.Event)
 	if !ok {
-		return nil, errors.New("failed to cast didexchange service to service.Event")
+		return errors.New("failed to cast didexchange service to service.Event")
 	}
 
 	if err = didEventsSvc.RegisterMsgEvent(s.didEvents); err != nil {
-		return nil, fmt.Errorf("failed to register for didexchange protocol msgs : %w", err)
+		return fmt.Errorf("failed to register for didexchange protocol msgs : %w", err)
 	}
 
 	go s.listenerFunc()
 
-	return s, nil
+	s.initialized = true
+
+	return nil
 }
 
 // Name is this service's name.
@@ -437,7 +446,7 @@ func (s *Service) ActionContinue(piID string, opts Options) error {
 	ctx.ReuseAnyConnection = opts.ReuseAnyConnection()
 	ctx.MyLabel = opts.MyLabel()
 
-	err = validateInvitationAcceptance(ctx.Msg, opts)
+	err = validateInvitationAcceptance(ctx.Msg, s.myMediaTypeProfiles, opts)
 	if err != nil {
 		return fmt.Errorf("unable to accept invitation: %w", err)
 	}
@@ -558,7 +567,7 @@ func (s *Service) currentContext(msg service.DIDCommMsg, ctx service.DIDCommCont
 func (s *Service) AcceptInvitation(i *Invitation, options Options) (string, error) {
 	msg := service.NewDIDCommMsgMap(i)
 
-	err := validateInvitationAcceptance(msg, options)
+	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles, options)
 	if err != nil {
 		return "", fmt.Errorf("unable to accept invitation: %w", err)
 	}
@@ -662,7 +671,7 @@ func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 	logger.Debugf("input: %+v", c)
 	logger.Debugf("context: %+v", c.ctx)
 
-	err := validateInvitationAcceptance(c.msg, &userOptions{
+	err := validateInvitationAcceptance(c.msg, s.myMediaTypeProfiles, &userOptions{
 		myLabel:           c.ctx.MyLabel,
 		routerConnections: c.ctx.RouterConnections,
 		reuseAnyConn:      c.ctx.ReuseAnyConnection,
@@ -817,7 +826,7 @@ func (s *Service) extractDIDCommMsg(state *attachmentHandlingState) (service.DID
 	return msg, nil
 }
 
-func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error { // nolint:gocyclo
+func validateInvitationAcceptance(msg service.DIDCommMsg, myProfiles []string, opts Options) error { // nolint:gocyclo
 	if msg.Type() != InvitationMsgType {
 		return nil
 	}
@@ -854,20 +863,43 @@ func validateInvitationAcceptance(msg service.DIDCommMsg, opts Options) error { 
 		}
 	}
 
-	profiles := map[string]int{
-		MediaTypeProfileDIDCommAIP2RFC19: 0,
-		MediaTypeProfileDIDCommV2:        0,
-		MediaTypeProfileAIP2RFC587:       0,
-		MediaTypeProfileDIDCommAIP1:      0,
-	}
-
-	for i := range inv.Accept {
-		if _, valid := profiles[inv.Accept[i]]; !valid {
-			return fmt.Errorf("invalid media type profile: %s", inv.Accept[i])
-		}
+	if !matchMediaTypeProfiles(inv.Accept, myProfiles) {
+		return fmt.Errorf("no acceptable media type profile found in invitation, invitation Accept property: [%v], "+
+			"agent mediatypeprofiles: [%v]", inv.Accept, myProfiles)
 	}
 
 	return nil
+}
+
+func matchMediaTypeProfiles(theirProfiles, myProfiles []string) bool {
+	if theirProfiles == nil {
+		// we use our preferred media type profile instead of confirming an overlap exists
+		return true
+	}
+
+	if myProfiles == nil {
+		myProfiles = transport.MediaTypeProfiles()
+	}
+
+	profiles := list2set(myProfiles)
+
+	for _, a := range theirProfiles {
+		if _, valid := profiles[a]; valid {
+			return true
+		}
+	}
+
+	return false
+}
+
+func list2set(list []string) map[string]struct{} {
+	set := map[string]struct{}{}
+
+	for _, e := range list {
+		set[e] = struct{}{}
+	}
+
+	return set
 }
 
 func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitation, *Invitation, error) {

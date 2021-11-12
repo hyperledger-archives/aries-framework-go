@@ -25,24 +25,51 @@ import (
 )
 
 func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
+	t.Run("test convertRecEPKToMarshalledJWK using EPK with bad curve", func(t *testing.T) {
+		recKey := &cryptoapi.RecipientWrappedKey{
+			EPK: cryptoapi.PublicKey{
+				Curve: "badCurveName",
+				Type:  "EC",
+			},
+		}
+
+		_, err := convertRecEPKToMarshalledJWK(&recKey.EPK)
+		require.EqualError(t, err, "unsupported curve")
+	})
+
+	t.Run("test convertRecEPKToMarshalledJWK and buildRecipientHeaders using EPK with bad key type", func(t *testing.T) {
+		recKey := &cryptoapi.RecipientWrappedKey{
+			EPK: cryptoapi.PublicKey{
+				Curve: "P-256",
+			},
+		}
+
+		_, err := convertRecEPKToMarshalledJWK(&recKey.EPK)
+		require.EqualError(t, err, "invalid key type")
+
+		_, err = buildRecipientHeaders(recKey, false)
+		require.EqualError(t, err, "failed to convert recipient key to marshalled JWK: invalid key type")
+	})
+}
+
+func TestBuildRecsWithEPKMissingKeyTypeFailure(t *testing.T) {
 	recKey := &cryptoapi.RecipientWrappedKey{
 		EPK: cryptoapi.PublicKey{
-			Curve: "badCurveName",
-			Type:  "EC",
+			Curve: "P-256",
 		},
 	}
 
-	_, err := convertRecEPKToMarshalledJWK(recKey)
-	require.EqualError(t, err, "unsupported curve")
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
 
-	recKey = &cryptoapi.RecipientWrappedKey{
-		EPK: cryptoapi.PublicKey{
-			Curve: "badCurveName",
-		},
-	}
+	recipients, recsKH := createRecipients(t, 2)
 
-	_, err = convertRecEPKToMarshalledJWK(recKey)
-	require.EqualError(t, err, "invalid key type")
+	enc, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"0", recsKH["0"], recipients, c)
+	require.NoError(t, err)
+
+	_, _, err = enc.buildRecs([]*cryptoapi.RecipientWrappedKey{recKey}, true)
+	require.EqualError(t, err, "failed to convert recipient key to marshalled JWK: invalid key type")
 }
 
 func TestBadSenderKeyType(t *testing.T) {
@@ -62,13 +89,14 @@ func TestBadSenderKeyType(t *testing.T) {
 		senderKH:       aeadKH,
 		recipientsKeys: recipients,
 		crypto:         c,
+		encAlg:         A256GCM,
 	}
 
 	_, err = jweEncrypter.Encrypt([]byte{})
-	require.EqualError(t, err, "jweencrypt: failed to wrap cek: wrapCEKForRecipient 1 failed: wrapKey: "+
-		"deriveKEKAndWrap: error ECDH-1PU kek derivation: derive1PUKEK: EC key derivation error derive1PUWithECKey: "+
-		"failed to retrieve sender key: ksToPrivateECDSAKey: failed to extract sender key: extractPrivKey: can't "+
-		"extract unsupported private key 'type.googleapis.com/google.crypto.tink.AesGcmKey'")
+	require.EqualError(t, err, "jweencryptWithSender: failed to wrap cek: wrapCEKForRecipientsWithTagAndEPK: "+
+		"wrapKey: 1 failed: wrapKey: deriveKEKAndWrap: error ECDH-1PU kek derivation: derive1PUKEK: EC key derivation "+
+		"error derive1PUWithECKey: failed to retrieve sender key: ksToPrivateECDSAKey: failed to extract sender key: "+
+		"extractPrivKey: can't extract unsupported private key 'type.googleapis.com/google.crypto.tink.AesGcmKey'")
 }
 
 func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
@@ -126,7 +154,7 @@ func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
 func TestEmptyComputeAuthData(t *testing.T) {
 	protecteHeaders := new(map[string]interface{})
 	aad := []byte("")
-	_, err := computeAuthData(*protecteHeaders, aad)
+	_, err := computeAuthData(*protecteHeaders, "", aad)
 	require.NoError(t, err, "computeAuthData with empty protectedHeaders and empty aad should not fail")
 }
 
@@ -173,4 +201,174 @@ func createAndMarshalEntityKey(t *testing.T) ([]byte, *keyset.Handle) {
 	require.NoError(t, err)
 
 	return buf.Bytes(), kh
+}
+
+const (
+	testEncType     = "application/test-encrypted+json"
+	testPayloadType = "application/test-content+json"
+)
+
+func TestFailJWEEncrypt(t *testing.T) {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, recsKH := createRecipients(t, 2)
+
+	enc, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"0", recsKH["0"], recipients, c)
+	require.NoError(t, err)
+
+	enc.encAlg = "Undefined"
+
+	_, err = enc.Encrypt([]byte("test"))
+	require.EqualError(t, err, "jweencrypt: failed to get encryption primitive: getECDHEncPrimitive: encAlg"+
+		" not supported: 'Undefined'")
+}
+
+func TestFailJWEDecrypt(t *testing.T) {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, _ := createRecipients(t, 2)
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"", nil, recipients, c)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+	require.Equal(t, len(recipients), len(jwe.Recipients))
+
+	dec := NewJWEDecrypt(nil, c, nil)
+	require.NotEmpty(t, dec)
+
+	jwe.ProtectedHeaders[HeaderEncryption] = "Undefined"
+
+	_, err = dec.decryptJWE(jwe, []byte(""))
+	require.EqualError(t, err, "jwedecrypt: failed to get decryption primitive: invalid content encAlg: 'Undefined'")
+
+	delete(jwe.ProtectedHeaders, HeaderEncryption)
+
+	_, err = dec.decryptJWE(jwe, []byte(""))
+	require.EqualError(t, err, "jwedecrypt: JWE 'enc' protected header is missing")
+}
+
+func TestBuildAPUAPVFailures(t *testing.T) {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, _ := createRecipients(t, 3)
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"", nil, recipients, c)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	t.Run("call encryptWithSender and  buildAPUAPV with JWEEncrypter having empty skid", func(t *testing.T) {
+		_, err = jweEncrypter.encryptWithSender(nil, nil, nil, nil, nil)
+		require.EqualError(t, err, "jweencryptWithSender: cannot create APU/APV with empty sender skid")
+
+		_, _, err = jweEncrypter.buildAPUAPV()
+		require.EqualError(t, err, "cannot create APU/APV with empty sender skid")
+	})
+
+	t.Run("call buildAPUAPV with JWEEncrypter having empty recipients", func(t *testing.T) {
+		jweEncrypter.skid = "skid"
+		jweEncrypter.recipientsKeys = nil
+
+		_, _, err = jweEncrypter.buildAPUAPV()
+		require.EqualError(t, err, "cannot create APU/APV with empty recipient keys")
+	})
+}
+
+func TestGenerateEPKAndUpdateAuthDataFor1PUFailure(t *testing.T) {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, _ := createRecipients(t, 5)
+
+	recipients[0].Type = "invalidType"
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"", nil, recipients, c)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	epk, authData, authJSON, err := jweEncrypter.generateEPKAndUpdateAuthDataFor1PU(nil, nil, nil, nil)
+	require.EqualError(t, err, "generateEPKAndUpdateAuthDataFor1PU: newEPK: invalid key type 'invalidType'")
+	require.Empty(t, epk)
+	require.Empty(t, authData)
+	require.Empty(t, authJSON)
+
+	recipients[0].Type = "EC"
+	recipients[0].Curve = "invalid"
+
+	_, _, err = jweEncrypter.newEPK([]byte(""))
+	require.EqualError(t, err, "newEPK: ecEPKAndAlg: getCurve: unsupported curve")
+}
+
+func TestBuildCommonAuthDataFailure(t *testing.T) {
+	c, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	recipients, _ := createRecipients(t, 5)
+
+	recipients[0].Type = "invalid"
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, testEncType, testPayloadType,
+		"", nil, recipients, c)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	t.Run("buildCommonAuthData with authData having invalid b64 format", func(t *testing.T) {
+		epk, authData, authJSON, err := jweEncrypter.buildCommonAuthData(0, "", "==Badb64Str$$#^",
+			nil, nil, nil, nil)
+		require.EqualError(t, err, "buildCommonAuthData: authdata decode: illegal base64 data at input byte 0")
+		require.Empty(t, epk)
+		require.Empty(t, authData)
+		require.Empty(t, authJSON)
+	})
+
+	t.Run("buildCommonAuthData with authData having invalid json format", func(t *testing.T) {
+		epk, authData, authJSON, err := jweEncrypter.buildCommonAuthData(0, "", "badjsonunmarshal",
+			nil, nil, nil, nil)
+		require.EqualError(t, err, "buildCommonAuthData: authData unmarshall: invalid character 'm' looking "+
+			"for beginning of value")
+		require.Empty(t, epk)
+		require.Empty(t, authData)
+		require.Empty(t, authJSON)
+	})
+
+	t.Run("buildCommonAuthData with epk having invalid public key type", func(t *testing.T) {
+		epk, authData, authJSON, err := jweEncrypter.buildCommonAuthData(0, "", "eyJ0ZXN0IjoidGVzdCJ9",
+			nil, nil, nil, &cryptoapi.PrivateKey{
+				PublicKey: cryptoapi.PublicKey{Type: "invalid"},
+				D:         nil,
+			})
+		require.EqualError(t, err, "buildCommonAuthData: epk marshall: invalid key type")
+		require.Empty(t, epk)
+		require.Empty(t, authData)
+		require.Empty(t, authJSON)
+	})
+}
+
+func TestDecodeAPUAPVFailure(t *testing.T) {
+	t.Run("decodeAPUAPV with recipient APU header as invalid b64 []byte", func(t *testing.T) {
+		_, _, err := decodeAPUAPV(&RecipientHeaders{APU: "=Badb64Str$$#^"})
+		require.EqualError(t, err, "illegal base64 data at input byte 0")
+	})
+
+	t.Run("decodeAPUAPV with recipient APV header as invalid b64 []byte", func(t *testing.T) {
+		_, _, err := decodeAPUAPV(&RecipientHeaders{APV: "=Badb64Str$$#^"})
+		require.EqualError(t, err, "illegal base64 data at input byte 0")
+	})
+}
+
+func TestJWKMarshalEPKFailure(t *testing.T) {
+	t.Run("jwkMarshalEPK with protectedHeadersJSON having 'epk' with invalid json format", func(t *testing.T) {
+		err := jwkMarshalEPK(map[string]json.RawMessage{HeaderEPK: []byte("badjsonunmarshal")})
+		require.EqualError(t, err, "unable to read JWK: invalid character 'b' looking for beginning of value")
+	})
 }

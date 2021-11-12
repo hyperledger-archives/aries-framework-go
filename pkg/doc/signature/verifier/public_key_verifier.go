@@ -22,7 +22,7 @@ import (
 	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 )
 
 // PublicKeyVerifier makes signature verification using the public key
@@ -87,19 +87,19 @@ func (pkv *PublicKeyVerifier) Verify(pubKey *PublicKey, msg, signature []byte) e
 	return errors.New("no matching verifier found")
 }
 
-func (pkv *PublicKeyVerifier) matchVerifier(verifier SignatureVerifier, jwk *jose.JWK) bool {
+func (pkv *PublicKeyVerifier) matchVerifier(verifier SignatureVerifier, j *jwk.JWK) bool {
 	// "kty" is a mandatory field in JWK.
-	if verifier.KeyType() != jwk.Kty {
+	if verifier.KeyType() != j.Kty {
 		return false
 	}
 
 	// "crv" is an optional field in JWK (however, it's mandatory for elliptic curves).
-	if jwk.Crv != "" && verifier.Curve() != jwk.Crv {
+	if j.Crv != "" && verifier.Curve() != j.Crv {
 		return false
 	}
 
 	// "alg" is an optional field in JWK.
-	if jwk.Algorithm != "" && verifier.Algorithm() != jwk.Algorithm {
+	if j.Algorithm != "" && verifier.Algorithm() != j.Algorithm {
 		return false
 	}
 
@@ -241,12 +241,12 @@ type ECDSASignatureVerifier struct {
 func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte) error {
 	pubKeyJWK := pubKey.JWK
 	if pubKeyJWK == nil {
-		jwk, err := sv.createJWK(pubKey.Value)
+		j, err := sv.createJWK(pubKey.Value)
 		if err != nil {
 			return fmt.Errorf("ecdsa: create JWK from public key bytes: %w", err)
 		}
 
-		pubKeyJWK = jwk
+		pubKeyJWK = j
 	}
 
 	ec := sv.ec
@@ -280,7 +280,7 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 	return nil
 }
 
-func (sv *ECDSASignatureVerifier) createJWK(pubKeyBytes []byte) (*jose.JWK, error) {
+func (sv *ECDSASignatureVerifier) createJWK(pubKeyBytes []byte) (*jwk.JWK, error) {
 	curve := sv.ec.curve
 
 	x, y := elliptic.Unmarshal(curve, pubKeyBytes)
@@ -294,7 +294,7 @@ func (sv *ECDSASignatureVerifier) createJWK(pubKeyBytes []byte) (*jose.JWK, erro
 		Y:     y,
 	}
 
-	return &jose.JWK{
+	return &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:       ecdsaPubKey,
 			Algorithm: sv.algorithm,
@@ -374,7 +374,13 @@ func NewECDSAES521SignatureVerifier() *ECDSASignatureVerifier {
 
 // NewBBSG2SignatureVerifier creates a new BBSG2SignatureVerifier.
 func NewBBSG2SignatureVerifier() *BBSG2SignatureVerifier {
-	return &BBSG2SignatureVerifier{}
+	return &BBSG2SignatureVerifier{
+		baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "BLS12381_G2",
+			algorithm: "",
+		},
+	}
 }
 
 // BBSG2SignatureVerifier is a signature verifier that verifies a BBS+ Signature

@@ -7,25 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package authcrypt
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -34,19 +29,14 @@ import (
 // authenticated) to the recipient(s). The assumption of using this package is that public keys exchange has previously
 // occurred between the sender and the recipient(s).
 
-const (
-	// ThirdPartyKeysDB is a store name containing keys of third party agents.
-	ThirdPartyKeysDB = "thirdpartykeysdb"
-)
-
 var logger = log.New("aries-framework/pkg/didcomm/packer/authcrypt")
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads Aries envelopes.
 type Packer struct {
 	kms           kms.KeyManager
 	encAlg        jose.EncAlg
-	thirdPartyKS  storage.Store
 	cryptoService cryptoapi.Crypto
+	kidResolvers  []resolver.KIDResolver
 }
 
 // New will create a Packer instance to 'AuthCrypt' payloads for a given sender and list of recipients keys using
@@ -56,6 +46,11 @@ type Packer struct {
 // (as the sender packs the envelope with its own key).
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
+	err := validateEncAlg(encAlg)
+	if err != nil {
+		return nil, fmt.Errorf("authcrypt: %w", err)
+	}
+
 	k := ctx.KMS()
 	if k == nil {
 		return nil, errors.New("authcrypt: failed to create packer because KMS is empty")
@@ -66,27 +61,31 @@ func New(ctx packer.Provider, encAlg jose.EncAlg) (*Packer, error) {
 		return nil, errors.New("authcrypt: failed to create packer because crypto service is empty")
 	}
 
-	sp := ctx.StorageProvider()
-	if sp == nil {
-		return nil, errors.New("authcrypt: failed to create packer because StorageProvider is empty")
+	vdrReg := ctx.VDRegistry()
+	if vdrReg == nil {
+		return nil, errors.New("authcrypt: failed to create packer because vdr registry is empty")
 	}
 
-	store, err := sp.OpenStore(ThirdPartyKeysDB)
-	if err != nil {
-		return nil, fmt.Errorf("authcrypt: %w", err)
-	}
+	var kidResolvers []resolver.KIDResolver
 
-	store, err = prefix.NewPrefixStoreWrapper(store, prefix.StorageKIDPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("authcrypt: failed to wrap key store: %w", err)
-	}
+	kidResolvers = append(kidResolvers, &resolver.DIDKeyResolver{}, &resolver.DIDDocResolver{VDRRegistry: vdrReg})
 
 	return &Packer{
 		kms:           k,
 		encAlg:        encAlg,
-		thirdPartyKS:  store,
 		cryptoService: c,
+		kidResolvers:  kidResolvers,
 	}, nil
+}
+
+func validateEncAlg(alg jose.EncAlg) error {
+	switch alg {
+	// authcrypt supports AES-CBC+HMAC-SHA algorithms only, anoncrypt supports the same and AES256-GCM.
+	case jose.A128CBCHS256, jose.A192CBCHS384ALG, jose.A256CBCHS384, jose.A256CBCHS512, jose.XC20P:
+		return nil
+	default:
+		return fmt.Errorf("unsupported content encrytpion algorithm: %v", alg)
+	}
 }
 
 // Pack will encode the payload argument with contentType argument
@@ -105,12 +104,20 @@ func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPu
 		return nil, fmt.Errorf("authcrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	kh, err := p.kms.Get(string(senderID))
+	senderKID := string(senderID)
+	skid := senderKID
+
+	if idx := strings.Index(senderKID, "."); idx > 0 {
+		senderKID = senderKID[:idx] // senderKID is the kms kid.
+		skid = skid[idx+1:]         // skid as did:key or didDoc.KeyAgreement[].VerificationMethod.ID value.
+	}
+
+	kh, err := p.kms.Get(senderKID)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, string(senderID),
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, skid,
 		kh.(*keyset.Handle), recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
@@ -146,7 +153,6 @@ func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPu
 func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, error) {
 	var (
 		pubKeys []*cryptoapi.PublicKey
-		kids    []string
 		aad     []byte
 	)
 
@@ -158,26 +164,14 @@ func unmarshalRecipientKeys(keys [][]byte) ([]*cryptoapi.PublicKey, []byte, erro
 			return nil, nil, err
 		}
 
-		kids = append(kids, ecKey.KID)
 		pubKeys = append(pubKeys, ecKey)
-	}
-
-	if len(keys) > 1 {
-		sort.Strings(kids)
-
-		kidsStr := strings.Join(kids, ".")
-		logger.Infof("Authcrypt Pack KIDs for AAD: %s", kidsStr)
-
-		aad32 := sha256.Sum256([]byte(kidsStr))
-		aad = make([]byte, 32)
-		copy(aad, aad32[:])
-		logger.Infof("Authcrypt Pack AAD: %s", base64.RawURLEncoding.EncodeToString(aad))
 	}
 
 	return pubKeys, aad, nil
 }
 
-// Unpack will decode the envelope using a standard format.
+// Unpack will decode the envelope using a standard format. Using either did:key KID resolver or the
+// DIDDoc.KeyAgreement[].VerificationMethod.ID resolver which are set in p.resolvers.
 func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	// TODO validate `typ` and `cty` values
 	jwe, _, _, err := deserializeEnvelope(envelope)
@@ -187,17 +181,19 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 
 	for i := range jwe.Recipients {
 		var (
-			kid                   string
-			kh                    interface{}
-			pt, ecdh1puPubKeyByes []byte
+			recKey *cryptoapi.PublicKey
+			pt     []byte
+			recKID string
+			env    *transport.Envelope
 		)
 
-		kid, err = getKID(i, jwe)
+		recKey, recKID, err = p.pubKey(i, jwe)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: %w", err)
 		}
 
-		kh, err = p.kms.Get(kid)
+		// verify recKey.KID is found in kms to prove ownership of key.
+		_, err = p.kms.Get(recKey.KID)
 		if err != nil {
 			if errors.Is(err, storage.ErrDataNotFound) {
 				retriesMsg := ""
@@ -206,7 +202,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 					retriesMsg = ", will try another recipient"
 				}
 
-				logger.Debugf("authcrypt Unpack: recipient keyID not found in KMS: %v%s", kid, retriesMsg)
+				logger.Debugf("authcrypt Unpack: recipient keyID not found in KMS: %v%s", recKey.KID, retriesMsg)
 
 				continue
 			}
@@ -214,31 +210,87 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("authcrypt Unpack: failed to get key from kms: %w", err)
 		}
 
-		keyHandle, ok := kh.(*keyset.Handle)
-		if !ok {
-			return nil, fmt.Errorf("authcrypt Unpack: invalid keyset handle")
-		}
-
-		jweDecrypter := jose.NewJWEDecrypt(p.thirdPartyKS, p.cryptoService, p.kms)
+		jweDecrypter := jose.NewJWEDecrypt(p.kidResolvers, p.cryptoService, p.kms)
 
 		pt, err = jweDecrypter.Decrypt(jwe)
 		if err != nil {
 			return nil, fmt.Errorf("authcrypt Unpack: failed to decrypt JWE envelope: %w", err)
 		}
 
-		// TODO get mapped verKey for the recipient encryption key (kid)
-		ecdh1puPubKeyByes, err = exportPubKeyBytes(keyHandle)
+		env, err = p.buildEnvelope(recKey, recKID, pt, jwe)
 		if err != nil {
-			return nil, fmt.Errorf("authcrypt Unpack: failed to export public key bytes: %w", err)
+			return nil, fmt.Errorf("authcrypt Unpack: %w", err)
 		}
 
-		return &transport.Envelope{
-			Message: pt,
-			ToKey:   ecdh1puPubKeyByes,
-		}, nil
+		return env, nil
 	}
 
 	return nil, fmt.Errorf("authcrypt Unpack: no matching recipient in envelope")
+}
+
+func (p *Packer) buildEnvelope(recKey *cryptoapi.PublicKey, recKID string, message []byte,
+	jwe *jose.JSONWebEncryption) (*transport.Envelope, error) {
+	// set original recKID in recKey to keep original source of key (ie not the KMS kid)
+	recKey.KID = recKID
+
+	ecdh1puPubKeyByes, err := json.Marshal(recKey)
+	if err != nil {
+		return nil, fmt.Errorf("buildEnvelope: failed to marshal recipient public key: %w", err)
+	}
+
+	mSenderPubKey, err := p.extractSenderKey(jwe)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transport.Envelope{
+		Message: message,
+		FromKey: mSenderPubKey,
+		ToKey:   ecdh1puPubKeyByes,
+	}, nil
+}
+
+func (p *Packer) extractSenderKey(jwe *jose.JSONWebEncryption) ([]byte, error) {
+	var (
+		senderKey     *cryptoapi.PublicKey
+		mSenderPubKey []byte
+		err           error
+	)
+
+	skidHeader, ok := jwe.ProtectedHeaders["skid"]
+	if ok { //nolint:nestif
+		skid, ok := skidHeader.(string)
+		if ok {
+			for _, r := range p.kidResolvers {
+				senderKey, err = r.Resolve(skid)
+				if err != nil {
+					logger.Debugf("authcrypt Unpack: unpack successful, but resolving sender key failed [%v] "+
+						"using %T resolver, skipping it.", err.Error(), r)
+				}
+
+				if senderKey != nil {
+					logger.Debugf("authcrypt Unpack: unpack successful with resolving sender key success "+
+						"using %T resolver, will be using resolved senderKey for skid: %v", r, skid)
+					break
+				}
+			}
+
+			if senderKey != nil {
+				// original senderKey.KID is a kms kid. The agent unpacking the envelope doesn't have this kid in kms.
+				// Set value as skid to keep trace of the origin of the key (didDoc.keyAgreement[].VerificationMehod.ID)
+				senderKey.KID = skid
+				mSenderPubKey, err = json.Marshal(senderKey)
+
+				if err != nil {
+					return nil, fmt.Errorf("authcrypt Unpack: failed to marshal sender public key: %w", err)
+				}
+			} else {
+				logger.Debugf("authcrypt Unpack: senderKey not resolved, skipping FromKey in envelope")
+			}
+		}
+	}
+
+	return mSenderPubKey, nil
 }
 
 func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, string, error) {
@@ -253,38 +305,43 @@ func deserializeEnvelope(envelope []byte) (*jose.JSONWebEncryption, string, stri
 	return jwe, typ, cty, nil
 }
 
-func getKID(i int, jwe *jose.JSONWebEncryption) (string, error) {
-	var kid string
+// pubKey will resolve recipient kid at i and returns the corresponding full public key with KID as the kms KID value.
+func (p *Packer) pubKey(i int, jwe *jose.JSONWebEncryption) (*cryptoapi.PublicKey, string, error) {
+	var (
+		kid         string
+		kidResolver resolver.KIDResolver
+	)
 
 	if i == 0 && len(jwe.Recipients) == 1 { // compact serialization, recipient headers are in jwe.ProtectedHeaders
 		var ok bool
 
 		kid, ok = jwe.ProtectedHeaders.KeyID()
 		if !ok {
-			return "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
+			return nil, "", fmt.Errorf("single recipient missing 'KID' in jwe.ProtectHeaders")
 		}
 	} else {
 		kid = jwe.Recipients[i].Header.KID
 	}
 
-	return kid, nil
-}
+	keySource := "did:key"
 
-func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
-	pubKH, err := keyHandle.Public()
-	if err != nil {
-		return nil, err
+	switch {
+	case strings.HasPrefix(kid, keySource):
+		kidResolver = p.kidResolvers[0]
+	case strings.Index(kid, "#") > 0:
+		kidResolver = p.kidResolvers[1]
+		keySource = "didDoc.KeyAgreement[].VerificationMethod.ID"
+	default:
+		return nil, "", fmt.Errorf("invalid kid format, must be a did:key or a DID doc verificaitonMethod ID")
 	}
 
-	buf := new(bytes.Buffer)
-	pubKeyWriter := keyio.NewWriter(buf)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	// recipient kid header is the did:Key or KeyAgreement.ID, extract the public key and build a kms kid.
+	recKey, err := kidResolver.Resolve(kid)
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("failed to resolve recipient key from %s value: %w", keySource, err)
 	}
 
-	return buf.Bytes(), nil
+	return recKey, kid, nil
 }
 
 // EncodingType for didcomm.

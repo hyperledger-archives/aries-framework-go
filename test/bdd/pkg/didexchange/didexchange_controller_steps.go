@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -430,7 +430,8 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) error {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
-		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
+		return fmt.Errorf("failed to get connection ID for agent: '%v', router: '%v' from webhook, %w",
+			agentID, routerID, err)
 	}
 
 	// inviter connectionID
@@ -578,19 +579,19 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 
 	pubKeyEd25519 := ed25519.PublicKey(verKey)
 
-	jwk, err := jose.JWKFromKey(pubKeyEd25519)
+	j, err := jwksupport.JWKFromKey(pubKeyEd25519)
 	if err != nil {
 		return err
 	}
 
-	jwk.KeyID = result.KeyID
+	j.KeyID = result.KeyID
 
 	publicKeyRecovery, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
 
-	recoveryJWK, err := jose.JWKFromKey(publicKeyRecovery)
+	recoveryJWK, err := jwksupport.JWKFromKey(publicKeyRecovery)
 	if err != nil {
 		return err
 	}
@@ -600,7 +601,7 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 		return err
 	}
 
-	updateJWK, err := jose.JWKFromKey(publicKeyUpdate)
+	updateJWK, err := jwksupport.JWKFromKey(publicKeyUpdate)
 	if err != nil {
 		return err
 	}
@@ -609,7 +610,7 @@ func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:fu
 		&sidetree.CreateDIDParams{
 			URL:             a.bddContext.Args[sideTreeURL] + "operations",
 			KeyID:           result.KeyID,
-			JWK:             jwk,
+			JWK:             j,
 			RecoveryJWK:     recoveryJWK,
 			UpdateJWK:       updateJWK,
 			ServiceEndpoint: a.agentServiceEndpoints[destination],

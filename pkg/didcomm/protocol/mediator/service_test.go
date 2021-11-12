@@ -68,6 +68,34 @@ func TestServiceNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		prov := &mockprovider.Provider{
+			ServiceMap: map[string]interface{}{
+				messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+			},
+			StorageProviderValue:              mem.NewProvider(),
+			ProtocolStateStorageProviderValue: mem.NewProvider(),
+		}
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(prov)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 func TestServiceAccept(t *testing.T) {
 	s := &Service{}
 
@@ -773,13 +801,13 @@ func TestServiceForwardMsg(t *testing.T) {
 		msgID := randomID()
 		invalidDID := "did:error:123"
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		msg := generateForwardMsgPayload(t, msgID, to, content)
 
@@ -827,19 +855,19 @@ func TestMessagePickup(t *testing.T) {
 	t.Run("test service handle inbound message pick up - success", func(t *testing.T) {
 		to := randomID()
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		svc, err := New(
 			&mockprovider.Provider{
 				ServiceMap: map[string]interface{}{
 					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{
-						AddMessageFunc: func(message *model.Envelope, theirDID string) error {
+						AddMessageFunc: func(message []byte, theirDID string) error {
 							require.Equal(t, content, message)
 							return nil
 						},
@@ -874,13 +902,13 @@ func TestMessagePickup(t *testing.T) {
 	t.Run("test service handle inbound message pick up - add message error", func(t *testing.T) {
 		to := randomID()
 
-		content := &model.Envelope{
+		content := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		svc, err := New(&mockprovider.Provider{
 			ServiceMap: map[string]interface{}{
@@ -988,7 +1016,8 @@ func TestRegister(t *testing.T) {
 		})
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get grant: store: data not found")
+		require.Contains(t, err.Error(), "get grant for request ID '")
+		require.Contains(t, err.Error(), "': store: data not found")
 	})
 
 	t.Run("test register route - router connection not found", func(t *testing.T) {
@@ -1484,7 +1513,7 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	return didMsg
 }
 
-func generateForwardMsgPayload(t *testing.T, id, to string, msg *model.Envelope) service.DIDCommMsg {
+func generateForwardMsgPayload(t *testing.T, id, to string, msg []byte) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&model.Forward{
 		Type: service.ForwardMsgType,
 		ID:   id,
@@ -1506,6 +1535,15 @@ func randomID() string {
 type connectionsStub struct {
 	getConnIDByDIDs func(string, string) (string, error)
 	getConnRecord   func(string) (*connection.Record, error)
+}
+
+func (c *connectionsStub) GetConnectionRecordByDIDs(myDID, theirDID string) (*connection.Record, error) {
+	connID, err := c.GetConnectionIDByDIDs(myDID, theirDID)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.GetConnectionRecord(connID)
 }
 
 func (c *connectionsStub) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {

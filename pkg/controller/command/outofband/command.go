@@ -116,12 +116,14 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
+	// TODO use OOBv2 client with DIDComm V2 invitations
 	invitation, err := c.client.CreateInvitation(
 		args.Service,
 		outofband.WithGoal(args.Goal, args.GoalCode),
 		outofband.WithLabel(args.Label),
 		outofband.WithHandshakeProtocols(args.Protocols...),
 		outofband.WithRouterConnections(args.RouterConnectionID),
+		outofband.WithAccept(args.Accept...),
 	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())

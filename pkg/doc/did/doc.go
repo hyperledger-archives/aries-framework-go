@@ -19,7 +19,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -118,6 +118,8 @@ type MethodMetadata struct {
 	RecoveryCommitment string `json:"recoveryCommitment,omitempty"`
 	// Published is published key.
 	Published bool `json:"published,omitempty"`
+	// AnchorOrigin is anchor origin.
+	AnchorOrigin string `json:"anchorOrigin,omitempty"`
 }
 
 // DocumentMetadata document metadata.
@@ -127,7 +129,7 @@ type DocumentMetadata struct {
 	// CanonicalID is canonical ID key.
 	CanonicalID string `json:"canonicalId,omitempty"`
 	// EquivalentID is equivalent ID array.
-	EquivalentID string `json:"equivalentId,omitempty"`
+	EquivalentID []string `json:"equivalentId,omitempty"`
 	// Method is used for method metadata within did document metadata.
 	Method *MethodMetadata `json:"method,omitempty"`
 }
@@ -200,7 +202,7 @@ type VerificationMethod struct {
 
 	Value []byte
 
-	jsonWebKey  *jose.JWK
+	jsonWebKey  *jwk.JWK
 	relativeURL bool
 }
 
@@ -221,8 +223,8 @@ func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte
 }
 
 // NewVerificationMethodFromJWK creates a new VerificationMethod based on JSON Web Key.
-func NewVerificationMethodFromJWK(id, keyType, controller string, jwk *jose.JWK) (*VerificationMethod, error) {
-	pkBytes, err := jwk.PublicKeyBytes()
+func NewVerificationMethodFromJWK(id, keyType, controller string, j *jwk.JWK) (*VerificationMethod, error) {
+	pkBytes, err := j.PublicKeyBytes()
 	if err != nil {
 		return nil, fmt.Errorf("convert JWK to public key bytes: %w", err)
 	}
@@ -237,13 +239,13 @@ func NewVerificationMethodFromJWK(id, keyType, controller string, jwk *jose.JWK)
 		Type:        keyType,
 		Controller:  controller,
 		Value:       pkBytes,
-		jsonWebKey:  jwk,
+		jsonWebKey:  j,
 		relativeURL: relativeURL,
 	}, nil
 }
 
 // JSONWebKey returns JSON Web key if defined.
-func (pk *VerificationMethod) JSONWebKey() *jose.JWK {
+func (pk *VerificationMethod) JSONWebKey() *jwk.JWK {
 	return pk.jsonWebKey
 }
 
@@ -362,14 +364,15 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	// Interop: handle legacy did docs that incorrectly indicate they use the new format
-	if requiresLegacyHandling(raw) {
+	// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	if doACAPYInterop && requiresLegacyHandling(raw) {
 		raw.Context = []string{contextV011}
-	}
-
-	// validate did document
-	err = validate(data, raw.schemaLoader())
-	if err != nil {
-		return nil, err
+	} else {
+		// validate did document
+		err = validate(data, raw.schemaLoader())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	doc := &Doc{
@@ -411,20 +414,18 @@ func ParseDocument(data []byte) (*Doc, error) {
 }
 
 func requiresLegacyHandling(raw *rawDoc) bool {
-	// docs in v1 format don't have a top-level publicKey array, but verificationMethod instead
-	if len(raw.PublicKey) == 0 || len(raw.VerificationMethod) > 0 {
-		return false
-	}
-
 	context, _ := parseContext(raw.Context)
 
 	for _, ctx := range context {
-		if ctx == ContextV1Old { // docs that state they use v1 format but still have a top-level publicKey array
+		if ctx == ContextV1Old {
+			// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+			//  old v1 context is (currently) only used by projects like aca-py that
+			//  have not fully updated to latest did spec for aip2.0
 			return true
 		}
 	}
 
-	return false // docs in older formats
+	return false
 }
 
 func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {
@@ -783,20 +784,20 @@ func decodeVMJwk(jwkMap map[string]interface{}, vm *VerificationMethod) error {
 		return nil
 	}
 
-	var jwk jose.JWK
+	var j jwk.JWK
 
-	err = json.Unmarshal(jwkBytes, &jwk)
+	err = json.Unmarshal(jwkBytes, &j)
 	if err != nil {
 		return fmt.Errorf("unmarshal JWK: %w", err)
 	}
 
-	pkBytes, err := jwk.PublicKeyBytes()
+	pkBytes, err := j.PublicKeyBytes()
 	if err != nil {
 		return fmt.Errorf("failed to decode public key from JWK: %w", err)
 	}
 
 	vm.Value = pkBytes
-	vm.jsonWebKey = &jwk
+	vm.jsonWebKey = &j
 
 	return nil
 }
@@ -861,6 +862,8 @@ func validate(data []byte, schemaLoader gojsonschema.JSONLoader) error {
 		for _, desc := range result.Errors() {
 			errMsg += fmt.Sprintf("- %s\n", desc)
 		}
+
+		errMsg += fmt.Sprintf("Document: %s\n", string(data))
 
 		return errors.New(errMsg)
 	}

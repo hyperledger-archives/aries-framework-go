@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -82,6 +83,35 @@ type Attachment struct {
 	Data AttachmentData `json:"data,omitempty"`
 }
 
+// AttachmentV2 is intended to provide the possibility to include files, links or even JSON payload to the message.
+// To find out more please visit https://identity.foundation/didcomm-messaging/spec/#attachments
+type AttachmentV2 struct {
+	// ID is a JSON-LD construct that uniquely identifies attached content within the scope of a given message.
+	// Recommended on appended attachment descriptors. Possible but generally unused on embedded attachment descriptors.
+	// Never required if no references to the attachment exist; if omitted, then there is no way
+	// to refer to the attachment later in the thread, in error messages, and so forth.
+	// Because @id is used to compose URIs, it is recommended that this name be brief and avoid spaces
+	// and other characters that require URI escaping.
+	ID string `json:"id,omitempty"`
+	// Description is an optional human-readable description of the content.
+	Description string `json:"description,omitempty"`
+	// FileName is a hint about the name that might be used if this attachment is persisted as a file.
+	// It is not required, and need not be unique. If this field is present and mime-type is not,
+	// the extension on the filename may be used to infer a MIME type.
+	FileName string `json:"filename,omitempty"`
+	// MediaType describes the MIME type of the attached content. Optional but recommended.
+	MediaType string `json:"media_type,omitempty"`
+	// LastModTime is a hint about when the content in this attachment was last modified.
+	LastModTime time.Time `json:"lastmod_time,omitempty"`
+	// ByteCount is an optional, and mostly relevant when content is included by reference instead of by value.
+	// Lets the receiver guess how expensive it will be, in time, bandwidth, and storage, to fully fetch the attachment.
+	ByteCount int64 `json:"byte_count,omitempty"`
+	// Data is a JSON object that gives access to the actual content of the attachment.
+	Data AttachmentData `json:"data,omitempty"`
+	// Format describes the format of the attachment if the media_type is not sufficient.
+	Format string `json:"format,omitempty"`
+}
+
 // AttachmentData contains attachment payload.
 type AttachmentData struct {
 	// Sha256 is a hash of the content. Optional. Used as an integrity check if content is inlined.
@@ -129,6 +159,16 @@ func (d *AttachmentData) Fetch() ([]byte, error) {
 	return nil, errors.New("no contents in this attachment")
 }
 
+// WebRedirect decorator for passing web redirect info to ask recipient of the message
+// to redirect after completion of flow.
+type WebRedirect struct {
+	// Status of the operation,
+	// Refer https://github.com/hyperledger/aries-rfcs/blob/main/features/0015-acks/README.md#ack-status.
+	Status string `json:"status,omitempty"`
+	// URL to which recipient of this message is being requested to redirect.
+	URL string `json:"url,omitempty"`
+}
+
 type rawSig struct {
 	Header    rawSigHeader `json:"header,omitempty"`
 	Signature string       `json:"signature,omitempty"`
@@ -148,14 +188,14 @@ type rawProtected struct {
 func (d *AttachmentData) Sign(c crypto.Crypto, kh, pub interface{}, pubBytes []byte) error { // nolint:funlen,gocyclo
 	didKey, _ := fingerprint.CreateDIDKey(pubBytes)
 
-	jwk, err := jose.JWKFromKey(pub)
+	j, err := jwksupport.JWKFromKey(pub)
 	if err != nil {
 		return fmt.Errorf("creating jwk from pub key: %w", err)
 	}
 
-	jwk.KeyID = didKey
+	j.KeyID = didKey
 
-	jwkBytes, err := jwk.MarshalJSON()
+	jwkBytes, err := j.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("marshaling jwk: %w", err)
 	}
@@ -164,7 +204,7 @@ func (d *AttachmentData) Sign(c crypto.Crypto, kh, pub interface{}, pubBytes []b
 		JWK: jwkBytes,
 	}
 
-	kty, err := jwk.KeyType()
+	kty, err := j.KeyType()
 	if err != nil {
 		return fmt.Errorf("getting keytype: %w", err)
 	}
@@ -189,15 +229,7 @@ func (d *AttachmentData) Sign(c crypto.Crypto, kh, pub interface{}, pubBytes []b
 
 	protectedB64 := base64.RawURLEncoding.EncodeToString(protectedBytes)
 
-	var b64data string
-
-	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
-	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
-	if doACAPyInterop {
-		b64data = b64ToRawURL(d.Base64)
-	} else {
-		b64data = d.Base64
-	}
+	b64data := b64ToRawURL(d.Base64)
 
 	signedData := fmt.Sprintf("%s.%s", protectedB64, b64data)
 
@@ -228,8 +260,8 @@ func b64ToRawURL(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.Trim(s, "="), "+", "-"), "/", "_")
 }
 
-// Verify verify the signature on the attachment data.
-func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) error { // nolint:funlen,gocyclo
+// Verify verifies the signature on the attachment data.
+func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) error { // nolint:gocyclo
 	if d.JWS == nil {
 		return fmt.Errorf("no signature to verify")
 	}
@@ -258,14 +290,14 @@ func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) erro
 		return fmt.Errorf("parsing protected header: %w", err)
 	}
 
-	jwk := jose.JWK{}
+	j := jwk.JWK{}
 
-	err = jwk.UnmarshalJSON(protected.JWK)
+	err = j.UnmarshalJSON(protected.JWK)
 	if err != nil {
 		return fmt.Errorf("parsing jwk: %w", err)
 	}
 
-	keyType, err := jwk.KeyType()
+	keyType, err := j.KeyType()
 	if err != nil {
 		return fmt.Errorf("getting KeyType for jwk: %w", err)
 	}
@@ -280,15 +312,7 @@ func (d *AttachmentData) Verify(c crypto.Crypto, keyManager kms.KeyManager) erro
 		return fmt.Errorf("decoding signature: %w", err)
 	}
 
-	var b64data string
-
-	// interop: the specific behaviour here isn't fully specified by the attachment decorator RFC (as of yet)
-	// see issue https://github.com/hyperledger/aries-cloudagent-python/issues/1108
-	if doACAPyInterop {
-		b64data = b64ToRawURL(d.Base64)
-	} else {
-		b64data = d.Base64
-	}
+	b64data := b64ToRawURL(d.Base64)
 
 	signedData := fmt.Sprintf("%s.%s", jws.Protected, b64data)
 

@@ -33,9 +33,9 @@ jobs:
       id: go
 
     - name: Setup node
-      uses: actions/setup-node@v1.4.4
+      uses: actions/setup-node@v2.4.0
       with:
-        node-version: '10.x'
+        node-version: '16.x'
 
     - name: Setup mocha
       timeout-minutes: 10
@@ -47,7 +47,7 @@ jobs:
       timeout-minutes: 10
       run: make vc-test-suite
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2.2.4
       with:
         name: vc-report
         path: build/vc-test-suite/suite/implementations/aries-framework-go-report.json

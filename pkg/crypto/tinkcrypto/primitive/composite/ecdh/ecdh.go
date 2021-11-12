@@ -53,7 +53,8 @@ SPDX-License-Identifier: Apache-2.0
 //		// see pkg/crypto/tinkcrypto to see how you can wrap a shared secret (cek)
 //
 //		// once a cek is created create an ECDH KH that can be used to encrypt plaintext as follows
-//		kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+//		// for AES256GCM content encryption using a NIST P key for cek wrapping as an example
+//		kt := ecdh.KeyTemplateForECDHPrimitiveWithCEK(cek, true, ecdh.AES256GCM)
 //
 //		kh, err := keyset.NewHandle(kt)
 //		if err != nil {
@@ -75,7 +76,8 @@ SPDX-License-Identifier: Apache-2.0
 //      }
 //
 //      // to decrypt, recreate kh for the cek (once unwrapped from pkg/crypto)
-//		kt = ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+//		// for AES256GCM content encryption using a NIST P key for cek wrapping to match the encryption template above
+//		kt = ecdh.KeyTemplateForECDHPrimitiveWithCEK(cek, true, ecdh.AES256GCM)
 //
 //		kh, err = keyset.NewHandle(kt)
 //		if err != nil {

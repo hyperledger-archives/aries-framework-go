@@ -17,6 +17,9 @@ type DeclinePresentationArgs struct {
 	PIID string `json:"piid"`
 	// Reason why presentation is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect once presentation is declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclinePresentationResponse model
@@ -34,6 +37,9 @@ type DeclineProposePresentationArgs struct {
 	PIID string `json:"piid"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect after its proposal gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclineProposePresentationResponse model
@@ -76,6 +82,9 @@ type AcceptPresentationArgs struct {
 	PIID string `json:"piid"`
 	// Names represent the names of how presentations will be stored
 	Names []string `json:"names"`
+	// RedirectURL is optional web redirect URL that can be sent to prover.
+	// Useful in cases where verifier would want prover to redirect once protocol is over.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // AcceptPresentationResponse model
@@ -95,6 +104,17 @@ type AcceptRequestPresentationArgs struct {
 	Presentation *presentproof.Presentation `json:"presentation"`
 }
 
+// AcceptRequestPresentationV3Args model
+//
+// This is used for accepting a request presentation.
+//
+type AcceptRequestPresentationV3Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// Presentation is a message that contains signed presentations.
+	Presentation *presentproof.PresentationV3 `json:"presentation"`
+}
+
 // AcceptRequestPresentationResponse model
 //
 // Represents a AcceptRequestPresentation response message.
@@ -110,6 +130,17 @@ type AcceptProposePresentationArgs struct {
 	PIID string `json:"piid"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
+}
+
+// AcceptProposePresentationV3Args model
+//
+// This is used for accepting a propose presentation.
+//
+type AcceptProposePresentationV3Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentation *presentproof.RequestPresentationV3 `json:"request_presentation"`
 }
 
 // AcceptProposePresentationResponse model
@@ -128,6 +159,18 @@ type NegotiateRequestPresentationArgs struct {
 	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentation *presentproof.ProposePresentation `json:"propose_presentation"`
+}
+
+// NegotiateRequestPresentationV3Args model
+//
+// This is used by the Prover to counter a presentation request they received with a proposal.
+//
+type NegotiateRequestPresentationV3Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
+	// propose using a different presentation format.
+	ProposePresentation *presentproof.ProposePresentationV3 `json:"propose_presentation"`
 }
 
 // NegotiateRequestPresentationResponse model
@@ -150,6 +193,20 @@ type SendProposePresentationArgs struct {
 	ProposePresentation *presentproof.ProposePresentation `json:"propose_presentation"`
 }
 
+// SendProposePresentationV3Args model
+//
+// This is used for sending a propose presentation.
+//
+type SendProposePresentationV3Args struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
+	// presentation process.
+	ProposePresentation *presentproof.ProposePresentationV3 `json:"propose_presentation"`
+}
+
 // SendProposePresentationResponse model
 //
 // Represents a SendProposePresentation response message.
@@ -170,6 +227,19 @@ type SendRequestPresentationArgs struct {
 	TheirDID string `json:"their_did"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
+}
+
+// SendRequestPresentationV3Args model
+//
+// This is used for sending a request presentation.
+//
+type SendRequestPresentationV3Args struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentation *presentproof.RequestPresentationV3 `json:"request_presentation"`
 }
 
 // SendRequestPresentationResponse model

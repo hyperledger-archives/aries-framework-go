@@ -18,7 +18,7 @@ type MockMessenger struct {
 }
 
 // ReplyTo mock messenger reply to.
-func (m *MockMessenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
+func (m *MockMessenger) ReplyTo(msgID string, msg service.DIDCommMsgMap, opts ...service.Opt) error {
 	if m.ErrReplyTo != nil {
 		return m.ErrReplyTo
 	}
@@ -27,7 +27,7 @@ func (m *MockMessenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 }
 
 // ReplyToMsg mock messenger reply to msg.
-func (m *MockMessenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *MockMessenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 	if m.ReplyToMsgFunc != nil {
 		return m.ReplyToMsgFunc(in, out, myDID, theirDID)
 	}
@@ -36,7 +36,7 @@ func (m *MockMessenger) ReplyToMsg(in, out service.DIDCommMsgMap, myDID, theirDI
 }
 
 // Send mock messenger Send.
-func (m *MockMessenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+func (m *MockMessenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string, opts ...service.Opt) error {
 	if m.ErrSend != nil {
 		return m.ErrSend
 	}
@@ -55,7 +55,7 @@ func (m *MockMessenger) ReplyToNested(msg service.DIDCommMsgMap, opts *service.N
 
 // SendToDestination mock messenger SendToDestination.
 func (m *MockMessenger) SendToDestination(msg service.DIDCommMsgMap, sender string,
-	destination *service.Destination) error {
+	destination *service.Destination, opts ...service.Opt) error {
 	if m.ErrSendToDestination != nil {
 		return m.ErrSendToDestination
 	}

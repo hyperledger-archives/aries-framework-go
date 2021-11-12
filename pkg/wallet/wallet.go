@@ -7,14 +7,26 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -24,6 +36,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -39,7 +53,20 @@ const (
 
 // miscellaneous constants.
 const (
-	bbsContext = "https://w3id.org/security/bbs/v1"
+	bbsContext           = "https://w3id.org/security/bbs/v1"
+	emptyRawLength       = 4
+	msgEventBufferSize   = 10
+	presentProofMimeType = "application/ld+json"
+
+	// web redirect constants.
+	webRedirectStatusKey = "status"
+	webRedirectURLKey    = "url"
+
+	// timeout constants.
+	defaultDIDExchangeTimeOut                = 120 * time.Second
+	defaultWaitForRequestPresentationTimeOut = 120 * time.Second
+	defaultWaitForPresentProofDone           = 120 * time.Second
+	retryDelay                               = 500 * time.Millisecond
 )
 
 // proof options.
@@ -61,6 +88,20 @@ type provider interface {
 	VDRegistry() vdr.Registry
 	Crypto() crypto.Crypto
 	JSONLDDocumentLoader() ld.DocumentLoader
+	MediaTypeProfiles() []string
+	didCommProvider // to be used only if wallet needs to be participated in DIDComm.
+}
+
+// didCommProvider to be used only if wallet needs to be participated in DIDComm operation.
+// TODO: using wallet KMS instead of provider KMS.
+// TODO: reconcile Protocol storage with wallet store.
+type didCommProvider interface {
+	KMS() kms.KeyManager
+	ServiceEndpoint() string
+	ProtocolStateStorageProvider() storage.Provider
+	Service(id string) (interface{}, error)
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 type provable interface {
@@ -89,6 +130,18 @@ type Wallet struct {
 
 	// document loader for JSON-LD contexts
 	jsonldDocumentLoader ld.DocumentLoader
+
+	// present proof client
+	presentProofClient *presentproof.Client
+
+	// out of band client
+	oobClient *outofband.Client
+
+	// did-exchange client
+	didexchangeClient *didexchange.Client
+
+	// connection lookup
+	connectionLookup *connection.Lookup
 }
 
 // New returns new verifiable credential wallet for given user.
@@ -106,6 +159,26 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to get VC wallet profile: %w", err)
 	}
 
+	presentProofClient, err := presentproof.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize present proof client: %w", err)
+	}
+
+	oobClient, err := outofband.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize out-of-band client: %w", err)
+	}
+
+	connectionLookup, err := connection.NewLookup(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize connection lookup: %w", err)
+	}
+
+	didexchangeClient, err := didexchange.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize didexchange client: %w", err)
+	}
+
 	return &Wallet{
 		userID:               userID,
 		profile:              profile,
@@ -114,6 +187,10 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		contents:             newContentStore(ctx.StorageProvider(), profile),
 		vdr:                  ctx.VDRegistry(),
 		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
+		presentProofClient:   presentProofClient,
+		oobClient:            oobClient,
+		didexchangeClient:    didexchangeClient,
+		connectionLookup:     connectionLookup,
 	}, nil
 }
 
@@ -125,12 +202,58 @@ func CreateProfile(userID string, ctx provider, options ...ProfileOptions) error
 }
 
 // UpdateProfile updates existing verifiable credential wallet profile.
-// Will create new profile if no profile exists for given user.
-// Caution:  - you might lose your existing keys if you change kms options.
-// - you might lose your existing wallet contents if you change storage options
-// (ex: switching from EDV to/from context storage provider).
+// Caution:
+// - you might lose your existing keys if you change kms options.
+// - you might lose your existing wallet contents if you change storage/EDV options
+// (ex: switching context storage provider or changing EDV settings).
 func UpdateProfile(userID string, ctx provider, options ...ProfileOptions) error {
 	return createOrUpdate(userID, ctx, true, options...)
+}
+
+// CreateDataVaultKeyPairs can be used create EDV key pairs for given profile.
+// Wallet will create key pairs in profile kms and updates profile with newly generate EDV encryption & MAC key IDs.
+func CreateDataVaultKeyPairs(userID string, ctx provider, options ...UnlockOptions) error {
+	store, err := newProfileStore(ctx.StorageProvider())
+	if err != nil {
+		return fmt.Errorf("failed to get wallet user profile: failed to get store: %w", err)
+	}
+
+	profile, err := store.get(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get wallet user profile: %w", err)
+	}
+
+	if profile.EDVConf == nil {
+		return fmt.Errorf("invalid operation, no edv configuration found in profile: %w", err)
+	}
+
+	opts := &unlockOpts{}
+
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	// unlock key manager
+	token, err := keyManager().createKeyManager(profile, ctx.StorageProvider(), opts)
+	if err != nil {
+		return fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	defer keyManager().removeKeyManager(userID)
+
+	// update profile
+	err = updateProfile(token, profile)
+	if err != nil {
+		return fmt.Errorf("failed to create key pairs: %w", err)
+	}
+
+	// update profile
+	err = store.save(profile, true)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	return nil
 }
 
 func createOrUpdate(userID string, ctx provider, update bool, options ...ProfileOptions) error {
@@ -180,6 +303,18 @@ func createOrUpdate(userID string, ctx provider, update bool, options ...Profile
 	return nil
 }
 
+// ProfileExists checks if profile exists for given wallet user, returns error if not found.
+func ProfileExists(userID string, ctx provider) error {
+	store, err := newProfileStore(ctx.StorageProvider())
+	if err != nil {
+		return fmt.Errorf("failed to get store to get VC wallet profile: %w", err)
+	}
+
+	_, err = store.get(userID)
+
+	return err
+}
+
 // Open unlocks wallet's key manager instance & open wallet content store and
 // returns a token for subsequent use of wallet features.
 //
@@ -215,9 +350,7 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 // Close expires token issued to this VC wallet, removes the key manager instance and closes wallet content store.
 // returns false if token is not found or already expired for this wallet user.
 func (c *Wallet) Close() bool {
-	c.contents.Close()
-
-	return keyManager().removeKeyManager(c.userID)
+	return keyManager().removeKeyManager(c.userID) && c.contents.Close()
 }
 
 // Export produces a serialized exported wallet representation.
@@ -334,6 +467,7 @@ func (c *Wallet) GetAll(authToken string, contentType ContentType, options ...Ge
 // 	- https://www.w3.org/TR/json-ld11-framing
 // 	- https://identity.foundation/presentation-exchange
 // 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+// 	- https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
 //
 func (c *Wallet) Query(authToken string, params ...*QueryParams) ([]*verifiable.Presentation, error) {
 	vcContents, err := c.contents.GetAll(authToken, Credential)
@@ -459,6 +593,194 @@ func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options
 	return derived, nil
 }
 
+// CreateKeyPair creates key pair inside a wallet.
+//
+//	Args:
+//		- authToken: authorization for performing create key pair operation.
+//		- keyType: type of the key to be created.
+//
+func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair, error) {
+	kmgr, err := keyManager().getKeyManger(authToken)
+	if err != nil {
+		return nil, ErrInvalidAuthToken
+	}
+
+	kid, pubBytes, err := kmgr.CreateAndExportPubKeyBytes(keyType)
+	if err != nil {
+		return nil, err
+	}
+
+	return &KeyPair{
+		KeyID:     kid,
+		PublicKey: base64.RawURLEncoding.EncodeToString(pubBytes),
+	}, nil
+}
+
+// Connect accepts out-of-band invitations and performs DID exchange.
+//
+// Args:
+// 		- authToken: authorization for performing create key pair operation.
+// 		- invitation: out-of-band invitation.
+// 		- options: connection options.
+//
+// Returns:
+// 		- connection ID if DID exchange is successful.
+// 		- error if operation false.
+//
+func (c *Wallet) Connect(authToken string, invitation *outofband.Invitation, options ...ConnectOptions) (string, error) { //nolint: lll
+	statusCh := make(chan service.StateMsg, msgEventBufferSize)
+
+	err := c.didexchangeClient.RegisterMsgEvent(statusCh)
+	if err != nil {
+		return "", fmt.Errorf("failed to register msg event : %w", err)
+	}
+
+	defer func() {
+		e := c.didexchangeClient.UnregisterMsgEvent(statusCh)
+		if e != nil {
+			logger.Warnf("Failed to unregister msg event for connect: %w", e)
+		}
+	}()
+
+	opts := &connectOpts{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	connID, err := c.oobClient.AcceptInvitation(invitation, opts.Label, getOobMessageOptions(opts)...)
+	if err != nil {
+		return "", fmt.Errorf("failed to accept invitation : %w", err)
+	}
+
+	if opts.timeout == 0 {
+		opts.timeout = defaultDIDExchangeTimeOut
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	defer cancel()
+
+	err = waitForConnect(ctx, statusCh, connID)
+	if err != nil {
+		return "", fmt.Errorf("wallet connect failed : %w", err)
+	}
+
+	return connID, nil
+}
+
+// ProposePresentation accepts out-of-band invitation and sends message proposing presentation
+// from wallet to relying party.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposepresentation
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- invitation: out-of-band invitation from relying party.
+// 		- options: options for accepting invitation and send propose presentation message.
+//
+// Returns:
+// 		- DIDCommMsgMap containing request presentation message if operation is successful.
+// 		- error if operation fails.
+//
+func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Invitation, options ...ProposePresentationOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+	opts := &proposePresOpts{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	connID, err := c.Connect(authToken, invitation, opts.connectOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to perform did connection : %w", err)
+	}
+
+	connRecord, err := c.connectionLookup.GetConnectionRecord(connID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup connection for propose presentation : %w", err)
+	}
+
+	opts = preparePresentProofOpts(connRecord, opts)
+
+	_, err = c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord.MyDID,
+		opts.from)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propose presentation from wallet: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	defer cancel()
+
+	return c.waitForRequestPresentation(ctx, connRecord)
+}
+
+// PresentProof sends message present proof message from wallet to relying party.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#presentproof
+//
+// Currently Supporting
+// [0454-present-proof-v2](https://github.com/hyperledger/aries-rfcs/tree/master/features/0454-present-proof-v2)
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- thID: thread ID (action ID) of request presentation.
+// 		- presentProofFrom: presentation to be sent.
+//
+// Returns:
+// 		- error if operation fails.
+//
+func (c *Wallet) PresentProof(authToken, thID string, options ...PresentProofOptions) (*PresentProofStatus, error) {
+	opts := &presentProofOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
+	var presentation interface{}
+	if opts.presentation != nil {
+		presentation = opts.presentation
+	} else {
+		presentation = opts.rawPresentation
+	}
+
+	err := c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
+		Type: presentproofSvc.PresentationMsgTypeV2,
+		PresentationsAttach: []decorator.Attachment{{
+			ID:       uuid.New().String(),
+			MimeType: presentProofMimeType,
+			Data: decorator.AttachmentData{
+				JSON: presentation,
+			},
+		}},
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// wait for ack or problem-report.
+	if opts.waitForDone {
+		statusCh := make(chan service.StateMsg, msgEventBufferSize)
+
+		err = c.presentProofClient.RegisterMsgEvent(statusCh)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register present proof msg event : %w", err)
+		}
+
+		defer func() {
+			e := c.presentProofClient.UnregisterMsgEvent(statusCh)
+			if e != nil {
+				logger.Warnf("Failed to unregister msg event for present proof: %w", e)
+			}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+		defer cancel()
+
+		return waitForPresentProof(ctx, statusCh, thID)
+	}
+
+	return &PresentProofStatus{Status: model.AckStatusPENDING}, nil
+}
+
+//nolint: funlen,gocyclo
 func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOptions) (*verifiable.Presentation, error) {
 	var allCredentials []*verifiable.Credential
 
@@ -509,6 +831,16 @@ func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOption
 		opts.presentation.AddCredentials(allCredentials...)
 
 		return opts.presentation, nil
+	} else if len(opts.rawPresentation) > emptyRawLength {
+		vp, err := verifiable.ParsePresentation(opts.rawPresentation, verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
+		if err != nil {
+			return nil, err
+		}
+
+		vp.AddCredentials(allCredentials...)
+
+		return vp, nil
 	}
 
 	return verifiable.NewPresentation(verifiable.WithCredentials(allCredentials...))
@@ -669,15 +1001,191 @@ func (c *Wallet) validateVerificationMethod(didDoc *did.Doc, opts *ProofOptions,
 	return fmt.Errorf("unable to find '%s' for given verification method", supportedRelationships[relationship])
 }
 
+// currently correlating response action by connection due to limitation in current present proof V1 implementation.
+func (c *Wallet) waitForRequestPresentation(ctx context.Context, record *connection.Record) (*service.DIDCommMsgMap, error) { //nolint: lll
+	done := make(chan *service.DIDCommMsgMap)
+
+	go func() {
+		for {
+			actions, err := c.presentProofClient.Actions()
+			if err != nil {
+				continue
+			}
+
+			if len(actions) > 0 {
+				for _, action := range actions {
+					if action.MyDID == record.MyDID && action.TheirDID == record.TheirDID {
+						done <- &action.Msg
+						return
+					}
+				}
+			}
+
+			select {
+			default:
+				time.Sleep(retryDelay)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	select {
+	case msg := <-done:
+		return msg, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timeout waiting for request presentation message")
+	}
+}
+
+func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, connID string) error {
+	done := make(chan struct{})
+
+	go func() {
+		for msg := range didStateMsgs {
+			if msg.Type != service.PostState || msg.StateID != didexchangeSvc.StateIDCompleted {
+				continue
+			}
+
+			var event didexchangeSvc.Event
+
+			switch p := msg.Properties.(type) {
+			case didexchangeSvc.Event:
+				event = p
+			default:
+				logger.Warnf("failed to cast didexchange event properties")
+
+				continue
+			}
+
+			if event.ConnectionID() == connID {
+				logger.Debugf(
+					"Received connection complete event for invitationID=%s connectionID=%s",
+					event.InvitationID(), event.ConnectionID())
+
+				close(done)
+
+				break
+			}
+		}
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("time out waiting for did exchange state 'completed'")
+	}
+}
+
+// wait for present proof status to be completed (done or abandoned) from prover side.
+func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll,funlen
+	done := make(chan *PresentProofStatus)
+
+	go func() {
+		for msg := range didStateMsgs {
+			// match post state.
+			if msg.Type != service.PostState {
+				continue
+			}
+
+			// invalid state msg.
+			if msg.Msg == nil {
+				continue
+			}
+
+			msgThID, err := msg.Msg.ThreadID()
+			if err != nil {
+				continue
+			}
+
+			// match parent thread ID.
+			if msg.Msg.ParentThreadID() != thID && msgThID != thID {
+				continue
+			}
+
+			// match protocol state.
+			if msg.StateID != presentproofSvc.StateNameDone && msg.StateID != presentproofSvc.StateNameAbandoned {
+				continue
+			}
+
+			properties := msg.Properties.All()
+
+			response := &PresentProofStatus{}
+
+			if redirect, ok := properties[webRedirectURLKey]; ok {
+				response.RedirectURL = redirect.(string) //nolint: errcheck, forcetypeassert
+			}
+
+			if redirectStatus, ok := properties[webRedirectStatusKey]; ok {
+				response.Status = redirectStatus.(string) //nolint: errcheck, forcetypeassert
+			}
+
+			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
+			if response.Status == "" {
+				if msg.StateID == presentproofSvc.StateNameAbandoned {
+					response.Status = model.AckStatusFAIL
+				} else {
+					response.Status = model.AckStatusOK
+				}
+			}
+
+			done <- response
+
+			return
+		}
+	}()
+
+	select {
+	case status := <-done:
+		return status, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
+	}
+}
+
 // addContext adds context if not found in given data model.
-func addContext(v interface{}, context string) {
+func addContext(v interface{}, ldcontext string) {
 	if vc, ok := v.(*verifiable.Credential); ok {
 		for _, ctx := range vc.Context {
-			if ctx == context {
+			if ctx == ldcontext {
 				return
 			}
 		}
 
-		vc.Context = append(vc.Context, context)
+		vc.Context = append(vc.Context, ldcontext)
 	}
+}
+
+func updateProfile(auth string, profile *profile) error {
+	// get key manager
+	keyManager, err := keyManager().getKeyManger(auth)
+	if err != nil {
+		return err
+	}
+
+	// setup key pairs
+	err = profile.setupEDVEncryptionKey(keyManager)
+	if err != nil {
+		return fmt.Errorf("failed to create EDV encryption key pair: %w", err)
+	}
+
+	err = profile.setupEDVMacKey(keyManager)
+	if err != nil {
+		return fmt.Errorf("failed to create EDV MAC key pair: %w", err)
+	}
+
+	return nil
+}
+
+func preparePresentProofOpts(connRecord *connection.Record, opts *proposePresOpts) *proposePresOpts {
+	if opts.from == "" {
+		opts.from = connRecord.TheirDID
+	}
+
+	if opts.timeout == 0 {
+		opts.timeout = defaultWaitForRequestPresentationTimeOut
+	}
+
+	return opts
 }

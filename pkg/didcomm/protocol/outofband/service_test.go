@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +91,28 @@ func TestNew(t *testing.T) {
 		_, err := New(provider)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestService_Initialize(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		prov := testProvider()
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(prov)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
 	})
 }
 
@@ -242,6 +265,16 @@ func TestService_ActionContinue(t *testing.T) {
 		})
 		provider := testProvider()
 		connID := uuid.New().String()
+
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		provider.StoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
 				Store: map[string]mockstore.DBEntry{
@@ -249,7 +282,16 @@ func TestService_ActionContinue(t *testing.T) {
 						Value: []byte(connID),
 					},
 					fmt.Sprintf("conn_%s", connID): {
-						Value: marshal(t, &connection.Record{State: "completed"}),
+						Value: marshal(t, &connection.Record{
+							ConnectionID: connID,
+							State:        "completed",
+						}),
+						Tags: []storage.Tag{
+							{
+								Name:  "bothDIDs",
+								Value: mockDIDTagFunc(myDID, theirDID),
+							},
+						},
 					},
 				},
 			},
@@ -854,7 +896,7 @@ func TestAcceptInvitation(t *testing.T) {
 		inv.Accept = []string{"INVALID"}
 		_, err := s.AcceptInvitation(inv, &userOptions{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid media type profile")
+		require.Contains(t, err.Error(), "no acceptable media type profile found in invitation")
 	})
 }
 
@@ -1076,7 +1118,15 @@ func (t *testDIDCommMsg) ID() string {
 	panic("implement me")
 }
 
-func (t *testDIDCommMsg) SetID(id string) error {
+func (t *testDIDCommMsg) SetID(id string, opts ...service.Opt) {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) SetThread(tid, pid string, opts ...service.Opt) {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) UnsetThread() {
 	panic("implement me")
 }
 

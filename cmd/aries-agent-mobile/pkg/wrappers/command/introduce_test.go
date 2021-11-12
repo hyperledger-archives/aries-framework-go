@@ -34,7 +34,10 @@ func (m *mockCommandRunner) exec(rw io.Writer, _ io.Reader) command.Error {
 }
 
 func getAgent() (*Aries, error) {
-	opts := &config.Options{}
+	return getAgentWithOpts(&config.Options{})
+}
+
+func getAgentWithOpts(opts *config.Options) (*Aries, error) {
 	return NewAries(opts)
 }
 

@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	bddcontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
@@ -35,7 +35,8 @@ type BDDContext struct {
 	RouteClients       map[string]*mediator.Client
 	RouteCallbacks     map[string]chan interface{}
 	PublicDIDDocs      map[string]*did.Doc
-	PublicKeys         map[string]*jose.JWK
+	PublicKeys         map[string]*jwk.JWK
+	PublicEncKeys      map[string][]byte
 	KeyHandles         map[string]interface{}
 	PublicDIDs         map[string]string
 	Agents             map[string]*aries.Aries
@@ -58,7 +59,7 @@ func NewBDDContext() *BDDContext {
 		RouteClients:       make(map[string]*mediator.Client),
 		RouteCallbacks:     make(map[string]chan interface{}),
 		PublicDIDDocs:      make(map[string]*did.Doc),
-		PublicKeys:         make(map[string]*jose.JWK),
+		PublicKeys:         make(map[string]*jwk.JWK),
 		KeyHandles:         make(map[string]interface{}),
 		PublicDIDs:         make(map[string]string),
 		Agents:             make(map[string]*aries.Aries),
@@ -155,7 +156,7 @@ func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn)
 				continue
 			}
 
-			if strings.Contains(err.Error(), "WebSocket closed") {
+			if strings.Contains(err.Error(), "bddtests destroy context") {
 				return
 			}
 

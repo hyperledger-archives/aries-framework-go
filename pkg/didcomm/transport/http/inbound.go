@@ -17,14 +17,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/internal"
 )
 
 var logger = log.New("aries-framework/http")
-
-const (
-	// acceptInboundContentType additional content type to be accepted for inbound messages.
-	acceptInboundContentType = "application/ssi-agent-wire"
-)
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/891 Support for Transport Return Route (Duplex)
 
@@ -64,9 +60,9 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.P
 		return
 	}
 
-	unpackMsg, err := prov.Packager().UnpackMessage(body)
+	unpackMsg, err := internal.UnpackMessage(body, prov.Packager(), "http")
 	if err != nil {
-		logger.Errorf("failed to unpack msg: %s - returning Code: %d", err, http.StatusInternalServerError)
+		logger.Errorf("%w - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "failed to unpack msg", http.StatusInternalServerError)
 
 		return
@@ -104,8 +100,7 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 
 	ct := r.Header.Get("Content-type")
 
-	// Interop: accept application/ssi-agent-wire legacy content type for inbound messages
-	if ct != commContentType && ct != acceptInboundContentType {
+	if ct != commContentType {
 		http.Error(w, fmt.Sprintf("Unsupported Content-type \"%s\"", ct), http.StatusUnsupportedMediaType)
 		return false
 	}

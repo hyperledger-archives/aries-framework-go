@@ -93,6 +93,27 @@ func TestSealAndSealOpen(t *testing.T) {
 		require.Contains(t, e.Error(), "posting SealOpen failed ")
 	})
 
+	t.Run("SealOpen API error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		tmpKMS := New(_url, _client)
+
+		var cBox *CryptoBox
+		cBox, err = NewCryptoBox(tmpKMS)
+		require.NoError(t, err)
+
+		_, err = cBox.SealOpen([]byte("mock cipherText"), recPubKey)
+		require.Contains(t, err.Error(), "api error msg")
+	})
+
 	t.Run("SealOpen fail to Marshal/UnMarshal", func(t *testing.T) {
 		rKMS.marshalFunc = failingMarshal
 		_, err = cryptoBox.SealOpen(cipherText, recPubKey)
@@ -245,6 +266,30 @@ func TestEasyAndEasyOpen(t *testing.T) {
 
 		_, e = cBox.EasyOpen([]byte("mock cipherText"), []byte("mock nonce"), senderEncPub, recPubKey)
 		require.Contains(t, e.Error(), "posting EasyOpen failed ")
+	})
+
+	t.Run("Easy/EasyOpen API error", func(t *testing.T) {
+		_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(`{"errMessage": "api error msg"}`))
+			require.NoError(t, err)
+		})
+
+		srv, _url, _client := CreateMockHTTPServerAndClient(t, _hf)
+
+		defer func() { require.NoError(t, srv.Close()) }()
+
+		tmpKMS := New(_url, _client)
+
+		var cBox *CryptoBox
+		cBox, err = NewCryptoBox(tmpKMS)
+		require.NoError(t, err)
+
+		_, err = cBox.Easy(payload, nonce, recEncPub, defaultKID)
+		require.Contains(t, err.Error(), "api error msg")
+
+		_, err = cBox.EasyOpen(cipherText, nonce, senderEncPub, recPubKey)
+		require.Contains(t, err.Error(), "api error msg")
 	})
 
 	t.Run("Easy/EasyOpen fail to Marshal/UnMarshal", func(t *testing.T) {

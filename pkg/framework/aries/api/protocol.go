@@ -47,10 +47,18 @@ type Provider interface {
 	JSONLDDocumentLoader() ld.DocumentLoader
 	KeyType() kms.KeyType
 	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
+	AriesFrameworkID() string
 }
 
-// ProtocolSvcCreator method to create new protocol service.
-type ProtocolSvcCreator func(prv Provider) (dispatcher.ProtocolService, error)
+// ProtocolSvcCreator struct sets initialization functions for a protocol service.
+type ProtocolSvcCreator struct {
+	// Create creates new protocol service.
+	Create func(prv Provider) (dispatcher.ProtocolService, error)
+	// Init initializes given instance of a protocol service.
+	Init           func(svc dispatcher.ProtocolService, prv Provider) error
+	ServicePointer dispatcher.ProtocolService
+}
 
 // MessageServiceProvider is provider of message services.
 type MessageServiceProvider interface {

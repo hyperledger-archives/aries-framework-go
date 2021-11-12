@@ -1,0 +1,46 @@
+{
+  "@type":"https://didcomm.org/present-proof/2.0/request-presentation",
+  "will_confirm":true,
+  "formats":[
+    {
+      "attach_id":"01a500ee-124f-11ec-9768-0242ac110004",
+      "format":"dif/presentation-exchange/definitions@v1.0"
+    }
+  ],
+  "request_presentations~attach":[
+    {
+      "@id":"01a500ee-124f-11ec-9768-0242ac110004",
+      "mime-type":"application/ld+json",
+      "data":{
+        "json":{
+          "presentation_definition": {
+            "id": "5ab84299-c066-4b34-bcc6-d356aa44c826",
+            "input_descriptors": [
+              {
+                "id": "drivers_license_input_1",
+                "name": "American Driver's License",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  },
+                  {
+                    "uri": "http://example.com/drivers-license#AATHDriversLicense"
+                  }
+                ],
+                "constraints": {
+                  "limit_disclosure": "required",
+                  "fields": [
+                    {
+                      "path": ["$.credentialSubject.address"],
+                      "purpose": "Please share your address"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

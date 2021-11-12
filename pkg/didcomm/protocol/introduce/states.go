@@ -256,9 +256,7 @@ func (s *arranging) ExecuteInbound(messenger service.Messenger, md *metaData) (s
 func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
 	return &noOp{}, func() error {
 		if md.Msg.ID() == "" {
-			if err := md.Msg.SetID(uuid.New().String()); err != nil {
-				return fmt.Errorf("set ID: %w", err)
-			}
+			md.Msg.SetID(uuid.New().String())
 		}
 
 		err := md.saveMetadata(md.Msg, md.Msg.ID())

@@ -233,12 +233,14 @@ func TestResolveDID(t *testing.T) {
 			vdrDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
 		require.NoError(t, err)
 
-		response := documentRes{}
+		response := did.DocResolution{}
 		err = json.Unmarshal(buf.Bytes(), &response)
 		require.NoError(t, err)
 
 		// verify response
 		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.DIDDocument)
+		require.NotEmpty(t, response.DIDDocument.ID)
 	})
 
 	t.Run("test resolve did - error", func(t *testing.T) {

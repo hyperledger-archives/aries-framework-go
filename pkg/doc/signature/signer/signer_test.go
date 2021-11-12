@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -37,12 +37,12 @@ func TestDocumentSigner_Sign(t *testing.T) {
 	require.NoError(t, err)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
-	signedDoc, err := s.Sign(context, []byte(validDoc), jsonldtest.WithDocumentLoader(t))
+	signedDoc, err := s.Sign(context, []byte(validDoc), ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotNil(t, signedDoc)
 
 	context.SignatureRepresentation = proof.SignatureJWS
-	signedJWSDoc, err := s.Sign(context, []byte(validDoc), jsonldtest.WithDocumentLoader(t))
+	signedJWSDoc, err := s.Sign(context, []byte(validDoc), ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotNil(t, signedJWSDoc)
 
@@ -75,7 +75,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 
 	// test invalid json
-	signedDoc, err := s.Sign(context, []byte("not json"), jsonldtest.WithDocumentLoader(t))
+	signedDoc, err := s.Sign(context, []byte("not json"), ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
@@ -83,7 +83,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	// test for signature suite not supported
 	context = getSignatureContext()
 	context.SignatureType = "non-existent"
-	signedDoc, err = s.Sign(context, []byte(validDoc), jsonldtest.WithDocumentLoader(t))
+	signedDoc, err = s.Sign(context, []byte(validDoc), ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type non-existent not supported")
@@ -99,7 +99,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	context = getSignatureContext()
-	signedDoc, err = s.Sign(context, invalidDocBytes, jsonldtest.WithDocumentLoader(t))
+	signedDoc, err = s.Sign(context, invalidDocBytes, ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "invalid context")
@@ -108,7 +108,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	context = getSignatureContext()
 	s = New(ed25519signature2018.New(
 		suite.WithSigner(signature.GetEd25519Signer([]byte("invalid"), nil))))
-	signedDoc, err = s.Sign(context, []byte(validDoc), jsonldtest.WithDocumentLoader(t))
+	signedDoc, err = s.Sign(context, []byte(validDoc), ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "bad private key length")
@@ -119,7 +119,7 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 
 	context := getSignatureContext()
 	context.SignatureType = ""
-	signedDoc, err := s.Sign(context, []byte(validDoc), jsonldtest.WithDocumentLoader(t))
+	signedDoc, err := s.Sign(context, []byte(validDoc), ldtestutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type is missing")

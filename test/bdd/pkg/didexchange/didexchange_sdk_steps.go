@@ -47,14 +47,15 @@ func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) err
 		return fmt.Errorf("no connection for %s", router)
 	}
 
-	return d.createInvitation(inviterAgentID, connection)
+	return d.CreateInvitation(inviterAgentID, connection)
 }
 
 func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
-	return d.createInvitation(inviterAgentID, "")
+	return d.CreateInvitation(inviterAgentID, "")
 }
 
-func (d *SDKSteps) createInvitation(inviterAgentID, connection string) error {
+// CreateInvitation creates an invitation.
+func (d *SDKSteps) CreateInvitation(inviterAgentID, connection string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID,
 		didexchange.WithRouterConnectionID(connection))
 	if err != nil {
@@ -458,7 +459,7 @@ func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, err
 	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = vdr.Resolve(did)
-		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
+		if err == nil || !errors.Is(err, vdrapi.ErrNotFound) {
 			return doc.DIDDocument, err
 		}
 

@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 //nolint:gochecknoglobals
@@ -96,7 +96,7 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		loader := createTestDocumentLoader(t, jld.ContextDocument{
+		loader := createTestDocumentLoader(t, ldcontext.Document{
 			URL:     "http://127.0.0.1?context=3",
 			Content: context3,
 		})
@@ -131,7 +131,7 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-		loader := createTestDocumentLoader(t, jld.ContextDocument{
+		loader := createTestDocumentLoader(t, ldcontext.Document{
 			URL:     "http://127.0.0.1?context=4",
 			Content: context4,
 		})
@@ -166,7 +166,7 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 `
 	vc := fmt.Sprintf(vcJSONTemplate, contextURL)
 
-	loader := createTestDocumentLoader(t, jld.ContextDocument{
+	loader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     "http://127.0.0.1?context=5",
 		Content: context5,
 	})
@@ -181,7 +181,7 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 	contextURL := "http://127.0.0.1?context=6"
 
-	loader := createTestDocumentLoader(t, jld.ContextDocument{
+	loader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     contextURL,
 		Content: context6,
 	})
@@ -349,7 +349,7 @@ func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 func defaultOpts(t *testing.T) *jsonldCredentialOpts {
 	t.Helper()
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
 	return &jsonldCredentialOpts{jsonldDocumentLoader: loader}
@@ -433,7 +433,7 @@ func Benchmark_compactJSONLD(b *testing.B) {
 			b.ResetTimer()
 
 			for pb.Next() {
-				loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+				loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
 					URL:     "http://127.0.0.1?context=3",
 					Content: context3,
 				})
@@ -479,7 +479,7 @@ func Benchmark_compactJSONLD(b *testing.B) {
 			b.ResetTimer()
 
 			for pb.Next() {
-				loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+				loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
 					URL:     "http://127.0.0.1?context=4",
 					Content: context4,
 				})

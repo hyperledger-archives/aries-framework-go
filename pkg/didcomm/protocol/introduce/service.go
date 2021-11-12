@@ -104,10 +104,11 @@ type metaData struct {
 type Service struct {
 	service.Action
 	service.Message
-	store     storage.Store
-	callbacks chan *metaData
-	oobEvent  chan service.StateMsg
-	messenger service.Messenger
+	store       storage.Store
+	callbacks   chan *metaData
+	oobEvent    chan service.StateMsg
+	messenger   service.Messenger
+	initialized bool
 }
 
 // Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context().
@@ -119,42 +120,63 @@ type Provider interface {
 
 // New returns introduce service.
 func New(p Provider) (*Service, error) {
-	store, err := p.StorageProvider().OpenStore(Introduce)
+	svc := Service{}
+
+	err := svc.Initialize(p)
 	if err != nil {
 		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(prov interface{}) error {
+	if s.initialized {
+		return nil
+	}
+
+	p, ok := prov.(Provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", Provider(nil), prov)
+	}
+
+	store, err := p.StorageProvider().OpenStore(Introduce)
+	if err != nil {
+		return err
 	}
 
 	err = p.StorageProvider().SetStoreConfig(Introduce,
 		storage.StoreConfiguration{TagNames: []string{transitionalPayloadKey, participantsKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set store configuration: %w", err)
+		return fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	oobSvc, err := p.Service(outofband.Name)
 	if err != nil {
-		return nil, fmt.Errorf("load the %s service: %w", outofband.Name, err)
+		return fmt.Errorf("load the %s service: %w", outofband.Name, err)
 	}
 
 	oobService, ok := oobSvc.(service.Event)
 	if !ok {
-		return nil, fmt.Errorf("cast service to service.Event")
+		return fmt.Errorf("cast service to service.Event")
 	}
 
-	svc := &Service{
-		messenger: p.Messenger(),
-		store:     store,
-		callbacks: make(chan *metaData),
-		oobEvent:  make(chan service.StateMsg),
-	}
+	s.messenger = p.Messenger()
+	s.store = store
+	s.callbacks = make(chan *metaData)
+	s.oobEvent = make(chan service.StateMsg)
 
-	if err = oobService.RegisterMsgEvent(svc.oobEvent); err != nil {
-		return nil, fmt.Errorf("oob register msg event: %w", err)
+	if err = oobService.RegisterMsgEvent(s.oobEvent); err != nil {
+		return fmt.Errorf("oob register msg event: %w", err)
 	}
 
 	// start the listener
-	go svc.startInternalListener()
+	go s.startInternalListener()
 
-	return svc, nil
+	s.initialized = true
+
+	return nil
 }
 
 // startInternalListener listens to messages in gochannel for callback messages from clients.

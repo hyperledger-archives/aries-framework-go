@@ -46,8 +46,8 @@ func (s *Signature) ToBytes() ([]byte, error) {
 	bytes := make([]byte, bls12381SignatureLen)
 
 	copy(bytes, g1.ToCompressed(s.A))
-	copy(bytes[g1CompressedSize:g1CompressedSize+frCompressedSize], s.E.RedToBytes())
-	copy(bytes[g1CompressedSize+frCompressedSize:], s.S.RedToBytes())
+	copy(bytes[g1CompressedSize:g1CompressedSize+frCompressedSize], s.E.ToBytes())
+	copy(bytes[g1CompressedSize+frCompressedSize:], s.S.ToBytes())
 
 	return bytes, nil
 }

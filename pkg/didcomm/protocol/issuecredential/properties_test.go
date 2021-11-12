@@ -14,7 +14,7 @@ import (
 )
 
 func TestEventProps_All(t *testing.T) {
-	md := &metaData{}
+	md := &MetaData{}
 	md.MyDID = "MyDID"
 	md.TheirDID = "TheirDID"
 	md.PIID = "PIID"

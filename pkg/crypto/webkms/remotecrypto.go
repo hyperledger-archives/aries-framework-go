@@ -183,8 +183,7 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 
 	resp, err := r.httpClient.Do(httpReq)
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
+	logger.Debugf("  HTTP %s %s call duration: %s", method, destination, time.Since(start))
 
 	return resp, err
 }
@@ -239,8 +238,7 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 		return nil, nil, err
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall Encrypt duration: %s", time.Since(startEncrypt))
+	logger.Debugf("overall Encrypt duration: %s", time.Since(startEncrypt))
 
 	return keyBytes, nonceBytes, nil
 }
@@ -290,8 +288,7 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 		return nil, err
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall Decrypt duration: %s", time.Since(startDecrypt))
+	logger.Debugf("overall Decrypt duration: %s", time.Since(startDecrypt))
 
 	return plaintTextBytes, nil
 }
@@ -338,8 +335,7 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall Sign duration: %s", time.Since(startSign))
+	logger.Debugf("overall Sign duration: %s", time.Since(startSign))
 
 	return keyBytes, nil
 }
@@ -374,8 +370,7 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting Verify signature returned http error: %s", resp.Status)
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall Verify duration: %s", time.Since(startVerify))
+	logger.Debugf("overall Verify duration: %s", time.Since(startVerify))
 
 	return nil
 }
@@ -439,8 +434,7 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 		}
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall ComputeMAC duration: %s", time.Since(startComputeMAC))
+	logger.Debugf("overall ComputeMAC duration: %s", time.Since(startComputeMAC))
 
 	return macBytes, nil
 }
@@ -473,8 +467,7 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 		return fmt.Errorf("posting VerifyMAC request returned http error: %s", resp.Status)
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall VerifyMAC duration: %s", time.Since(startVerifyMAC))
+	logger.Debugf("overall VerifyMAC duration: %s", time.Since(startVerifyMAC))
 
 	return nil
 }
@@ -538,8 +531,7 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 
 	rwk, err := r.buildWrappedKeyResponse(respBody, destination)
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall WrapKey duration: %s", time.Since(startWrapKey))
+	logger.Debugf("overall WrapKey duration: %s", time.Since(startWrapKey))
 
 	return rwk, err
 }
@@ -621,8 +613,7 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 
 	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Key)
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall UnwrapKey duration: %s", time.Since(startUnwrapKey))
+	logger.Debugf("overall UnwrapKey duration: %s", time.Since(startUnwrapKey))
 
 	return keyBytes, err
 }
@@ -674,8 +665,7 @@ func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([
 		return nil, err
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall BBS+ Sign duration: %s", time.Since(startSign))
+	logger.Debugf("overall BBS+ Sign duration: %s", time.Since(startSign))
 
 	return keyBytes, nil
 }
@@ -714,8 +704,7 @@ func (r *RemoteCrypto) VerifyMulti(messages [][]byte, signature []byte, signerKe
 		return fmt.Errorf("posting BBS+ Verify signature returned http error: %s", resp.Status)
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall BBS+ Verify duration: %s", time.Since(startVerify))
+	logger.Debugf("overall BBS+ Verify duration: %s", time.Since(startVerify))
 
 	return nil
 }
@@ -756,8 +745,7 @@ func (r *RemoteCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byt
 		return fmt.Errorf("posting BBS+ Verify proof returned http error: %s", resp.Status)
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall BBS+ Verify proof duration: %s", time.Since(startVerifyProof))
+	logger.Debugf("overall BBS+ Verify proof duration: %s", time.Since(startVerifyProof))
 
 	return nil
 }
@@ -814,8 +802,7 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 		return nil, err
 	}
 
-	// TODO switch to Debug once perf testing with remote server is done.
-	logger.Infof("overall BBS+ Derive proof duration: %s", time.Since(startDeriveProof))
+	logger.Debugf("overall BBS+ Derive proof duration: %s", time.Since(startDeriveProof))
 
 	return keyBytes, nil
 }

@@ -56,12 +56,6 @@
           "files": ["CONTRIBUTING.md"]
         }
       ],
-      "changelog-file-exists:file-existence": [
-        "error",
-        {
-          "files": ["CHANGELOG.md"]
-        }
-      ],
       "integrates-with-ci:file-existence": [
         "error",
         {
@@ -77,6 +71,12 @@
           ]
         }
       ],
+      "changelog-file-exists:file-existence": [
+        "error",
+        {
+          "files": ["CHANGELOG.md"]
+        }
+      ],
       "notice-file-exists:file-existence": [
         "warning",
         {
@@ -86,12 +86,20 @@
       "source-license-headers-exist:file-starts-with": [
         "error",
         {
-          "files": ["**/*.js", "!**/node_modules/**", "**/*.go", "!**/vendor/**", "!**/*.pb.go","!**/*.gen.go",
-            "!**/wasm_exec.js",
-            "!pkg/crypto/primitive/bbs12381g2pub/internal/kilic/**/*.go"
+          "files": [
+            "**/*.js",
+            "**/*.ts",
+            "**/*.go",
+            "**/*.java",
+            "!**/node_modules/**",
+            "!**/vendor/**",
+            "!**/*.pb.go",
+            "!**/*.gen.go",
+            "!**/mocks/*.go",
+            "!**/third_party/**"
           ],
           "lineCount": 7,
-          "patterns": ["Copyright", "License", "Apache"],
+          "patterns": ["Copyright", "License"],
           "flags": "i"
         }
       ],

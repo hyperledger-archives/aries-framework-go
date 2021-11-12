@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -98,6 +100,8 @@ type provider interface {
 	KMS() kms.KeyManager
 	VDRegistry() vdr.Registry
 	Service(id string) (interface{}, error)
+	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // ClientOption configures the route client.
@@ -125,6 +129,7 @@ type callback struct {
 type connections interface {
 	GetConnectionIDByDIDs(string, string) (string, error)
 	GetConnectionRecord(string) (*connection.Record, error)
+	GetConnectionRecordByDIDs(myDID string, theirDID string) (*connection.Record, error)
 }
 
 // Service for Route Coordination protocol.
@@ -142,53 +147,79 @@ type Service struct {
 	keylistUpdateMapLock sync.RWMutex
 	callbacks            chan *callback
 	messagePickupSvc     messagepickup.ProtocolService
+	keyAgreementType     kms.KeyType
+	mediaTypeProfiles    []string
+	initialized          bool
 }
 
 // New return route coordination service.
 func New(prov provider) (*Service, error) {
+	svc := Service{}
+
+	err := svc.Initialize(prov)
+	if err != nil {
+		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(p interface{}) error {
+	if s.initialized {
+		return nil
+	}
+
+	prov, ok := p.(provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", provider(nil), p)
+	}
+
 	store, err := prov.StorageProvider().OpenStore(Coordination)
 	if err != nil {
-		return nil, fmt.Errorf("open route coordination store : %w", err)
+		return fmt.Errorf("open route coordination store : %w", err)
 	}
 
 	err = prov.StorageProvider().SetStoreConfig(Coordination,
 		storage.StoreConfiguration{TagNames: []string{routeConnIDDataKey}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set store configuration: %w", err)
+		return fmt.Errorf("failed to set store configuration: %w", err)
 	}
 
 	connectionLookup, err := connection.NewLookup(prov)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	mp, err := prov.Service(messagepickup.MessagePickup)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	messagePickupSvc, ok := mp.(messagepickup.ProtocolService)
 	if !ok {
-		return nil, errors.New("cast service to message pickup service failed")
+		return errors.New("cast service to message pickup service failed")
 	}
 
-	s := &Service{
-		routeStore:       store,
-		outbound:         prov.OutboundDispatcher(),
-		endpoint:         prov.RouterEndpoint(),
-		kms:              prov.KMS(),
-		vdRegistry:       prov.VDRegistry(),
-		connectionLookup: connectionLookup,
-		keylistUpdateMap: make(map[string]chan *KeylistUpdateResponse),
-		callbacks:        make(chan *callback),
-		messagePickupSvc: messagePickupSvc,
-	}
+	s.routeStore = store
+	s.outbound = prov.OutboundDispatcher()
+	s.endpoint = prov.RouterEndpoint()
+	s.kms = prov.KMS()
+	s.vdRegistry = prov.VDRegistry()
+	s.connectionLookup = connectionLookup
+	s.keylistUpdateMap = make(map[string]chan *KeylistUpdateResponse)
+	s.callbacks = make(chan *callback)
+	s.messagePickupSvc = messagePickupSvc
+	s.keyAgreementType = prov.KeyAgreementType()
+	s.mediaTypeProfiles = prov.MediaTypeProfiles()
 
 	logger.Debugf("default endpoint: %s", s.endpoint)
 
 	go s.listenForCallbacks()
 
-	return s, nil
+	s.initialized = true
+
+	return nil
 }
 
 func (s *Service) listenForCallbacks() {
@@ -281,14 +312,14 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 			err = s.handleKeylistUpdate(msg, ctx.MyDID(), ctx.TheirDID())
 		case KeylistUpdateResponseMsgType:
 			err = s.handleKeylistUpdateResponse(msg)
-		case service.ForwardMsgType:
+		case service.ForwardMsgType, service.ForwardMsgTypeV2:
 			err = s.handleForward(msg)
 		}
 
 		connectionIDLog := ""
 
 		// mediator forward messages don't have connection established with the sender; hence skip the lookup
-		if msg.Type() != service.ForwardMsgType {
+		if msg.Type() != service.ForwardMsgType && msg.Type() != service.ForwardMsgTypeV2 {
 			connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(ctx.MyDID(), ctx.TheirDID())
 			if connErr != nil {
 				logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
@@ -332,7 +363,8 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, service.ForwardMsgType:
+	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, service.ForwardMsgType,
+		service.ForwardMsgTypeV2:
 		return true
 	}
 
@@ -361,6 +393,19 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.options,
 		s.endpoint,
 		func() (string, error) {
+			for _, mtp := range s.mediaTypeProfiles {
+				switch mtp {
+				case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+					_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
+					if e != nil {
+						return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
+							"and export %v key: %w", s.keyAgreementType, e)
+					}
+
+					return kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
+				}
+			}
+
 			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 			if er != nil {
 				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
@@ -424,7 +469,9 @@ func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID st
 			val := theirDID
 			result := success
 
-			err = s.routeStore.Put(dataKey(v.RecipientKey), []byte(val))
+			toKey := dataKey(v.RecipientKey)
+
+			err = s.routeStore.Put(toKey, []byte(val))
 			if err != nil {
 				logger.Errorf("failed to add the route key to store : %s", err)
 
@@ -489,8 +536,11 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 	}
 
 	// TODO Open question - https://github.com/hyperledger/aries-framework-go/issues/965 Mismatch between Route
-	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key.
-	theirDID, err := s.routeStore.Get(dataKey(forward.To))
+	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key (DIDComm V2 uses
+	//  keyAgreement.ID, double check if this to do comment is still needed).
+	toKey := dataKey(forward.To)
+
+	theirDID, err := s.routeStore.Get(toKey)
 	if err != nil {
 		return fmt.Errorf("route key fetch : %w", err)
 	}
@@ -554,7 +604,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	// waits until the mediate-grant message is received or timeout was exceeded
 	grant, err := s.getGrant(req.ID, timeout)
 	if err != nil {
-		return fmt.Errorf("get grant: %w", err)
+		return fmt.Errorf("get grant for request ID '%s': %w", req.ID, err)
 	}
 
 	err = s.saveRouterConfig(record.ConnectionID, &config{
@@ -815,14 +865,10 @@ func (s *Service) handleOutboundRequest(msg service.DIDCommMsg, myDID, theirDID 
 		return fmt.Errorf("failed to decode request : %w", err)
 	}
 
-	connID, err := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+	record, err := s.connectionLookup.GetConnectionRecordByDIDs(myDID, theirDID)
 	if err != nil {
-		return fmt.Errorf("failed to lookup connection ID for myDID=%s theirDID=%s : %w", myDID, theirDID, err)
-	}
-
-	record, err := s.connectionLookup.GetConnectionRecord(connID)
-	if err != nil {
-		return fmt.Errorf("failed to lookup connection record with id=%s : %w", connID, err)
+		return fmt.Errorf("failed to lookup connection record with myDID=%s theirDID=%s : %w",
+			myDID, theirDID, err)
 	}
 
 	return s.doRegistration(record, req, updateTimeout)

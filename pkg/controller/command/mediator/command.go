@@ -88,6 +88,9 @@ type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
 	ServiceEndpoint() string
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // Command contains command operations provided by route controller.

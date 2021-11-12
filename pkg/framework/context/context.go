@@ -4,36 +4,40 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package context creates a framework Provider context to add optional (non default) framework services and provides
+// simple accessor methods to those same services.
 package context
 
 import (
-	"errors"
 	"fmt"
+	"time"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/piprate/json-gold/ld"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-// package context creates a framework Provider context to add optional (non default) framework services and provides
-// simple accessor methods to those same services.
+const (
+	defaultGetDIDsMaxRetries = 3
+)
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	services                   []dispatcher.ProtocolService
+	servicesMsgTypeTargets     []dispatcher.MessageTypeTarget
 	msgSvcProvider             api.MessageServiceProvider
 	storeProvider              storage.Provider
 	protocolStateStoreProvider storage.Provider
@@ -51,11 +55,24 @@ type Provider struct {
 	vdr                        vdrapi.Registry
 	verifiableStore            verifiable.Store
 	didConnectionStore         did.ConnectionStore
-	jsonldDocumentLoader       ld.DocumentLoader
+	contextStore               ld.ContextStore
+	remoteProviderStore        ld.RemoteProviderStore
+	documentLoader             jsonld.DocumentLoader
 	transportReturnRoute       string
 	frameworkID                string
 	keyType                    kms.KeyType
 	keyAgreementType           kms.KeyType
+	mediaTypeProfiles          []string
+	getDIDsMaxRetries          uint64
+	getDIDsBackOffDuration     time.Duration
+	inboundEnvelopeHandler     InboundEnvelopeHandler
+}
+
+// InboundEnvelopeHandler handles inbound envelopes, processing then dispatching to a protocol service based on the
+// message type.
+type InboundEnvelopeHandler interface {
+	// HandleInboundEnvelope handles an inbound envelope.
+	HandleInboundEnvelope(envelope *transport.Envelope) error
 }
 
 type inboundHandler struct {
@@ -74,7 +91,10 @@ func (in *inboundHandler) HandleInbound(msg service.DIDCommMsg, ctx service.DIDC
 
 // New instantiates a new context provider.
 func New(opts ...ProviderOption) (*Provider, error) {
-	ctxProvider := Provider{}
+	ctxProvider := Provider{
+		getDIDsMaxRetries:      defaultGetDIDsMaxRetries,
+		getDIDsBackOffDuration: time.Second,
+	}
 
 	for _, opt := range opts {
 		err := opt(&ctxProvider)
@@ -105,6 +125,23 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	}
 
 	return nil, api.ErrSvcNotFound
+}
+
+// AllServices returns a copy of the Provider's list of ProtocolServices.
+func (p *Provider) AllServices() []dispatcher.ProtocolService {
+	ret := make([]dispatcher.ProtocolService, len(p.services))
+
+	for i, s := range p.services {
+		ret[i] = s
+	}
+
+	return ret
+}
+
+// ServiceMsgTypeTargets returns list of service message types of context protocol services based mapping for
+// the given targets.
+func (p *Provider) ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget {
+	return p.servicesMsgTypeTargets
 }
 
 // KMS returns a Key Management Service.
@@ -156,86 +193,18 @@ func (p *Provider) RouterEndpoint() string {
 	return p.routerEndpoint
 }
 
-func (p *Provider) tryToHandle(
-	svc service.InboundHandler, msg service.DIDCommMsgMap, ctx service.DIDCommContext) error {
-	if err := p.messenger.HandleInbound(msg, ctx); err != nil {
-		return fmt.Errorf("messenger HandleInbound: %w", err)
-	}
-
-	_, err := svc.HandleInbound(msg, ctx)
-
-	return err
+// MessageServiceProvider returns a provider of message services.
+func (p *Provider) MessageServiceProvider() api.MessageServiceProvider {
+	return p.msgSvcProvider
 }
 
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(envelope *transport.Envelope) error {
-		msg, err := service.ParseDIDCommMsgMap(envelope.Message)
-		if err != nil {
-			return err
-		}
-
-		// find the service which accepts the message type
-		for _, svc := range p.services {
-			if svc.Accept(msg.Type()) {
-				var myDID, theirDID string
-
-				switch svc.Name() {
-				// perf: DID exchange doesn't require myDID and theirDID
-				case didexchange.DIDExchange:
-				default:
-					myDID, theirDID, err = p.getDIDs(envelope)
-					if err != nil {
-						return fmt.Errorf("inbound message handler: %w", err)
-					}
-				}
-
-				_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
-
-				return err
-			}
-		}
-
-		// in case of no services are registered for given message type,
-		// find generic inbound services registered for given message header
-		for _, svc := range p.msgSvcProvider.Services() {
-			h := struct {
-				Purpose []string `json:"~purpose"`
-			}{}
-			err = msg.Decode(&h)
-
-			if err != nil {
-				return err
-			}
-
-			if svc.Accept(msg.Type(), h.Purpose) {
-				myDID, theirDID, err := p.getDIDs(envelope)
-				if err != nil {
-					return fmt.Errorf("inbound message handler: %w", err)
-				}
-
-				return p.tryToHandle(svc, msg, service.NewDIDCommContext(myDID, theirDID, nil))
-			}
-		}
-
-		return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
-	}
-}
-
-func (p *Provider) getDIDs(envelope *transport.Envelope) (string, string, error) {
-	myDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return "", "", fmt.Errorf("failed to get my did: %w", err)
+	if p.inboundEnvelopeHandler == nil {
+		p.inboundEnvelopeHandler = inbound.NewInboundMessageHandler(p)
 	}
 
-	theirDID, err := p.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-	if errors.Is(err, did.ErrNotFound) {
-	} else if err != nil {
-		return "", "", fmt.Errorf("failed to get their did: %w", err)
-	}
-
-	return myDID, theirDID, nil
+	return p.inboundEnvelopeHandler.HandleInboundEnvelope
 }
 
 // InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.
@@ -283,9 +252,19 @@ func (p *Provider) DIDConnectionStore() did.ConnectionStore {
 	return p.didConnectionStore
 }
 
+// JSONLDContextStore returns a JSON-LD context store.
+func (p *Provider) JSONLDContextStore() ld.ContextStore {
+	return p.contextStore
+}
+
+// JSONLDRemoteProviderStore returns a remote JSON-LD context provider store.
+func (p *Provider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
+	return p.remoteProviderStore
+}
+
 // JSONLDDocumentLoader returns a JSON-LD document loader.
-func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
-	return p.jsonldDocumentLoader
+func (p *Provider) JSONLDDocumentLoader() jsonld.DocumentLoader {
+	return p.documentLoader
 }
 
 // KeyType returns the default Key type (signing/authentication).
@@ -298,6 +277,26 @@ func (p *Provider) KeyAgreementType() kms.KeyType {
 	return p.keyAgreementType
 }
 
+// MediaTypeProfiles returns the default media types profile.
+func (p *Provider) MediaTypeProfiles() []string {
+	return p.mediaTypeProfiles
+}
+
+// GetDIDsMaxRetries returns get DIDs max retries.
+func (p *Provider) GetDIDsMaxRetries() uint64 {
+	return p.getDIDsMaxRetries
+}
+
+// GetDIDsBackOffDuration returns get DIDs backoff duration.
+func (p *Provider) GetDIDsBackOffDuration() time.Duration {
+	return p.getDIDsBackOffDuration
+}
+
+// InboundMessenger returns inbound messenger.
+func (p *Provider) InboundMessenger() service.InboundMessenger {
+	return p.messenger
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -305,6 +304,22 @@ type ProviderOption func(opts *Provider) error
 func WithOutboundTransports(transports ...transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundTransports = transports
+		return nil
+	}
+}
+
+// WithGetDIDsMaxRetries sets max retries.
+func WithGetDIDsMaxRetries(retries uint64) ProviderOption {
+	return func(opts *Provider) error {
+		opts.getDIDsMaxRetries = retries
+		return nil
+	}
+}
+
+// WithGetDIDsBackOffDuration sets backoff duration.
+func WithGetDIDsBackOffDuration(duration time.Duration) ProviderOption {
+	return func(opts *Provider) error {
+		opts.getDIDsBackOffDuration = duration
 		return nil
 	}
 }
@@ -337,6 +352,14 @@ func WithTransportReturnRoute(transportReturnRoute string) ProviderOption {
 func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
+		return nil
+	}
+}
+
+// WithServiceMsgTypeTargets injects service msg type to target mappings in the context.
+func WithServiceMsgTypeTargets(msgTypeTargets ...dispatcher.MessageTypeTarget) ProviderOption {
+	return func(opts *Provider) error {
+		opts.servicesMsgTypeTargets = msgTypeTargets
 		return nil
 	}
 }
@@ -459,10 +482,26 @@ func WithDIDConnectionStore(store did.ConnectionStore) ProviderOption {
 	}
 }
 
-// WithJSONLDDocumentLoader injects a JSON-LD document loader into the context.
-func WithJSONLDDocumentLoader(loader ld.DocumentLoader) ProviderOption {
+// WithJSONLDContextStore injects a JSON-LD context store into the context.
+func WithJSONLDContextStore(store ld.ContextStore) ProviderOption {
 	return func(opts *Provider) error {
-		opts.jsonldDocumentLoader = loader
+		opts.contextStore = store
+		return nil
+	}
+}
+
+// WithJSONLDRemoteProviderStore injects a JSON-LD remote provider store into the context.
+func WithJSONLDRemoteProviderStore(store ld.RemoteProviderStore) ProviderOption {
+	return func(opts *Provider) error {
+		opts.remoteProviderStore = store
+		return nil
+	}
+}
+
+// WithJSONLDDocumentLoader injects a JSON-LD document loader into the context.
+func WithJSONLDDocumentLoader(loader jsonld.DocumentLoader) ProviderOption {
+	return func(opts *Provider) error {
+		opts.documentLoader = loader
 		return nil
 	}
 }
@@ -491,5 +530,23 @@ func WithKeyAgreementType(keyAgreementType kms.KeyType) ProviderOption {
 		default:
 			return fmt.Errorf("invalid KeyAgreement key type: %s", keyAgreementType)
 		}
+	}
+}
+
+// WithMediaTypeProfiles injects a media type profile into the context.
+func WithMediaTypeProfiles(mediaTypeProfiles []string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.mediaTypeProfiles = make([]string, len(mediaTypeProfiles))
+		copy(opts.mediaTypeProfiles, mediaTypeProfiles)
+
+		return nil
+	}
+}
+
+// WithInboundEnvelopeHandler injects a handler for inbound message envelopes.
+func WithInboundEnvelopeHandler(handler InboundEnvelopeHandler) ProviderOption {
+	return func(opts *Provider) error {
+		opts.inboundEnvelopeHandler = handler
+		return nil
 	}
 }

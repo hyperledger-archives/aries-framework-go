@@ -1,0 +1,110 @@
+{
+  "type":"https://didcomm.org/present-proof/3.0/presentation",
+  "attachments":[
+    {
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "media_type":"application/ld+json",
+      "data":{
+        "json":{
+          "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3id.org/security/bbs/v1"
+          ],
+          "credentialSchema": [],
+          "credentialSubject": {
+            "degree": {
+              "type": "BachelorDegree",
+              "university": "MIT"
+            },
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+          },
+          "expirationDate": "2020-01-01T19:23:24Z",
+          "id": "http://example.edu/credentials/1872",
+          "issuanceDate": "2010-01-01T19:23:24Z",
+          "issuer": {
+            "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+            "name": "Example University"
+          },
+          "referenceNumber": 83294847,
+          "type": [
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+          ]
+        }
+      }
+    },
+    {
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "mime-type":"application/ld+json",
+      "data":{
+        "json":{
+          "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3id.org/security/bbs/v1"
+          ],
+          "credentialSchema": [],
+          "credentialSubject": {
+            "degree": {
+              "type": "BachelorDegree",
+              "university": "MIT"
+            },
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+          },
+          "expirationDate": "2020-01-01T19:23:24Z",
+          "id": "http://example.edu/credentials/1872",
+          "issuanceDate": "2010-01-01T19:23:24Z",
+          "issuer": {
+            "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+            "name": "Example University"
+          },
+          "referenceNumber": 83294847,
+          "type": [
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+          ]
+        }
+      }
+    },
+    {
+      "lastmod_time":"0001-01-01T00:00:00Z",
+      "mime-type":"application/ld+json",
+      "data":{
+        "json":{
+          "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3id.org/security/bbs/v1"
+          ],
+          "credentialSchema": [],
+          "credentialSubject": {
+            "degree": {
+              "type": "BachelorDegree",
+              "university": "MIT"
+            },
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+          },
+          "expirationDate": "2020-01-01T19:23:24Z",
+          "id": "http://example.edu/credentials/1872",
+          "issuanceDate": "2010-01-01T19:23:24Z",
+          "issuer": {
+            "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+            "name": "Example University"
+          },
+          "referenceNumber": 83294847,
+          "type": [
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+          ]
+        }
+      }
+    }
+  ]
+}

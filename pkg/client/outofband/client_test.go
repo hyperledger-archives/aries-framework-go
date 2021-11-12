@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -82,13 +84,30 @@ func TestCreateInvitation(t *testing.T) {
 		}
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		c.didDocSvcFunc = func(_ string) (*did.Service, error) {
+		c.didDocSvcFunc = func(_ string, _ []string) (*did.Service, error) {
 			return expected, nil
 		}
 		inv, err := c.CreateInvitation(nil)
 		require.NoError(t, err)
 		require.Len(t, inv.Services, 1)
 		require.Equal(t, expected, inv.Services[0])
+	})
+	t.Run("includes didDocSvcFunc returning error", func(t *testing.T) {
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+		c.didDocSvcFunc = func(_ string, _ []string) (*did.Service, error) {
+			return nil, fmt.Errorf("error didDocServiceFunction")
+		}
+		_, err = c.CreateInvitation(nil)
+		require.EqualError(t, err, "failed to create a new inlined did doc service block : error didDocServiceFunction")
+	})
+	t.Run("create invitation with invalid service", func(t *testing.T) {
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+
+		_, err = c.CreateInvitation([]interface{}{"invalid"})
+		require.EqualError(t, err, "invalid service: invalid DID [invalid]: invalid did: invalid. Make sure it "+
+			"conforms to the DID syntax: https://w3c.github.io/did-core/#did-syntax")
 	})
 	t.Run("WithLabel", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -104,10 +123,18 @@ func TestCreateInvitation(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 
-		c.didDocSvcFunc = func(conn string) (*did.Service, error) {
+		c.didDocSvcFunc = func(conn string, accept []string) (*did.Service, error) {
 			require.Equal(t, expectedConn, conn)
 
-			return &did.Service{ServiceEndpoint: expectedConn}, nil
+			var serviceType string
+
+			if isDIDCommV2(accept) {
+				serviceType = vdr.DIDCommV2ServiceType
+			} else {
+				serviceType = vdr.DIDCommServiceType
+			}
+
+			return &did.Service{ServiceEndpoint: expectedConn, Type: serviceType}, nil
 		}
 
 		inv, err := c.CreateInvitation(nil, WithRouterConnections(expectedConn))

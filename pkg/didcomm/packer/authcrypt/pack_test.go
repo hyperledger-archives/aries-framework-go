@@ -29,18 +29,19 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	afgjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 	spilog "github.com/hyperledger/aries-framework-go/spi/log"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestAuthcryptPackerSuccess(t *testing.T) {
@@ -53,27 +54,27 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 		cty     string
 	}{
 		{
-			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP256ECDHKW and AES128CBC+HMAC-SHA256",
 			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A128CBCHS256,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP384ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP384ECDHKW and AES192CBC+HMAC-SHA384",
 			keyType: kms.NISTP384ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A192CBCHS384,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP521ECDHKW and AES256-GCM",
+			name:    "authcrypt using NISTP521ECDHKW and AES256CBC+HMAC-SHA512",
 			keyType: kms.NISTP521ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A256CBCHS512,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using X25519ECDHKWType and AES256-GCM",
+			name:    "authcrypt using X25519ECDHKWType and AES128CBC+HMAC-SHA256",
 			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A128CBCHS256ALG,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
@@ -101,9 +102,9 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using NISTP256ECDHKW and AES256-GCM without cty",
+			name:    "authcrypt using NISTP256ECDHKW and AES192CBC+HMAC-SHA384",
 			keyType: kms.NISTP256ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A192CBCHS384,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
@@ -119,9 +120,9 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 		{
-			name:    "authcrypt using X25519ECDHKW and AES256-GCM without cty",
+			name:    "authcrypt using X25519ECDHKW and AES256-CBC+SHA512",
 			keyType: kms.X25519ECDHKWType,
-			encAlg:  afgjose.A256GCM,
+			encAlg:  afgjose.A256CBCHS512,
 			cty:     transport.MediaTypeV1PlaintextPayload,
 		},
 	}
@@ -131,31 +132,22 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(fmt.Sprintf("running %s", tc.name), func(t *testing.T) {
-			t.Logf("authcrypt packing - creating sender %s key...", tc.keyType)
-			skid, senderKey, _ := createAndMarshalKeyByKeyType(t, k, tc.keyType)
+			t.Logf("authcrypt packing - creating kid %s key...", tc.keyType)
+			skid, sDIDKey, mSenderPubKey, _ := createAndMarshalKeyByKeyType(t, k, tc.keyType)
 
 			t.Logf("authcrypt packing - creating recipient %s keys...", tc.keyType)
-			_, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
-
-			thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
-			mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-				Store: thirdPartyKeyStore,
-			}}
+			_, recDIDKeys, recipientsKeys, keyHandles := createRecipientsByKeyType(t, k, 3, tc.keyType)
 
 			log.SetLevel("aries-framework/pkg/didcomm/packer/authcrypt", spilog.DEBUG)
 
 			cryptoSvc, err := tinkcrypto.New()
 			require.NoError(t, err)
 
-			authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), tc.encAlg)
+			authPacker, err := New(newMockProvider(k, cryptoSvc), tc.encAlg)
 			require.NoError(t, err)
 
-			// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
-			fromWrappedKID := prefix.StorageKIDPrefix + skid
-			thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
-
 			origMsg := []byte("secret message")
-			ct, err := authPacker.Pack(tc.cty, origMsg, []byte(skid), recipientsKeys)
+			ct, err := authPacker.Pack(tc.cty, origMsg, []byte(skid+"."+sDIDKey), recipientsKeys)
 			require.NoError(t, err)
 
 			jweStr, err := prettyPrint(ct)
@@ -165,10 +157,20 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			msg, err := authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			recKey, err := exportPubKeyBytes(keyHandles[0])
+			recKey, err := exportPubKeyBytes(keyHandles[0], recDIDKeys[0])
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			senderPubKey := &cryptoapi.PublicKey{}
+
+			err = json.Unmarshal(mSenderPubKey, senderPubKey)
+			require.NoError(t, err)
+
+			senderPubKey.KID = sDIDKey // match packer value.
+
+			mSenderPubKey, err = json.Marshal(senderPubKey)
+			require.NoError(t, err)
+
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, FromKey: mSenderPubKey, ToKey: recKey}, msg)
 
 			jweJSON, err := afgjose.Deserialize(string(ct))
 			require.NoError(t, err)
@@ -176,7 +178,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 
 			// try with only 1 recipient to force compact JWE serialization
-			ct, err = authPacker.Pack(tc.cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+			ct, err = authPacker.Pack(tc.cty, origMsg, []byte(skid+"."+sDIDKey), [][]byte{recipientsKeys[0]})
 			require.NoError(t, err)
 
 			t.Logf("* authcrypt JWE Compact serialization (using first recipient only): %s", ct)
@@ -191,7 +193,7 @@ func TestAuthcryptPackerSuccess(t *testing.T) {
 			msg, err = authPacker.Unpack(ct)
 			require.NoError(t, err)
 
-			require.EqualValues(t, &transport.Envelope{Message: origMsg, ToKey: recKey}, msg)
+			require.EqualValues(t, &transport.Envelope{Message: origMsg, FromKey: mSenderPubKey, ToKey: recKey}, msg)
 
 			verifyJWETypes(t, tc.cty, jweJSON.ProtectedHeaders)
 		})
@@ -212,12 +214,14 @@ func verifyJWETypes(t *testing.T, cty string, jweHeader afgjose.Headers) {
 
 func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	k := createKMS(t)
-	_, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
+	_, recDIDKeys, recipientsKey1, keyHandles1 := createRecipients(t, k, 1)
 	// since authcrypt does ECDH kw using the sender key, the recipient keys must be on the same curve (for NIST P keys)
 	// and the same key type (for NIST P / X25519 keys) as the sender's.
 	// this is why recipient keys with different curves/type are not supported for authcrypt.
-	_, recipientsKey2, _ := createRecipients(t, k, 1) // can't create key with kms.NISTP384ECDHKW
-	_, recipientsKey3, _ := createRecipients(t, k, 1) // can't create key with kms.NISTP521ECDHKW
+	//nolint:dogsled
+	_, _, recipientsKey2, _ := createRecipients(t, k, 1) // can't create key with kms.NISTP384ECDHKW
+	//nolint:dogsled
+	_, _, recipientsKey3, _ := createRecipients(t, k, 1) // can't create key with kms.NISTP521ECDHKW
 
 	recipientsKeys := make([][]byte, 3)
 	recipientsKeys[0] = make([]byte, len(recipientsKey1[0]))
@@ -230,25 +234,16 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 
 	cty := transport.MediaTypeV1PlaintextPayload
 
-	skid, senderKey, _ := createAndMarshalKey(t, k)
-
-	thirdPartyKeyStore := make(map[string]mockstorage.DBEntry)
-	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-		Store: thirdPartyKeyStore,
-	}}
+	skid, sDIDKey, mSenderPubKey, _ := createAndMarshalKey(t, k)
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+	authPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256CBCHS512)
 	require.NoError(t, err)
 
-	// add sender key in thirdPartyKS (prep step before Authcrypt.Pack()/Unpack())
-	fromWrappedKID := prefix.StorageKIDPrefix + skid
-	thirdPartyKeyStore[fromWrappedKID] = mockstorage.DBEntry{Value: senderKey}
-
 	origMsg := []byte("secret message")
-	ct, err := authPacker.Pack(cty, origMsg, []byte(skid), recipientsKeys)
+	ct, err := authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), recipientsKeys)
 	require.NoError(t, err)
 
 	t.Logf("authcrypt JWE: %s", ct)
@@ -256,23 +251,45 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 	msg, err := authPacker.Unpack(ct)
 	require.NoError(t, err)
 
-	recKey, err := exportPubKeyBytes(keyHandles1[0])
+	recKey, err := exportPubKeyBytes(keyHandles1[0], recDIDKeys[0])
+	require.NoError(t, err)
+
+	senderPubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(mSenderPubKey, senderPubKey)
+	require.NoError(t, err)
+
+	senderPubKey.KID = sDIDKey // match packer value.
+
+	mSenderPubKey, err = json.Marshal(senderPubKey)
 	require.NoError(t, err)
 
 	require.EqualValues(t, &transport.Envelope{
 		Message: origMsg,
+		FromKey: mSenderPubKey,
 		ToKey:   recKey,
 	}, msg)
 
 	// try with only 1 recipient
-	ct, err = authPacker.Pack(cty, origMsg, []byte(skid), [][]byte{recipientsKeys[0]})
+	ct, err = authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), [][]byte{recipientsKeys[0]})
 	require.NoError(t, err)
 
 	msg, err = authPacker.Unpack(ct)
 	require.NoError(t, err)
 
+	senderPubKey = &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(mSenderPubKey, senderPubKey)
+	require.NoError(t, err)
+
+	senderPubKey.KID = sDIDKey // match packer value.
+
+	mSenderPubKey, err = json.Marshal(senderPubKey)
+	require.NoError(t, err)
+
 	require.EqualValues(t, &transport.Envelope{
 		Message: origMsg,
+		FromKey: mSenderPubKey,
 		ToKey:   recKey,
 	}, msg)
 
@@ -284,46 +301,43 @@ func TestAuthcryptPackerUsingKeysWithDifferentCurvesSuccess(t *testing.T) {
 
 func TestAuthcryptPackerFail(t *testing.T) {
 	cty := transport.MediaTypeV1PlaintextPayload
-
 	k := createKMS(t)
 
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	skid, senderKey, _ := createAndMarshalKey(t, k)
+	skid, sDIDKey, _, _ := createAndMarshalKey(t, k)
+	skidB := []byte(skid + "." + sDIDKey)
 
-	t.Run("new Pack fail with nil thirdPartyKS provider", func(t *testing.T) {
-		_, err = New(newMockProvider(nil, k, cryptoSvc), afgjose.A256GCM)
-		require.EqualError(t, err, "authcrypt: failed to create packer because StorageProvider is empty")
+	t.Run("new Pack fail with nil crypto service", func(t *testing.T) {
+		_, err = New(newMockProvider(k, nil), afgjose.A128CBCHS256)
+		require.EqualError(t, err, "authcrypt: failed to create packer because crypto service is empty")
 	})
 
-	t.Run("new Pack fail with bad thirdPartyKS provider", func(t *testing.T) {
-		badStoreProvider := &mockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: errors.New("failed to open thirdPartyKS"),
-			FailNamespace:      ThirdPartyKeysDB,
-		}
-
-		_, err = New(newMockProvider(badStoreProvider, k, cryptoSvc), afgjose.A256GCM)
-		require.EqualError(t, err, "authcrypt: failed to open store for name space thirdpartykeysdb")
+	t.Run("new Pack fail with invalid encryption algorithm", func(t *testing.T) {
+		_, err = New(newMockProvider(k, cryptoSvc), "invalidAlg")
+		require.EqualError(t, err, "authcrypt: unsupported content encrytpion algorithm: invalidAlg")
 	})
-
-	mockStoreMap := make(map[string]mockstorage.DBEntry)
-	mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-		Store: mockStoreMap,
-	}}
 
 	t.Run("new Pack fail with nil kms", func(t *testing.T) {
-		_, err = New(newMockProvider(mockStoreProvider, nil, cryptoSvc), afgjose.A256GCM)
+		_, err = New(newMockProvider(nil, cryptoSvc), afgjose.A128CBCHS256)
 		require.EqualError(t, err, "authcrypt: failed to create packer because KMS is empty")
 	})
 
-	_, recipientsKeys, _ := createRecipients(t, k, 10)
+	_, _, recipientsKeys, _ := createRecipients(t, k, 10) //nolint:dogsled
 	origMsg := []byte("secret message")
-	authPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+	authPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256CBCHS512)
 	require.NoError(t, err)
 
-	mockStoreMap[skid] = mockstorage.DBEntry{Value: senderKey}
-	skidB := []byte(skid)
+	t.Run("unpack fail with bad recipient key", func(t *testing.T) {
+		_, _, keys, _ := createRecipients(t, k, 1)
+		keys[0] = []byte(strings.Replace(string(keys[0]), "did:key:", "invalid", 1))
+		var ct []byte
+		ct, err = authPacker.Pack(cty, origMsg, []byte(skid+"."+sDIDKey), keys)
+		require.NoError(t, err)
+		_, err = authPacker.Unpack(ct)
+		require.Contains(t, err.Error(), "invalid kid format, must be a did:key")
+	})
 
 	t.Run("pack fail with empty recipients keys", func(t *testing.T) {
 		_, err = authPacker.Pack(cty, origMsg, nil, nil)
@@ -338,15 +352,16 @@ func TestAuthcryptPackerFail(t *testing.T) {
 
 	t.Run("pack fail with invalid encAlg", func(t *testing.T) {
 		invalidAlg := "invalidAlg"
-		invalidAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.EncAlg(invalidAlg))
+		invalidAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A256CBCHS512)
 		require.NoError(t, err)
 
+		invalidAuthPacker.encAlg = afgjose.EncAlg(invalidAlg)
 		_, err = invalidAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.EqualError(t, err, fmt.Sprintf("authcrypt Pack: failed to new JWEEncrypt instance: encryption"+
 			" algorithm '%s' not supported", invalidAlg))
 	})
 
-	t.Run("pack fail with KMS can't get sender key", func(t *testing.T) {
+	t.Run("pack fail with KMS can't get kid key", func(t *testing.T) {
 		badKMSStoreProvider := mockstorage.NewCustomMockStoreProvider(
 			&mockstorage.MockStore{ErrGet: errors.New("bad fake key ID")})
 		p := mockkms.NewProviderForKMS(badKMSStoreProvider, &noop.NoLock{})
@@ -354,15 +369,15 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		badKMS, err := localkms.New("local-lock://test/key/uri", p)
 		require.NoError(t, err)
 
-		badAuthPacker, err := New(newMockProvider(mockStoreProvider, badKMS, cryptoSvc), afgjose.A256GCM)
+		badAuthPacker, err := New(newMockProvider(badKMS, cryptoSvc), afgjose.A128CBCHS256)
 		require.NoError(t, err)
 
 		_, err = badAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
 		require.Contains(t, fmt.Sprintf("%v", err), "bad fake key ID")
 	})
 
-	t.Run("pack success but unpack fails with invalid payload", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+	t.Run("pack success but unpack fails with invalid payload format", func(t *testing.T) {
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
 		require.NoError(t, err)
 
 		_, err = validAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
@@ -374,8 +389,30 @@ func TestAuthcryptPackerFail(t *testing.T) {
 			"JWE: it must have five parts")
 	})
 
+	t.Run("pack success but unpack fails with invalid payload auth (iv) data", func(t *testing.T) {
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
+		require.NoError(t, err)
+
+		var s []byte
+
+		s, err = validAuthPacker.Pack(cty, origMsg, skidB, recipientsKeys)
+		require.NoError(t, err)
+
+		ivStartIndex := bytes.Index(s, []byte("\"iv\""))
+		ivEndIndex := ivStartIndex + 6 + bytes.Index(s[ivStartIndex+6:], []byte("\""))
+		sTrail := make([]byte, len(s[ivEndIndex:]))
+		copy(sTrail, s[ivEndIndex:])
+		s = append(s[:ivStartIndex+6], []byte("K3ORqVx392nLcdJveUl_Jg")...) // invalid base64 iv causes decryption error
+		s = append(s, sTrail...)
+
+		_, err = validAuthPacker.Unpack(s)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "authcrypt Unpack: failed to decrypt JWE envelope: ecdh_factory: "+
+			"decryption failed")
+	})
+
 	t.Run("pack success but unpack fails with missing keyID in protectedHeader", func(t *testing.T) {
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A192CBCHS384)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, [][]byte{recipientsKeys[0]})
@@ -394,8 +431,8 @@ func TestAuthcryptPackerFail(t *testing.T) {
 	})
 
 	t.Run("pack success but unpack fails with missing kid in kms", func(t *testing.T) {
-		kids, newRecKeys, _ := createRecipients(t, k, 2)
-		validAuthPacker, err := New(newMockProvider(mockStoreProvider, k, cryptoSvc), afgjose.A256GCM)
+		kids, _, newRecKeys, _ := createRecipients(t, k, 2)
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A128CBCHS256)
 		require.NoError(t, err)
 
 		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, newRecKeys)
@@ -411,41 +448,93 @@ func TestAuthcryptPackerFail(t *testing.T) {
 		_, err = validAuthPacker.Unpack(ct)
 		require.EqualError(t, err, "authcrypt Unpack: no matching recipient in envelope")
 	})
+
+	t.Run("pack success but unpack fails with missing kms in packer", func(t *testing.T) {
+		kids, _, newRecKeys, _ := createRecipients(t, k, 2)
+		validAuthPacker, err := New(newMockProvider(k, cryptoSvc), afgjose.A128CBCHS256)
+		require.NoError(t, err)
+
+		ct, err := validAuthPacker.Pack(cty, origMsg, skidB, newRecKeys)
+		require.NoError(t, err)
+
+		// rotate keys to update keyID and force a failure
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[0])
+		require.NoError(t, err)
+
+		_, _, err = k.Rotate(kms.NISTP256ECDHKWType, kids[1])
+		require.NoError(t, err)
+
+		// mock kms get error
+		validAuthPacker.kms = &mockkms.KeyManager{GetKeyErr: errors.New("get error")}
+
+		_, err = validAuthPacker.Unpack(ct)
+		require.EqualError(t, err, "authcrypt Unpack: failed to get key from kms: get error")
+	})
 }
 
-// createRecipients and return their public key and keyset.Handle.
-func createRecipients(t *testing.T, k *localkms.LocalKMS, recipientsCount int) ([]string, [][]byte, []*keyset.Handle) {
+func exportPubKeyBytes(keyHandle *keyset.Handle, kid string) ([]byte, error) {
+	pubKH, err := keyHandle.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := keyio.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey := &cryptoapi.PublicKey{}
+
+	err = json.Unmarshal(buf.Bytes(), pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey.KID = kid
+
+	return json.Marshal(pubKey)
+}
+
+// createRecipients and return their public key, jwk kid, didKey and keyset.Handle.
+func createRecipients(t *testing.T, k *localkms.LocalKMS,
+	recipientsCount int) ([]string, []string, [][]byte, []*keyset.Handle) {
 	return createRecipientsByKeyType(t, k, recipientsCount, kms.NISTP256ECDHKW)
 }
 
 func createRecipientsByKeyType(t *testing.T, k *localkms.LocalKMS, recipientsCount int,
-	kt kms.KeyType) ([]string, [][]byte, []*keyset.Handle) {
+	kt kms.KeyType) ([]string, []string, [][]byte, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r    [][]byte
-		rKH  []*keyset.Handle
-		kids []string
+		r       [][]byte
+		rKH     []*keyset.Handle
+		kids    []string
+		didKeys []string
 	)
 
 	for i := 0; i < recipientsCount; i++ {
-		kid, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
+		kid, didKey, marshalledPubKey, kh := createAndMarshalKeyByKeyType(t, k, kt)
 
 		r = append(r, marshalledPubKey)
 		rKH = append(rKH, kh)
 		kids = append(kids, kid)
+		didKeys = append(didKeys, didKey)
 	}
 
-	return kids, r, rKH
+	return kids, didKeys, r, rKH
 }
 
 // createAndMarshalKey creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle.
-func createAndMarshalKey(t *testing.T, k *localkms.LocalKMS) (string, []byte, *keyset.Handle) {
+func createAndMarshalKey(t *testing.T, k *localkms.LocalKMS) (string, string, []byte, *keyset.Handle) {
 	return createAndMarshalKeyByKeyType(t, k, kms.NISTP256ECDHKWType)
 }
 
-func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.KeyType) (string, []byte, *keyset.Handle) {
+func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS,
+	kt kms.KeyType) (string, string, []byte, *keyset.Handle) {
 	t.Helper()
 
 	kid, keyHandle, err := k.Create(kt)
@@ -454,23 +543,27 @@ func createAndMarshalKeyByKeyType(t *testing.T, k *localkms.LocalKMS, kt kms.Key
 	kh, ok := keyHandle.(*keyset.Handle)
 	require.True(t, ok)
 
-	pubKeyBytes, err := exportPubKeyBytes(kh)
+	pubKeyBytes, err := exportPubKeyBytes(kh, kid)
 	require.NoError(t, err)
 
 	key := &cryptoapi.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
 
-	key.KID = kid
+	// used with marshalled *crypto.PublicKey for encryption keys (it parses 'pubKeyBytes').
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, kt)
+	require.NoError(t, err)
+
+	key.KID = didKey
 	mKey, err := json.Marshal(key)
 	require.NoError(t, err)
 
-	printKey(t, mKey, kh, kid)
+	printKey(t, mKey, kh, kid, didKey)
 
-	return kid, mKey, kh
+	return kid, didKey, mKey, kh
 }
 
-func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid string) {
+func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid, didKey string) {
 	t.Helper()
 
 	extractKey, err := extractPrivKey(kh)
@@ -478,14 +571,16 @@ func printKey(t *testing.T, mPubKey []byte, kh *keyset.Handle, kid string) {
 
 	switch keyType := extractKey.(type) {
 	case *hybrid.ECPrivateKey:
-		t.Logf("** EC key: %s, kid: %s", getPrintedECPrivKey(t, keyType), kid)
+		t.Logf("** EC key: %s, \n\t kms kid: %s, \n\t jwe kid (did:key):%s", getPrintedECPrivKey(t, keyType), kid,
+			didKey)
 	case []byte:
 		pubKey := new(cryptoapi.PublicKey)
 		err := json.Unmarshal(mPubKey, pubKey)
 		require.NoError(t, err)
 
 		fullKey := append(keyType, pubKey.X...)
-		t.Logf("** X25519 key: %s, kid: %s", getPrintedX25519PrivKey(t, fullKey), kid)
+		t.Logf("** X25519 key: %s, \n\t kms kid: %s, \n\t jwe kid (did:key):%s", getPrintedX25519PrivKey(t, fullKey), kid,
+			didKey)
 	default:
 		t.Errorf("not supported key type: %s", keyType)
 	}
@@ -638,11 +733,11 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	return k
 }
 
-func newMockProvider(customStoreProvider storage.Provider, customKMS kms.KeyManager,
+func newMockProvider(customKMS kms.KeyManager,
 	customCrypto cryptoapi.Crypto) *mockprovider.Provider {
 	return &mockprovider.Provider{
-		KMSValue:             customKMS,
-		StorageProviderValue: customStoreProvider,
-		CryptoValue:          customCrypto,
+		KMSValue:        customKMS,
+		CryptoValue:     customCrypto,
+		VDRegistryValue: &mockvdr.MockRegistry{},
 	}
 }

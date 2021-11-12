@@ -25,10 +25,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 )
@@ -265,4 +267,24 @@ func (ar *Aries) GetKMSController() (api.KMSController, error) {
 	}
 
 	return &KMS{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetLDController returns an LD instance.
+func (ar *Aries) GetLDController() (api.LDController, error) {
+	endpoints, ok := ar.endpoints[ld.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", ld.OperationID)
+	}
+
+	return &LD{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
+}
+
+// GetVCWalletController returns a VCWalletController instance.
+func (ar *Aries) GetVCWalletController() (api.VCWalletController, error) {
+	endpoints, ok := ar.endpoints[vcwallet.OperationID]
+	if !ok {
+		return nil, fmt.Errorf("no endpoints found for controller [%s]", vcwallet.OperationID)
+	}
+
+	return &VCWallet{endpoints: endpoints, URL: ar.URL, Token: ar.Token, httpClient: &http.Client{}}, nil
 }

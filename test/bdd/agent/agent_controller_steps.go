@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package agent
 
 import (
-	goctx "context"
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,7 +17,7 @@ import (
 	"github.com/cucumber/godog"
 	"nhooyr.io/websocket"
 
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
@@ -25,7 +25,7 @@ const timeoutWebSocketDial = 5 * time.Second
 
 // ControllerSteps contains steps for controller based agent.
 type ControllerSteps struct {
-	bddContext *context.BDDContext
+	bddContext *bddcontext.BDDContext
 }
 
 // NewControllerSteps creates steps for agent with controller.
@@ -34,7 +34,7 @@ func NewControllerSteps() *ControllerSteps {
 }
 
 // SetContext is called before every scenario is run with a fresh new context.
-func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
+func (a *ControllerSteps) SetContext(ctx *bddcontext.BDDContext) {
 	a.bddContext = ctx
 }
 
@@ -111,7 +111,7 @@ func (a *ControllerSteps) checkAgentIsRunning(agentID, controllerURL, webhookURL
 
 	wsURL := fmt.Sprintf("wss://%s%s/ws", u.Host, u.Path)
 
-	ctx, cancel := goctx.WithTimeout(goctx.Background(), timeoutWebSocketDial)
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutWebSocketDial)
 	defer cancel()
 
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
@@ -176,7 +176,7 @@ func (a *ControllerSteps) healthCheck(endpoint string) error {
 
 		return nil
 	} else if strings.HasPrefix(endpoint, "ws") {
-		_, _, err := websocket.Dial(goctx.Background(), endpoint, &websocket.DialOptions{
+		_, _, err := websocket.Dial(context.Background(), endpoint, &websocket.DialOptions{
 			HTTPClient: util.DefaultClient,
 		})
 		if err != nil {

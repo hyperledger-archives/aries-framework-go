@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -129,14 +130,23 @@ const (
 	// BbsBlsSignature2020 BBS signature suite.
 	BbsBlsSignature2020 = "BbsBlsSignature2020"
 
-	// Ed25519KeyType ed25519 key type.
-	Ed25519KeyType = "Ed25519"
+	// Ed25519Curve ed25519 curve.
+	Ed25519Curve = "Ed25519"
 
-	// P256KeyType EC P-256 key type.
-	P256KeyType = "P256"
+	// P256KeyCurve EC P-256 curve.
+	P256KeyCurve = "P-256"
+
+	// P384KeyCurve EC P-384 curve.
+	P384KeyCurve = "P-384"
+
+	// P521KeyCurve EC P-521 curve.
+	P521KeyCurve = "P-521"
 
 	// Ed25519VerificationKey ED25519 verification key type.
 	Ed25519VerificationKey = "Ed25519VerificationKey"
+
+	// JSONWebKey2020 verification key type.
+	JSONWebKey2020 = "JsonWebKey2020"
 )
 
 type provable interface {
@@ -272,9 +282,8 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	}
 
 	// we are only validating the VerifiableCredential here, hence ignoring other return values
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 VC Validate Command - Add keys for proof
-	//  verification as options to the function.
 	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential),
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.ctx.VDRegistry()).PublicKeyFetcher()),
 		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, ValidateCredentialCommandMethod, "validate vc : "+err.Error())
@@ -986,6 +995,7 @@ func (o *Command) getCredentialOpts(disableProofCheck bool) []verifiable.Credent
 	}
 }
 
+// nolint:funlen,gocyclo
 func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
 	if opts == nil {
 		opts = &ProofOptions{}
@@ -996,6 +1006,15 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 	opts.proofPurpose, err = getProofPurpose(method)
 	if err != nil {
 		return nil, err
+	}
+
+	vmType := ""
+
+	switch opts.SignatureType {
+	case "Ed25519Signature2018":
+		vmType = "Ed25519VerificationKey2018"
+	case "BbsBlsSignature2020":
+		vmType = "Bls12381G2Key2020"
 	}
 
 	vMs := didDoc.VerificationMethods(method)[method]
@@ -1014,6 +1033,12 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 			continue
 		} else {
 			// by default first authentication public key
+
+			// skip verification methods that don't match the type needed for the signature
+			if vmType != "" && vm.VerificationMethod.Type != vmType {
+				continue
+			}
+
 			opts.VerificationMethod = vm.VerificationMethod.ID
 
 			break
@@ -1029,7 +1054,9 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 	if opts.VerificationMethod == "" {
 		logger.Warnf("Could not find matching verification method for '%s' proof purpose", opts.proofPurpose)
 
-		defaultVM, err := getDefaultVerificationMethod(didDoc)
+		var defaultVM string
+
+		defaultVM, err = getDefaultVerificationMethod(didDoc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get default verification method: %w", err)
 		}
@@ -1037,7 +1064,56 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRel
 		opts.VerificationMethod = defaultVM
 	}
 
+	// if the VM key has #key-X, then extract key from Value/JWK value and build KID accordingly.
+	if strings.Index(opts.VerificationMethod, "#key-") > 0 {
+		err = buildKIDOption(opts, didDoc.VerificationMethod)
+		if err != nil {
+			return nil, fmt.Errorf("build KMS KID error: %w", err)
+		}
+	}
+
 	return opts, nil
+}
+
+func buildKIDOption(opts *ProofOptions, vms []did.VerificationMethod) error {
+	for _, vm := range vms {
+		if opts.VerificationMethod == vm.ID {
+			if len(vm.Value) > 0 {
+				kt := kms.ED25519Type
+
+				switch vm.Type {
+				case Ed25519VerificationKey:
+				case JSONWebKey2020:
+					kt = kmsKeyTypeByJWKCurve(vm.JSONWebKey().Crv)
+				}
+
+				kid, err := localkms.CreateKID(vm.Value, kt)
+				if err != nil {
+					return fmt.Errorf("failed to get default verification method: %w", err)
+				}
+
+				opts.KID = kid
+			}
+		}
+	}
+
+	return nil
+}
+
+func kmsKeyTypeByJWKCurve(crv string) kms.KeyType {
+	kt := kms.ED25519Type
+
+	switch crv {
+	case Ed25519Curve:
+	case P256KeyCurve:
+		kt = kms.ECDSAP256TypeIEEEP1363
+	case P384KeyCurve:
+		kt = kms.ECDSAP384TypeIEEEP1363
+	case P521KeyCurve:
+		kt = kms.ECDSAP521IEEEP1363
+	}
+
+	return kt
 }
 
 // TODO default verification method logic needs to be revisited, [Issue #1693].

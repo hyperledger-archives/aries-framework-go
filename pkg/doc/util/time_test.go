@@ -23,13 +23,21 @@ func TestTimeWithTrailingZeroMsec(t *testing.T) {
 		{"2018-03-15T00:00:00.9724Z", "2018-03-15T00:00:00.9724Z"},
 		{"2018-03-15T00:00:00.000Z", "2018-03-15T00:00:00.000Z"},
 		{"2018-03-15T00:00:00.00000Z", "2018-03-15T00:00:00.00000Z"},
-		{"2018-03-15T00:00:00.0000100Z", "2018-03-15T00:00:00.00001Z"},
+		{"2018-03-15T00:00:00.0000100Z", "2018-03-15T00:00:00.0000100Z"},
+		{"2018-03-15T00:00:00.0000100+07:00", "2018-03-15T00:00:00.0000100+07:00"},
+		{"2018-03-15T00:00:00.0000100-07:00", "2018-03-15T00:00:00.0000100-07:00"},
+		{"2018-03-15T00:00:00", "2018-03-15T00:00:00"},
+		{"2018-03-15T00:00:00.9724", "2018-03-15T00:00:00.9724"},
+		{"2018-03-15T00:00:00.000", "2018-03-15T00:00:00.000"},
+		{"2018-03-15T00:00:00.00000", "2018-03-15T00:00:00.00000"},
+		{"2018-03-15T00:00:00.0000100", "2018-03-15T00:00:00.0000100"},
+		{"2021-08-24T22:18:06.333020", "2021-08-24T22:18:06.333020"}, // acapy interop corner case
 	}
 
 	for _, tt := range timeTests {
 		tt := tt
 		t.Run(tt.in, func(t *testing.T) {
-			var timeMsec TimeWithTrailingZeroMsec
+			var timeMsec TimeWrapper
 			err := json.Unmarshal([]byte(quote(tt.in)), &timeMsec)
 			require.NoError(t, err)
 
@@ -40,45 +48,48 @@ func TestTimeWithTrailingZeroMsec(t *testing.T) {
 	}
 
 	// Marshal corner cases.
-	timeMsec := TimeWithTrailingZeroMsec{Time: time.Date(10001, time.January, 1, 0, 0, 0, 0, time.UTC)}
+	timeMsec := &TimeWrapper{Time: time.Date(10001, time.January, 1, 0, 0, 0, 0, time.UTC)}
 	bytes, err := timeMsec.MarshalJSON()
 	require.Error(t, err)
 	require.Nil(t, bytes)
 
+	timeMsec = NewTime(time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC))
+	bytes, err = timeMsec.MarshalJSON()
+	require.NoError(t, err)
+	require.NotNil(t, bytes)
+
+	timeMsec = NewTimeWithTrailingZeroMsec(time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC), 0)
+	bytes, err = timeMsec.MarshalJSON()
+	require.NoError(t, err)
+	require.NotNil(t, bytes)
+
 	// Unmarshal corner cases.
-	newTimeMsec := &TimeWithTrailingZeroMsec{}
+	newTimeMsec := &TimeWrapper{}
 	err = newTimeMsec.UnmarshalJSON([]byte(quote("not_date")))
 	require.Error(t, err)
 
 	err = newTimeMsec.UnmarshalJSON([]byte("null"))
 	require.NoError(t, err)
-}
 
-func TestTimeWithTrailingZeroMsec_GetFormat(t *testing.T) {
-	timeMsec, err := ParseTimeWithTrailingZeroMsec("2018-03-15T00:00:00Z")
-	require.NoError(t, err)
-	require.Equal(t, time.RFC3339Nano, timeMsec.GetFormat())
-
-	timeMsec, err = ParseTimeWithTrailingZeroMsec("2018-03-15T00:00:00.972Z")
-	require.NoError(t, err)
-	require.Equal(t, time.RFC3339Nano, timeMsec.GetFormat())
-
-	timeMsec, err = ParseTimeWithTrailingZeroMsec("2018-03-15T00:00:00.000Z")
-	require.NoError(t, err)
-	require.Equal(t, "2006-01-02T15:04:05.000Z07:00", timeMsec.GetFormat())
+	err = newTimeMsec.UnmarshalJSON([]byte("not string"))
+	require.Error(t, err)
 }
 
 func TestParse(t *testing.T) {
-	timeMsec, err := ParseTimeWithTrailingZeroMsec("2018-03-15T00:00:00.000Z")
+	timeMsec, err := ParseTimeWrapper("2018-03-15T00:00:00.000Z")
 	require.NoError(t, err)
-	require.Equal(t, "2018-03-15T00:00:00.000Z", timeMsec.Format(timeMsec.GetFormat()))
+	require.Equal(t, "2018-03-15T00:00:00.000Z", timeMsec.FormatToString())
+
+	timeMsec, err = ParseTimeWrapper("2018-03-15T00:00:00.123Z")
+	require.NoError(t, err)
+	require.Equal(t, "2018-03-15T00:00:00.123Z", timeMsec.FormatToString())
 
 	timeMsec, err = ParseTimeWithTrailingZeroMsec("2018-03-15T00:00:00.123Z")
 	require.NoError(t, err)
-	require.Equal(t, "2018-03-15T00:00:00.123Z", timeMsec.Format(timeMsec.GetFormat()))
+	require.Equal(t, "2018-03-15T00:00:00.123Z", timeMsec.FormatToString())
 
 	// error case
-	timeMsec, err = ParseTimeWithTrailingZeroMsec("invalid")
+	timeMsec, err = ParseTimeWrapper("invalid")
 	require.Error(t, err)
 	require.Nil(t, timeMsec)
 }

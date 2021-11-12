@@ -64,7 +64,9 @@ async function proposalWithRequest(mode) {
     })
 
     after(async () => {
-        await destroy()
+        if (destroy) {
+            await destroy()
+        }
     })
 
     let alice_bob, alice_carol;
@@ -312,16 +314,16 @@ async function skipProposal(mode) {
 async function clients(mode) {
     let a, b, c;
     if (mode === restMode) {
-        a = await newAriesREST(agent1ControllerApiUrl)
-        b = await newAriesREST(agent2ControllerApiUrl)
-        c = await newAriesREST(agent3ControllerApiUrl)
+        a = await newAriesREST(agent1ControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
+        b = await newAriesREST(agent2ControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
+        c = await newAriesREST(agent3ControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
 
         return [a, b, c]
     }
 
-    a = await newAries("alice", "alice")
-    b = await newAries("bob", "bob")
-    c = await newAries("carol", "carol")
+    a = await newAries("alice", "alice", null, null, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
+    b = await newAries("bob", "bob", null, null, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
+    c = await newAries("carol", "carol", null, null, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
 
     return [a, b, c]
 }

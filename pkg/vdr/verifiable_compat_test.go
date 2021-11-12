@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
@@ -61,7 +61,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 				Domain:                  uuid.New().String(),
 				Purpose:                 "authentication",
 			},
-			jsonldtest.WithDocumentLoader(t),
+			ldtestutil.WithDocumentLoader(t),
 		)
 		require.NoError(t, err)
 
@@ -78,7 +78,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  uuid.New().String(),
 			Purpose:                 "authentication",
-		}, jsonldtest.WithDocumentLoader(t))
+		}, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 
 		// alice wires her VP and DID to Bob
@@ -100,7 +100,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrapi.WithOption("store", true))
 		require.NoError(t, err)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		// bob parses alice's VP
@@ -180,7 +180,7 @@ func newKeyAgreementVM(t *testing.T, p *context.Provider, controller string) did
 	_, encPubKey, err := p.KMS().CreateAndExportPubKeyBytes(p.KeyAgreementType())
 	require.NoError(t, err)
 
-	encDIDKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(encPubKey, p.KeyAgreementType())
+	encDIDKey, err := kmsdidkey.BuildDIDKeyByKeyType(encPubKey, p.KeyAgreementType())
 	require.NoError(t, err)
 
 	const didPKID = "%s#keys-%d"
@@ -204,7 +204,7 @@ func getSigningKey(t *testing.T, a *context.Provider) did.VerificationMethod {
 	keyID, pubBytes, err := a.KMS().CreateAndExportPubKeyBytes(a.KeyType())
 	require.NoError(t, err)
 
-	didKey, err := kmsdidkey.BuildDIDKeyByKMSKeyType(pubBytes, a.KeyType())
+	didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubBytes, a.KeyType())
 	require.NoError(t, err)
 
 	id := fmt.Sprintf(didFormat, method, didKey[:16])
@@ -241,7 +241,7 @@ func universityDegreeVC() *verifiable.Credential {
 				"name": "Transmute University",
 			},
 		},
-		Issued: &util.TimeWithTrailingZeroMsec{Time: time.Now()},
+		Issued: &util.TimeWrapper{Time: time.Now()},
 		Subject: &verifiable.Subject{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: map[string]interface{}{

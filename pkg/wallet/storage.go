@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/bluele/gcache"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
 
@@ -44,7 +46,7 @@ func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storag
 	var err error
 
 	if s.profile.EDVConf != nil {
-		provider, err = createEDVStorageProvider(auth, s.profile.EDVConf, opts)
+		provider, err = createEDVStorageProvider(auth, s.profile, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +72,13 @@ func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storag
 	return store, nil
 }
 
-func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (storage.Provider, error) {
+// TODO (#2815): find a way to allow EDV to be used without importing the edv package, since it causes the main Aries
+//               module to depend on edv
+func createEDVStorageProvider(auth string, profile *profile, opts *unlockOpts) (storage.Provider, error) {
+	if profile.EDVConf.EncryptionKeyID == "" || profile.EDVConf.MACKeyID == "" {
+		return nil, errors.New("invalid EDV configuration found in wallet profile, key IDs for encryption and MAC operations are missing") //nolint: lll
+	}
+
 	// get key manager
 	keyMgr, err := keyManager().getKeyManger(auth)
 	if err != nil {
@@ -82,13 +90,18 @@ func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (sto
 	}
 
 	// get crypto
-	cryptoImpl, err := tinkcrypto.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create crypto: %w", err)
+	var cryptoImpl crypto.Crypto
+	if profile.KeyServerURL != "" {
+		cryptoImpl = webkms.New(profile.KeyServerURL, http.DefaultClient, opts.webkmsOpts...)
+	} else {
+		cryptoImpl, err = tinkcrypto.New()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create crypto: %w", err)
+		}
 	}
 
 	// get jwe encrypter
-	jweEncrypter, err := getJWSEncrypter(conf.EncryptionKeyID, keyMgr, cryptoImpl)
+	jweEncrypter, err := getJWSEncrypter(profile.EDVConf.EncryptionKeyID, keyMgr, cryptoImpl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JWE encrypter: %w", err)
 	}
@@ -97,7 +110,7 @@ func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (sto
 	jweDecrypter := jose.NewJWEDecrypt(nil, cryptoImpl, keyMgr)
 
 	// get MAC crypto
-	macCrypto, err := getMacCrypto(conf.MACKeyID, keyMgr, cryptoImpl)
+	macCrypto, err := getMacCrypto(profile.EDVConf.MACKeyID, keyMgr, cryptoImpl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mac crypto: %w", err)
 	}
@@ -108,7 +121,7 @@ func createEDVStorageProvider(auth string, conf *edvConf, opts *unlockOpts) (sto
 	}
 
 	// create EDV provider
-	return edv.NewRESTProvider(conf.ServerURL, conf.VaultID,
+	return edv.NewRESTProvider(profile.EDVConf.ServerURL, profile.EDVConf.VaultID,
 		edv.NewEncryptedFormatter(jweEncrypter, jweDecrypter, macCrypto, edv.WithDeterministicDocumentIDs()),
 		edvOpts...), nil
 }

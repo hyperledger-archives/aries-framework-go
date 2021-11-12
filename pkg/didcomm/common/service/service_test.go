@@ -36,6 +36,10 @@ func TestParseDIDCommMsgMap(t *testing.T) {
 		name:    "Array payload",
 		payload: []byte(`[]`),
 		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type map[string]interface`,
+	}, {
+		name:    "Type",
+		payload: []byte(`{"@type":"type"}`),
+		err:     "",
 	}}
 
 	t.Parallel()
@@ -187,15 +191,40 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 		msg:  nil,
 		err:  ErrInvalidMessage.Error(),
 	}, {
-		name: "ID without Thread ID",
-		msg:  DIDCommMsgMap{jsonID: "ID"},
+		name: "old ID without Thread ID",
+		msg:  DIDCommMsgMap{jsonIDV1: "ID"},
 		val:  "ID",
 		err:  "",
 	}, {
+		name: "ID without Thread ID",
+		msg:  DIDCommMsgMap{jsonIDV2: "ID"},
+		val:  "ID",
+		err:  "",
+	}, {
+		name: "Thread ID",
+		msg:  DIDCommMsgMap{jsonThreadID: "tID"},
+		val:  "",
+		err:  ErrInvalidMessage.Error(),
+	}, {
 		name: "Thread ID with ID",
-		msg:  DIDCommMsgMap{jsonID: "ID", jsonThread: map[string]interface{}{jsonThreadID: "thID"}},
+		msg:  DIDCommMsgMap{jsonIDV2: "ID", jsonThreadID: "tID"},
+		val:  "tID",
+		err:  "",
+	}, {
+		name: "Thread ID with old ID",
+		msg:  DIDCommMsgMap{jsonIDV1: "ID", jsonThreadID: "tID"},
+		val:  "ID",
+		err:  "",
+	}, {
+		name: "Thread ID with old ID",
+		msg:  DIDCommMsgMap{jsonIDV1: "ID", jsonThread: map[string]interface{}{jsonThreadID: "thID"}},
 		val:  "thID",
 		err:  "",
+	}, {
+		name: "Thread ID with ID",
+		msg:  DIDCommMsgMap{jsonIDV2: "ID", jsonThread: map[string]interface{}{jsonThreadID: "thID"}},
+		val:  "",
+		err:  ErrInvalidMessage.Error(),
 	}, {
 		name: "Thread ID without ID",
 		msg:  DIDCommMsgMap{jsonThread: map[string]interface{}{jsonThreadID: "thID"}},

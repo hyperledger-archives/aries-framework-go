@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 )
 
 const (
@@ -181,7 +181,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 
 	// Producer1 applied.
 	i1, err := createTestCustomCredential(t, []byte(fmt.Sprintf(validCred1, contextURL+"?context=1")), producers,
-		jld.ContextDocument{
+		ldcontext.Document{
 			URL:     "http://127.0.0.1?context=1",
 			Content: context1,
 		})
@@ -196,7 +196,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 
 	// Producer2 applied.
 	i2, err := createTestCustomCredential(t, []byte(fmt.Sprintf(validCred2, contextURL+"?context=2")), producers,
-		jld.ContextDocument{
+		ldcontext.Document{
 			URL:     "http://127.0.0.1?context=2",
 			Content: context2,
 		})
@@ -229,7 +229,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 }
 
 func createTestCustomCredential(t *testing.T, vcData []byte, producers []CustomCredentialProducer,
-	extraContexts ...jld.ContextDocument) (interface{}, error) {
+	extraContexts ...ldcontext.Document) (interface{}, error) {
 	t.Helper()
 
 	return CreateCustomCredential(vcData, producers,

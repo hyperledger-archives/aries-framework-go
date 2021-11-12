@@ -13,11 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 const dummy = "DUMMY"
@@ -32,7 +32,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -48,7 +48,7 @@ func ExamplePresentationDefinition_CreateVP() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func ExamplePresentationDefinition_CreateVP() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -71,7 +71,7 @@ func ExamplePresentationDefinition_CreateVP() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -129,7 +129,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -144,7 +144,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -158,7 +158,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +171,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -188,7 +188,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -198,7 +198,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -288,7 +288,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -303,7 +303,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -318,7 +318,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -331,7 +331,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -348,7 +348,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -358,7 +358,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -492,7 +492,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -508,7 +508,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -525,7 +525,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -540,7 +540,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -553,7 +553,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -571,7 +571,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -582,7 +582,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -716,7 +716,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -732,7 +732,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -748,7 +748,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextURI, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -762,7 +762,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		}},
 	}
 
-	loader, err := jsonldtest.DocumentLoader()
+	loader, err := ldtestutil.DocumentLoader()
 	if err != nil {
 		panic(err)
 	}
@@ -775,7 +775,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:777",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:777",
@@ -793,7 +793,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Issuer: verifiable.Issuer{
 				ID: "did:example:888",
 			},
-			Issued: &util.TimeWithTrailingZeroMsec{
+			Issued: &util.TimeWrapper{
 				Time: time.Time{},
 			},
 			Subject: "did:example:888",
@@ -804,7 +804,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				"age":        21,
 			},
 		},
-	}, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -894,13 +894,13 @@ func ExamplePresentationDefinition_Match() {
 			{
 				ID: "banking",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/account#Customer",
+					URI: "https://example.org/examples#Customer",
 				}},
 			},
 			{
 				ID: "residence",
 				Schema: []*Schema{{
-					URI: "https://example.context.jsonld/address#Street",
+					URI: "https://example.org/examples#Street",
 				}},
 			},
 		},
@@ -935,12 +935,12 @@ func ExamplePresentationDefinition_Match() {
 	}
 
 	// load json-ld context
-	loader, err := jsonldtest.DocumentLoader(
-		jld.ContextDocument{
+	loader, err := ldtestutil.DocumentLoader(
+		ldcontext.Document{
 			URL:     "https://example.context.jsonld/account",
 			Content: []byte(exampleJSONLDContext),
 		},
-		jld.ContextDocument{
+		ldcontext.Document{
 			URL:     "https://example.context.jsonld/address",
 			Content: []byte(exampleJSONLDContext),
 		},
@@ -961,7 +961,7 @@ func ExamplePresentationDefinition_Match() {
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
-		receivedVP,
+		receivedVP, loader,
 		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)),
 	)
 	if err != nil {
@@ -1020,6 +1020,8 @@ const exampleJSONLDContext = `{
       "@protected":true,
       "name":"http://schema.org/name",
       "ex":"https://example.org/examples#",
+	  "Customer":"ex:Customer",
+	  "Street":"ex:Street",
       "xsd":"http://www.w3.org/2001/XMLSchema#"
    }
 }`
@@ -1030,7 +1032,7 @@ func fetchVC(ctx, types []string) *verifiable.Credential {
 		Types:   append([]string{verifiable.VCType}, types...),
 		ID:      "http://test.credential.com/123",
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
-		Issued: &util.TimeWithTrailingZeroMsec{
+		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{

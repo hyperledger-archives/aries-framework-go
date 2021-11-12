@@ -23,12 +23,12 @@ import (
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 const pemPK = `-----BEGIN PUBLIC KEY-----
@@ -936,6 +936,28 @@ func TestValidateDidDocProof(t *testing.T) {
 	})
 }
 
+func TestRequiresLegacyHandling(t *testing.T) {
+	doc := &rawDoc{}
+
+	err := json.Unmarshal([]byte(validDocV011), doc)
+	require.NoError(t, err)
+
+	doc.Context = []string{ContextV1Old}
+
+	ret := requiresLegacyHandling(doc)
+	require.Equal(t, true, ret)
+
+	doc.Context = []string{ContextV1}
+
+	ret = requiresLegacyHandling(doc)
+	require.Equal(t, false, ret)
+
+	doc.Context = []string{contextV011}
+
+	ret = requiresLegacyHandling(doc)
+	require.Equal(t, false, ret)
+}
+
 func TestJSONConversion(t *testing.T) {
 	docs := []string{
 		validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships, validDocWithBase,
@@ -1012,7 +1034,7 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jwk := &jose.JWK{
+	j := &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   pubKey,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
@@ -1020,19 +1042,19 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 	}
 
 	// Success.
-	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.NoError(t, err)
-	require.Equal(t, jwk, signingKey.JSONWebKey())
+	require.Equal(t, j, signingKey.JSONWebKey())
 	require.Equal(t, []byte(pubKey), signingKey.Value)
 
 	// Error - invalid JWK.
-	jwk = &jose.JWK{
+	j = &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   nil,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
 		},
 	}
-	signingKey, err = NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err = NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "convert JWK to public key bytes")
 	require.Nil(t, signingKey)
@@ -1044,16 +1066,16 @@ func TestJSONWebKey(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jwk := &jose.JWK{
+	j := &jwk.JWK{
 		JSONWebKey: gojose.JSONWebKey{
 			Key:   pubKey,
 			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
 		},
 	}
 
-	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, jwk)
+	signingKey, err := NewVerificationMethodFromJWK(creator, keyType, did, j)
 	require.NoError(t, err)
-	require.Equal(t, jwk, signingKey.JSONWebKey())
+	require.Equal(t, j, signingKey.JSONWebKey())
 
 	createdTime := time.Now()
 
@@ -1092,17 +1114,17 @@ func TestVerifyProof(t *testing.T) {
 		doc, err := ParseDocument(signedDoc)
 		require.Nil(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 
 		// error - no suites are passed, verifier is not created
-		err = doc.VerifyProof([]verifier.SignatureSuite{}, jsonldtest.WithDocumentLoader(t))
+		err = doc.VerifyProof([]verifier.SignatureSuite{}, ldtestutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create verifier")
 
 		// error - doc with invalid proof value
 		doc.Proof[0].ProofValue = []byte("invalid")
-		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "ed25519: invalid signature")
 
@@ -1110,7 +1132,7 @@ func TestVerifyProof(t *testing.T) {
 		doc, err = ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof([]verifier.SignatureSuite{s}, jsonldtest.WithDocumentLoader(t))
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
 		require.Equal(t, ErrProofNotFound, err)
 		require.Contains(t, err.Error(), "proof not found")
 	}
@@ -1598,7 +1620,7 @@ func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
 	s := signer.New(ed25519signature2018.New(
 		suite.WithSigner(getSigner(privKey))))
 
-	signedDoc, err := s.Sign(context, jsonDoc, jsonldtest.WithDocumentLoader(t))
+	signedDoc, err := s.Sign(context, jsonDoc, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
 	return signedDoc

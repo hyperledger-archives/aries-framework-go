@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -46,14 +46,14 @@ message2
 	require.Error(t, err)
 	require.EqualError(t, err, "a type of public key is not 'Bls12381G2Key2020'")
 
-	// Failed as we do not support JWK for Bls12381G2Key2020.
+	// Success as we now support JWK for Bls12381G2Key2020.
 	err = verifier.Verify(&sigverifier.PublicKey{
 		Type: "Bls12381G2Key2020",
-		JWK: &jose.JWK{
+		JWK: &jwk.JWK{
 			Kty: "EC",
 			Crv: "BLS12381_G2",
 		},
+		Value: pkBytes,
 	}, []byte(msg), sigBytes)
-	require.Error(t, err)
-	require.EqualError(t, err, "verifier does not match JSON Web Key")
+	require.NoError(t, err)
 }

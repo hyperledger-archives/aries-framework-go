@@ -144,7 +144,7 @@ func TestBuild(t *testing.T) {
 
 		result, err := c.Create(
 			&did.Doc{VerificationMethod: []did.VerificationMethod{expected}, Service: []did.Service{{
-				Type: "did-communication",
+				Type: vdr.DIDCommServiceType,
 			}}})
 
 		expectedDIDKey, _ := fingerprint.CreateDIDKey(expected.Value)
@@ -190,7 +190,7 @@ func TestBuild(t *testing.T) {
 		require.EqualError(t, err, "store opt not boolean")
 	})
 
-	t.Run("create using Service with bad DefaultServiceEndpoint option (not string)", func(t *testing.T) {
+	t.Run("create using Service with bad (missing) DefaultServiceEndpoint option (not string)", func(t *testing.T) {
 		expected, keyAgreement := getSigningAndKeyAgreementKey(t, false, km)
 		c, err := New(sProvider)
 		require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestBuild(t *testing.T) {
 			&did.Doc{
 				VerificationMethod: []did.VerificationMethod{expected},
 				Service: []did.Service{{
-					Type: "did-communication",
+					Type: vdr.DIDCommServiceType,
 				}},
 				KeyAgreement: []did.Verification{keyAgreement},
 			})
@@ -215,7 +215,7 @@ func TestBuild(t *testing.T) {
 			&did.Doc{
 				VerificationMethod: []did.VerificationMethod{expected},
 				Service: []did.Service{{
-					Type: "did-communication",
+					Type: vdr.DIDCommServiceType,
 				}},
 				KeyAgreement: []did.Verification{keyAgreement},
 			},
@@ -223,28 +223,37 @@ func TestBuild(t *testing.T) {
 		require.EqualError(t, err, "create peer DID : defaultServiceEndpoint not string")
 	})
 
-	t.Run("create using Service with P-256 keys as jsonWebKey2020 - should pass", func(t *testing.T) {
-		expected, keyAgreement := getSigningAndKeyAgreementKey(t, true, km)
-		c, err := New(sProvider)
-		require.NoError(t, err)
+	serviceTypes := []string{vdr.DIDCommServiceType, vdr.DIDCommV2ServiceType}
 
-		result, err := c.Create(
-			&did.Doc{
-				VerificationMethod: []did.VerificationMethod{expected},
-				Service: []did.Service{{
-					Type: "did-communication",
-				}},
-				KeyAgreement: []did.Verification{keyAgreement},
+	for _, svcType := range serviceTypes {
+		t.Run("test success - create using Service with P-256 keys as jsonWebKey2020 with service type: "+svcType,
+			func(t *testing.T) {
+				expected, keyAgreement := getSigningAndKeyAgreementKey(t, true, km)
+				c, err := New(sProvider)
+				require.NoError(t, err)
+
+				result, err := c.Create(
+					&did.Doc{
+						VerificationMethod: []did.VerificationMethod{expected},
+						Service: []did.Service{{
+							Type: svcType,
+						}},
+						KeyAgreement: []did.Verification{keyAgreement},
+					})
+
+				expectedKey, _ := fingerprint.CreateDIDKey(expected.Value)
+
+				if svcType == vdr.DIDCommV2ServiceType {
+					expectedKey = keyAgreement.VerificationMethod.ID
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, result.DIDDocument.Service)
+				require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
+				require.Equal(t, expectedKey,
+					result.DIDDocument.Service[0].RecipientKeys[0])
 			})
-
-		expectedDIDKey, _ := fingerprint.CreateDIDKey(expected.Value)
-
-		require.NoError(t, err)
-		require.NotEmpty(t, result.DIDDocument.Service)
-		require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
-		require.Equal(t, expectedDIDKey,
-			result.DIDDocument.Service[0].RecipientKeys[0])
-	})
+	}
 }
 
 func getSigningKey() did.VerificationMethod {

@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -469,6 +470,15 @@ func TestOperation_Send(t *testing.T) {
 			},
 		}
 
+		// Note: copied from store/connection/connection_lookup.go
+		mockDIDTagFunc := func(dids ...string) string {
+			for i, v := range dids {
+				dids[i] = strings.ReplaceAll(v, ":", "$")
+			}
+
+			return strings.Join(dids, "|")
+		}
+
 		t.Parallel()
 
 		for _, test := range tests {
@@ -479,7 +489,11 @@ func TestOperation_Send(t *testing.T) {
 					connBytes, err := json.Marshal(tc.testConnection)
 					require.NoError(t, err)
 					require.NoError(t, mockStore.Put(fmt.Sprintf("conn_%s", tc.testConnection.ConnectionID),
-						connBytes, spi.Tag{Name: "conn_"}))
+						connBytes,
+						spi.Tag{Name: "conn_"},
+						spi.Tag{Name: "bothDIDs", Value: mockDIDTagFunc(tc.testConnection.MyDID, tc.testConnection.TheirDID)},
+						spi.Tag{Name: "theirDID", Value: mockDIDTagFunc(tc.testConnection.TheirDID)},
+					))
 				}
 
 				svc, err := New(&protocol.MockProvider{StoreProvider: storage.NewCustomMockStoreProvider(mockStore)},
@@ -536,7 +550,7 @@ func TestOperation_Send(t *testing.T) {
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
-				errorMsg:    "DID not found",
+				errorMsg:    vdrapi.ErrNotFound.Error(),
 			},
 			{
 				name: "send message to destination",

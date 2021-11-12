@@ -16,6 +16,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -37,9 +38,11 @@ const (
 	namesKey                      = "names"
 
 	mimeTypeApplicationLdJSON = "application/ld+json"
-	peDefinitionFormat        = "dif/presentation-exchange/definitions@v1.0"
-	peSubmissionFormat        = "dif/presentation-exchange/submission@v1.0"
-	bbsContext                = "https://w3id.org/security/bbs/v1"
+	mimeTypeAll               = "*"
+
+	peDefinitionFormat = "dif/presentation-exchange/definitions@v1.0"
+	peSubmissionFormat = "dif/presentation-exchange/submission@v1.0"
+	bbsContext         = "https://w3id.org/security/bbs/v1"
 )
 
 // Metadata is an alias to the original Metadata.
@@ -66,12 +69,14 @@ func SavePresentation(p Provider) presentproof.Middleware {
 				return next.Handle(metadata)
 			}
 
-			presentation := presentproof.Presentation{}
-			if err := metadata.Message().Decode(&presentation); err != nil {
-				return fmt.Errorf("decode: %w", err)
+			msg := metadata.Message()
+
+			attachments, err := getAttachments(msg)
+			if err != nil {
+				return fmt.Errorf("get attachments: %w", err)
 			}
 
-			presentations, err := toVerifiablePresentation(vdr, presentation.PresentationsAttach, documentLoader)
+			presentations, err := toVerifiablePresentation(vdr, attachments, documentLoader)
 			if err != nil {
 				return fmt.Errorf("to verifiable presentation: %w", err)
 			}
@@ -108,6 +113,24 @@ func SavePresentation(p Provider) presentproof.Middleware {
 			return next.Handle(metadata)
 		})
 	}
+}
+
+func getAttachments(msg service.DIDCommMsg) ([]decorator.AttachmentData, error) {
+	if strings.HasPrefix(msg.Type(), presentproof.SpecV3) {
+		presentation := presentproof.PresentationV3{}
+		if err := msg.Decode(&presentation); err != nil {
+			return nil, fmt.Errorf("decode: %w", err)
+		}
+
+		return filterByMediaType(presentation.Attachments, mimeTypeAll), nil
+	}
+
+	presentation := presentproof.Presentation{}
+	if err := msg.Decode(&presentation); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+
+	return filterByMimeType(presentation.PresentationsAttach, mimeTypeAll), nil
 }
 
 type presentationExchangePayload struct {
@@ -164,7 +187,7 @@ func AddBBSProofFn(p Provider) func(presentation *verifiable.Presentation) error
 
 // PresentationDefinition the helper function for the present proof protocol that creates VP based on credentials that
 // were provided in the attachments according to the requested presentation definition.
-func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware { // nolint: funlen,gocyclo
+func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware { // nolint: funlen,gocyclo,gocognit
 	vdr := p.VDRegistry()
 	documentLoader := p.JSONLDDocumentLoader()
 
@@ -180,19 +203,47 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 				return next.Handle(metadata)
 			}
 
-			request := presentproof.RequestPresentation{}
-			if err := metadata.Message().Decode(&request); err != nil {
-				return fmt.Errorf("decode: %w", err)
+			var (
+				msg         = metadata.Message()
+				attachments []decorator.AttachmentData
+				src         []byte
+				fmtIdx      int
+				err         error
+			)
+
+			if strings.HasPrefix(msg.Type(), presentproof.SpecV3) { // nolint: nestif
+				request := presentproof.RequestPresentationV3{}
+				if err = msg.Decode(&request); err != nil {
+					return fmt.Errorf("decode: %w", err)
+				}
+
+				if metadata.PresentationV3() == nil ||
+					!hasFormat(toFormats(request.Attachments), peDefinitionFormat) ||
+					hasFormat(toFormats(metadata.PresentationV3().Attachments), peSubmissionFormat) {
+					return next.Handle(metadata)
+				}
+
+				src, err = getAttachmentByFormatV2(toFormats(request.Attachments),
+					request.Attachments, peDefinitionFormat)
+
+				attachments = filterByMediaType(metadata.PresentationV3().Attachments, mimeTypeApplicationLdJSON)
+			} else {
+				request := presentproof.RequestPresentation{}
+				if err = msg.Decode(&request); err != nil {
+					return fmt.Errorf("decode: %w", err)
+				}
+
+				if metadata.Presentation() == nil ||
+					!hasFormat(request.Formats, peDefinitionFormat) ||
+					hasFormat(metadata.Presentation().Formats, peSubmissionFormat) {
+					return next.Handle(metadata)
+				}
+
+				src, fmtIdx, err = getAttachmentByFormat(request.Formats,
+					request.RequestPresentationsAttach, peDefinitionFormat)
+				attachments = filterByMimeType(metadata.Presentation().PresentationsAttach, mimeTypeApplicationLdJSON)
 			}
 
-			if metadata.Presentation() == nil ||
-				!hasFormat(request.Formats, peDefinitionFormat) ||
-				hasFormat(metadata.Presentation().Formats, peSubmissionFormat) {
-				return next.Handle(metadata)
-			}
-
-			src, err := getAttachmentByFormat(request.Formats,
-				request.RequestPresentationsAttach, peDefinitionFormat)
 			if err != nil {
 				return fmt.Errorf("get attachment by format: %w", err)
 			}
@@ -203,33 +254,50 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 				return fmt.Errorf("unmarshal definition: %w", err)
 			}
 
-			credentials, err := parseCredentials(vdr, metadata.Presentation().PresentationsAttach, documentLoader)
+			credentials, err := parseCredentials(vdr, attachments, documentLoader)
 			if err != nil {
 				return fmt.Errorf("parse credentials: %w", err)
 			}
 
-			presentation, err := payload.PresentationDefinition.CreateVP(credentials,
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
-				verifiable.WithJSONLDDocumentLoader(documentLoader))
-			if err != nil {
-				return fmt.Errorf("create VP: %w", err)
-			}
+			if len(credentials) > 0 { // nolint: nestif
+				presentation, err := payload.PresentationDefinition.CreateVP(credentials, documentLoader,
+					verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
+					verifiable.WithJSONLDDocumentLoader(documentLoader))
+				if err != nil {
+					return fmt.Errorf("create VP: %w", err)
+				}
 
-			singFn := metadata.GetAddProofFn()
-			if singFn == nil {
-				singFn = options.addProof
-			}
+				signFn := metadata.GetAddProofFn()
+				if signFn == nil {
+					signFn = options.addProof
+				}
 
-			err = singFn(presentation)
-			if err != nil {
-				return fmt.Errorf("add proof: %w", err)
-			}
+				err = signFn(presentation)
+				if err != nil {
+					return fmt.Errorf("add proof: %w", err)
+				}
 
-			metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
-				ID:       uuid.New().String(),
-				MimeType: mimeTypeApplicationLdJSON,
-				Data:     decorator.AttachmentData{JSON: presentation},
-			}}
+				if strings.HasPrefix(msg.Type(), presentproof.SpecV3) {
+					metadata.PresentationV3().Attachments = []decorator.AttachmentV2{{
+						ID:        uuid.New().String(),
+						MediaType: mimeTypeApplicationLdJSON,
+						Data:      decorator.AttachmentData{JSON: presentation},
+					}}
+				} else {
+					newID := uuid.New().String()
+
+					formats := metadata.Presentation().Formats
+					if len(formats) > fmtIdx {
+						formats[fmtIdx].AttachID = newID
+					}
+
+					metadata.Presentation().PresentationsAttach = []decorator.Attachment{{
+						ID:       newID,
+						MimeType: mimeTypeApplicationLdJSON,
+						Data:     decorator.AttachmentData{JSON: presentation},
+					}}
+				}
+			}
 
 			return next.Handle(metadata)
 		})
@@ -246,17 +314,40 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-// nolint: gocyclo
-func parseCredentials(vdr vdrapi.Registry, attachments []decorator.Attachment,
+func filterByMediaType(attachments []decorator.AttachmentV2, mediaType string) []decorator.AttachmentData {
+	var result []decorator.AttachmentData
+
+	for i := range attachments {
+		if attachments[i].MediaType != mediaType && mediaType != mimeTypeAll {
+			continue
+		}
+
+		result = append(result, attachments[i].Data)
+	}
+
+	return result
+}
+
+func filterByMimeType(attachments []decorator.Attachment, mimeType string) []decorator.AttachmentData {
+	var result []decorator.AttachmentData
+
+	for i := range attachments {
+		if attachments[i].MimeType != mimeType && mimeType != mimeTypeAll {
+			continue
+		}
+
+		result = append(result, attachments[i].Data)
+	}
+
+	return result
+}
+
+func parseCredentials(vdr vdrapi.Registry, attachments []decorator.AttachmentData,
 	documentLoader ld.DocumentLoader) ([]*verifiable.Credential, error) {
 	var credentials []*verifiable.Credential
 
 	for i := range attachments {
-		if attachments[i].MimeType != mimeTypeApplicationLdJSON {
-			continue
-		}
-
-		src, err := attachments[i].Data.Fetch()
+		src, err := attachments[i].Fetch()
 		if err != nil {
 			return nil, err
 		}
@@ -303,12 +394,29 @@ func parseCredentials(vdr vdrapi.Registry, attachments []decorator.Attachment,
 	return credentials, nil
 }
 
-func getAttachmentByFormat(fms []presentproof.Format, attachments []decorator.Attachment, name string) ([]byte, error) {
-	for _, format := range fms {
+func getAttachmentByFormat(fms []presentproof.Format, attachments []decorator.Attachment, name string,
+) ([]byte, int, error) {
+	for fmtIdx, format := range fms {
 		if format.Format == name {
 			for i := range attachments {
 				if attachments[i].ID == format.AttachID {
-					return attachments[i].Data.Fetch()
+					data, err := attachments[i].Data.Fetch()
+					return data, fmtIdx, err
+				}
+			}
+		}
+	}
+
+	return nil, 0, errors.New("not found")
+}
+
+func getAttachmentByFormatV2(fms []presentproof.Format, attachs []decorator.AttachmentV2, name string) ([]byte, error) {
+	for _, format := range fms {
+		if format.Format == name {
+			for i := range attachs {
+				if attachs[i].ID == format.AttachID {
+					data, err := attachs[i].Data.Fetch()
+					return data, err
 				}
 			}
 		}
@@ -327,6 +435,15 @@ func hasFormat(formats []presentproof.Format, format string) bool {
 	return false
 }
 
+func toFormats(attachments []decorator.AttachmentV2) []presentproof.Format {
+	var result []presentproof.Format
+	for i := range attachments {
+		result = append(result, presentproof.Format{AttachID: attachments[i].ID, Format: attachments[i].Format})
+	}
+
+	return result
+}
+
 func getName(idx int, id string, metadata presentproof.Metadata) string {
 	name := id
 	if len(metadata.PresentationNames()) > idx {
@@ -340,12 +457,12 @@ func getName(idx int, id string, metadata presentproof.Metadata) string {
 	return uuid.New().String()
 }
 
-func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.Attachment,
+func toVerifiablePresentation(vdr vdrapi.Registry, data []decorator.AttachmentData,
 	documentLoader ld.DocumentLoader) ([]*verifiable.Presentation, error) {
 	var presentations []*verifiable.Presentation
 
 	for i := range data {
-		raw, err := data[i].Data.Fetch()
+		raw, err := data[i].Fetch()
 		if err != nil {
 			return nil, fmt.Errorf("fetch: %w", err)
 		}

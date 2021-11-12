@@ -7,140 +7,124 @@ SPDX-License-Identifier: Apache-2.0
 package util
 
 import (
+	"encoding/json"
 	"time"
 )
+
+// TimeWrapper overrides marshalling of time.Time. If a TimeWrapper is created from a time string, or
+// unmarshalled from JSON, it saves the string literal, which it uses when marshalling.
+// If a TimeWrapper is created using NewTime or a struct literal, it marshals with the default
+// time.RFC3339 format.
+type TimeWrapper struct {
+	time.Time
+	timeStr string
+}
 
 // TimeWithTrailingZeroMsec overrides marshalling of time.Time. It keeps a format of initial unmarshalling
 // in case when date has zero a fractional second (e.g. ".000").
 // For example, time.Time marshals 2018-03-15T00:00:00.000Z to 2018-03-15T00:00:00Z
 // while TimeWithTrailingZeroMsec marshals to the initial 2018-03-15T00:00:00.000Z value.
-type TimeWithTrailingZeroMsec struct {
-	time.Time
+//
+// Deprecated: use TimeWrapper instead.
+type TimeWithTrailingZeroMsec = TimeWrapper
 
-	trailingZerosMsecCount int
-}
-
-// NewTime creates TimeWithTrailingZeroMsec without zero sub-second precision.
+// NewTime creates a TimeWrapper wrapped around the given time.Time.
 // It functions as a normal time.Time object.
-func NewTime(t time.Time) *TimeWithTrailingZeroMsec {
-	return &TimeWithTrailingZeroMsec{Time: t}
+func NewTime(t time.Time) *TimeWrapper {
+	return &TimeWrapper{Time: t}
 }
 
-// NewTimeWithTrailingZeroMsec creates TimeWithTrailingZeroMsec with certain zero sub-second precision.
-func NewTimeWithTrailingZeroMsec(t time.Time, trailingZerosMsecCount int) *TimeWithTrailingZeroMsec {
-	return &TimeWithTrailingZeroMsec{
-		Time:                   t,
-		trailingZerosMsecCount: trailingZerosMsecCount,
+// NewTimeWithTrailingZeroMsec creates a TimeWrapper wrapped around the given time.Time.
+//
+// Deprecated: use NewTime instead. For sub-zero precision,
+// use ParseTimeWrapper on a string with the desired precision.
+func NewTimeWithTrailingZeroMsec(t time.Time, _ int) *TimeWrapper {
+	return &TimeWrapper{
+		Time: t,
 	}
 }
 
 // MarshalJSON implements the json.Marshaler interface.
 // The time is a quoted string in RFC 3339 format, with sub-second precision added if present.
 // In case of zero sub-second precision presence, trailing zeros are included.
-func (tm TimeWithTrailingZeroMsec) MarshalJSON() ([]byte, error) {
-	timeBytes, err := tm.Time.MarshalJSON()
+func (tm TimeWrapper) MarshalJSON() ([]byte, error) {
+	// catch time.Time marshaling errors
+	_, err := tm.Time.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 
-	if tm.trailingZerosMsecCount == 0 {
-		return timeBytes, nil
+	if tm.timeStr != "" {
+		return json.Marshal(tm.timeStr)
 	}
 
-	return tm.marshalJSONWithTrailingZeroMsec()
+	return json.Marshal(tm.FormatToString())
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 // The time is expected to be a quoted string in RFC 3339 format.
-// In case of zero sub-second precision, it's kept and applied when e.g. unmarshal the time to JSON.
-func (tm *TimeWithTrailingZeroMsec) UnmarshalJSON(data []byte) error {
+// The source string value is saved, and used if this is marshalled back to JSON.
+func (tm *TimeWrapper) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
 	}
 
-	err := (&tm.Time).UnmarshalJSON(data)
+	timeStr := ""
+
+	err := json.Unmarshal(data, &timeStr)
 	if err != nil {
 		return err
 	}
 
-	tm.keepTrailingZerosMsecFormat(string(data))
+	err = tm.parse(timeStr)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-// GetFormat returns customized time.RFC3339Nano with trailing zeros included in case of
-// zero sub-second precision presence. Otherwise it returns time.RFC3339Nano.
-func (tm TimeWithTrailingZeroMsec) GetFormat() string {
-	if tm.trailingZerosMsecCount > 0 {
-		return tm.getTrailingZeroIncludedFormat()
+func (tm *TimeWrapper) parse(timeStr string) error {
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, timeStr+"Z")
+		if err != nil {
+			return err
+		}
 	}
 
-	return time.RFC3339Nano
+	tm.Time = t
+	tm.timeStr = timeStr
+
+	return nil
+}
+
+// FormatToString returns the string representation of this TimeWrapper.
+// If it was unmarshalled from a JSON object, this returns the original string it was parsed from.
+// Otherwise, this returns the time in the time.RFC3339Nano format.
+func (tm *TimeWrapper) FormatToString() string {
+	if tm.timeStr != "" {
+		return tm.timeStr
+	}
+
+	return tm.Time.Format(time.RFC3339Nano)
 }
 
 // ParseTimeWithTrailingZeroMsec parses a formatted string and returns the time value it represents.
-// In case of zero sub-second precision, it's kept and applied when e.g. unmarshal the time to JSON.
-func ParseTimeWithTrailingZeroMsec(timeStr string) (*TimeWithTrailingZeroMsec, error) {
-	t, err := time.Parse(time.RFC3339, timeStr)
+//
+// Deprecated: use ParseTimeWrapper instead.
+func ParseTimeWithTrailingZeroMsec(timeStr string) (*TimeWrapper, error) {
+	return ParseTimeWrapper(timeStr)
+}
+
+// ParseTimeWrapper parses a formatted string and returns the time value it represents.
+func ParseTimeWrapper(timeStr string) (*TimeWrapper, error) {
+	tm := TimeWrapper{}
+
+	err := tm.parse(timeStr)
 	if err != nil {
 		return nil, err
 	}
 
-	tWithTrailingZeroMsec := &TimeWithTrailingZeroMsec{Time: t}
-	tWithTrailingZeroMsec.keepTrailingZerosMsecFormat(timeStr)
-
-	return tWithTrailingZeroMsec, nil
-}
-
-func (tm TimeWithTrailingZeroMsec) marshalJSONWithTrailingZeroMsec() ([]byte, error) {
-	format := tm.getTrailingZeroIncludedFormat()
-
-	b := make([]byte, 0, len(format)+len(`""`))
-	b = append(b, '"')
-	b = tm.AppendFormat(b, format)
-	b = append(b, '"')
-
-	return b, nil
-}
-
-func (tm TimeWithTrailingZeroMsec) getTrailingZeroIncludedFormat() string {
-	format := "2006-01-02T15:04:05."
-
-	for i := 0; i < tm.trailingZerosMsecCount; i++ {
-		format += "0"
-	}
-
-	format += "Z07:00"
-
-	return format
-}
-
-func (tm *TimeWithTrailingZeroMsec) keepTrailingZerosMsecFormat(timeStr string) {
-	msecFraction := false
-	zerosCount := 0
-
-	for i := 0; i < len(timeStr); i++ {
-		c := int(timeStr[i])
-		if !msecFraction {
-			if c == '.' {
-				msecFraction = true
-			}
-
-			continue
-		}
-
-		if c == 'Z' {
-			if zerosCount > 0 {
-				tm.trailingZerosMsecCount = zerosCount
-			}
-
-			break
-		}
-
-		if c != '0' {
-			break
-		}
-
-		zerosCount++
-	}
+	return &tm, nil
 }

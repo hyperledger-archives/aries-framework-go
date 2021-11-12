@@ -18,8 +18,8 @@ const didID = `${environment.DID_ID}`
 describe("VDR", function () {
     let agents
     before(async () => {
-        let a = await newAries('vdr-demo','vdr-demo-agent', ["sidetree@http://localhost:48326/sidetree/0.0.1/identifiers"])
-        let b = await newAriesREST(agentControllerApiUrl)
+        let a = await newAries('vdr-demo','vdr-demo-agent', ["sidetree@http://localhost:48326/sidetree/0.0.1/identifiers"], null, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
+        let b = await newAriesREST(agentControllerApiUrl, [`${environment.USER_MEDIA_TYPE_PROFILES}`])
 
         agents = [a, b]
     })
@@ -66,7 +66,7 @@ describe("VDR", function () {
             }
             await agents[i].vdr.saveDID({
                 name: didName,
-                did: resp.did
+                did: resp.DIDDocument
             })
         }
     })

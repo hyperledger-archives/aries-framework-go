@@ -11,16 +11,20 @@ import (
 	"encoding/json"
 	"fmt"
 
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	didfingerprint "github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint/didfp"
 )
 
 // keyTypeCodecs maps kms.KeyType to did:key codec.
 // nolint: gochecknoglobals
 var keyTypeCodecs = map[kms.KeyType]uint64{
 	// signing keys
-	kms.ED25519:                fingerprint.ED25519PubKeyMultiCodec,
+	kms.ED25519Type:            fingerprint.ED25519PubKeyMultiCodec,
 	kms.BLS12381G2Type:         fingerprint.BLS12381g2PubKeyMultiCodec,
 	kms.ECDSAP256TypeIEEEP1363: fingerprint.P256PubKeyMultiCodec,
 	kms.ECDSAP256TypeDER:       fingerprint.P256PubKeyMultiCodec,
@@ -31,13 +35,13 @@ var keyTypeCodecs = map[kms.KeyType]uint64{
 
 	// encryption keys
 	kms.X25519ECDHKWType:   fingerprint.X25519PubKeyMultiCodec,
-	kms.NISTP256ECDHKW:     fingerprint.P256PubKeyMultiCodec,
+	kms.NISTP256ECDHKWType: fingerprint.P256PubKeyMultiCodec,
 	kms.NISTP384ECDHKWType: fingerprint.P384PubKeyMultiCodec,
 	kms.NISTP521ECDHKWType: fingerprint.P521PubKeyMultiCodec,
 }
 
-// BuildDIDKeyByKMSKeyType creates a did key for pubKeyBytes based on the kms keyType.
-func BuildDIDKeyByKMSKeyType(pubKeyBytes []byte, keyType kms.KeyType) (string, error) {
+// BuildDIDKeyByKeyType creates a did key for pubKeyBytes based on the kms keyType.
+func BuildDIDKeyByKeyType(pubKeyBytes []byte, keyType kms.KeyType) (string, error) {
 	switch keyType {
 	case kms.X25519ECDHKW:
 		pubKey := &cryptoapi.PublicKey{}
@@ -62,14 +66,155 @@ func BuildDIDKeyByKMSKeyType(pubKeyBytes []byte, keyType kms.KeyType) (string, e
 			return "", fmt.Errorf("buildDIDkeyByKMSKeyType failed to unmarshal key type %v: %w", keyType, err)
 		}
 
-		pubKeyBytes = elliptic.Marshal(ecKey.Curve, ecKey.X, ecKey.Y)
+		// used Compressed EC format for did:key, the same way as vdr key creator.
+		pubKeyBytes = elliptic.MarshalCompressed(ecKey.Curve, ecKey.X, ecKey.Y)
 	}
 
 	if codec, ok := keyTypeCodecs[keyType]; ok {
-		kid, _ := fingerprint.CreateDIDKeyByCode(codec, pubKeyBytes)
+		didKey, _ := fingerprint.CreateDIDKeyByCode(codec, pubKeyBytes)
 
-		return kid, nil
+		return didKey, nil
 	}
 
 	return "", fmt.Errorf("keyType '%s' does not have a multi-base codec", keyType)
+}
+
+// EncryptionPubKeyFromDIDKey parses the did:key DID and returns the key's raw value.
+// note: for NIST P ECDSA keys, the raw value does not have the compression point.
+//	In order to use elliptic.Unmarshal() with the raw value, the uncompressed point ([]byte{4}) must be prepended.
+//	see https://github.com/golang/go/blob/master/src/crypto/elliptic/elliptic.go#L384.
+//nolint:funlen,gocyclo
+func EncryptionPubKeyFromDIDKey(didKey string) (*cryptoapi.PublicKey, error) {
+	pubKey, code, err := extractRawKey(didKey)
+	if err != nil {
+		return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: %w", err)
+	}
+
+	var (
+		crv   string
+		kmtKT kms.KeyType
+		kt    string
+		x     []byte
+		y     []byte
+	)
+
+	switch code {
+	case fingerprint.ED25519PubKeyMultiCodec: // TODO remove this case when legacyPacker is decommissioned.
+		var edKID string
+
+		kmtKT = kms.ED25519Type
+		pubEDKey := &cryptoapi.PublicKey{
+			X:     pubKey,
+			Curve: "Ed25519",
+			Type:  "OKP",
+		}
+
+		edKID, err = jwkkid.CreateKID(pubKey, kmtKT)
+		if err != nil {
+			return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: %w", err)
+		}
+
+		pubEDKey.KID = edKID
+
+		return pubEDKey, nil
+	case fingerprint.X25519PubKeyMultiCodec:
+		var (
+			mPubXKey []byte
+			xKID     string
+		)
+
+		kmtKT = kms.X25519ECDHKWType
+		pubXKey := &cryptoapi.PublicKey{
+			X:     pubKey,
+			Curve: "X25519",
+			Type:  "OKP",
+		}
+
+		mPubXKey, err = json.Marshal(pubXKey)
+		if err != nil {
+			return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: %w", err)
+		}
+
+		xKID, err = jwkkid.CreateKID(mPubXKey, kmtKT)
+		if err != nil {
+			return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: %w", err)
+		}
+
+		pubXKey.KID = xKID
+
+		return pubXKey, nil
+	case fingerprint.P256PubKeyMultiCodec:
+		kmtKT = kms.ECDSAP256IEEEP1363
+		kt = "EC"
+		crv, x, y, pubKey = unmarshalECKey(elliptic.P256(), pubKey)
+	case fingerprint.P384PubKeyMultiCodec:
+		kmtKT = kms.ECDSAP384IEEEP1363
+		kt = "EC"
+		crv, x, y, pubKey = unmarshalECKey(elliptic.P384(), pubKey)
+	case fingerprint.P521PubKeyMultiCodec:
+		kmtKT = kms.ECDSAP521TypeIEEEP1363
+		kt = "EC"
+		crv, x, y, pubKey = unmarshalECKey(elliptic.P521(), pubKey)
+	default:
+		return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: unsupported key multicodec code [0x%x]", code)
+	}
+
+	kid, err := jwkkid.CreateKID(pubKey, kmtKT)
+	if err != nil {
+		return nil, fmt.Errorf("encryptionPubKeyFromDIDKey: %w", err)
+	}
+
+	return &cryptoapi.PublicKey{
+		KID:   kid,
+		X:     x,
+		Y:     y,
+		Curve: crv,
+		Type:  kt,
+	}, nil
+}
+
+func unmarshalECKey(ecCRV elliptic.Curve, pubKey []byte) (string, []byte, []byte, []byte) {
+	var (
+		x []byte
+		y []byte
+	)
+
+	ecCurves := map[elliptic.Curve]string{
+		elliptic.P256(): commonpb.EllipticCurveType_NIST_P256.String(),
+		elliptic.P384(): commonpb.EllipticCurveType_NIST_P384.String(),
+		elliptic.P521(): commonpb.EllipticCurveType_NIST_P521.String(),
+	}
+
+	xBig, yBig := elliptic.UnmarshalCompressed(ecCRV, pubKey)
+	if xBig != nil && yBig != nil {
+		x = xBig.Bytes()
+		y = yBig.Bytes()
+
+		// need to marshal pubKey in uncompressed format for CreateKID() call in EncryptionPubKeyFromDIDKey above since
+		// did:key uses compressed elliptic format.
+		pubKey = elliptic.Marshal(ecCRV, xBig, yBig)
+	} else { // try normal Unmarshal if compressed returned nil xBig and yBig.
+		// add compression byte for uncompressed key, comment of fingerprint.PubKeyFromDIDKey().
+		pubKey = append([]byte{4}, pubKey...)
+		xBig, yBig = elliptic.Unmarshal(ecCRV, pubKey)
+
+		x = xBig.Bytes()
+		y = yBig.Bytes()
+	}
+
+	return ecCurves[ecCRV], x, y, pubKey
+}
+
+func extractRawKey(didKey string) ([]byte, uint64, error) {
+	idMethodSpecificID, err := didfingerprint.MethodIDFromDIDKey(didKey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("extractRawKey: MethodIDFromDIDKey failure: %w", err)
+	}
+
+	pubKey, code, err := fingerprint.PubKeyFromFingerprint(idMethodSpecificID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("extractRawKey: PubKeyFromFingerprint failure: %w", err)
+	}
+
+	return pubKey, code, nil
 }

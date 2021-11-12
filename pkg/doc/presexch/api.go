@@ -13,6 +13,7 @@ import (
 
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -63,7 +64,7 @@ func WithCredentialOptions(options ...verifiable.CredentialOpt) MatchOption {
 
 // Match returns the credentials matched against the InputDescriptors ids.
 func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:gocyclo,funlen
-	options ...MatchOption) (map[string]*verifiable.Credential, error) {
+	contextLoader ld.DocumentLoader, options ...MatchOption) (map[string]*verifiable.Credential, error) {
 	opts := &MatchOptions{}
 
 	for i := range options {
@@ -114,16 +115,8 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 
 		inputDescriptor := pd.inputDescriptor(mapping.ID)
 
-		var found bool
-		// The schema of the candidate input must match one of the Input Descriptor schema object uri values exactly.
-		for _, schema := range inputDescriptor.Schema {
-			found = schemaURIMatch(vc.Context, vc.Types, schema.URI)
-			if found {
-				break
-			}
-		}
-
-		if !found {
+		passed := filterSchema(inputDescriptor.Schema, []*verifiable.Credential{vc}, contextLoader)
+		if len(passed) == 0 {
 			return nil, fmt.Errorf(
 				"input descriptor id [%s] requires schemas %+v which do not match vc with @context [%+v] and types [%+v] selected by path [%s]", // nolint:lll
 				inputDescriptor.ID, inputDescriptor.Schema, vc.Context, vc.Types, mapping.Path)
@@ -248,19 +241,6 @@ func stringsContain(s []string, val string) bool {
 	for i := range s {
 		if s[i] == val {
 			return true
-		}
-	}
-
-	return false
-}
-
-// TODO - improve schema.uri matching: https://github.com/hyperledger/aries-framework-go/issues/2756
-func schemaURIMatch(vcCtx, vcTypes []string, schemaURI string) bool {
-	for i := range vcCtx {
-		for j := range vcTypes {
-			if schemaURI == fmt.Sprintf("%s#%s", vcCtx[i], vcTypes[j]) {
-				return true
-			}
 		}
 	}
 

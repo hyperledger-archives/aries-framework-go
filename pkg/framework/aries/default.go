@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -40,7 +39,7 @@ import (
 )
 
 // defFrameworkOpts provides default framework options.
-func defFrameworkOpts(frameworkOpts *Aries) error {
+func defFrameworkOpts(frameworkOpts *Aries) error { //nolint:gocyclo
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/209 Move default providers to the sub-package
 	if len(frameworkOpts.outboundTransports) == 0 {
 		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
@@ -55,7 +54,17 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProvider()
 	}
 
-	err := createJSONLDDocumentLoader(frameworkOpts)
+	err := createJSONLDContextStore(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	err = createJSONLDRemoteProviderStore(frameworkOpts)
+	if err != nil {
+		return err
+	}
+
+	err = createJSONLDDocumentLoader(frameworkOpts)
 	if err != nil {
 		return err
 	}
@@ -85,70 +94,95 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 }
 
 func newExchangeSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return didexchange.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &didexchange.Service{}, nil
+		},
 	}
 }
 
 func newIntroduceSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return introduce.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &introduce.Service{}, nil
+		},
 	}
 }
 
 func newIssueCredentialSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		service, err := issuecredential.New(prv)
-		if err != nil {
-			return nil, err
-		}
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &issuecredential.Service{}, nil
+		},
+		Init: func(svc dispatcher.ProtocolService, prv api.Provider) error {
+			icsvc, ok := svc.(*issuecredential.Service)
+			if !ok {
+				return fmt.Errorf("expected issue credential ProtocolService to be a %T", issuecredential.Service{})
+			}
 
-		// sets default middleware to the service
-		service.Use(mdissuecredential.SaveCredentials(prv))
+			err := icsvc.Initialize(prv)
+			if err != nil {
+				return err
+			}
 
-		return service, nil
+			// sets default middleware to the service
+			icsvc.Use(mdissuecredential.SaveCredentials(prv))
+
+			return nil
+		},
 	}
 }
 
 func newPresentProofSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		service, err := presentproof.New(prv)
-		if err != nil {
-			return nil, err
-		}
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &presentproof.Service{}, nil
+		},
+		Init: func(svc dispatcher.ProtocolService, prv api.Provider) error {
+			ppsvc, ok := svc.(*presentproof.Service)
+			if !ok {
+				return fmt.Errorf("expected present proof ProtocolService to be a %T", presentproof.Service{})
+			}
 
-		// sets default middleware to the service
-		service.Use(
-			mdpresentproof.SavePresentation(prv),
-			mdpresentproof.PresentationDefinition(prv,
-				mdpresentproof.WithAddProofFn(mdpresentproof.AddBBSProofFn(prv)),
-			),
-		)
+			err := ppsvc.Initialize(prv)
+			if err != nil {
+				return err
+			}
 
-		return service, nil
+			// sets default middleware to the service
+			ppsvc.Use(
+				mdpresentproof.SavePresentation(prv),
+				mdpresentproof.PresentationDefinition(prv,
+					mdpresentproof.WithAddProofFn(mdpresentproof.AddBBSProofFn(prv)),
+				),
+			)
+
+			return nil
+		},
 	}
 }
 
 func newRouteSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return mediator.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &mediator.Service{}, nil
+		},
 	}
 }
 
 func newMessagePickupSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		tp, ok := prv.(transport.Provider)
-		if !ok {
-			return nil, errors.New("failed to cast transport provider")
-		}
-
-		return messagepickup.New(prv, tp)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &messagepickup.Service{}, nil
+		},
 	}
 }
 
 func newOutOfBandSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return outofband.New(prv)
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &outofband.Service{}, nil
+		},
 	}
 }
 
@@ -196,7 +230,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 				return legacy.New(provider), nil
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
-				return authcrypt.New(provider, jose.A256GCM)
+				return authcrypt.New(provider, jose.A256CBCHS512)
 			},
 			func(provider packer.Provider) (packer.Packer, error) {
 				return anoncrypt.New(provider, jose.A256GCM)
@@ -218,6 +252,14 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
 	}
 
+	if frameworkOpts.mediaTypeProfiles == nil {
+		// For now only set legacy media type profile to match default key type and primary packer above.
+		// Using media type profile, not just a media type, in order to align with OOB invitations' Accept header.
+		// TODO once keyAgreement is added in the packers, this can be switched to DIDcomm V2 media type as well as
+		// 		switching legacyPacker with authcrtypt as primary packer and using an ECDH-1PU key as default key above.
+		frameworkOpts.mediaTypeProfiles = []string{transport.MediaTypeAIP2RFC0019Profile}
+	}
+
 	return nil
 }
 
@@ -226,7 +268,10 @@ func assignVerifiableStoreIfNeeded(aries *Aries, storeProvider storage.Provider)
 		return nil
 	}
 
-	provider, err := context.New(context.WithStorageProvider(storeProvider))
+	provider, err := context.New(
+		context.WithStorageProvider(storeProvider),
+		context.WithJSONLDDocumentLoader(aries.documentLoader),
+	)
 	if err != nil {
 		return fmt.Errorf("verifiable store initialization failed : %w", err)
 	}

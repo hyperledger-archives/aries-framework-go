@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -59,6 +58,8 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
+	InboundMessageHandler() transport.InboundMessageHandler
+	Packager() transport.Packager
 }
 
 type connections interface {
@@ -79,31 +80,53 @@ type Service struct {
 	statusMap        map[string]chan Status
 	statusMapLock    sync.RWMutex
 	inboxLock        sync.Mutex
+	initialized      bool
 }
 
 // New returns the messagepickup service.
-func New(prov provider, tp transport.Provider) (*Service, error) {
-	store, err := prov.StorageProvider().OpenStore(Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("open mailbox store : %w", err)
-	}
+func New(prov provider) (*Service, error) {
+	svc := Service{}
 
-	connectionLookup, err := connection.NewLookup(prov)
+	err := svc.Initialize(prov)
 	if err != nil {
 		return nil, err
 	}
 
-	svc := &Service{
-		outbound:         prov.OutboundDispatcher(),
-		msgStore:         store,
-		connectionLookup: connectionLookup,
-		packager:         tp.Packager(),
-		msgHandler:       tp.InboundMessageHandler(),
-		batchMap:         make(map[string]chan Batch),
-		statusMap:        make(map[string]chan Status),
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(p interface{}) error {
+	if s.initialized {
+		return nil
 	}
 
-	return svc, nil
+	prov, ok := p.(provider)
+	if !ok {
+		return fmt.Errorf("expected provider of type `%T`, got type `%T`", provider(nil), p)
+	}
+
+	store, err := prov.StorageProvider().OpenStore(Namespace)
+	if err != nil {
+		return fmt.Errorf("open mailbox store : %w", err)
+	}
+
+	connectionLookup, err := connection.NewLookup(prov)
+	if err != nil {
+		return err
+	}
+
+	s.outbound = prov.OutboundDispatcher()
+	s.msgStore = store
+	s.connectionLookup = connectionLookup
+	s.packager = prov.Packager()
+	s.msgHandler = prov.InboundMessageHandler()
+	s.batchMap = make(map[string]chan Batch)
+	s.statusMap = make(map[string]chan Status)
+
+	s.initialized = true
+
+	return nil
 }
 
 // HandleInbound handles inbound message pick up messages.
@@ -329,7 +352,7 @@ func (r *inbox) EncodeMessages(msg []*Message) error {
 }
 
 // AddMessage add message to inbox.
-func (s *Service) AddMessage(message *model.Envelope, theirDID string) error {
+func (s *Service) AddMessage(message []byte, theirDID string) error {
 	s.inboxLock.Lock()
 	defer s.inboxLock.Unlock()
 
@@ -573,12 +596,7 @@ func (s *Service) setStatusCh(msgID string, statusCh chan Status) {
 }
 
 func (s *Service) handle(msg *Message) error {
-	d, err := json.Marshal(msg.Message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal msg: %w", err)
-	}
-
-	unpackMsg, err := s.packager.UnpackMessage(d)
+	unpackMsg, err := s.packager.UnpackMessage(msg.Message)
 	if err != nil {
 		return fmt.Errorf("failed to unpack msg: %w", err)
 	}

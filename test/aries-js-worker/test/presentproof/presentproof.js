@@ -3,12 +3,10 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
-import { environment } from "../environment.js";
-import {
-    newDIDExchangeClient,
-    newDIDExchangeRESTClient,
-} from "../didexchange/didexchange_e2e.js";
-import { watchForEvent } from "../common.js";
+
+import {environment} from "../environment.js";
+import {newDIDExchangeClient, newDIDExchangeRESTClient,} from "../didexchange/didexchange_e2e.js";
+import {watchForEvent} from "../common.js";
 import "/base/node_modules/base64-js/base64js.min.js";
 import "/base/node_modules/base-58/Base58.js";
 
@@ -23,15 +21,40 @@ const verifierID = "verifier";
 const proverID = "prover";
 
 const presentation = {
-    "presentations~attach": [
-        {
-            lastmod_time: "0001-01-01T00:00:00Z",
-            data: {
-                base64:
-                    "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=",
+    lastmod_time: "0001-01-01T00:00:00Z",
+    data: {
+        base64: "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=",
+    },
+};
+
+const presentationDefinition = {
+    presentation_definition: {
+        id: "7dd10550-adb2-4d28-819f-f601680c1fcd",
+        input_descriptors: [
+            {
+                id:
+                    "adcc44d9-1c0e-4e8f-9f21-6eda7dba9160",
+                schema: [
+                    {
+                        uri: "https://example.org/examples#UniversityDegreeCredential"
+                    },
+                ],
+                constraints: {
+                    limit_disclosure: "required",
+                    fields: [
+                        {
+                            path: [
+                                "$.credentialSubject.degree.degreeSchool",
+                            ],
+                            filter: {
+                                type: "string",
+                            },
+                        },
+                    ],
+                },
             },
-        },
-    ],
+        ],
+    },
 };
 
 const credential = {
@@ -60,25 +83,46 @@ const credential = {
     type: ["VerifiableCredential", "UniversityDegreeCredential"],
 };
 
-describe("Present Proof - The Verifier begins with a request presentation", async function () {
+const v2 = "v2";
+const v3 = "v3";
+
+describe("Present Proof (v2) - The Verifier begins with a request presentation", async function () {
     describe(restMode, function () {
-        presentProof(restMode);
+        presentProof(restMode, v2);
     });
     describe(wasmMode, function () {
-        presentProof(wasmMode);
+        presentProof(wasmMode, v2);
     });
 });
 
-describe("Present Proof - The Verifier begins with a request presentation (BBS+)", async function () {
+describe("Present Proof (v3) - The Verifier begins with a request presentation", async function () {
     describe(restMode, function () {
-        presentProofBBS(restMode);
+        presentProof(restMode, v3);
     });
     describe(wasmMode, function () {
-        presentProofBBS(wasmMode);
+        presentProof(wasmMode, v3);
     });
 });
 
-async function presentProofBBS(mode) {
+describe("Present Proof (v2) - The Verifier begins with a request presentation (BBS+)", async function () {
+    describe(restMode, function () {
+        presentProofBBS(restMode, v2);
+    });
+    describe(wasmMode, function () {
+        presentProofBBS(wasmMode, v2);
+    });
+});
+
+describe("Present Proof (v3) - The Verifier begins with a request presentation (BBS+)", async function () {
+    describe(restMode, function () {
+        presentProofBBS(restMode, v3);
+    });
+    describe(wasmMode, function () {
+        presentProofBBS(wasmMode, v3);
+    });
+});
+
+async function presentProofBBS(mode, ver) {
     let connections;
     let didClient;
     let verifier, prover;
@@ -90,7 +134,7 @@ async function presentProofBBS(mode) {
                 agent1ControllerApiUrl
             );
         } else {
-            didClient = await newDIDExchangeClient(verifierID, proverID);
+            didClient = await newDIDExchangeClient(verifierID + ver, proverID + ver);
         }
 
         assert.isNotNull(didClient);
@@ -114,6 +158,26 @@ async function presentProofBBS(mode) {
         verifierConn = await connection(verifier, connections[0]);
         let ID = "6dd10550-adb3-1d28-519f-f601680c2fcd";
 
+        if (ver === v3) {
+            return verifier.presentproof.sendRequestPresentationV3({
+                my_did: verifierConn.MyDID,
+                their_did: verifierConn.TheirDID,
+                request_presentation: {
+                    body: {will_confirm: true},
+                    attachments: [
+                        {
+                            id: ID,
+                            format: "dif/presentation-exchange/definitions@v1.0",
+                            lastmod_time: "0001-01-01T00:00:00Z",
+                            data: {
+                                json: presentationDefinition,
+                            },
+                        },
+                    ],
+                },
+            });
+        }
+
         return verifier.presentproof.sendRequestPresentation({
             my_did: verifierConn.MyDID,
             their_did: verifierConn.TheirDID,
@@ -130,35 +194,7 @@ async function presentProofBBS(mode) {
                         "@id": ID,
                         lastmod_time: "0001-01-01T00:00:00Z",
                         data: {
-                            json: {
-                                presentation_definition: {
-                                    id: "7dd10550-adb2-4d28-819f-f601680c1fcd",
-                                    input_descriptors: [
-                                        {
-                                            id:
-                                                "adcc44d9-1c0e-4e8f-9f21-6eda7dba9160",
-                                            schema: [
-                                                {
-                                                    uri: "https://www.w3.org/2018/credentials/examples/v1#UniversityDegreeCredential"
-                                                },
-                                            ],
-                                            constraints: {
-                                                limit_disclosure: "required",
-                                                fields: [
-                                                    {
-                                                        path: [
-                                                            "$.credentialSubject.degree.degreeSchool",
-                                                        ],
-                                                        filter: {
-                                                            type: "string",
-                                                        },
-                                                    },
-                                                ],
-                                            },
-                                        },
-                                    ],
-                                },
-                            },
+                            json: presentationDefinition,
                         },
                     },
                 ],
@@ -169,9 +205,9 @@ async function presentProofBBS(mode) {
     let verifierAction;
     it("Prover accepts a request and sends a presentation to the Verifier", async function () {
         verifierAction = getAction(verifier);
-        let kmsKey = await prover.kms.createKeySet({ keyType: "BLS12381G2" });
+        let kmsKey = await prover.kms.createKeySet({keyType: "BLS12381G2"});
 
-        let { didKey, keyID } = CreateBBSDIDKey(kmsKey.publicKey);
+        let {didKey, keyID} = CreateBBSDIDKey(kmsKey.publicKey);
 
         let resp = await prover.verifiable.signCredential({
             credential: credential,
@@ -187,6 +223,24 @@ async function presentProofBBS(mode) {
         let verifiableCredential = [];
         for (let i = 0; i < vp.length; i++) {
             verifiableCredential.push(vp.charCodeAt(i));
+        }
+
+        if (ver === v3) {
+            return prover.presentproof.acceptRequestPresentationV3({
+                piid: (await proverAction).Properties.piid,
+                presentation: {
+                    attachments: [
+                        {
+                            media_type: "application/ld+json",
+                            data: {
+                                base64: base64js.fromByteArray(
+                                    verifiableCredential
+                                ),
+                            },
+                        },
+                    ],
+                },
+            });
         }
 
         return prover.presentproof.acceptRequestPresentation({
@@ -206,7 +260,7 @@ async function presentProofBBS(mode) {
         });
     });
 
-    const name = mode + ".js.presentation.bbs.test";
+    const name = mode + ver + ".js.presentation.bbs.test";
 
     let presentationRes;
     it("Verifier accepts a presentation", async function () {
@@ -227,7 +281,7 @@ async function presentProofBBS(mode) {
 }
 
 // scenarios
-async function presentProof(mode) {
+async function presentProof(mode, ver) {
     let connections;
     let didClient;
     let verifier, prover;
@@ -239,7 +293,7 @@ async function presentProof(mode) {
                 agent1ControllerApiUrl
             );
         } else {
-            didClient = await newDIDExchangeClient(verifierID, proverID);
+            didClient = await newDIDExchangeClient(verifierID + ver, proverID + ver);
         }
 
         assert.isNotNull(didClient);
@@ -261,23 +315,42 @@ async function presentProof(mode) {
     it("Verifier sends a request presentation to the Prover", async function () {
         proverAction = getAction(prover);
         verifierConn = await connection(verifier, connections[0]);
+
+        if (ver === v3) {
+            return verifier.presentproof.sendRequestPresentationV3({
+                my_did: verifierConn.MyDID,
+                their_did: verifierConn.TheirDID,
+                request_presentation: {body: {will_confirm: true}},
+            });
+        }
+
         return verifier.presentproof.sendRequestPresentation({
             my_did: verifierConn.MyDID,
             their_did: verifierConn.TheirDID,
-            request_presentation: { will_confirm: true },
+            request_presentation: {will_confirm: true},
         });
     });
 
     let verifierAction;
     it("Prover accepts a request and sends a presentation to the Verifier", async function () {
         verifierAction = getAction(verifier);
+
+        if (ver === v3) {
+            return prover.presentproof.acceptRequestPresentationV3({
+                piid: (await proverAction).Properties.piid,
+                presentation: {attachments: [presentation]}
+            });
+        }
+
         return prover.presentproof.acceptRequestPresentation({
             piid: (await proverAction).Properties.piid,
-            presentation: presentation,
+            presentation: {
+                "presentations~attach": [presentation]
+            },
         });
     });
 
-    const name = mode + ".js.presentation.test";
+    const name = mode + ver + ".js.presentation.test";
 
     let presentationRes;
     it("Verifier accepts a presentation", async function () {

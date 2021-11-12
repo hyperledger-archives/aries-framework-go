@@ -309,6 +309,10 @@ func (m *memStore) Delete(k string) error {
 // Batch performs multiple Put and/or Delete operations in order.
 // If any of the given keys are empty, then an error will be returned.
 func (m *memStore) Batch(operations []spi.Operation) error {
+	if len(operations) == 0 {
+		return errors.New("batch requires at least one operation")
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -417,6 +421,10 @@ func (m *memIterator) Tags() ([]spi.Tag, error) {
 	}
 
 	return m.currentDBEntry.tags, nil
+}
+
+func (m *memIterator) TotalItems() (int, error) {
+	return len(m.keys), nil
 }
 
 // Close is a no-op, since there's nothing to close for a memIterator.

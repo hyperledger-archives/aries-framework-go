@@ -3,6 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 import {environment} from "../environment.js";
 import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
 import {watchForEvent} from "../common.js";
@@ -16,7 +17,7 @@ const actionsTopic = "issue-credential_actions"
 const statesTopic = "issue-credential_states"
 const stateDone = "done"
 
-const issueCredentialPayload = {
+const issueCredentialPayloadV2 = {
     "credentials~attach": [{
         "lastmod_time": "0001-01-01T00:00:00Z",
         "data": {
@@ -44,13 +45,48 @@ const issueCredentialPayload = {
     }]
 }
 
-describe("Issue credential - The Holder begins with a request", async function() {
-    describe(restMode, function() { issueCredential(restMode) })
-    describe(wasmMode, function() { issueCredential(wasmMode) })
+const issueCredentialPayloadV3 = {
+    "attachments": [{
+        "lastmod_time": "0001-01-01T00:00:00Z",
+        "data": {
+            "json": {
+                "@context": [
+                    "https://www.w3.org/2018/credentials/v1",
+                    "https://www.w3.org/2018/credentials/examples/v1"
+                ],
+                "credentialSubject": {
+                    "ID": "SubjectID"
+                },
+                "id": "http://example.edu/credentials/1872",
+                "issuanceDate": "2010-01-01T19:23:24Z",
+                "issuer": {
+                    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+                    "name": "Example University"
+                },
+                "referenceNumber": 83294847,
+                "type": [
+                    "VerifiableCredential",
+                    "UniversityDegreeCredential"
+                ]
+            }
+        }
+    }]
+}
+const v2 = "v2";
+const v3 = "v3";
+
+describe("Issue credential (v2) - The Holder begins with a request", async function() {
+    describe(restMode, function() { issueCredential(restMode,v2) })
+    describe(wasmMode, function() { issueCredential(wasmMode,v2) })
+})
+
+describe("Issue credential (v3) - The Holder begins with a request", async function() {
+    describe(restMode, function() { issueCredential(restMode,v3) })
+    describe(wasmMode, function() { issueCredential(wasmMode,v3) })
 })
 
 // scenarios
-async function issueCredential (mode) {
+async function issueCredential (mode,ver) {
     const holderID = "holder"
     const issuerID = "issuer"
     let connections
@@ -61,7 +97,7 @@ async function issueCredential (mode) {
         if (mode === restMode){
             didexClient = await newDIDExchangeRESTClient(agent2ControllerApiUrl,agent1ControllerApiUrl)
         }else {
-            didexClient = await newDIDExchangeClient(holderID,issuerID)
+            didexClient = await newDIDExchangeClient(holderID+ver,issuerID+ver)
         }
 
         assert.isNotNull(didexClient)
@@ -83,7 +119,15 @@ async function issueCredential (mode) {
     it("Holder requests credential from the Issuer", async function () {
         holderConn = await connection(holder, connections[0])
         issuerAction = getAction(issuer)
-        return holder.issuecredential.sendRequest({
+        if (ver === v3) {
+            return holder.issuecredential.sendRequestV3({
+                my_did: holderConn.MyDID,
+                their_did: holderConn.TheirDID,
+                request_credential: {},
+            })
+        }
+
+            return holder.issuecredential.sendRequest({
             my_did: holderConn.MyDID,
             their_did: holderConn.TheirDID,
             request_credential: {},
@@ -93,15 +137,23 @@ async function issueCredential (mode) {
     let holderAction;
     it("Issuer accepts request and sends credential to the Holder", async function () {
         holderAction = getAction(holder)
-        return issuer.issuecredential.acceptRequest({
+        if (ver === v3) {
+            return issuer.issuecredential.acceptRequestV3({
+                piid: (await issuerAction).Properties.piid,
+                issue_credential: issueCredentialPayloadV3,
+            })
+        }
+            return issuer.issuecredential.acceptRequest({
             piid: (await issuerAction).Properties.piid,
-            issue_credential: issueCredentialPayload,
+            issue_credential: issueCredentialPayloadV2,
         })
     })
 
-    const credentialName = "license"
+    const credentialName = mode + ver + "license"
 
+    let credential;
     it("Holder accepts credential", async function () {
+        credential = getCredential(holder, credentialName)
         return holder.issuecredential.acceptCredential({
             piid: (await holderAction).Properties.piid,
             names: [credentialName],
@@ -109,25 +161,10 @@ async function issueCredential (mode) {
     })
 
     it("Checks credential", async function () {
-        let credential = await getCredential(holder, credentialName)
-        let credentials = await holder.verifiable.getCredentials()
+        let cred = await credential;
 
-        const check = (cred) =>{
-            if (cred.id !== credential.id){
-                return false
-            }
-
-            assert.equal(cred.my_did, holderConn.MyDID)
-            assert.equal(cred.their_did, holderConn.TheirDID)
-
-            return true
-        }
-
-        if (credentials.result.some(check)){
-            return
-        }
-
-        throw new Error("credential is not as expected")
+        assert.equal(cred.my_did, holderConn.MyDID)
+        assert.equal(cred.their_did, holderConn.TheirDID)
     })
 }
 
@@ -143,9 +180,16 @@ async function getCredential(agent, name) {
         stateID: stateDone,
     })
 
-    return await agent.verifiable.getCredentialByName({
-        name: name
-    })
+    let res = await agent.verifiable.getCredentials();
+    if (res.result) {
+        for (let j = 0; j < res.result.length; j++) {
+            if (res.result[j].name === name) {
+                return res.result[j];
+            }
+        }
+    }
+
+    throw new Error("credential not found");
 }
 
 async function connection(agent, conn) {

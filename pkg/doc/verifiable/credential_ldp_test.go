@@ -21,9 +21,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
@@ -55,7 +56,7 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -222,7 +223,7 @@ func TestParseCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		docLoader := createTestDocumentLoader(t, jld.ContextDocument{
+		docLoader := createTestDocumentLoader(t, ldcontext.Document{
 			URL:     "http://localhost:9191/example.jsonld",
 			Content: []byte(localJSONLDContext),
 		})
@@ -311,15 +312,15 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	copy(publicKey[0:32], decoded)
 	rv := ed25519.PublicKey(publicKey)
 
-	jwk, err := jose.JWKFromKey(rv)
+	j, err := jwksupport.JWKFromKey(rv)
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, []byte(vcJSON),
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
-				Type: "JwsVerificationKey2020",
-				JWK:  jwk,
+				Type: "JsonWebKey2020",
+				JWK:  j,
 			}, nil
 		}),
 		WithExternalJSONLDContext("https://w3id.org/security/jws/v1"),
@@ -368,7 +369,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vc, err := parseTestCredential(t, []byte(vcJSON))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -434,7 +435,7 @@ func TestExtraContextWithLDP(t *testing.T) {
     }
 }
 `
-	loader := createTestDocumentLoader(t, jld.ContextDocument{
+	loader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     "http://localhost:8652/dummy.jsonld",
 		Content: []byte(dummyContext),
 	})
@@ -511,7 +512,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r.NoError(err)
 	r.Len(vc.Proofs, 0)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 	r.Len(vc.Proofs, 1)
 	r.Equal("BbsBlsSignature2020", vc.Proofs[0]["type"])
@@ -614,7 +615,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -650,13 +651,13 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromKey(signer.PublicKey())
+	j, err := jwksupport.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, vcBytes,
@@ -665,7 +666,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 			return &sigverifier.PublicKey{
 				Type:  "JwsVerificationKey2020",
 				Value: signer.PublicKeyBytes(),
-				JWK:   jwk,
+				JWK:   j,
 			}, nil
 		}))
 	r.NoError(err)
@@ -694,13 +695,13 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromKey(signer.PublicKey())
+	j, err := jwksupport.JWKFromKey(signer.PublicKey())
 	require.NoError(t, err)
 
 	// JWK encoded public key
@@ -709,7 +710,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type: "EcdsaSecp256k1VerificationKey2019",
-				JWK:  jwk,
+				JWK:  j,
 			}, nil
 		}))
 	r.NoError(err)
@@ -750,7 +751,7 @@ func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 }
 `
 
-	docLoader := createTestDocumentLoader(t, jld.ContextDocument{
+	docLoader := createTestDocumentLoader(t, ldcontext.Document{
 		URL:     "http://127.0.0.1:53401/cmtr.jsonld",
 		Content: []byte(cmtrJSONLD),
 	})
@@ -1051,7 +1052,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureProofValue,
 		Suite:                   ed25519SigSuite,
 		VerificationMethod:      "did:example:123456#key1",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	ecdsaSigner, err := newCryptoSigner(kms.ECDSAP256TypeIEEEP1363)
@@ -1066,14 +1067,14 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureJWS,
 		Suite:                   ecdsaSigSuite,
 		VerificationMethod:      "did:example:123456#key2",
-	}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
-	jwk, err := jose.JWKFromKey(ecdsaSigner.PublicKey())
+	j, err := jwksupport.JWKFromKey(ecdsaSigner.PublicKey())
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(t, vcBytes,
@@ -1088,9 +1089,9 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 
 			case "#key2":
 				return &sigverifier.PublicKey{
-					Type:  "JwsVerificationKey2020",
+					Type:  "JsonWebKey2020",
 					Value: ecdsaSigner.PublicKeyBytes(),
-					JWK:   jwk,
+					JWK:   j,
 				}, nil
 			}
 
@@ -1154,12 +1155,12 @@ func mapPublicKeyToKMSKeyType(pubKey *sigverifier.PublicKey) (kms.KeyType, error
 	}
 }
 
-func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
-	switch jwk.Kty {
+func mapJWKToKMSKeyType(j *jwk.JWK) (kms.KeyType, error) {
+	switch j.Kty {
 	case "OKP":
 		return kms.ED25519Type, nil
 	case "EC":
-		switch jwk.Crv {
+		switch j.Crv {
 		case "P-256":
 			return kms.ECDSAP256TypeIEEEP1363, nil
 		case "P-384":
@@ -1169,7 +1170,7 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unsupported JWK: %v", jwk)
+	return "", fmt.Errorf("unsupported JWK: %v", j)
 }
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {
@@ -1193,7 +1194,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  "issuer.service.com",
 			Purpose:                 "authentication",
-		}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+		}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
 		vcMap, err := toMap(vc)
@@ -1256,7 +1257,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			Domain:                  "issuer.service.com",
 			Purpose:                 "capabilityDelegation",
 			CapabilityChain:         []interface{}{rootCapability},
-		}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+		}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
 		r.Len(vc.Proofs, 1)

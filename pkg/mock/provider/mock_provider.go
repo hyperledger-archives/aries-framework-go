@@ -6,14 +6,20 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"github.com/piprate/json-gold/ld"
+	"time"
+
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -32,9 +38,63 @@ type Provider struct {
 	OutboundDispatcherValue           dispatcher.Outbound
 	VDRegistryValue                   vdrapi.Registry
 	CryptoValue                       crypto.Crypto
-	JSONLDDocumentLoaderValue         ld.DocumentLoader
+	ContextStoreValue                 ld.ContextStore
+	RemoteProviderStoreValue          ld.RemoteProviderStore
+	DocumentLoaderValue               jsonld.DocumentLoader
 	KeyTypeValue                      kms.KeyType
 	KeyAgreementTypeValue             kms.KeyType
+	MediaTypeProfilesValue            []string
+	InboundMessageHandlerValue        transport.InboundMessageHandler
+	PackagerValue                     transport.Packager
+	MessageServiceProviderValue       api.MessageServiceProvider
+	InboundMessengerValue             service.InboundMessenger
+	GetDIDsBackoffDurationValue       time.Duration
+	GetDIDsMaxRetriesValue            uint64
+}
+
+// MessageServiceProvider return message service provider.
+func (p *Provider) MessageServiceProvider() api.MessageServiceProvider {
+	return p.MessageServiceProviderValue
+}
+
+// AllServices return all services.
+func (p *Provider) AllServices() []dispatcher.ProtocolService {
+	out := []dispatcher.ProtocolService{}
+
+	for _, v := range p.ServiceMap {
+		out = append(out, v.(dispatcher.ProtocolService))
+	}
+
+	if p.ServiceValue != nil {
+		out = append(out, p.ServiceValue.(dispatcher.ProtocolService))
+	}
+
+	return out
+}
+
+// GetDIDsBackOffDuration return backoff duration for getting DIDs.
+func (p *Provider) GetDIDsBackOffDuration() time.Duration {
+	return p.GetDIDsBackoffDurationValue
+}
+
+// GetDIDsMaxRetries return max number of retries for getting DIDs.
+func (p *Provider) GetDIDsMaxRetries() uint64 {
+	return p.GetDIDsMaxRetriesValue
+}
+
+// InboundMessenger return inbound messenger.
+func (p *Provider) InboundMessenger() service.InboundMessenger {
+	return p.InboundMessengerValue
+}
+
+// InboundMessageHandler return inbound message handler.
+func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
+	return p.InboundMessageHandlerValue
+}
+
+// Packager return packager.
+func (p *Provider) Packager() transport.Packager {
+	return p.PackagerValue
 }
 
 // Service return service.
@@ -105,9 +165,24 @@ func (p *Provider) VDRegistry() vdrapi.Registry {
 	return p.VDRegistryValue
 }
 
+// JSONLDContextStore returns JSON-LD context store.
+func (p *Provider) JSONLDContextStore() ld.ContextStore {
+	return p.ContextStoreValue
+}
+
+// JSONLDRemoteProviderStore returns remote JSON-LD context provider store.
+func (p *Provider) JSONLDRemoteProviderStore() ld.RemoteProviderStore {
+	return p.RemoteProviderStoreValue
+}
+
+// MediaTypeProfiles returns the media type profiles.
+func (p *Provider) MediaTypeProfiles() []string {
+	return p.MediaTypeProfilesValue
+}
+
 // JSONLDDocumentLoader returns JSON-LD document loader.
-func (p *Provider) JSONLDDocumentLoader() ld.DocumentLoader {
-	return p.JSONLDDocumentLoaderValue
+func (p *Provider) JSONLDDocumentLoader() jsonld.DocumentLoader {
+	return p.DocumentLoaderValue
 }
 
 // KeyType returns a mocked keyType value for authentication (signing).

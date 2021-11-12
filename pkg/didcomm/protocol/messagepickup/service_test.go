@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -44,13 +43,40 @@ func TestServiceNew(t *testing.T) {
 			},
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "open mailbox store")
 		require.Nil(t, svc)
+	})
+}
+
+func TestService_Initialize(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		prov := &mockprovider.Provider{
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			OutboundDispatcherValue:           nil,
+			PackagerValue:                     &mockPackager{},
+		}
+
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(prov)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
 	})
 }
 
@@ -160,8 +186,7 @@ func TestHandleInbound(t *testing.T) {
 					return nil
 				},
 			},
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue: &mockPackager{},
 		})
 		require.NoError(t, err)
 
@@ -249,8 +274,7 @@ func TestHandleInbound(t *testing.T) {
 					return nil
 				},
 			},
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue: &mockPackager{},
 		})
 		require.NoError(t, err)
 
@@ -307,8 +331,7 @@ func TestHandleInbound(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
@@ -333,8 +356,7 @@ func TestHandleInbound(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
@@ -456,18 +478,17 @@ func TestAddMessage(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{
+		message := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		err = svc.AddMessage(message, THEIRDID)
 		require.NoError(t, err)
@@ -488,18 +509,17 @@ func TestAddMessage(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{
+		message := []byte(`{
 			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 			CipherText: "qQyzvajdvCDJbwxM",
 			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-		}
+		}`)
 
 		tyme, err := time.Parse(time.RFC3339, "2019-05-01T12:00:00Z")
 		require.NoError(t, err)
@@ -537,8 +557,7 @@ func TestAddMessage(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
@@ -553,7 +572,7 @@ func TestAddMessage(t *testing.T) {
 
 		mockStore.Store.ErrPut = errors.New("error put")
 
-		message := &model.Envelope{}
+		message := []byte("")
 
 		err = svc.AddMessage(message, THEIRDID)
 		require.Error(t, err)
@@ -566,12 +585,11 @@ func TestAddMessage(t *testing.T) {
 			StorageProviderValue:              mockStore,
 			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 			OutboundDispatcherValue:           nil,
-		}, &mockTransportProvider{
-			packagerValue: &mockPackager{},
+			PackagerValue:                     &mockPackager{},
 		})
 		require.NoError(t, err)
 
-		message := &model.Envelope{}
+		message := []byte("")
 
 		mockStore.Store.ErrGet = errors.New("error get")
 
@@ -602,6 +620,7 @@ func TestStatusRequest(t *testing.T) {
 					return nil
 				},
 			},
+			PackagerValue: &mockPackager{},
 		}
 
 		connRec := &connection.Record{
@@ -617,9 +636,7 @@ func TestStatusRequest(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		go func() {
@@ -672,6 +689,7 @@ func TestStatusRequest(t *testing.T) {
 					return errors.New("send error")
 				},
 			},
+			PackagerValue: &mockPackager{},
 		}
 
 		connRec := &connection.Record{
@@ -687,9 +705,7 @@ func TestStatusRequest(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		_, err = svc.StatusRequest("conn")
@@ -720,6 +736,8 @@ func TestBatchPickup(t *testing.T) {
 					return nil
 				},
 			},
+			PackagerValue:              &mockPackager{},
+			InboundMessageHandlerValue: (&mockTransportProvider{}).InboundMessageHandler(),
 		}
 
 		connRec := &connection.Record{
@@ -735,9 +753,7 @@ func TestBatchPickup(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		go func() {
@@ -745,13 +761,13 @@ func TestBatchPickup(t *testing.T) {
 			require.NotNil(t, id)
 
 			s := Batch{
-				Messages: []*Message{{Message: &model.Envelope{
+				Messages: []*Message{{Message: []byte(`{
 					Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
 						"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
 					IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
 					CipherText: "qQyzvajdvCDJbwxM",
 					Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
-				}}},
+				}`)}},
 			}
 
 			// outbound has been handled, simulate a callback to finish the trip
@@ -793,6 +809,7 @@ func TestBatchPickup(t *testing.T) {
 					return errors.New("send error")
 				},
 			},
+			PackagerValue: &mockPackager{},
 		}
 
 		connRec := &connection.Record{
@@ -808,9 +825,7 @@ func TestBatchPickup(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		_, err = svc.BatchPickup("conn", 4)
@@ -876,6 +891,7 @@ func TestNoop(t *testing.T) {
 					return nil
 				},
 			},
+			PackagerValue: &mockPackager{},
 		}
 
 		connRec := &connection.Record{
@@ -891,9 +907,7 @@ func TestNoop(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		err = svc.Noop("conn")
@@ -911,6 +925,7 @@ func TestNoop(t *testing.T) {
 					return errors.New("send error")
 				},
 			},
+			PackagerValue: &mockPackager{},
 		}
 
 		connRec := &connection.Record{
@@ -926,9 +941,7 @@ func TestNoop(t *testing.T) {
 		err = r.SaveConnectionRecord(connRec)
 		require.NoError(t, err)
 
-		svc, err := New(provider, &mockTransportProvider{
-			packagerValue: &mockPackager{},
-		})
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		err = svc.Noop("conn")
@@ -975,8 +988,7 @@ func getService() (*Service, error) {
 		StorageProviderValue:              mockstore.NewMockStoreProvider(),
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
 		OutboundDispatcherValue:           nil,
-	}, &mockTransportProvider{
-		packagerValue: &mockPackager{},
+		PackagerValue:                     &mockPackager{},
 	})
 
 	return svc, err

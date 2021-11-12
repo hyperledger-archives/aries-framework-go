@@ -74,7 +74,7 @@ type Invitation struct {
 type Request struct {
 	Type   string            `json:"@type,omitempty"`
 	ID     string            `json:"@id,omitempty"`
-	Label  string            `json:"label,omitempty"`
+	Label  string            `json:"label"`
 	Thread *decorator.Thread `json:"~thread,omitempty"`
 	// DID the did of the requester.
 	// Mandatory in did-exchange, but optional for backwards-compatibility with rfc 0160 connection protocol.

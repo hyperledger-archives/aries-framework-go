@@ -14,15 +14,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 const defaultAlgorithm = "URDNA2015"
 
 func TestGetCanonicalDocument(t *testing.T) {
-	loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+	loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
 		URL:     "http://localhost:8652/dummy.jsonld",
 		Content: extraJSONLDContext,
 	})
@@ -255,7 +255,7 @@ func TestProcessor_Frame(t *testing.T) {
 	err = json.Unmarshal([]byte(frameJSON), &frameDoc)
 	require.NoError(t, err)
 
-	framedView, err := processor.Frame(doc, frameDoc, jsonldtest.WithDocumentLoader(t))
+	framedView, err := processor.Frame(doc, frameDoc, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]interface{}{
@@ -271,7 +271,7 @@ func TestProcessor_Frame(t *testing.T) {
 	require.True(t, ok)
 
 	subjectMap["id"] = issuerMap["id"]
-	framedView, err = processor.Frame(doc, frameDoc, jsonldtest.WithDocumentLoader(t))
+	framedView, err = processor.Frame(doc, frameDoc, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]interface{}{
@@ -288,7 +288,11 @@ func TestProcessor_Frame(t *testing.T) {
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f2",
 		},
 	}
-	framedView, err = processor.Frame(doc, frameDoc, jsonldtest.WithDocumentLoader(t))
+
+	// clear the ID, to test empty-ID handling
+	doc["id"] = ""
+
+	framedView, err = processor.Frame(doc, frameDoc, ldtestutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 
 	require.Equal(t, []interface{}{
@@ -345,7 +349,7 @@ func TestTransformBlankNodes(t *testing.T) {
 }
 
 func BenchmarkGetCanonicalDocument(b *testing.B) {
-	loader, err := jsonldtest.DocumentLoader(jld.ContextDocument{
+	loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
 		URL:     "http://localhost:8652/dummy.jsonld",
 		Content: extraJSONLDContext,
 	})

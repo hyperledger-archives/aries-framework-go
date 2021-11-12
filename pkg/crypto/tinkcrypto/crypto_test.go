@@ -13,8 +13,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/google/tink/go/aead"
-	aeadsubtle "github.com/google/tink/go/aead/subtle"
+	tinkaead "github.com/google/tink/go/aead"
+	tinkaeadsubtle "github.com/google/tink/go/aead/subtle"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
@@ -25,6 +25,8 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
@@ -42,14 +44,77 @@ func TestNew(t *testing.T) {
 }
 
 func TestCrypto_EncryptDecrypt(t *testing.T) {
-	t.Run("test XChacha20Poly1305 encryption", func(t *testing.T) {
-		kh, err := keyset.NewHandle(aead.XChaCha20Poly1305KeyTemplate())
-		require.NoError(t, err)
+	tests := []struct {
+		name         string
+		ivSize       int
+		aeadTemplate *tinkpb.KeyTemplate
+	}{
+		{
+			name:         "test XChacha20Poly1305 encryption",
+			ivSize:       chacha.NonceSizeX,
+			aeadTemplate: tinkaead.XChaCha20Poly1305KeyTemplate(),
+		},
+		{
+			name:         "test AES256GCM encryption",
+			ivSize:       tinkaeadsubtle.AESGCMIVSize,
+			aeadTemplate: tinkaead.AES256GCMKeyTemplate(),
+		},
+		{
+			name:         "test AES128CBCHMACSHA256 encryption",
+			ivSize:       subtle.AESCBCIVSize,
+			aeadTemplate: aead.AES128CBCHMACSHA256KeyTemplate(),
+		},
+		{
+			name:         "test AES192CBCHMACSHA384 encryption",
+			ivSize:       subtle.AESCBCIVSize,
+			aeadTemplate: aead.AES192CBCHMACSHA384KeyTemplate(),
+		},
+		{
+			name:         "test AES256CBCHMACSHA384 encryption",
+			ivSize:       subtle.AESCBCIVSize,
+			aeadTemplate: aead.AES256CBCHMACSHA384KeyTemplate(),
+		},
+		{
+			name:         "test AES256CBCHMACSHA512 encryption",
+			ivSize:       subtle.AESCBCIVSize,
+			aeadTemplate: aead.AES256CBCHMACSHA512KeyTemplate(),
+		},
+	}
 
-		badKH, err := keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
-		require.NoError(t, err)
+	t.Parallel()
 
-		badKH2, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.name, func(t *testing.T) {
+			kh, err := keyset.NewHandle(tc.aeadTemplate)
+			require.NoError(t, err)
+
+			c := Crypto{}
+			msg := []byte(testMessage)
+			aad := []byte("some additional data")
+			cipherText, nonce, err := c.Encrypt(msg, aad, kh)
+			require.NoError(t, err)
+			require.NotEmpty(t, nonce)
+			require.Equal(t, tc.ivSize, len(nonce))
+
+			plainText, err := c.Decrypt(cipherText, aad, nonce, kh)
+			require.NoError(t, err)
+			require.Equal(t, msg, plainText)
+
+			// decrypt with bad nonce - should fail
+			plainText, err = c.Decrypt(cipherText, aad, []byte("bad nonce"), kh)
+			require.Error(t, err)
+			require.Empty(t, plainText)
+
+			// decrypt with bad cipher - should fail
+			plainText, err = c.Decrypt([]byte("bad cipher"), aad, nonce, kh)
+			require.Error(t, err)
+			require.Empty(t, plainText)
+		})
+	}
+
+	t.Run("test bad/nil kh encryption", func(t *testing.T) {
+		kh, err := keyset.NewHandle(tinkaead.AES256GCMKeyTemplate())
 		require.NoError(t, err)
 
 		c := Crypto{}
@@ -58,50 +123,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		cipherText, nonce, err := c.Encrypt(msg, aad, kh)
 		require.NoError(t, err)
 		require.NotEmpty(t, nonce)
-		require.Equal(t, chacha.NonceSizeX, len(nonce))
-
-		// encrypt with bad key handle - should fail
-		_, _, err = c.Encrypt(msg, aad, badKH)
-		require.Error(t, err)
-
-		// encrypt with another bad key handle - should fail
-		_, _, err = c.Encrypt(msg, aad, badKH2)
-		require.Error(t, err)
-
-		plainText, err := c.Decrypt(cipherText, aad, nonce, kh)
-		require.NoError(t, err)
-		require.Equal(t, msg, plainText)
-
-		// decrypt with bad key handle - should fail
-		_, err = c.Decrypt(cipherText, aad, nonce, badKH)
-		require.Error(t, err)
-
-		// decrypt with another bad key handle - should fail
-		_, err = c.Decrypt(cipherText, aad, nonce, badKH2)
-		require.Error(t, err)
-
-		// decrypt with bad nonce - should fail
-		plainText, err = c.Decrypt(cipherText, aad, []byte("bad nonce"), kh)
-		require.Error(t, err)
-		require.Empty(t, plainText)
-
-		// decrypt with bad cipher - should fail
-		plainText, err = c.Decrypt([]byte("bad cipher"), aad, nonce, kh)
-		require.Error(t, err)
-		require.Empty(t, plainText)
-	})
-
-	t.Run("test AES256GCM encryption", func(t *testing.T) {
-		kh, err := keyset.NewHandle(aead.AES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		c := Crypto{}
-		msg := []byte(testMessage)
-		aad := []byte("some additional data")
-		cipherText, nonce, err := c.Encrypt(msg, aad, kh)
-		require.NoError(t, err)
-		require.NotEmpty(t, nonce)
-		require.Equal(t, aeadsubtle.AESGCMIVSize, len(nonce))
+		require.Equal(t, tinkaeadsubtle.AESGCMIVSize, len(nonce))
 
 		// encrypt with nil key handle - should fail
 		_, _, err = c.Encrypt(msg, aad, nil)
@@ -134,7 +156,7 @@ func TestCrypto_SignVerify(t *testing.T) {
 		kh, err := keyset.NewHandle(signature.ED25519KeyTemplate())
 		require.NoError(t, err)
 
-		badKH, err := keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		badKH, err := keyset.NewHandle(tinkaead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
 		require.NoError(t, err)
 
 		c := Crypto{}
@@ -163,7 +185,36 @@ func TestCrypto_SignVerify(t *testing.T) {
 		kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
 		require.NoError(t, err)
 
-		badKH, err := keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		badKH, err := keyset.NewHandle(tinkaead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		require.NoError(t, err)
+
+		c := Crypto{}
+		msg := []byte(testMessage)
+		s, err := c.Sign(msg, kh)
+		require.NoError(t, err)
+
+		// get corresponding public key handle to verify
+		pubKH, err := kh.Public()
+		require.NoError(t, err)
+
+		err = c.Verify(s, msg, pubKH)
+		require.NoError(t, err)
+
+		// verify with nil key handle - should fail
+		err = c.Verify(s, msg, nil)
+		require.Error(t, err)
+		require.Equal(t, errBadKeyHandleFormat, err)
+
+		// verify with bad key handle - should fail
+		err = c.Verify(s, msg, badKH)
+		require.Error(t, err)
+	})
+
+	t.Run("test with P-384 signature", func(t *testing.T) {
+		kh, err := keyset.NewHandle(signature.ECDSAP384KeyTemplate())
+		require.NoError(t, err)
+
+		badKH, err := keyset.NewHandle(tinkaead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
 		require.NoError(t, err)
 
 		c := Crypto{}
@@ -201,15 +252,15 @@ func TestCrypto_ComputeMAC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, macBytes)
 	})
-	t.Run("fail - message to compute MAC for is empty", func(t *testing.T) {
+	t.Run("success - message to compute MAC with nil data - should be treated as empty data", func(t *testing.T) {
 		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 		require.NotNil(t, kh)
 
 		c := Crypto{}
 		macBytes, err := c.ComputeMAC(nil, kh)
-		require.EqualError(t, err, "HMAC: invalid input")
-		require.Empty(t, macBytes)
+		require.NoError(t, err)
+		require.NotEmpty(t, macBytes)
 	})
 	t.Run("invalid key handle", func(t *testing.T) {
 		c := Crypto{}
@@ -392,12 +443,28 @@ func TestCrypto_ECDHES_Wrap_Unwrap_ForAllKeyTypes(t *testing.T) {
 			useXC20P: true,
 		},
 		{
-			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and A256GCM kw",
+			tcName:   "key wrap using ECDH-1PU with NIST P-256 key and A128GCM kw",
 			keyTempl: ecdh.NISTP256ECDHKWKeyTemplate(),
-			kwAlg:    ECDH1PUA256KWAlg,
+			kwAlg:    ECDH1PUA128KWAlg,
 			keyType:  ecdhpb.KeyType_EC.String(),
 			keyCurve: elliptic.P256().Params().Name,
 			senderKT: ecdh.NISTP256ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and A192GCM kw",
+			keyTempl: ecdh.NISTP384ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA192KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P384().Params().Name,
+			senderKT: ecdh.NISTP384ECDHKWKeyTemplate(),
+		},
+		{
+			tcName:   "key wrap using ECDH-1PU with NIST P-521 key and A256GCM kw",
+			keyTempl: ecdh.NISTP521ECDHKWKeyTemplate(),
+			kwAlg:    ECDH1PUA256KWAlg,
+			keyType:  ecdhpb.KeyType_EC.String(),
+			keyCurve: elliptic.P521().Params().Name,
+			senderKT: ecdh.NISTP521ECDHKWKeyTemplate(),
 		},
 		{
 			tcName:   "key wrap using ECDH-1PU with NIST P-384 key and A256GCM kw",
@@ -464,13 +531,15 @@ func TestCrypto_ECDHES_Wrap_Unwrap_ForAllKeyTypes(t *testing.T) {
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
 	for _, tt := range tests {
 		tc := tt
 		t.Run("Test "+tc.tcName, func(t *testing.T) {
+			keySize := aesCEKSize1PU(tc.kwAlg)
+
+			cek := random.GetRandomBytes(uint32(keySize))
 			recipientKeyHandle, err := keyset.NewHandle(tc.keyTempl)
 			require.NoError(t, err)
 
@@ -533,7 +602,7 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key(t *testing.T) {
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize * 2))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
@@ -591,7 +660,7 @@ func TestCrypto_ECDH1PU_Wrap_Unwrap_Key_Using_CryptoPubKey_as_SenderKey(t *testi
 	c, err := New()
 	require.NoError(t, err)
 
-	cek := random.GetRandomBytes(uint32(crypto.DefKeySize))
+	cek := random.GetRandomBytes(uint32(crypto.DefKeySize * 2))
 	apu := random.GetRandomBytes(uint32(10)) // or sender name
 	apv := random.GetRandomBytes(uint32(10)) // or recipient name
 
@@ -645,7 +714,7 @@ func TestBBSCrypto_SignVerify_DeriveProofVerifyProof(t *testing.T) {
 		kh, err := keyset.NewHandle(bbs.BLS12381G2KeyTemplate())
 		require.NoError(t, err)
 
-		badKH, err = keyset.NewHandle(aead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
+		badKH, err = keyset.NewHandle(tinkaead.KMSEnvelopeAEADKeyTemplate("babdUrl", nil))
 		require.NoError(t, err)
 
 		s, err = c.SignMulti(msg, kh)

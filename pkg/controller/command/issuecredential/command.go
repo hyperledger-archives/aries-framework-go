@@ -13,6 +13,7 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential/rfc0593"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -65,14 +66,20 @@ const (
 
 	Actions             = "Actions"
 	SendOffer           = "SendOffer"
+	SendOfferV3         = "SendOfferV3"
 	SendProposal        = "SendProposal"
+	SendProposalV3      = "SendProposalV3"
 	SendRequest         = "SendRequest"
+	SendRequestV3       = "SendRequestV3"
 	AcceptProposal      = "AcceptProposal"
+	AcceptProposalV3    = "AcceptProposalV3"
 	DeclineProposal     = "DeclineProposal"
 	AcceptOffer         = "AcceptOffer"
 	DeclineOffer        = "DeclineOffer"
 	NegotiateProposal   = "NegotiateProposal"
+	NegotiateProposalV3 = "NegotiateProposalV3"
 	AcceptRequest       = "AcceptRequest"
+	AcceptRequestV3     = "AcceptRequestV3"
 	DeclineRequest      = "DeclineRequest"
 	AcceptCredential    = "AcceptCredential"
 	DeclineCredential   = "DeclineCredential"
@@ -95,35 +102,75 @@ const (
 	_states  = "_states"
 )
 
+// Options contains configuration options.
+type Options struct {
+	rfc0593Provider rfc0593.Provider
+}
+
+// Option modifies Options.
+type Option func(*Options)
+
+// WithAutoExecuteRFC0593 enables RFC0593.
+func WithAutoExecuteRFC0593(p rfc0593.Provider) Option {
+	return func(o *Options) {
+		o.rfc0593Provider = p
+	}
+}
+
 // Command is controller command for issue credential.
 type Command struct {
 	client *issuecredential.Client
 }
 
 // New returns new issue credential controller command instance.
-func New(ctx issuecredential.Provider, notifier command.Notifier) (*Command, error) {
+func New(ctx issuecredential.Provider, notifier command.Notifier, options ...Option) (*Command, error) {
+	opts := &Options{}
+
+	for i := range options {
+		options[i](opts)
+	}
+
 	client, err := issuecredential.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create a client: %w", err)
 	}
 
-	// creates action channel
-	actions := make(chan service.DIDCommAction)
-	// registers action channel to listen for events
-	if err := client.RegisterActionEvent(actions); err != nil {
-		return nil, fmt.Errorf("register action event: %w", err)
-	}
-
 	// creates state channel
 	states := make(chan service.StateMsg)
 	// registers state channel to listen for events
-	if err := client.RegisterMsgEvent(states); err != nil {
+	if err = client.RegisterMsgEvent(states); err != nil {
 		return nil, fmt.Errorf("register msg event: %w", err)
 	}
 
 	obs := webnotifier.NewObserver(notifier)
-	obs.RegisterAction(protocol.Name+_actions, actions)
 	obs.RegisterStateMsg(protocol.Name+_states, states)
+
+	// creates action channel
+	actions := make(chan service.DIDCommAction)
+	// registers action channel to listen for events
+	if err = client.RegisterActionEvent(actions); err != nil {
+		return nil, fmt.Errorf("register action event: %w", err)
+	}
+
+	if opts.rfc0593Provider != nil {
+		mw, err := rfc0593.NewMiddleware(opts.rfc0593Provider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init rfc0593 middleware: %w", err)
+		}
+
+		err = rfc0593.RegisterMiddleware(mw, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register rfc0593 middleware: %w", err)
+		}
+
+		next := make(chan service.DIDCommAction)
+
+		go rfc0593.AutoExecute(opts.rfc0593Provider, next)(actions)
+
+		obs.RegisterAction(protocol.Name+_actions, next)
+	} else {
+		obs.RegisterAction(protocol.Name+_actions, actions)
+	}
 
 	return &Command{client: client}, nil
 }
@@ -133,15 +180,21 @@ func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
 		cmdutil.NewCommandHandler(CommandName, SendOffer, c.SendOffer),
+		cmdutil.NewCommandHandler(CommandName, SendOfferV3, c.SendOfferV3),
 		cmdutil.NewCommandHandler(CommandName, SendProposal, c.SendProposal),
+		cmdutil.NewCommandHandler(CommandName, SendProposalV3, c.SendProposalV3),
 		cmdutil.NewCommandHandler(CommandName, SendRequest, c.SendRequest),
+		cmdutil.NewCommandHandler(CommandName, SendRequestV3, c.SendRequestV3),
 		cmdutil.NewCommandHandler(CommandName, AcceptProposal, c.AcceptProposal),
+		cmdutil.NewCommandHandler(CommandName, AcceptProposalV3, c.AcceptProposalV3),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposal, c.DeclineProposal),
 		cmdutil.NewCommandHandler(CommandName, AcceptOffer, c.AcceptOffer),
 		cmdutil.NewCommandHandler(CommandName, AcceptProblemReport, c.AcceptProblemReport),
 		cmdutil.NewCommandHandler(CommandName, DeclineOffer, c.DeclineOffer),
 		cmdutil.NewCommandHandler(CommandName, NegotiateProposal, c.NegotiateProposal),
+		cmdutil.NewCommandHandler(CommandName, NegotiateProposalV3, c.NegotiateProposalV3),
 		cmdutil.NewCommandHandler(CommandName, AcceptRequest, c.AcceptRequest),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequestV3, c.AcceptRequestV3),
 		cmdutil.NewCommandHandler(CommandName, DeclineRequest, c.DeclineRequest),
 		cmdutil.NewCommandHandler(CommandName, AcceptCredential, c.AcceptCredential),
 		cmdutil.NewCommandHandler(CommandName, DeclineCredential, c.DeclineCredential),
@@ -202,6 +255,43 @@ func (c *Command) SendOffer(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// SendOfferV3 is used by the Issuer to send an offer.
+func (c *Command) SendOfferV3(rw io.Writer, req io.Reader) command.Error {
+	var args SendOfferArgsV3
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, SendOffer, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.MyDID == "" {
+		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyMyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+	}
+
+	if args.TheirDID == "" {
+		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyTheirDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+	}
+
+	if args.OfferCredential == nil {
+		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyOfferCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
+	}
+
+	piid, err := c.client.SendOfferV3(args.OfferCredential, args.MyDID, args.TheirDID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendOffer, err.Error())
+		return command.NewExecuteError(SendOfferErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SendOfferResponse{PIID: piid}, logger)
+
+	logutil.LogDebug(logger, CommandName, SendOffer, successString)
+
+	return nil
+}
+
 // SendProposal is used by the Holder to send a proposal.
 func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 	var args SendProposalArgs
@@ -227,6 +317,43 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	piid, err := c.client.SendProposal(args.ProposeCredential, args.MyDID, args.TheirDID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendProposal, err.Error())
+		return command.NewExecuteError(SendProposalErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SendProposalResponse{PIID: piid}, logger)
+
+	logutil.LogDebug(logger, CommandName, SendProposal, successString)
+
+	return nil
+}
+
+// SendProposalV3 is used by the Holder to send a proposal.
+func (c *Command) SendProposalV3(rw io.Writer, req io.Reader) command.Error {
+	var args SendProposalArgsV3
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, SendProposal, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.MyDID == "" {
+		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyMyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+	}
+
+	if args.TheirDID == "" {
+		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyTheirDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+	}
+
+	if args.ProposeCredential == nil {
+		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyProposeCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
+	}
+
+	piid, err := c.client.SendProposalV3(args.ProposeCredential, args.MyDID, args.TheirDID)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendProposal, err.Error())
 		return command.NewExecuteError(SendProposalErrorCode, err)
@@ -276,6 +403,43 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// SendRequestV3 is used by the Holder to send a request.
+func (c *Command) SendRequestV3(rw io.Writer, req io.Reader) command.Error {
+	var args SendRequestArgsV3
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, SendRequest, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.MyDID == "" {
+		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyMyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+	}
+
+	if args.TheirDID == "" {
+		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyTheirDID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+	}
+
+	if args.RequestCredential == nil {
+		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyRequestCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestCredential))
+	}
+
+	piid, err := c.client.SendRequestV3(args.RequestCredential, args.MyDID, args.TheirDID)
+	if err != nil {
+		logutil.LogError(logger, CommandName, SendRequest, err.Error())
+		return command.NewExecuteError(SendRequestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SendRequestResponse{PIID: piid}, logger)
+
+	logutil.LogDebug(logger, CommandName, SendRequest, successString)
+
+	return nil
+}
+
 // AcceptProposal is used when the Issuer is willing to accept the proposal.
 func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptProposalArgs
@@ -307,6 +471,37 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// AcceptProposalV3 is used when the Issuer is willing to accept the proposal.
+func (c *Command) AcceptProposalV3(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProposalArgsV3
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptProposal, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptProposal, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if args.OfferCredential == nil {
+		logutil.LogDebug(logger, CommandName, AcceptProposal, errEmptyOfferCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
+	}
+
+	if err := c.client.AcceptProposalV3(args.PIID, args.OfferCredential); err != nil {
+		logutil.LogError(logger, CommandName, AcceptProposal, err.Error())
+		return command.NewExecuteError(AcceptProposalErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProposalResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptProposal, successString)
+
+	return nil
+}
+
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
 func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 	var args NegotiateProposalArgs
@@ -327,6 +522,37 @@ func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	if err := c.client.NegotiateProposal(args.PIID, args.ProposeCredential); err != nil {
+		logutil.LogError(logger, CommandName, NegotiateProposal, err.Error())
+		return command.NewExecuteError(NegotiateProposalErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &NegotiateProposalResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, NegotiateProposal, successString)
+
+	return nil
+}
+
+// NegotiateProposalV3 is used when the Holder wants to negotiate about an offer he received.
+func (c *Command) NegotiateProposalV3(rw io.Writer, req io.Reader) command.Error {
+	var args NegotiateProposalArgsV3
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, CommandName, NegotiateProposal, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, CommandName, NegotiateProposal, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if args.ProposeCredential == nil {
+		logutil.LogDebug(logger, CommandName, NegotiateProposal, errEmptyProposeCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
+	}
+
+	if err := c.client.NegotiateProposalV3(args.PIID, args.ProposeCredential); err != nil {
 		logutil.LogError(logger, CommandName, NegotiateProposal, err.Error())
 		return command.NewExecuteError(NegotiateProposalErrorCode, err)
 	}
@@ -462,6 +688,37 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	if err := c.client.AcceptRequest(request.PIID, request.IssueCredential); err != nil {
+		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
+		return command.NewExecuteError(AcceptRequestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptRequestResponse{}, logger)
+
+	logutil.LogDebug(logger, CommandName, AcceptRequest, successString)
+
+	return nil
+}
+
+// AcceptRequestV3 is used when the Issuer is willing to accept the request.
+func (c *Command) AcceptRequestV3(rw io.Writer, req io.Reader) command.Error {
+	var request AcceptRequestArgsV3
+
+	if err := json.NewDecoder(req).Decode(&request); err != nil {
+		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if request.PIID == "" {
+		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if request.IssueCredential == nil {
+		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyIssueCredential)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyIssueCredential))
+	}
+
+	if err := c.client.AcceptRequestV3(request.PIID, request.IssueCredential); err != nil {
 		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
 		return command.NewExecuteError(AcceptRequestErrorCode, err)
 	}

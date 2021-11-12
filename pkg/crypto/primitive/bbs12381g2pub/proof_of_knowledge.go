@@ -60,7 +60,7 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	r3.Inverse(r1)
 
 	sPrime := bls12381.NewFr()
-	sPrime.RedMul(r2, r3)
+	sPrime.Mul(r2, r3)
 	sPrime.Neg(sPrime)
 	sPrime.Add(sPrime, signature.S)
 
@@ -191,7 +191,7 @@ func (g *ProverCommittedG1) GenerateProof(challenge *bls12381.Fr, secrets []*bls
 
 	for i := range g.blindingFactors {
 		c := bls12381.NewFr()
-		c.RedMul(challenge, secrets[i])
+		c.Mul(challenge, secrets[i])
 
 		s := bls12381.NewFr()
 		s.Sub(g.blindingFactors[i], c)

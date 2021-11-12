@@ -8,9 +8,10 @@ package jose
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -20,8 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Decrypter interface to Decrypt JWE messages.
@@ -32,28 +34,29 @@ type Decrypter interface {
 
 // JWEDecrypt is responsible for decrypting a JWE message and returns its protected plaintext.
 type JWEDecrypt struct {
-	// store is required for Authcrypt/ECDH1PU only (Anoncrypt doesn't need it as the sender is anonymous)
-	store  storage.Store
-	crypto cryptoapi.Crypto
-	kms    kms.KeyManager
+	kidResolvers []resolver.KIDResolver
+	crypto       cryptoapi.Crypto
+	kms          kms.KeyManager
 }
 
 // NewJWEDecrypt creates a new JWEDecrypt instance to parse and decrypt a JWE message for a given recipient
 // store is needed for Authcrypt only (to fetch sender's pre agreed upon public key), it is not needed for Anoncrypt.
-func NewJWEDecrypt(store storage.Store, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
+func NewJWEDecrypt(kidResolvers []resolver.KIDResolver, c cryptoapi.Crypto, k kms.KeyManager) *JWEDecrypt {
 	return &JWEDecrypt{
-		store:  store,
-		crypto: c,
-		kms:    k,
+		kidResolvers: kidResolvers,
+		crypto:       c,
+		kms:          k,
 	}
 }
 
-func getECDHDecPrimitive(cek []byte, encAlg string) (api.CompositeDecrypt, error) {
-	kt := ecdh.NISTPECDHAES256GCMKeyTemplateWithCEK(cek)
+func getECDHDecPrimitive(cek []byte, encAlg EncAlg, nistpKW bool) (api.CompositeDecrypt, error) {
+	ceAlg := aeadAlg[encAlg]
 
-	if encAlg == XC20PALG {
-		kt = ecdh.X25519ECDHXChachaKeyTemplateWithCEK(cek)
+	if ceAlg <= 0 {
+		return nil, fmt.Errorf("invalid content encAlg: '%s'", encAlg)
 	}
+
+	kt := ecdh.KeyTemplateForECDHPrimitiveWithCEK(cek, nistpKW, ceAlg)
 
 	kh, err := keyset.NewHandle(kt)
 	if err != nil {
@@ -65,21 +68,25 @@ func getECDHDecPrimitive(cek []byte, encAlg string) (api.CompositeDecrypt, error
 
 // Decrypt a deserialized JWE, decrypts its protected content and returns plaintext.
 func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
-	err := jd.validateAndExtractProtectedHeaders(jwe)
+	encAlg, err := jd.validateAndExtractProtectedHeaders(jwe)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
-	var senderOpt cryptoapi.WrapKeyOpts
+	var wkOpts []cryptoapi.WrapKeyOpts
 
 	skid, ok := jwe.ProtectedHeaders.SenderKeyID()
+	if !ok {
+		skid, ok = fetchSKIDFromAPU(jwe)
+	}
+
 	if ok && skid != "" {
-		senderKH, e := jd.fetchSenderPubKey(skid)
+		senderKH, e := jd.fetchSenderPubKey(skid, EncAlg(encAlg))
 		if e != nil {
 			return nil, fmt.Errorf("jwedecrypt: failed to add sender public key for skid: %w", e)
 		}
 
-		senderOpt = cryptoapi.WithSender(senderKH)
+		wkOpts = append(wkOpts, cryptoapi.WithSender(senderKH), cryptoapi.WithTag([]byte(jwe.Tag)))
 	}
 
 	recWK, err := buildRecipientsWrappedKey(jwe)
@@ -87,14 +94,14 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: failed to build recipients WK: %w", err)
 	}
 
-	cek, err := jd.unwrapCEK(recWK, senderOpt)
+	cek, err := jd.unwrapCEK(recWK, wkOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: %w", err)
 	}
 
 	if len(recWK) == 1 {
 		// ensure EPK is marshalled the same way as during encryption since it is merged into ProtectHeaders.
-		marshalledEPK, err := convertRecEPKToMarshalledJWK(recWK[0])
+		marshalledEPK, err := convertRecEPKToMarshalledJWK(&recWK[0].EPK)
 		if err != nil {
 			return nil, fmt.Errorf("jwedecrypt: %w", err)
 		}
@@ -105,12 +112,46 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	return jd.decryptJWE(jwe, cek)
 }
 
+func fetchSKIDFromAPU(jwe *JSONWebEncryption) (string, bool) {
+	// for multi-recipients only: check apu in protectedHeaders if it's found for ECDH-1PU, if skid header is empty then
+	// use apu as skid instead.
+	if len(jwe.Recipients) > 1 {
+		if a, apuOK := jwe.ProtectedHeaders["apu"]; apuOK {
+			skidBytes, err := base64.RawURLEncoding.DecodeString(a.(string))
+			if err != nil {
+				return "", false
+			}
+
+			return string(skidBytes), true
+		}
+	}
+
+	return "", false
+}
+
+//nolint:gocyclo
 func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
-	senderOpt cryptoapi.WrapKeyOpts) ([]byte, error) {
-	var cek []byte
+	senderOpt ...cryptoapi.WrapKeyOpts) ([]byte, error) {
+	var (
+		cek  []byte
+		errs []error
+	)
 
 	for _, rec := range recWK {
 		var unwrapOpts []cryptoapi.WrapKeyOpts
+
+		if strings.HasPrefix(rec.KID, "did:key") || strings.Index(rec.KID, "#") > 0 {
+			// resolve and use kms KID if did:key or KeyAgreement.ID.
+			resolvedRec, err := jd.resolveKID(rec.KID)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// Need to get the kms KID in order to do kms.Get() since original rec.KID is a did:key/KeyAgreement.ID.
+			// This is necessary to ensure recipient is the owner of the key.
+			rec.KID = resolvedRec.KID
+		}
 
 		recKH, err := jd.kms.Get(rec.KID)
 		if err != nil {
@@ -122,7 +163,7 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 		}
 
 		if senderOpt != nil {
-			unwrapOpts = append(unwrapOpts, senderOpt)
+			unwrapOpts = append(unwrapOpts, senderOpt...)
 		}
 
 		if len(unwrapOpts) > 0 {
@@ -134,13 +175,30 @@ func (jd *JWEDecrypt) unwrapCEK(recWK []*cryptoapi.RecipientWrappedKey,
 		if err == nil {
 			break
 		}
+
+		errs = append(errs, err)
 	}
 
 	if len(cek) == 0 {
-		return nil, errors.New("failed to unwrap cek")
+		return nil, fmt.Errorf("failed to unwrap cek: %v", errs)
 	}
 
 	return cek, nil
+}
+
+func (jd *JWEDecrypt) resolveKID(kid string) (*cryptoapi.PublicKey, error) {
+	var errs []error
+
+	for _, resolver := range jd.kidResolvers {
+		rKID, err := resolver.Resolve(kid)
+		if err == nil {
+			return rKID, nil
+		}
+
+		errs = append(errs, err)
+	}
+
+	return nil, fmt.Errorf("resolveKID: %v", errs)
 }
 
 func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, error) {
@@ -149,7 +207,7 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 		return nil, fmt.Errorf("jwedecrypt: JWE 'enc' protected header is missing")
 	}
 
-	decPrimitive, err := getECDHDecPrimitive(cek, encAlg)
+	decPrimitive, err := getECDHDecPrimitive(cek, EncAlg(encAlg), true)
 	if err != nil {
 		return nil, fmt.Errorf("jwedecrypt: failed to get decryption primitive: %w", err)
 	}
@@ -161,7 +219,7 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 
 	aadBytes := []byte(jwe.AAD)
 
-	authData, err := computeAuthData(jwe.ProtectedHeaders, aadBytes)
+	authData, err := computeAuthData(jwe.ProtectedHeaders, jwe.OrigProtectedHders, aadBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -169,45 +227,45 @@ func (jd *JWEDecrypt) decryptJWE(jwe *JSONWebEncryption, cek []byte) ([]byte, er
 	return decPrimitive.Decrypt(encryptedData, authData)
 }
 
-func (jd *JWEDecrypt) fetchSenderPubKey(skid string) (*keyset.Handle, error) {
-	mKey, err := jd.store.Get(skid)
+func (jd *JWEDecrypt) fetchSenderPubKey(skid string, encAlg EncAlg) (*keyset.Handle, error) {
+	senderKey, err := jd.resolveKID(skid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get sender key from DB: %w", err)
+		return nil, fmt.Errorf("fetchSenderPubKey: %w", err)
 	}
 
-	var senderKey *cryptoapi.PublicKey
+	ceAlg := aeadAlg[encAlg]
 
-	err = json.Unmarshal(mKey, &senderKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal sender key from DB: %w", err)
+	if ceAlg <= 0 {
+		return nil, fmt.Errorf("fetchSenderPubKey: invalid content encAlg: '%s'", encAlg)
 	}
 
-	return keyio.PublicKeyToKeysetHandle(senderKey)
+	return keyio.PublicKeyToKeysetHandle(senderKey, ceAlg)
 }
 
-func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) error {
+func (jd *JWEDecrypt) validateAndExtractProtectedHeaders(jwe *JSONWebEncryption) (string, error) {
 	if jwe == nil {
-		return fmt.Errorf("jwe is nil")
+		return "", fmt.Errorf("jwe is nil")
 	}
 
 	if len(jwe.ProtectedHeaders) == 0 {
-		return fmt.Errorf("jwe is missing protected headers")
+		return "", fmt.Errorf("jwe is missing protected headers")
 	}
 
 	protectedHeaders := jwe.ProtectedHeaders
 
 	encAlg, ok := protectedHeaders.Encryption()
 	if !ok {
-		return fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
+		return "", fmt.Errorf("jwe is missing encryption algorithm 'enc' header")
 	}
 
 	switch encAlg {
-	case string(A256GCM), string(XC20P):
+	case string(A256GCM), string(XC20P), string(A128CBCHS256),
+		string(A192CBCHS384), string(A256CBCHS384), string(A256CBCHS512):
 	default:
-		return fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
+		return "", fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
 
-	return nil
+	return encAlg, nil
 }
 
 func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWrappedKey, error) {
@@ -218,7 +276,11 @@ func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWr
 
 	for _, recJWE := range jwe.Recipients {
 		headers := recJWE.Header
-		if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
+		alg, ok := jwe.ProtectedHeaders.Algorithm()
+		is1PU := ok && strings.Contains(strings.ToUpper(alg), "1PU")
+
+		if len(jwe.Recipients) == 1 || is1PU {
+			// compact serialization: it has only 1 recipient with no headers or 1pu, extract from protectedHeaders.
 			headers, err = extractRecipientHeaders(jwe.ProtectedHeaders)
 			if err != nil {
 				return nil, err
@@ -226,6 +288,10 @@ func buildRecipientsWrappedKey(jwe *JSONWebEncryption) ([]*cryptoapi.RecipientWr
 		}
 
 		var recWK *cryptoapi.RecipientWrappedKey
+		// set kid if 1PU (authcrypt) with multi recipients since common protected headers don't have the recipient kid.
+		if is1PU && len(jwe.Recipients) > 1 {
+			headers.KID = recJWE.Header.KID
+		}
 
 		recWK, err = createRecWK(headers, []byte(recJWE.EncryptedKey))
 		if err != nil {
@@ -260,7 +326,7 @@ func createRecWK(headers *RecipientHeaders, encryptedKey []byte) (*cryptoapi.Rec
 func updateAPUAPVInRecWK(recWK *cryptoapi.RecipientWrappedKey, headers *RecipientHeaders) error {
 	decodedAPU, decodedAPV, err := decodeAPUAPV(headers)
 	if err != nil {
-		return err
+		return fmt.Errorf("updateAPUAPVInRecWK: %w", err)
 	}
 
 	recWK.APU = decodedAPU
@@ -333,19 +399,19 @@ func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders,
 }
 
 func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWrappedKey, error) {
-	jwk := &JWK{}
+	j := &jwk.JWK{}
 
-	err := jwk.UnmarshalJSON(marshalledJWK)
+	err := j.UnmarshalJSON(marshalledJWK)
 	if err != nil {
 		return nil, err
 	}
 
 	epk := cryptoapi.PublicKey{
-		Curve: jwk.Crv,
-		Type:  jwk.Kty,
+		Curve: j.Crv,
+		Type:  j.Kty,
 	}
 
-	switch key := jwk.Key.(type) {
+	switch key := j.Key.(type) {
 	case *ecdsa.PublicKey:
 		epk.X = key.X.Bytes()
 		epk.Y = key.Y.Bytes()
@@ -356,7 +422,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*cryptoapi.RecipientWra
 	}
 
 	return &cryptoapi.RecipientWrappedKey{
-		KID: jwk.KeyID,
+		KID: j.KeyID,
 		EPK: epk,
 	}, nil
 }

@@ -17,9 +17,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 type (
@@ -36,23 +38,6 @@ const (
 	HandshakeReuseMsgType = outofband.HandshakeReuseMsgType
 	// HandshakeReuseAcceptedMsgType is the '@type' for the handshake reuse accepted message.
 	HandshakeReuseAcceptedMsgType = outofband.HandshakeReuseAcceptedMsgType
-)
-
-const (
-	// MediaTypeProfileDIDCommAIP1 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in Aries AIP 1.0, circa 2020. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP1 = outofband.MediaTypeProfileDIDCommAIP1
-	// MediaTypeProfileDIDCommAIP2RFC19 is the signing mechanism, plaintext conventions, and routing
-	// algorithms embodied in Aries AIP 2.0, circa 2021 -- with the old-style encryption envelope from
-	// Aries RFC 0019. Defined in RFC 0044.
-	MediaTypeProfileDIDCommAIP2RFC19 = outofband.MediaTypeProfileDIDCommAIP2RFC19
-	// MediaTypeProfileAIP2RFC587 is the signing mechanism, plaintext conventions, and routing algorithms
-	// embodied in Aries AIP 2.0, circa 2021 -- with the new-style encryption envelope from Aries RFC 0587.
-	// Defined in RFC 0044.
-	MediaTypeProfileAIP2RFC587 = outofband.MediaTypeProfileAIP2RFC587
-	// MediaTypeProfileDIDCommV2 is the encryption envelope, signing mechanism, plaintext conventions,
-	// and routing algorithms embodied in the DIDComm messaging spec. Defined in RFC 0044.
-	MediaTypeProfileDIDCommV2 = outofband.MediaTypeProfileDIDCommV2
 )
 
 // EventOptions are is a container of options that you can pass to an event's
@@ -134,14 +119,18 @@ type Provider interface {
 	ServiceEndpoint() string
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
+	MediaTypeProfiles() []string
 }
 
 // Client for the Out-Of-Band protocol:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
 	service.Event
-	didDocSvcFunc func(routerConnID string) (*did.Service, error)
-	oobService    OobService
+	didDocSvcFunc     func(routerConnID string, accept []string) (*did.Service, error)
+	oobService        OobService
+	mediaTypeProfiles []string
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
@@ -156,11 +145,21 @@ func New(p Provider) (*Client, error) {
 		return nil, fmt.Errorf("failed to cast service %s as a dependency", outofband.Name)
 	}
 
-	return &Client{
-		Event:         oobSvc,
-		didDocSvcFunc: didServiceBlockFunc(p),
-		oobService:    oobSvc,
-	}, nil
+	mtp := p.MediaTypeProfiles()
+
+	if len(mtp) == 0 {
+		mtp = []string{transport.MediaTypeAIP2RFC0019Profile}
+	}
+
+	client := &Client{
+		Event:             oobSvc,
+		oobService:        oobSvc,
+		mediaTypeProfiles: mtp,
+	}
+
+	client.didDocSvcFunc = client.didServiceBlockFunc(p)
+
+	return client, nil
 }
 
 // CreateInvitation creates and saves an out-of-band invitation.
@@ -186,8 +185,12 @@ func (c *Client) CreateInvitation(services []interface{}, opts ...MessageOption)
 		Requests:  msg.Attachments,
 	}
 
+	if len(inv.Accept) == 0 {
+		inv.Accept = c.mediaTypeProfiles
+	}
+
 	if len(inv.Services) == 0 {
-		svc, err := c.didDocSvcFunc(msg.RouterConnection())
+		svc, err := c.didDocSvcFunc(msg.RouterConnection(), inv.Accept)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a new inlined did doc service block : %w", err)
 		}
@@ -366,11 +369,30 @@ func validateServices(svcs ...interface{}) error {
 
 // DidDocServiceFunc returns a function that returns a DID doc `service` entry.
 // Used when no service entries are specified when creating messages.
-func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, error) {
-	return func(routerConnID string) (*did.Service, error) {
+//nolint:funlen
+func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accept []string) (*did.Service, error) {
+	return func(routerConnID string, accept []string) (*did.Service, error) {
+		var (
+			keyType            kms.KeyType
+			didCommServiceType string
+		)
+
+		useDIDCommV2 := isDIDCommV2(accept)
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 		//  with connection record
-		_, verKey, err := p.KMS().CreateAndExportPubKeyBytes(kms.ED25519Type)
+		if useDIDCommV2 {
+			keyType = p.KeyAgreementType()
+			didCommServiceType = vdr.DIDCommV2ServiceType
+		} else {
+			keyType = p.KeyType()
+			didCommServiceType = vdr.DIDCommServiceType
+		}
+
+		if string(keyType) == "" {
+			keyType = kms.ED25519Type
+		}
+
+		_, pubKey, err := p.KMS().CreateAndExportPubKeyBytes(keyType)
 		if err != nil {
 			return nil, fmt.Errorf("didServiceBlockFunc: failed to create and extract public SigningKey bytes: %w", err)
 		}
@@ -385,12 +407,15 @@ func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, er
 			return nil, errors.New("didServiceBlockFunc: cast service to Route Service failed")
 		}
 
-		didKey, _ := fingerprint.CreateDIDKey(verKey)
+		didKey, err := kmsdidkey.BuildDIDKeyByKeyType(pubKey, keyType)
+		if err != nil {
+			return nil, fmt.Errorf("didServiceBlockFunc: failed to build did:key for key type '%v': %w", keyType, err)
+		}
 
 		if routerConnID == "" {
 			return &did.Service{
 				ID:              uuid.New().String(),
-				Type:            "did-communication",
+				Type:            didCommServiceType,
 				RecipientKeys:   []string{didKey},
 				ServiceEndpoint: p.ServiceEndpoint(),
 			}, nil
@@ -408,10 +433,23 @@ func didServiceBlockFunc(p Provider) func(routerConnID string) (*did.Service, er
 
 		return &did.Service{
 			ID:              uuid.New().String(),
-			Type:            "did-communication",
+			Type:            didCommServiceType,
 			RecipientKeys:   []string{didKey},
 			RoutingKeys:     routingKeys,
 			ServiceEndpoint: serviceEndpoint,
 		}, nil
 	}
+}
+
+func isDIDCommV2(accept []string) bool {
+	for _, a := range accept {
+		switch a {
+		case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile,
+			transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload,
+			transport.MediaTypeV1EncryptedEnvelope:
+			return true
+		}
+	}
+
+	return false
 }

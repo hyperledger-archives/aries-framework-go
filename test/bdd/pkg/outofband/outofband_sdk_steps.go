@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
@@ -35,6 +36,7 @@ type SDKSteps struct {
 	bddIssueCredSDK    *bddIssueCred.SDKSteps
 	nextAction         map[string]chan interface{}
 	credName           string
+	accept             string
 }
 
 // NewOutOfBandSDKSteps returns the out-of-band protocol's BDD steps using the SDK binding.
@@ -57,9 +59,16 @@ func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 	sdk.bddIssueCredSDK.SetContext(ctx)
 }
 
+func (sdk *SDKSteps) scenario(accept string) error {
+	sdk.accept = accept
+
+	return nil
+}
+
 // RegisterSteps registers the BDD steps on the suite.
 func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" creates an out-of-band invitation$`, sdk.createOOBInvitation)
+	suite.Step(`^options ""([^"]*)""$`, sdk.scenario)
 	suite.Step(
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel$`, sdk.sendInvitationThruOOBChannel)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"$`, sdk.acceptInvitationAndConnect)
@@ -124,7 +133,7 @@ func (sdk *SDKSteps) createOOBInvitationWithOfferCredential(agent string) error 
 	}
 
 	inv, err := sdk.newInvitation(agent, &issuecredential.OfferCredential{
-		Type:    issuecredential.OfferCredentialMsgType,
+		Type:    issuecredential.OfferCredentialMsgTypeV2,
 		Comment: "test",
 	})
 	if err != nil {
@@ -160,7 +169,7 @@ func (sdk *SDKSteps) createOOBInvitationReusePubDIDAndOfferCredential(agent stri
 			MimeType: "application/json",
 			Data: decorator.AttachmentData{
 				JSON: &issuecredential.OfferCredential{
-					Type:    issuecredential.OfferCredentialMsgType,
+					Type:    issuecredential.OfferCredentialMsgTypeV2,
 					Comment: "test",
 				},
 			},
@@ -483,10 +492,18 @@ func (sdk *SDKSteps) newInvitation(agentID string, attachments ...interface{}) (
 		})
 	}
 
-	inv, err := agent.CreateInvitation(
-		nil,
+	opts := []outofband.MessageOption{
 		outofband.WithLabel(agentID),
 		outofband.WithAttachments(attachDecorators...),
+	}
+
+	if sdk.accept != "" {
+		opts = append(opts, outofband.WithAccept(sdk.accept))
+	}
+
+	inv, err := agent.CreateInvitation(
+		nil,
+		opts...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create invitation for %s : %w", agentID, err)
@@ -562,9 +579,28 @@ func (sdk *SDKSteps) CreateInvitationWithDID(agent string) error {
 		return fmt.Errorf("no oob client found for %s", agent)
 	}
 
+	mtps := sdk.context.AgentCtx[agent].MediaTypeProfiles()
+	didCommV2 := false
+
+	for _, mtp := range mtps {
+		switch mtp {
+		case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+			didCommV2 = true
+		}
+
+		if didCommV2 {
+			break
+		}
+	}
+
+	if !didCommV2 && len(mtps) == 0 {
+		mtps = []string{transport.MediaTypeAIP2RFC0019Profile}
+	}
+
 	inv, err := client.CreateInvitation(
 		[]interface{}{did.ID},
 		outofband.WithLabel(agent),
+		outofband.WithAccept(mtps...),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create oob invitation for %s : %w", agent, err)

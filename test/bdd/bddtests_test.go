@@ -25,10 +25,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/presentproof"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/rfc0593"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
@@ -85,7 +87,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-//nolint:gocognit,forbidigo
+//nolint:gocognit,forbidigo,gocyclo
 func runBddTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		s.BeforeSuite(func() {
@@ -110,14 +112,19 @@ func runBddTests(tags, format string) int {
 						panic(fmt.Sprintf("Invalid value found in 'TEST_SLEEP': %s", e))
 					}
 				}
-				fmt.Printf("*** testSleep=%d", testSleep)
+				fmt.Printf("*** testSleep=%d\n", testSleep)
 				time.Sleep(time.Second * time.Duration(testSleep))
 			}
 		})
 		s.AfterSuite(func() {
+			err := os.Remove("docker-compose.log")
+			if err != nil {
+				fmt.Printf("unable to delete docker-compose.log: %v, proceeding with docker decompose..", err)
+			}
+
 			for _, c := range composition {
 				if c != nil {
-					if err := c.GenerateLogs(c.Dir, c.ProjectName+".log"); err != nil {
+					if err := c.GenerateLogs(c.Dir, c.Dir+"-"+c.ProjectName+".log"); err != nil {
 						panic(err)
 					}
 					if _, err := c.Decompose(c.Dir); err != nil {
@@ -196,5 +203,9 @@ func features() []feature {
 		presentproof.NewPresentProofSDKSteps(),
 		presentproof.NewPresentProofControllerSteps(),
 		vdr.NewVDRControllerSteps(),
+		rfc0593.NewGoSDKSteps(),
+		rfc0593.NewRestSDKSteps(),
+		ld.NewLDControllerSteps(),
+		ld.NewSDKSteps(),
 	}
 }

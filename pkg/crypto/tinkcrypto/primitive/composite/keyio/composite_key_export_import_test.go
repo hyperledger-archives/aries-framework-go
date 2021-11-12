@@ -8,14 +8,19 @@ package keyio
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	tinkaead "github.com/google/tink/go/aead"
 	"github.com/google/tink/go/hybrid"
+	"github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
@@ -68,12 +73,12 @@ func TestPubKeyExport(t *testing.T) {
 
 			require.EqualValues(t, ecPubKey, extractedPubKey)
 
-			// now convert back ecPubKey to *keyset.Handle using default AES content encryption template
-			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey)
+			// now convert back ecPubKey to *keyset.Handle using NISTP KW with default AES content encryption template
+			xPubKH, err := PublicKeyToKeysetHandle(ecPubKey, ecdh.AES256GCM)
 			require.NoError(t, err)
 
 			// now convert back ecPubKey to *keyset.Handle using XChacha content encryption template
-			x2PubKH, err := PublicKeyToKeysetHandleXChacha(ecPubKey)
+			x2PubKH, err := PublicKeyToKeysetHandle(ecPubKey, ecdh.XC20P)
 			require.NoError(t, err)
 
 			xk, err := ExtractPrimaryPublicKey(xPubKH)
@@ -87,7 +92,83 @@ func TestPubKeyExport(t *testing.T) {
 				require.EqualValues(t, x2k.Curve, commonpb.EllipticCurveType_CURVE25519.String())
 				require.EqualValues(t, xk.Curve, commonpb.EllipticCurveType_CURVE25519.String())
 			}
+
+			t.Run("test PrivateKeyToKeysetHandle", func(t *testing.T) {
+				testPrivateKeyAsKH(t, ecPubKey)
+			})
+
+			// now convert back ecPubKey to *keyset.Handle with CBC+HMAC content encryption.
+			cbcHMACAlgs := []ecdh.AEADAlg{
+				ecdh.AES128CBCHMACSHA256, ecdh.AES192CBCHMACSHA384, ecdh.AES256CBCHMACSHA384, ecdh.AES256CBCHMACSHA512,
+			}
+
+			for _, cbcAEAD := range cbcHMACAlgs {
+				x3PubKH, err := PublicKeyToKeysetHandle(ecPubKey, cbcAEAD)
+				require.NoError(t, err)
+
+				xk, err = ExtractPrimaryPublicKey(x3PubKH)
+				require.NoError(t, err)
+				require.EqualValues(t, ecPubKey, xk)
+
+				x3k, err := ExtractPrimaryPublicKey(x3PubKH)
+				require.NoError(t, err)
+				require.EqualValues(t, ecPubKey, x3k)
+			}
 		})
+	}
+}
+
+func testPrivateKeyAsKH(t *testing.T, pubKey *cryptoapi.PublicKey) {
+	var (
+		crv        elliptic.Curve
+		privECKey  *ecdsa.PrivateKey
+		privKey    *cryptoapi.PrivateKey
+		privOKPKey ed25519.PrivateKey
+		pubKOPKey  ed25519.PublicKey
+		err        error
+	)
+
+	privKey = &cryptoapi.PrivateKey{
+		PublicKey: cryptoapi.PublicKey{
+			Curve: pubKey.Curve,
+			Type:  pubKey.Type,
+		},
+	}
+
+	if pubKey.Type == "EC" {
+		crv, err = subtle.GetCurve(pubKey.Curve)
+		require.NoError(t, err)
+
+		privECKey, err = ecdsa.GenerateKey(crv, rand.Reader)
+		require.NoError(t, err)
+
+		privKey.PublicKey.X = privECKey.PublicKey.X.Bytes()
+		privKey.PublicKey.Y = privECKey.PublicKey.Y.Bytes()
+		privKey.D = privECKey.D.Bytes()
+	} else {
+		pubKOPKey, privOKPKey, err = ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		require.NotEmpty(t, pubKOPKey)
+		require.NotEmpty(t, privKey)
+
+		privKey.PublicKey.X = pubKOPKey
+		privKey.D = privOKPKey
+	}
+
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.AES256GCM)
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.XC20P)
+	testPrivateKeyToKeySetHandle(t, privKey, ecdh.AES128CBCHMACSHA256)
+}
+
+func testPrivateKeyToKeySetHandle(t *testing.T, privKey *cryptoapi.PrivateKey, aeadAlg ecdh.AEADAlg) {
+	pkh, err := PrivateKeyToKeysetHandle(privKey, aeadAlg)
+	require.NoError(t, err)
+	require.NotEmpty(t, pkh)
+
+	if privKey.PublicKey.Type == "EC" {
+		require.Equal(t, nistPECDHKWPrivateKeyTypeURL, pkh.KeysetInfo().KeyInfo[0].TypeUrl)
+	} else {
+		require.Equal(t, x25519ECDHKWPrivateKeyTypeURL, pkh.KeysetInfo().KeyInfo[0].TypeUrl)
 	}
 }
 
@@ -220,7 +301,7 @@ func TestNegativeCases(t *testing.T) {
 
 	t.Run("call newECDHKey() with bad marshalled bytes", func(t *testing.T) {
 		_, err := newECDHKey([]byte("bad data"))
-		require.EqualError(t, err, "unexpected EOF")
+		require.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 	})
 
 	t.Run("get undefined curve from getCurveProto should fail", func(t *testing.T) {
@@ -229,7 +310,7 @@ func TestNegativeCases(t *testing.T) {
 
 		_, err = PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
 			Curve: "",
-		})
+		}, ecdh.AES256GCM)
 		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert curve string to proto: "+
 			"unsupported curve")
 	})
@@ -237,8 +318,42 @@ func TestNegativeCases(t *testing.T) {
 	t.Run("PublicKeyToKeysetHandle using pubKey with bad keyType", func(t *testing.T) {
 		_, err := PublicKeyToKeysetHandle(&cryptoapi.PublicKey{
 			Curve: elliptic.P256().Params().Name,
-		})
+		}, ecdh.AES256GCM)
 		require.EqualError(t, err, "publicKeyToKeysetHandle: failed to convert key type to proto: unsupported key type")
+	})
+
+	t.Run("PublicKeyToKeysetHandle with valid key and bad AEADAlg", func(t *testing.T) {
+		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
+		require.NoError(t, err)
+		require.NotEmpty(t, kh)
+
+		exportedKeyBytes := exportRawPublicKeyBytes(t, kh, false)
+		require.NotEmpty(t, exportedKeyBytes)
+
+		ecPubKey := new(cryptoapi.PublicKey)
+		err = json.Unmarshal(exportedKeyBytes, ecPubKey)
+		require.NoError(t, err)
+
+		_, err = PublicKeyToKeysetHandle(ecPubKey, -1)
+		require.EqualError(t, err, "publicKeyToKeysetHandle: invalid encryption algorithm: ''")
+	})
+
+	t.Run("ExtractPrimaryPublicKey using an invalid (symmetric key)", func(t *testing.T) {
+		kt := tinkaead.AES128CTRHMACSHA256KeyTemplate()
+		badKH, err := keyset.NewHandle(kt)
+		require.NoError(t, err)
+
+		_, err = ExtractPrimaryPublicKey(badKH)
+		require.EqualError(t, err, "extractPrimaryPublicKey: failed to get public key content: exporting "+
+			"unencrypted secret key material is forbidden")
+	})
+
+	t.Run("keyTemplateAndURL with invalid curve", func(t *testing.T) {
+		_, _, err := keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM, true)
+		require.EqualError(t, err, "invalid key curve: 'UNKNOWN_CURVE'")
+
+		_, _, err = keyTemplateAndURL(commonpb.EllipticCurveType_UNKNOWN_CURVE, ecdh.AES256GCM, false)
+		require.EqualError(t, err, "invalid key curve: 'UNKNOWN_CURVE'")
 	})
 }
 

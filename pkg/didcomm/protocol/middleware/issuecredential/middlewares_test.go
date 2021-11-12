@@ -25,7 +25,7 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/middleware/issuecredential"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdr"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/jsonldtest"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 func getCredential() *verifiable.Credential {
@@ -77,7 +77,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 		}))
 
 		err := SaveCredentials(provider)(next).Handle(metadata)
@@ -88,7 +88,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
 			},
@@ -111,7 +111,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
 					Context: []string{"https://www.w3.org/2018/credentials/v1"},
@@ -137,7 +137,7 @@ func TestSaveCredentials(t *testing.T) {
 			theirDIDKey: theirDIDKey,
 		})
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
 			},
@@ -147,7 +147,7 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(errors.New(errMsg))
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -163,13 +163,13 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Properties().Return(map[string]interface{}{})
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
 			},
 		}))
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -193,7 +193,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
 			},
@@ -203,7 +203,42 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
+		require.NoError(t, err)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().VDRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore)
+		provider.EXPECT().JSONLDDocumentLoader().Return(loader)
+
+		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
+		require.Equal(t, props["names"], []string{vcName})
+	})
+
+	t.Run("Success V3", func(t *testing.T) {
+		const vcName = "vc-name"
+
+		props := map[string]interface{}{
+			myDIDKey:    myDIDKey,
+			theirDIDKey: theirDIDKey,
+		}
+
+		metadata := mocks.NewMockMetadata(ctrl)
+		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
+		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
+		metadata.EXPECT().Properties().Return(props)
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV3{
+			Type: issuecredential.IssueCredentialMsgTypeV3,
+			Attachments: []decorator.AttachmentV2{
+				{Data: decorator.AttachmentData{JSON: getCredential()}},
+			},
+		}))
+
+		verifiableStore := mockstore.NewMockStore(ctrl)
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -229,7 +264,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().CredentialNames().Return([]string{})
 		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: cred}},
 			},
@@ -239,7 +274,7 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		provider := mocks.NewMockProvider(ctrl)
@@ -302,7 +337,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Properties().Return(props)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
-			Type: issuecredential.IssueCredentialMsgType,
+			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: credential}},
 			},
@@ -312,7 +347,7 @@ func TestSaveCredentials(t *testing.T) {
 		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		loader, err := jsonldtest.DocumentLoader()
+		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
 		registry := mockvdr.NewMockRegistry(ctrl)

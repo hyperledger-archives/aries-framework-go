@@ -14,17 +14,18 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-func createNewKeyAndVM(didDoc *did.Doc, keyType, keyAgreementType kms.KeyType, keyManager kms.KeyManager) error {
-	vm, err := createSigningVM(keyManager, getVerMethodType(keyType), keyType)
+func (ctx *context) createNewKeyAndVM(didDoc *did.Doc) error {
+	vm, err := ctx.createSigningVM()
 	if err != nil {
 		return err
 	}
 
-	kaVM, err := createEncryptionVM(keyManager, getVerMethodType(keyAgreementType), keyAgreementType)
+	kaVM, err := ctx.createEncryptionVM()
 	if err != nil {
 		return err
 	}
@@ -37,36 +38,42 @@ func createNewKeyAndVM(didDoc *did.Doc, keyType, keyAgreementType kms.KeyType, k
 	return nil
 }
 
-func createSigningVM(km kms.KeyManager, vmType string, keyType kms.KeyType) (*did.VerificationMethod, error) {
-	kid, pubKeyBytes, err := km.CreateAndExportPubKeyBytes(keyType)
+func (ctx *context) createSigningVM() (*did.VerificationMethod, error) {
+	vmType := getVerMethodType(ctx.keyType)
+
+	_, pubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(ctx.keyType)
 	if err != nil {
 		return nil, fmt.Errorf("createSigningVM: %w", err)
 	}
 
-	vmID := "#" + kid
+	vmID := "#key-1"
 
 	switch vmType {
 	case ed25519VerificationKey2018, bls12381G2Key2020:
 		return did.NewVerificationMethodFromBytes(vmID, vmType, "", pubKeyBytes), nil
 	case jsonWebKey2020:
-		jwk, err := jose.PubKeyBytesToJWK(pubKeyBytes, keyType)
+		j, err := jwksupport.PubKeyBytesToJWK(pubKeyBytes, ctx.keyType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert public key to JWK for VM: %w", err)
+			return nil, fmt.Errorf("createSigningVM: failed to convert public key to JWK for VM: %w", err)
 		}
 
-		return did.NewVerificationMethodFromJWK(vmID, vmType, "", jwk)
+		return did.NewVerificationMethodFromJWK(vmID, vmType, "", j)
 	default:
-		return nil, fmt.Errorf("unsupported verification method: '%s'", vmType)
+		return nil, fmt.Errorf("createSigningVM: unsupported verification method: '%s'", vmType)
 	}
 }
 
-func createEncryptionVM(km kms.KeyManager, vmType string, keyType kms.KeyType) (*did.VerificationMethod, error) {
-	kaID, kaPubKeyBytes, err := km.CreateAndExportPubKeyBytes(keyType)
+func (ctx *context) createEncryptionVM() (*did.VerificationMethod, error) {
+	encKeyType := ctx.keyAgreementType
+
+	vmType := getVerMethodType(encKeyType)
+
+	_, kaPubKeyBytes, err := ctx.kms.CreateAndExportPubKeyBytes(encKeyType)
 	if err != nil {
 		return nil, fmt.Errorf("createEncryptionVM: %w", err)
 	}
 
-	vmID := "#" + kaID
+	vmID := "#key-2"
 
 	switch vmType {
 	case x25519KeyAgreementKey2019:
@@ -79,12 +86,12 @@ func createEncryptionVM(km kms.KeyManager, vmType string, keyType kms.KeyType) (
 
 		return did.NewVerificationMethodFromBytes(vmID, vmType, "", key.X), nil
 	case jsonWebKey2020:
-		jwk, err := buildJWKFromBytes(kaPubKeyBytes)
+		j, err := buildJWKFromBytes(kaPubKeyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("createEncryptionVM: %w", err)
 		}
 
-		vm, err := did.NewVerificationMethodFromJWK(vmID, vmType, "", jwk)
+		vm, err := did.NewVerificationMethodFromJWK(vmID, vmType, "", j)
 		if err != nil {
 			return nil, fmt.Errorf("createEncryptionVM: %w", err)
 		}
@@ -95,7 +102,7 @@ func createEncryptionVM(km kms.KeyManager, vmType string, keyType kms.KeyType) (
 	}
 }
 
-func buildJWKFromBytes(pubKeyBytes []byte) (*jose.JWK, error) {
+func buildJWKFromBytes(pubKeyBytes []byte) (*jwk.JWK, error) {
 	pubKey := &crypto.PublicKey{}
 
 	err := json.Unmarshal(pubKeyBytes, pubKey)
@@ -103,7 +110,7 @@ func buildJWKFromBytes(pubKeyBytes []byte) (*jose.JWK, error) {
 		return nil, fmt.Errorf("failed to unmarshal JWK for KeyAgreement: %w", err)
 	}
 
-	var jwk *jose.JWK
+	var j *jwk.JWK
 
 	switch pubKey.Type {
 	case "EC":
@@ -112,7 +119,7 @@ func buildJWKFromBytes(pubKeyBytes []byte) (*jose.JWK, error) {
 			return nil, err
 		}
 
-		jwk = &jose.JWK{
+		j = &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Key:   ecKey,
 				KeyID: pubKey.KID,
@@ -121,7 +128,7 @@ func buildJWKFromBytes(pubKeyBytes []byte) (*jose.JWK, error) {
 			Crv: pubKey.Curve,
 		}
 	case "OKP":
-		jwk = &jose.JWK{
+		j = &jwk.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Key:   pubKey.X,
 				KeyID: pubKey.KID,
@@ -131,7 +138,7 @@ func buildJWKFromBytes(pubKeyBytes []byte) (*jose.JWK, error) {
 		}
 	}
 
-	return jwk, nil
+	return j, nil
 }
 
 // nolint:gochecknoglobals

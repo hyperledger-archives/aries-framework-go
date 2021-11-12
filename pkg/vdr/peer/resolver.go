@@ -25,5 +25,5 @@ func (v *VDR) Read(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolutio
 		return nil, vdrapi.ErrNotFound
 	}
 
-	return &did.DocResolution{DIDDocument: doc}, nil
+	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: doc}, nil
 }
