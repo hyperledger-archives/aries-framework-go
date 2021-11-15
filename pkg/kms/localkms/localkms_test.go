@@ -69,7 +69,7 @@ func TestNewKMS_Failure(t *testing.T) {
 	})
 
 	t.Run("test New() error creating new KMS client with bad master key prefix", func(t *testing.T) {
-		badKeyURI := "bad-prefix://test/key/uri"
+		badKeyURI := "://test/key/uri"
 
 		kmsStorage, err := New(badKeyURI, &mockProvider{
 			storage: mockstorage.NewMockStoreProvider(),

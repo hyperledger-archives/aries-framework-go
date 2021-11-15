@@ -34,16 +34,30 @@ func TestLocalKMS_New_AEAD(t *testing.T) {
 	require.Error(t, err)
 	require.Empty(t, aeadKW)
 
-	validURI := LocalKeyURIPrefix + "master/key"
-	invalidURI := "bad-prefix://master/key"
+	validURIs := []string{
+		LocalKeyURIPrefix + "master/key",
+		"aws-kms://arn:aws:kms:ca-central-1:235739564943:key/3ee50705-5a82-4f5b-9753-05c4f473922f",
+		"gcp-kms://projects/aries-test-infrastructure/aead-key",
+	}
+	invalidURIs := []string{
+		"://master/key",
+		"master/key",
+		LocalKeyURIPrefix,
+		"aws-kms://",
+		"",
+	}
 
-	aeadKW, err = New(mockSecLck, invalidURI)
-	require.Error(t, err)
-	require.Empty(t, aeadKW)
+	for _, invalidURI := range invalidURIs {
+		aeadKW, err = New(mockSecLck, invalidURI)
+		require.Error(t, err)
+		require.Empty(t, aeadKW)
+	}
 
-	aeadKW, err = New(mockSecLck, validURI)
-	require.NoError(t, err)
-	require.NotEmpty(t, aeadKW)
+	for _, validURI := range validURIs {
+		aeadKW, err = New(mockSecLck, validURI)
+		require.NoError(t, err)
+		require.NotEmpty(t, aeadKW)
+	}
 }
 
 func TestLocalKMS_EncryptDecrypt(t *testing.T) {
