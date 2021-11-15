@@ -152,7 +152,7 @@ async function verifiableStore(newAries, mode = wasmMode) {
                 console.warn(e.message)
             }
         }
-        did=resp.DIDDocument
+        did=resp.didDocument
 
         try {
             await aries.kms.importKey({
