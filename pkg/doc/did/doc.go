@@ -135,7 +135,7 @@ type Operations struct {
 	// TransactionNumber is transaction number.
 	TransactionNumber int `json:"transactionNumber,omitempty"`
 	// TransactionTime is transaction time.
-	TransactionTime *time.Time `json:"transactionTime,omitempty"`
+	TransactionTime int64 `json:"transactionTime,omitempty"`
 	// Type is type of operation.
 	Type string `json:"type,omitempty"`
 	// AnchorOrigin is anchor origin.
