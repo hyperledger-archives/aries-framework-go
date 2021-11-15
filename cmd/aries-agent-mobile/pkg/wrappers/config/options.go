@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"github.com/piprate/json-gold/ld"
 	"net/http"
+
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 )
