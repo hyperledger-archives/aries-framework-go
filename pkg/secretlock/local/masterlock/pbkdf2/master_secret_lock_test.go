@@ -44,11 +44,6 @@ func TestMasterLock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, testKey, []byte(decryptedMk.Plaintext))
 
-	// try encrypting a key with a size different than keySize
-	badEncryptedMk, err := mkLock.Encrypt("", &secretlock.EncryptRequest{Plaintext: "BadKey"})
-	require.EqualError(t, err, "invalid key size")
-	require.Empty(t, badEncryptedMk)
-
 	// try decrypting a non valid base64URL string
 	decryptedMk, err = mkLock.Decrypt("", &secretlock.DecryptRequest{Ciphertext: "bad{}base64URLstring[]"})
 	require.Error(t, err)
