@@ -195,6 +195,7 @@ mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/protocol/middleware/issuecredential,Provider;Metadata)
 	$(call create_mock,pkg/didcomm/protocol/middleware/presentproof,Provider;Metadata)
 	$(call create_mock,pkg/client/outofband,Provider;OobService)
+	$(call create_mock,pkg/client/outofbandv2,Provider;OobService)
 	$(call create_mock,pkg/didcomm/protocol/presentproof,Provider)
 	$(call create_mock,pkg/client/introduce,Provider;ProtocolService)
 	$(call create_mock,pkg/client/issuecredential,Provider;ProtocolService)

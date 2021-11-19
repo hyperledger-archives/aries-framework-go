@@ -9,7 +9,6 @@ package outofbandv2
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -27,11 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/service"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-)
-
-const (
-	myDID    = "did:example:mine"
-	theirDID = "did:example:theirs"
 )
 
 func TestNew(t *testing.T) {
@@ -62,6 +56,28 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestService_Initialize(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		prov := testProvider(t)
+		svc := Service{}
+
+		err := svc.Initialize(prov)
+		require.NoError(t, err)
+
+		// second init is no-op
+		err = svc.Initialize(prov)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure, not given a valid provider", func(t *testing.T) {
+		svc := Service{}
+
+		err := svc.Initialize("not a provider")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected provider of type")
+	})
+}
+
 func TestName(t *testing.T) {
 	s, err := New(testProvider(t))
 	require.NoError(t, err)
@@ -81,15 +97,23 @@ func TestAccept(t *testing.T) {
 	})
 }
 
+func TestHandleOutbound(t *testing.T) {
+	t.Run("out-of-band Outbound not supported", func(t *testing.T) {
+		s := newAutoService(t, testProvider(t))
+		_, err := s.HandleOutbound(nil, "", "")
+		require.EqualError(t, err, "oob/2.0 not implemented")
+	})
+}
+
 func TestHandleInbound(t *testing.T) {
 	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
 		s := newAutoService(t, testProvider(t))
-		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.NewDIDCommContext(myDID, theirDID, nil))
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.EmptyDIDCommContext())
 		require.NoError(t, err)
 	})
 	t.Run("nil out-of-band invitation messages", func(t *testing.T) {
 		s := newAutoService(t, testProvider(t))
-		_, err := s.HandleInbound(nil, service.NewDIDCommContext(myDID, theirDID, nil))
+		_, err := s.HandleInbound(nil, service.EmptyDIDCommContext())
 		require.EqualError(t, err, "oob/2.0 cannot handle nil inbound message")
 	})
 	t.Run("rejects unsupported message types", func(t *testing.T) {
@@ -97,46 +121,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		req := newInvitation()
 		req.Type = "invalid"
-		_, err = s.HandleInbound(service.NewDIDCommMsgMap(req), service.NewDIDCommContext(myDID, theirDID, nil))
-		require.Error(t, err)
-	})
-	t.Run("fires off an action event", func(t *testing.T) {
-		expected := service.NewDIDCommMsgMap(newInvitation())
-		s, err := New(testProvider(t))
-		require.NoError(t, err)
-		events := make(chan service.DIDCommAction)
-		err = s.RegisterActionEvent(events)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
-		require.NoError(t, err)
-		select {
-		case e := <-events:
-			require.Equal(t, Name, e.ProtocolName)
-			require.Equal(t, expected, e.Message)
-			require.Nil(t, e.Properties)
-		case <-time.After(1 * time.Second):
-			t.Error("timeout waiting for action event")
-		}
-	})
-	t.Run("Load context (error)", func(t *testing.T) {
-		expected := service.NewDIDCommMsgMap(newInvitation())
-		s := &Service{
-			transientStore: &mockstore.MockStore{
-				Store:  make(map[string]mockstore.DBEntry),
-				ErrPut: fmt.Errorf("db error"),
-			},
-		}
-		events := make(chan service.DIDCommAction)
-		err := s.RegisterActionEvent(events)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, service.NewDIDCommContext(myDID, theirDID, nil))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unable to load current context")
-	})
-	t.Run("fails if no listeners have been registered for action events", func(t *testing.T) {
-		s, err := New(testProvider(t))
-		require.NoError(t, err)
-		_, err = s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.NewDIDCommContext(myDID, theirDID, nil))
+		_, err = s.HandleInbound(service.NewDIDCommMsgMap(req), service.EmptyDIDCommContext())
 		require.Error(t, err)
 	})
 }
@@ -169,7 +154,7 @@ func TestAcceptInvitation(t *testing.T) {
 		s := newAutoService(t, provider)
 		inv := newInvitation()
 		inv.Body.Accept = []string{"INVALID"}
-		err := s.AcceptInvitation(inv, &userOptions{})
+		err := s.AcceptInvitation(inv)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no acceptable media type profile found in invitation")
 	})
@@ -179,15 +164,15 @@ func TestAcceptInvitation(t *testing.T) {
 		inv := newInvitation()
 		inv.Type = "invalidType"
 		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
-		err := s.AcceptInvitation(inv, &userOptions{})
-		require.EqualError(t, err, "oob/2.0 failed to create context for invitation: invalid message type invalidType")
+		err := s.AcceptInvitation(inv)
+		require.EqualError(t, err, "oob/2.0 failed to accept invitation : unsupported message type: invalidType")
 	})
 	t.Run("invitation valid accept values", func(t *testing.T) {
 		provider := testProvider(t)
 		s := newAutoService(t, provider)
 		inv := newInvitation()
 		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
-		err := s.AcceptInvitation(inv, &userOptions{})
+		err := s.AcceptInvitation(inv)
 		require.NoError(t, err)
 	})
 	t.Run("invitation accept values with a valid presentproof V3 target code", func(t *testing.T) {
@@ -219,7 +204,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 
-		err := s.AcceptInvitation(inv, &userOptions{})
+		err := s.AcceptInvitation(inv)
 		require.NoError(t, err)
 	})
 
@@ -241,7 +226,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 
-		err := s.AcceptInvitation(inv, &userOptions{})
+		err := s.AcceptInvitation(inv)
 		require.NoError(t, err)
 
 		inv.Requests = []*decorator.AttachmentV2{
@@ -256,7 +241,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 
-		err = s.AcceptInvitation(inv, &userOptions{})
+		err = s.AcceptInvitation(inv)
 		require.NoError(t, err)
 
 		ppv3Response := &presentproof.PresentationV3{
@@ -304,7 +289,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 
-		err = s.AcceptInvitation(inv, &userOptions{})
+		err = s.AcceptInvitation(inv)
 		require.NoError(t, err)
 	})
 }

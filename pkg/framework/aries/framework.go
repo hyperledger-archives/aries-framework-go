@@ -50,6 +50,7 @@ type Aries struct {
 	protocolStateStoreProvider storage.Provider
 	protocolSvcCreators        []api.ProtocolSvcCreator
 	services                   []dispatcher.ProtocolService
+	servicesMsgTypeTargets     []dispatcher.MessageTypeTarget
 	msgSvcProvider             api.MessageServiceProvider
 	outboundDispatcher         dispatcher.Outbound
 	messenger                  service.MessengerHandler
@@ -354,6 +355,14 @@ func WithMediaTypeProfiles(mediaTypeProfiles []string) Option {
 	}
 }
 
+// WithServiceMsgTypeTargets injects service msg type to target mappings in the context.
+func WithServiceMsgTypeTargets(msgTypeTargets ...dispatcher.MessageTypeTarget) Option {
+	return func(opts *Aries) error {
+		opts.servicesMsgTypeTargets = msgTypeTargets
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -382,6 +391,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithKeyType(a.keyType),
 		context.WithKeyAgreementType(a.keyAgreementType),
 		context.WithMediaTypeProfiles(a.mediaTypeProfiles),
+		context.WithServiceMsgTypeTargets(a.servicesMsgTypeTargets...),
 	)
 }
 
@@ -667,6 +677,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
 		context.WithInboundEnvelopeHandler(&frameworkOpts.inboundEnvelopeHandler),
+		context.WithServiceMsgTypeTargets(frameworkOpts.servicesMsgTypeTargets...),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
