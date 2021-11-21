@@ -21,12 +21,12 @@ import (
 // CredentialManifest represents a Credential Manifest object as defined in
 // https://identity.foundation/credential-manifest/#credential-manifest-2.
 type CredentialManifest struct {
-	ID                     string                          `json:"id,omitempty"`
-	Version                string                          `json:"version,omitempty"`
-	Issuer                 Issuer                          `json:"issuer,omitempty"`
-	OutputDescriptors      []OutputDescriptor              `json:"output_descriptors,omitempty"`
-	Format                 presexch.Format                 `json:"format,omitempty"`
-	PresentationDefinition presexch.PresentationDefinition `json:"presentation_definition,omitempty"`
+	ID                     string                           `json:"id,omitempty"`
+	Version                string                           `json:"version,omitempty"`
+	Issuer                 Issuer                           `json:"issuer,omitempty"`
+	OutputDescriptors      []OutputDescriptor               `json:"output_descriptors,omitempty"`
+	Format                 presexch.Format                  `json:"format,omitempty"`
+	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition,omitempty"`
 }
 
 // Issuer represents the issuer object defined in https://identity.foundation/credential-manifest/#general-composition.
@@ -123,6 +123,7 @@ type staticDisplayMappingObjects struct {
 }
 
 // UnmarshalJSON is the custom unmarshal function gets called automatically when the standard json.Unmarshal is called.
+// It also ensures that the given data is a valid CredentialManifest object per the specification.
 func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 	err := cm.standardUnmarshal(data)
 	if err != nil {
@@ -168,6 +169,10 @@ func (cm *CredentialManifest) ResolveOutputDescriptors(vc []byte) ([]ResolvedDat
 	}
 
 	return resolvedDataDisplayDescriptors, nil
+}
+
+func (cm *CredentialManifest) hasFormat() bool {
+	return hasAnyAlgorithmsOrProofTypes(cm.Format)
 }
 
 func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
