@@ -19,6 +19,10 @@ import (
 var (
 	//go:embed testdata/valid_credential_manifest.json
 	validCredentialManifest []byte //nolint:gochecknoglobals
+	//go:embed testdata/valid_credential_manifest_with_format.json
+	validCredentialManifestWithFormat []byte //nolint:gochecknoglobals
+	//go:embed testdata/valid_credential_manifest_with_presentation_definition.json
+	validCredentialManifestWithPresentationSubmission []byte //nolint:gochecknoglobals
 	//go:embed testdata/valid_credential.jsonld
 	validVC []byte //nolint:gochecknoglobals
 )
@@ -27,10 +31,10 @@ const invalidJSONPath = "%InvalidJSONPath"
 
 func TestCredentialManifest_Unmarshal(t *testing.T) {
 	t.Run("Valid credential manifest", func(t *testing.T) {
-		makeValidCredentialManifest(t)
+		makeCredentialManifestFromBytes(t, validCredentialManifest)
 	})
 	t.Run("Missing issuer ID", func(t *testing.T) {
-		credentialManifest := makeValidCredentialManifest(t)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 		credentialManifest.Issuer.ID = ""
 
@@ -41,7 +45,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 		require.EqualError(t, err, "invalid credential manifest: issuer ID missing")
 	})
 	t.Run("No output descriptors", func(t *testing.T) {
-		credentialManifest := makeValidCredentialManifest(t)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 		credentialManifest.OutputDescriptors = nil
 
@@ -52,7 +56,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 		require.EqualError(t, err, "invalid credential manifest: no output descriptors found")
 	})
 	t.Run("Output descriptor missing ID", func(t *testing.T) {
-		credentialManifest := makeValidCredentialManifest(t)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 		credentialManifest.OutputDescriptors[0].ID = ""
 
@@ -63,7 +67,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 		require.EqualError(t, err, "invalid credential manifest: missing ID for output descriptor at index 0")
 	})
 	t.Run("Duplicate output descriptor IDs", func(t *testing.T) {
-		credentialManifest := makeValidCredentialManifest(t)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 		credentialManifest.OutputDescriptors =
 			append(credentialManifest.OutputDescriptors,
@@ -77,7 +81,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 			"in multiple output descriptors")
 	})
 	t.Run("Missing schema for output descriptor", func(t *testing.T) {
-		credentialManifest := makeValidCredentialManifest(t)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 		credentialManifest.OutputDescriptors[0].Schema = ""
 
@@ -237,7 +241,7 @@ func createMarshalledCredentialManifestWithInvalidTitleJSONPath(t *testing.T) []
 }
 
 func createCredentialManifestWithInvalidTitleJSONPath(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Title.Paths[0] = invalidJSONPath
 
@@ -254,7 +258,7 @@ func createMarshalledCredentialManifestWithInvalidSubtitleJSONPath(t *testing.T)
 }
 
 func createCredentialManifestWithInvalidSubtitleJSONPath(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Subtitle.Paths[0] = invalidJSONPath
 
@@ -271,7 +275,7 @@ func createMarshalledCredentialManifestWithInvalidDescriptionJSONPath(t *testing
 }
 
 func createCredentialManifestWithInvalidDescriptionJSONPath(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Description.Paths = []string{invalidJSONPath}
 
@@ -288,7 +292,7 @@ func createMarshalledCredentialManifestWithInvalidPropertyJSONPath(t *testing.T)
 }
 
 func createCredentialManifestWithInvalidPropertyJSONPath(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Properties[0].Paths[0] = invalidJSONPath
 
@@ -305,7 +309,7 @@ func createMarshalledCredentialManifestWithInvalidSchemaType(t *testing.T) []byt
 }
 
 func createCredentialManifestWithInvalidSchemaType(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Title.Schema.Type = "InvalidSchemaType"
 
@@ -322,7 +326,7 @@ func createMarshalledCredentialManifestWithInvalidSchemaFormat(t *testing.T) []b
 }
 
 func createCredentialManifestWithInvalidSchemaFormat(t *testing.T) credentialmanifest.CredentialManifest {
-	credentialManifest := makeValidCredentialManifest(t)
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
 
 	credentialManifest.OutputDescriptors[0].Display.Title.Schema = credentialmanifest.Schema{
 		Type:   "string",
@@ -332,10 +336,27 @@ func createCredentialManifestWithInvalidSchemaFormat(t *testing.T) credentialman
 	return credentialManifest
 }
 
-func makeValidCredentialManifest(t *testing.T) credentialmanifest.CredentialManifest {
+func createCredentialManifestWithNilJWTFormat(t *testing.T) credentialmanifest.CredentialManifest {
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestWithFormat)
+
+	credentialManifest.Format.Jwt = nil
+
+	return credentialManifest
+}
+
+func createCredentialManifestWithNilLDPFormat(t *testing.T) credentialmanifest.CredentialManifest {
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestWithFormat)
+
+	credentialManifest.Format.Ldp = nil
+
+	return credentialManifest
+}
+
+func makeCredentialManifestFromBytes(t *testing.T,
+	credentialManifestBytes []byte) credentialmanifest.CredentialManifest {
 	var credentialManifest credentialmanifest.CredentialManifest
 
-	err := json.Unmarshal(validCredentialManifest, &credentialManifest)
+	err := json.Unmarshal(credentialManifestBytes, &credentialManifest)
 	require.NoError(t, err)
 
 	return credentialManifest
