@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package outofbandv2
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -37,12 +36,6 @@ const (
 
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 
-// Options is a container for optional values provided by the user.
-type Options interface {
-	// MyLabel is the label to share with the other agent in the subsequent protocol calls.
-	MyLabel() string
-}
-
 // Service implements the Out-Of-Band V2 protocol.
 type Service struct {
 	service.Action
@@ -55,40 +48,11 @@ type Service struct {
 	myMediaTypeProfiles    []string
 	msgTypeServicesTargets map[string]string
 	allServices            []dispatcher.ProtocolService
+	initialized            bool
 }
 
 type callback struct {
-	msg      service.DIDCommMsg
-	myDID    string
-	theirDID string
-	ctx      *context
-}
-
-type attachmentHandlingState struct {
-	// ID becomes the parent thread ID of subsequent protocol call
-	ID         string
-	Invitation *Invitation
-	Done       bool
-}
-
-// Action contains helpful information about action.
-type Action struct {
-	// Protocol instance ID
-	PIID         string
-	Msg          service.DIDCommMsgMap
-	ProtocolName string
-	MyDID        string
-	TheirDID     string
-}
-
-// context keeps payload needed for Continue function to proceed with the action.
-type context struct {
-	Action
-	CurrentStateName  string
-	Inbound           bool
-	Invitation        *Invitation
-	MyLabel           string
-	RouterConnections []string
+	msg service.DIDCommMsg
 }
 
 // Provider provides this service's dependencies.
@@ -105,15 +69,36 @@ type Provider interface {
 
 // New creates a new instance of the out-of-band service.
 func New(p Provider) (*Service, error) {
+	svc := Service{}
+
+	err := svc.Initialize(p)
+	if err != nil {
+		return nil, err
+	}
+
+	return &svc, nil
+}
+
+// Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
+func (s *Service) Initialize(prov interface{}) error {
+	if s.initialized {
+		return nil
+	}
+
+	p, ok := prov.(Provider)
+	if !ok {
+		return fmt.Errorf("oob/2.0 expected provider of type `%T`, got type `%T`", Provider(nil), p)
+	}
+
 	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
 	if err != nil {
-		return nil, fmt.Errorf("oob/2.0 failed to open the transientStore : %w", err)
+		return fmt.Errorf("oob/2.0 failed to open the transientStore : %w", err)
 	}
 
 	err = p.ProtocolStateStorageProvider().SetStoreConfig(Name,
 		storage.StoreConfiguration{TagNames: []string{contextKey}})
 	if err != nil {
-		return nil, fmt.Errorf("oob/2.0 failed to set transientStore config in protocol state transientStore: %w", err)
+		return fmt.Errorf("oob/2.0 failed to set transientStore config in protocol state transientStore: %w", err)
 	}
 
 	msgTypeServicesTargets := map[string]string{}
@@ -122,21 +107,20 @@ func New(p Provider) (*Service, error) {
 		msgTypeServicesTargets[v.Target] = v.MsgType
 	}
 
-	s := &Service{
-		callbackChannel:        make(chan *callback, callbackChannelSize),
-		transientStore:         store,
-		inboundHandler:         p.InboundDIDCommMessageHandler(),
-		messenger:              p.Messenger(),
-		myMediaTypeProfiles:    p.MediaTypeProfiles(),
-		msgTypeServicesTargets: msgTypeServicesTargets,
-		allServices:            p.AllServices(),
-	}
-
+	s.callbackChannel = make(chan *callback, callbackChannelSize)
+	s.transientStore = store
+	s.inboundHandler = p.InboundDIDCommMessageHandler()
+	s.messenger = p.Messenger()
+	s.myMediaTypeProfiles = p.MediaTypeProfiles()
+	s.msgTypeServicesTargets = msgTypeServicesTargets
+	s.allServices = p.AllServices()
 	s.listenerFunc = listener(s.callbackChannel, s.handleCallback)
 
 	go s.listenerFunc()
 
-	return s, nil
+	s.initialized = true
+
+	return nil
 }
 
 // Name is this service's name.
@@ -161,183 +145,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, didCommCtx service.DIDCo
 		return "", fmt.Errorf("oob/2.0 unsupported message type %s", msg.Type())
 	}
 
-	events := s.ActionEvent()
-	if events == nil {
-		return "", fmt.Errorf("oob/2.0 no clients registered to handle action events for %s protocol", Name)
-	}
-
-	myContext, err := s.currentContext(msg, didCommCtx, nil)
-	if err != nil {
-		return "", fmt.Errorf("oob/2.0 unable to load current context for msgID=%s: %w", msg.ID(), err)
-	}
-
-	if requiresApproval(msg) {
-		go func() {
-			s.requestApproval(myContext, events, msg)
-		}()
-
-		return "", nil
-	}
-
-	return "", s.handleContext(myContext)
-}
-
-func (s *Service) handleContext(ctx *context) error {
-	logger.Debugf("oob/2.0 context: %+v", ctx)
-
-	current, err := stateFromName(ctx.CurrentStateName)
-	if err != nil {
-		return fmt.Errorf("oob/2.0 unable to instantiate current state: %w", err)
-	}
-
-	deps := &dependencies{
-		saveAttchStateFunc:    s.save,
-		dispatchAttachmntFunc: s.setInvitationAsDone,
-	}
-
-	var (
-		stop   bool
-		next   state
-		finish finisher
-	)
-
-	for !stop {
-		logger.Debugf("oob/2.0 start executing state %s", current.Name())
-
-		msgCopy := ctx.Msg.Clone()
-
-		go sendMsgEvent(service.PreState, current.Name(), &s.Message, msgCopy, &eventProps{})
-
-		sendPostStateMsg := func(props *eventProps) {
-			go sendMsgEvent(service.PostState, current.Name(), &s.Message, msgCopy, props)
-		}
-
-		next, finish, stop, err = current.Execute(ctx, deps)
-		if err != nil {
-			sendPostStateMsg(&eventProps{Err: err})
-
-			return fmt.Errorf("oob/2.0 failed to execute state %s: %w", current.Name(), err)
-		}
-
-		logger.Debugf("oob/2.0 completed %s.Execute()", current.Name())
-
-		ctx.CurrentStateName = next.Name()
-
-		err = s.updateContext(ctx, next, sendPostStateMsg)
-		if err != nil {
-			return fmt.Errorf("oob/2.0 failed to update context: %w", err)
-		}
-
-		err = finish(s.messenger)
-		if err != nil {
-			sendPostStateMsg(&eventProps{Err: err})
-
-			return fmt.Errorf("oob/2.0 failed to execute finisher for state %s: %w", current.Name(), err)
-		}
-
-		sendPostStateMsg(&eventProps{})
-
-		logger.Debugf("oob/2.0 end executing state %s", current.Name())
-
-		current = next
-	}
-
-	return nil
-}
-
-func (s *Service) updateContext(ctx *context, next state, sendPostStateMsg func(*eventProps)) error {
-	if isTheEnd(next) {
-		err := s.deleteContext(ctx.PIID)
-		if err != nil {
-			sendPostStateMsg(&eventProps{Err: err})
-
-			return fmt.Errorf("oob/2.0 failed to delete context: %w", err)
-		}
-
-		logger.Debugf("oob/2.0 deleted context: %+v", ctx)
-
-		return nil
-	}
-
-	err := s.saveContext(ctx.PIID, ctx)
-	if err != nil {
-		sendPostStateMsg(&eventProps{Err: err})
-
-		return fmt.Errorf("oob/2.0 failed to update context: %w", err)
-	}
-
-	logger.Debugf("oob/2.0 updated context: %+v", ctx)
-
-	return nil
-}
-
-func (s *Service) requestApproval(ctx *context, events chan<- service.DIDCommAction, msg service.DIDCommMsg) {
-	event := service.DIDCommAction{
-		ProtocolName: Name,
-		Message:      msg,
-		Continue: func(args interface{}) {
-			var opts Options
-
-			switch t := args.(type) {
-			case Options:
-				opts = t
-			default:
-				opts = &userOptions{}
-			}
-
-			ctx.MyLabel = opts.MyLabel()
-
-			s.callbackChannel <- &callback{
-				msg:      msg,
-				myDID:    ctx.MyDID,
-				theirDID: ctx.TheirDID,
-				ctx:      ctx,
-			}
-
-			logger.Debugf("oob/2.0 continued with options: %+v", opts)
-		},
-		Stop: func(er error) {
-			logger.Infof("oob/2.0 user requested protocol to stop: %s", er)
-
-			if err := s.deleteContext(ctx.PIID); err != nil {
-				logger.Errorf("oob/2.0 delete context: %s", err)
-			}
-		},
-	}
-
-	events <- event
-
-	logger.Debugf("oob/2.0 dispatched event: %+v", event)
-}
-
-func (s *Service) saveContext(id string, data *context) error {
-	src, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("oob/2.0 marshal transitional payload: %w", err)
-	}
-
-	return s.transientStore.Put(fmt.Sprintf(contextKey, id), src, storage.Tag{Name: contextKey})
-}
-
-func (s *Service) deleteContext(id string) error {
-	return s.transientStore.Delete(fmt.Sprintf(contextKey, id))
-}
-
-func sendMsgEvent(
-	t service.StateMsgType, stateID string, l *service.Message, msg service.DIDCommMsg, p service.EventProperties) {
-	stateMsg := service.StateMsg{
-		ProtocolName: Name,
-		Type:         t,
-		StateID:      stateID,
-		Msg:          msg,
-		Properties:   p,
-	}
-
-	logger.Debugf("oob/2.0 sending state msg: %+v\n", stateMsg)
-
-	for _, handler := range l.MsgEvents() {
-		handler <- stateMsg
-	}
+	return "", nil
 }
 
 // HandleOutbound handles outbound messages.
@@ -346,33 +154,8 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 	return "", errors.New("oob/2.0 not implemented")
 }
 
-func (s *Service) currentContext(msg service.DIDCommMsg, ctx service.DIDCommContext, opts Options) (*context, error) {
-	if msg.Type() == InvitationMsgType {
-		myContext := &context{
-			Action: Action{
-				PIID:         msg.ID(),
-				ProtocolName: Name,
-				Msg:          msg.Clone(),
-				MyDID:        ctx.MyDID(),
-				TheirDID:     ctx.TheirDID(),
-			},
-			Inbound: true,
-		}
-
-		myContext.CurrentStateName = StateNameInitial
-
-		if opts != nil {
-			myContext.MyLabel = opts.MyLabel()
-		}
-
-		return myContext, s.saveContext(msg.ID(), myContext)
-	}
-
-	return nil, fmt.Errorf("invalid message type %v", msg.Type())
-}
-
 // AcceptInvitation from another agent.
-func (s *Service) AcceptInvitation(i *Invitation, options Options) error {
+func (s *Service) AcceptInvitation(i *Invitation) error {
 	msg := service.NewDIDCommMsgMap(i)
 
 	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles)
@@ -382,11 +165,6 @@ func (s *Service) AcceptInvitation(i *Invitation, options Options) error {
 
 	clbk := &callback{
 		msg: msg,
-	}
-
-	clbk.ctx, err = s.currentContext(msg, service.EmptyDIDCommContext(), options)
-	if err != nil {
-		return fmt.Errorf("oob/2.0 failed to create context for invitation: %w", err)
 	}
 
 	err = s.handleCallback(clbk)
@@ -491,67 +269,13 @@ func (s *Service) handleCallback(c *callback) error {
 
 func (s *Service) handleInvitationCallback(c *callback) error {
 	logger.Debugf("oob/2.0 input: %+v", c)
-	logger.Debugf("oob/2.0 context: %+v", c.ctx)
 
 	err := validateInvitationAcceptance(c.msg, s.myMediaTypeProfiles)
 	if err != nil {
 		return fmt.Errorf("unable to handle invitation: %w", err)
 	}
 
-	err = s.handleContext(c.ctx)
-	if err != nil {
-		return fmt.Errorf("failed to handle invitation: %w", err)
-	}
-
 	return nil
-}
-
-func (s *Service) setInvitationAsDone(invID string) error {
-	state, err := s.fetchAttachmentHandlingState(invID)
-	if err != nil {
-		return fmt.Errorf("failed to load attachment handling state : %w", err)
-	}
-
-	state.Done = true
-
-	// Save state as Done before dispatching message because the out-of-band protocol
-	// has done its job in getting this far. The other protocol maintains its own state.
-	err = s.save(state)
-	if err != nil {
-		return fmt.Errorf("failed to update state : %w", err)
-	}
-
-	return nil
-}
-
-func (s *Service) save(state *attachmentHandlingState) error {
-	bytes, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("failed to save state=%+v : %w", state, err)
-	}
-
-	err = s.transientStore.Put(state.ID, bytes)
-	if err != nil {
-		return fmt.Errorf("failed to save state : %w", err)
-	}
-
-	return nil
-}
-
-func (s *Service) fetchAttachmentHandlingState(id string) (*attachmentHandlingState, error) {
-	bytes, err := s.transientStore.Get(id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch attachment handling state using id=%s : %w", id, err)
-	}
-
-	state := &attachmentHandlingState{}
-
-	err = json.Unmarshal(bytes, state)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal state %+v : %w", state, err)
-	}
-
-	return state, nil
 }
 
 func validateInvitationAcceptance(msg service.DIDCommMsg, myProfiles []string) error {
@@ -603,33 +327,4 @@ func list2set(list []string) map[string]struct{} {
 	}
 
 	return set
-}
-
-func isTheEnd(s state) bool {
-	_, ok := s.(*stateDone)
-
-	return ok
-}
-
-type eventProps struct {
-	Err error `json:"err"`
-}
-
-func (e *eventProps) Error() error {
-	return e.Err
-}
-
-type userOptions struct {
-	myLabel string
-}
-
-func (e *userOptions) MyLabel() string {
-	return e.myLabel
-}
-
-// All implements EventProperties interface.
-func (e *eventProps) All() map[string]interface{} {
-	return map[string]interface{}{
-		"error": e.Error(),
-	}
 }

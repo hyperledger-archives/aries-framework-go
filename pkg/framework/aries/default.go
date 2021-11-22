@@ -25,6 +25,7 @@ import (
 	mdissuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
 	mdpresentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -81,7 +82,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error { //nolint:gocyclo
 	// - Introduce depends on OutOfBand
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
 		newMessagePickupSvc(), newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(),
-		newIntroduceSvc(), newIssueCredentialSvc(), newPresentProofSvc())
+		newIntroduceSvc(), newIssueCredentialSvc(), newPresentProofSvc(), newOutOfBandV2Svc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
 		err = createDefSecretLock(frameworkOpts)
@@ -182,6 +183,27 @@ func newOutOfBandSvc() api.ProtocolSvcCreator {
 	return api.ProtocolSvcCreator{
 		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
 			return &outofband.Service{}, nil
+		},
+	}
+}
+
+func newOutOfBandV2Svc() api.ProtocolSvcCreator {
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &outofbandv2.Service{}, nil
+		},
+		Init: func(svc dispatcher.ProtocolService, prv api.Provider) error {
+			oobv2svc, ok := svc.(*outofbandv2.Service)
+			if !ok {
+				return fmt.Errorf("expected OOB V2 ProtocolService to be a %T", outofbandv2.Service{})
+			}
+
+			err := oobv2svc.Initialize(prv)
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
 }
