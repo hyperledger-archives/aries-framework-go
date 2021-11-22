@@ -76,6 +76,9 @@ const (
 
 	// LD error group for JSON-LD command errors.
 	LD = 14000
+
+	// Connection error group for connection management errors.
+	Connection = 15000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

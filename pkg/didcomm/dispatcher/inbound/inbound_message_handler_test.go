@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -23,6 +24,8 @@ import (
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/generic"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
@@ -30,6 +33,20 @@ func TestNewInboundMessageHandler(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		_ = NewInboundMessageHandler(emptyProvider())
 	})
+}
+
+func TestMessageHandler_HandlerFunc(t *testing.T) {
+	handler := NewInboundMessageHandler(emptyProvider())
+
+	handleFunc := handler.HandlerFunc()
+
+	err := handleFunc(&transport.Envelope{
+		Message: []byte(`{
+	"@id":"12345",
+	"@type":"message-type"
+}`),
+	})
+	require.NoError(t, err)
 }
 
 func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
@@ -67,6 +84,15 @@ func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
 }`,
 		},
 		{
+			testName:  "success: didcomm v2",
+			svcAccept: "message-type",
+			message: `{
+	"id":"12345",
+	"type":"message-type",
+	"body":{}
+}`,
+		},
+		{
 			testName:  "fail: parsing message",
 			message:   `{`,
 			expectErr: "invalid payload data format",
@@ -89,6 +115,29 @@ func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
 	"@type":"message-type"
 }`,
 			expectErr: "get DIDs error",
+		},
+		{
+			testName:   "fail: getDIDs error for didcomm v2",
+			svcAccept:  "message-type",
+			svcName:    "service-name",
+			getDIDsErr: fmt.Errorf("get DIDs error"),
+			message: `{
+	"id":"12345",
+	"type":"message-type",
+	"body":{}
+}`,
+			expectErr: "get DIDs error",
+		},
+		{
+			testName:  "fail: didcomm v2 did rotation error",
+			svcAccept: "message-type",
+			message: `{
+	"id":"12345",
+	"type":"message-type",
+	"from_prior":{},
+	"body":{}
+}`,
+			expectErr: "field should be a string",
 		},
 		{
 			testName:  "success: messenger service",
@@ -164,6 +213,32 @@ func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
 		},
 	}
 
+	store := mockstore.NewMockStoreProvider()
+	psStore := mockstore.NewMockStoreProvider()
+
+	p := mockprovider.Provider{
+		StorageProviderValue:              store,
+		ProtocolStateStorageProviderValue: psStore,
+	}
+
+	connectionRecorder, err := connection.NewRecorder(&p)
+	require.NoError(t, err)
+
+	myDID := "did:test:my-did"
+	theirDID := "did:test:their-did"
+
+	err = connectionRecorder.SaveConnectionRecord(&connection.Record{
+		ConnectionID:  "12345",
+		MyDID:         myDID,
+		TheirDID:      theirDID,
+		State:         connection.StateNameCompleted,
+		MyDIDRotation: nil,
+	})
+	require.NoError(t, err)
+
+	didRotator, err := didrotate.New(&p)
+	require.NoError(t, err)
+
 	t.Parallel()
 
 	for _, tc := range testCases {
@@ -193,16 +268,22 @@ func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
 			}
 
 			prov := mockprovider.Provider{
-				DIDConnectionStoreValue:     &mockDIDStore{getDIDErr: tc.getDIDsErr},
+				DIDConnectionStoreValue: &mockDIDStore{getDIDErr: tc.getDIDsErr, results: map[string]mockDIDResult{
+					base58.Encode([]byte("my_key")):    {did: myDID},
+					base58.Encode([]byte("their_key")): {did: theirDID},
+				}},
 				MessageServiceProviderValue: &msgSvcProvider,
 				InboundMessengerValue:       messengerHandler,
 				ServiceValue:                &didex,
+				DIDRotatorValue:             *didRotator,
 			}
 
 			h := NewInboundMessageHandler(&prov)
 
-			err := h.HandleInboundEnvelope(&transport.Envelope{
+			err = h.HandleInboundEnvelope(&transport.Envelope{
 				Message: []byte(tc.message),
+				ToKey:   []byte("my_key"),
+				FromKey: []byte("their_key"),
 			})
 			if tc.expectErr == "" {
 				require.NoError(t, err)

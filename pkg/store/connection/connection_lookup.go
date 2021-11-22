@@ -43,6 +43,13 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
+// DIDRotationRecord holds information about a DID Rotation.
+type DIDRotationRecord struct {
+	OldDID    string `json:"oldDID,omitempty"`
+	NewDID    string `json:"newDID,omitempty"`
+	FromPrior string `json:"fromPrior,omitempty"`
+}
+
 // Record contain info about did exchange connection.
 type Record struct {
 	ConnectionID      string
@@ -60,6 +67,7 @@ type Record struct {
 	Implicit          bool
 	Namespace         string
 	MediaTypeProfiles []string
+	MyDIDRotation     *DIDRotationRecord `json:"myDIDRotation,omitempty"`
 }
 
 // NewLookup returns new connection lookup instance.

@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
@@ -207,5 +208,6 @@ func features() []feature {
 		rfc0593.NewRestSDKSteps(),
 		ld.NewLDControllerSteps(),
 		ld.NewSDKSteps(),
+		connection.NewSDKSteps(),
 	}
 }

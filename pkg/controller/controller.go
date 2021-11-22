@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/connection"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
@@ -25,6 +26,7 @@ import (
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	connectionrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/connection"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	introducerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
@@ -224,6 +226,8 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// JSON-LD REST operation
 	ldOp := ldrest.New(restAPIOpts.ldService, ldrest.WithHTTPClient(restAPIOpts.httpClient))
 
+	connOp := connectionrest.New(ctx)
+
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
@@ -240,6 +244,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, ldOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, connOp.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -334,6 +339,9 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
+	// connection command operation
+	conncmd := connection.New(ctx)
+
 	// vc wallet command controller
 	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
 
@@ -352,6 +360,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
 	allHandlers = append(allHandlers, outofbandv2.GetHandlers()...)
+	allHandlers = append(allHandlers, conncmd.GetHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetHandlers()...)
 	allHandlers = append(allHandlers, ldCmd.GetHandlers()...)
 

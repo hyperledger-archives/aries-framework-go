@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -38,6 +39,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	MediaTypeProfiles() []string
+	DIDRotator() *didrotate.DIDRotator
 }
 
 type connectionLookup interface {
@@ -61,6 +63,7 @@ type Dispatcher struct {
 	keyAgreementType     kms.KeyType
 	connections          connectionRecorder
 	mediaTypeProfiles    []string
+	didRotator           *didrotate.DIDRotator
 }
 
 var logger = log.New("aries-framework/didcomm/dispatcher")
@@ -75,6 +78,7 @@ func NewOutbound(prov provider) (*Dispatcher, error) {
 		kms:                  prov.KMS(),
 		keyAgreementType:     prov.KeyAgreementType(),
 		mediaTypeProfiles:    prov.MediaTypeProfiles(),
+		didRotator:           prov.DIDRotator(),
 	}
 
 	var err error
@@ -109,6 +113,15 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
 
 	mediaTypes := make([]string, len(connRec.MediaTypeProfiles))
 	copy(mediaTypes, connRec.MediaTypeProfiles)
+
+	if didcommMsg, ok := msg.(service.DIDCommMsgMap); ok {
+		didcommMsg, err = o.didRotator.HandleOutboundMessage(didcommMsg, connRec)
+		if err != nil {
+			logger.Warnf("did rotation failed on didcomm message: %w", err)
+		} else {
+			msg = &didcommMsg
+		}
+	}
 
 	dest, err := service.CreateDestination(theirDoc)
 	if err != nil {
@@ -168,60 +181,63 @@ func (o *Dispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connec
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error {
-	for _, v := range o.outboundTransports {
-		// check if outbound accepts routing keys, else use recipient keys
-		keys := des.RecipientKeys
-		if len(des.RoutingKeys) != 0 {
-			keys = des.RoutingKeys
-		}
-
-		if !v.AcceptRecipient(keys) {
-			if !v.Accept(des.ServiceEndpoint) {
-				continue
-			}
-		}
-
-		req, err := json.Marshal(msg)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed marshal to bytes: %w", err)
-		}
-
-		// update the outbound message with transport return route option [all or thread]
-		req, err = o.addTransportRouteOptions(req, des)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
-		}
-
-		mtp := o.mediaTypeProfile(des)
-
-		packedMsg, err := o.packager.PackMessage(&transport.Envelope{
-			MediaTypeProfile: mtp,
-			Message:          req,
-			FromKey:          []byte(senderKey),
-			ToKeys:           des.RecipientKeys,
-		})
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
-		}
-
-		// set the return route option
-		des.TransportReturnRoute = o.transportReturnRoute
-
-		packedMsg, err = o.createForwardMessage(packedMsg, des)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to create forward msg: %w", err)
-		}
-
-		_, err = v.Send(packedMsg, des)
-		if err != nil {
-			return fmt.Errorf("outboundDispatcher.Send: failed to send msg using outbound transport: %w", err)
-		}
-
-		return nil
+func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error { // nolint:gocyclo
+	// check if outbound accepts routing keys, else use recipient keys
+	keys := des.RecipientKeys
+	if len(des.RoutingKeys) != 0 {
+		keys = des.RoutingKeys
 	}
 
-	return fmt.Errorf("outboundDispatcher.Send: no transport found for destination: %+v", des)
+	var outboundTransport transport.OutboundTransport
+
+	for _, v := range o.outboundTransports {
+		if v.AcceptRecipient(keys) || v.Accept(des.ServiceEndpoint) {
+			outboundTransport = v
+			break
+		}
+	}
+
+	if outboundTransport == nil {
+		return fmt.Errorf("outboundDispatcher.Send: no transport found for destination: %+v", des)
+	}
+
+	req, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("outboundDispatcher.Send: failed marshal to bytes: %w", err)
+	}
+
+	// update the outbound message with transport return route option [all or thread]
+	req, err = o.addTransportRouteOptions(req, des)
+	if err != nil {
+		return fmt.Errorf("outboundDispatcher.Send: failed to add transport route options: %w", err)
+	}
+
+	mtp := o.mediaTypeProfile(des)
+
+	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
+		MediaTypeProfile: mtp,
+		Message:          req,
+		FromKey:          []byte(senderKey),
+		ToKeys:           des.RecipientKeys,
+	})
+	if err != nil {
+		return fmt.Errorf("outboundDispatcher.Send: failed to pack msg: %w", err)
+	}
+
+	// set the return route option
+	des.TransportReturnRoute = o.transportReturnRoute
+
+	packedMsg, err = o.createForwardMessage(packedMsg, des)
+	if err != nil {
+		return fmt.Errorf("outboundDispatcher.Send: failed to create forward msg: %w", err)
+	}
+
+	_, err = outboundTransport.Send(packedMsg, des)
+	if err != nil {
+		return fmt.Errorf("outboundDispatcher.Send: failed to send msg using outbound transport: %w", err)
+	}
+
+	return nil
 }
 
 // Forward forwards the message without packing to the destination.
