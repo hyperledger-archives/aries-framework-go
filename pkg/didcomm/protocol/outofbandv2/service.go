@@ -23,6 +23,8 @@ import (
 const (
 	// Name of this protocol service.
 	Name = "out-of-band/2.0"
+	// dbName is the name of this service's db stores.
+	dbName = "_OutOfBand2"
 	// PIURI is the Out-of-Band protocol's protocol instance URI.
 	PIURI = "https://didcomm.org/" + Name
 	// InvitationMsgType is the '@type' for the invitation message.
@@ -90,12 +92,12 @@ func (s *Service) Initialize(prov interface{}) error {
 		return fmt.Errorf("oob/2.0 expected provider of type `%T`, got type `%T`", Provider(nil), p)
 	}
 
-	store, err := p.ProtocolStateStorageProvider().OpenStore(Name)
+	store, err := p.ProtocolStateStorageProvider().OpenStore(dbName)
 	if err != nil {
 		return fmt.Errorf("oob/2.0 failed to open the transientStore : %w", err)
 	}
 
-	err = p.ProtocolStateStorageProvider().SetStoreConfig(Name,
+	err = p.ProtocolStateStorageProvider().SetStoreConfig(dbName,
 		storage.StoreConfiguration{TagNames: []string{contextKey}})
 	if err != nil {
 		return fmt.Errorf("oob/2.0 failed to set transientStore config in protocol state transientStore: %w", err)
