@@ -117,7 +117,7 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 		return fmt.Errorf("failed to register agents for didexchange post msg events : %w", err)
 	}
 
-	err = a.didExchangeSDKS.CreateInvitation(agent1, "")
+	err = a.didExchangeSDKS.CreateInvitation(agent1, "", "")
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
