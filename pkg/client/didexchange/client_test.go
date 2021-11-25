@@ -207,6 +207,43 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
 	})
 
+	t.Run("test success with DIDCommV2 media profile and KeyType option", func(t *testing.T) {
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		store := mockstore.NewMockStoreProvider()
+		km := newKMS(t, store)
+
+		c, err := New(&mockprovider.Provider{
+			ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:              mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+			},
+			KMSValue:               km,
+			ServiceEndpointValue:   "endpoint",
+			KeyAgreementTypeValue:  kms.NISTP521ECDHKWType,
+			MediaTypeProfilesValue: []string{transport.MediaTypeDIDCommV2Profile},
+		})
+
+		require.NoError(t, err)
+		inviteReq, err := c.CreateInvitation("agent", WithKeyType(kms.X25519ECDHKWType))
+		require.NoError(t, err)
+		require.NotNil(t, inviteReq)
+		require.NotEmpty(t, inviteReq.Label)
+		require.NotEmpty(t, inviteReq.ID)
+		require.Nil(t, inviteReq.RoutingKeys)
+		x25519DIDKeyPrefix := "did:key:z6L"
+		require.Equal(t, x25519DIDKeyPrefix, inviteReq.RecipientKeys[0][:len(x25519DIDKeyPrefix)])
+		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
+	})
+
 	t.Run("test failure with DIDCommV2 media profile with empty kms key for calling "+
 		"kmsdidkey.BuildDIDKeyByKeyType()", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{

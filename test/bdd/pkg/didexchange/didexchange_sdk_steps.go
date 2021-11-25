@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -42,22 +43,26 @@ func NewDIDExchangeSDKSteps() *SDKSteps {
 }
 
 func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) error {
+	return d.createInvitationWithRouterAndKeyType(inviterAgentID, router, "")
+}
+
+func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
+	return d.CreateInvitation(inviterAgentID, "", "")
+}
+
+func (d *SDKSteps) createInvitationWithRouterAndKeyType(inviterAgentID, router, keyType string) error {
 	connection, ok := d.bddContext.Args[router]
 	if !ok {
 		return fmt.Errorf("no connection for %s", router)
 	}
 
-	return d.CreateInvitation(inviterAgentID, connection)
-}
-
-func (d *SDKSteps) createInvitationWithoutRouter(inviterAgentID string) error {
-	return d.CreateInvitation(inviterAgentID, "")
+	return d.CreateInvitation(inviterAgentID, connection, keyType)
 }
 
 // CreateInvitation creates an invitation.
-func (d *SDKSteps) CreateInvitation(inviterAgentID, connection string) error {
+func (d *SDKSteps) CreateInvitation(inviterAgentID, connection, keyType string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID,
-		didexchange.WithRouterConnectionID(connection))
+		didexchange.WithRouterConnectionID(connection), didexchange.WithKeyType(kms.KeyType(keyType)))
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
@@ -478,6 +483,8 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers did exchange steps.
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitationWithoutRouter)
+	s.Step(`^"([^"]*)" creates invitation with router "([^"]*)" using key type "([^"]*)"$`,
+		d.createInvitationWithRouterAndKeyType)
 	s.Step(`^"([^"]*)" creates invitation with router "([^"]*)"$`, d.createInvitationWithRouter)
 	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)
