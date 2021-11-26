@@ -144,11 +144,12 @@ func (m *MockOobService) EXPECT() *MockOobServiceMockRecorder {
 }
 
 // AcceptInvitation mocks base method.
-func (m *MockOobService) AcceptInvitation(arg0 *outofbandv2.Invitation) error {
+func (m *MockOobService) AcceptInvitation(arg0 *outofbandv2.Invitation) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptInvitation", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AcceptInvitation indicates an expected call of AcceptInvitation.

@@ -97,12 +97,12 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 	fmt.Printf("%s creates an out-of-band/2.0 invitation message\n", Router)
 
 	// the edge agent accepts the outofband invitation
-	err = bob.AcceptInvitation(inv)
+	_, err = bob.AcceptInvitation(inv)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%s accepts the out-of-band/2.0 invitation received via an out of band channel\n", Bob)
+	fmt.Printf("%s accepts the out-of-band/2.0 invitation received via an out of band channel and got new connID\n", Bob)
 
 	done := make(chan struct{}) // ends this example
 
@@ -165,7 +165,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 
 	// Output:
 	// Router creates an out-of-band/2.0 invitation message
-	// Bob accepts the out-of-band/2.0 invitation received via an out of band channel
+	// Bob accepts the out-of-band/2.0 invitation received via an out of band channel and got new connID
 	// Router received https://didcomm.org/didexchange/1.0/request from Bob
 	// Router received https://didcomm.org/coordinatemediation/1.0/mediate-request from Bob
 	// Bob has registered a route on Router with routerEndpoint http://routers-r-us.com and routingKeys [key-1 key-2]

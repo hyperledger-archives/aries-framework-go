@@ -773,7 +773,7 @@ func (sdk *SDKSteps) createOOBV2WithPresentProof(agent1 string) error {
 		return fmt.Errorf("missing oobv2 client for %s", agent1)
 	}
 
-	agentiDIDDoc, ok := sdk.context.PublicDIDDocs[agent1]
+	agentDIDDoc, ok := sdk.context.PublicDIDDocs[agent1]
 	if !ok {
 		return fmt.Errorf("oobv2: missing DID Doc for %s", agent1)
 	}
@@ -782,10 +782,12 @@ func (sdk *SDKSteps) createOOBV2WithPresentProof(agent1 string) error {
 		Type: presentproof.RequestPresentationMsgTypeV3,
 		Attachments: []decorator.AttachmentV2{{
 			Data: decorator.AttachmentData{
-				Base64: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(vpStr, agentiDIDDoc.ID, agentiDIDDoc.ID))),
+				Base64: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(vpStr, agentDIDDoc.ID, agentDIDDoc.ID))),
 			},
 		}},
 	})
+
+	ppfv3Req["from"] = agentDIDDoc.ID
 
 	ppfv3Attachment := []*decorator.AttachmentV2{{
 		ID:          uuid.New().String(),
@@ -821,7 +823,7 @@ func (sdk *SDKSteps) acceptOOBV2Invitation(agent1, agent2 string) error {
 
 	inv := sdk.pendingV2Invites[agent1]
 
-	err = oobv2Client2.AcceptInvitation(inv)
+	_, err = oobv2Client2.AcceptInvitation(inv)
 	if err != nil {
 		return fmt.Errorf("failed to accept oobv2 invitation for %s : %w", agent1, err)
 	}

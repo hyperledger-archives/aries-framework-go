@@ -7,16 +7,28 @@ SPDX-License-Identifier: Apache-2.0
 package outofbandv2
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+	gojose "github.com/square/go-jose/v3"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -34,6 +46,11 @@ const (
 	callbackChannelSize = 10
 
 	contextKey = "context_%s"
+
+	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+	bls12381G2Key2020          = "Bls12381G2Key2020"
+	jsonWebKey2020             = "JsonWebKey2020"
+	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
 )
 
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
@@ -42,12 +59,17 @@ var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 type Service struct {
 	service.Action
 	service.Message
+	vdrRegistry            vdrapi.Registry
 	callbackChannel        chan *callback
 	transientStore         storage.Store
+	connectionRecorder     *connection.Recorder
 	inboundHandler         func() service.InboundHandler
 	listenerFunc           func()
 	messenger              service.Messenger
 	myMediaTypeProfiles    []string
+	kms                    kms.KeyManager
+	keyType                kms.KeyType
+	keyAgreementType       kms.KeyType
 	msgTypeServicesTargets map[string]string
 	allServices            []dispatcher.ProtocolService
 	initialized            bool
@@ -61,9 +83,13 @@ type callback struct {
 type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
+	VDRegistry() vdrapi.Registry
 	ProtocolStateStorageProvider() storage.Provider
 	InboundDIDCommMessageHandler() func() service.InboundHandler
 	Messenger() service.Messenger
+	KMS() kms.KeyManager
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 	MediaTypeProfiles() []string
 	ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget
 	AllServices() []dispatcher.ProtocolService
@@ -109,12 +135,22 @@ func (s *Service) Initialize(prov interface{}) error {
 		msgTypeServicesTargets[v.Target] = v.MsgType
 	}
 
+	connRecorder, err := connection.NewRecorder(p)
+	if err != nil {
+		return fmt.Errorf("failed to initialize connection recorder: %w", err)
+	}
+
 	s.callbackChannel = make(chan *callback, callbackChannelSize)
 	s.transientStore = store
+	s.vdrRegistry = p.VDRegistry()
+	s.connectionRecorder = connRecorder
 	s.inboundHandler = p.InboundDIDCommMessageHandler()
 	s.messenger = p.Messenger()
 	s.myMediaTypeProfiles = p.MediaTypeProfiles()
 	s.msgTypeServicesTargets = msgTypeServicesTargets
+	s.kms = p.KMS()
+	s.keyType = p.KeyType()
+	s.keyAgreementType = p.KeyAgreementType()
 	s.allServices = p.AllServices()
 	s.listenerFunc = listener(s.callbackChannel, s.handleCallback)
 
@@ -157,12 +193,13 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 }
 
 // AcceptInvitation from another agent.
-func (s *Service) AcceptInvitation(i *Invitation) error {
+//nolint:funlen,gocyclo
+func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 	msg := service.NewDIDCommMsgMap(i)
 
 	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles)
 	if err != nil {
-		return fmt.Errorf("oob/2.0 unable to accept invitation: %w", err)
+		return "", fmt.Errorf("oob/2.0 unable to accept invitation: %w", err)
 	}
 
 	clbk := &callback{
@@ -171,19 +208,29 @@ func (s *Service) AcceptInvitation(i *Invitation) error {
 
 	err = s.handleCallback(clbk)
 	if err != nil {
-		return fmt.Errorf("oob/2.0 failed to accept invitation : %w", err)
+		return "", fmt.Errorf("oob/2.0 failed to accept invitation : %w", err)
 	}
+
+	newDID := &did.Doc{Service: []did.Service{{Type: vdrapi.DIDCommV2ServiceType}}}
+
+	err = s.createNewKeyAndVM(newDID)
+	if err != nil {
+		return "", fmt.Errorf("oob/2.0 AcceptInvitation: creating new keys and VMS for DID document failed: %w", err)
+	}
+
+	// set KeyAgreement.ID as RecipientKeys as part of DIDComm V2 service
+	newDID.Service[0].RecipientKeys = []string{newDID.KeyAgreement[0].VerificationMethod.ID}
 
 	if i.Body != nil && i.Body.GoalCode != "" {
 		serviceURL := s.msgTypeServicesTargets[i.Body.GoalCode]
 		for _, srvc := range s.allServices {
 			if strings.Contains(serviceURL, srvc.Name()) {
-				isHandled := handleInboundService(serviceURL, srvc, i.Requests)
+				connID := s.handleInboundService(serviceURL, srvc, i.Requests, newDID)
 
-				if isHandled {
+				if connID != "" {
 					logger.Debugf("oob/2.0 matching target service found for url '%v' and executed, "+
 						"oobv2.AcceptInvitation() is done.", serviceURL)
-					return nil
+					return connID, nil
 				}
 			}
 		}
@@ -193,13 +240,67 @@ func (s *Service) AcceptInvitation(i *Invitation) error {
 	}
 
 	logger.Debugf("oob/2.0 request body or Goal code is empty, oobv2.AcceptInvitation() is done but no" +
-		"target service triggered")
+		"target service triggered, generating a new peer DID for the first valid attachment and return it")
 
-	return nil
+	for _, atchmnt := range i.Requests {
+		serviceRequest, err := atchmnt.Data.Fetch()
+		if err != nil {
+			logger.Debugf("oob/2.0 fetching attachment request failed:%v, skipping attachment entry..", err)
+
+			continue
+		}
+
+		didCommMsgRequest := service.DIDCommMsgMap{}
+
+		err = didCommMsgRequest.UnmarshalJSON(serviceRequest)
+		if err != nil {
+			logger.Debugf("oob/2.0 fetching attachment request failed: %v, skipping attachment entry..", err)
+
+			continue
+		}
+
+		senderDID, ok := didCommMsgRequest["from"]
+		if !ok {
+			logger.Debugf("oob/2.0 fetching attachment request does not have from field, skipping " +
+				"attachment entry..")
+
+			continue
+		}
+
+		myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
+		if err != nil {
+			logger.Debugf("oob/2.0 creating new DID via VDR failed: %v, skipping attachment entry..", err)
+
+			continue
+		}
+
+		connRecord := &connection.Record{
+			ConnectionID:      uuid.New().String(),
+			ParentThreadID:    i.ID,
+			State:             "null",
+			InvitationID:      i.ID,
+			ServiceEndPoint:   newDID.Service[0].ServiceEndpoint,
+			RecipientKeys:     newDID.Service[0].RecipientKeys,
+			TheirLabel:        i.Label,
+			TheirDID:          senderDID.(string),
+			Namespace:         "my",
+			MediaTypeProfiles: s.myMediaTypeProfiles,
+			Implicit:          true,
+			InvitationDID:     myDID.DIDDocument.ID,
+		}
+
+		if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
+			return "", err
+		}
+
+		return connRecord.ConnectionID, nil
+	}
+
+	return "", fmt.Errorf("oob/2.0 invitation request has no attachment requests to fulfill request Goal")
 }
 
-func handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
-	attachments []*decorator.AttachmentV2) bool {
+func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
+	attachments []*decorator.AttachmentV2, newDID *did.Doc) string {
 	for _, atchmnt := range attachments {
 		serviceRequest, err := atchmnt.Data.Fetch()
 		if err != nil {
@@ -219,7 +320,24 @@ func handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
 			continue
 		}
 
-		id, err := srvc.HandleInbound(didCommMsgRequest, service.EmptyDIDCommContext())
+		senderDID, ok := didCommMsgRequest["from"]
+		if !ok {
+			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' attachment request does not have "+
+				"from field, skipping attachment entry..", srvc.Name(), serviceURL)
+
+			continue
+		}
+
+		myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
+		if err != nil {
+			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' creating new DID via VDR "+
+				"failed: %v, skipping attachment entry..", srvc.Name(), serviceURL, err)
+
+			continue
+		}
+
+		connID, err := srvc.HandleInbound(didCommMsgRequest, service.NewDIDCommContext(myDID.DIDDocument.ID,
+			senderDID.(string), nil))
 		if err != nil {
 			logger.Debugf("oob/2.0 executing target service '%v' for url '%v' failed: %v, skipping "+
 				"attachment entry..", srvc.Name(), serviceURL, err)
@@ -228,12 +346,156 @@ func handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
 		}
 
 		logger.Debugf("oob/2.0 successfully executed target service '%v' for target url: '%v', returned id: %v",
-			srvc.Name(), serviceURL, id)
+			srvc.Name(), serviceURL, connID)
 
-		return true
+		return connID
 	}
 
-	return false
+	return ""
+}
+
+// TODO below function and sub functions are copied from pkg/didcomm/protocol/didexchange/keys.go
+//      move code in a common location and remove duplicate code.
+func (s *Service) createNewKeyAndVM(didDoc *did.Doc) error {
+	vm, err := s.createSigningVM()
+	if err != nil {
+		return err
+	}
+
+	kaVM, err := s.createEncryptionVM()
+	if err != nil {
+		return err
+	}
+
+	didDoc.VerificationMethod = append(didDoc.VerificationMethod, *vm)
+
+	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
+	didDoc.KeyAgreement = append(didDoc.KeyAgreement, *did.NewReferencedVerification(kaVM, did.KeyAgreement))
+
+	return nil
+}
+
+// nolint:gochecknoglobals
+var vmType = map[kms.KeyType]string{
+	kms.ED25519Type:            ed25519VerificationKey2018,
+	kms.BLS12381G2Type:         bls12381G2Key2020,
+	kms.ECDSAP256TypeDER:       jsonWebKey2020,
+	kms.ECDSAP256TypeIEEEP1363: jsonWebKey2020,
+	kms.ECDSAP384TypeDER:       jsonWebKey2020,
+	kms.ECDSAP384TypeIEEEP1363: jsonWebKey2020,
+	kms.ECDSAP521TypeDER:       jsonWebKey2020,
+	kms.ECDSAP521TypeIEEEP1363: jsonWebKey2020,
+	kms.X25519ECDHKWType:       x25519KeyAgreementKey2019,
+	kms.NISTP256ECDHKWType:     jsonWebKey2020,
+	kms.NISTP384ECDHKWType:     jsonWebKey2020,
+	kms.NISTP521ECDHKWType:     jsonWebKey2020,
+}
+
+func getVerMethodType(kt kms.KeyType) string {
+	return vmType[kt]
+}
+
+func (s *Service) createSigningVM() (*did.VerificationMethod, error) {
+	vmType := getVerMethodType(s.keyType)
+
+	_, pubKeyBytes, err := s.kms.CreateAndExportPubKeyBytes(s.keyType)
+	if err != nil {
+		return nil, fmt.Errorf("createSigningVM: %w", err)
+	}
+
+	vmID := "#key-1"
+
+	switch vmType {
+	case ed25519VerificationKey2018, bls12381G2Key2020:
+		return did.NewVerificationMethodFromBytes(vmID, vmType, "", pubKeyBytes), nil
+	case jsonWebKey2020:
+		j, err := jwksupport.PubKeyBytesToJWK(pubKeyBytes, s.keyType)
+		if err != nil {
+			return nil, fmt.Errorf("createSigningVM: failed to convert public key to JWK for VM: %w", err)
+		}
+
+		return did.NewVerificationMethodFromJWK(vmID, vmType, "", j)
+	default:
+		return nil, fmt.Errorf("createSigningVM: unsupported verification method: '%s'", vmType)
+	}
+}
+
+func (s *Service) createEncryptionVM() (*did.VerificationMethod, error) {
+	encKeyType := s.keyAgreementType
+
+	vmType := getVerMethodType(encKeyType)
+
+	_, kaPubKeyBytes, err := s.kms.CreateAndExportPubKeyBytes(encKeyType)
+	if err != nil {
+		return nil, fmt.Errorf("createEncryptionVM: %w", err)
+	}
+
+	vmID := "#key-2"
+
+	switch vmType {
+	case x25519KeyAgreementKey2019:
+		key := &crypto.PublicKey{}
+
+		err = json.Unmarshal(kaPubKeyBytes, key)
+		if err != nil {
+			return nil, fmt.Errorf("createEncryptionVM: unable to unmarshal X25519 key: %w", err)
+		}
+
+		return did.NewVerificationMethodFromBytes(vmID, vmType, "", key.X), nil
+	case jsonWebKey2020:
+		j, err := buildJWKFromBytes(kaPubKeyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("createEncryptionVM: %w", err)
+		}
+
+		vm, err := did.NewVerificationMethodFromJWK(vmID, vmType, "", j)
+		if err != nil {
+			return nil, fmt.Errorf("createEncryptionVM: %w", err)
+		}
+
+		return vm, nil
+	default:
+		return nil, fmt.Errorf("unsupported verification method for KeyAgreement: '%s'", vmType)
+	}
+}
+
+func buildJWKFromBytes(pubKeyBytes []byte) (*jwk.JWK, error) {
+	pubKey := &crypto.PublicKey{}
+
+	err := json.Unmarshal(pubKeyBytes, pubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWK for KeyAgreement: %w", err)
+	}
+
+	var j *jwk.JWK
+
+	switch pubKey.Type {
+	case "EC":
+		ecKey, err := crypto.ToECKey(pubKey)
+		if err != nil {
+			return nil, err
+		}
+
+		j = &jwk.JWK{
+			JSONWebKey: gojose.JSONWebKey{
+				Key:   ecKey,
+				KeyID: pubKey.KID,
+			},
+			Kty: pubKey.Type,
+			Crv: pubKey.Curve,
+		}
+	case "OKP":
+		j = &jwk.JWK{
+			JSONWebKey: gojose.JSONWebKey{
+				Key:   pubKey.X,
+				KeyID: pubKey.KID,
+			},
+			Kty: pubKey.Type,
+			Crv: pubKey.Curve,
+		}
+	}
+
+	return j, nil
 }
 
 func listener(

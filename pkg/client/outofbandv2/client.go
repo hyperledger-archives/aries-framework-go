@@ -38,7 +38,7 @@ type message struct {
 
 // OobService defines the outofband service.
 type OobService interface {
-	AcceptInvitation(*oobv2.Invitation) error
+	AcceptInvitation(*oobv2.Invitation) (string, error)
 }
 
 // Provider provides the dependencies for the client.
@@ -112,13 +112,13 @@ func (c *Client) CreateInvitation(opts ...MessageOption) *oobv2.Invitation {
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Client) AcceptInvitation(i *oobv2.Invitation) error {
-	err := c.oobService.AcceptInvitation(i)
+func (c *Client) AcceptInvitation(i *oobv2.Invitation) (string, error) {
+	connID, err := c.oobService.AcceptInvitation(i)
 	if err != nil {
-		return fmt.Errorf("out-of-band/2.0 service failed to accept invitation : %w", err)
+		return "", fmt.Errorf("out-of-band/2.0 service failed to accept invitation : %w", err)
 	}
 
-	return err
+	return connID, nil
 }
 
 // WithLabel allows you to specify the label on the message.
