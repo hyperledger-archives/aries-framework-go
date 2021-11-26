@@ -18,6 +18,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -26,6 +27,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	issuecredentialMiddleWare "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -53,10 +56,12 @@ const (
 
 // miscellaneous constants.
 const (
-	bbsContext           = "https://w3id.org/security/bbs/v1"
-	emptyRawLength       = 4
-	msgEventBufferSize   = 10
-	presentProofMimeType = "application/ld+json"
+	bbsContext            = "https://w3id.org/security/bbs/v1"
+	emptyRawLength        = 4
+	msgEventBufferSize    = 10
+	actionEventBufferSize = 10
+	ldJSONMimeType        = "application/ld+json"
+	piidKey               = "piid"
 
 	// web redirect constants.
 	webRedirectStatusKey = "status"
@@ -134,6 +139,9 @@ type Wallet struct {
 	// present proof client
 	presentProofClient *presentproof.Client
 
+	// issue credential client
+	issueCredentialClient *issuecredential.Client
+
 	// out of band client
 	oobClient *outofband.Client
 
@@ -164,6 +172,11 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to initialize present proof client: %w", err)
 	}
 
+	issueCredentialClient, err := issuecredential.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize issue credential client: %w", err)
+	}
+
 	oobClient, err := outofband.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize out-of-band client: %w", err)
@@ -180,17 +193,18 @@ func New(userID string, ctx provider) (*Wallet, error) {
 	}
 
 	return &Wallet{
-		userID:               userID,
-		profile:              profile,
-		storeProvider:        ctx.StorageProvider(),
-		walletCrypto:         ctx.Crypto(),
-		contents:             newContentStore(ctx.StorageProvider(), profile),
-		vdr:                  ctx.VDRegistry(),
-		jsonldDocumentLoader: ctx.JSONLDDocumentLoader(),
-		presentProofClient:   presentProofClient,
-		oobClient:            oobClient,
-		didexchangeClient:    didexchangeClient,
-		connectionLookup:     connectionLookup,
+		userID:                userID,
+		profile:               profile,
+		storeProvider:         ctx.StorageProvider(),
+		walletCrypto:          ctx.Crypto(),
+		contents:              newContentStore(ctx.StorageProvider(), profile),
+		vdr:                   ctx.VDRegistry(),
+		jsonldDocumentLoader:  ctx.JSONLDDocumentLoader(),
+		presentProofClient:    presentProofClient,
+		issueCredentialClient: issueCredentialClient,
+		oobClient:             oobClient,
+		didexchangeClient:     didexchangeClient,
+		connectionLookup:      connectionLookup,
 	}, nil
 }
 
@@ -683,8 +697,8 @@ func (c *Wallet) Connect(authToken string, invitation *outofband.Invitation, opt
 // 		- DIDCommMsgMap containing request presentation message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Invitation, options ...ProposePresentationOption) (*service.DIDCommMsgMap, error) { //nolint: lll
-	opts := &proposePresOpts{}
+func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Invitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+	opts := &initiateInteractionOpts{}
 	for _, opt := range options {
 		opt(opts)
 	}
@@ -699,7 +713,7 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 		return nil, fmt.Errorf("failed to lookup connection for propose presentation : %w", err)
 	}
 
-	opts = preparePresentProofOpts(connRecord, opts)
+	opts = prepareInteractionOpts(connRecord, opts)
 
 	_, err = c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord.MyDID,
 		opts.from)
@@ -727,8 +741,8 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 // Returns:
 // 		- error if operation fails.
 //
-func (c *Wallet) PresentProof(authToken, thID string, options ...PresentProofOptions) (*PresentProofStatus, error) {
-	opts := &presentProofOpts{}
+func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInteractionOptions) (*PresentProofStatus, error) { //nolint: lll
+	opts := &concludeInteractionOpts{}
 
 	for _, option := range options {
 		option(opts)
@@ -745,7 +759,7 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...PresentProofOpt
 		Type: presentproofSvc.PresentationMsgTypeV2,
 		PresentationsAttach: []decorator.Attachment{{
 			ID:       uuid.New().String(),
-			MimeType: presentProofMimeType,
+			MimeType: ldJSONMimeType,
 			Data: decorator.AttachmentData{
 				JSON: presentation,
 			},
@@ -778,6 +792,125 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...PresentProofOpt
 	}
 
 	return &PresentProofStatus{Status: model.AckStatusPENDING}, nil
+}
+
+// ProposeCredential sends propose credential message from wallet to issuer.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- thID: thread ID (action ID) of offer credential message previously received.
+// 		- presentProofFrom: presentation to be sent.
+//
+// Returns:
+// 		- DIDCommMsgMap containing request offer credential message if operation is successful.
+// 		- error if operation fails.
+//
+func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+	opts := &initiateInteractionOpts{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	connID, err := c.Connect(authToken, invitation, opts.connectOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to perform did connection : %w", err)
+	}
+
+	connRecord, err := c.connectionLookup.GetConnectionRecord(connID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup connection for propose presentation : %w", err)
+	}
+
+	opts = prepareInteractionOpts(connRecord, opts)
+
+	_, err = c.issueCredentialClient.SendProposal(&issuecredential.ProposeCredential{}, connRecord.MyDID,
+		opts.from)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propose credential from wallet: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	defer cancel()
+
+	return c.waitForOfferCredential(ctx, connRecord)
+}
+
+// RequestCredential sends requesre credential message from wallet to issuer and
+// optionally waits for credential fulfillment.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- invitation: out-of-band invitation from relying party.
+// 		- options: options for accepting invitation and send propose credential message.
+//
+// Returns:
+// 		- RequestCredentialStatus containing status, redirectURL, credential fullfillment attachments.
+// 		- error if operation fails.
+//
+func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeInteractionOptions) (*RequestCredentialStatus, error) { //nolint: lll
+	opts := &concludeInteractionOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
+	var presentation interface{}
+	if opts.presentation != nil {
+		presentation = opts.presentation
+	} else {
+		presentation = opts.rawPresentation
+	}
+
+	attachmentID := uuid.New().String()
+
+	err := c.issueCredentialClient.AcceptOffer(thID, &issuecredential.RequestCredential{
+		Type: issuecredentialsvc.RequestCredentialMsgTypeV2,
+		Formats: []issuecredentialsvc.Format{{
+			AttachID: attachmentID,
+			Format:   ldJSONMimeType,
+		}},
+		RequestsAttach: []decorator.Attachment{{
+			ID: attachmentID,
+			Data: decorator.AttachmentData{
+				JSON: presentation,
+			},
+		}},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// wait for credential fulfillment.
+	if opts.waitForDone {
+		actionCh := make(chan service.DIDCommAction, actionEventBufferSize)
+
+		err = c.issueCredentialClient.RegisterActionEvent(actionCh)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register issue credential action event : %w", err)
+		}
+
+		defer func() {
+			e := c.issueCredentialClient.UnregisterActionEvent(actionCh)
+			if e != nil {
+				logger.Warnf("Failed to unregister action event for issue credential: %w", e)
+			}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+		defer cancel()
+
+		return waitForCredentialFulfillment(ctx, actionCh, thID)
+	}
+
+	return &RequestCredentialStatus{Status: model.AckStatusPENDING}, nil
 }
 
 //nolint: funlen,gocyclo
@@ -1038,6 +1171,110 @@ func (c *Wallet) waitForRequestPresentation(ctx context.Context, record *connect
 	}
 }
 
+// currently correlating response action by connection due to limitation in current issue credential V1 implementation.
+func (c *Wallet) waitForOfferCredential(ctx context.Context, record *connection.Record) (*service.DIDCommMsgMap, error) { //nolint: lll
+	done := make(chan *service.DIDCommMsgMap)
+
+	go func() {
+		for {
+			actions, err := c.issueCredentialClient.Actions()
+			if err != nil {
+				continue
+			}
+
+			if len(actions) > 0 {
+				for _, action := range actions {
+					if action.MyDID == record.MyDID && action.TheirDID == record.TheirDID {
+						done <- &action.Msg
+						return
+					}
+				}
+			}
+
+			select {
+			default:
+				time.Sleep(retryDelay)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	select {
+	case msg := <-done:
+		return msg, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timeout waiting for offer credential message")
+	}
+}
+
+// wait for issue credential status to be completed (done or abandoned).
+func waitForCredentialFulfillment(ctx context.Context, actionMsgs chan service.DIDCommAction, thID string) (*RequestCredentialStatus, error) { // nolint:gocyclo,lll,funlen
+	done := make(chan *RequestCredentialStatus)
+	errCh := make(chan error)
+
+	go func() {
+		for action := range actionMsgs {
+			properties := action.Properties.All()
+
+			if piidVal, found := properties[piidKey]; found {
+				if piid, ok := piidVal.(string); ok && piid == thID {
+					switch action.Message.Type() {
+					case issuecredentialsvc.IssueCredentialMsgTypeV2:
+						credentials, err := getCredentialsData(action.Message)
+						if err != nil {
+							logger.Errorf("failed to read credentials in wallet: %s", err)
+							action.Stop(fmt.Errorf("failed to read credentials in wallet: %w", err))
+							errCh <- err
+
+							return
+						}
+
+						response := &RequestCredentialStatus{
+							Credentials: credentials,
+							Status:      model.AckStatusOK,
+						}
+
+						response.RedirectURL, _ = getWebRedirectInfo(properties)
+
+						action.Continue(issuecredentialsvc.WithProperties(map[string]interface{}{
+							issuecredentialMiddleWare.SkipCredentialSaveKey: true, // skip saving credential in middleware
+						}))
+						done <- response
+
+						return
+					case issuecredentialsvc.ProblemReportMsgTypeV2:
+						// TODO get more info from problem-report and put it in response for clients.
+						response := &RequestCredentialStatus{
+							Status: model.AckStatusFAIL,
+						}
+
+						response.RedirectURL, _ = getWebRedirectInfo(properties)
+
+						action.Stop(errors.New("protocol stopped by wallet"))
+						done <- response
+
+						return
+					default:
+						continue
+					}
+				}
+			}
+
+			return
+		}
+	}()
+
+	select {
+	case status := <-done:
+		return status, nil
+	case err := <-errCh:
+		return nil, err
+	case <-ctx.Done():
+		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
+	}
+}
+
 func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, connID string) error {
 	done := make(chan struct{})
 
@@ -1079,7 +1316,7 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 }
 
 // wait for present proof status to be completed (done or abandoned) from prover side.
-func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll,funlen
+func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll
 	done := make(chan *PresentProofStatus)
 
 	go func() {
@@ -1112,14 +1349,7 @@ func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg
 			properties := msg.Properties.All()
 
 			response := &PresentProofStatus{}
-
-			if redirect, ok := properties[webRedirectURLKey]; ok {
-				response.RedirectURL = redirect.(string) //nolint: errcheck, forcetypeassert
-			}
-
-			if redirectStatus, ok := properties[webRedirectStatusKey]; ok {
-				response.Status = redirectStatus.(string) //nolint: errcheck, forcetypeassert
-			}
+			response.RedirectURL, response.Status = getWebRedirectInfo(properties)
 
 			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
 			if response.Status == "" {
@@ -1142,6 +1372,27 @@ func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg
 	case <-ctx.Done():
 		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
 	}
+}
+
+// getCredentialsData reads all raw attachment data from DIDComm msg.
+func getCredentialsData(msg service.DIDCommMsg) ([]json.RawMessage, error) {
+	cred := issuecredential.IssueCredential{}
+	if err := msg.Decode(&cred); err != nil {
+		return nil, fmt.Errorf("decode incoming attachment: %w", err)
+	}
+
+	var credentials []json.RawMessage
+
+	for i := range cred.CredentialsAttach {
+		rawVC, err := cred.CredentialsAttach[i].Data.Fetch()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch attachment content: %w", err)
+		}
+
+		credentials = append(credentials, rawVC)
+	}
+
+	return credentials, nil
 }
 
 // addContext adds context if not found in given data model.
@@ -1178,7 +1429,7 @@ func updateProfile(auth string, profile *profile) error {
 	return nil
 }
 
-func preparePresentProofOpts(connRecord *connection.Record, opts *proposePresOpts) *proposePresOpts {
+func prepareInteractionOpts(connRecord *connection.Record, opts *initiateInteractionOpts) *initiateInteractionOpts {
 	if opts.from == "" {
 		opts.from = connRecord.TheirDID
 	}
@@ -1188,4 +1439,19 @@ func preparePresentProofOpts(connRecord *connection.Record, opts *proposePresOpt
 	}
 
 	return opts
+}
+
+// getWebRedirectInfo reads web redirect info from properties.
+func getWebRedirectInfo(properties map[string]interface{}) (string, string) {
+	var redirect, status string
+
+	if redirectURL, ok := properties[webRedirectURLKey]; ok {
+		redirect = redirectURL.(string) //nolint: errcheck, forcetypeassert
+	}
+
+	if redirectStatus, ok := properties[webRedirectStatusKey]; ok {
+		status = redirectStatus.(string) //nolint: errcheck, forcetypeassert
+	}
+
+	return redirect, status
 }

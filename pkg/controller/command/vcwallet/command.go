@@ -781,7 +781,7 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 	}
 
 	msg, err := vcWallet.ProposePresentation(request.Auth, request.Invitation,
-		wallet.WithFromDID(request.FromDID), wallet.WithPresentProofTimeout(request.Timeout),
+		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
 		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
 			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
 			wallet.WithReuseAnyConnection(request.ConnectionOpts.ReuseAnyConnection),
@@ -989,8 +989,8 @@ func prepareDeriveOption(rqst *DeriveRequest) wallet.CredentialToDerive {
 	return wallet.FromRawCredential(rqst.RawCredential)
 }
 
-func preparePresentProofOpts(rqst *PresentProofRequest) []wallet.PresentProofOptions {
-	var options []wallet.PresentProofOptions
+func preparePresentProofOpts(rqst *PresentProofRequest) []wallet.ConcludeInteractionOptions {
+	var options []wallet.ConcludeInteractionOptions
 
 	if rqst.WaitForDone {
 		options = append(options, wallet.WaitForDone(rqst.Timeout))

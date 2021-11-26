@@ -2461,7 +2461,7 @@ func TestService_ActionContinue(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		err = svc.ActionContinue("piID", nil)
+		err = svc.ActionContinue("piID")
 		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
 	})
 }

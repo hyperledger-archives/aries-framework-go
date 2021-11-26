@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
@@ -37,6 +38,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
+	mockissuecredential "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/issuecredential"
 	mockmediator "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockoutofband "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/outofband"
 	mockpresentproof "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/presentproof"
@@ -1763,6 +1765,7 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 		outofbandSvc.Name:       &mockoutofband.MockOobService{},
 		didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 		mediator.Coordination:   &mockmediator.MockMediatorSvc{},
+		issuecredentialsvc.Name: &mockissuecredential.MockIssueCredentialSvc{},
 	}
 
 	return &mockprovider.Provider{

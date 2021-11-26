@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	issuecredentialmiddleware "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
 )
 
 var (
@@ -65,7 +66,7 @@ type Provider interface {
 type ProtocolService interface {
 	service.DIDComm
 	Actions() ([]issuecredential.Action, error)
-	ActionContinue(piID string, opt issuecredential.Opt) error
+	ActionContinue(piID string, opt ...issuecredential.Opt) error
 	ActionStop(piID string, err error) error
 }
 
@@ -193,8 +194,8 @@ func (c *Client) DeclineProposal(piID, reason string) error {
 }
 
 // AcceptOffer is used when the Holder is willing to accept the offer.
-func (c *Client) AcceptOffer(piID string) error {
-	return c.service.ActionContinue(piID, nil)
+func (c *Client) AcceptOffer(piID string, msg *RequestCredential) error {
+	return c.service.ActionContinue(piID, WithRequestCredential(msg))
 }
 
 // DeclineOffer is used when the Holder does not want to accept the offer.
@@ -235,8 +236,20 @@ func (c *Client) DeclineRequest(piID, reason string) error {
 
 // AcceptCredential is used when the Holder is willing to accept the IssueCredential.
 // NOTE: For async usage.
-func (c *Client) AcceptCredential(piID string, names ...string) error {
-	return c.service.ActionContinue(piID, WithFriendlyNames(names...))
+func (c *Client) AcceptCredential(piID string, options ...AcceptCredentialOptions) error {
+	opts := &acceptCredentialOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
+	properties := map[string]interface{}{}
+
+	if opts.skipStore {
+		properties[issuecredentialmiddleware.SkipCredentialSaveKey] = true
+	}
+
+	return c.service.ActionContinue(piID, WithFriendlyNames(opts.names...), issuecredential.WithProperties(properties))
 }
 
 // DeclineCredential is used when the Holder does not want to accept the IssueCredential.
@@ -247,7 +260,7 @@ func (c *Client) DeclineCredential(piID, reason string) error {
 
 // AcceptProblemReport accepts problem report action.
 func (c *Client) AcceptProblemReport(piID string) error {
-	return c.service.ActionContinue(piID, nil)
+	return c.service.ActionContinue(piID)
 }
 
 // WithProposeCredential allows providing ProposeCredential message
@@ -318,4 +331,27 @@ func WithIssueCredentialV3(msg *IssueCredentialV3) issuecredential.Opt {
 // USAGE: This function should be used when the Holder receives IssueCredential message.
 func WithFriendlyNames(names ...string) issuecredential.Opt {
 	return issuecredential.WithFriendlyNames(names...)
+}
+
+// acceptCredentialOpts options for accepting credential in holder.
+type acceptCredentialOpts struct {
+	names     []string
+	skipStore bool
+}
+
+// AcceptCredentialOptions is custom option for accepting credential in holder.
+type AcceptCredentialOptions func(opts *acceptCredentialOpts)
+
+// AcceptByFriendlyNames option to provide optional friendly names for accepting credentials.
+func AcceptByFriendlyNames(names ...string) AcceptCredentialOptions {
+	return func(opts *acceptCredentialOpts) {
+		opts.names = names
+	}
+}
+
+// AcceptBySkippingStorage skips storing incoming credential to storage.
+func AcceptBySkippingStorage() AcceptCredentialOptions {
+	return func(opts *acceptCredentialOpts) {
+		opts.skipStore = true
+	}
 }

@@ -23,6 +23,10 @@ import (
 )
 
 const (
+	// SkipCredentialSaveKey is present in metadata properties as `true` then accepted credential will not be saved in
+	// verifiable store by middleware.
+	SkipCredentialSaveKey = "skip-credential-save"
+
 	stateNameCredentialReceived = "credential-received"
 	myDIDKey                    = "myDID"
 	theirDIDKey                 = "theirDID"
@@ -41,7 +45,7 @@ type Provider interface {
 }
 
 // SaveCredentials the helper function for the issue credential protocol which saves credentials.
-func SaveCredentials(p Provider) issuecredential.Middleware {
+func SaveCredentials(p Provider) issuecredential.Middleware { //nolint: funlen,gocognit,gocyclo
 	vdr := p.VDRegistry()
 	store := p.VerifiableStore()
 	documentLoader := p.JSONLDDocumentLoader()
@@ -50,6 +54,15 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 		return issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
 			if metadata.StateName() != stateNameCredentialReceived {
 				return next.Handle(metadata)
+			}
+
+			properties := metadata.Properties()
+
+			// skip storage if SkipCredentialSaveKey is enabled
+			if val, ok := properties[SkipCredentialSaveKey]; ok {
+				if skip, ok := val.(bool); ok && skip {
+					return next.Handle(metadata)
+				}
 			}
 
 			msg := metadata.Message()
@@ -69,7 +82,6 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 			}
 
 			var names []string
-			properties := metadata.Properties()
 
 			// nolint: errcheck
 			myDID, _ := properties[myDIDKey].(string)

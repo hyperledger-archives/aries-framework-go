@@ -446,7 +446,7 @@ func (a *SDKSteps) AcceptOffer(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptOffer(PIID)
+	return a.clients[agent].AcceptOffer(PIID, &issuecredential.RequestCredential{})
 }
 
 // AcceptCredential makes agent accept a credential and save it with the given name.
@@ -456,7 +456,7 @@ func (a *SDKSteps) AcceptCredential(agent, name string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptCredential(PIID, name)
+	return a.clients[agent].AcceptCredential(PIID, issuecredential.AcceptByFriendlyNames(name))
 }
 
 // CreateManyClients expects 'many' to be a comma-delimited string of agent names, and a
