@@ -388,7 +388,7 @@ func (c *Client) Connect(invitation *outofband.Invitation, options ...wallet.Con
 // 		- DIDCommMsgMap containing request presentation message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Client) ProposePresentation(invitation *outofband.Invitation, options ...wallet.ProposePresentationOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+func (c *Client) ProposePresentation(invitation *outofband.Invitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err
@@ -411,7 +411,7 @@ func (c *Client) ProposePresentation(invitation *outofband.Invitation, options .
 // 		- present proof status including web redirect info.
 // 		- error if operation fails.
 //
-func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.PresentProofOptions) (*wallet.PresentProofStatus, error) { //nolint: lll
+func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.ConcludeInteractionOptions) (*wallet.PresentProofStatus, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err

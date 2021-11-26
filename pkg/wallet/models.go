@@ -110,3 +110,15 @@ type PresentProofStatus struct {
 	// Optional web redirect URL info sent by verifier.
 	RedirectURL string `json:"url,omitempty"`
 }
+
+// RequestCredentialStatus holds the status of request credential action from wallet.
+// Typically holds credential fulfillment & web redirect info of issue credential acknowledgement or problem-report.
+type RequestCredentialStatus struct {
+	// One of the status issue credential interaction
+	// Refer https://github.com/hyperledger/aries-rfcs/blob/main/features/0015-acks/README.md#ack-status.
+	Status string `json:"status"`
+	// Optional web redirect URL info sent by issuer.
+	RedirectURL string `json:"url,omitempty"`
+	// Credentials received by wallet.
+	Credentials []json.RawMessage
+}

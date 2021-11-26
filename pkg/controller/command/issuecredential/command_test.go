@@ -1982,7 +1982,7 @@ func (m *mockProtocol) Actions() ([]protocol.Action, error) {
 	panic("implement me")
 }
 
-func (m *mockProtocol) ActionContinue(string, protocol.Opt) error {
+func (m *mockProtocol) ActionContinue(string, ...protocol.Opt) error {
 	panic("implement me")
 }
 

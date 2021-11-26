@@ -145,7 +145,7 @@ func ExampleClient_SendOffer() {
 			case e := <-actionsAlice:
 				acceptErr = clientAlice.AcceptRequest(e.Properties.All()["piid"].(string), &IssueCredential{})
 			case e := <-actionsBob:
-				acceptErr = clientBob.AcceptOffer(e.Properties.All()["piid"].(string))
+				acceptErr = clientBob.AcceptOffer(e.Properties.All()["piid"].(string), &RequestCredential{})
 			}
 
 			if acceptErr != nil {
@@ -234,7 +234,7 @@ func ExampleClient_SendProposal() {
 			}
 
 			if e.Message.Type() == issuecredential.OfferCredentialMsgTypeV2 {
-				acceptErr = clientBob.AcceptOffer(piid)
+				acceptErr = clientBob.AcceptOffer(piid, &RequestCredential{})
 			}
 
 			if e.Message.Type() == issuecredential.IssueCredentialMsgTypeV2 {

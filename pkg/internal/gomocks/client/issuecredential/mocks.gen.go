@@ -74,17 +74,22 @@ func (m *MockProtocolService) EXPECT() *MockProtocolServiceMockRecorder {
 }
 
 // ActionContinue mocks base method.
-func (m *MockProtocolService) ActionContinue(arg0 string, arg1 issuecredential.Opt) error {
+func (m *MockProtocolService) ActionContinue(arg0 string, arg1 ...issuecredential.Opt) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionContinue", arg0, arg1)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ActionContinue", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ActionContinue indicates an expected call of ActionContinue.
-func (mr *MockProtocolServiceMockRecorder) ActionContinue(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockProtocolServiceMockRecorder) ActionContinue(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionContinue", reflect.TypeOf((*MockProtocolService)(nil).ActionContinue), arg0, arg1)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionContinue", reflect.TypeOf((*MockProtocolService)(nil).ActionContinue), varargs...)
 }
 
 // ActionStop mocks base method.
