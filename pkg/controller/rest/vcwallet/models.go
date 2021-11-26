@@ -323,6 +323,49 @@ type presentProofResponse struct {
 	Response *wallet.PresentProofStatus `json:"response"`
 }
 
+// proposeCredentialRequest is request model for performing propose credential operation from wallet to initiate
+// credential issuance flow.
+//
+// swagger:parameters proposeCredReq
+type proposeCredentialRequest struct { // nolint: unused,deadcode
+	// Params for proposing credential from wallet.
+	//
+	// in: body
+	Params *vcwallet.ProposeCredentialRequest
+}
+
+// proposePresentationResponse is response model from wallet propose credential operation.
+//
+// swagger:response proposeCredRes
+type proposeCredentialResponse struct {
+	// response containing offer credential response from issuer.
+	//
+	// in: body
+	Response *vcwallet.ProposeCredentialResponse `json:"response"`
+}
+
+// requestCredentialRequest is request model for performing request credential operation from wallet to conclude
+// credential issuance flow.
+//
+// swagger:parameters requestCredReq
+type requestCredentialRequest struct { // nolint: unused,deadcode
+	// Params for sending request credential message from wallet and optionally wait for credential fulfillment.
+	//
+	// in: body
+	Params *vcwallet.RequestCredentialRequest
+}
+
+// requestCredentialResponse is response model from wallet request credential operation which may contain
+// credential fulfillment message, status and web redirect info.
+//
+// swagger:response requestCredRes
+type requestCredentialResponse struct {
+	// response containing status of request credential operation.
+	//
+	// in: body
+	Response *wallet.RequestCredentialStatus `json:"response"`
+}
+
 // emptyRes model
 //
 // swagger:response emptyRes

@@ -1406,6 +1406,30 @@ const Aries = function (opts) {
             presentProof: async function (req) {
                 return invoke(aw, pending, this.pkgname, "PresentProof", req, "timeout while performing present proof from wallet")
             },
+
+            /**
+             *
+             * accepts out-of-band invitation, sends propose credential message from wallet to issuer and optionally waits for offer credential response.
+             *
+             *  Returns offer credential message response.
+             *
+             * @returns {Promise<Object>}
+             */
+            proposeCredential: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ProposeCredential", req, "timeout while proposing credential from wallet")
+            },
+
+            /**
+             *
+             * sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+             *
+             *  Returns credential fulfillment and web redirect info.
+             *
+             * @returns {Promise<Object>}
+             */
+            requestCredential: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RequestCredential", req, "timeout while performing request credential from wallet")
+            },
         },
         /**
          * JSON-LD management API.

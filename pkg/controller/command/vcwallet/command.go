@@ -89,6 +89,12 @@ const (
 
 	// PresentProofErrorCode for errors while presenting proof from wallet.
 	PresentProofErrorCode
+
+	// ProposeCredentialErrorCode for errors while proposing credential from wallet.
+	ProposeCredentialErrorCode
+
+	// RequestCredentialErrorCode for errors while request credential from wallet for issue credential protocol.
+	RequestCredentialErrorCode
 )
 
 // All command operations.
@@ -114,6 +120,8 @@ const (
 	ConnectMethod             = "Connect"
 	ProposePresentationMethod = "ProposePresentation"
 	PresentProofMethod        = "PresentProof"
+	ProposeCredentialMethod   = "ProposeCredential"
+	RequestCredentialMethod   = "RequestCredential"
 )
 
 // miscellaneous constants for the vc wallet command controller.
@@ -227,6 +235,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, ConnectMethod, o.Connect),
 		cmdutil.NewCommandHandler(CommandName, ProposePresentationMethod, o.ProposePresentation),
 		cmdutil.NewCommandHandler(CommandName, PresentProofMethod, o.PresentProof),
+		cmdutil.NewCommandHandler(CommandName, ProposeCredentialMethod, o.PresentProof),
+		cmdutil.NewCommandHandler(CommandName, RequestCredentialMethod, o.PresentProof),
 	}
 }
 
@@ -824,7 +834,8 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
 
-	status, err := vcWallet.PresentProof(request.Auth, request.ThreadID, preparePresentProofOpts(request)...)
+	status, err := vcWallet.PresentProof(request.Auth, request.ThreadID,
+		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
 
@@ -834,6 +845,90 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, status, logger)
 
 	logutil.LogDebug(logger, CommandName, PresentProofMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// ProposeCredential sends propose credential message from wallet to issuer.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+func (o *Command) ProposeCredential(rw io.Writer, req io.Reader) command.Error {
+	request := &ProposeCredentialRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposeCredentialMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposeCredentialMethod, err.Error())
+
+		return command.NewExecuteError(ProposeCredentialErrorCode, err)
+	}
+
+	msg, err := vcWallet.ProposeCredential(request.Auth, request.Invitation,
+		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
+		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
+			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
+			wallet.WithReuseAnyConnection(request.ConnectionOpts.ReuseAnyConnection),
+			wallet.WithMyLabel(request.ConnectionOpts.MyLabel),
+			wallet.WithRouterConnections(request.ConnectionOpts.RouterConnections...)))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposeCredentialMethod, err.Error())
+
+		return command.NewExecuteError(ProposeCredentialErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ProposeCredentialResponse{OfferCredential: msg}, logger)
+
+	logutil.LogDebug(logger, CommandName, ProposeCredentialMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// RequestCredential sends request credential message from wallet to issuer and
+// optionally waits for credential fulfillment.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+func (o *Command) RequestCredential(rw io.Writer, req io.Reader) command.Error {
+	request := &RequestCredentialRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
+
+		return command.NewExecuteError(RequestCredentialErrorCode, err)
+	}
+
+	status, err := vcWallet.RequestCredential(request.Auth, request.ThreadID,
+		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
+
+		return command.NewExecuteError(RequestCredentialErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, status, logger)
+
+	logutil.LogDebug(logger, CommandName, RequestCredentialMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil
@@ -989,12 +1084,12 @@ func prepareDeriveOption(rqst *DeriveRequest) wallet.CredentialToDerive {
 	return wallet.FromRawCredential(rqst.RawCredential)
 }
 
-func preparePresentProofOpts(rqst *PresentProofRequest) []wallet.ConcludeInteractionOptions {
+func prepareConcludeInteractionOpts(waitForDone bool, timeout time.Duration, presentation json.RawMessage) []wallet.ConcludeInteractionOptions { //nolint: lll
 	var options []wallet.ConcludeInteractionOptions
 
-	if rqst.WaitForDone {
-		options = append(options, wallet.WaitForDone(rqst.Timeout))
+	if waitForDone {
+		options = append(options, wallet.WaitForDone(timeout))
 	}
 
-	return append(options, wallet.FromRawPresentation(rqst.Presentation))
+	return append(options, wallet.FromRawPresentation(presentation))
 }

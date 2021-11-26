@@ -392,3 +392,52 @@ type PresentProofRequest struct {
 type PresentProofResponse struct {
 	wallet.PresentProofStatus
 }
+
+// ProposeCredentialRequest is request model for performing propose credential operation from wallet.
+type ProposeCredentialRequest struct {
+	WalletAuth
+
+	// out-of-band invitation to establish connection and send propose credential message.
+	Invitation *outofband.Invitation `json:"invitation"`
+
+	// Optional From DID option to customize sender DID.
+	FromDID string `json:"from,omitempty"`
+
+	// Timeout (in milliseconds) waiting for operation to be completed.
+	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// Options for accepting out-of-band invitation and to perform DID exchange (for DIDComm V1).
+	ConnectionOpts ConnectOpts `json:"connectOptions,omitempty"`
+}
+
+// ProposeCredentialResponse is response model from wallet propose credential operation.
+type ProposeCredentialResponse struct {
+	// response offer credential message from issuer.
+	OfferCredential *service.DIDCommMsgMap `json:"offerCredential,omitempty"`
+}
+
+// RequestCredentialRequest is request model from wallet request credential operation.
+// Supported attachment MIME type "application/ld+json".
+type RequestCredentialRequest struct {
+	WalletAuth
+
+	// Thread ID from offer credential response previously received during propose credential interaction.
+	ThreadID string `json:"threadID,omitempty"`
+
+	// presentation to be sent as part of request credential message.
+	Presentation json.RawMessage `json:"presentation,omitempty"`
+
+	// If true then wallet will wait till it receives credential fulfillment response from issuer for given Timeout.
+	// Also, will return web redirect info if found in fulfillment message or problem-report.
+	WaitForDone bool `json:"waitForDone,omitempty"`
+
+	// Optional timeout (in milliseconds) waiting for credential fulfillment to arrive.
+	// will be taken into account only when WaitForDone is enabled.
+	// If not provided then wallet will use its default timeout.
+	Timeout time.Duration `json:"WaitForDoneTimeout,omitempty"`
+}
+
+// RequestCredentialResponse is response model from wallet request credential operation.
+type RequestCredentialResponse struct {
+	wallet.RequestCredentialStatus
+}

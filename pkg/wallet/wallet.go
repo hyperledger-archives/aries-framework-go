@@ -802,11 +802,11 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInterac
 //
 // Args:
 // 		- authToken: authorization for performing operation.
-// 		- thID: thread ID (action ID) of offer credential message previously received.
-// 		- presentProofFrom: presentation to be sent.
+// 		- invitation: out-of-band invitation from issuer.
+// 		- options: options for accepting invitation and send propose credential message.
 //
 // Returns:
-// 		- DIDCommMsgMap containing request offer credential message if operation is successful.
+// 		- DIDCommMsgMap containing offer credential message if operation is successful.
 // 		- error if operation fails.
 //
 func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
@@ -839,7 +839,7 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invit
 	return c.waitForOfferCredential(ctx, connRecord)
 }
 
-// RequestCredential sends requesre credential message from wallet to issuer and
+// RequestCredential sends request credential message from wallet to issuer and
 // optionally waits for credential fulfillment.
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
 //
@@ -848,8 +848,8 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invit
 //
 // Args:
 // 		- authToken: authorization for performing operation.
-// 		- invitation: out-of-band invitation from relying party.
-// 		- options: options for accepting invitation and send propose credential message.
+// 		- thID: thread ID (action ID) of offer credential message previously received.
+// 		- concludeInteractionOptions: options to conclude interaction like presentation to be shared etc.
 //
 // Returns:
 // 		- RequestCredentialStatus containing status, redirectURL, credential fullfillment attachments.
