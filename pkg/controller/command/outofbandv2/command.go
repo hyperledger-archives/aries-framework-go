@@ -113,13 +113,13 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
-	err := c.client.AcceptInvitation(args.Invitation)
+	connID, err := c.client.AcceptInvitation(args.Invitation)
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &AcceptInvitationResponse{}, logger)
+	command.WriteNillableResponse(rw, &AcceptInvitationResponse{ConnectionID: connID}, logger)
 
 	logutil.LogDebug(logger, CommandName, AcceptInvitation, successString)
 

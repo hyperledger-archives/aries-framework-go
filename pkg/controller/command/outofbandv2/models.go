@@ -43,4 +43,6 @@ type AcceptInvitationArgs struct {
 //
 // Represents a AcceptInvitation response message.
 //
-type AcceptInvitationResponse struct{}
+type AcceptInvitationResponse struct {
+	ConnectionID string `json:"connection_id"`
+}

@@ -106,12 +106,14 @@ func TestAcceptInvitation(t *testing.T) {
 				acceptInvFunc: func(*oobv2.Invitation) error {
 					return nil
 				},
+				connID: "123",
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		err = c.AcceptInvitation(&oobv2.Invitation{})
+		connID, err := c.AcceptInvitation(&oobv2.Invitation{})
 		require.NoError(t, err)
+		require.NotEmpty(t, connID)
 	})
 	t.Run("wraps error from outofband service", func(t *testing.T) {
 		expected := errors.New("test")
@@ -125,8 +127,9 @@ func TestAcceptInvitation(t *testing.T) {
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		err = c.AcceptInvitation(&oobv2.Invitation{})
+		connID, err := c.AcceptInvitation(&oobv2.Invitation{})
 		require.Error(t, err)
+		require.Empty(t, connID)
 	})
 }
 
@@ -184,12 +187,13 @@ func withTestProvider() *mockprovider.Provider {
 type stubOOBService struct {
 	service.Event
 	acceptInvFunc func(*oobv2.Invitation) error
+	connID        string
 }
 
-func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation) error {
+func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation) (string, error) {
 	if s.acceptInvFunc != nil {
-		return s.acceptInvFunc(i)
+		return s.connID, s.acceptInvFunc(i)
 	}
 
-	return nil
+	return "", nil
 }
