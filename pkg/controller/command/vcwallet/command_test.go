@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -257,7 +258,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 18)
+		require.Len(t, cmd.GetHandlers(), 20)
 	})
 }
 
@@ -2226,6 +2227,311 @@ func TestCommand_PresentProof(t *testing.T) {
 		require.Error(t, cmdErr)
 
 		validateError(t, cmdErr, command.ExecuteError, PresentProofErrorCode, "failed to get VC wallet profile")
+		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_ProposeCredential(t *testing.T) {
+	const (
+		sampleDIDCommUser = "sample-didcomm-user02"
+		sampleMsgComment  = "sample mock msg"
+		myDID             = "did:mydid:123"
+		theirDID          = "did:theirdid:123"
+	)
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully send propose credential", func(t *testing.T) {
+		sampleConnID := uuid.New().String()
+
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return sampleConnID, nil
+			},
+		}
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		didexSvc := &mockdidexchange.MockDIDExchangeSvc{
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:       service.PostState,
+					StateID:    didexchange.StateIDCompleted,
+					Properties: &mockdidexchange.MockEventProperties{ConnID: sampleConnID},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[didexchange.DIDExchange] = didexSvc
+
+		thID := uuid.New().String()
+		icSvc := &mockissuecredential.MockIssueCredentialSvc{
+			ActionsFunc: func() ([]issuecredentialsvc.Action, error) {
+				return []issuecredentialsvc.Action{
+					{
+						PIID: thID,
+						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredential{
+							Comment: sampleMsgComment,
+						}),
+						MyDID:    myDID,
+						TheirDID: theirDID,
+					},
+				}, nil
+			},
+			HandleFunc: func(service.DIDCommMsg) (string, error) {
+				return thID, nil
+			},
+		}
+		mockctx.ServiceMap[issuecredentialsvc.Name] = icSvc
+
+		store, err := mockctx.StorageProvider().OpenStore(connection.Namespace)
+		require.NoError(t, err)
+
+		record := &connection.Record{
+			ConnectionID: sampleConnID,
+			MyDID:        myDID,
+			TheirDID:     theirDID,
+		}
+		recordBytes, err := json.Marshal(record)
+		require.NoError(t, err)
+		require.NoError(t, store.Put(fmt.Sprintf("conn_%s", sampleConnID), recordBytes))
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ProposeCredentialRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			Invitation: &outofbandClient.Invitation{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposeCredential(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ProposeCredentialResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.OfferCredential)
+
+		offer := &issuecredentialsvc.OfferCredential{}
+
+		err = response.OfferCredential.Decode(offer)
+		require.NoError(t, err)
+		require.NotEmpty(t, offer)
+		require.Equal(t, sampleMsgComment, offer.Comment)
+	})
+
+	t.Run("failed to send propose credential", func(t *testing.T) {
+		oobSvc := &mockoutofband.MockOobService{
+			AcceptInvitationHandle: func(*outofbandSvc.Invitation, outofbandSvc.Options) (string, error) {
+				return "", fmt.Errorf(sampleCommandError)
+			},
+		}
+
+		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposeCredential(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, ProposeCredentialErrorCode, sampleCommandError)
+		validateError(t, cmdErr, command.ExecuteError, ProposeCredentialErrorCode, "failed to accept invitation")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to send propose credential - invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposeCredential(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to send propose credential - invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ConnectRequest{
+			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
+			Invitation: &outofbandClient.Invitation{},
+			ConnectOpts: ConnectOpts{
+				MyLabel: "sample-label",
+			},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ProposeCredential(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, ProposeCredentialErrorCode, "failed to get VC wallet profile")
+		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_RequestCredential(t *testing.T) {
+	const (
+		sampleDIDCommUser = "sample-didcomm-user03"
+		piidKey           = "piid"
+	)
+
+	mockctx := newMockProvider(t)
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleDIDCommUser,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully request credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &RequestCredentialRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: json.RawMessage{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.RequestCredential(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("successfully request credential - wait for done", func(t *testing.T) {
+		thID := uuid.New().String()
+		loader, err := ldtestutil.DocumentLoader()
+		require.NoError(t, err)
+
+		vc, err := verifiable.ParseCredential([]byte(sampleUDCVC), verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
+
+		icSvc := &mockissuecredential.MockIssueCredentialSvc{
+			RegisterActionEventHandle: func(ch chan<- service.DIDCommAction) error {
+				ch <- service.DIDCommAction{
+					Message: service.NewDIDCommMsgMap(&issuecredentialsvc.IssueCredential{
+						Type: issuecredentialsvc.IssueCredentialMsgTypeV2,
+						CredentialsAttach: []decorator.Attachment{
+							{Data: decorator.AttachmentData{JSON: vc}},
+						},
+					}),
+					Properties: &mockdidexchange.MockEventProperties{
+						Properties: map[string]interface{}{
+							piidKey:           thID,
+							webRedirectURLKey: exampleWebRedirect,
+						},
+					},
+					Continue: func(interface{}) {},
+					Stop:     func(error) {},
+				}
+
+				return nil
+			},
+		}
+		mockctx.ServiceMap[issuecredentialsvc.Name] = icSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &RequestCredentialRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     thID,
+			Presentation: json.RawMessage{},
+			WaitForDone:  true,
+			Timeout:      600 * time.Millisecond,
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.RequestCredential(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response wallet.RequestCredentialStatus
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Equal(t, exampleWebRedirect, response.RedirectURL)
+		require.Equal(t, model.AckStatusOK, response.Status)
+		require.Len(t, response.Credentials, 1)
+
+		vcFulfilled, err := verifiable.ParseCredential(response.Credentials[0], verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotEmpty(t, vcFulfilled)
+		require.Equal(t, vc.ID, vcFulfilled.ID)
+	})
+
+	t.Run("failed to request credential", func(t *testing.T) {
+		icSvc := &mockissuecredential.MockIssueCredentialSvc{
+			ActionContinueFunc: func(string, ...issuecredentialsvc.Opt) error {
+				return fmt.Errorf(sampleCommandError)
+			},
+		}
+		mockctx.ServiceMap[issuecredentialsvc.Name] = icSvc
+
+		cmd := New(mockctx, &Config{})
+
+		request := &RequestCredentialRequest{
+			WalletAuth:   WalletAuth{UserID: sampleDIDCommUser, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: json.RawMessage{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.RequestCredential(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, RequestCredentialErrorCode, sampleCommandError)
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to request credential - invalid request", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+		cmdErr := cmd.RequestCredential(&b, bytes.NewBufferString("--"))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+		require.Empty(t, b.Bytes())
+	})
+
+	t.Run("failed to request credential - invalid profile", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &RequestCredentialRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUserID, Auth: token},
+			ThreadID:     uuid.New().String(),
+			Presentation: json.RawMessage{},
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.RequestCredential(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+
+		validateError(t, cmdErr, command.ExecuteError, RequestCredentialErrorCode, "failed to get VC wallet profile")
 		require.Empty(t, b.Bytes())
 	})
 }
