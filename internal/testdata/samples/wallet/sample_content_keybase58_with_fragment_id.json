@@ -1,0 +1,7 @@
+{
+  "@context": ["https://w3id.org/wallet/v1"],
+  "id": "did:key:z6MknT4m3MtA9UD1npGehFuBNiv6Bu8M25egHCaDbVcdHtia#z6MknT4m3MtA9UD1npGehFuBNiv6Bu8M25egHCaDbVcdHtia",
+  "controller": "did:key:z6MknT4m3MtA9UD1npGehFuBNiv6Bu8M25egHCaDbVcdHtia",
+  "type": "Ed25519VerificationKey2018",
+  "privateKeyBase58": "2UX4xA7k2DYGjrTZgbCdv2FPLJcwEMC6eFkyTK2CtUpaUWdiJiF8SB2mX1jTvGnYKr7sx8XZrkyQsPaV6LPAAN6i"
+}

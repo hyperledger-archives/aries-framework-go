@@ -33,6 +33,10 @@ var (
 	SampleWalletContentMetadata []byte
 	//go:embed samples/wallet/sample_content_keybase58.json
 	SampleWalletContentKeyBase58 []byte
+	//go:embed samples/wallet/sample_content_keybase58_with_id.json
+	SampleWalletContentKeyBase58WithID []byte
+	//go:embed samples/wallet/sample_content_keybase58_with_fragment_id.json
+	SampleWalletContentKeyBase58WithFragmentID []byte
 	//go:embed samples/wallet/sample_query_by_frame.json
 	SampleWalletQueryByFrame []byte
 	//go:embed samples/wallet/sample_query_by_example.json

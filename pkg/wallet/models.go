@@ -30,6 +30,8 @@ type QueryParams struct {
 // To be used as options for issue/prove wallet features.
 //
 type ProofOptions struct {
+	// KID is the key ID of the key in the KMS that shall be used for the proof.
+	// Optional, by default, VerificationMethod is used. If KID is present, it takes precedence over VerificationMethod.
 	KID string `json:"kid,omitempty"`
 	// Controller is a DID to be for signing. This option is required for issue/prove wallet features.
 	Controller string `json:"controller,omitempty"`

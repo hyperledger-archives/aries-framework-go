@@ -389,7 +389,7 @@ func getKID(id string) string {
 		return cSplit[1]
 	}
 
-	return ""
+	return id
 }
 
 func getKIDFromJWK(id string, j *jwk.JWK) string {

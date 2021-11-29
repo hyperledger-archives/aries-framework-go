@@ -219,9 +219,6 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 			return fmt.Errorf("failed to read key contents: %w", err)
 		}
 
-		// clear key ID because the user won't be able to access the key via the id
-		key.ID = ""
-
 		return saveKey(auth, &key)
 	default:
 		return fmt.Errorf("invalid content type '%s', supported types are %s", ct,
